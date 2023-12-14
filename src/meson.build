@@ -1,6 +1,6 @@
 
 
-src_files += files('task3.c')
+src_files += files('main.c')
 
 header_files += files(
     'http_protocol.h',

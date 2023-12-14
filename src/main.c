@@ -189,6 +189,7 @@ ignoredJobResult connectionHandler(job_arg arg) {
 
 	// pseudo calculate something: just sleep 100 MS
 
+	// TODO: use nanosleep
 	int result = usleep(MS(100));
 	checkResultForErrorAndExit("While trying to pseudo calculate in Connection Handler");
 
@@ -214,6 +215,9 @@ ignoredJobResult connectionHandler(job_arg arg) {
 				int result = pthread_cancel(argument.listenerThread);
 				checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
+			} else if(strcmp(httpRequest->head.requestLine.URI, "/favicon.ico") == 0) {
+				sendMessageToConnection(argument.connectionFd, HTTP_STATUS_NOT_FOUND, "",
+				                        MIME_TYPE_TEXT);
 			} else {
 				sendMallocedMessageToConnection(argument.connectionFd, HTTP_STATUS_OK,
 				                                httpRequestToHtml(httpRequest), MIME_TYPE_HTML);
@@ -223,6 +227,7 @@ ignoredJobResult connectionHandler(job_arg arg) {
 		freeHttpRequest(httpRequest);
 	}
 
+	printf("NWO closing\n");
 	// finally close the connection
 	result = close(argument.connectionFd);
 	checkResultForErrorAndExit("While trying to close the socket");
@@ -294,6 +299,12 @@ int main(int argc, char const* argv[]) {
 	// types are not that well suited for that example
 	int socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	checkForError(socketFd, "While Trying to create socket", exit(EXIT_FAILURE););
+
+	// set the reuse port option to the socket, so it can be reused
+	const int optval = 1;
+	int optionReturn = setsockopt(socketFd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+	checkForError(optionReturn, "While Trying to set socket option 'SO_REUSEPORT'",
+	              exit(EXIT_FAILURE););
 
 	// creating the sockaddr_in struct, each number that is used in context of network has to be
 	// converted into ntework byte order (Big Endian, linux uses Little Endian) that is relevant for
@@ -368,7 +379,7 @@ int main(int argc, char const* argv[]) {
 
 	// finally closing the whole socket, so that the port is useable by other programs or by this
 	// again, NOTES: ip(7) states :" A TCP local socket address that has been bound is unavailable
-	// for  some time after closing, unless the SO_REUSEADDR flag has been set.Care should be
+	// for  some time after closing, unless the SO_REUSEADDR flag has been set. Care should be
 	// taken when using this flag as it makes TCP less reliable."
 	// So essentially saying, also correctly closed sockets aren't available after a certain time,
 	// even if closed correctly!
