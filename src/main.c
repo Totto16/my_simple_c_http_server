@@ -8,6 +8,8 @@ Module: PS OS 08
 
 #include <errno.h>
 #include <netinet/ip.h>
+#include <poll.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -161,6 +163,12 @@ bool isRequestSupported(int connectionFd, HttpRequest* request) {
 	return true;
 }
 
+volatile sig_atomic_t signal_received = 0;
+
+// only setting the volatile sig_atomic_t signal_received' in here
+void receiveSignal(int signalNumber) {
+	signal_received = signalNumber;
+}
 // structs for the listenerThread
 
 typedef struct {
@@ -221,7 +229,6 @@ ignoredJobResult connectionHandler(job_arg arg) {
 		freeHttpRequest(httpRequest);
 	}
 
-	printf("NWO closing\n");
 	// finally close the connection
 	int result = close(argument.connectionFd);
 	checkResultForErrorAndExit("While trying to close the socket");
@@ -236,10 +243,43 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 
 	ThreadArgument argument = *((ThreadArgument*)arg);
 
+	struct pollfd* poll_fds = (struct pollfd*)mallocOrFail(sizeof(struct pollfd), true);
+	// initializing the structs for poll
+	poll_fds[0].fd = argument.socketFd;
+	poll_fds[0].events = POLLIN;
+
 	// loop and accept incoming requests
 	while(true) {
+
+		// TODO: Set cancel state in correct places!
+
+		// the function poll makes the heavy lifting, the timeout 50 is completely arbitrary and
+		// should not be to short, but otherwise it doesn't matter that much, but if I would wait
+		// for a signal it should be short and I would check the sigatomic_t signal variable
+		int status = 0;
+		while(status == 0) {
+			status = poll(poll_fds, 1, 50);
+			if(signal_received != 0) {
+				break;
+			}
+			printf("signal %d - status: %d\n", signal_received, status);
+			if(status < 0) {
+				perror("ERROR: Reading in poll");
+				continue;
+			}
+		}
+
+		if(signal_received != 0) {
+			int result = pthread_cancel(pthread_self());
+			checkResultForErrorAndExit("While trying to cancel the listener Thread on signal");
+		}
+
+		printf("events %d - pollin : %d\n", poll_fds[0].revents, POLLIN);
+
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.socketFd, NULL, NULL);
+		checkForError(connectionFd, "While Trying to accept a socket", continue;);
+
 		ConnectionArgument* connectionArgument =
 		    (ConnectionArgument*)mallocOrFail(sizeof(ConnectionArgument), true);
 		// to have longer lifetime, that is needed here, since otherwise it would be "dead"
@@ -251,10 +291,11 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		myqueue_push(argument.jobIds,
 		             pool_submit(argument.pool, connectionHandler, connectionArgument));
 
-		// not waiting directly, but when the queue grows to fast, it is reduced, then the listener
-		// thread MIGHT block, but probably are these first jobs already finished, so its super
-		// fast,but if not doing that, the queue would overflow, nothing in here is a cancellation
-		// point, so it's safe to cancel here, since only accept then really cancels
+		// not waiting directly, but when the queue grows to fast, it is reduced, then the
+		// listener thread MIGHT block, but probably are these first jobs already finished, so
+		// its super fast,but if not doing that, the queue would overflow, nothing in here is a
+		// cancellation point, so it's safe to cancel here, since only accept then really
+		// cancels
 		int size = myqueue_size(argument.jobIds);
 		if(size > MAX_QUEUE_SIZE) {
 			int boundary = size / 2;
@@ -266,8 +307,8 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		}
 
 		// gets cancelled in accept, there it also is the most time!
-		// otherwise if it would cancel other functions it would be baaaad, but only accept is here
-		// a cancel point!
+		// otherwise if it would cancel other functions it would be baaaad, but only accept is
+		// here a cancel point!
 	}
 }
 
@@ -289,8 +330,8 @@ int main(int argc, char const* argv[]) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol, the
-	// socket type is SOCK_STREAM, meaning it has reliable read and write capabilities, all other
-	// types are not that well suited for that example
+	// socket type is SOCK_STREAM, meaning it has reliable read and write capabilities, all
+	// other types are not that well suited for that example
 	int socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	checkForError(socketFd, "While Trying to create socket", exit(EXIT_FAILURE););
 
@@ -301,39 +342,52 @@ int main(int argc, char const* argv[]) {
 	              exit(EXIT_FAILURE););
 
 	// creating the sockaddr_in struct, each number that is used in context of network has to be
-	// converted into ntework byte order (Big Endian, linux uses Little Endian) that is relevant for
-	// each multibyte value, essentially everything but char, so htox is used, where x stands for
-	// different lengths of numbers, s for int, l for long
+	// converted into ntework byte order (Big Endian, linux uses Little Endian) that is relevant
+	// for each multibyte value, essentially everything but char, so htox is used, where x
+	// stands for different lengths of numbers, s for int, l for long
 	struct sockaddr_in* addr = (struct sockaddr_in*)mallocOrFail(sizeof(struct sockaddr_in), true);
 	addr->sin_family = AF_INET;
-	// hto functions are used for networking, since there every number is BIG ENDIAN and linux has
-	// Little Endian
+	// hto functions are used for networking, since there every number is BIG ENDIAN and linux
+	// has Little Endian
 	addr->sin_port = htons(port);
 	// INADDR_ANYis 0.0.0.0, which means every port, but when nobody forwards it,
 	// it means, that by default only localhost can be used to access it
 	addr->sin_addr.s_addr = htonl(INADDR_ANY);
 
-	// since bind is generic, the specific struct has to be casted, and the actual length has to be
-	// given, this is a function signature, just to satisfy the typings, the real requirements are
-	// given in the responsive protocol man page, here ip(7)
-	// also note that ports below 1024 are  privileged ports, meaning, that you require special
-	// permissions to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
-	// getting that is being root, or executing as root: sudo ...)
+	// since bind is generic, the specific struct has to be casted, and the actual length has to
+	// be given, this is a function signature, just to satisfy the typings, the real
+	// requirements are given in the responsive protocol man page, here ip(7) also note that
+	// ports below 1024 are  privileged ports, meaning, that you require special permissions to
+	// be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of getting
+	// that is being root, or executing as root: sudo ...)
 	int result = bind(socketFd, (struct sockaddr*)addr, sizeof(*addr));
 	checkResultForErrorAndExit("While trying to bind socket to port");
 
-	// SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the connections
-	// that can be unaccepted in the queue, to be accepted, after that is full, the protocol
-	// discards these requests
-	// listen starts listining on that socket, meaning new connections can be accepted
+	// SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
+	// connections that can be unaccepted in the queue, to be accepted, after that is full, the
+	// protocol discards these requests listen starts listining on that socket, meaning new
+	// connections can be accepted
 	result = listen(socketFd, SOCKET_BACKLOG_SIZE);
 	checkResultForErrorAndExit("While trying to listen on socket");
 
 	printf("To use this simple Http Sever visit 'http://localhost:%ld'.\n", port);
 
+	// set up the signal handler
+	// just create a sitgaction structure, then add the handler
+	struct sigaction* action = (struct sigaction*)mallocOrFail(sizeof(*action), true);
+
+	action->sa_handler = receiveSignal;
+	// initilaize the mask to be empty
+	int emptySetResult = sigemptyset(&action->sa_mask);
+	int result1 = sigaction(SIGINT, action, NULL);
+	if(result1 < 0 || emptySetResult < 0) {
+		perror("Couldn't set this signal");
+		exit(EXIT_FAILURE);
+	}
+
 	// create pool and queue! then initializing both!
-	// the pool is created and destroyed outside of the listener, so the listener can be cancelled
-	// and then the main thread destroys everything accordingly
+	// the pool is created and destroyed outside of the listener, so the listener can be
+	// cancelled and then the main thread destroys everything accordingly
 	thread_pool pool;
 	pool_create_dynamic(&pool);
 
@@ -341,8 +395,8 @@ int main(int argc, char const* argv[]) {
 	myqueue jobIds;
 	myqueue_init(&jobIds);
 
-	// initializing the thread Arguments for the single listener thread, it receives all necessary
-	// arguments
+	// initializing the thread Arguments for the single listener thread, it receives all
+	// necessary arguments
 	pthread_t listenerThread;
 	ThreadArgument threadArgument = { .socketFd = socketFd, .pool = &pool, .jobIds = &jobIds };
 
@@ -350,8 +404,8 @@ int main(int argc, char const* argv[]) {
 	result = pthread_create(&listenerThread, NULL, threadFunction, &threadArgument);
 	checkResultForThreadErrorAndExit("An Error occurred while trying to create a new Thread");
 
-	// wait for the single listener thread to finish, that happens when he is cancelled via shutdown
-	// request
+	// wait for the single listener thread to finish, that happens when he is cancelled via
+	// shutdown request
 	void* returnValue;
 	result = pthread_join(listenerThread, &returnValue);
 	checkResultForThreadErrorAndExit("An Error occurred while trying to wait for a Thread");
@@ -371,17 +425,18 @@ int main(int argc, char const* argv[]) {
 	// then the queue is destroyed
 	myqueue_destroy(&jobIds);
 
-	// finally closing the whole socket, so that the port is useable by other programs or by this
-	// again, NOTES: ip(7) states :" A TCP local socket address that has been bound is unavailable
-	// for  some time after closing, unless the SO_REUSEADDR flag has been set. Care should be
-	// taken when using this flag as it makes TCP less reliable."
-	// So essentially saying, also correctly closed sockets aren't available after a certain time,
-	// even if closed correctly!
+	// finally closing the whole socket, so that the port is useable by other programs or by
+	// this again, NOTES: ip(7) states :" A TCP local socket address that has been bound is
+	// unavailable for  some time after closing, unless the SO_REUSEADDR flag has been set. Care
+	// should be taken when using this flag as it makes TCP less reliable." So essentially
+	// saying, also correctly closed sockets aren't available after a certain time, even if
+	// closed correctly!
 	result = close(socketFd);
 	checkResultForErrorAndExit("While trying to close the socket");
 
 	// and freeing the malloced sockaddr_in, could be done (probably, since the receiver of this
-	// option has already got that argument and doesn't read data from that pointer anymore) sooner.
+	// option has already got that argument and doesn't read data from that pointer anymore)
+	// sooner.
 	free(addr);
 	return EXIT_SUCCESS;
 }
