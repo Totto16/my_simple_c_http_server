@@ -187,12 +187,6 @@ ignoredJobResult connectionHandler(job_arg arg) {
 	// rawHttpRequest gets freed in here
 	HttpRequest* httpRequest = parseHttpRequest(rawHttpRequest);
 
-	// pseudo calculate something: just sleep 100 MS
-
-	// TODO: use nanosleep
-	int result = usleep(MS(100));
-	checkResultForErrorAndExit("While trying to pseudo calculate in Connection Handler");
-
 	// To test this error codes you can use '-X POST' with curl or
 	// '--http2' (doesn't work, since http can only be HTTP/1.1, https can be HTTP 2 or QUIC
 	// alias HTTP 3)
@@ -229,7 +223,7 @@ ignoredJobResult connectionHandler(job_arg arg) {
 
 	printf("NWO closing\n");
 	// finally close the connection
-	result = close(argument.connectionFd);
+	int result = close(argument.connectionFd);
 	checkResultForErrorAndExit("While trying to close the socket");
 	// and free the malloced argument
 	free(arg);

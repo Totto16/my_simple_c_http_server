@@ -6,7 +6,7 @@ project(
     default_options: {
         'buildtype': 'release',
         'optimization': '3',
-        'c_std': 'gnu2x',
+        'c_std': 'c2x',
         'warning_level': '3',
         'werror': 'true',
         'b_ndebug': 'if-release',
