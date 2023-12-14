@@ -115,7 +115,7 @@ void sendMallocedMessageToConnection(int connectionFd, int status, char* body,
                                      char const* MIMEType) {
 
 	HttpResponse* message = NULL;
-	if(status == 405) {
+	if(status == HTTP_STATUS_METHOD_NOT_ALLOWED) {
 		HttpHeaderField* allowedHeader =
 		    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
 
@@ -148,11 +148,11 @@ void sendMessageToConnection(int connectionFd, int status, char const* body, cha
 // returned false, a corresponding error message has already been send to the connection
 bool isRequestSupported(int connectionFd, HttpRequest* request) {
 	if(strcmp(request->head.requestLine.protocolVersion, "HTTP/1.1") != 0) {
-		sendMessageToConnection(connectionFd, 505, "Only HTTP/1.1 is supported atm",
-		                        MIME_TYPE_TEXT);
+		sendMessageToConnection(connectionFd, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
+		                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT);
 		return false;
 	} else if(strcmp(request->head.requestLine.method, "GET") != 0) {
-		sendMessageToConnection(connectionFd, 405,
+		sendMessageToConnection(connectionFd, HTTP_STATUS_METHOD_NOT_ALLOWED,
 		                        "This primitive HTTP Server only supports GET requests",
 		                        MIME_TYPE_TEXT);
 		return false;
@@ -199,7 +199,7 @@ ignoredJobResult connectionHandler(job_arg arg) {
 	// httpRequest can be null, then it wasn't parseable, according to parseHttpRequest, see
 	// there for more information
 	if(httpRequest == NULL) {
-		sendMessageToConnection(argument.connectionFd, 400,
+		sendMessageToConnection(argument.connectionFd, HTTP_STATUS_BAD_REQUEST,
 		                        "Request couldn't be parsed, it was malformed!", MIME_TYPE_TEXT);
 	} else {
 		// if the request is supported then the "beautiful" website is sent, if the URI is /shutdown
@@ -207,7 +207,7 @@ ignoredJobResult connectionHandler(job_arg arg) {
 		if(isRequestSupported(argument.connectionFd, httpRequest)) {
 			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
 				printf("Shutdown requested!\n");
-				sendMessageToConnection(argument.connectionFd, 200, "Shutting Down",
+				sendMessageToConnection(argument.connectionFd, HTTP_STATUS_OK, "Shutting Down",
 				                        MIME_TYPE_TEXT);
 				// just cancel the listener thread, then no new connection are accepted and the main
 				// thread cleans the pool and queue, all jobs are finished so shutdown gracefully
@@ -215,7 +215,7 @@ ignoredJobResult connectionHandler(job_arg arg) {
 				checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
 			} else {
-				sendMallocedMessageToConnection(argument.connectionFd, 200,
+				sendMallocedMessageToConnection(argument.connectionFd, HTTP_STATUS_OK,
 				                                httpRequestToHtml(httpRequest), MIME_TYPE_HTML);
 			}
 		}
