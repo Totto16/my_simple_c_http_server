@@ -157,7 +157,7 @@ StringBuilder* httpRequestToStringBuilder(HttpRequest* request) {
 
 // if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
 // strings, but keep in mind that you gave to use the given free method to free that properly,
-// internally some string "magic" happens
+// internally some string"magic" happens
 HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 
 	// considered using strtok, but that doesn'T recognize the delimiter between the status and
@@ -172,7 +172,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	// then parsing that accordingly
 	do {
 		char* resultingIndex = strstr(currentlyAt, separators);
-		// no "\r\n" could be found, so a parse Error occurred, a NULl signals that
+		// no"\r\n" could be found, so a parse Error occurred, a NULl signals that
 		if(resultingIndex == NULL) {
 			// also the input rawHttpRequest string has to be freed
 			free(rawHttpRequest);
@@ -187,7 +187,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 
 		// other way of checking if at the beginning
 		if(currentlyAt == rawHttpRequest) {
-			// parsing the string and inserting "\0" bytes at the " " space byte, so the three part
+			// parsing the string and inserting"\0" bytes at the" " space byte, so the three part
 			// string can vbe used in three different fields, with the correct start address, this
 			// trick is used more often troughout this implementation, you don't have to understand
 			// it, since its abstracted away when using only the provided function
@@ -214,7 +214,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 				request->body = all;
 				parsed = true;
 			} else {
-				// here headers are parsed, here ": " is the delimiter
+				// here headers are parsed, here":" is the delimiter
 				if(request->head.headerAmount == 0) {
 					request->head.headerFields =
 					    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
@@ -256,10 +256,50 @@ char const* getStatusMessage(int statusCode) {
 	// TODO: ADD more, but for this basic example its enough
 	// according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 	switch(statusCode) {
+		case HTTP_STATUS_CONTINUE: result = "Continue"; break;
+		case HTTP_STATUS_SWITCHING_PROTOCOLS: result = "Switching Protocols"; break;
 		case HTTP_STATUS_OK: result = "OK"; break;
+		case HTTP_STATUS_CREATED: result = "Created"; break;
+		case HTTP_STATUS_ACCEPTED: result = "Accepted"; break;
+		case HTTP_STATUS_NON_AUTHORITATIVE_INFORMATION:
+			result = "Non-Authoritative Information";
+			break;
+		case HTTP_STATUS_NO_CONTENT: result = "No Content"; break;
+		case HTTP_STATUS_RESET_CONTENT: result = "Reset Content"; break;
+		case HTTP_STATUS_PARTIAL_CONTENT: result = "Partial Content"; break;
+		case HTTP_STATUS_MULTIPLE_CHOICES: result = "Multiple Choices"; break;
+		case HTTP_STATUS_MOVED_PERMANENTLY: result = "Moved Permanently"; break;
+		case HTTP_STATUS_FOUND: result = "Found"; break;
+		case HTTP_STATUS_SEE_OTHER: result = "See Other"; break;
+		case HTTP_STATUS_NOT_MODIFIED: result = "Not Modified"; break;
+		case HTTP_STATUS_USE_PROXY: result = "Use Proxy"; break;
+		case HTTP_STATUS_TEMPORARY_REDIRECT: result = "Temporary Redirect"; break;
 		case HTTP_STATUS_BAD_REQUEST: result = "Bad Request"; break;
+		case HTTP_STATUS_UNAUTHORIZED: result = "Unauthorized"; break;
+		case HTTP_STATUS_PAYMENT_REQUIRED: result = "Payment Required"; break;
+		case HTTP_STATUS_FORBIDDEN: result = "Forbidden"; break;
 		case HTTP_STATUS_NOT_FOUND: result = "Not Found"; break;
 		case HTTP_STATUS_METHOD_NOT_ALLOWED: result = "Method Not Allowed"; break;
+		case HTTP_STATUS_NOT_ACCEPTABLE: result = "Not Acceptable"; break;
+		case HTTP_STATUS_PROXY_AUTHENTICATION_REQUIRED:
+			result = "Proxy Authentication Required";
+			break;
+		case HTTP_STATUS_REQUEST_TIMEOUT: result = "Request Timeout"; break;
+		case HTTP_STATUS_CONFLICT: result = "Conflict"; break;
+		case HTTP_STATUS_GONE: result = "Gone"; break;
+		case HTTP_STATUS_LENGTH_REQUIRED: result = "Length Required"; break;
+		case HTTP_STATUS_PRECONDITION_FAILED: result = "Precondition Failed"; break;
+		case HTTP_STATUS_PAYLOAD_TOO_LARGE: result = "Payload Too Large"; break;
+		case HTTP_STATUS_URI_TOO_LONG: result = "URI Too Long"; break;
+		case HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE: result = "Unsupported Media Type"; break;
+		case HTTP_STATUS_RANGE_NOT_SATISFIABLE: result = "Range Not Satisfiable"; break;
+		case HTTP_STATUS_EXPECTATION_FAILED: result = "Expectation Failed"; break;
+		case HTTP_STATUS_UPGRADE_REQUIRED: result = "Upgrade Required"; break;
+		case HTTP_STATUS_INTERNAL_SERVER_ERROR: result = "Internal Server Error"; break;
+		case HTTP_STATUS_NOT_IMPLEMENTED: result = "Not Implemented"; break;
+		case HTTP_STATUS_BAD_GATEWAY: result = "Bad Gateway"; break;
+		case HTTP_STATUS_SERVICE_UNAVAILABLE: result = "Service Unavailable"; break;
+		case HTTP_STATUS_GATEWAY_TIMEOUT: result = "Gateway Timeout"; break;
 		case HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED: result = "HTTP Version Not Supported"; break;
 	}
 	return result;
@@ -381,7 +421,7 @@ void freeHttpResponse(HttpResponse* response) {
 }
 
 // really simple and dumb html boilerplate, this is used for demonstration purposes, and is static,
-// but it looks "cool" and has a shutdown button, that works (with XMLHttpRequest)
+// but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
 
 char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
                      char* bodyContent) {
@@ -444,16 +484,16 @@ char* httpRequestToHtml(HttpRequest* request) {
 
 	StringBuilder* style = string_builder_init();
 	string_builder_append_single(
-	    style, "body{background: linear-gradient( 90deg, rgb(255, 0, 0) 0%, rgb(255, 154, 0) 10%, "
-	           "rgb(208, 222, 33) 20%, rgb(79, 220, 74) 30%, rgb(63, 218, 216) 40%, rgb(47, 201, "
-	           "226) 50%, rgb(28, 127, 238) 60%, rgb(95, 21, 242) 70%, rgb(186, 12, 248) 80%, "
+	    style, "body{background: linear-gradient( 90deg, rgb(255, 0, 0) 0%, rgb(255, 154, 0) 10%,"
+	           "rgb(208, 222, 33) 20%, rgb(79, 220, 74) 30%, rgb(63, 218, 216) 40%, rgb(47, 201,"
+	           "226) 50%, rgb(28, 127, 238) 60%, rgb(95, 21, 242) 70%, rgb(186, 12, 248) 80%,"
 	           "rgb(251, 7, 217) 90%, rgb(255, 0, 0) 100% );}"
-	           "#request {display: flex;justify-content: center;gap: 5%;color: #1400ff;text-align: "
+	           "#request {display: flex;justify-content: center;gap: 5%;color: #1400ff;text-align:"
 	           "center;align-items: center;}"
-	           "#header {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
+	           "#header {display:flex; flex-direction: column;align-items: center;overflow-wrap:"
 	           "anywhere;text-align: center;word-wrap: anywhere;}"
 	           "#body {padding: 1%;text-align: center;border: solid 4px black;margin: 1%;}"
-	           "#shutdown {border: none;cursor: crosshair;opacity: .9;padding: 16px "
+	           "#shutdown {border: none;cursor: crosshair;opacity: .9;padding: 16px"
 	           "20px;background-color: #c7ff00;font-weight: 900;color: #000;}"
 	           "#title{text-align: center;}");
 
