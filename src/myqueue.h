@@ -1,7 +1,6 @@
 #ifndef MYQUEUE_H_
 #define MYQUEUE_H_
 
-#include <assert.h>
 #include <semaphore.h>
 #include <stdbool.h>
 #include <stdio.h>

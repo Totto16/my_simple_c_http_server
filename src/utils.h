@@ -9,6 +9,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+// cool trick from here:
+// https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
+#ifdef NDEBUG
+#define assert(x) \
+	do { \
+		(void)sizeof(x); \
+	} while(0)
+#else
+
+#include <assert.h>
+
+#endif
+
 // uses snprintf feature with passing NULL,0 as first two arguments to automatically determine the
 // required buffer size, for more read man page
 // for variadic functions its easier to use macro

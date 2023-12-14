@@ -26,7 +26,7 @@
 	} while(false)
 
 // helpful macro for e.g sleeping
-#define MS(x) ((x)*1000)
+#define MS(x) ((x) * 1000)
 
 // self implemented Http Request and Http Response Structs
 
