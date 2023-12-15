@@ -151,7 +151,7 @@ enum REQUEST_SUPPORT_STATUS {
 	REQUEST_SUPPORTED = 0,
 	REQUEST_INVALID_HTTP_VERSION = 1,
 	REQUEST_METHOD_NOT_SUPPORTED = 2,
-	REQUEST_INVALID_GET = 3,
+	REQUEST_INVALID_NONEMPTY_BODY = 3,
 };
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
@@ -164,8 +164,11 @@ int isRequestSupported(HttpRequest* request) {
 	          strcmp(request->head.requestLine.method, "HEAD") != 0 &&
 	          strcmp(request->head.requestLine.method, "OPTIONS") != 0) {
 		return REQUEST_METHOD_NOT_SUPPORTED;
-	} else if(strcmp(request->head.requestLine.method, "GET") == 0 && strlen(request->body) != 0) {
-		return REQUEST_INVALID_GET;
+	} else if((strcmp(request->head.requestLine.method, "GET") == 0 ||
+	           strcmp(request->head.requestLine.method, "HEAD") == 0 ||
+	           strcmp(request->head.requestLine.method, "OPTIONS") == 0) &&
+	          strlen(request->body) != 0) {
+		return REQUEST_INVALID_NONEMPTY_BODY;
 	}
 
 	return REQUEST_SUPPORTED;
@@ -286,9 +289,10 @@ ignoredJobResult connectionHandler(job_arg arg) {
 			    argument.connectionFd, HTTP_STATUS_METHOD_NOT_ALLOWED,
 			    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
 			    MIME_TYPE_TEXT, allowedHeader, 1);
-		} else if(isSupported == REQUEST_INVALID_GET) {
+		} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
 			sendMessageToConnection(argument.connectionFd, HTTP_STATUS_BAD_REQUEST,
-			                        "A GET Request can't have a body", MIME_TYPE_TEXT);
+			                        "A GET, HEAD or OPTIONS Request can't have a body",
+			                        MIME_TYPE_TEXT);
 		} else {
 			sendMessageToConnection(argument.connectionFd, HTTP_STATUS_INTERNAL_SERVER_ERROR,
 			                        "Internal Server Error 2", MIME_TYPE_TEXT);
