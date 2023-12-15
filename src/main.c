@@ -15,6 +15,7 @@ Module: PS OS 08
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -243,38 +244,53 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 
 	ThreadArgument argument = *((ThreadArgument*)arg);
 
-	struct pollfd* poll_fds = (struct pollfd*)mallocOrFail(sizeof(struct pollfd), true);
+	const int fdAmount = 2;
+
+	struct pollfd* poll_fds = (struct pollfd*)mallocOrFail(sizeof(struct pollfd) * fdAmount, true);
 	// initializing the structs for poll
 	poll_fds[0].fd = argument.socketFd;
 	poll_fds[0].events = POLLIN;
+
+	sigset_t mySigset;
+	sigemptyset(&mySigset);
+	sigaddset(&mySigset, SIGINT);
+	int sigFd = signalfd(-1, &mySigset, 0);
+	checkForError(sigFd, "While trying to cancel the listener Thread on signal",
+	              exit(EXIT_FAILURE););
+
+	poll_fds[1].fd = sigFd;
+	poll_fds[1].events = POLLIN;
 
 	// loop and accept incoming requests
 	while(true) {
 
 		// TODO: Set cancel state in correct places!
 
-		// the function poll makes the heavy lifting, the timeout 50 is completely arbitrary and
-		// should not be to short, but otherwise it doesn't matter that much, but if I would wait
-		// for a signal it should be short and I would check the sigatomic_t signal variable
+		// the function poll makes the heavy lifting, the timeout 5000 is completely arbitrary and
+		// should not be to short, but otherwise it doesn't matter that much, since it aborts on
+		// POLLIN from the socketFd or the signalFd
 		int status = 0;
 		while(status == 0) {
-			status = poll(poll_fds, 1, 50);
-			if(signal_received != 0) {
-				break;
-			}
-			printf("signal %d - status: %d\n", signal_received, status);
+			status = poll(poll_fds, fdAmount, 5000);
 			if(status < 0) {
 				perror("ERROR: Reading in poll");
 				continue;
 			}
 		}
 
-		if(signal_received != 0) {
+		if(poll_fds[1].revents == POLLIN || signal_received != 0) {
+			// TODO: This fd isn't close, when pthread_cancel is called from somewhere else, fix
+			// that somehow
+			close(poll_fds[1].fd);
 			int result = pthread_cancel(pthread_self());
 			checkResultForErrorAndExit("While trying to cancel the listener Thread on signal");
 		}
 
-		printf("events %d - pollin : %d\n", poll_fds[0].revents, POLLIN);
+		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept will fail,
+		// just redo the poll
+		if(poll_fds[0].revents != POLLIN) {
+			continue;
+		}
 
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.socketFd, NULL, NULL);
@@ -379,6 +395,7 @@ int main(int argc, char const* argv[]) {
 	action->sa_handler = receiveSignal;
 	// initilaize the mask to be empty
 	int emptySetResult = sigemptyset(&action->sa_mask);
+	sigaddset(&action->sa_mask, SIGINT);
 	int result1 = sigaction(SIGINT, action, NULL);
 	if(result1 < 0 || emptySetResult < 0) {
 		perror("Couldn't set this signal");
