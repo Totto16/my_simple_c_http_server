@@ -124,7 +124,7 @@ void sendMallocedMessageToConnection(int connectionFd, int status, char* body,
 
 		char* allowedHeaderBuffer = NULL;
 		// all 405 have to have a Allow filed according to spec
-		formatString(&allowedHeaderBuffer, "%s%c%s", "Allow", '\0', "GET");
+		formatString(&allowedHeaderBuffer, "%s%c%s", "Allow", '\0', "GET, POST");
 
 		allowedHeader[0].key = allowedHeaderBuffer;
 		allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
@@ -154,9 +154,11 @@ bool isRequestSupported(int connectionFd, HttpRequest* request) {
 		sendMessageToConnection(connectionFd, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
 		                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT);
 		return false;
-	} else if(strcmp(request->head.requestLine.method, "GET") != 0) {
+	} else if(strcmp(request->head.requestLine.method, "GET") != 0 &&
+	          strcmp(request->head.requestLine.method, "POST") != 0) {
+
 		sendMessageToConnection(connectionFd, HTTP_STATUS_METHOD_NOT_ALLOWED,
-		                        "This primitive HTTP Server only supports GET requests",
+		                        "This primitive HTTP Server only supports GET and POST  requests",
 		                        MIME_TYPE_TEXT);
 		return false;
 	}
@@ -209,21 +211,30 @@ ignoredJobResult connectionHandler(job_arg arg) {
 		// if the request is supported then the "beautiful" website is sent, if the URI is /shutdown
 		// a shutdown is issued
 		if(isRequestSupported(argument.connectionFd, httpRequest)) {
-			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
-				printf("Shutdown requested!\n");
-				sendMessageToConnection(argument.connectionFd, HTTP_STATUS_OK, "Shutting Down",
-				                        MIME_TYPE_TEXT);
-				// just cancel the listener thread, then no new connection are accepted and the main
-				// thread cleans the pool and queue, all jobs are finished so shutdown gracefully
-				int result = pthread_cancel(argument.listenerThread);
-				checkResultForErrorAndExit("While trying to cancel the listener Thread");
+			if(strcmp(httpRequest->head.requestLine.method, "GET") == 0) {
+				// HTTP GET
+				if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
+					printf("Shutdown requested!\n");
+					sendMessageToConnection(argument.connectionFd, HTTP_STATUS_OK, "Shutting Down",
+					                        MIME_TYPE_TEXT);
+					// just cancel the listener thread, then no new connection are accepted and the
+					// main thread cleans the pool and queue, all jobs are finished so shutdown
+					// gracefully
+					int result = pthread_cancel(argument.listenerThread);
+					checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
-			} else if(strcmp(httpRequest->head.requestLine.URI, "/favicon.ico") == 0) {
-				sendMessageToConnection(argument.connectionFd, HTTP_STATUS_NOT_FOUND, "",
-				                        MIME_TYPE_TEXT);
+				} else if(strcmp(httpRequest->head.requestLine.URI, "/favicon.ico") == 0) {
+					sendMessageToConnection(argument.connectionFd, HTTP_STATUS_NOT_FOUND, "",
+					                        MIME_TYPE_TEXT);
+				} else {
+					sendMallocedMessageToConnection(argument.connectionFd, HTTP_STATUS_OK,
+					                                httpRequestToHtml(httpRequest), MIME_TYPE_HTML);
+				}
 			} else {
+				// HTTP POST
+
 				sendMallocedMessageToConnection(argument.connectionFd, HTTP_STATUS_OK,
-				                                httpRequestToHtml(httpRequest), MIME_TYPE_HTML);
+				                                httpRequestToJSON(httpRequest), MIME_TYPE_JSON);
 			}
 		}
 		// if NULL it hasn't to be freed

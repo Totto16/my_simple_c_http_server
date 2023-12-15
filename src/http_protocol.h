@@ -428,7 +428,7 @@ char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
 
 	StringBuilder* result = string_builder_init();
 
-	string_builder_append_single(result, "<html>");
+	string_builder_append_single(result, "<!DOCTYPE html><html>");
 	string_builder_append_single(result, "<head>");
 	string_builder_append_single(result, "<meta charset=\"UTF-8\">");
 	string_builder_append_single(
@@ -458,6 +458,28 @@ char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
 	string_builder_append_single(result, "</html>");
 
 	return string_builder_to_string(result);
+}
+
+char* httpRequestToJSON(HttpRequest* request) {
+	StringBuilder* body = string_builder_init();
+	string_builder_append(body, "{\"request\":\"%s\",", request->head.requestLine.method);
+	string_builder_append(body, "\"URI\": \"%s\",", request->head.requestLine.URI);
+	string_builder_append(body, "\"version\":\"%s\",", request->head.requestLine.protocolVersion);
+	string_builder_append_single(body, "\"headers\":[");
+	for(size_t i = 0; i < request->head.headerAmount; ++i) {
+		// same elegant freeing but wo at once :)
+		string_builder_append(body, "{\"header\":\"%s\", \"key\":\"%s\"}",
+		                      request->head.headerFields[i].key,
+		                      request->head.headerFields[i].value);
+		if(i + 1 < request->head.headerAmount) {
+			string_builder_append_single(body, ", ");
+		} else {
+			string_builder_append_single(body, "],");
+		}
+	}
+	string_builder_append(body, "\"body\":\"%s\"}", request->body);
+
+	return string_builder_to_string(body);
 }
 
 char* httpRequestToHtml(HttpRequest* request) {
