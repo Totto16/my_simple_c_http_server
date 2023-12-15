@@ -18,6 +18,9 @@
 #define MIME_TYPE_JSON "application/json"
 #define MIME_TYPE_TEXT "text/plain"
 
+#define STRINGIFY(a) STR_IMPL(a)
+#define STR_IMPL(a) #a
+
 // according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 // + 418
 enum HTTP_STATUS_CODES {
@@ -365,7 +368,8 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 	formatString(&contentLengthBuffer, "%s%c%ld", "Content-Length", '\0', strlen(body));
 
 	char* serverBuffer = NULL;
-	formatString(&serverBuffer, "%s%c%s", "Server", '\0', "Simple C HTTP Server");
+	formatString(&serverBuffer, "%s%c%s", "Server", '\0',
+	             "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
 	response->head.headerFields[0].key = contentTypeBuffer;
 	response->head.headerFields[0].value = contentTypeBuffer + strlen(contentTypeBuffer) + 1;

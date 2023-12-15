@@ -11,7 +11,7 @@ project(
         'werror': 'true',
         'b_ndebug': 'if-release',
     },
-    version: '1.0.0',
+    version: '2.1.0',
 )
 
 
@@ -23,6 +23,10 @@ src_files = []
 header_files = []
 inc_dirs = []
 
+compile_flags = [
+    '-DPROGRAM_NAME=' + meson.project_name(),
+    '-DVERSION_STRING=' + meson.project_version(),
+]
 
 
 subdir('src')
@@ -33,4 +37,5 @@ executable(
     header_files,
     dependencies: deps,
     include_directories: inc_dirs,
+    c_args: compile_flags,
 )
