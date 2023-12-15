@@ -161,6 +161,10 @@ bool isRequestSupported(int connectionFd, HttpRequest* request) {
 		                        "This primitive HTTP Server only supports GET and POST  requests",
 		                        MIME_TYPE_TEXT);
 		return false;
+	} else if(strcmp(request->head.requestLine.method, "GET") == 0 && strlen(request->body) != 0) {
+		sendMessageToConnection(connectionFd, HTTP_STATUS_BAD_REQUEST,
+		                        "A GET Request can't have a body", MIME_TYPE_TEXT);
+		return false;
 	}
 
 	return true;
