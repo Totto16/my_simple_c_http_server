@@ -111,27 +111,27 @@ void sendStringBuilderToConnection(int connectionFd, StringBuilder* stringBuilde
 	string_builder_free(stringBuilder);
 }
 
+void sendMallocedMessageToConnectionWithHeaders(int connectionFd, int status, char* body,
+                                                char const* MIMEType, HttpHeaderField* headerFields,
+                                                const int headerFieldsAmount) {
+
+	HttpResponse* message =
+	    constructHttpResponseWithHeaders(status, body, headerFields, headerFieldsAmount, MIMEType);
+
+	StringBuilder* messageString = httpResponseToStringBuilder(message);
+
+	sendStringBuilderToConnection(connectionFd, messageString);
+	// body gets freed
+	freeHttpResponse(message);
+}
+
 // sends a http message to the connection, takes status and if that special status needs some
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
 void sendMallocedMessageToConnection(int connectionFd, int status, char* body,
                                      char const* MIMEType) {
 
-	HttpResponse* message = NULL;
-	if(status == HTTP_STATUS_METHOD_NOT_ALLOWED) {
-		HttpHeaderField* allowedHeader =
-		    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
-
-		char* allowedHeaderBuffer = NULL;
-		// all 405 have to have a Allow filed according to spec
-		formatString(&allowedHeaderBuffer, "%s%c%s", "Allow", '\0', "GET, POST");
-
-		allowedHeader[0].key = allowedHeaderBuffer;
-		allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
-		message = constructHttpResponseWithHeaders(status, body, allowedHeader, 1, MIMEType);
-	} else {
-		message = constructHttpResponse(status, body, MIMEType);
-	}
+	HttpResponse* message = constructHttpResponse(status, body, MIMEType);
 
 	StringBuilder* messageString = httpResponseToStringBuilder(message);
 
@@ -147,27 +147,28 @@ void sendMessageToConnection(int connectionFd, int status, char const* body, cha
 	sendMallocedMessageToConnection(connectionFd, status, mallocedBody, MIMEType);
 }
 
-// returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
-// returned false, a corresponding error message has already been send to the connection
-bool isRequestSupported(int connectionFd, HttpRequest* request) {
-	if(strcmp(request->head.requestLine.protocolVersion, "HTTP/1.1") != 0) {
-		sendMessageToConnection(connectionFd, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
-		                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT);
-		return false;
-	} else if(strcmp(request->head.requestLine.method, "GET") != 0 &&
-	          strcmp(request->head.requestLine.method, "POST") != 0) {
+enum REQUEST_SUPPORT_STATUS {
+	REQUEST_SUPPORTED = 0,
+	REQUEST_INVALID_HTTP_VERSION = 1,
+	REQUEST_METHOD_NOT_SUPPORTED = 2,
+	REQUEST_INVALID_GET = 3,
+};
 
-		sendMessageToConnection(connectionFd, HTTP_STATUS_METHOD_NOT_ALLOWED,
-		                        "This primitive HTTP Server only supports GET and POST  requests",
-		                        MIME_TYPE_TEXT);
-		return false;
+// returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
+// returned an enum state, the caller has to handle errors
+int isRequestSupported(HttpRequest* request) {
+	if(strcmp(request->head.requestLine.protocolVersion, "HTTP/1.1") != 0) {
+		return REQUEST_INVALID_HTTP_VERSION;
+	} else if(strcmp(request->head.requestLine.method, "GET") != 0 &&
+	          strcmp(request->head.requestLine.method, "POST") != 0 &&
+	          strcmp(request->head.requestLine.method, "HEAD") != 0 &&
+	          strcmp(request->head.requestLine.method, "OPTIONS") != 0) {
+		return REQUEST_METHOD_NOT_SUPPORTED;
 	} else if(strcmp(request->head.requestLine.method, "GET") == 0 && strlen(request->body) != 0) {
-		sendMessageToConnection(connectionFd, HTTP_STATUS_BAD_REQUEST,
-		                        "A GET Request can't have a body", MIME_TYPE_TEXT);
-		return false;
+		return REQUEST_INVALID_GET;
 	}
 
-	return true;
+	return REQUEST_SUPPORTED;
 }
 
 volatile sig_atomic_t signal_received = 0;
@@ -214,7 +215,10 @@ ignoredJobResult connectionHandler(job_arg arg) {
 	} else {
 		// if the request is supported then the "beautiful" website is sent, if the URI is /shutdown
 		// a shutdown is issued
-		if(isRequestSupported(argument.connectionFd, httpRequest)) {
+
+		const int isSupported = isRequestSupported(httpRequest);
+
+		if(isSupported == REQUEST_SUPPORTED) {
 			if(strcmp(httpRequest->head.requestLine.method, "GET") == 0) {
 				// HTTP GET
 				if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
@@ -227,22 +231,68 @@ ignoredJobResult connectionHandler(job_arg arg) {
 					int result = pthread_cancel(argument.listenerThread);
 					checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
-				} else if(strcmp(httpRequest->head.requestLine.URI, "/favicon.ico") == 0) {
-					sendMessageToConnection(argument.connectionFd, HTTP_STATUS_NOT_FOUND, "",
-					                        MIME_TYPE_TEXT);
-				} else {
+				} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
 					sendMallocedMessageToConnection(argument.connectionFd, HTTP_STATUS_OK,
 					                                httpRequestToHtml(httpRequest), MIME_TYPE_HTML);
+				} else {
+					sendMessageToConnection(argument.connectionFd, HTTP_STATUS_NOT_FOUND, "",
+					                        MIME_TYPE_TEXT);
 				}
-			} else {
+			} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
 				// HTTP POST
 
 				sendMallocedMessageToConnection(argument.connectionFd, HTTP_STATUS_OK,
 				                                httpRequestToJSON(httpRequest), MIME_TYPE_JSON);
+			} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
+				// TODO send actual Content-Length, experiment with e.g a large video file!
+				sendMallocedMessageToConnection(argument.connectionFd, HTTP_STATUS_OK, "",
+				                                MIME_TYPE_HTML);
+			} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
+				HttpHeaderField* allowedHeader =
+				    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
+
+				char* allowedHeaderBuffer = NULL;
+				// all 405 have to have a Allow filed according to spec
+				formatString(&allowedHeaderBuffer, "%s%c%s", "Allow", '\0',
+				             "GET, POST, HEAD, OPTIONS");
+
+				allowedHeader[0].key = allowedHeaderBuffer;
+				allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
+
+				sendMallocedMessageToConnectionWithHeaders(argument.connectionFd, HTTP_STATUS_OK,
+				                                           "", MIME_TYPE_TEXT, allowedHeader, 1);
+			} else {
+				sendMessageToConnection(argument.connectionFd, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+				                        "Internal Server Error 1", MIME_TYPE_TEXT);
 			}
+			// if NULL it hasn't to be freed
+			freeHttpRequest(httpRequest);
+		} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
+			sendMessageToConnection(argument.connectionFd, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
+			                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT);
+		} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
+
+			HttpHeaderField* allowedHeader =
+			    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
+
+			char* allowedHeaderBuffer = NULL;
+			// all 405 have to have a Allow filed according to spec
+			formatString(&allowedHeaderBuffer, "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
+
+			allowedHeader[0].key = allowedHeaderBuffer;
+			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
+
+			sendMallocedMessageToConnectionWithHeaders(
+			    argument.connectionFd, HTTP_STATUS_METHOD_NOT_ALLOWED,
+			    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
+			    MIME_TYPE_TEXT, allowedHeader, 1);
+		} else if(isSupported == REQUEST_INVALID_GET) {
+			sendMessageToConnection(argument.connectionFd, HTTP_STATUS_BAD_REQUEST,
+			                        "A GET Request can't have a body", MIME_TYPE_TEXT);
+		} else {
+			sendMessageToConnection(argument.connectionFd, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+			                        "Internal Server Error 2", MIME_TYPE_TEXT);
 		}
-		// if NULL it hasn't to be freed
-		freeHttpRequest(httpRequest);
 	}
 
 	// finally close the connection
@@ -253,8 +303,8 @@ ignoredJobResult connectionHandler(job_arg arg) {
 	return NULL;
 }
 
-// this is the function, that runs in the listener, it receives all necessary information trough
-// the argument
+// this is the function, that runs in the listener, it receives all necessary information
+// trough the argument
 anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 
 	ThreadArgument argument = *((ThreadArgument*)arg);
@@ -281,9 +331,9 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 
 		// TODO: Set cancel state in correct places!
 
-		// the function poll makes the heavy lifting, the timeout 5000 is completely arbitrary and
-		// should not be to short, but otherwise it doesn't matter that much, since it aborts on
-		// POLLIN from the socketFd or the signalFd
+		// the function poll makes the heavy lifting, the timeout 5000 is completely
+		// arbitrary and should not be to short, but otherwise it doesn't matter that much,
+		// since it aborts on POLLIN from the socketFd or the signalFd
 		int status = 0;
 		while(status == 0) {
 			status = poll(poll_fds, fdAmount, 5000);
@@ -294,15 +344,15 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		}
 
 		if(poll_fds[1].revents == POLLIN || signal_received != 0) {
-			// TODO: This fd isn't close, when pthread_cancel is called from somewhere else, fix
-			// that somehow
+			// TODO: This fd isn't close, when pthread_cancel is called from somewhere else,
+			// fix that somehow
 			close(poll_fds[1].fd);
 			int result = pthread_cancel(pthread_self());
 			checkResultForErrorAndExit("While trying to cancel the listener Thread on signal");
 		}
 
-		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept will fail,
-		// just redo the poll
+		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
+		// will fail, just redo the poll
 		if(poll_fds[0].revents != POLLIN) {
 			continue;
 		}
@@ -317,16 +367,16 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		connectionArgument->connectionFd = connectionFd;
 		connectionArgument->listenerThread = pthread_self();
 
-		// push to the queue, but not await, since when we wait it wouldn't be fast and ready to
-		// accept new connections
+		// push to the queue, but not await, since when we wait it wouldn't be fast and
+		// ready to accept new connections
 		myqueue_push(argument.jobIds,
 		             pool_submit(argument.pool, connectionHandler, connectionArgument));
 
 		// not waiting directly, but when the queue grows to fast, it is reduced, then the
-		// listener thread MIGHT block, but probably are these first jobs already finished, so
-		// its super fast,but if not doing that, the queue would overflow, nothing in here is a
-		// cancellation point, so it's safe to cancel here, since only accept then really
-		// cancels
+		// listener thread MIGHT block, but probably are these first jobs already finished,
+		// so its super fast,but if not doing that, the queue would overflow, nothing in
+		// here is a cancellation point, so it's safe to cancel here, since only accept then
+		// really cancels
 		int size = myqueue_size(argument.jobIds);
 		if(size > MAX_QUEUE_SIZE) {
 			int boundary = size / 2;
@@ -338,8 +388,8 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		}
 
 		// gets cancelled in accept, there it also is the most time!
-		// otherwise if it would cancel other functions it would be baaaad, but only accept is
-		// here a cancel point!
+		// otherwise if it would cancel other functions it would be baaaad, but only accept
+		// is here a cancel point!
 	}
 }
 
@@ -360,9 +410,9 @@ int main(int argc, char const* argv[]) {
 	long port = parseLongSafely(argv[1], "<port>");
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
-	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol, the
-	// socket type is SOCK_STREAM, meaning it has reliable read and write capabilities, all
-	// other types are not that well suited for that example
+	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
+	// the socket type is SOCK_STREAM, meaning it has reliable read and write capabilities,
+	// all other types are not that well suited for that example
 	int socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	checkForError(socketFd, "While Trying to create socket", exit(EXIT_FAILURE););
 
@@ -372,32 +422,32 @@ int main(int argc, char const* argv[]) {
 	checkForError(optionReturn, "While Trying to set socket option 'SO_REUSEPORT'",
 	              exit(EXIT_FAILURE););
 
-	// creating the sockaddr_in struct, each number that is used in context of network has to be
-	// converted into ntework byte order (Big Endian, linux uses Little Endian) that is relevant
-	// for each multibyte value, essentially everything but char, so htox is used, where x
-	// stands for different lengths of numbers, s for int, l for long
+	// creating the sockaddr_in struct, each number that is used in context of network has
+	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
+	// is relevant for each multibyte value, essentially everything but char, so htox is
+	// used, where x stands for different lengths of numbers, s for int, l for long
 	struct sockaddr_in* addr = (struct sockaddr_in*)mallocOrFail(sizeof(struct sockaddr_in), true);
 	addr->sin_family = AF_INET;
-	// hto functions are used for networking, since there every number is BIG ENDIAN and linux
-	// has Little Endian
+	// hto functions are used for networking, since there every number is BIG ENDIAN and
+	// linux has Little Endian
 	addr->sin_port = htons(port);
 	// INADDR_ANYis 0.0.0.0, which means every port, but when nobody forwards it,
 	// it means, that by default only localhost can be used to access it
 	addr->sin_addr.s_addr = htonl(INADDR_ANY);
 
-	// since bind is generic, the specific struct has to be casted, and the actual length has to
-	// be given, this is a function signature, just to satisfy the typings, the real
+	// since bind is generic, the specific struct has to be casted, and the actual length
+	// has to be given, this is a function signature, just to satisfy the typings, the real
 	// requirements are given in the responsive protocol man page, here ip(7) also note that
-	// ports below 1024 are  privileged ports, meaning, that you require special permissions to
-	// be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of getting
-	// that is being root, or executing as root: sudo ...)
+	// ports below 1024 are  privileged ports, meaning, that you require special permissions
+	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
+	// getting that is being root, or executing as root: sudo ...)
 	int result = bind(socketFd, (struct sockaddr*)addr, sizeof(*addr));
 	checkResultForErrorAndExit("While trying to bind socket to port");
 
 	// SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
-	// connections that can be unaccepted in the queue, to be accepted, after that is full, the
-	// protocol discards these requests listen starts listining on that socket, meaning new
-	// connections can be accepted
+	// connections that can be unaccepted in the queue, to be accepted, after that is full,
+	// the protocol discards these requests listen starts listining on that socket, meaning
+	// new connections can be accepted
 	result = listen(socketFd, SOCKET_BACKLOG_SIZE);
 	checkResultForErrorAndExit("While trying to listen on socket");
 
@@ -423,7 +473,8 @@ int main(int argc, char const* argv[]) {
 	thread_pool pool;
 	pool_create_dynamic(&pool);
 
-	// this is a internal synchronized queue! myqueue_init creates a semaphore that handles that
+	// this is a internal synchronized queue! myqueue_init creates a semaphore that handles
+	// that
 	myqueue jobIds;
 	myqueue_init(&jobIds);
 
@@ -459,16 +510,16 @@ int main(int argc, char const* argv[]) {
 
 	// finally closing the whole socket, so that the port is useable by other programs or by
 	// this again, NOTES: ip(7) states :" A TCP local socket address that has been bound is
-	// unavailable for  some time after closing, unless the SO_REUSEADDR flag has been set. Care
-	// should be taken when using this flag as it makes TCP less reliable." So essentially
-	// saying, also correctly closed sockets aren't available after a certain time, even if
-	// closed correctly!
+	// unavailable for  some time after closing, unless the SO_REUSEADDR flag has been set.
+	// Care should be taken when using this flag as it makes TCP less reliable." So
+	// essentially saying, also correctly closed sockets aren't available after a certain
+	// time, even if closed correctly!
 	result = close(socketFd);
 	checkResultForErrorAndExit("While trying to close the socket");
 
-	// and freeing the malloced sockaddr_in, could be done (probably, since the receiver of this
-	// option has already got that argument and doesn't read data from that pointer anymore)
-	// sooner.
+	// and freeing the malloced sockaddr_in, could be done (probably, since the receiver of
+	// this option has already got that argument and doesn't read data from that pointer
+	// anymore) sooner.
 	free(addr);
 	return EXIT_SUCCESS;
 }
