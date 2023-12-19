@@ -1,8 +1,8 @@
 project(
-    'simpel http server',
+    'simple http server',
     'c',
     license: 'MIT',
-    meson_version: '>=1·2.0',
+    meson_version: '>=1.2.0',
     default_options: {
         'buildtype': 'release',
         'optimization': '3',
