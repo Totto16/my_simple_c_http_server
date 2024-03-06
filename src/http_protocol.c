@@ -127,11 +127,9 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	return request;
 }
 
-// simple helper for getting the status Message for a special status code, not all implemented,
-// only the ones needed
+// simple helper for getting the status Message for a special status code, all from teh spec for http 1.1 implemented (not in the spec e.g. 418)
 char const* getStatusMessage(int statusCode) {
 	char const* result = "NOT SUPPORTED STATUS CODE";
-	// TODO: ADD more, but for this basic example its enough
 	// according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 	switch(statusCode) {
 		case HTTP_STATUS_CONTINUE: result = "Continue"; break;
