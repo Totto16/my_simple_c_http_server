@@ -273,9 +273,9 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 
 	ThreadArgument argument = *((ThreadArgument*)arg);
 
-	const int fdAmount = 2;
+#define POLL_FD_AMOUNT 2
 
-	struct pollfd* poll_fds = (struct pollfd*)mallocOrFail(sizeof(struct pollfd) * fdAmount, true);
+	struct pollfd poll_fds[POLL_FD_AMOUNT] = {};
 	// initializing the structs for poll
 	poll_fds[0].fd = argument.socketFd;
 	poll_fds[0].events = POLLIN;
@@ -300,7 +300,7 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		// since it aborts on POLLIN from the socketFd or the signalFd
 		int status = 0;
 		while(status == 0) {
-			status = poll(poll_fds, fdAmount, 5000);
+			status = poll(poll_fds, POLL_FD_AMOUNT, 5000);
 			if(status < 0) {
 				perror("ERROR: Reading in poll");
 				continue;
@@ -405,13 +405,13 @@ int startServer(long port) {
 
 	// set up the signal handler
 	// just create a sitgaction structure, then add the handler
-	struct sigaction* action = (struct sigaction*)mallocOrFail(sizeof(*action), true);
+	struct sigaction action = {};
 
-	action->sa_handler = receiveSignal;
+	action.sa_handler = receiveSignal;
 	// initilaize the mask to be empty
-	int emptySetResult = sigemptyset(&action->sa_mask);
-	sigaddset(&action->sa_mask, SIGINT);
-	int result1 = sigaction(SIGINT, action, NULL);
+	int emptySetResult = sigemptyset(&action.sa_mask);
+	sigaddset(&action.sa_mask, SIGINT);
+	int result1 = sigaction(SIGINT, &action, NULL);
 	if(result1 < 0 || emptySetResult < 0) {
 		perror("Couldn't set this signal");
 		exit(EXIT_FAILURE);
@@ -471,5 +471,6 @@ int startServer(long port) {
 	// this option has already got that argument and doesn't read data from that pointer
 	// anymore) sooner.
 	free(addr);
+
 	return EXIT_SUCCESS;
 }
