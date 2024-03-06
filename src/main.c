@@ -307,6 +307,17 @@ ignoredJobResult connectionHandler(job_arg arg) {
 	return NULL;
 }
 
+// implemented specifically for the http Server, it just gets the internal value, but it's better to
+// not access that, since additional steps can be required, like  boundary checks!
+static int myqueue_size(myqueue* q) {
+	if(q->size < 0) {
+		fprintf(stderr,
+		        "FATAL: internal size implementation error in the queue, value negative: %d!",
+		        q->size);
+	}
+	return q->size;
+}
+
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
 anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
