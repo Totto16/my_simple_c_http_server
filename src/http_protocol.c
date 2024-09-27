@@ -38,7 +38,7 @@ StringBuilder* httpRequestToStringBuilder(HttpRequest* request) {
 // internally some string"magic" happens
 HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 
-	// considered using strtok, but that doesn'T recognize the delimiter between the status and
+	// considered using strtok, but that doesn't recognize the delimiter between the status and
 	// body! so now using own way of doing that!
 
 	char const* separators = "\r\n";

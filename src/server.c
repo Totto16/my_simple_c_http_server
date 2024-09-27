@@ -381,7 +381,7 @@ int startServer(long port) {
 	// hto functions are used for networking, since there every number is BIG ENDIAN and
 	// linux has Little Endian
 	addr->sin_port = htons(port);
-	// INADDR_ANYis 0.0.0.0, which means every port, but when nobody forwards it,
+	// INADDR_ANY is 0.0.0.0, which means every port, but when nobody forwards it,
 	// it means, that by default only localhost can be used to access it
 	addr->sin_addr.s_addr = htonl(INADDR_ANY);
 
