@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +41,7 @@
 			    stderr, \
 			    "ERROR: Snprint did write more bytes then it had space in the buffer, available " \
 			    "space:'%d', actually written:'%d'!\n", \
-			    (toWrite)-1, written); \
+			    (toWrite) - 1, written); \
 			free(internalBuffer); \
 			exit(EXIT_FAILURE); \
 		} \
@@ -92,6 +93,8 @@ void* reallocOrFail(void* previousPtr, const size_t oldSize, const size_t newSiz
 
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
 long parseLongSafely(const char* toParse, const char* description);
+
+uint16_t parseU16Safely(const char* toParse, const char* description);
 
 // a hacky but good and understandable way that is used with pthread functions
 // to annotate which type the really represent

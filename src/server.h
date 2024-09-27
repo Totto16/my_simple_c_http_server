@@ -96,4 +96,4 @@ ignoredJobResult connectionHandler(job_arg arg);
 // trough the argument
 anyType(NULL) threadFunction(anyType(ThreadArgument*) arg);
 
-int startServer(long port);
+int startServer(uint16_t port, bool secure);

@@ -357,7 +357,7 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 	}
 }
 
-int startServer(long port) {
+int startServer(uint16_t port, bool secure) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -401,7 +401,8 @@ int startServer(long port) {
 	result = listen(socketFd, SOCKET_BACKLOG_SIZE);
 	checkResultForErrorAndExit("While trying to listen on socket");
 
-	printf("To use this simple Http Sever visit 'http://localhost:%ld'.\n", port);
+	printf("To use this simple Http Server visit '%s://localhost:%d'.\n", secure ? "https" : "http",
+	       port);
 
 	// set up the signal handler
 	// just create a sitgaction structure, then add the handler

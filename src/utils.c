@@ -1,6 +1,7 @@
 
 
 #include "utils.h"
+#include <stdint.h>
 
 // simple malloc Wrapper, using also memset to set everything to 0
 void* mallocOrFail(const size_t size, const bool initializeWithZeros) {
@@ -68,4 +69,25 @@ long parseLongSafely(const char* toParse, const char* description) {
 	}
 
 	return result;
+}
+
+uint16_t parseU16Safely(const char* toParse, const char* description) {
+
+	long result = parseLongSafely(toParse, description);
+
+	if(result < 0) {
+		fprintf(stderr,
+		        "ERROR: Number not correct, '%ld' is negative, only positive numbers are allowed: "
+		        "%s!\n",
+		        result, description);
+		exit(EXIT_FAILURE);
+	}
+
+	if(result > UINT16_MAX) {
+		fprintf(stderr, "ERROR: Number not correct, '%ld' is too big for %s, the maximum is %d!\n",
+		        result, description, UINT16_MAX);
+		exit(EXIT_FAILURE);
+	}
+
+	return (uint16_t)result;
 }
