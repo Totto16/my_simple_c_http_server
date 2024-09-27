@@ -40,7 +40,8 @@ anyType(NULL) _thread_pool_Worker_thread_function(anyType(_my_thread_pool_Thread
 		}
 
 		// otherwise it just calls the function, and therefore executes it
-		ignoredJobResult returnValue = currentJob->jobFunction(currentJob->argument);
+		ignoredJobResult returnValue =
+		    currentJob->jobFunction(currentJob->argument, argument.workerInfo);
 		// atm a warning issued, when a functions returns something other than NULL, but thats
 		// only there, to show that it doesn't get returned, it wouldn't be that big of a deal to
 		// implement this, but it isn't needed and required
@@ -95,7 +96,7 @@ void pool_create(thread_pool* pool, size_t size) {
 		                                                  true);
 		// initializing the struct with the necessary values
 		threadArgument->information = &(pool->workerThreads[i]);
-		threadArgument->threadID = i;
+		threadArgument->workerInfo.workerIndex = i;
 		threadArgument->threadPool = pool;
 		// now launch the worker thread
 		result = pthread_create(&((pool->workerThreads[i]).thread), NULL,

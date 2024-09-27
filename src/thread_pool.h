@@ -13,9 +13,14 @@
 #define _THREAD_SHUTDOWN_JOB NULL
 
 // degfining the type defs
+
+typedef struct {
+	size_t workerIndex;
+} WorkerInfo;
+
 typedef void* job_arg;
 typedef void* ignoredJobResult;
-typedef ignoredJobResult (*job_function)(job_arg);
+typedef ignoredJobResult (*job_function)(job_arg, WorkerInfo);
 
 typedef struct {
 	pthread_t thread;
@@ -37,8 +42,8 @@ typedef struct {
 
 typedef struct {
 	_my_thread_pool_ThreadInformation* information;
-	size_t threadID;
 	thread_pool* threadPool;
+	WorkerInfo workerInfo;
 } _my_thread_pool_ThreadArgument;
 
 // this function is used internally as worker thread Function, therefore the rather cryptic name

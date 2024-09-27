@@ -24,6 +24,7 @@ Module: PS OS 08
 // all headers that are needed, so modular dependencies can be solved easily and also some "topics"
 // stay in the same file
 #include "http_protocol.h"
+#include "secure.h"
 #include "string_builder.h"
 #include "thread_pool.h"
 
@@ -40,27 +41,30 @@ Module: PS OS 08
 
 // helper function that read string from connection, it handles everything that is necessary and
 // returns an malloced (also realloced probably) pointer to a string, that is null terminated
-char* readStringFromConnection(int connectionFd);
+char* readStringFromConnection(const ConnectionDescriptor* const descriptor);
 
 // sends a string to the connection, makes all write calls under the hood, deals with arbitrary
 // large null terminated strings!
-void sendStringToConnection(int connectionFd, char* toSend);
+void sendStringToConnection(const ConnectionDescriptor* const descriptor, char* toSend);
 
 // just a warpper to send a string buffer to a connection, it also frees the string buffer!
-void sendStringBuilderToConnection(int connectionFd, StringBuilder* stringBuilder);
+void sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
+                                   StringBuilder* stringBuilder);
 
-void sendMallocedMessageToConnectionWithHeaders(int connectionFd, int status, char* body,
-                                                char const* MIMEType, HttpHeaderField* headerFields,
+void sendMallocedMessageToConnectionWithHeaders(const ConnectionDescriptor* const descriptor,
+                                                int status, char* body, char const* MIMEType,
+                                                HttpHeaderField* headerFields,
                                                 const int headerFieldsAmount);
 
 // sends a http message to the connection, takes status and if that special status needs some
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
-void sendMallocedMessageToConnection(int connectionFd, int status, char* body,
-                                     char const* MIMEType);
+void sendMallocedMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
+                                     char* body, char const* MIMEType);
 
 // same as above, but with unmalloced content, like char const* indicates
-void sendMessageToConnection(int connectionFd, int status, char const* body, char const* MIMEType);
+void sendMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
+                             char const* body, char const* MIMEType);
 
 enum REQUEST_SUPPORT_STATUS {
 	REQUEST_SUPPORTED = 0,
@@ -76,24 +80,26 @@ int isRequestSupported(HttpRequest* request);
 // structs for the listenerThread
 
 typedef struct {
-	int socketFd;
 	thread_pool* pool;
 	myqueue* jobIds;
+	ConnectionContext* const* contexts;
+	int socketFd;
 } ThreadArgument;
 
 typedef struct {
-	int connectionFd;
+	ConnectionContext* const* contexts;
 	pthread_t listenerThread;
+	int connectionFd;
 } ConnectionArgument;
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
-// pool, but the listenere adds it
-// it receives all the necessary information and also handles the html pasring and response
+// pool, but the listener adds it
+// it receives all the necessary information and also handles the html parsing and response
 
-ignoredJobResult connectionHandler(job_arg arg);
+ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
 anyType(NULL) threadFunction(anyType(ThreadArgument*) arg);
 
-int startServer(uint16_t port, bool secure);
+int startServer(uint16_t port, SecureOptions* const options);

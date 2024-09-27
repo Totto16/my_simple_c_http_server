@@ -7,6 +7,8 @@ src_files += files(
     'main.c',
     'myqueue.c',
     'myqueue.h',
+    'secure.c',
+    'secure.h',
     'server.c',
     'server.h',
     'string_builder.c',
