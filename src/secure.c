@@ -55,19 +55,22 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 
 	SSL_CTX* ssl_context = SSL_CTX_new(TLS_server_method());
 	if(ssl_context == NULL) {
+		fprintf(stderr, "Error: SSL_CTX_new failed ");
 		ERR_print_errors_fp(stderr);
 		return NULL;
 	}
 
 	int result = SSL_CTX_use_certificate_file(ssl_context, public_cert_file, SSL_FILETYPE_PEM);
 	if(result != 1) {
+		fprintf(stderr, "Error: SSL_CTX_use_certificate_file failed ");
 		ERR_print_errors_fp(stderr);
 		return NULL;
 	}
 
-	result = SSL_CTX_use_PrivateKey_file(ssl_context, private_cert_file, SSL_FILETYPE_ASN1);
+	result = SSL_CTX_use_PrivateKey_file(ssl_context, private_cert_file, SSL_FILETYPE_PEM);
 
 	if(result != 1) {
+		fprintf(stderr, "Error: SSL_CTX_use_PrivateKey_file failed ");
 		ERR_print_errors_fp(stderr);
 		return NULL;
 	}
@@ -75,6 +78,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	result = SSL_CTX_check_private_key(ssl_context);
 
 	if(result != 1) {
+		fprintf(stderr, "Error: SSL_CTX_check_private_key failed ");
 		ERR_print_errors_fp(stderr);
 		return NULL;
 	}
@@ -143,6 +147,7 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 
 	SSL* ssl_structure = SSL_new(data->ssl_context);
 	if(ssl_structure == NULL) {
+		fprintf(stderr, "Error: SSL_new failed ");
 		ERR_print_errors_fp(stderr);
 		return NULL;
 	}
@@ -185,6 +190,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	int result = SSL_set_fd(ssl_structure, fd);
 
 	if(result != 1) {
+		fprintf(stderr, "Error: SSL_set_fd failed ");
 		ERR_print_errors_fp(stderr);
 		return NULL;
 	}
@@ -192,6 +198,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	int ssl_result = SSL_accept(ssl_structure);
 
 	if(ssl_result != 1) {
+		fprintf(stderr, "Error: SSL_accept failed ");
 		ERR_print_errors_fp(stderr);
 		return NULL;
 	}
@@ -217,6 +224,7 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor) {
 		result = SSL_shutdown(ssl_structure);
 
 		if(result != 0 && result != 1) {
+			fprintf(stderr, "Error: SSL_shutdown failed ");
 			ERR_print_errors_fp(stderr);
 			errno = ESSL;
 			return -1;
@@ -232,6 +240,7 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor) {
 	result = SSL_clear(ssl_structure);
 
 	if(result != 1) {
+		fprintf(stderr, "Error: SSL_clear failed ");
 		ERR_print_errors_fp(stderr);
 		errno = ESSL;
 		return -1;
