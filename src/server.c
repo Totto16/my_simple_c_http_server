@@ -86,7 +86,7 @@ void sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
 }
 
 void sendMallocedMessageToConnectionWithHeaders(const ConnectionDescriptor* const descriptor,
-                                                int status, char* body, char const* MIMEType,
+                                                int status, char* body, const char* MIMEType,
                                                 HttpHeaderField* headerFields,
                                                 const int headerFieldsAmount) {
 
@@ -100,11 +100,21 @@ void sendMallocedMessageToConnectionWithHeaders(const ConnectionDescriptor* cons
 	freeHttpResponse(message);
 }
 
+void sendMessageToConnectionWithHeaders(const ConnectionDescriptor* const descriptor, int status,
+                                        const char* body, const char* MIMEType,
+                                        HttpHeaderField* headerFields,
+                                        const int headerFieldsAmount) {
+	char* mallocedBody = normalStringToMalloced(body);
+
+	sendMallocedMessageToConnectionWithHeaders(descriptor, status, mallocedBody, MIMEType,
+	                                           headerFields, headerFieldsAmount);
+}
+
 // sends a http message to the connection, takes status and if that special status needs some
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
 void sendMallocedMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
-                                     char* body, char const* MIMEType) {
+                                     char* body, const char* MIMEType) {
 
 	HttpResponse* message = constructHttpResponse(status, body, MIMEType);
 
@@ -115,9 +125,9 @@ void sendMallocedMessageToConnection(const ConnectionDescriptor* const descripto
 	freeHttpResponse(message);
 }
 
-// same as above, but with unmalloced content, like char const* indicates
+// same as above, but with unmalloced content, like const char* indicates
 void sendMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
-                             char const* body, char const* MIMEType) {
+                             const char* body, const char* MIMEType) {
 	char* mallocedBody = normalStringToMalloced(body);
 
 	sendMallocedMessageToConnection(descriptor, status, mallocedBody, MIMEType);
@@ -159,7 +169,7 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 	// attention arg is malloced!
 	ConnectionArgument argument = *((ConnectionArgument*)arg);
 
-	const ConnectionContext* context = argument.contexts[workerInfo.workerIndex];
+	ConnectionContext* context = argument.contexts[workerInfo.workerIndex];
 
 	const ConnectionDescriptor* const descriptor =
 	    get_connection_descriptor(context, argument.connectionFd);
@@ -214,7 +224,8 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 				                                httpRequestToJSON(httpRequest), MIME_TYPE_JSON);
 			} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 				// TODO send actual Content-Length, experiment with e.g a large video file!
-				sendMallocedMessageToConnection(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_HTML);
+				// TODO: doesn't work (only with https?!?!)
+				sendMessageToConnection(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_HTML);
 			} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
 				HttpHeaderField* allowedHeader =
 				    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
@@ -227,14 +238,12 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 				allowedHeader[0].key = allowedHeaderBuffer;
 				allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-				sendMallocedMessageToConnectionWithHeaders(descriptor, HTTP_STATUS_OK, "",
-				                                           MIME_TYPE_TEXT, allowedHeader, 1);
+				sendMessageToConnectionWithHeaders(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_TEXT,
+				                                   allowedHeader, 1);
 			} else {
 				sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
 				                        "Internal Server Error 1", MIME_TYPE_TEXT);
 			}
-			// if NULL it hasn't to be freed
-			freeHttpRequest(httpRequest);
 		} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
 			sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
 			                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT);
@@ -250,7 +259,7 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 			allowedHeader[0].key = allowedHeaderBuffer;
 			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-			sendMallocedMessageToConnectionWithHeaders(
+			sendMessageToConnectionWithHeaders(
 			    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
 			    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
 			    MIME_TYPE_TEXT, allowedHeader, 1);
@@ -262,11 +271,13 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 			sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
 			                        "Internal Server Error 2", MIME_TYPE_TEXT);
 		}
+
+		freeHttpRequest(httpRequest);
 	}
 
 	// finally close the connection
-	int result = close_connection_descriptor(descriptor);
-	checkResultForErrorAndExit("While trying to close the socket");
+	int result = close_connection_descriptor(descriptor, context);
+	checkResultForErrorAndExit("While trying to close the connection descriptor");
 	// and free the malloced argument
 	free(arg);
 	return NULL;

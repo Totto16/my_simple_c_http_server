@@ -41,7 +41,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	// considered using strtok, but that doesn't recognize the delimiter between the status and
 	// body! so now using own way of doing that!
 
-	char const* separators = "\r\n";
+	const char* const separators = "\r\n";
 	size_t separatorsLength = strlen(separators);
 	char* currentlyAt = rawHttpRequest;
 	bool parsed = false;
@@ -127,9 +127,10 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	return request;
 }
 
-// simple helper for getting the status Message for a special status code, all from teh spec for http 1.1 implemented (not in the spec e.g. 418)
-char const* getStatusMessage(int statusCode) {
-	char const* result = "NOT SUPPORTED STATUS CODE";
+// simple helper for getting the status Message for a special status code, all from teh spec for
+// http 1.1 implemented (not in the spec e.g. 418)
+const char* getStatusMessage(int statusCode) {
+	const char* result = "NOT SUPPORTED STATUS CODE";
 	// according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 	switch(statusCode) {
 		case HTTP_STATUS_CONTINUE: result = "Continue"; break;
@@ -185,14 +186,14 @@ char const* getStatusMessage(int statusCode) {
 // also null!
 HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
                                                HttpHeaderField* additionalHeaders,
-                                               size_t headersSize, char const* MIMEType) {
+                                               size_t headersSize, const char* MIMEType) {
 
 	HttpResponse* response = (HttpResponse*)mallocOrFail(sizeof(HttpResponse), true);
 
 	// using the same trick as before, \0 in the malloced string :)
-	char const* protocolVersion = "HTTP/1.1";
+	const char* protocolVersion = "HTTP/1.1";
 	size_t protocolLength = strlen(protocolVersion);
-	char const* statusMessage = getStatusMessage(status);
+	const char* statusMessage = getStatusMessage(status);
 
 	char* responseLineBuffer = NULL;
 	formatString(&responseLineBuffer, "%s%c%d%c%s", protocolVersion, '\0', status, '\0',
@@ -260,7 +261,7 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 }
 
 // wrapper if no additionalHeaders are required
-HttpResponse* constructHttpResponse(int status, char* body, char const* MIMEType) {
+HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType) {
 	return constructHttpResponseWithHeaders(status, body, NULL, 0, MIMEType);
 }
 
@@ -268,7 +269,7 @@ HttpResponse* constructHttpResponse(int status, char* body, char const* MIMEType
 // with some slight modification
 StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
 	StringBuilder* result = string_builder_init();
-	char const* separators = "\r\n";
+	const char* const separators = "\r\n";
 
 	string_builder_append(result, "%s %s %s%s", response->head.responseLine.protocolVersion,
 	                      response->head.responseLine.statusCode,

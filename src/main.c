@@ -14,7 +14,7 @@ void printUsage(const char* programName) {
 	       "(https), you have to provide the public and private certificates\n");
 }
 
-int main(int argc, char const* argv[]) {
+int main(int argc, const char* argv[]) {
 
 	// checking if there are enough arguments
 	if(argc != 2 && argc != 5) {

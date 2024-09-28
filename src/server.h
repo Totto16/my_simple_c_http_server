@@ -52,19 +52,25 @@ void sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
                                    StringBuilder* stringBuilder);
 
 void sendMallocedMessageToConnectionWithHeaders(const ConnectionDescriptor* const descriptor,
-                                                int status, char* body, char const* MIMEType,
+                                                int status, char* body, const char* MIMEType,
                                                 HttpHeaderField* headerFields,
                                                 const int headerFieldsAmount);
+
+// same as above, but with unmalloced content, like const char* indicates
+void sendMessageToConnectionWithHeaders(const ConnectionDescriptor* const descriptor, int status,
+                                        const char* body, const char* MIMEType,
+                                        HttpHeaderField* headerFields,
+                                        const int headerFieldsAmount);
 
 // sends a http message to the connection, takes status and if that special status needs some
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
 void sendMallocedMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
-                                     char* body, char const* MIMEType);
+                                     char* body, const char* MIMEType);
 
-// same as above, but with unmalloced content, like char const* indicates
+// same as above, but with unmalloced content, like const char* indicates
 void sendMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
-                             char const* body, char const* MIMEType);
+                             const char* body, const char* MIMEType);
 
 enum REQUEST_SUPPORT_STATUS {
 	REQUEST_SUPPORTED = 0,
