@@ -135,6 +135,17 @@ static bool is_secure_context(const ConnectionContext* const context) {
 	return context->type == SECURE_OPTIONS_TYPE_SECURE;
 }
 
+static SSL* new_ssl_structure_from_ctx(SSL_CTX* ssl_context) {
+	SSL* ssl_structure = SSL_new(ssl_context);
+	if(ssl_structure == NULL) {
+		fprintf(stderr, "Error: SSL_new failed ");
+		ERR_print_errors_fp(stderr);
+		return NULL;
+	}
+
+	return ssl_structure;
+}
+
 ConnectionContext* get_connection_context(const SecureOptions* const options) {
 
 	ConnectionContext* context = mallocOrFail(sizeof(ConnectionContext), true);
@@ -148,10 +159,9 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 
 	SecureData* data = options->data.data;
 
-	SSL* ssl_structure = SSL_new(data->ssl_context);
+	SSL* ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
+
 	if(ssl_structure == NULL) {
-		fprintf(stderr, "Error: SSL_new failed ");
-		ERR_print_errors_fp(stderr);
 		return NULL;
 	}
 
@@ -177,7 +187,7 @@ static bool is_secure_descriptor(const ConnectionDescriptor* const descriptor) {
 	return descriptor->type == SECURE_OPTIONS_TYPE_SECURE;
 }
 
-ConnectionDescriptor* get_connection_descriptor(ConnectionContext* const context, int fd) {
+ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const context, int fd) {
 
 	ConnectionDescriptor* descriptor = mallocOrFail(sizeof(ConnectionDescriptor), true);
 
@@ -188,11 +198,6 @@ ConnectionDescriptor* get_connection_descriptor(ConnectionContext* const context
 	}
 
 	descriptor->type = SECURE_OPTIONS_TYPE_SECURE;
-
-	if(context->data.data.ssl_structure == NULL) {
-		const ConnectionContext* new_context = get_connection_context(context->data.data.options);
-		context->data.data.ssl_structure = new_context->data.data.ssl_structure;
-	}
 
 	SSL* ssl_structure = context->data.data.ssl_structure;
 
@@ -283,7 +288,13 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 		SSL_free(ssl_structure);
 
 		assert(context->data.data.ssl_structure == ssl_structure);
-		context->data.data.ssl_structure = NULL;
+		context->data.data.ssl_structure =
+		    new_ssl_structure_from_ctx(context->data.data.options->data.data->ssl_context);
+
+		if(context->data.data.ssl_structure == NULL) {
+			errno = ESSL;
+			return -1;
+		}
 	}
 
 	return 0;

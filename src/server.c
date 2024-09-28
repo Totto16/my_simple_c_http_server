@@ -224,7 +224,6 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 				                                httpRequestToJSON(httpRequest), MIME_TYPE_JSON);
 			} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 				// TODO send actual Content-Length, experiment with e.g a large video file!
-				// TODO: doesn't work (only with https?!?!)
 				sendMessageToConnection(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_HTML);
 			} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
 				HttpHeaderField* allowedHeader =

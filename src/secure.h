@@ -31,7 +31,7 @@ ConnectionContext* get_connection_context(const SecureOptions* const options);
 
 void free_connection_context(ConnectionContext* context);
 
-ConnectionDescriptor* get_connection_descriptor(ConnectionContext* const context, int fd);
+ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const context, int fd);
 
 int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
                                 ConnectionContext* const context);
