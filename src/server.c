@@ -81,7 +81,7 @@ static void receiveSignal(int signalNumber) {
 // pool, but the listenere adds it
 // it receives all the necessary information and also handles the html pasring and response
 
-ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
+JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 
 	// attention arg is malloced!
 	ConnectionArgument argument = *((ConnectionArgument*)arg);
@@ -93,7 +93,11 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 
 	if(descriptor == NULL) {
 		fprintf(stderr, "Error: get_connection_descriptor failed\n");
-		exit(1);
+
+		JobError* error = mallocOrFail(sizeof(JobError), true);
+		error->error_code = JobErrorCode_DESC;
+
+		return error;
 	}
 
 	char* rawHttpRequest = readStringFromConnection(descriptor);
@@ -296,8 +300,16 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		if(size > MAX_QUEUE_SIZE) {
 			int boundary = size / 2;
 			while(size > boundary) {
+
 				job_id* jobId = (job_id*)myqueue_pop(argument.jobIds);
-				pool_await(jobId);
+
+				JobError* result = pool_await(jobId);
+
+				if(result != NULL) {
+					print_job_error(stderr, result);
+					free_job_error(result);
+				}
+
 				--size;
 			}
 		}
@@ -412,7 +424,13 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	// the queue can be filled, which can lead to a problem!!
 	while(!myqueue_is_empty(&jobIds)) {
 		job_id* jobId = (job_id*)myqueue_pop(&jobIds);
-		pool_await(jobId);
+
+		JobError* result = pool_await(jobId);
+
+		if(result != NULL) {
+			print_job_error(stderr, result);
+			free_job_error(result);
+		}
 	}
 
 	// then after all were awaited the pool is destroyed
@@ -443,4 +461,20 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	free_secure_options(options);
 
 	return EXIT_SUCCESS;
+}
+
+void print_job_error(FILE* file, const JobError* const error) {
+
+	const char* error_str = "Unknown error";
+
+	switch(error->error_code) {
+		case JobErrorCode_DESC: error_str = "Description"; break;
+		default: break;
+	}
+
+	fprintf(file, "Job Error: %s\n", error_str);
+}
+
+void free_job_error(JobError* error) {
+	free(error);
 }

@@ -1,6 +1,13 @@
 
 #include "thread_pool.h"
 
+struct job_id_impl {
+	sem_t status;
+	job_function jobFunction;
+	job_arg argument;
+	JobResult result;
+};
+
 // this function is used internally as worker thread Function, therefore the rather cryptic name
 // it handles all the submitted jobs, it wait for them with a semaphore, that is thread safe, and
 // callable from different threads.
@@ -40,16 +47,11 @@ anyType(NULL) _thread_pool_Worker_thread_function(anyType(_my_thread_pool_Thread
 		}
 
 		// otherwise it just calls the function, and therefore executes it
-		ignoredJobResult returnValue =
-		    currentJob->jobFunction(currentJob->argument, argument.workerInfo);
+		JobResult returnValue = currentJob->jobFunction(currentJob->argument, argument.workerInfo);
 		// atm a warning issued, when a functions returns something other than NULL, but thats
 		// only there, to show that it doesn't get returned, it wouldn't be that big of a deal to
 		// implement this, but it isn't needed and required
-		if(returnValue != NULL) {
-			fprintf(stderr,
-			        "Warning: return Values of thread pool functions are ignored, but you returned "
-			        "one, be aware that you don't receive this return value in pool_await atm!\n");
-		}
+		currentJob->result = returnValue;
 
 		// finally cleaning up by posting the semaphore
 		result = sem_post(&(currentJob->status));
@@ -135,6 +137,7 @@ static job_id* __pool_submit(thread_pool* pool, job_function start_routine, job_
 	// initializing the struct
 	jobDescription->argument = arg;
 	jobDescription->jobFunction = start_routine;
+	jobDescription->result = NULL;
 
 	// initializing with 0, it gets posted after the job was proccessed by a worker!!
 	// pshared i 0, since it'S shared between threads!
@@ -166,11 +169,11 @@ job_id* pool_submit(thread_pool* pool, job_function start_routine, job_arg arg) 
 // if a job is not awaited, its memory is NOT freed, and some other problems occur, so ALWAYS await
 // it! It is undefined behaviour if not all jobs are awaited before calling pool_destroy
 // this function can block, and waits until the job is finished, a semaphore is used for that
-// also don't manipulate the propertis of that struct, only pass it to the adequate function,
+// also don't manipulate the properties of that struct, only pass it to the adequate function,
 // otherwise undefined behaviour might occur!
 // after calling this function the content of the job_id is garbage, since it'S free, if you have a
 // copy, DON'T use it, it is undefined what happens when using this already freed chunck of memory
-static void __pool_await(job_id* jobDescription) {
+static JobResult __pool_await(job_id* jobDescription) {
 	// wait for the internal semaphore, that can block
 	int result = sem_wait(&(jobDescription->status));
 	checkResultForErrorAndExit(
@@ -180,18 +183,23 @@ static void __pool_await(job_id* jobDescription) {
 	result = sem_destroy(&(jobDescription->status));
 	checkResultForErrorAndExit("Couldn't destroy the internal thread pool Semaphore");
 
+	const JobResult job_result = jobDescription->result;
+
 	// finally free the allocated job_id
 	free(jobDescription);
+
+	return job_result;
 }
 
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its NULL) so it is checked here and
 // printing a warning if its _THREAD_SHUTDOWN_JOB
-void pool_await(job_id* jobDescription) {
+JobResult pool_await(job_id* jobDescription) {
 	if(jobDescription != _THREAD_SHUTDOWN_JOB) {
-		__pool_await(jobDescription);
+		return __pool_await(jobDescription);
 	} else {
 		fprintf(stderr, "WARNING: invalid job_function passed to pool_submit!\n");
+		return NULL;
 	}
 }
 
