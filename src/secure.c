@@ -15,7 +15,10 @@ struct SecureDataImpl {
 struct ConnectionContextImpl {
 	SECURE_OPTIONS_TYPE type;
 	union {
-		SSL* ssl_structure;
+		struct {
+			SSL* ssl_structure;
+			const SecureOptions* options;
+		} data;
 	} data;
 };
 
@@ -152,7 +155,8 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 		return NULL;
 	}
 
-	context->data.ssl_structure = ssl_structure;
+	context->data.data.ssl_structure = ssl_structure;
+	context->data.data.options = options;
 
 	return context;
 }
@@ -164,7 +168,7 @@ void free_connection_context(ConnectionContext* context) {
 		return;
 	}
 
-	SSL_free(context->data.ssl_structure);
+	SSL_free(context->data.data.ssl_structure);
 
 	free(context);
 }
@@ -173,7 +177,7 @@ static bool is_secure_descriptor(const ConnectionDescriptor* const descriptor) {
 	return descriptor->type == SECURE_OPTIONS_TYPE_SECURE;
 }
 
-ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const context, int fd) {
+ConnectionDescriptor* get_connection_descriptor(ConnectionContext* const context, int fd) {
 
 	ConnectionDescriptor* descriptor = mallocOrFail(sizeof(ConnectionDescriptor), true);
 
@@ -185,7 +189,12 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 
 	descriptor->type = SECURE_OPTIONS_TYPE_SECURE;
 
-	SSL* ssl_structure = context->data.ssl_structure;
+	if(context->data.data.ssl_structure == NULL) {
+		const ConnectionContext* new_context = get_connection_context(context->data.data.options);
+		context->data.data.ssl_structure = new_context->data.data.ssl_structure;
+	}
+
+	SSL* ssl_structure = context->data.data.ssl_structure;
 
 	int result = SSL_set_fd(ssl_structure, fd);
 
@@ -208,7 +217,8 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	return descriptor;
 }
 
-int close_connection_descriptor(const ConnectionDescriptor* const descriptor) {
+int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
+                                ConnectionContext* const context) {
 
 	if(!is_secure_descriptor(descriptor)) {
 		return close(descriptor->data.fd);
@@ -218,32 +228,61 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor) {
 
 	int result = 0;
 
-	// do a bidirectional shutdown, if  SSL_shutdown returns 0, we have to repeat the call, if it
+	// do a bidirectional shutdown, if SSL_shutdown returns 0, we have to repeat the call, if it
 	// returns 1, we where successful
 	do {
 		result = SSL_shutdown(ssl_structure);
 
 		if(result != 0 && result != 1) {
+			// if we already shutdown on our side, it is not strictly speaking an error, the other
+			// side did not terminate correctly, but we shouldn't error out because of that
+
+			int shutdown_flags = SSL_get_shutdown(ssl_structure);
+
+			if((shutdown_flags & SSL_SENT_SHUTDOWN) != 0) {
+				break;
+			}
+
 			fprintf(stderr, "Error: SSL_shutdown failed ");
 			ERR_print_errors_fp(stderr);
 			errno = ESSL;
 			return -1;
 		}
+
 	} while(result == 0);
 
-	// TODO: Warnings
-	/* SSL_clear() resets the SSL object to allow for another connection. The reset operation
-	 * however keeps several settings of the last sessions (some of these settings were made
-	 * automatically during the last handshake). It only makes sense when opening a new session (or
-	 * reusing an old one) with the same peer that shares these settings. SSL_clear() is not a short
-	 * form for the sequence ssl_free(3); ssl_new(3); .  */
-	result = SSL_clear(ssl_structure);
+	// check the way the connection was closed, either both ends closed it correctly, or the other
+	// side didn't clean up correctly
+	int shutdown_flags = SSL_get_shutdown(ssl_structure);
+	bool was_closed_correctly = false;
 
-	if(result != 1) {
-		fprintf(stderr, "Error: SSL_clear failed ");
-		ERR_print_errors_fp(stderr);
-		errno = ESSL;
-		return -1;
+	if((shutdown_flags & SSL_SENT_SHUTDOWN) != 0 && (shutdown_flags & SSL_RECEIVED_SHUTDOWN) != 0) {
+		was_closed_correctly = true;
+	}
+
+	// if it was closed correctly, we can reuse the connection, otherwise we can't
+	if(was_closed_correctly) {
+
+		// TODO: Warnings
+		/* SSL_clear() resets the SSL object to allow for another connection. The reset operation
+		 * however keeps several settings of the last sessions (some of these settings were made
+		 * automatically during the last handshake). It only makes sense when opening a new session
+		 * (or reusing an old one) with the same peer that shares these settings. SSL_clear() is not
+		 * a short form for the sequence ssl_free(3); ssl_new(3); .  */
+		result = SSL_clear(ssl_structure);
+
+		if(result != 1) {
+			fprintf(stderr, "Error: SSL_clear failed ");
+			ERR_print_errors_fp(stderr);
+			errno = ESSL;
+			return -1;
+		}
+
+	} else {
+		SSL_free(ssl_structure);
+
+		assert(context->data.data.ssl_structure == ssl_structure);
+		context->data.data.ssl_structure = NULL;
 	}
 
 	return 0;

@@ -288,7 +288,7 @@ void freeHttpResponse(HttpResponse* response) {
 	// elegantly freeing three at once :)
 	free(response->head.responseLine.protocolVersion);
 	for(size_t i = 0; i < response->head.headerAmount; ++i) {
-		// same elegant freeing but wo at once :)
+		// same elegant freeing but two at once :)
 
 		free(response->head.headerFields[i].key);
 	}
