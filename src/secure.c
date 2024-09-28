@@ -255,15 +255,16 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 	// side didn't clean up correctly
 	int shutdown_flags = SSL_get_shutdown(ssl_structure);
 	bool was_closed_correctly = false;
+	bool allow_reuse = false;
 
 	if((shutdown_flags & SSL_SENT_SHUTDOWN) != 0 && (shutdown_flags & SSL_RECEIVED_SHUTDOWN) != 0) {
 		was_closed_correctly = true;
 	}
 
 	// if it was closed correctly, we can reuse the connection, otherwise we can't
-	if(was_closed_correctly) {
+	if(was_closed_correctly && allow_reuse) {
 
-		// TODO: Warnings
+		// TODO: Warnings: allow_reuse should be configurable by keepalive connections:
 		/* SSL_clear() resets the SSL object to allow for another connection. The reset operation
 		 * however keeps several settings of the last sessions (some of these settings were made
 		 * automatically during the last handshake). It only makes sense when opening a new session
