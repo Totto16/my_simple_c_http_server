@@ -2,8 +2,12 @@
 Author: Tobias Niederbrunner - csba1761
 Module: PS OS 08
 */
-#include "server.h"
+
+#include <signal.h>
+
 #include "secure.h"
+#include "send.h"
+#include "server.h"
 #include "thread_pool.h"
 #include "utils.h"
 
@@ -42,95 +46,8 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 		}
 	}
 
-	// mallcoed, null terminated an probably "huge"
+	// malloced, null terminated an probably "huge"
 	return messageBuffer;
-}
-
-// sends a string to the connection, makes all write calls under the hood, deals with arbitrary
-// large null terminated strings!
-void sendStringToConnection(const ConnectionDescriptor* const descriptor, char* toSend) {
-
-	size_t remainingLength = strlen(toSend);
-
-	int alreadyWritten = 0;
-	// write bytes until all are written
-	while(true) {
-		ssize_t wroteBytes =
-		    write_to_descriptor(descriptor, toSend + alreadyWritten, remainingLength);
-
-		if(wroteBytes == -1) {
-			// exit is a bit harsh, but atm there is no better error handling mechanism implemented,
-			// that isn't necessary for that task
-			perror("ERROR: Writing to a connection");
-			exit(EXIT_FAILURE);
-		} else if(wroteBytes == 0) {
-			/// shouldn't occur!
-			fprintf(stderr, "FATAL: Write has an unsupported state!\n");
-			exit(EXIT_FAILURE);
-		} else if(wroteBytes == (ssize_t)remainingLength) {
-			// the message was sent in one time
-			break;
-		} else {
-			// otherwise repeat until that happened
-			remainingLength -= wroteBytes;
-			alreadyWritten += wroteBytes;
-		}
-	}
-}
-
-// just a warpper to send a string buffer to a connection, it also frees the string buffer!
-void sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
-                                   StringBuilder* stringBuilder) {
-	sendStringToConnection(descriptor, string_builder_get_string(stringBuilder));
-	string_builder_free(stringBuilder);
-}
-
-void sendMallocedMessageToConnectionWithHeaders(const ConnectionDescriptor* const descriptor,
-                                                int status, char* body, const char* MIMEType,
-                                                HttpHeaderField* headerFields,
-                                                const int headerFieldsAmount) {
-
-	HttpResponse* message =
-	    constructHttpResponseWithHeaders(status, body, headerFields, headerFieldsAmount, MIMEType);
-
-	StringBuilder* messageString = httpResponseToStringBuilder(message);
-
-	sendStringBuilderToConnection(descriptor, messageString);
-	// body gets freed
-	freeHttpResponse(message);
-}
-
-void sendMessageToConnectionWithHeaders(const ConnectionDescriptor* const descriptor, int status,
-                                        const char* body, const char* MIMEType,
-                                        HttpHeaderField* headerFields,
-                                        const int headerFieldsAmount) {
-	char* mallocedBody = normalStringToMalloced(body);
-
-	sendMallocedMessageToConnectionWithHeaders(descriptor, status, mallocedBody, MIMEType,
-	                                           headerFields, headerFieldsAmount);
-}
-
-// sends a http message to the connection, takes status and if that special status needs some
-// special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
-// for more
-void sendMallocedMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
-                                     char* body, const char* MIMEType) {
-
-	HttpResponse* message = constructHttpResponse(status, body, MIMEType);
-
-	StringBuilder* messageString = httpResponseToStringBuilder(message);
-
-	sendStringBuilderToConnection(descriptor, messageString);
-	// body gets freed
-	freeHttpResponse(message);
-}
-
-// same as above, but with unmalloced content, like const char* indicates
-void sendMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
-                             const char* body, const char* MIMEType) {
-	char* mallocedBody = normalStringToMalloced(body);
-
-	sendMallocedMessageToConnection(descriptor, status, mallocedBody, MIMEType);
 }
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
@@ -191,7 +108,8 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 	// there for more information
 	if(httpRequest == NULL) {
 		sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
-		                        "Request couldn't be parsed, it was malformed!", MIME_TYPE_TEXT);
+		                        "Request couldn't be parsed, it was malformed!", MIME_TYPE_TEXT,
+		                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 	} else {
 		// if the request is supported then the "beautiful" website is sent, if the URI is /shutdown
 		// a shutdown is issued
@@ -204,7 +122,8 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 				if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
 					printf("Shutdown requested!\n");
 					sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down",
-					                        MIME_TYPE_TEXT);
+					                        MIME_TYPE_TEXT, NULL, 0,
+					                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 					// just cancel the listener thread, then no new connection are accepted and the
 					// main thread cleans the pool and queue, all jobs are finished so shutdown
 					// gracefully
@@ -212,19 +131,22 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 					checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
 				} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
-					sendMallocedMessageToConnection(descriptor, HTTP_STATUS_OK,
-					                                httpRequestToHtml(httpRequest), MIME_TYPE_HTML);
+					sendMessageToConnection(descriptor, HTTP_STATUS_OK,
+					                        httpRequestToHtml(httpRequest), MIME_TYPE_HTML, NULL, 0,
+					                        CONNECTION_SEND_FLAGS_MALLOCED);
 				} else {
-					sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, "", MIME_TYPE_TEXT);
+					sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, "", MIME_TYPE_TEXT,
+					                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 				}
 			} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
 				// HTTP POST
 
-				sendMallocedMessageToConnection(descriptor, HTTP_STATUS_OK,
-				                                httpRequestToJSON(httpRequest), MIME_TYPE_JSON);
+				sendMessageToConnection(descriptor, HTTP_STATUS_OK, httpRequestToJSON(httpRequest),
+				                        MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 			} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 				// TODO send actual Content-Length, experiment with e.g a large video file!
-				sendMessageToConnection(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_HTML);
+				sendMessageToConnection(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_HTML, NULL, 0,
+				                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 			} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
 				HttpHeaderField* allowedHeader =
 				    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
@@ -237,15 +159,17 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 				allowedHeader[0].key = allowedHeaderBuffer;
 				allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-				sendMessageToConnectionWithHeaders(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_TEXT,
-				                                   allowedHeader, 1);
+				sendMessageToConnection(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_TEXT,
+				                        allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 			} else {
 				sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-				                        "Internal Server Error 1", MIME_TYPE_TEXT);
+				                        "Internal Server Error 1", MIME_TYPE_TEXT, NULL, 0,
+				                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 			}
 		} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
 			sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
-			                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT);
+			                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT, NULL, 0,
+			                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 		} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
 
 			HttpHeaderField* allowedHeader =
@@ -258,17 +182,18 @@ ignoredJobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 			allowedHeader[0].key = allowedHeaderBuffer;
 			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-			sendMessageToConnectionWithHeaders(
+			sendMessageToConnection(
 			    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
 			    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
-			    MIME_TYPE_TEXT, allowedHeader, 1);
+			    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 		} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
 			sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
 			                        "A GET, HEAD or OPTIONS Request can't have a body",
-			                        MIME_TYPE_TEXT);
+			                        MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 		} else {
 			sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-			                        "Internal Server Error 2", MIME_TYPE_TEXT);
+			                        "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
+			                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 		}
 
 		freeHttpRequest(httpRequest);

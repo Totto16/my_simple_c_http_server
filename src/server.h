@@ -8,14 +8,9 @@ Module: PS OS 08
 // Note -D_POSIX_C_SOURCE -D_BSD_SOURCE are needed feature flags ONLY for ZID-DPL, on
 // other more modern Systems these might throw a warning, but they're needed for older Systems!
 
-#include <errno.h>
 #include <netinet/ip.h>
 #include <poll.h>
-#include <signal.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <strings.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
@@ -25,7 +20,6 @@ Module: PS OS 08
 // stay in the same file
 #include "http_protocol.h"
 #include "secure.h"
-#include "string_builder.h"
 #include "thread_pool.h"
 
 // some general utils used in more programs, so saved into header!
@@ -42,35 +36,6 @@ Module: PS OS 08
 // helper function that read string from connection, it handles everything that is necessary and
 // returns an malloced (also realloced probably) pointer to a string, that is null terminated
 char* readStringFromConnection(const ConnectionDescriptor* const descriptor);
-
-// sends a string to the connection, makes all write calls under the hood, deals with arbitrary
-// large null terminated strings!
-void sendStringToConnection(const ConnectionDescriptor* const descriptor, char* toSend);
-
-// just a warpper to send a string buffer to a connection, it also frees the string buffer!
-void sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
-                                   StringBuilder* stringBuilder);
-
-void sendMallocedMessageToConnectionWithHeaders(const ConnectionDescriptor* const descriptor,
-                                                int status, char* body, const char* MIMEType,
-                                                HttpHeaderField* headerFields,
-                                                const int headerFieldsAmount);
-
-// same as above, but with unmalloced content, like const char* indicates
-void sendMessageToConnectionWithHeaders(const ConnectionDescriptor* const descriptor, int status,
-                                        const char* body, const char* MIMEType,
-                                        HttpHeaderField* headerFields,
-                                        const int headerFieldsAmount);
-
-// sends a http message to the connection, takes status and if that special status needs some
-// special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
-// for more
-void sendMallocedMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
-                                     char* body, const char* MIMEType);
-
-// same as above, but with unmalloced content, like const char* indicates
-void sendMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
-                             const char* body, const char* MIMEType);
 
 enum REQUEST_SUPPORT_STATUS {
 	REQUEST_SUPPORTED = 0,

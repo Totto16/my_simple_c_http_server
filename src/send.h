@@ -1,0 +1,25 @@
+
+
+#pragma once
+
+#include "http_protocol.h"
+#include "secure.h"
+#include "string_builder.h"
+
+// sends a string to the connection, makes all write calls under the hood, deals with arbitrary
+// large null terminated strings!
+void sendStringToConnection(const ConnectionDescriptor* const descriptor, char* toSend);
+
+// just a warpper to send a string buffer to a connection, it also frees the string buffer!
+void sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
+                                   StringBuilder* stringBuilder);
+
+typedef enum {
+	CONNECTION_SEND_FLAGS_MALLOCED = 0x00,
+	CONNECTION_SEND_FLAGS_UN_MALLOCED = 0x01
+
+} CONNECTION_SEND_FLAGS;
+
+void sendMessageToConnection(const ConnectionDescriptor* const descriptor, int status, char* body,
+                      const char* MIMEType, HttpHeaderField* headerFields,
+                      const int headerFieldsAmount, CONNECTION_SEND_FLAGS FLAGS);

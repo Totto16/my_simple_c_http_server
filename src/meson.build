@@ -11,6 +11,8 @@ src_files += files(
     'secure.h',
     'server.c',
     'server.h',
+    'send.c',
+    'send.h',
     'string_builder.c',
     'string_builder.h',
     'thread_pool.c',
