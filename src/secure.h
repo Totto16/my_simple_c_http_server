@@ -22,6 +22,8 @@ typedef struct ConnectionDescriptorImpl ConnectionDescriptor;
 
 bool is_secure(const SecureOptions* const options);
 
+bool is_secure_context(const ConnectionContext* const context);
+
 SecureOptions* initialize_secure_options(bool secure, const char* const public_cert_file,
                                          const char* const private_cert_file);
 

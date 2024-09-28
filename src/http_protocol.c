@@ -15,13 +15,15 @@ void freeHttpRequest(HttpRequest* request) {
 }
 
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
-StringBuilder* httpRequestToStringBuilder(HttpRequest* request) {
+StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https) {
 	StringBuilder* result = string_builder_init();
 	string_builder_append_single(result, "HttpRequest:\n");
 	string_builder_append(result, "\tMethod: %s\n", request->head.requestLine.method);
 	string_builder_append(result, "\tURI: %s\n", request->head.requestLine.URI);
 	string_builder_append(result, "\tProtocolVersion : %s\n",
 	                      request->head.requestLine.protocolVersion);
+
+	string_builder_append(result, "\tSecure : %s\n", https ? "true" : " false");
 
 	for(size_t i = 0; i < request->head.headerAmount; ++i) {
 		// same elegant freeing but wo at once :)
@@ -338,11 +340,12 @@ char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
 	return string_builder_to_string(result);
 }
 
-char* httpRequestToJSON(HttpRequest* request) {
+char* httpRequestToJSON(HttpRequest* request, bool https) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append(body, "{\"request\":\"%s\",", request->head.requestLine.method);
 	string_builder_append(body, "\"URI\": \"%s\",", request->head.requestLine.URI);
 	string_builder_append(body, "\"version\":\"%s\",", request->head.requestLine.protocolVersion);
+	string_builder_append(body, "\"secure\":%s,", https ? "true" : "false");
 	string_builder_append_single(body, "\"headers\":[");
 	for(size_t i = 0; i < request->head.headerAmount; ++i) {
 		// same elegant freeing but wo at once :)
@@ -360,15 +363,17 @@ char* httpRequestToJSON(HttpRequest* request) {
 	return string_builder_to_string(body);
 }
 
-char* httpRequestToHtml(HttpRequest* request) {
+char* httpRequestToHtml(HttpRequest* request, bool https) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append_single(body, "<h1 id=\"title\">HttpRequest:</h1><br>");
 	string_builder_append(body, "<div id=\"request\"><div>Method: %s</div>",
 	                      request->head.requestLine.method);
 	string_builder_append(body, "<div>URI: %s</div>", request->head.requestLine.URI);
-	string_builder_append(
-	    body, "<div>ProtocolVersion : %s</div><button id=\"shutdown\"> Shutdown </button></div>",
-	    request->head.requestLine.protocolVersion);
+	string_builder_append(body, "<div>ProtocolVersion : %s</div>",
+	                      request->head.requestLine.protocolVersion);
+	string_builder_append(body,
+	                      "<div>Secure : %s</div><button id=\"shutdown\"> Shutdown </button></div>",
+	                      https ? "true" : "false");
 	string_builder_append_single(body, "<div id=\"header\">");
 	for(size_t i = 0; i < request->head.headerAmount; ++i) {
 		// same elegant freeing but wo at once :)

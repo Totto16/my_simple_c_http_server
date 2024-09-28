@@ -129,7 +129,7 @@ construct the responses correctly
 void freeHttpRequest(HttpRequest* request);
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
 
-StringBuilder* httpRequestToStringBuilder(HttpRequest* request);
+StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https);
 
 // if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
 // strings, but keep in mind that you gave to use the given free method to free that properly,
@@ -161,6 +161,6 @@ void freeHttpResponse(HttpResponse* response);
 
 char* htmlFromString(char* headContent, char* scriptContent, char* styleContent, char* bodyContent);
 
-char* httpRequestToJSON(HttpRequest* request);
+char* httpRequestToJSON(HttpRequest* request, bool https);
 
-char* httpRequestToHtml(HttpRequest* request);
+char* httpRequestToHtml(HttpRequest* request, bool https);

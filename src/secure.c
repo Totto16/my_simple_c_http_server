@@ -131,7 +131,7 @@ void free_secure_options(SecureOptions* const options) {
 	free(options);
 }
 
-static bool is_secure_context(const ConnectionContext* const context) {
+bool is_secure_context(const ConnectionContext* const context) {
 	return context->type == SECURE_OPTIONS_TYPE_SECURE;
 }
 

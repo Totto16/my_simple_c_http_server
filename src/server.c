@@ -135,9 +135,10 @@ JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 					checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
 				} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
-					sendMessageToConnection(descriptor, HTTP_STATUS_OK,
-					                        httpRequestToHtml(httpRequest), MIME_TYPE_HTML, NULL, 0,
-					                        CONNECTION_SEND_FLAGS_MALLOCED);
+					sendMessageToConnection(
+					    descriptor, HTTP_STATUS_OK,
+					    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
+					    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 				} else {
 					sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, "", MIME_TYPE_TEXT,
 					                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
@@ -145,7 +146,8 @@ JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 			} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
 				// HTTP POST
 
-				sendMessageToConnection(descriptor, HTTP_STATUS_OK, httpRequestToJSON(httpRequest),
+				sendMessageToConnection(descriptor, HTTP_STATUS_OK,
+				                        httpRequestToJSON(httpRequest, is_secure_context(context)),
 				                        MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 			} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 				// TODO send actual Content-Length, experiment with e.g a large video file!
