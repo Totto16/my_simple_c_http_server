@@ -13,7 +13,7 @@ typedef struct {
 	uint64_t data_len;
 } WebSocketMessage;
 
-typedef bool (*WebSocketFunction)(WebSocketConnection* connection, WebSocketMessage* message);
+typedef bool (*WebSocketFunction)(WebSocketConnection* connection, WebSocketMessage message);
 
 void ws_send_message(WebSocketConnection* connection, WebSocketMessage message);
 

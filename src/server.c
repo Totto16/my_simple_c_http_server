@@ -40,13 +40,18 @@ static void receiveSignal(int signalNumber) {
 	signal_received = signalNumber;
 }
 
-bool websocketFunction(WebSocketConnection* connection, WebSocketMessage* message) {
-	// TODO
+// this returns true if everything is ok, and false if we should close the connection
+bool websocketFunction(WebSocketConnection* connection, WebSocketMessage message) {
+
+	if(message.is_text) {
+		printf("Received TEXT message: %*s\n", (int)message.data_len, (char*)message.data);
+	} else {
+		printf("Received BIN message of length %lu\n", message.data_len);
+	}
 
 	(void)connection;
-	(void)message;
 
-	return false;
+	return true;
 }
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread

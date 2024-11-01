@@ -51,6 +51,11 @@ typedef struct {
 	uint64_t payload_len;
 } WebSocketRawMessage;
 
+typedef struct {
+	WebSocketConnection* connection;
+	WebSocketThreadManager* manager;
+} WebSocketListenerArg;
+
 // TODO: free every readExactBytes result in the correct places
 
 #define RAW_MESSAGE_HEADER_SIZE 2
@@ -114,6 +119,10 @@ void ws_send_message_raw_internal(WebSocketConnection* connection, WebSocketRawM
 
 	assert(!mask && "Todo implement mask");
 
+	if(raw_message.payload == NULL) {
+		assert(raw_message.payload_len == 0 && "payload and payload length have to match");
+	}
+
 	uint8_t mask_len = mask ? 4 : 0;
 
 	uint8_t payload_additional_len =
@@ -145,7 +154,9 @@ void ws_send_message_raw_internal(WebSocketConnection* connection, WebSocketRawM
 		// TODO support mask
 	}
 
-	memcpy(resultingFrame + header_offset, raw_message.payload, raw_message.payload_len);
+	if(raw_message.payload_len != 0) {
+		memcpy(resultingFrame + header_offset, raw_message.payload, raw_message.payload_len);
+	}
 
 	sendDataToConnection(connection->descriptor, resultingFrame, size);
 }
@@ -159,12 +170,28 @@ void ws_send_message_internal(WebSocketConnection* connection, WebSocketMessage 
 	ws_send_message_raw_internal(connection, raw_message, false);
 }
 
-void* wsListenerFunction(anyType(WebSocketConnection*) arg) {
+// TODO: accept reason
+static void close_websocket_connection(WebSocketConnection* connection,
+                                       WebSocketThreadManager* manager) {
 
-	WebSocketConnection* connection = (WebSocketConnection*)arg;
+	WebSocketRawMessage message_raw = {
+		.fin = true, .opCode = WS_OPCODE_CLOSE, .payload = NULL, .payload_len = 0
+	};
+
+	ws_send_message_raw_internal(connection, message_raw, false);
+
+	thread_manager_remove_connection(manager, connection);
+}
+
+void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
+
+	// TODO: free in every possible path;
+	WebSocketListenerArg* argument = (WebSocketListenerArg*)arg;
+
+	WebSocketConnection* connection = argument->connection;
 
 	while(true) {
-
+		bool has_message = false;
 		WebSocketMessage current_message = { .is_text = true, .data = NULL, .data_len = 0 };
 
 		while(true) {
@@ -173,24 +200,78 @@ void* wsListenerFunction(anyType(WebSocketConnection*) arg) {
 
 			switch(raw_message.opCode) {
 				case WS_OPCODE_CONT: {
-					(void)current_message;
-					continue;
+					if(!has_message) {
+						close_websocket_connection(connection, argument->manager);
+						return NULL;
+					}
+
+					uint64_t old_length = current_message.data_len;
+					void* old_data = current_message.data;
+
+					current_message.data =
+					    mallocOrFail(old_length + raw_message.payload_len, false);
+					current_message.data_len += raw_message.payload_len;
+
+					memcpy(current_message.data, old_data, old_length);
+					memcpy(((uint8_t*)current_message.data) + old_length, raw_message.payload,
+					       raw_message.payload_len);
+
+					free(old_data);
+
+					if(!raw_message.fin) {
+						continue;
+					}
+
+					break;
 				}
 
 				case WS_OPCODE_TEXT:
+				case WS_OPCODE_BIN: {
+					has_message = true;
 
-				case WS_OPCODE_BIN:
+					current_message.is_text = raw_message.opCode == WS_OPCODE_TEXT;
+					current_message.data = raw_message.payload;
+					current_message.data_len = raw_message.payload_len;
 
+					if(!raw_message.fin) {
+						continue;
+					}
+
+					break;
+				}
 				case WS_OPCODE_CLOSE: {
-					// TODO close
+					close_websocket_connection(connection, argument->manager);
+					return NULL;
 				}
 
-				case WS_OPCODE_PING:
+				case WS_OPCODE_PING: {
+					WebSocketRawMessage message_raw = { .fin = true,
+						                                .opCode = WS_OPCODE_PONG,
+						                                .payload = raw_message.payload,
+						                                .payload_len = raw_message.payload_len };
+					ws_send_message_raw_internal(connection, message_raw, false);
+					continue;
+				}
 
-				case WS_OPCODE_PONG:
+				case WS_OPCODE_PONG: {
+					// just ignore
+					continue;
+				}
 
-				default:
-					// TODO: close conenction on unknown op code
+				default: {
+					close_websocket_connection(connection, argument->manager);
+					return NULL;
+				}
+			}
+		}
+
+		if(has_message && current_message.data) {
+			bool everything_ok = connection->function(connection, current_message);
+			free(current_message.data);
+
+			if(!everything_ok) {
+				close_websocket_connection(connection, argument->manager);
+				return NULL;
 			}
 		}
 	}
@@ -246,7 +327,13 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 		current_node = current_node->next;
 	}
 
-	result = pthread_create(&connection->thread_id, NULL, wsListenerFunction, connection);
+	WebSocketListenerArg* threadArgument =
+	    (WebSocketListenerArg*)mallocOrFail(sizeof(WebSocketListenerArg), true);
+	// initializing the struct with the necessary values
+	threadArgument->connection = connection;
+	threadArgument->manager = manager;
+
+	result = pthread_create(&connection->thread_id, NULL, wsListenerFunction, threadArgument);
 	checkResultForThreadErrorAndExit("An Error occurred while trying to create a new Thread");
 
 	result = pthread_mutex_unlock(&manager->mutex);
@@ -254,6 +341,12 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	    "An Error occurred while trying to unlock the mutex for the WebSocketThreadManager");
 
 	return connection;
+}
+
+static void free_connection(WebSocketConnection* connection) {
+	close_connection_descriptor(connection->descriptor, connection->context);
+	free_connection_context(connection->context);
+	free(connection);
 }
 
 bool thread_manager_remove_connection(WebSocketThreadManager* manager,
@@ -282,7 +375,7 @@ bool thread_manager_remove_connection(WebSocketThreadManager* manager,
 
 		WebSocketConnection* this_connection = current_node->connection;
 		if(connection == this_connection) {
-			free(connection);
+			free_connection(connection);
 
 			struct connection_node_t* next_node = current_node->next;
 
@@ -322,7 +415,10 @@ void thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
 
 		WebSocketConnection* connection = current_node->connection;
 
-		free(connection);
+		int result = pthread_cancel(connection->thread_id);
+		checkResultForErrorAndExit("While trying to cancel a WebSocketConnection Thread");
+
+		free_connection(connection);
 
 		struct connection_node_t* to_free = current_node;
 
