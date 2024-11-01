@@ -5,8 +5,8 @@
 #include <stdlib.h>
 
 // needed h files
-#include "string_builder.h"
-#include "utils.h"
+#include "utils/string_builder.h"
+#include "utils/utils.h"
 
 // some Mime Type Definitons:
 

@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "http_protocol.h"
+#include "http/http_protocol.h"
 #include "secure.h"
-#include "string_builder.h"
+#include "utils/string_builder.h"
 
 // sends a string to the connection, makes all write calls under the hood, deals with arbitrary
 // large null terminated strings!

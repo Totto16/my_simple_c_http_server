@@ -1,8 +1,8 @@
 
 #pragma once
 
-#include "http_protocol.h"
-#include "secure.h"
+#include "generic/secure.h"
+#include "http/http_protocol.h"
 
 typedef struct WSHandshakeResultImpl WSHandshakeResult;
 

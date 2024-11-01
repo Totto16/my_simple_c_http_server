@@ -3,7 +3,7 @@ Author: Tobias Niederbrunner - csba1761
 Module: PS OS 08
 */
 
-#include "secure.h"
+#include "generic/secure.h"
 #include "server.h"
 
 // prints the usage, if argc is not the right amount!

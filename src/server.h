@@ -18,12 +18,12 @@ Module: PS OS 08
 
 // all headers that are needed, so modular dependencies can be solved easily and also some "topics"
 // stay in the same file
-#include "http_protocol.h"
-#include "secure.h"
-#include "thread_pool.h"
+#include "generic/secure.h"
+#include "http/http_protocol.h"
+#include "utils/thread_pool.h"
 
 // some general utils used in more programs, so saved into header!
-#include "utils.h"
+#include "utils/utils.h"
 
 // specific numbers for the task, these are arbitrary, but suited for that problem
 

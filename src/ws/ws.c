@@ -1,10 +1,10 @@
 
 
 #include "ws.h"
-#include "http_protocol.h"
-#include "send.h"
-#include "string_builder.h"
-#include "string_helper.h"
+#include "http/http_protocol.h"
+#include "generic/send.h"
+#include "utils/string_builder.h"
+#include "utils/string_helper.h"
 
 #include <b64/b64.h>
 #include <strings.h>

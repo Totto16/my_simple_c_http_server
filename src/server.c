@@ -5,12 +5,12 @@ Module: PS OS 08
 
 #include <signal.h>
 
-#include "secure.h"
-#include "send.h"
+#include "generic/secure.h"
+#include "generic/send.h"
 #include "server.h"
-#include "thread_pool.h"
-#include "utils.h"
-#include "ws.h"
+#include "utils/thread_pool.h"
+#include "utils/utils.h"
+#include "ws/ws.h"
 
 // helper function that read string from connection, it handles everything that is necessary and
 // returns an malloced (also realloced probably) pointer to a string, that is null terminated
