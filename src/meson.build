@@ -1,6 +1,3 @@
-
-
-
 src_files += files(
     'http_protocol.c',
     'http_protocol.h',
@@ -9,10 +6,10 @@ src_files += files(
     'myqueue.h',
     'secure.c',
     'secure.h',
-    'server.c',
-    'server.h',
     'send.c',
     'send.h',
+    'server.c',
+    'server.h',
     'string_builder.c',
     'string_builder.h',
     'thread_pool.c',
