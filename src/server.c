@@ -162,7 +162,8 @@ JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 						freeWSHandshake(wsRequestResult);
 					}
 				} else {
-					sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, NULL, NULL, NULL, 0,
+					sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, "File not Found",
+					                        MIME_TYPE_TEXT, NULL, 0,
 					                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 				}
 			} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
