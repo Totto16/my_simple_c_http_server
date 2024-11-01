@@ -13,9 +13,14 @@
 #define _THREAD_SHUTDOWN_JOB NULL
 
 // degfining the type defs
+
+typedef struct {
+	size_t workerIndex;
+} WorkerInfo;
+
 typedef void* job_arg;
-typedef void* ignoredJobResult;
-typedef ignoredJobResult (*job_function)(job_arg);
+typedef void* JobResult;
+typedef JobResult (*job_function)(job_arg, WorkerInfo);
 
 typedef struct {
 	pthread_t thread;
@@ -29,16 +34,12 @@ typedef struct {
 	sem_t jobsAvailable;
 } thread_pool;
 
-typedef struct {
-	sem_t status;
-	job_function jobFunction;
-	job_arg argument;
-} job_id;
+typedef struct job_id_impl job_id;
 
 typedef struct {
 	_my_thread_pool_ThreadInformation* information;
-	size_t threadID;
 	thread_pool* threadPool;
+	WorkerInfo workerInfo;
 } _my_thread_pool_ThreadArgument;
 
 // this function is used internally as worker thread Function, therefore the rather cryptic name
@@ -71,7 +72,7 @@ job_id* pool_submit(thread_pool* pool, job_function start_routine, job_arg arg);
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its NULL) so it is checked here and
 // printing a warning if its _THREAD_SHUTDOWN_JOB
-void pool_await(job_id* jobDescription);
+[[nodiscard]] JobResult pool_await(job_id* jobDescription);
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined
 // behaviour! this cn also block, until all jobs are finished

@@ -11,13 +11,14 @@ project(
         'werror': 'true',
         'b_ndebug': 'if-release',
     },
-    version: '2.2.0',
+    version: '3.0.1',
 )
-
 
 deps = []
 
 deps += dependency('threads')
+
+deps += dependency('openssl')
 
 src_files = []
 inc_dirs = []
@@ -26,7 +27,6 @@ compile_flags = [
     '-DPROGRAM_NAME=' + meson.project_name(),
     '-DVERSION_STRING=' + meson.project_version(),
 ]
-
 
 subdir('src')
 

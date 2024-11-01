@@ -129,7 +129,7 @@ construct the responses correctly
 void freeHttpRequest(HttpRequest* request);
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
 
-StringBuilder* httpRequestToStringBuilder(HttpRequest* request);
+StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https);
 
 // if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
 // strings, but keep in mind that you gave to use the given free method to free that properly,
@@ -138,16 +138,16 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
-char const* getStatusMessage(int statusCode);
+const char* getStatusMessage(int statusCode);
 
 // simple http Response constructor using string builder, headers can be NULL, when headerSize is
 // also null!
 HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
                                                HttpHeaderField* additionalHeaders,
-                                               size_t headersSize, char const* MIMEType);
+                                               size_t headersSize, const char* MIMEType);
 
 // wrapper if no additionalHeaders are required
-HttpResponse* constructHttpResponse(int status, char* body, char const* MIMEType);
+HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType);
 
 // makes a stringBuilder from the HttpResponse, just does the opposite of parsing A Request, but
 // with some slight modification
@@ -161,6 +161,6 @@ void freeHttpResponse(HttpResponse* response);
 
 char* htmlFromString(char* headContent, char* scriptContent, char* styleContent, char* bodyContent);
 
-char* httpRequestToJSON(HttpRequest* request);
+char* httpRequestToJSON(HttpRequest* request, bool https);
 
-char* httpRequestToHtml(HttpRequest* request);
+char* httpRequestToHtml(HttpRequest* request, bool https);

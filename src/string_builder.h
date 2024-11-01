@@ -19,7 +19,7 @@ StringBuilder* string_builder_init();
 // helper function that turns a normal string into a malloced one, so the lifetime is extended and
 // he can be freed!
 
-char* normalStringToMalloced(char const* notMallocedString);
+char* normalStringToMalloced(const char* notMallocedString);
 
 // macro for appending, to used variable argument length conveniently, it uses the formatString
 // (snprintf) and __string_builder_append method under the hood
@@ -36,7 +36,7 @@ char* normalStringToMalloced(char const* notMallocedString);
 void __string_builder_append(StringBuilder* stringBuilder, char* string);
 
 // simple wrapper if just a constant string has to be appended
-void string_builder_append_single(StringBuilder* stringBuilder, char const* notMallocedString);
+void string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString);
 
 // attention the two methods to_string and get_string are different in that sense, that after
 // to_string the Stringbuilder is freed and invalid, after get_string not!

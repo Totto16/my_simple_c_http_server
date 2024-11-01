@@ -10,7 +10,7 @@ StringBuilder* string_builder_init() {
 // helper function that turns a normal string into a malloced one, so the lifetime is extended and
 // he can be freed!
 
-char* normalStringToMalloced(char const* notMallocedString) {
+char* normalStringToMalloced(const char* notMallocedString) {
 	size_t length = strlen(notMallocedString);
 	char* mallocedString = (char*)mallocOrFail(length + 1, true);
 	memcpy(mallocedString, notMallocedString, length);
@@ -52,7 +52,7 @@ void __string_builder_append(StringBuilder* stringBuilder, char* string) {
 }
 
 // simple wrapper if just a constant string has to be appended
-void string_builder_append_single(StringBuilder* stringBuilder, char const* notMallocedString) {
+void string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString) {
 	char* mallocedString = normalStringToMalloced(notMallocedString);
 	__string_builder_append(stringBuilder, mallocedString);
 }
