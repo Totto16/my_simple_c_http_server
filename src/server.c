@@ -10,46 +10,8 @@ Module: PS OS 08
 #include "server.h"
 #include "utils/thread_pool.h"
 #include "utils/utils.h"
+#include "ws/thread_manager.h"
 #include "ws/ws.h"
-
-// helper function that read string from connection, it handles everything that is necessary and
-// returns an malloced (also realloced probably) pointer to a string, that is null terminated
-char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
-	// this buffer expands using realloc!!
-	// also not the + 1 and the zero initialization, means that it's null terminated
-	char* messageBuffer = (char*)mallocOrFail(INITIAL_MESSAGE_BUF_SIZE + 1, true);
-
-	int buffersUsed = 0;
-	while(true) {
-		// read bytes, save the amount of read bytes, and then test for various scenarious
-		int readBytes = read_from_descriptor(
-		    descriptor, messageBuffer + (INITIAL_MESSAGE_BUF_SIZE * buffersUsed),
-		    INITIAL_MESSAGE_BUF_SIZE);
-		if(readBytes == -1) {
-			// exit is a bit harsh, but atm there is no better error handling mechanism implemented,
-			// that isn't necessary for that task
-			perror("ERROR: Reading from a connection");
-			exit(EXIT_FAILURE);
-		} else if(readBytes == 0) {
-			// client disconnected, so done
-			break;
-		} else if(readBytes == INITIAL_MESSAGE_BUF_SIZE) {
-			// now the buffer has to be reused, so it's realloced, the used realloc helper also
-			// initializes it with 0 and copies the old content, so nothing is lost and a new
-			// INITIAL_MESSAGE_BUF_SIZE capacity is available + a null byte at the end
-			size_t oldSize = ((buffersUsed + 1) * INITIAL_MESSAGE_BUF_SIZE) + 1;
-			messageBuffer = (char*)reallocOrFail(messageBuffer, oldSize,
-			                                     oldSize + INITIAL_MESSAGE_BUF_SIZE, true);
-			++buffersUsed;
-		} else {
-			// the message was shorter and could fit in the existing buffer!
-			break;
-		}
-	}
-
-	// malloced, null terminated an probably "huge"
-	return messageBuffer;
-}
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
@@ -78,11 +40,20 @@ static void receiveSignal(int signalNumber) {
 	signal_received = signalNumber;
 }
 
-// the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
-// pool, but the listenere adds it
-// it receives all the necessary information and also handles the html pasring and response
+bool websocketFunction(WebSocketConnection* connection, WebSocketMessage* message) {
+	// TODO
 
-JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
+	(void)connection;
+	(void)message;
+
+	return false;
+}
+
+// the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
+// pool, but the listener adds it
+// it receives all the necessary information and also handles the html parsing and response
+
+JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo) {
 
 	// attention arg is malloced!
 	ConnectionArgument argument = *((ConnectionArgument*)arg);
@@ -141,25 +112,29 @@ JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 					    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
 					    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 				} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
-					WSHandshakeResult* wsRequestResult = handleWSHandshake(httpRequest, descriptor);
+					bool wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
 
-					if(successfulWSHandshake(wsRequestResult)) {
+					if(wsRequestSuccessful) {
 						// TODO: spawn new thread with this, don't close descriptor, copy context!
 
-						// TODO: don't do all those things
-						freeHttpRequest(httpRequest);
+						// move the context so that we can use it in the long standing web socket
+						// thread
+						ConnectionContext* newContext = copy_connection_context(context);
+						argument.contexts[workerInfo.workerIndex] = newContext;
 
-						// finally close the connection
-						int result = close_connection_descriptor(descriptor, context);
-						checkResultForErrorAndExit(
-						    "While trying to close the connection descriptor");
-						// and free the malloced argument
+						thread_manager_add_connection(argument.webSocketManager, descriptor,
+						                              context, websocketFunction);
+
+						// finally free everything necessary
+
+						freeHttpRequest(httpRequest);
 						free(arg);
+
 						return NULL;
 
 					} else {
-						// the error was already sent, just free this and close the descriptor
-						freeWSHandshake(wsRequestResult);
+						// the error was already sent, just close the descriptor and free the http
+						// request, this is done at the end of this big if else statements
 					}
 				} else {
 					sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, "File not Found",
@@ -310,6 +285,7 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		connectionArgument->contexts = argument.contexts;
 		connectionArgument->connectionFd = connectionFd;
 		connectionArgument->listenerThread = pthread_self();
+		connectionArgument->webSocketManager = argument.webSocketManager;
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
@@ -425,12 +401,16 @@ int startServer(uint16_t port, SecureOptions* const options) {
 		contexts[i] = get_connection_context(options);
 	}
 
+	WebSocketThreadManager* webSocketManager = initialize_thread_manager();
+
 	// initializing the thread Arguments for the single listener thread, it receives all
 	// necessary arguments
 	pthread_t listenerThread;
-	ThreadArgument threadArgument = {
-		.pool = &pool, .jobIds = &jobIds, .contexts = contexts, .socketFd = socketFd
-	};
+	ThreadArgument threadArgument = { .pool = &pool,
+		                              .jobIds = &jobIds,
+		                              .contexts = contexts,
+		                              .socketFd = socketFd,
+		                              .webSocketManager = webSocketManager };
 
 	// creating the thread
 	result = pthread_create(&listenerThread, NULL, threadFunction, &threadArgument);
@@ -480,6 +460,10 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	for(size_t i = 0; i < pool.workerThreadAmount; ++i) {
 		free_connection_context(contexts[i]);
 	}
+
+	thread_manager_remove_all_connections(webSocketManager);
+
+	free_thread_manager(webSocketManager);
 
 	free(contexts);
 

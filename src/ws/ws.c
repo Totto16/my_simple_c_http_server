@@ -1,25 +1,16 @@
 
 
 #include "ws.h"
-#include "http/http_protocol.h"
 #include "generic/send.h"
+#include "http/http_protocol.h"
 #include "utils/string_builder.h"
 #include "utils/string_helper.h"
 
 #include <b64/b64.h>
 #include <strings.h>
 
-struct WSHandshakeResultImpl {
-	bool success;
-	union {
-		struct {
-			int todo;
-		} result;
-	} data;
-};
-
-static WSHandshakeResult* sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
-                                                     const char* error_reason) {
+static bool sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
+                                       const char* error_reason) {
 
 	StringBuilder* message = string_builder_init();
 
@@ -29,11 +20,7 @@ static WSHandshakeResult* sendFailedHandshakeMessage(const ConnectionDescriptor*
 	string_builder_free(message);
 	sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message, MIME_TYPE_TEXT,
 	                        NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
-	WSHandshakeResult* result = (WSHandshakeResult*)mallocOrFail(sizeof(WSHandshakeResult), true);
-
-	result->success = false;
-
-	return result;
+	return false;
 }
 
 static bool isValidSecKey(const char* key) {
@@ -70,8 +57,8 @@ typedef enum {
 	HANDSHAKE_HEADER_HEADER_ALL_FOUND = 0b11111,
 } NEEDED_HEADER_FOR_HANDSHAKE;
 
-WSHandshakeResult* handleWSHandshake(const HttpRequest* const httpRequest,
-                                     const ConnectionDescriptor* const descriptor) {
+bool handleWSHandshake(const HttpRequest* const httpRequest,
+                       const ConnectionDescriptor* const descriptor) {
 
 	// check if it is a valid Websocket request
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-2 section 4.2.1.
@@ -166,28 +153,5 @@ WSHandshakeResult* handleWSHandshake(const HttpRequest* const httpRequest,
 	sendMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL, header,
 	                        headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
 
-	WSHandshakeResult* result = (WSHandshakeResult*)mallocOrFail(sizeof(WSHandshakeResult), true);
-
-	result->success = true;
-	result->data.result.todo = 6666;
-
-	return result;
-}
-
-bool successfulWSHandshake(const WSHandshakeResult* const result) {
-	return result->success;
-}
-
-int getWSHandshakeResult(WSHandshakeResult* result) {
-	// TODO
-	(void)result;
-	return -1;
-}
-
-void freeWSHandshake(const WSHandshakeResult* const result) {
-	if(!result->success) {
-		return;
-	}
-
-	// TODO
+	return true;
 }

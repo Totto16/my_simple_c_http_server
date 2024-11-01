@@ -12,7 +12,7 @@
 // defining the Shutdown Macro
 #define _THREAD_SHUTDOWN_JOB NULL
 
-// degfining the type defs
+// defining the type defs
 
 typedef struct {
 	size_t workerIndex;

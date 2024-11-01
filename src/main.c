@@ -53,3 +53,6 @@ int main(int argc, const char* argv[]) {
 
 	return startServer(port, options);
 }
+
+// TODO: general, don't use exit() in error cases, try to do the best to "recover" in such
+// situations

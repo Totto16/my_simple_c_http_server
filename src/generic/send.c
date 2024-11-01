@@ -2,17 +2,16 @@
 
 #include "send.h"
 
-// sends a string to the connection, makes all write calls under the hood, deals with arbitrary
-// large null terminated strings!
-void sendStringToConnection(const ConnectionDescriptor* const descriptor, char* toSend) {
+void sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toSend,
+                          size_t length) {
 
-	size_t remainingLength = strlen(toSend);
+	size_t remainingLength = length;
 
 	int alreadyWritten = 0;
 	// write bytes until all are written
 	while(true) {
 		ssize_t wroteBytes =
-		    write_to_descriptor(descriptor, toSend + alreadyWritten, remainingLength);
+		    write_to_descriptor(descriptor, ((uint8_t*)toSend) + alreadyWritten, remainingLength);
 
 		if(wroteBytes == -1) {
 			// exit is a bit harsh, but atm there is no better error handling mechanism implemented,
@@ -32,6 +31,12 @@ void sendStringToConnection(const ConnectionDescriptor* const descriptor, char* 
 			alreadyWritten += wroteBytes;
 		}
 	}
+}
+
+// sends a string to the connection, makes all write calls under the hood, deals with arbitrary
+// large null terminated strings!
+void sendStringToConnection(const ConnectionDescriptor* const descriptor, char* toSend) {
+	sendDataToConnection(descriptor, toSend, strlen(toSend));
 }
 
 // just a warpper to send a string buffer to a connection, it also frees the string buffer!

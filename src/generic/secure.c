@@ -171,6 +171,33 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 	return context;
 }
 
+ConnectionContext* copy_connection_context(const ConnectionContext* const old_context) {
+
+	ConnectionContext* context = mallocOrFail(sizeof(ConnectionContext), true);
+
+	if(!is_secure_context(old_context)) {
+		context->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
+		return context;
+	}
+
+	context->type = SECURE_OPTIONS_TYPE_SECURE;
+
+	const SecureOptions* const options = old_context->data.data.options;
+
+	SecureData* data = options->data.data;
+
+	SSL* ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
+
+	if(ssl_structure == NULL) {
+		return NULL;
+	}
+
+	context->data.data.ssl_structure = ssl_structure;
+	context->data.data.options = options;
+
+	return context;
+}
+
 void free_connection_context(ConnectionContext* context) {
 
 	if(!is_secure_context(context)) {

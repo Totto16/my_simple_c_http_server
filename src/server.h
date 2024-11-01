@@ -21,6 +21,7 @@ Module: PS OS 08
 #include "generic/secure.h"
 #include "http/http_protocol.h"
 #include "utils/thread_pool.h"
+#include "ws/thread_manager.h"
 
 // some general utils used in more programs, so saved into header!
 #include "utils/utils.h"
@@ -28,8 +29,6 @@ Module: PS OS 08
 // specific numbers for the task, these are arbitrary, but suited for that problem
 
 #define SOCKET_BACKLOG_SIZE 10
-
-#define INITIAL_MESSAGE_BUF_SIZE 1024
 
 #define MAX_QUEUE_SIZE 100
 
@@ -53,14 +52,16 @@ int isRequestSupported(HttpRequest* request);
 typedef struct {
 	thread_pool* pool;
 	myqueue* jobIds;
-	ConnectionContext* const* contexts;
+	ConnectionContext** contexts;
 	int socketFd;
+	WebSocketThreadManager* webSocketManager;
 } ThreadArgument;
 
 typedef struct {
-	ConnectionContext* const* contexts;
+	ConnectionContext** contexts;
 	pthread_t listenerThread;
 	int connectionFd;
+	WebSocketThreadManager* webSocketManager;
 } ConnectionArgument;
 
 typedef enum { JobErrorCode_DESC } JobErrorCode;
@@ -73,7 +74,7 @@ typedef struct {
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo);
+JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
