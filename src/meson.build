@@ -12,10 +12,16 @@ src_files += files(
     'server.h',
     'string_builder.c',
     'string_builder.h',
+    'string_helper.c',
+    'string_helper.h',
     'thread_pool.c',
     'thread_pool.h',
     'utils.c',
     'utils.h',
+    'ws.c',
+    'ws.h',
 )
 
 inc_dirs += include_directories('.')
+
+subdir('thirdparty')

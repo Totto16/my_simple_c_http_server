@@ -10,6 +10,7 @@ Module: PS OS 08
 #include "server.h"
 #include "thread_pool.h"
 #include "utils.h"
+#include "ws.h"
 
 // helper function that read string from connection, it handles everything that is necessary and
 // returns an malloced (also realloced probably) pointer to a string, that is null terminated
@@ -139,9 +140,30 @@ JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 					    descriptor, HTTP_STATUS_OK,
 					    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
 					    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+				} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
+					WSHandshakeResult* wsRequestResult = handleWSHandshake(httpRequest, descriptor);
+
+					if(successfulWSHandshake(wsRequestResult)) {
+						// TODO: spawn new thread with this, don't close descriptor, copy context!
+
+						// TODO: don't do all those things
+						freeHttpRequest(httpRequest);
+
+						// finally close the connection
+						int result = close_connection_descriptor(descriptor, context);
+						checkResultForErrorAndExit(
+						    "While trying to close the connection descriptor");
+						// and free the malloced argument
+						free(arg);
+						return NULL;
+
+					} else {
+						// the error was already sent, just free this and close the descriptor
+						freeWSHandshake(wsRequestResult);
+					}
 				} else {
-					sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, "", MIME_TYPE_TEXT,
-					                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+					sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, NULL, NULL, NULL, 0,
+					                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 				}
 			} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
 				// HTTP POST
@@ -151,7 +173,7 @@ JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 				                        MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 			} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 				// TODO send actual Content-Length, experiment with e.g a large video file!
-				sendMessageToConnection(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_HTML, NULL, 0,
+				sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
 				                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 			} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
 				HttpHeaderField* allowedHeader =
@@ -165,8 +187,8 @@ JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo) {
 				allowedHeader[0].key = allowedHeaderBuffer;
 				allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-				sendMessageToConnection(descriptor, HTTP_STATUS_OK, "", MIME_TYPE_TEXT,
-				                        allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
+				                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 			} else {
 				sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
 				                        "Internal Server Error 1", MIME_TYPE_TEXT, NULL, 0,
