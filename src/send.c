@@ -80,8 +80,10 @@ void sendMessageToConnection(const ConnectionDescriptor* const descriptor, int s
 
 	char* final_body = body;
 
-	if(FLAGS & CONNECTION_SEND_FLAGS_UN_MALLOCED) {
-		final_body = normalStringToMalloced(body);
+	if((FLAGS & CONNECTION_SEND_FLAGS_UN_MALLOCED) != 0) {
+		if(body) {
+			final_body = normalStringToMalloced(body);
+		}
 	}
 
 	if(headerFields == NULL || headerFieldsAmount == 0) {

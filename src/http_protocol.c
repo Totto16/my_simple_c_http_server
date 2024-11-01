@@ -208,9 +208,10 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 
 	// now adding headers, adjust this value for more manual fields that are available in the array
 	// you have to asssign below
-#define STANDARD_HEADER_LENGTH 3
+	const size_t mimeTypeIndexOffset = MIMEType ? 1 : 0;
+	const size_t standard_header_length = mimeTypeIndexOffset + 2;
 
-	for(size_t i = 0; i < STANDARD_HEADER_LENGTH + headersSize; ++i) {
+	for(size_t i = 0; i < standard_header_length + headersSize; ++i) {
 		if(response->head.headerAmount == 0) {
 			response->head.headerFields =
 			    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
@@ -220,12 +221,12 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 			    sizeof(HttpHeaderField) * (response->head.headerAmount + 1), true);
 		}
 
-		if(i >= STANDARD_HEADER_LENGTH) {
+		if(i >= standard_header_length) {
 			// ATTENTION; this things have to be ALL malloced
 			response->head.headerFields[response->head.headerAmount].key =
-			    additionalHeaders[i - STANDARD_HEADER_LENGTH].key;
+			    additionalHeaders[i - standard_header_length].key;
 			response->head.headerFields[response->head.headerAmount].value =
-			    additionalHeaders[i - STANDARD_HEADER_LENGTH].value;
+			    additionalHeaders[i - standard_header_length].value;
 		}
 		++response->head.headerAmount;
 	}
@@ -235,26 +236,32 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 		free(additionalHeaders);
 	}
 
-	// add the standard ones, using %c with '\0' to use the trick, described above
-	char* contentTypeBuffer = NULL;
-	formatString(&contentTypeBuffer, "%s%c%s", "Content-Type", '\0',
-	             MIMEType == NULL ? DEFAULT_MIME_TYPE : MIMEType);
+	if(MIMEType) {
+		// add the standard ones, using %c with '\0' to use the trick, described above
+		char* contentTypeBuffer = NULL;
+		formatString(&contentTypeBuffer, "%s%c%s", "Content-Type", '\0',
+		             MIMEType == NULL ? DEFAULT_MIME_TYPE : MIMEType);
+
+		response->head.headerFields[0].key = contentTypeBuffer;
+		response->head.headerFields[0].value = contentTypeBuffer + strlen(contentTypeBuffer) + 1;
+	}
+
+	size_t bodyLength = body ? strlen(body) : 0;
 
 	char* contentLengthBuffer = NULL;
-	formatString(&contentLengthBuffer, "%s%c%ld", "Content-Length", '\0', strlen(body));
+	formatString(&contentLengthBuffer, "%s%c%ld", "Content-Length", '\0', bodyLength);
+
+	response->head.headerFields[mimeTypeIndexOffset].key = contentLengthBuffer;
+	response->head.headerFields[mimeTypeIndexOffset].value =
+	    contentLengthBuffer + strlen(contentLengthBuffer) + 1;
 
 	char* serverBuffer = NULL;
 	formatString(&serverBuffer, "%s%c%s", "Server", '\0',
 	             "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
-	response->head.headerFields[0].key = contentTypeBuffer;
-	response->head.headerFields[0].value = contentTypeBuffer + strlen(contentTypeBuffer) + 1;
-
-	response->head.headerFields[1].key = contentLengthBuffer;
-	response->head.headerFields[1].value = contentLengthBuffer + strlen(contentLengthBuffer) + 1;
-
-	response->head.headerFields[2].key = serverBuffer;
-	response->head.headerFields[2].value = serverBuffer + strlen(serverBuffer) + 1;
+	response->head.headerFields[mimeTypeIndexOffset + 1].key = serverBuffer;
+	response->head.headerFields[mimeTypeIndexOffset + 1].value =
+	    serverBuffer + strlen(serverBuffer) + 1;
 
 	// for that the body has to be malloced
 	response->body = body;
@@ -282,7 +289,13 @@ StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
 		string_builder_append(result, "%s: %s%s", response->head.headerFields[i].key,
 		                      response->head.headerFields[i].value, separators);
 	}
-	string_builder_append(result, "%s%s", separators, response->body);
+
+	string_builder_append_single(result, separators);
+
+	if(response->body) {
+		string_builder_append_single(result, response->body);
+	}
+
 	return result;
 }
 
@@ -296,7 +309,11 @@ void freeHttpResponse(HttpResponse* response) {
 		free(response->head.headerFields[i].key);
 	}
 	free(response->head.headerFields);
-	free(response->body);
+
+	if(response->body) {
+		free(response->body);
+	}
+
 	free(response);
 }
 

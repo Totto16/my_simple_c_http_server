@@ -15,11 +15,11 @@ void sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
                                    StringBuilder* stringBuilder);
 
 typedef enum {
-	CONNECTION_SEND_FLAGS_MALLOCED = 0x00,
-	CONNECTION_SEND_FLAGS_UN_MALLOCED = 0x01
+	CONNECTION_SEND_FLAGS_MALLOCED = 0b01,
+	CONNECTION_SEND_FLAGS_UN_MALLOCED = 0b10
 
 } CONNECTION_SEND_FLAGS;
 
 void sendMessageToConnection(const ConnectionDescriptor* const descriptor, int status, char* body,
-                      const char* MIMEType, HttpHeaderField* headerFields,
-                      const int headerFieldsAmount, CONNECTION_SEND_FLAGS FLAGS);
+                             const char* MIMEType, HttpHeaderField* headerFields,
+                             const int headerFieldsAmount, CONNECTION_SEND_FLAGS FLAGS);
