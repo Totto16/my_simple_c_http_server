@@ -17,10 +17,8 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 		    descriptor, messageBuffer + (INITIAL_MESSAGE_BUF_SIZE * buffersUsed),
 		    INITIAL_MESSAGE_BUF_SIZE);
 		if(readBytes == -1) {
-			// exit is a bit harsh, but atm there is no better error handling mechanism implemented,
-			// that isn't necessary for that task
 			perror("ERROR: Reading from a connection");
-			exit(EXIT_FAILURE);
+			return NULL;
 		} else if(readBytes == 0) {
 			// client disconnected, so done
 			break;
@@ -53,10 +51,8 @@ char* readExactBytes(const ConnectionDescriptor* const descriptor, size_t n_byte
 		int readBytes = read_from_descriptor(descriptor, messageBuffer + actualBytesRead,
 		                                     n_bytes - actualBytesRead);
 		if(readBytes == -1) {
-			// TODO: exit is a bit harsh, but atm there is no better error handling mechanism
-			// implemented
 			perror("ERROR: Reading from a connection");
-			exit(EXIT_FAILURE);
+			return NULL;
 		} else if(readBytes == 0) {
 			if(n_bytes == actualBytesRead) {
 				return messageBuffer;
@@ -64,7 +60,7 @@ char* readExactBytes(const ConnectionDescriptor* const descriptor, size_t n_byte
 
 			// client disconnected too early, so it's an error
 			fprintf(stderr, "EOF before all necessary bytes were read!");
-			exit(EXIT_FAILURE);
+			return NULL;
 		} else {
 			actualBytesRead += readBytes;
 		}

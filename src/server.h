@@ -32,10 +32,6 @@ Module: PS OS 08
 
 #define MAX_QUEUE_SIZE 100
 
-// helper function that read string from connection, it handles everything that is necessary and
-// returns an malloced (also realloced probably) pointer to a string, that is null terminated
-char* readStringFromConnection(const ConnectionDescriptor* const descriptor);
-
 enum REQUEST_SUPPORT_STATUS {
 	REQUEST_SUPPORTED = 0,
 	REQUEST_INVALID_HTTP_VERSION = 1,

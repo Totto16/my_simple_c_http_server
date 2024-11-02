@@ -55,11 +55,14 @@ typedef struct {
 } WebSocketRawMessage;
 
 typedef struct {
+	bool has_error;
+	WebSocketRawMessage message;
+} WebSocketRawMessageResult;
+
+typedef struct {
 	WebSocketConnection* connection;
 	WebSocketThreadManager* manager;
 } WebSocketListenerArg;
-
-// TODO: free every readExactBytes result in the correct places
 
 #define RAW_MESSAGE_HEADER_SIZE 2
 
@@ -79,20 +82,32 @@ static RawHeaderOne get_raw_header(uint8_t header_bytes[RAW_MESSAGE_HEADER_SIZE]
 	return result;
 }
 
-static WebSocketRawMessage read_raw_message(WebSocketConnection* connection) {
+static WebSocketRawMessageResult read_raw_message(WebSocketConnection* connection) {
 
 	uint8_t* header_bytes =
 	    (uint8_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
+	if(!header_bytes) {
+		WebSocketRawMessageResult err = { .has_error = true };
+		return err;
+	}
 	RawHeaderOne raw_header = get_raw_header(header_bytes);
 
 	uint64_t payload_len = (uint64_t)raw_header.payload_len;
 
 	if(payload_len == 126) {
 		uint16_t* payload_len_result = (uint16_t*)readExactBytes(connection->descriptor, 2);
+		if(!payload_len_result) {
+			WebSocketRawMessageResult err = { .has_error = true };
+			return err;
+		}
 		// in network byte order
 		payload_len = (uint64_t)htons(*payload_len_result);
 	} else if(payload_len == 127) {
 		uint64_t* payload_len_result = (uint64_t*)readExactBytes(connection->descriptor, 8);
+		if(!payload_len_result) {
+			WebSocketRawMessageResult err = { .has_error = true };
+			return err;
+		}
 		// in network byte order (alias big endian = be)
 		payload_len = htobe64(*payload_len_result);
 	}
@@ -101,9 +116,17 @@ static WebSocketRawMessage read_raw_message(WebSocketConnection* connection) {
 
 	if(raw_header.mask) {
 		mask_byte = (uint8_t*)readExactBytes(connection->descriptor, 4);
+		if(!mask_byte) {
+			WebSocketRawMessageResult err = { .has_error = true };
+			return err;
+		}
 	}
 
 	void* payload = readExactBytes(connection->descriptor, payload_len);
+	if(!payload) {
+		WebSocketRawMessageResult err = { .has_error = true };
+		return err;
+	}
 
 	if(raw_header.mask) {
 		for(size_t i = 0; i < payload_len; ++i) {
@@ -111,10 +134,12 @@ static WebSocketRawMessage read_raw_message(WebSocketConnection* connection) {
 		}
 	}
 
-	WebSocketRawMessage result = { .fin = raw_header.fin,
-		                           .opCode = raw_header.opCode,
-		                           .payload = payload,
-		                           .payload_len = payload_len };
+	WebSocketRawMessage value = { .fin = raw_header.fin,
+		                          .opCode = raw_header.opCode,
+		                          .payload = payload,
+		                          .payload_len = payload_len };
+
+	WebSocketRawMessageResult result = { .has_error = false, .message = value };
 
 	return result;
 }
@@ -276,93 +301,104 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 		while(true) {
 
-			WebSocketRawMessage raw_message = read_raw_message(connection);
+			WebSocketRawMessageResult raw_message_result = read_raw_message(connection);
 
-			switch(raw_message.opCode) {
-				case WS_OPCODE_CONT: {
-					if(!has_message) {
-						CloseReason reason = {
-							.code = CloseCode_ProtocolError,
-							"Received Opcode CONTINUATION, but no start frame received"
-						};
+			if(raw_message_result.has_error) {
+				CloseReason reason = { .code = CloseCode_ProtocolError,
+					                   "Erro while reading the needed bytes for a frame" };
+
+				close_websocket_connection(connection, argument->manager, reason);
+				return NULL;
+			}
+
+			WebSocketRawMessage raw_message = raw_message_result.message;
+
+			if(raw_message_result.has_error) switch(raw_message.opCode) {
+					case WS_OPCODE_CONT: {
+						if(!has_message) {
+							CloseReason reason = {
+								.code = CloseCode_ProtocolError,
+								"Received Opcode CONTINUATION, but no start frame received"
+							};
+
+							close_websocket_connection(connection, argument->manager, reason);
+							return NULL;
+						}
+
+						uint64_t old_length = current_message.data_len;
+						void* old_data = current_message.data;
+
+						current_message.data =
+						    mallocOrFail(old_length + raw_message.payload_len, false);
+						current_message.data_len += raw_message.payload_len;
+
+						memcpy(current_message.data, old_data, old_length);
+						memcpy(((uint8_t*)current_message.data) + old_length, raw_message.payload,
+						       raw_message.payload_len);
+
+						free(old_data);
+
+						if(!raw_message.fin) {
+							continue;
+						}
+
+						// can't break out of a switch and the while loop, so using goto
+						goto handle_message;
+					}
+
+					case WS_OPCODE_TEXT:
+					case WS_OPCODE_BIN: {
+						has_message = true;
+
+						current_message.is_text = raw_message.opCode == WS_OPCODE_TEXT;
+						current_message.data = raw_message.payload;
+						current_message.data_len = raw_message.payload_len;
+
+						if(!raw_message.fin) {
+							continue;
+						}
+
+						// can't break out of a switch and the while loop, so using goto
+						goto handle_message;
+					}
+					case WS_OPCODE_CLOSE: {
+
+						CloseReason reason = { .code = CloseCode_Normal, "Planned close" };
+
+						if(raw_message.payload_len != 0) {
+							CloseReason new_reason = maybe_parse_close_reason(raw_message, false);
+							if(new_reason.code != 0) {
+								reason = new_reason;
+							}
+						}
 
 						close_websocket_connection(connection, argument->manager, reason);
 						return NULL;
 					}
 
-					uint64_t old_length = current_message.data_len;
-					void* old_data = current_message.data;
-
-					current_message.data =
-					    mallocOrFail(old_length + raw_message.payload_len, false);
-					current_message.data_len += raw_message.payload_len;
-
-					memcpy(current_message.data, old_data, old_length);
-					memcpy(((uint8_t*)current_message.data) + old_length, raw_message.payload,
-					       raw_message.payload_len);
-
-					free(old_data);
-
-					if(!raw_message.fin) {
+					case WS_OPCODE_PING: {
+						WebSocketRawMessage message_raw = { .fin = true,
+							                                .opCode = WS_OPCODE_PONG,
+							                                .payload = raw_message.payload,
+							                                .payload_len =
+							                                    raw_message.payload_len };
+						ws_send_message_raw_internal(connection, message_raw, false);
 						continue;
 					}
 
-					// can't break out of a switch and the while loop, so using goto
-					goto handle_message;
-				}
-
-				case WS_OPCODE_TEXT:
-				case WS_OPCODE_BIN: {
-					has_message = true;
-
-					current_message.is_text = raw_message.opCode == WS_OPCODE_TEXT;
-					current_message.data = raw_message.payload;
-					current_message.data_len = raw_message.payload_len;
-
-					if(!raw_message.fin) {
+					case WS_OPCODE_PONG: {
+						// just ignore
 						continue;
 					}
 
-					// can't break out of a switch and the while loop, so using goto
-					goto handle_message;
-				}
-				case WS_OPCODE_CLOSE: {
+					default: {
+						CloseReason reason = { .code = CloseCode_NotSupportedType,
+							                   "Received Opcode that is not supported" };
 
-					CloseReason reason = { .code = CloseCode_Normal, "Planned close" };
-
-					if(raw_message.payload_len != 0) {
-						CloseReason new_reason = maybe_parse_close_reason(raw_message, false);
-						if(new_reason.code != 0) {
-							reason = new_reason;
-						}
+						close_websocket_connection(connection, argument->manager, reason);
+						return NULL;
 					}
-
-					close_websocket_connection(connection, argument->manager, reason);
-					return NULL;
 				}
-
-				case WS_OPCODE_PING: {
-					WebSocketRawMessage message_raw = { .fin = true,
-						                                .opCode = WS_OPCODE_PONG,
-						                                .payload = raw_message.payload,
-						                                .payload_len = raw_message.payload_len };
-					ws_send_message_raw_internal(connection, message_raw, false);
-					continue;
-				}
-
-				case WS_OPCODE_PONG: {
-					// just ignore
-					continue;
-				}
-
-				default: {
-					CloseReason reason = { .code = CloseCode_NotSupportedType,
-						                   "Received Opcode that is not supported" };
-
-					close_websocket_connection(connection, argument->manager, reason);
-					return NULL;
-				}
-			}
 		}
 
 	handle_message:

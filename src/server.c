@@ -5,6 +5,7 @@ Module: PS OS 08
 
 #include <signal.h>
 
+#include "generic/read.h"
 #include "generic/secure.h"
 #include "generic/send.h"
 #include "server.h"
@@ -79,6 +80,14 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 	}
 
 	char* rawHttpRequest = readStringFromConnection(descriptor);
+
+	if(!rawHttpRequest) {
+		sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
+		                        "Request couldn't be read, a connection error occurred!",
+		                        MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		goto cleanup;
+	}
+
 	// rawHttpRequest gets freed in here
 	HttpRequest* httpRequest = parseHttpRequest(rawHttpRequest);
 
@@ -92,96 +101,71 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 		sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
 		                        "Request couldn't be parsed, it was malformed!", MIME_TYPE_TEXT,
 		                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
-	} else {
-		// if the request is supported then the "beautiful" website is sent, if the URI is /shutdown
-		// a shutdown is issued
+		goto cleanup;
+	}
 
-		const int isSupported = isRequestSupported(httpRequest);
+	// if the request is supported then the "beautiful" website is sent, if the URI is /shutdown
+	// a shutdown is issued
 
-		if(isSupported == REQUEST_SUPPORTED) {
-			if(strcmp(httpRequest->head.requestLine.method, "GET") == 0) {
-				// HTTP GET
-				if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
-					printf("Shutdown requested!\n");
-					sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down",
-					                        MIME_TYPE_TEXT, NULL, 0,
-					                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
-					// just cancel the listener thread, then no new connection are accepted and the
-					// main thread cleans the pool and queue, all jobs are finished so shutdown
-					// gracefully
-					int result = pthread_cancel(argument.listenerThread);
-					checkResultForErrorAndExit("While trying to cancel the listener Thread");
+	const int isSupported = isRequestSupported(httpRequest);
 
-				} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
-					sendMessageToConnection(
-					    descriptor, HTTP_STATUS_OK,
-					    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
-					    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
-				} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
-					bool wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
+	if(isSupported == REQUEST_SUPPORTED) {
+		if(strcmp(httpRequest->head.requestLine.method, "GET") == 0) {
+			// HTTP GET
+			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
+				printf("Shutdown requested!\n");
+				sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down", MIME_TYPE_TEXT,
+				                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				// just cancel the listener thread, then no new connection are accepted and the
+				// main thread cleans the pool and queue, all jobs are finished so shutdown
+				// gracefully
+				int result = pthread_cancel(argument.listenerThread);
+				checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
-					if(wsRequestSuccessful) {
-						// TODO: spawn new thread with this, don't close descriptor, copy context!
-
-						// move the context so that we can use it in the long standing web socket
-						// thread
-						ConnectionContext* newContext = copy_connection_context(context);
-						argument.contexts[workerInfo.workerIndex] = newContext;
-
-						thread_manager_add_connection(argument.webSocketManager, descriptor,
-						                              context, websocketFunction);
-
-						// finally free everything necessary
-
-						freeHttpRequest(httpRequest);
-						free(arg);
-
-						return NULL;
-
-					} else {
-						// the error was already sent, just close the descriptor and free the http
-						// request, this is done at the end of this big if else statements
-					}
-				} else {
-					sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, "File not Found",
-					                        MIME_TYPE_TEXT, NULL, 0,
-					                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
-				}
-			} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
-				// HTTP POST
-
+			} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
 				sendMessageToConnection(descriptor, HTTP_STATUS_OK,
-				                        httpRequestToJSON(httpRequest, is_secure_context(context)),
-				                        MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
-			} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
-				// TODO send actual Content-Length, experiment with e.g a large video file!
-				sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
-				                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
-			} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
-				HttpHeaderField* allowedHeader =
-				    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
+				                        httpRequestToHtml(httpRequest, is_secure_context(context)),
+				                        MIME_TYPE_HTML, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
+				bool wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
 
-				char* allowedHeaderBuffer = NULL;
-				// all 405 have to have a Allow filed according to spec
-				formatString(&allowedHeaderBuffer, "%s%c%s", "Allow", '\0',
-				             "GET, POST, HEAD, OPTIONS");
+				if(wsRequestSuccessful) {
+					// TODO: spawn new thread with this, don't close descriptor, copy context!
 
-				allowedHeader[0].key = allowedHeaderBuffer;
-				allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
+					// move the context so that we can use it in the long standing web socket
+					// thread
+					ConnectionContext* newContext = copy_connection_context(context);
+					argument.contexts[workerInfo.workerIndex] = newContext;
 
-				sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
-				                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
+					thread_manager_add_connection(argument.webSocketManager, descriptor, context,
+					                              websocketFunction);
+
+					// finally free everything necessary
+
+					freeHttpRequest(httpRequest);
+					free(arg);
+
+					return NULL;
+
+				} else {
+					// the error was already sent, just close the descriptor and free the http
+					// request, this is done at the end of this big if else statements
+				}
 			} else {
-				sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-				                        "Internal Server Error 1", MIME_TYPE_TEXT, NULL, 0,
-				                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, "File not Found",
+				                        MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 			}
-		} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
-			sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
-			                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT, NULL, 0,
-			                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
-		} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
+		} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
+			// HTTP POST
 
+			sendMessageToConnection(descriptor, HTTP_STATUS_OK,
+			                        httpRequestToJSON(httpRequest, is_secure_context(context)),
+			                        MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
+			// TODO send actual Content-Length, experiment with e.g a large video file!
+			sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
+			                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
 			HttpHeaderField* allowedHeader =
 			    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
 
@@ -192,23 +176,46 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 			allowedHeader[0].key = allowedHeaderBuffer;
 			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-			sendMessageToConnection(
-			    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
-			    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
-			    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
-		} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
-			sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
-			                        "A GET, HEAD or OPTIONS Request can't have a body",
-			                        MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
+			                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 		} else {
 			sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-			                        "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
+			                        "Internal Server Error 1", MIME_TYPE_TEXT, NULL, 0,
 			                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 		}
+	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
+		sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
+		                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT, NULL, 0,
+		                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
+	} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
 
-		freeHttpRequest(httpRequest);
+		HttpHeaderField* allowedHeader =
+		    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
+
+		char* allowedHeaderBuffer = NULL;
+		// all 405 have to have a Allow filed according to spec
+		formatString(&allowedHeaderBuffer, "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
+
+		allowedHeader[0].key = allowedHeaderBuffer;
+		allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
+
+		sendMessageToConnection(
+		    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
+		    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
+		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
+		sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
+		                        "A GET, HEAD or OPTIONS Request can't have a body", MIME_TYPE_TEXT,
+		                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+	} else {
+		sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+		                        "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
+		                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 	}
 
+	freeHttpRequest(httpRequest);
+
+cleanup:
 	// finally close the connection
 	int result = close_connection_descriptor(descriptor, context);
 	checkResultForErrorAndExit("While trying to close the connection descriptor");
