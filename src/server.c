@@ -44,12 +44,13 @@ static void receiveSignal(int signalNumber) {
 bool websocketFunction(WebSocketConnection* connection, WebSocketMessage message) {
 
 	if(message.is_text) {
-		printf("Received TEXT message: %*s\n", (int)message.data_len, (char*)message.data);
+		printf("Received TEXT message: '%*s'\n", (int)message.data_len, (char*)message.data);
 	} else {
 		printf("Received BIN message of length %lu\n", message.data_len);
 	}
 
-	(void)connection;
+	// for autobahn tests, just echoing the things
+	ws_send_message(connection, message);
 
 	return true;
 }

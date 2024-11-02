@@ -17,7 +17,6 @@ static bool sendFailedHandshakeMessage(const ConnectionDescriptor* const descrip
 	string_builder_append(message, "Error: The client handshake was invalid: %s", error_reason);
 
 	char* malloced_message = string_builder_get_string(message);
-	string_builder_free(message);
 	sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message, MIME_TYPE_TEXT,
 	                        NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 	return false;
@@ -73,13 +72,13 @@ bool handleWSHandshake(const HttpRequest* const httpRequest,
 			foundList |= HANDSHAKE_HEADER_HEADER_HOST;
 		} else if(strcasecmp(header.key, "upgrade") == 0) {
 			foundList |= HANDSHAKE_HEADER_HEADER_UPGRADE;
-			if(!strcasecontains(header.value, "websocket")) {
+			if(strcasecontains(header.value, "websocket") < 0) {
 				return sendFailedHandshakeMessage(descriptor,
 				                                  "upgrade does not contain 'websocket'");
 			}
 		} else if(strcasecmp(header.key, "connection") == 0) {
 			foundList |= HANDSHAKE_HEADER_HEADER_CONNECTION;
-			if(!strcasecontains(header.value, "upgrade")) {
+			if(strcasecontains(header.value, "upgrade") < 0) {
 				return sendFailedHandshakeMessage(descriptor,
 				                                  "connection does not contain 'upgrade'");
 			}

@@ -7,6 +7,7 @@
 
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/random.h>
 
 struct connection_node_t {
 	WebSocketConnection* connection;
@@ -117,8 +118,6 @@ static WebSocketRawMessage read_raw_message(WebSocketConnection* connection) {
 void ws_send_message_raw_internal(WebSocketConnection* connection, WebSocketRawMessage raw_message,
                                   bool mask) {
 
-	assert(!mask && "Todo implement mask");
-
 	if(raw_message.payload == NULL) {
 		assert(raw_message.payload_len == 0 && "payload and payload length have to match");
 	}
@@ -136,8 +135,8 @@ void ws_send_message_raw_internal(WebSocketConnection* connection, WebSocketRawM
 
 	uint8_t headerOne = ((raw_message.fin & 0b1) << 7) | (raw_message.opCode & 0b1111);
 
-	uint8_t payload_len_1 = payload_additional_len =
-	    0 ? raw_message.payload_len : (payload_additional_len == 2 ? 126 : 127);
+	uint8_t payload_len_1 = payload_additional_len == 0 ? raw_message.payload_len
+	                                                    : (payload_additional_len == 2 ? 126 : 127);
 
 	uint8_t headerTwo = ((mask & 0b1) << 7) | (payload_len_1 & 0x7F);
 
@@ -150,35 +149,108 @@ void ws_send_message_raw_internal(WebSocketConnection* connection, WebSocketRawM
 		*((uint64_t*)(resultingFrame + 2)) = raw_message.payload_len;
 	}
 
-	if(mask) {
-		// TODO support mask
-	}
-
 	if(raw_message.payload_len != 0) {
 		memcpy(resultingFrame + header_offset, raw_message.payload, raw_message.payload_len);
+	}
+
+	if(mask) {
+
+		uint32_t mask_byte = 0;
+		getrandom((uint8_t*)(&mask_byte), sizeof(uint32_t), 0);
+
+		*((uint32_t*)(resultingFrame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len)) =
+		    mask_byte;
+
+		for(size_t i = 0; i < raw_message.payload_len; ++i) {
+			((uint8_t*)resultingFrame + header_offset)[i] =
+			    ((uint8_t*)raw_message.payload)[i] ^ ((uint8_t*)(&mask_byte))[i % 4];
+		}
 	}
 
 	sendDataToConnection(connection->descriptor, resultingFrame, size);
 }
 
-void ws_send_message_internal(WebSocketConnection* connection, WebSocketMessage message) {
+void ws_send_message_internal(WebSocketConnection* connection, WebSocketMessage message,
+                              bool mask) {
 	WS_OPCODE opCode = message.is_text ? WS_OPCODE_TEXT : WS_OPCODE_BIN;
 
 	WebSocketRawMessage raw_message = {
 		.fin = true, .opCode = opCode, .payload = message.data, .payload_len = message.data_len
 	};
-	ws_send_message_raw_internal(connection, raw_message, false);
+	ws_send_message_raw_internal(connection, raw_message, mask);
 }
 
-// TODO: accept reason
-static void close_websocket_connection(WebSocketConnection* connection,
-                                       WebSocketThreadManager* manager) {
+typedef enum /* :uint16_t */ {
+	CloseCode_Normal = 1000,
+	CloseCode_GoingAway = 1001,
+	CloseCode_ProtocolError = 1002,
+	CloseCode_NotSupportedType = 1003,
+	//
+	CloseCode_MessageDataCorrupt = 1007,
+	CloseCode_PolicyViolation = 1008,
+	CloseCode_MessageToBig = 1009,
+	CloseCode_MissingExtension = 1010,
+	CloseCode_UnexpectedCondition = 1011
+} CloseCode;
+
+typedef struct {
+	CloseCode code; // as uint16_t
+	char* message;
+} CloseReason;
+
+static CloseReason maybe_parse_close_reason(WebSocketRawMessage raw_message,
+                                            bool also_parse_message) {
+	assert(raw_message.opCode == WS_OPCODE_CLOSE);
+
+	uint64_t payload_len = raw_message.payload_len;
+
+	if(payload_len < 2) {
+		CloseReason failed = { .code = 0, .message = NULL };
+		return failed;
+	}
+
+	uint8_t* message = (uint8_t*)raw_message.payload;
+
+	uint16_t code = 0;
+
+	((uint8_t*)(&code))[0] = message[0];
+	((uint8_t*)(&code))[1] = message[1];
+
+	if(payload_len > 2 && also_parse_message) {
+		CloseReason result = { .code = code, .message = (char*)(message + 2) };
+		return result;
+	}
+
+	CloseReason result = { .code = code, .message = "" };
+	return result;
+}
+
+static void ws_send_close_message_raw_internal(WebSocketConnection* connection,
+                                               CloseReason reason) {
+
+	size_t message_len = strlen(reason.message);
+
+	uint64_t payload_len = 2 + message_len;
+
+	uint8_t* payload = (uint8_t*)mallocOrFail(payload_len, false);
+
+	uint8_t* reason_code = (uint8_t*)(&reason.code);
+
+	payload[0] = reason_code[0];
+	payload[1] = reason_code[1];
+
+	memcpy(payload + 2, reason.message, message_len);
 
 	WebSocketRawMessage message_raw = {
-		.fin = true, .opCode = WS_OPCODE_CLOSE, .payload = NULL, .payload_len = 0
+		.fin = true, .opCode = WS_OPCODE_CLOSE, .payload = payload, .payload_len = payload_len
 	};
 
 	ws_send_message_raw_internal(connection, message_raw, false);
+}
+
+static void close_websocket_connection(WebSocketConnection* connection,
+                                       WebSocketThreadManager* manager, CloseReason reason) {
+	ws_send_close_message_raw_internal(connection, reason);
 
 	thread_manager_remove_connection(manager, connection);
 }
@@ -201,7 +273,12 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 			switch(raw_message.opCode) {
 				case WS_OPCODE_CONT: {
 					if(!has_message) {
-						close_websocket_connection(connection, argument->manager);
+						CloseReason reason = {
+							.code = CloseCode_ProtocolError,
+							"Received Opcode CONTINUATION, but no start frame received"
+						};
+
+						close_websocket_connection(connection, argument->manager, reason);
 						return NULL;
 					}
 
@@ -222,7 +299,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						continue;
 					}
 
-					break;
+					// can't break out of a switch and the while loop, so using goto
+					goto handle_message;
 				}
 
 				case WS_OPCODE_TEXT:
@@ -237,10 +315,21 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						continue;
 					}
 
-					break;
+					// can't break out of a switch and the while loop, so using goto
+					goto handle_message;
 				}
 				case WS_OPCODE_CLOSE: {
-					close_websocket_connection(connection, argument->manager);
+
+					CloseReason reason = { .code = CloseCode_Normal, "Planned close" };
+
+					if(raw_message.payload_len != 0) {
+						CloseReason new_reason = maybe_parse_close_reason(raw_message, false);
+						if(new_reason.code != 0) {
+							reason = new_reason;
+						}
+					}
+
+					close_websocket_connection(connection, argument->manager, reason);
 					return NULL;
 				}
 
@@ -259,18 +348,26 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				}
 
 				default: {
-					close_websocket_connection(connection, argument->manager);
+					CloseReason reason = { .code = CloseCode_NotSupportedType,
+						                   "Received Opcode that is not supported" };
+
+					close_websocket_connection(connection, argument->manager, reason);
 					return NULL;
 				}
 			}
 		}
 
-		if(has_message && current_message.data) {
+	handle_message:
+
+		if(has_message) {
 			bool everything_ok = connection->function(connection, current_message);
 			free(current_message.data);
 
 			if(!everything_ok) {
-				close_websocket_connection(connection, argument->manager);
+				CloseReason reason = { .code = CloseCode_Normal,
+					                   "ServerApplication requested shutdown" };
+
+				close_websocket_connection(connection, argument->manager, reason);
 				return NULL;
 			}
 		}
@@ -281,7 +378,7 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 void ws_send_message(WebSocketConnection* connection, WebSocketMessage message) {
 
-	ws_send_message_internal(connection, message);
+	ws_send_message_internal(connection, message, false);
 }
 
 WebSocketThreadManager* initialize_thread_manager() {
@@ -291,7 +388,6 @@ WebSocketThreadManager* initialize_thread_manager() {
 	int result = pthread_mutex_init(&manager->mutex, NULL);
 	checkResultForThreadErrorAndExit(
 	    "An Error occurred while trying to initialize the mutex for the WebSocketThreadManager");
-
 	manager->head = NULL;
 
 	return manager;
@@ -343,7 +439,13 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	return connection;
 }
 
-static void free_connection(WebSocketConnection* connection) {
+static void free_connection(WebSocketConnection* connection, bool send_go_away) {
+
+	if(send_go_away) {
+		CloseReason reason = { .code = CloseCode_GoingAway, "Server is shutting down" };
+		ws_send_close_message_raw_internal(connection, reason);
+	}
+
 	close_connection_descriptor(connection->descriptor, connection->context);
 	free_connection_context(connection->context);
 	free(connection);
@@ -375,7 +477,7 @@ bool thread_manager_remove_connection(WebSocketThreadManager* manager,
 
 		WebSocketConnection* this_connection = current_node->connection;
 		if(connection == this_connection) {
-			free_connection(connection);
+			free_connection(connection, false);
 
 			struct connection_node_t* next_node = current_node->next;
 
@@ -418,7 +520,7 @@ void thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
 		int result = pthread_cancel(connection->thread_id);
 		checkResultForErrorAndExit("While trying to cancel a WebSocketConnection Thread");
 
-		free_connection(connection);
+		free_connection(connection, true);
 
 		struct connection_node_t* to_free = current_node;
 

@@ -46,25 +46,27 @@ char* readExactBytes(const ConnectionDescriptor* const descriptor, size_t n_byte
 
 	char* messageBuffer = (char*)mallocOrFail(n_bytes, true);
 
-	size_t readBytes = 0;
+	size_t actualBytesRead = 0;
 
 	while(true) {
 		// read bytes, save the amount of read bytes, and then test for various scenarios
-		int actualBytes =
-		    read_from_descriptor(descriptor, messageBuffer + readBytes, n_bytes - readBytes);
-		if(actualBytes == -1) {
+		int readBytes = read_from_descriptor(descriptor, messageBuffer + actualBytesRead,
+		                                     n_bytes - actualBytesRead);
+		if(readBytes == -1) {
 			// TODO: exit is a bit harsh, but atm there is no better error handling mechanism
 			// implemented
 			perror("ERROR: Reading from a connection");
 			exit(EXIT_FAILURE);
 		} else if(readBytes == 0) {
-			// client disconnected, so it's an error
+			if(n_bytes == actualBytesRead) {
+				return messageBuffer;
+			}
+
+			// client disconnected too early, so it's an error
 			fprintf(stderr, "EOF before all necessary bytes were read!");
 			exit(EXIT_FAILURE);
-		} else if(readBytes == (size_t)actualBytes) {
-			return messageBuffer;
 		} else {
-			readBytes += actualBytes;
+			actualBytesRead += readBytes;
 		}
 	}
 
