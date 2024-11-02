@@ -42,7 +42,7 @@ static void receiveSignal(int signalNumber) {
 }
 
 // this returns true if everything is ok, and false if we should close the connection
-bool websocketFunction(WebSocketConnection* connection, WebSocketMessage message) {
+WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMessage message) {
 
 	if(message.is_text) {
 		printf("Received TEXT message: '%*s'\n", (int)message.data_len, (char*)message.data);
@@ -51,9 +51,13 @@ bool websocketFunction(WebSocketConnection* connection, WebSocketMessage message
 	}
 
 	// for autobahn tests, just echoing the things
-	ws_send_message(connection, message);
+	bool result = ws_send_message(connection, message);
 
-	return true;
+	if(!result) {
+		return WebSocketAction_Error;
+	}
+
+	return WebSocketAction_Continue;
 }
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
@@ -82,9 +86,14 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 	char* rawHttpRequest = readStringFromConnection(descriptor);
 
 	if(!rawHttpRequest) {
-		sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
-		                        "Request couldn't be read, a connection error occurred!",
-		                        MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		bool _result =
+		    sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
+		                            "Request couldn't be read, a connection error occurred!",
+		                            MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+		// no recover strategy, if we fail on send, we close this anyway
+		(void)_result;
+
 		goto cleanup;
 	}
 
@@ -98,9 +107,13 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 	// httpRequest can be null, then it wasn't parseable, according to parseHttpRequest, see
 	// there for more information
 	if(httpRequest == NULL) {
-		sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
-		                        "Request couldn't be parsed, it was malformed!", MIME_TYPE_TEXT,
-		                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		bool _result = sendMessageToConnection(
+		    descriptor, HTTP_STATUS_BAD_REQUEST, "Request couldn't be parsed, it was malformed!",
+		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+		// no recover strategy, if we fail on send, we close this anyway
+		(void)_result;
+
 		goto cleanup;
 	}
 
@@ -114,8 +127,13 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 			// HTTP GET
 			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
 				printf("Shutdown requested!\n");
-				sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down", MIME_TYPE_TEXT,
-				                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down",
+				                                       MIME_TYPE_TEXT, NULL, 0,
+				                                       CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+				// no recover strategy, if we fail on send, we close this anyway
+				(void)_result;
+
 				// just cancel the listener thread, then no new connection are accepted and the
 				// main thread cleans the pool and queue, all jobs are finished so shutdown
 				// gracefully
@@ -123,9 +141,13 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 				checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
-				sendMessageToConnection(descriptor, HTTP_STATUS_OK,
-				                        httpRequestToHtml(httpRequest, is_secure_context(context)),
-				                        MIME_TYPE_HTML, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+				bool _result = sendMessageToConnection(
+				    descriptor, HTTP_STATUS_OK,
+				    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
+				    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+
+				// no recover strategy, if we fail on send, we close this anyway
+				(void)_result;
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
 				bool wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
 
@@ -152,19 +174,30 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 					// request, this is done at the end of this big if else statements
 				}
 			} else {
-				sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND, "File not Found",
-				                        MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND,
+				                                       "File not Found", MIME_TYPE_TEXT, NULL, 0,
+				                                       CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+				// no recover strategy, if we fail on send, we close this anyway
+				(void)_result;
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
 			// HTTP POST
 
-			sendMessageToConnection(descriptor, HTTP_STATUS_OK,
-			                        httpRequestToJSON(httpRequest, is_secure_context(context)),
-			                        MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+			bool _result =
+			    sendMessageToConnection(descriptor, HTTP_STATUS_OK,
+			                            httpRequestToJSON(httpRequest, is_secure_context(context)),
+			                            MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+
+			// no recover strategy, if we fail on send, we close this anyway
+			(void)_result;
 		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 			// TODO send actual Content-Length, experiment with e.g a large video file!
-			sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
-			                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
+			                                       CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+			// no recover strategy, if we fail on send, we close this anyway
+			(void)_result;
 		} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
 			HttpHeaderField* allowedHeader =
 			    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
@@ -176,17 +209,26 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 			allowedHeader[0].key = allowedHeaderBuffer;
 			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-			sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
-			                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			bool _result =
+			    sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
+			                            CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+			// no recover strategy, if we fail on send, we close this anyway
+			(void)_result;
 		} else {
-			sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-			                        "Internal Server Error 1", MIME_TYPE_TEXT, NULL, 0,
-			                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+			                                       "Internal Server Error 1", MIME_TYPE_TEXT, NULL,
+			                                       0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			// no recover strategy, if we fail on send, we close this anyway
+			(void)_result;
 		}
 	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
-		sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
-		                        "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT, NULL, 0,
-		                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
+		                                       "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT,
+		                                       NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+		// no recover strategy, if we fail on send, we close this anyway
+		(void)_result;
 	} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
 
 		HttpHeaderField* allowedHeader =
@@ -199,18 +241,27 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 		allowedHeader[0].key = allowedHeaderBuffer;
 		allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-		sendMessageToConnection(
+		bool _result = sendMessageToConnection(
 		    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
 		    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
 		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+		// no recover strategy, if we fail on send, we close this anyway
+		(void)_result;
 	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
-		sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
-		                        "A GET, HEAD or OPTIONS Request can't have a body", MIME_TYPE_TEXT,
-		                        NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		bool _result = sendMessageToConnection(
+		    descriptor, HTTP_STATUS_BAD_REQUEST, "A GET, HEAD or OPTIONS Request can't have a body",
+		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+		// no recover strategy, if we fail on send, we close this anyway
+		(void)_result;
 	} else {
-		sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-		                        "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
-		                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+		                                       "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
+		                                       CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+		// no recover strategy, if we fail on send, we close this anyway
+		(void)_result;
 	}
 
 	freeHttpRequest(httpRequest);

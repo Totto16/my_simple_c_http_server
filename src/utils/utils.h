@@ -8,6 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+// TODO: use c23 builtin, if available
+// see e.g. https://www.gnu.org/software/gnulib/manual/html_node/Attributes.html
+#define NODISCARD __attribute__((__warn_unused_result__))
+
 // cool trick from here:
 // https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
 #ifdef NDEBUG

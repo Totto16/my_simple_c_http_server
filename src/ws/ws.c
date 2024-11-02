@@ -9,20 +9,23 @@
 #include <b64/b64.h>
 #include <strings.h>
 
-static bool sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
-                                       const char* error_reason) {
+static NODISCARD bool sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
+                                                 const char* error_reason) {
 
 	StringBuilder* message = string_builder_init();
 
 	string_builder_append(message, "Error: The client handshake was invalid: %s", error_reason);
 
 	char* malloced_message = string_builder_get_string(message);
-	sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message, MIME_TYPE_TEXT,
-	                        NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+	bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
+	                                       MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+
+	// already are sending an error, can't recover anyway, so just ignore
+	(void)_result;
 	return false;
 }
 
-static bool isValidSecKey(const char* key) {
+static NODISCARD bool isValidSecKey(const char* key) {
 	size_t size = 0;
 	unsigned char* result = b64_decode_ex(key, strlen(key), &size);
 	if(!result) {
@@ -149,8 +152,6 @@ bool handleWSHandshake(const HttpRequest* const httpRequest,
 	header[2].key = secWebsocketAcceptHeaderBuffer;
 	header[2].value = secWebsocketAcceptHeaderBuffer + strlen(secWebsocketAcceptHeaderBuffer) + 1;
 
-	sendMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL, header,
-	                        headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
-
-	return true;
+	return sendMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL, header,
+	                               headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
 }
