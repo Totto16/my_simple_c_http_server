@@ -5,6 +5,8 @@
 #include "generic/send.h"
 #include "utils/utils.h"
 
+#include <arpa/inet.h>
+#include <endian.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <sys/random.h>
@@ -87,10 +89,12 @@ static WebSocketRawMessage read_raw_message(WebSocketConnection* connection) {
 
 	if(payload_len == 126) {
 		uint16_t* payload_len_result = (uint16_t*)readExactBytes(connection->descriptor, 2);
-		payload_len = (uint64_t)(*payload_len_result);
+		// in network byte order
+		payload_len = (uint64_t)htons(*payload_len_result);
 	} else if(payload_len == 127) {
 		uint64_t* payload_len_result = (uint64_t*)readExactBytes(connection->descriptor, 8);
-		payload_len = *payload_len_result;
+		// in network byte order (alias big endian = be)
+		payload_len = htobe64(*payload_len_result);
 	}
 
 	uint8_t* mask_byte = NULL;
@@ -144,9 +148,11 @@ void ws_send_message_raw_internal(WebSocketConnection* connection, WebSocketRawM
 	resultingFrame[1] = headerTwo;
 
 	if(payload_additional_len == 2) {
-		*((uint16_t*)(resultingFrame + 2)) = (uint16_t)(raw_message.payload_len);
+		// in network byte order
+		*((uint16_t*)(resultingFrame + 2)) = htons((uint16_t)(raw_message.payload_len));
 	} else if(payload_additional_len == 8) {
-		*((uint64_t*)(resultingFrame + 2)) = raw_message.payload_len;
+		// in network byte order (alias big endian = be)
+		*((uint64_t*)(resultingFrame + 2)) = htobe64(raw_message.payload_len);
 	}
 
 	if(raw_message.payload_len != 0) {
@@ -213,8 +219,9 @@ static CloseReason maybe_parse_close_reason(WebSocketRawMessage raw_message,
 
 	uint16_t code = 0;
 
-	((uint8_t*)(&code))[0] = message[0];
-	((uint8_t*)(&code))[1] = message[1];
+	// in network byte order
+	((uint8_t*)(&code))[0] = message[1];
+	((uint8_t*)(&code))[1] = message[0];
 
 	if(payload_len > 2 && also_parse_message) {
 		CloseReason result = { .code = code, .message = (char*)(message + 2) };
@@ -236,8 +243,9 @@ static void ws_send_close_message_raw_internal(WebSocketConnection* connection,
 
 	uint8_t* reason_code = (uint8_t*)(&reason.code);
 
-	payload[0] = reason_code[0];
-	payload[1] = reason_code[1];
+	// network byte order
+	payload[0] = reason_code[1];
+	payload[1] = reason_code[0];
 
 	memcpy(payload + 2, reason.message, message_len);
 
