@@ -736,6 +736,8 @@ void thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
 		current_node = current_node->next;
 		free(to_free);
 	}
+
+	manager->head = NULL;
 }
 
 void free_thread_manager(WebSocketThreadManager* manager) {
