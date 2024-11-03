@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/random.h>
+#include <utf8proc.h>
 
 struct connection_node_t {
 	WebSocketConnection* connection;
@@ -378,6 +379,42 @@ static NODISCARD bool setup_signal_handler(void) {
 	return true;
 }
 
+typedef struct {
+	utf8proc_int32_t* data;
+	uint64_t size;
+} Utf8Data;
+
+typedef struct {
+	bool has_error;
+	union {
+		Utf8Data result;
+		const char* error;
+	} data;
+} Utf8DataResult;
+
+NODISCARD Utf8DataResult get_utf8_string(const void* data, uint64_t size) {
+
+	utf8proc_int32_t* buffer = mallocOrFail(sizeof(utf8proc_int32_t) * size, false);
+
+	utf8proc_ssize_t result = utf8proc_decompose(data, size, buffer, size, 0);
+
+	if(result < 0) {
+		Utf8DataResult err = { .has_error = true, .data = { .error = utf8proc_errmsg(result) } };
+		return err;
+	}
+
+	if((uint64_t)result != size) {
+		// truncate the buffer
+		buffer = reallocOrFail(buffer, sizeof(utf8proc_int32_t) * size,
+		                       sizeof(utf8proc_int32_t) * result, false);
+	}
+
+	Utf8Data utf8_data = { .size = result, .data = buffer };
+
+	Utf8DataResult value = { .has_error = false, .data = { .result = utf8_data } };
+	return value;
+}
+
 void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 	SET_THREAD_NAME_FORMATTED("ws listener %d", get_thread_id());
@@ -461,6 +498,41 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 					}
 					return NULL;
 				}
+
+				// check utf-8 encoding in close messages
+				if(raw_message.opCode == WS_OPCODE_CLOSE) {
+
+					// the first two bytes are the code
+					if(raw_message.payload_len > 2) {
+
+						Utf8DataResult utf8_result = get_utf8_string(
+						    ((char*)(raw_message.payload)) + 2, raw_message.payload_len - 2);
+
+						if(utf8_result.has_error) {
+							char* errorMessage = NULL;
+							formatString(&errorMessage, "Invalid utf8 payload in control frame: %s",
+							             utf8_result.data.error);
+
+							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
+								                   .message = errorMessage };
+
+							const char* result =
+							    close_websocket_connection(connection, argument->manager, reason);
+
+							if(result != NULL) {
+								LOG_MESSAGE(LogLevelError,
+								            "Error while closing the websocket connection: "
+								            "Invalid utf8 payload in control frame: %s\n",
+								            result);
+							}
+							return NULL;
+						}
+
+						Utf8Data data = utf8_result.data.result;
+						// TODO: do something with this
+						free(data.data);
+					}
+				}
 			}
 
 			switch(raw_message.opCode) {
@@ -500,6 +572,36 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						continue;
 					}
 
+					if(current_message.is_text) {
+						Utf8DataResult utf8_result =
+						    get_utf8_string(current_message.data, current_message.data_len);
+
+						if(utf8_result.has_error) {
+
+							char* errorMessage = NULL;
+							formatString(&errorMessage,
+							             "Invalid utf8 payload in fragmented message: %s",
+							             utf8_result.data.error);
+
+							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
+								                   .message = errorMessage };
+
+							const char* result =
+							    close_websocket_connection(connection, argument->manager, reason);
+
+							if(result != NULL) {
+								LOG_MESSAGE(LogLevelError,
+								            "Error while closing the websocket connection: "
+								            "Invalid utf8 payload in fragmented message: %s\n",
+								            result);
+							}
+							return NULL;
+						}
+
+						Utf8Data data = utf8_result.data.result;
+						// TODO: do something with this
+						free(data.data);
+					}
 					// can't break out of a switch and the while loop, so using goto
 					goto handle_message;
 				}
@@ -532,6 +634,36 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 					if(!raw_message.fin) {
 						continue;
+					}
+
+					if(current_message.is_text) {
+						Utf8DataResult utf8_result =
+						    get_utf8_string(current_message.data, current_message.data_len);
+
+						if(utf8_result.has_error) {
+							char* errorMessage = NULL;
+							formatString(&errorMessage,
+							             "Invalid utf8 payload in un-fragmented message: %s",
+							             utf8_result.data.error);
+
+							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
+								                   .message = errorMessage };
+
+							const char* result =
+							    close_websocket_connection(connection, argument->manager, reason);
+
+							if(result != NULL) {
+								LOG_MESSAGE(LogLevelError,
+								            "Error while closing the websocket connection: "
+								            "Invalid utf8 payload in un-fragmented message: %s\n",
+								            result);
+							}
+							return NULL;
+						}
+
+						Utf8Data data = utf8_result.data.result;
+						// TODO: do something with this
+						free(data.data);
 					}
 
 					// can't break out of a switch and the while loop, so using goto
