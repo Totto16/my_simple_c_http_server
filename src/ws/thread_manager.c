@@ -102,6 +102,15 @@ NODISCARD static RawHeaderOneResult get_raw_header(uint8_t header_bytes[RAW_MESS
 	return result;
 }
 
+NODISCARD static bool is_control_op_code(WS_OPCODE opCode) {
+	// wrong opcodes, they only can be 4 bytes large
+	if(opCode > 0xF) {
+		return false;
+	}
+
+	return (opCode & 0b1000) != 0;
+}
+
 NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection* connection) {
 
 	uint8_t* header_bytes =
@@ -235,6 +244,18 @@ static NODISCARD bool ws_send_message_raw_internal(WebSocketConnection* connecti
 		}
 	}
 
+	if(is_control_op_code(raw_message.opCode)) {
+		if(!raw_message.fin) {
+			// TODO: add error message
+			return false;
+		}
+
+		if(raw_message.payload_len > 125) {
+			// TODO: add error message
+			return false;
+		}
+	}
+
 	return sendDataToConnection(connection->descriptor, resultingFrame, size);
 }
 
@@ -248,17 +269,18 @@ static NODISCARD bool ws_send_message_internal(WebSocketConnection* connection,
 	return ws_send_message_raw_internal(connection, raw_message, mask);
 }
 
+// see: https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
 typedef enum /* :uint16_t */ {
-	CloseCode_Normal = 1000,
+	CloseCode_NormalClosure = 1000,
 	CloseCode_GoingAway = 1001,
 	CloseCode_ProtocolError = 1002,
-	CloseCode_NotSupportedType = 1003,
+	CloseCode_UnsupportedData = 1003,
 	//
-	CloseCode_MessageDataCorrupt = 1007,
+	CloseCode_InvalidFramePayloadData = 1007,
 	CloseCode_PolicyViolation = 1008,
-	CloseCode_MessageToBig = 1009,
-	CloseCode_MissingExtension = 1010,
-	CloseCode_UnexpectedCondition = 1011
+	CloseCode_MessageTooBig = 1009,
+	CloseCode_MandatoryExtension = 1010,
+	CloseCode_InternalServerError = 1011
 } CloseCode;
 
 typedef struct {
@@ -405,6 +427,42 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 			WebSocketRawMessage raw_message = raw_message_result.data.message;
 
+			// some additional checks for control frames
+			if(is_control_op_code(raw_message.opCode)) {
+
+				if(!raw_message.fin) {
+					CloseReason reason = { .code = CloseCode_ProtocolError,
+						                   "Received fragmented control frame" };
+
+					const char* result =
+					    close_websocket_connection(connection, argument->manager, reason);
+
+					if(result != NULL) {
+						LOG_MESSAGE(LogLevelError,
+						            "Error while closing the websocket connection: "
+						            "fragmented control frame: %s\n",
+						            result);
+					}
+					return NULL;
+				}
+
+				if(raw_message.payload_len > 125) {
+					CloseReason reason = { .code = CloseCode_ProtocolError,
+						                   "Control frame payload to large" };
+
+					const char* result =
+					    close_websocket_connection(connection, argument->manager, reason);
+
+					if(result != NULL) {
+						LOG_MESSAGE(LogLevelError,
+						            "Error while closing the websocket connection: "
+						            "Control frame payload to large: %s\n",
+						            result);
+					}
+					return NULL;
+				}
+			}
+
 			switch(raw_message.opCode) {
 				case WS_OPCODE_CONT: {
 					if(!has_message) {
@@ -463,7 +521,7 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				}
 				case WS_OPCODE_CLOSE: {
 
-					CloseReason reason = { .code = CloseCode_Normal, "Planned close" };
+					CloseReason reason = { .code = CloseCode_NormalClosure, "Planned close" };
 
 					if(raw_message.payload_len != 0) {
 						CloseReason new_reason = maybe_parse_close_reason(raw_message, false);
@@ -516,7 +574,7 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				}
 
 				default: {
-					CloseReason reason = { .code = CloseCode_NotSupportedType,
+					CloseReason reason = { .code = CloseCode_UnsupportedData,
 						                   "Received Opcode that is not supported" };
 
 					const char* result =
@@ -540,7 +598,7 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 			free(current_message.data);
 
 			if(action == WebSocketAction_Close) {
-				CloseReason reason = { .code = CloseCode_Normal,
+				CloseReason reason = { .code = CloseCode_NormalClosure,
 					                   "ServerApplication requested shutdown" };
 
 				const char* result =
