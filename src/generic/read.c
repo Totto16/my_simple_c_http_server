@@ -18,7 +18,7 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 		    descriptor, messageBuffer + (INITIAL_MESSAGE_BUF_SIZE * buffersUsed),
 		    INITIAL_MESSAGE_BUF_SIZE);
 		if(readBytes == -1) {
-			LOG_MESSAGE(LogLevelError, "Couldn't read from a connection: %s\n", strerror(errno));
+			LOG_MESSAGE(LogLevelWarn, "Couldn't read from a connection: %s\n", strerror(errno));
 			return NULL;
 		} else if(readBytes == 0) {
 			// client disconnected, so done
@@ -52,7 +52,7 @@ char* readExactBytes(const ConnectionDescriptor* const descriptor, size_t n_byte
 		int readBytes = read_from_descriptor(descriptor, messageBuffer + actualBytesRead,
 		                                     n_bytes - actualBytesRead);
 		if(readBytes == -1) {
-			LOG_MESSAGE(LogLevelError, "Couldn't read from a connection: %s\n", strerror(errno));
+			LOG_MESSAGE(LogLevelWarn, "Couldn't read from a connection: %s\n", strerror(errno));
 			return NULL;
 		} else if(readBytes == 0) {
 			if(n_bytes == actualBytesRead) {
@@ -60,7 +60,7 @@ char* readExactBytes(const ConnectionDescriptor* const descriptor, size_t n_byte
 			}
 
 			// client disconnected too early, so it's an error
-			LOG_MESSAGE_SIMPLE(LogLevelError, "EOF before all necessary bytes were read\n");
+			LOG_MESSAGE_SIMPLE(LogLevelWarn, "EOF before all necessary bytes were read\n");
 			return NULL;
 		} else {
 			actualBytesRead += readBytes;

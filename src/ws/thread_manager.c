@@ -51,6 +51,14 @@ typedef struct {
 } RawHeaderOne;
 
 typedef struct {
+	bool has_error;
+	union {
+		RawHeaderOne header;
+		const char* error;
+	} data;
+} RawHeaderOneResult;
+
+typedef struct {
 	bool fin;
 	WS_OPCODE opCode;
 	void* payload;
@@ -59,7 +67,10 @@ typedef struct {
 
 typedef struct {
 	bool has_error;
-	WebSocketRawMessage message;
+	union {
+		WebSocketRawMessage message;
+		const char* error;
+	} data;
 } WebSocketRawMessageResult;
 
 typedef struct {
@@ -69,19 +80,25 @@ typedef struct {
 
 #define RAW_MESSAGE_HEADER_SIZE 2
 
-NODISCARD static RawHeaderOne get_raw_header(uint8_t header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
+NODISCARD static RawHeaderOneResult get_raw_header(uint8_t header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
 	bool fin = (header_bytes[0] >> 7) & 0b1;
 	uint8_t rsv_bytes = (header_bytes[0] >> 4) & 0b111;
 	// TODO: better error handling
-	assert(rsv_bytes == 0 && "only 0 allowed for the rsv bytes");
+	if(rsv_bytes != 0) {
+		RawHeaderOneResult err = { .has_error = true,
+			                       .data = { .error = "only 0 allowed for the rsv bytes" } };
+		return err;
+	};
 	WS_OPCODE opCode = header_bytes[0] & 0b1111;
 
 	bool mask = (header_bytes[1] >> 7) & 0b1;
 	uint8_t payload_len = header_bytes[1] & 0x7F;
 
-	RawHeaderOne result = {
+	RawHeaderOne header = {
 		.fin = fin, .opCode = opCode, .mask = mask, .payload_len = payload_len
 	};
+
+	RawHeaderOneResult result = { .has_error = false, .data = { .header = header } };
 	return result;
 }
 
@@ -90,17 +107,29 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	uint8_t* header_bytes =
 	    (uint8_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
 	if(!header_bytes) {
-		WebSocketRawMessageResult err = { .has_error = true };
+		WebSocketRawMessageResult err = { .has_error = true,
+			                              .data = { .error = "couldn't read header bytes (2)" } };
 		return err;
 	}
-	RawHeaderOne raw_header = get_raw_header(header_bytes);
+	RawHeaderOneResult raw_header_result = get_raw_header(header_bytes);
+
+	if(raw_header_result.has_error) {
+		WebSocketRawMessageResult err = { .has_error = true,
+			                              .data = { .error = raw_header_result.data.error } };
+		return err;
+	}
+
+	RawHeaderOne raw_header = raw_header_result.data.header;
 
 	uint64_t payload_len = (uint64_t)raw_header.payload_len;
 
 	if(payload_len == 126) {
 		uint16_t* payload_len_result = (uint16_t*)readExactBytes(connection->descriptor, 2);
 		if(!payload_len_result) {
-			WebSocketRawMessageResult err = { .has_error = true };
+			WebSocketRawMessageResult err = {
+				.has_error = true,
+				.data = { .error = "couldn't read extended payload length bytes (2)" }
+			};
 			return err;
 		}
 		// in network byte order
@@ -108,7 +137,10 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	} else if(payload_len == 127) {
 		uint64_t* payload_len_result = (uint64_t*)readExactBytes(connection->descriptor, 8);
 		if(!payload_len_result) {
-			WebSocketRawMessageResult err = { .has_error = true };
+			WebSocketRawMessageResult err = {
+				.has_error = true,
+				.data = { .error = "couldn't read extended payload length bytes (8)" }
+			};
 			return err;
 		}
 		// in network byte order (alias big endian = be)
@@ -120,14 +152,16 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	if(raw_header.mask) {
 		mask_byte = (uint8_t*)readExactBytes(connection->descriptor, 4);
 		if(!mask_byte) {
-			WebSocketRawMessageResult err = { .has_error = true };
+			WebSocketRawMessageResult err = { .has_error = true,
+				                              .data = { .error = "couldn't read mask bytes (4)" } };
 			return err;
 		}
 	}
 
 	void* payload = readExactBytes(connection->descriptor, payload_len);
 	if(!payload) {
-		WebSocketRawMessageResult err = { .has_error = true };
+		WebSocketRawMessageResult err = { .has_error = true,
+			                              .data = { .error = "couldn't read payload bytes" } };
 		return err;
 	}
 
@@ -142,7 +176,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		                          .payload = payload,
 		                          .payload_len = payload_len };
 
-	WebSocketRawMessageResult result = { .has_error = false, .message = value };
+	WebSocketRawMessageResult result = { .has_error = false, .data = { .message = value } };
 
 	return result;
 }
@@ -337,10 +371,18 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 			WebSocketRawMessageResult raw_message_result = read_raw_message(connection);
 
 			if(raw_message_result.has_error) {
-				CloseReason reason = { .code = CloseCode_ProtocolError,
-					                   "Error while reading the needed bytes for a frame" };
+
+				char* errorMessage = NULL;
+				formatString(&errorMessage, "Error while reading the needed bytes for a frame: %s",
+				             raw_message_result.data.error);
+
+				LOG_MESSAGE(LogLevelInfo, "%s\n", errorMessage);
+
+				CloseReason reason = { .code = CloseCode_ProtocolError, .message = errorMessage };
 
 				bool result = close_websocket_connection(connection, argument->manager, reason);
+
+				free(errorMessage);
 
 				if(!result) {
 					LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -349,7 +391,7 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				return NULL;
 			}
 
-			WebSocketRawMessage raw_message = raw_message_result.message;
+			WebSocketRawMessage raw_message = raw_message_result.data.message;
 
 			if(raw_message_result.has_error) switch(raw_message.opCode) {
 					case WS_OPCODE_CONT: {
