@@ -67,6 +67,32 @@ WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMess
 	return WebSocketAction_Continue;
 }
 
+// this returns true if everything is ok, and false if we should close the connection
+WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
+                                            WebSocketMessage message) {
+
+	if(message.is_text) {
+
+		if(message.data_len >= 200) {
+			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %lu\n", message.data_len);
+		} else {
+			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n", (int)(message.data_len),
+			            (char*)message.data);
+		}
+	} else {
+		LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %lu\n", message.data_len);
+	}
+
+	// for autobahn tests, just echoing the things
+	bool result = ws_send_message_fragmented(connection, message, WS_FRAGMENTATION_AUTO);
+
+	if(!result) {
+		return WebSocketAction_Error;
+	}
+
+	return WebSocketAction_Continue;
+}
+
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
@@ -167,8 +193,6 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 				bool wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
 
 				if(wsRequestSuccessful) {
-					// TODO: spawn new thread with this, don't close descriptor, copy context!
-
 					// move the context so that we can use it in the long standing web socket
 					// thread
 					ConnectionContext* newContext = copy_connection_context(context);
@@ -176,6 +200,29 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 
 					thread_manager_add_connection(argument.webSocketManager, descriptor, context,
 					                              websocketFunction);
+
+					// finally free everything necessary
+
+					freeHttpRequest(httpRequest);
+					free(arg);
+
+					return NULL;
+
+				} else {
+					// the error was already sent, just close the descriptor and free the http
+					// request, this is done at the end of this big if else statements
+				}
+			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws/fragmented") == 0) {
+				bool wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
+
+				if(wsRequestSuccessful) {
+					// move the context so that we can use it in the long standing web socket
+					// thread
+					ConnectionContext* newContext = copy_connection_context(context);
+					argument.contexts[workerInfo.workerIndex] = newContext;
+
+					thread_manager_add_connection(argument.webSocketManager, descriptor, context,
+					                              websocketFunctionFragmented);
 
 					// finally free everything necessary
 

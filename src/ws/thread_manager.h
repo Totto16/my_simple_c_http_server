@@ -23,7 +23,14 @@ typedef enum {
 typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,
                                              WebSocketMessage message);
 
+typedef enum { WS_FRAGMENTATION_OFF, WS_FRAGMENTATION_AUTO } FragmentOption;
+
+#define WS_MINIMUM_FRAGMENT_SIZE 16
+
 NODISCARD bool ws_send_message(WebSocketConnection* connection, WebSocketMessage message);
+
+NODISCARD bool ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
+                                          int64_t fragments);
 
 /**
  * NOT Thread safe

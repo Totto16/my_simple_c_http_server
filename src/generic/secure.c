@@ -361,3 +361,21 @@ ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* 
 
 	return SSL_write(ssl_structure, buffer, n_bytes);
 }
+
+int get_underlying_socket(const ConnectionDescriptor* const descriptor) {
+	if(!is_secure_descriptor(descriptor)) {
+		return descriptor->data.fd;
+	}
+
+	SSL* ssl_structure = descriptor->data.ssl_structure;
+
+	int fd = SSL_get_fd(ssl_structure);
+
+	if(fd < 0) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_get_fd failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
+		return -1;
+	}
+
+	return fd;
+}

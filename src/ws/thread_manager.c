@@ -81,6 +81,15 @@ typedef struct {
 
 #define RAW_MESSAGE_HEADER_SIZE 2
 
+#define RAW_MESSAGE_PAYLOAD_1_SIZE 2
+
+#define RAW_MESSAGE_PAYLOAD_2_SIZE 8
+
+#define RAW_MESSAGE_MASK_BYTE_SIZE 4
+
+#define WS_MAXIMUM_HEADER_LENGTH \
+	(RAW_MESSAGE_HEADER_SIZE + RAW_MESSAGE_PAYLOAD_2_SIZE + RAW_MESSAGE_MASK_BYTE_SIZE)
+
 NODISCARD static RawHeaderOneResult get_raw_header(uint8_t header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
 	bool fin = (header_bytes[0] >> 7) & 0b1;
 	uint8_t rsv_bytes = (header_bytes[0] >> 4) & 0b111;
@@ -134,7 +143,8 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	uint64_t payload_len = (uint64_t)raw_header.payload_len;
 
 	if(payload_len == 126) {
-		uint16_t* payload_len_result = (uint16_t*)readExactBytes(connection->descriptor, 2);
+		uint16_t* payload_len_result =
+		    (uint16_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_1_SIZE);
 		if(!payload_len_result) {
 			WebSocketRawMessageResult err = {
 				.has_error = true,
@@ -145,7 +155,8 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		// in network byte order
 		payload_len = (uint64_t)htons(*payload_len_result);
 	} else if(payload_len == 127) {
-		uint64_t* payload_len_result = (uint64_t*)readExactBytes(connection->descriptor, 8);
+		uint64_t* payload_len_result =
+		    (uint64_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_2_SIZE);
 		if(!payload_len_result) {
 			WebSocketRawMessageResult err = {
 				.has_error = true,
@@ -160,7 +171,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	uint8_t* mask_byte = NULL;
 
 	if(raw_header.mask) {
-		mask_byte = (uint8_t*)readExactBytes(connection->descriptor, 4);
+		mask_byte = (uint8_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_MASK_BYTE_SIZE);
 		if(!mask_byte) {
 			WebSocketRawMessageResult err = { .has_error = true,
 				                              .data = { .error = "couldn't read mask bytes (4)" } };
@@ -264,14 +275,86 @@ static NODISCARD bool ws_send_message_raw_internal(WebSocketConnection* connecti
 	return sendDataToConnection(connection->descriptor, resultingFrame, size);
 }
 
+static NODISCARD bool ws_send_message_internal_fragmented(WebSocketConnection* connection,
+                                                          WebSocketMessage message, bool mask,
+                                                          uint64_t fragments) {
+
+	// this is the minimum we set, so that everything (header + eventual mask) can be sent
+	if(fragments < WS_MINIMUM_FRAGMENT_SIZE) {
+		fragments = WS_MINIMUM_FRAGMENT_SIZE;
+	}
+
+	for(uint64_t start = 0; start < message.data_len; start += fragments) {
+		uint64_t end = start + fragments;
+		bool fin = false;
+		uint64_t payload_len = fragments;
+
+		if(end >= message.data_len) {
+			end = message.data_len;
+			fin = true;
+			payload_len = end - start;
+		}
+
+		WS_OPCODE opCode =
+		    start == 0 ? (message.is_text ? WS_OPCODE_TEXT : WS_OPCODE_BIN) : WS_OPCODE_CONT;
+
+		void* payload = ((uint8_t*)message.data) + start;
+
+		WebSocketRawMessage raw_message = {
+			.fin = fin, .opCode = opCode, .payload = payload, .payload_len = payload_len
+		};
+		bool result = ws_send_message_raw_internal(connection, raw_message, mask);
+
+		if(!result) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static NODISCARD bool ws_send_message_internal(WebSocketConnection* connection,
-                                               WebSocketMessage message, bool mask) {
+                                               WebSocketMessage message, bool mask,
+                                               int64_t fragments) {
 	WS_OPCODE opCode = message.is_text ? WS_OPCODE_TEXT : WS_OPCODE_BIN;
 
-	WebSocketRawMessage raw_message = {
-		.fin = true, .opCode = opCode, .payload = message.data, .payload_len = message.data_len
-	};
-	return ws_send_message_raw_internal(connection, raw_message, mask);
+	if(fragments == WS_FRAGMENTATION_OFF) {
+
+		WebSocketRawMessage raw_message = {
+			.fin = true, .opCode = opCode, .payload = message.data, .payload_len = message.data_len
+		};
+		return ws_send_message_raw_internal(connection, raw_message, mask);
+	} else if(fragments == WS_FRAGMENTATION_AUTO || fragments <= 0) {
+
+		int fd = get_underlying_socket(connection->descriptor);
+
+		// the default value, if an error would occur
+		uint64_t chosen_fragment_size = 4096 - WS_MAXIMUM_HEADER_LENGTH;
+
+		if(fd >= 0) {
+			int buffer_size = 0;
+			socklen_t buffer_size_len = sizeof(buffer_size);
+			int result =
+			    getsockopt(fd, SOL_SOCKET, SO_SNDBUF, (char*)&buffer_size, &buffer_size_len);
+
+			if(result == 0) {
+				if(buffer_size >= WS_MAXIMUM_HEADER_LENGTH) {
+					// NOTE: this value is the doubled, if you set it, but we use th doubled value
+					// here anyway
+					// we subtract the header length, so that it is can fit into one buffer
+					chosen_fragment_size = ((uint64_t)buffer_size) - WS_MAXIMUM_HEADER_LENGTH;
+				}
+			} else {
+				LOG_MESSAGE(LogLevelWarn,
+				            "Couldn't get sockopt SO_SNDBUF, using default value: %s\n",
+				            strerror(errno));
+			}
+		}
+
+		return ws_send_message_internal_fragmented(connection, message, mask, chosen_fragment_size);
+	} else {
+		return ws_send_message_internal_fragmented(connection, message, mask, (uint64_t)fragments);
+	}
 }
 
 // see: https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
@@ -899,7 +982,12 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 bool ws_send_message(WebSocketConnection* connection, WebSocketMessage message) {
 
-	return ws_send_message_internal(connection, message, false);
+	return ws_send_message_internal(connection, message, false, WS_FRAGMENTATION_OFF);
+}
+
+bool ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
+                                int64_t fragments) {
+	return ws_send_message_internal(connection, message, false, fragments);
 }
 
 WebSocketThreadManager* initialize_thread_manager(void) {

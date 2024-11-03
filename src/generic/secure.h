@@ -45,3 +45,5 @@ int read_from_descriptor(const ConnectionDescriptor* const descriptor, void* buf
 
 ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,
                             size_t n_bytes);
+
+int get_underlying_socket(const ConnectionDescriptor* const descriptor);
