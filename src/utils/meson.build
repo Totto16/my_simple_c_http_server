@@ -1,4 +1,6 @@
 src_files += files(
+    'log.c',
+    'log.h',
     'myqueue.c',
     'myqueue.h',
     'string_builder.c',

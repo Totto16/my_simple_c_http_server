@@ -302,6 +302,7 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 	sigset_t mySigset;
 	sigemptyset(&mySigset);
 	sigaddset(&mySigset, SIGINT);
+	sigaddset(&mySigset, SIGPIPE);
 	int sigFd = signalfd(-1, &mySigset, 0);
 	checkForError(sigFd, "While trying to cancel the listener Thread on signal",
 	              exit(EXIT_FAILURE););
@@ -440,9 +441,16 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	// initilaize the mask to be empty
 	int emptySetResult = sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, SIGINT);
+	sigaddset(&action.sa_mask, SIGPIPE);
 	int result1 = sigaction(SIGINT, &action, NULL);
 	if(result1 < 0 || emptySetResult < 0) {
-		perror("Couldn't set this signal");
+		perror("Couldn't set SIGINT signal interception");
+		exit(EXIT_FAILURE);
+	}
+
+	int result2 = sigaction(SIGPIPE, &action, NULL);
+	if(result2 < 0) {
+		perror("Couldn't set SIGPIPE signal interception");
 		exit(EXIT_FAILURE);
 	}
 
