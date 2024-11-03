@@ -344,6 +344,8 @@ static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* co
 static NODISCARD const char* close_websocket_connection(WebSocketConnection* connection,
                                                         WebSocketThreadManager* manager,
                                                         CloseReason reason) {
+	LOG_MESSAGE(LogLevelTrace, "Closing the websocket connection: %s\n", reason.message);
+
 	bool result = ws_send_close_message_raw_internal(connection, reason);
 
 	// even if above failed, we need to remove the connection nevertheless
@@ -392,6 +394,9 @@ typedef struct {
 	} data;
 } Utf8DataResult;
 
+// TODO: at the moment we adhere to the RFC, by only checking TEXT as a whole after we got all
+// fragments, but the autobahn test suggest, that we may fail fast, if the reason for an utf-8 error
+// isn't missing bytes at the end of the payload, like e.g. if we receive a whole invalid sequence
 NODISCARD Utf8DataResult get_utf8_string(const void* data, uint64_t size) {
 
 	utf8proc_int32_t* buffer = mallocOrFail(sizeof(utf8proc_int32_t) * size, false);
