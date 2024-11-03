@@ -275,19 +275,34 @@ static NODISCARD bool ws_send_message_raw_internal(WebSocketConnection* connecti
 	return sendDataToConnection(connection->descriptor, resultingFrame, size);
 }
 
+static NODISCARD bool ws_send_message_internal_normal(WebSocketConnection* connection,
+                                                      WebSocketMessage message, bool mask) {
+
+	WS_OPCODE opCode = message.is_text ? WS_OPCODE_TEXT : WS_OPCODE_BIN;
+
+	WebSocketRawMessage raw_message = {
+		.fin = true, .opCode = opCode, .payload = message.data, .payload_len = message.data_len
+	};
+	return ws_send_message_raw_internal(connection, raw_message, mask);
+}
+
 static NODISCARD bool ws_send_message_internal_fragmented(WebSocketConnection* connection,
                                                           WebSocketMessage message, bool mask,
-                                                          uint64_t fragments) {
+                                                          uint64_t fragment_size) {
 
 	// this is the minimum we set, so that everything (header + eventual mask) can be sent
-	if(fragments < WS_MINIMUM_FRAGMENT_SIZE) {
-		fragments = WS_MINIMUM_FRAGMENT_SIZE;
+	if(fragment_size < WS_MINIMUM_FRAGMENT_SIZE) {
+		fragment_size = WS_MINIMUM_FRAGMENT_SIZE;
 	}
 
-	for(uint64_t start = 0; start < message.data_len; start += fragments) {
-		uint64_t end = start + fragments;
+	if(message.data_len < fragment_size) {
+		return ws_send_message_internal_normal(connection, message, mask);
+	}
+
+	for(uint64_t start = 0; start < message.data_len; start += fragment_size) {
+		uint64_t end = start + fragment_size;
 		bool fin = false;
-		uint64_t payload_len = fragments;
+		uint64_t payload_len = fragment_size;
 
 		if(end >= message.data_len) {
 			end = message.data_len;
@@ -315,16 +330,11 @@ static NODISCARD bool ws_send_message_internal_fragmented(WebSocketConnection* c
 
 static NODISCARD bool ws_send_message_internal(WebSocketConnection* connection,
                                                WebSocketMessage message, bool mask,
-                                               int64_t fragments) {
-	WS_OPCODE opCode = message.is_text ? WS_OPCODE_TEXT : WS_OPCODE_BIN;
+                                               int64_t fragment_size) {
 
-	if(fragments == WS_FRAGMENTATION_OFF) {
-
-		WebSocketRawMessage raw_message = {
-			.fin = true, .opCode = opCode, .payload = message.data, .payload_len = message.data_len
-		};
-		return ws_send_message_raw_internal(connection, raw_message, mask);
-	} else if(fragments == WS_FRAGMENTATION_AUTO || fragments <= 0) {
+	if(fragment_size == WS_FRAGMENTATION_OFF) {
+		return ws_send_message_internal_normal(connection, message, mask);
+	} else if(fragment_size == WS_FRAGMENTATION_AUTO || fragment_size <= 0) {
 
 		int fd = get_underlying_socket(connection->descriptor);
 
@@ -353,7 +363,8 @@ static NODISCARD bool ws_send_message_internal(WebSocketConnection* connection,
 
 		return ws_send_message_internal_fragmented(connection, message, mask, chosen_fragment_size);
 	} else {
-		return ws_send_message_internal_fragmented(connection, message, mask, (uint64_t)fragments);
+		return ws_send_message_internal_fragmented(connection, message, mask,
+		                                           (uint64_t)fragment_size);
 	}
 }
 
@@ -986,8 +997,8 @@ bool ws_send_message(WebSocketConnection* connection, WebSocketMessage message) 
 }
 
 bool ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
-                                int64_t fragments) {
-	return ws_send_message_internal(connection, message, false, fragments);
+                                int64_t fragment_size) {
+	return ws_send_message_internal(connection, message, false, fragment_size);
 }
 
 WebSocketThreadManager* initialize_thread_manager(void) {
