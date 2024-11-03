@@ -1,6 +1,7 @@
 
 
 #include "secure.h"
+#include "utils/log.h"
 #include "utils/utils.h"
 
 #include <openssl/err.h>
@@ -38,16 +39,27 @@ static bool file_exists(const char* const file) {
 	return access(file, R_OK) == 0;
 }
 
+// NOTE: this has to return the number of bytes written, if this returns <= 0, the error reporting
+// stops, see
+// https://github.com/openssl/openssl/blob/3b90a847ece93b3886f14adc7061e70456d564e1/crypto/err/err_prn.c#L44
+static int error_logger(const char* str, size_t len, void* user_data) {
+
+	UNUSED(user_data);
+
+	LOG_MESSAGE(LogLevelError, "\t%*s\n", (int)len, str);
+	return len;
+}
+
 static SecureData* initialize_secure_data(const char* const public_cert_file,
                                           const char* const private_cert_file) {
 
 	if(!file_exists(public_cert_file)) {
-		fprintf(stderr, "ERROR: public_cert_file '%s' doesn't exist\n", public_cert_file);
+		LOG_MESSAGE(LogLevelError, "public_cert_file '%s' doesn't exist\n", public_cert_file);
 		return NULL;
 	}
 
 	if(!file_exists(private_cert_file)) {
-		fprintf(stderr, "ERROR: private_cert_file '%s' doesn't exist\n", private_cert_file);
+		LOG_MESSAGE(LogLevelError, "private_cert_file '%s' doesn't exist\n", private_cert_file);
 		return NULL;
 	}
 
@@ -58,31 +70,31 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 
 	SSL_CTX* ssl_context = SSL_CTX_new(TLS_server_method());
 	if(ssl_context == NULL) {
-		fprintf(stderr, "Error: SSL_CTX_new failed ");
-		ERR_print_errors_fp(stderr);
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_new failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
 
 	int result = SSL_CTX_use_certificate_file(ssl_context, public_cert_file, SSL_FILETYPE_PEM);
 	if(result != 1) {
-		fprintf(stderr, "Error: SSL_CTX_use_certificate_file failed ");
-		ERR_print_errors_fp(stderr);
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_use_certificate_file failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
 
 	result = SSL_CTX_use_PrivateKey_file(ssl_context, private_cert_file, SSL_FILETYPE_PEM);
 
 	if(result != 1) {
-		fprintf(stderr, "Error: SSL_CTX_use_PrivateKey_file failed ");
-		ERR_print_errors_fp(stderr);
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_CTX_use_PrivateKey_file failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
 
 	result = SSL_CTX_check_private_key(ssl_context);
 
 	if(result != 1) {
-		fprintf(stderr, "Error: SSL_CTX_check_private_key failed ");
-		ERR_print_errors_fp(stderr);
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_CTX_check_private_key failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
 
@@ -138,8 +150,8 @@ bool is_secure_context(const ConnectionContext* const context) {
 static SSL* new_ssl_structure_from_ctx(SSL_CTX* ssl_context) {
 	SSL* ssl_structure = SSL_new(ssl_context);
 	if(ssl_structure == NULL) {
-		fprintf(stderr, "Error: SSL_new failed ");
-		ERR_print_errors_fp(stderr);
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_new failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
 
@@ -231,16 +243,16 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	int result = SSL_set_fd(ssl_structure, fd);
 
 	if(result != 1) {
-		fprintf(stderr, "Error: SSL_set_fd failed ");
-		ERR_print_errors_fp(stderr);
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_set_fd failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
 
 	int ssl_result = SSL_accept(ssl_structure);
 
 	if(ssl_result != 1) {
-		fprintf(stderr, "Error: SSL_accept failed ");
-		ERR_print_errors_fp(stderr);
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_accept failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
 
@@ -275,8 +287,8 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 				break;
 			}
 
-			fprintf(stderr, "Error: SSL_shutdown failed ");
-			ERR_print_errors_fp(stderr);
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_shutdown failed:\n");
+			ERR_print_errors_cb(error_logger, NULL);
 			errno = ESSL;
 			return -1;
 		}
@@ -305,8 +317,8 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 		result = SSL_clear(ssl_structure);
 
 		if(result != 1) {
-			fprintf(stderr, "Error: SSL_clear failed ");
-			ERR_print_errors_fp(stderr);
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_clear failed:\n");
+			ERR_print_errors_cb(error_logger, NULL);
 			errno = ESSL;
 			return -1;
 		}

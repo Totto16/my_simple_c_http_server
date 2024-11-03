@@ -60,7 +60,7 @@ char* readExactBytes(const ConnectionDescriptor* const descriptor, size_t n_byte
 			}
 
 			// client disconnected too early, so it's an error
-			fprintf(stderr, "EOF before all necessary bytes were read!");
+			LOG_MESSAGE_SIMPLE(LogLevelError, "EOF before all necessary bytes were read\n");
 			return NULL;
 		} else {
 			actualBytesRead += readBytes;

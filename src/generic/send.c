@@ -19,7 +19,7 @@ bool sendDataToConnection(const ConnectionDescriptor* const descriptor, void* to
 			return false;
 		} else if(wroteBytes == 0) {
 			/// shouldn't occur!
-			fprintf(stderr, "FATAL: Write has an unsupported state!\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError, "FATAL: Write has an unsupported state!\n");
 			return false;
 		} else if(wroteBytes == (ssize_t)remainingLength) {
 			// the message was sent in one time
