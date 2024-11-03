@@ -19,7 +19,7 @@
 #ifdef NDEBUG
 #define assert(x) \
 	do { \
-		UNUSED(x); \
+		UNUSED((x)); \
 	} while(false)
 #else
 
