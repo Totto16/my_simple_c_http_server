@@ -46,10 +46,11 @@ static void receiveSignal(int signalNumber) {
 WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMessage message) {
 
 	if(message.is_text) {
+
 		if(message.data_len >= 200) {
 			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %lu\n", message.data_len);
 		} else {
-			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%*s'\n", (int)message.data_len,
+			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n", (int)(message.data_len),
 			            (char*)message.data);
 		}
 	} else {

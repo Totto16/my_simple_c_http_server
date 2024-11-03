@@ -46,7 +46,7 @@ static int error_logger(const char* str, size_t len, void* user_data) {
 
 	UNUSED(user_data);
 
-	LOG_MESSAGE(LogLevelError, "\t%*s\n", (int)len, str);
+	LOG_MESSAGE(LogLevelError, "\t%.*s\n", (int)len, str);
 	return len;
 }
 
