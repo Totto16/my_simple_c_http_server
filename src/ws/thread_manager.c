@@ -507,8 +507,26 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				// check utf-8 encoding in close messages
 				if(raw_message.opCode == WS_OPCODE_CLOSE) {
 
-					// the first two bytes are the code
-					if(raw_message.payload_len > 2) {
+					// the close message MAY contain additional data
+					if(raw_message.payload_len != 0) {
+						// the first two bytes are the code, so they have to be present, if size !=
+						// 0 (so either 0 or >= 2)
+						if(raw_message.payload_len < 2) {
+							CloseReason reason = { .code = CloseCode_ProtocolError,
+								                   .message = "Close data has invalid code, it has "
+								                              "to be at least 2 bytes long" };
+
+							const char* result =
+							    close_websocket_connection(connection, argument->manager, reason);
+
+							if(result != NULL) {
+								LOG_MESSAGE(LogLevelError,
+								            "Error while closing the websocket connection: "
+								            "Close data has invalid code: %s\n",
+								            result);
+							}
+							return NULL;
+						}
 
 						Utf8DataResult utf8_result = get_utf8_string(
 						    ((char*)(raw_message.payload)) + 2, raw_message.payload_len - 2);
