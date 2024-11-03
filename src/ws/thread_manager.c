@@ -285,6 +285,7 @@ typedef enum /* :uint16_t */ {
 } CloseCode;
 
 typedef struct {
+	bool success;
 	CloseCode code; // as uint16_t
 	char* message;
 } CloseReason;
@@ -296,7 +297,7 @@ static CloseReason maybe_parse_close_reason(WebSocketRawMessage raw_message,
 	uint64_t payload_len = raw_message.payload_len;
 
 	if(payload_len < 2) {
-		CloseReason failed = { .code = 0, .message = NULL };
+		CloseReason failed = { .success = false, .code = 0, .message = NULL };
 		return failed;
 	}
 
@@ -309,18 +310,18 @@ static CloseReason maybe_parse_close_reason(WebSocketRawMessage raw_message,
 	((uint8_t*)(&code))[1] = message[0];
 
 	if(payload_len > 2 && also_parse_message) {
-		CloseReason result = { .code = code, .message = (char*)(message + 2) };
+		CloseReason result = { .success = true, .code = code, .message = (char*)(message + 2) };
 		return result;
 	}
 
-	CloseReason result = { .code = code, .message = "" };
+	CloseReason result = { .success = true, .code = code, .message = NULL };
 	return result;
 }
 
 static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* connection,
                                                          CloseReason reason) {
 
-	size_t message_len = strlen(reason.message);
+	size_t message_len = reason.message ? strlen(reason.message) : 0;
 
 	uint64_t payload_len = 2 + message_len;
 
@@ -332,7 +333,9 @@ static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* co
 	payload[0] = reason_code[1];
 	payload[1] = reason_code[0];
 
-	memcpy(payload + 2, reason.message, message_len);
+	if(reason.message) {
+		memcpy(payload + 2, reason.message, message_len);
+	}
 
 	WebSocketRawMessage message_raw = {
 		.fin = true, .opCode = WS_OPCODE_CLOSE, .payload = payload, .payload_len = payload_len
@@ -344,7 +347,12 @@ static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* co
 static NODISCARD const char* close_websocket_connection(WebSocketConnection* connection,
                                                         WebSocketThreadManager* manager,
                                                         CloseReason reason) {
-	LOG_MESSAGE(LogLevelTrace, "Closing the websocket connection: %s\n", reason.message);
+
+	if(reason.message) {
+		LOG_MESSAGE(LogLevelTrace, "Closing the websocket connection: %s\n", reason.message);
+	} else {
+		LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing the websocket connection: (no message)\n");
+	}
 
 	bool result = ws_send_close_message_raw_internal(connection, reason);
 
@@ -697,9 +705,11 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 					CloseReason reason = { .code = CloseCode_NormalClosure, "Planned close" };
 
 					if(raw_message.payload_len != 0) {
-						CloseReason new_reason = maybe_parse_close_reason(raw_message, false);
-						if(new_reason.code != 0) {
+						CloseReason new_reason = maybe_parse_close_reason(raw_message, true);
+						if(new_reason.success) {
 							reason = new_reason;
+
+							// TODO
 						}
 					}
 
