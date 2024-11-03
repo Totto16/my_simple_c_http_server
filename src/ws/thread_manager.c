@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <endian.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/random.h>
 
@@ -292,9 +293,33 @@ static NODISCARD bool close_websocket_connection(WebSocketConnection* connection
 	return result && result2;
 }
 
+static NODISCARD bool setup_signal_handler(void) {
+
+	// set up the signal handler
+	// just create a sigaction structure, then add the handler
+	struct sigaction action = {};
+
+	action.sa_handler = SIG_IGN;
+	// initialize the mask to be empty
+	int emptySetResult = sigemptyset(&action.sa_mask);
+	sigaddset(&action.sa_mask, SIGPIPE);
+	int result1 = sigaction(SIGPIPE, &action, NULL);
+	if(result1 < 0 || emptySetResult < 0) {
+		LOG_MESSAGE(LogLevelWarn, "Couldn't set signal interception: %s\n", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
 void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 	SET_THREAD_NAME_FORMATTED("ws listener %d", get_thread_id());
+	bool _result = setup_signal_handler();
+
+	// an erro message was already sent, and just because the setting of the signal handler failed,
+	// we shouldn't exit or close the connection!
+	UNUSED(_result);
 
 	// TODO: free in every possible path;
 	WebSocketListenerArg* argument = (WebSocketListenerArg*)arg;

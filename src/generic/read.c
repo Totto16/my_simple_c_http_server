@@ -1,6 +1,7 @@
 
 #include "read.h"
 
+#include "utils/log.h"
 #include "utils/utils.h"
 
 #define INITIAL_MESSAGE_BUF_SIZE 1024
@@ -17,7 +18,7 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 		    descriptor, messageBuffer + (INITIAL_MESSAGE_BUF_SIZE * buffersUsed),
 		    INITIAL_MESSAGE_BUF_SIZE);
 		if(readBytes == -1) {
-			perror("ERROR: Reading from a connection");
+			LOG_MESSAGE(LogLevelError, "Couldn't read from a connection: %s\n", strerror(errno));
 			return NULL;
 		} else if(readBytes == 0) {
 			// client disconnected, so done
@@ -51,7 +52,7 @@ char* readExactBytes(const ConnectionDescriptor* const descriptor, size_t n_byte
 		int readBytes = read_from_descriptor(descriptor, messageBuffer + actualBytesRead,
 		                                     n_bytes - actualBytesRead);
 		if(readBytes == -1) {
-			perror("ERROR: Reading from a connection");
+			LOG_MESSAGE(LogLevelError, "Couldn't read from a connection: %s\n", strerror(errno));
 			return NULL;
 		} else if(readBytes == 0) {
 			if(n_bytes == actualBytesRead) {

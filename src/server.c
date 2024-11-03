@@ -343,7 +343,7 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		while(status == 0) {
 			status = poll(poll_fds, POLL_FD_AMOUNT, 5000);
 			if(status < 0) {
-				perror("ERROR: Reading in poll");
+				LOG_MESSAGE(LogLevelError, "poll failed: %s\n", strerror(errno));
 				continue;
 			}
 		}
@@ -462,12 +462,12 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	struct sigaction action = {};
 
 	action.sa_handler = receiveSignal;
-	// initilaize the mask to be empty
+	// initialize the mask to be empty
 	int emptySetResult = sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, SIGINT);
 	int result1 = sigaction(SIGINT, &action, NULL);
 	if(result1 < 0 || emptySetResult < 0) {
-		perror("Couldn't set signal interception");
+		LOG_MESSAGE(LogLevelError, "Couldn't set signal interception: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 

@@ -1,6 +1,7 @@
 
 
 #include "send.h"
+#include "utils/log.h"
 
 bool sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toSend,
                           size_t length) {
@@ -14,7 +15,7 @@ bool sendDataToConnection(const ConnectionDescriptor* const descriptor, void* to
 		    write_to_descriptor(descriptor, ((uint8_t*)toSend) + alreadyWritten, remainingLength);
 
 		if(wroteBytes == -1) {
-			perror("ERROR: Writing to a connection");
+			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));
 			return false;
 		} else if(wroteBytes == 0) {
 			/// shouldn't occur!
