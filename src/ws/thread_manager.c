@@ -245,7 +245,18 @@ static NODISCARD bool ws_send_message_raw_internal(WebSocketConnection* connecti
 	if(mask) {
 
 		uint32_t mask_byte = 0;
-		getrandom((uint8_t*)(&mask_byte), sizeof(uint32_t), 0);
+		int result = getrandom((uint8_t*)(&mask_byte), sizeof(uint32_t), 0);
+
+		if(result != sizeof(uint32_t)) {
+			if(result < 0) {
+				LOG_MESSAGE(LogLevelWarn, "Get random failed: %s\n", strerror(errno));
+			}
+
+			unsigned int seedp = time(NULL);
+
+			// use rand_r like normal rand:
+			mask_byte = rand_r(&seedp);
+		}
 
 		*((uint32_t*)(resultingFrame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len)) =
 		    mask_byte;
@@ -429,7 +440,7 @@ static NODISCARD CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 // see: https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.2
 // and https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.1
 static NODISCARD bool is_valid_close_code(uint16_t close_code) {
-	if(close_code >= 0 && close_code <= 999) {
+	if(close_code <= 999) {
 		return false;
 	}
 
@@ -456,8 +467,9 @@ static NODISCARD bool is_valid_close_code(uint16_t close_code) {
 static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* connection,
                                                          CloseReason reason) {
 
-	size_t message_len =
-	    reason.message ? (reason.message_len < 0 ? strlen(reason.message) : reason.message_len) : 0;
+	size_t message_len = reason.message ? (reason.message_len < 0 ? strlen(reason.message)
+	                                                              : (size_t)reason.message_len)
+	                                    : 0;
 
 	uint64_t payload_len = 2 + message_len;
 
@@ -485,7 +497,8 @@ static NODISCARD const char* close_websocket_connection(WebSocketConnection* con
                                                         CloseReason reason) {
 
 	if(reason.message) {
-		int message_size = reason.message_len < 0 ? strlen(reason.message) : reason.message_len;
+		int message_size =
+		    reason.message_len < 0 ? (int)strlen(reason.message) : reason.message_len;
 		LOG_MESSAGE(LogLevelTrace, "Closing the websocket connection: %.*s\n", message_size,
 		            reason.message);
 	} else {
