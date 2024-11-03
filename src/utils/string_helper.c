@@ -32,8 +32,7 @@ uint8_t* sha1(const char* string) {
 
 	SHA1Update(&sha, (uint8_t*)string, strlen(string));
 
-	uint8_t* result = mallocOrFail(21 * sizeof(uint8_t), false);
-	result[20] = '\0';
+	uint8_t* result = mallocOrFail(SHA1_LEN * sizeof(uint8_t), false);
 
 	SHA1Final(result, &sha);
 

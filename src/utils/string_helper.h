@@ -7,4 +7,6 @@
  */
 int strcasecontains(const char* value, const char* needle);
 
+#define SHA1_LEN 20
+
 uint8_t* sha1(const char* string);

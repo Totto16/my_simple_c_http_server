@@ -51,7 +51,7 @@ static char* generateKeyAnswer(const char* secKey) {
 
 	uint8_t* sha1_hash = sha1(keyToHashBuffer);
 
-	return b64_encode(sha1_hash, strlen((char*)sha1_hash));
+	return b64_encode(sha1_hash, SHA1_LEN);
 }
 
 typedef enum {
