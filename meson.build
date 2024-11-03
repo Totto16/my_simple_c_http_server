@@ -20,6 +20,12 @@ deps += dependency('threads')
 
 deps += dependency('openssl')
 
+deps += dependency(
+    'libutf8proc',
+    allow_fallback: true,
+    default_options: {'tests': 'disabled'},
+)
+
 src_files = []
 inc_dirs = []
 
