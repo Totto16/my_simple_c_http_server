@@ -506,6 +506,24 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 				case WS_OPCODE_TEXT:
 				case WS_OPCODE_BIN: {
+					if(has_message) {
+						CloseReason reason = {
+							.code = CloseCode_ProtocolError,
+							"Received other opCode than CONTINUATION after the first fragment"
+						};
+
+						const char* result =
+						    close_websocket_connection(connection, argument->manager, reason);
+
+						if(result != NULL) {
+							LOG_MESSAGE(
+							    LogLevelError,
+							    "Error while closing the websocket connection: no CONT error: %s\n",
+							    result);
+						}
+						return NULL;
+					}
+
 					has_message = true;
 
 					current_message.is_text = raw_message.opCode == WS_OPCODE_TEXT;
