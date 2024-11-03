@@ -393,71 +393,13 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 			WebSocketRawMessage raw_message = raw_message_result.data.message;
 
-			if(raw_message_result.has_error) switch(raw_message.opCode) {
-					case WS_OPCODE_CONT: {
-						if(!has_message) {
-							CloseReason reason = {
-								.code = CloseCode_ProtocolError,
-								"Received Opcode CONTINUATION, but no start frame received"
-							};
-
-							bool result =
-							    close_websocket_connection(connection, argument->manager, reason);
-
-							if(!result) {
-								LOG_MESSAGE_SIMPLE(
-								    LogLevelError,
-								    "Error while closing the websocket connection\n");
-							}
-							return NULL;
-						}
-
-						uint64_t old_length = current_message.data_len;
-						void* old_data = current_message.data;
-
-						current_message.data =
-						    mallocOrFail(old_length + raw_message.payload_len, false);
-						current_message.data_len += raw_message.payload_len;
-
-						memcpy(current_message.data, old_data, old_length);
-						memcpy(((uint8_t*)current_message.data) + old_length, raw_message.payload,
-						       raw_message.payload_len);
-
-						free(old_data);
-
-						if(!raw_message.fin) {
-							continue;
-						}
-
-						// can't break out of a switch and the while loop, so using goto
-						goto handle_message;
-					}
-
-					case WS_OPCODE_TEXT:
-					case WS_OPCODE_BIN: {
-						has_message = true;
-
-						current_message.is_text = raw_message.opCode == WS_OPCODE_TEXT;
-						current_message.data = raw_message.payload;
-						current_message.data_len = raw_message.payload_len;
-
-						if(!raw_message.fin) {
-							continue;
-						}
-
-						// can't break out of a switch and the while loop, so using goto
-						goto handle_message;
-					}
-					case WS_OPCODE_CLOSE: {
-
-						CloseReason reason = { .code = CloseCode_Normal, "Planned close" };
-
-						if(raw_message.payload_len != 0) {
-							CloseReason new_reason = maybe_parse_close_reason(raw_message, false);
-							if(new_reason.code != 0) {
-								reason = new_reason;
-							}
-						}
+			switch(raw_message.opCode) {
+				case WS_OPCODE_CONT: {
+					if(!has_message) {
+						CloseReason reason = {
+							.code = CloseCode_ProtocolError,
+							"Received Opcode CONTINUATION, but no start frame received"
+						};
 
 						bool result =
 						    close_websocket_connection(connection, argument->manager, reason);
@@ -469,51 +411,104 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						return NULL;
 					}
 
-					case WS_OPCODE_PING: {
-						WebSocketRawMessage message_raw = { .fin = true,
-							                                .opCode = WS_OPCODE_PONG,
-							                                .payload = raw_message.payload,
-							                                .payload_len =
-							                                    raw_message.payload_len };
-						bool result = ws_send_message_raw_internal(connection, message_raw, false);
+					uint64_t old_length = current_message.data_len;
+					void* old_data = current_message.data;
 
-						if(!result) {
-							CloseReason reason = { .code = CloseCode_ProtocolError,
-								                   "Couldn't send PONG opCode" };
+					current_message.data =
+					    mallocOrFail(old_length + raw_message.payload_len, false);
+					current_message.data_len += raw_message.payload_len;
 
-							bool result1 =
-							    close_websocket_connection(connection, argument->manager, reason);
+					memcpy(current_message.data, old_data, old_length);
+					memcpy(((uint8_t*)current_message.data) + old_length, raw_message.payload,
+					       raw_message.payload_len);
 
-							if(!result1) {
-								LOG_MESSAGE_SIMPLE(
-								    LogLevelError,
-								    "Error while closing the websocket connection\n");
-							}
-							return NULL;
-						}
+					free(old_data);
 
+					if(!raw_message.fin) {
 						continue;
 					}
 
-					case WS_OPCODE_PONG: {
-						// just ignore
-						continue;
-					}
-
-					default: {
-						CloseReason reason = { .code = CloseCode_NotSupportedType,
-							                   "Received Opcode that is not supported" };
-
-						bool result =
-						    close_websocket_connection(connection, argument->manager, reason);
-
-						if(!result) {
-							LOG_MESSAGE_SIMPLE(LogLevelError,
-							                   "Error while closing the websocket connection\n");
-						}
-						return NULL;
-					}
+					// can't break out of a switch and the while loop, so using goto
+					goto handle_message;
 				}
+
+				case WS_OPCODE_TEXT:
+				case WS_OPCODE_BIN: {
+					has_message = true;
+
+					current_message.is_text = raw_message.opCode == WS_OPCODE_TEXT;
+					current_message.data = raw_message.payload;
+					current_message.data_len = raw_message.payload_len;
+
+					if(!raw_message.fin) {
+						continue;
+					}
+
+					// can't break out of a switch and the while loop, so using goto
+					goto handle_message;
+				}
+				case WS_OPCODE_CLOSE: {
+
+					CloseReason reason = { .code = CloseCode_Normal, "Planned close" };
+
+					if(raw_message.payload_len != 0) {
+						CloseReason new_reason = maybe_parse_close_reason(raw_message, false);
+						if(new_reason.code != 0) {
+							reason = new_reason;
+						}
+					}
+
+					bool result = close_websocket_connection(connection, argument->manager, reason);
+
+					if(!result) {
+						LOG_MESSAGE_SIMPLE(LogLevelError,
+						                   "Error while closing the websocket connection\n");
+					}
+					return NULL;
+				}
+
+				case WS_OPCODE_PING: {
+					WebSocketRawMessage message_raw = { .fin = true,
+						                                .opCode = WS_OPCODE_PONG,
+						                                .payload = raw_message.payload,
+						                                .payload_len = raw_message.payload_len };
+					bool result = ws_send_message_raw_internal(connection, message_raw, false);
+
+					if(!result) {
+						CloseReason reason = { .code = CloseCode_ProtocolError,
+							                   "Couldn't send PONG opCode" };
+
+						bool result1 =
+						    close_websocket_connection(connection, argument->manager, reason);
+
+						if(!result1) {
+							LOG_MESSAGE_SIMPLE(LogLevelError,
+							                   "Error while closing the websocket connection\n");
+						}
+						return NULL;
+					}
+
+					continue;
+				}
+
+				case WS_OPCODE_PONG: {
+					// just ignore
+					continue;
+				}
+
+				default: {
+					CloseReason reason = { .code = CloseCode_NotSupportedType,
+						                   "Received Opcode that is not supported" };
+
+					bool result = close_websocket_connection(connection, argument->manager, reason);
+
+					if(!result) {
+						LOG_MESSAGE_SIMPLE(LogLevelError,
+						                   "Error while closing the websocket connection\n");
+					}
+					return NULL;
+				}
+			}
 		}
 
 	handle_message:
