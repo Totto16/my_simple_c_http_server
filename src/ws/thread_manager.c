@@ -574,7 +574,7 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				}
 
 				default: {
-					CloseReason reason = { .code = CloseCode_UnsupportedData,
+					CloseReason reason = { .code = CloseCode_ProtocolError,
 						                   "Received Opcode that is not supported" };
 
 					const char* result =
