@@ -22,6 +22,8 @@ compile_clang:
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
+        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled
+        - meson compile -C build_no_secure
 
 compile_gcc:
     stage: build
@@ -39,3 +41,5 @@ compile_gcc:
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
+        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled
+        - meson compile -C build_no_secure
