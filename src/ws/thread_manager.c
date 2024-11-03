@@ -323,11 +323,12 @@ static NODISCARD const char* close_websocket_connection(WebSocketConnection* con
                                                         CloseReason reason) {
 	bool result = ws_send_close_message_raw_internal(connection, reason);
 
+	// even if above failed, we need to remove the connection nevertheless
+	bool result2 = thread_manager_remove_connection(manager, connection);
+
 	if(!result) {
 		return "send error";
 	}
-
-	bool result2 = thread_manager_remove_connection(manager, connection);
 
 	if(!result2) {
 		return "thread manager remove error";
