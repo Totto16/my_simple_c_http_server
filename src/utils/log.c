@@ -41,7 +41,7 @@ bool __should_log_to_stderr(LogLevel level) {
 	return level >= LogLevelError;
 }
 
-bool __log_should_use_color() {
+bool __log_should_use_color(void) {
 	return isatty(STDIN_FILENO);
 }
 
@@ -88,7 +88,7 @@ const char* __get_level_name(LogLevel level, bool color) {
 	}
 }
 
-const char* __get_thread_name() {
+const char* __get_thread_name(void) {
 
 	if(__log_thread_state.name) {
 		return __log_thread_state.name;
@@ -104,19 +104,19 @@ const char* __get_thread_name() {
 	return __log_thread_state.name;
 }
 
-void __log_lock_mutex() {
+void __log_lock_mutex(void) {
 	int result = pthread_mutex_lock(&__global_log_entry.mutex);
 	checkResultForThreadErrorAndExit(
 	    "An Error occurred while trying to lock the mutex for the logger");
 }
 
-void __log_unlock_mutex() {
+void __log_unlock_mutex(void) {
 	int result = pthread_mutex_unlock(&__global_log_entry.mutex);
 	checkResultForThreadErrorAndExit(
 	    "An Error occurred while trying to unlock the mutex for the logger");
 }
 
-void initialize_logger() {
+void initialize_logger(void) {
 	__global_log_entry.log_level = DEFAULT_LOG_LEVEL;
 
 	int result = pthread_mutex_init(&__global_log_entry.mutex, NULL);

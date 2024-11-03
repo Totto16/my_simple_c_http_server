@@ -129,7 +129,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	return request;
 }
 
-// simple helper for getting the status Message for a special status code, all from teh spec for
+// simple helper for getting the status Message for a special status code, all from the spec for
 // http 1.1 implemented (not in the spec e.g. 418)
 const char* getStatusMessage(int statusCode) {
 	const char* result = "NOT SUPPORTED STATUS CODE";

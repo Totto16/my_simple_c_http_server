@@ -28,7 +28,7 @@ NODISCARD bool ws_send_message(WebSocketConnection* connection, WebSocketMessage
 /**
  * NOT Thread safe
  */
-WebSocketThreadManager* initialize_thread_manager();
+WebSocketThreadManager* initialize_thread_manager(void);
 
 /**
  * Thread safe

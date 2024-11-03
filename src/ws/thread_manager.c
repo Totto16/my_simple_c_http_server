@@ -3,6 +3,7 @@
 #include "thread_manager.h"
 #include "generic/read.h"
 #include "generic/send.h"
+#include "utils/log.h"
 #include "utils/utils.h"
 
 #include <arpa/inet.h>
@@ -307,12 +308,14 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 			if(raw_message_result.has_error) {
 				CloseReason reason = { .code = CloseCode_ProtocolError,
-					                   "Erro while reading the needed bytes for a frame" };
+					                   "Error while reading the needed bytes for a frame" };
 
-				bool _result = close_websocket_connection(connection, argument->manager, reason);
+				bool result = close_websocket_connection(connection, argument->manager, reason);
 
-				// no recover strategy, if we fail on send, we close this anyway
-				(void)_result;
+				if(!result) {
+					LOG_MESSAGE_SIMPLE(LogLevelError,
+					                   "Error while closing the websocket connection\n");
+				}
 				return NULL;
 			}
 
@@ -326,11 +329,14 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 								"Received Opcode CONTINUATION, but no start frame received"
 							};
 
-							bool _result =
+							bool result =
 							    close_websocket_connection(connection, argument->manager, reason);
 
-							// no recover strategy, if we fail on send, we close this anyway
-							(void)_result;
+							if(!result) {
+								LOG_MESSAGE_SIMPLE(
+								    LogLevelError,
+								    "Error while closing the websocket connection\n");
+							}
 							return NULL;
 						}
 
@@ -381,11 +387,13 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							}
 						}
 
-						bool _result =
+						bool result =
 						    close_websocket_connection(connection, argument->manager, reason);
 
-						// no recover strategy, if we fail on send, we close this anyway
-						(void)_result;
+						if(!result) {
+							LOG_MESSAGE_SIMPLE(LogLevelError,
+							                   "Error while closing the websocket connection\n");
+						}
 						return NULL;
 					}
 
@@ -401,11 +409,14 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							CloseReason reason = { .code = CloseCode_ProtocolError,
 								                   "Couldn't send PONG opCode" };
 
-							bool _result =
+							bool result1 =
 							    close_websocket_connection(connection, argument->manager, reason);
 
-							// no recover strategy, if we fail on send, we close this anyway
-							(void)_result;
+							if(!result1) {
+								LOG_MESSAGE_SIMPLE(
+								    LogLevelError,
+								    "Error while closing the websocket connection\n");
+							}
 							return NULL;
 						}
 
@@ -421,11 +432,13 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						CloseReason reason = { .code = CloseCode_NotSupportedType,
 							                   "Received Opcode that is not supported" };
 
-						bool _result =
+						bool result =
 						    close_websocket_connection(connection, argument->manager, reason);
 
-						// no recover strategy, if we fail on send, we close this anyway
-						(void)_result;
+						if(!result) {
+							LOG_MESSAGE_SIMPLE(LogLevelError,
+							                   "Error while closing the websocket connection\n");
+						}
 						return NULL;
 					}
 				}
@@ -441,19 +454,23 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				CloseReason reason = { .code = CloseCode_Normal,
 					                   "ServerApplication requested shutdown" };
 
-				bool _result = close_websocket_connection(connection, argument->manager, reason);
+				bool result = close_websocket_connection(connection, argument->manager, reason);
 
-				// no recover strategy, if we fail on send, we close this anyway
-				(void)_result;
+				if(!result) {
+					LOG_MESSAGE_SIMPLE(LogLevelError,
+					                   "Error while closing the websocket connection\n");
+				}
 				return NULL;
 			} else if(action == WebSocketAction_Error) {
 				CloseReason reason = { .code = CloseCode_ProtocolError,
 					                   "ServerApplication callback has an error" };
 
-				bool _result = close_websocket_connection(connection, argument->manager, reason);
+				bool result = close_websocket_connection(connection, argument->manager, reason);
 
-				// no recover strategy, if we fail on send, we close this anyway
-				(void)_result;
+				if(!result) {
+					LOG_MESSAGE_SIMPLE(LogLevelError,
+					                   "Error while closing the websocket connection\n");
+				}
 				return NULL;
 			}
 		}
@@ -467,7 +484,7 @@ bool ws_send_message(WebSocketConnection* connection, WebSocketMessage message) 
 	return ws_send_message_internal(connection, message, false);
 }
 
-WebSocketThreadManager* initialize_thread_manager() {
+WebSocketThreadManager* initialize_thread_manager(void) {
 
 	WebSocketThreadManager* manager = mallocOrFail(sizeof(WebSocketThreadManager), true);
 
@@ -529,10 +546,13 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 
 	if(send_go_away) {
 		CloseReason reason = { .code = CloseCode_GoingAway, "Server is shutting down" };
-		bool _result = ws_send_close_message_raw_internal(connection, reason);
+		bool result = ws_send_close_message_raw_internal(connection, reason);
 
-		// no recover strategy, if we fail on send, we close this anyway
-		(void)_result;
+		if(!result) {
+			LOG_MESSAGE_SIMPLE(
+			    LogLevelError,
+			    "Error while closing the websocket connection (in free_connection)\n");
+		}
 	}
 
 	close_connection_descriptor(connection->descriptor, connection->context);

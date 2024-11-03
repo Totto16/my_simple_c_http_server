@@ -194,20 +194,22 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 		} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
 			// HTTP POST
 
-			bool _result =
+			bool result =
 			    sendMessageToConnection(descriptor, HTTP_STATUS_OK,
 			                            httpRequestToJSON(httpRequest, is_secure_context(context)),
 			                            MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
-			// no recover strategy, if we fail on send, we close this anyway
-			(void)_result;
+			if(!result) {
+				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 			// TODO send actual Content-Length, experiment with e.g a large video file!
-			bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
-			                                       CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			bool result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
+			                                      CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-			// no recover strategy, if we fail on send, we close this anyway
-			(void)_result;
+			if(!result) {
+				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
 			HttpHeaderField* allowedHeader =
 			    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
@@ -219,26 +221,30 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 			allowedHeader[0].key = allowedHeaderBuffer;
 			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-			bool _result =
+			bool result =
 			    sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
 			                            CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-			// no recover strategy, if we fail on send, we close this anyway
-			(void)_result;
+			if(!result) {
+				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			}
 		} else {
-			bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-			                                       "Internal Server Error 1", MIME_TYPE_TEXT, NULL,
-			                                       0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
-			// no recover strategy, if we fail on send, we close this anyway
-			(void)_result;
+			bool result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+			                                      "Internal Server Error 1", MIME_TYPE_TEXT, NULL,
+			                                      0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+
+			if(!result) {
+				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			}
 		}
 	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
-		bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
-		                                       "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT,
-		                                       NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		bool result = sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
+		                                      "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT,
+		                                      NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		// no recover strategy, if we fail on send, we close this anyway
-		(void)_result;
+		if(result) {
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+		}
 	} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
 
 		HttpHeaderField* allowedHeader =
@@ -251,27 +257,30 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 		allowedHeader[0].key = allowedHeaderBuffer;
 		allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-		bool _result = sendMessageToConnection(
+		bool result = sendMessageToConnection(
 		    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
 		    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
 		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		// no recover strategy, if we fail on send, we close this anyway
-		(void)_result;
+		if(!result) {
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+		}
 	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
-		bool _result = sendMessageToConnection(
+		bool result = sendMessageToConnection(
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "A GET, HEAD or OPTIONS Request can't have a body",
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		// no recover strategy, if we fail on send, we close this anyway
-		(void)_result;
+		if(!result) {
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+		}
 	} else {
-		bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-		                                       "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
-		                                       CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		bool result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+		                                      "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
+		                                      CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		// no recover strategy, if we fail on send, we close this anyway
-		(void)_result;
+		if(!result) {
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+		}
 	}
 
 	freeHttpRequest(httpRequest);

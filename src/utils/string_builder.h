@@ -14,7 +14,7 @@ typedef struct {
 	size_t currentSize;
 } StringBuilder;
 
-StringBuilder* string_builder_init();
+StringBuilder* string_builder_init(void);
 
 // helper function that turns a normal string into a malloced one, so the lifetime is extended and
 // he can be freed!

@@ -12,12 +12,14 @@
 // see e.g. https://www.gnu.org/software/gnulib/manual/html_node/Attributes.html
 #define NODISCARD __attribute__((__warn_unused_result__))
 
+#define UNUSED(v) ((void)v)
+
 // cool trick from here:
 // https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
 #ifdef NDEBUG
 #define assert(x) \
 	do { \
-		(void)(x); \
+		UNUSED(x); \
 	} while(false)
 #else
 

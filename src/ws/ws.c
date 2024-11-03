@@ -3,6 +3,7 @@
 #include "ws.h"
 #include "generic/send.h"
 #include "http/http_protocol.h"
+#include "utils/log.h"
 #include "utils/string_builder.h"
 #include "utils/string_helper.h"
 
@@ -12,16 +13,20 @@
 static NODISCARD bool sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
                                                  const char* error_reason) {
 
+	LOG_MESSAGE(LogLevelTrace, "Failed WS handshake: %s\n", error_reason);
+
 	StringBuilder* message = string_builder_init();
 
 	string_builder_append(message, "Error: The client handshake was invalid: %s", error_reason);
 
 	char* malloced_message = string_builder_get_string(message);
-	bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
-	                                       MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+	bool result = sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
+	                                      MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
-	// already are sending an error, can't recover anyway, so just ignore
-	(void)_result;
+	if(!result) {
+		LOG_MESSAGE_SIMPLE(LogLevelError,
+		                   "Error while sending a response (in sendFailedHandshakeMessage)\n");
+	}
 	return false;
 }
 
@@ -116,7 +121,7 @@ bool handleWSHandshake(const HttpRequest* const httpRequest,
 		        in Section 9.1. */
 	}
 
-	(void)fromBrowser;
+	UNUSED(fromBrowser);
 
 	if((HANDSHAKE_HEADER_HEADER_ALL_FOUND & foundList) != HANDSHAKE_HEADER_HEADER_ALL_FOUND) {
 		return sendFailedHandshakeMessage(descriptor, "missing required headers");

@@ -19,13 +19,13 @@ bool __should_log_to_stderr(LogLevel level);
 
 const char* __get_level_name(LogLevel level, bool color);
 
-const char* __get_thread_name();
+const char* __get_thread_name(void);
 
-void __log_lock_mutex();
+void __log_lock_mutex(void);
 
-void __log_unlock_mutex();
+void __log_unlock_mutex(void);
 
-bool __log_should_use_color();
+bool __log_should_use_color(void);
 
 #define LOG_MESSAGE(level, msg, ...) \
 	do { \
@@ -56,7 +56,7 @@ bool __log_should_use_color();
 // everybody can use them
 
 // NOT thread safe
-void initialize_logger();
+void initialize_logger(void);
 
 // NOT thread safe
 void set_log_level(LogLevel level);
