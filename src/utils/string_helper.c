@@ -1,7 +1,7 @@
 #include "string_helper.h"
 #include "utils.h"
 
-#include <sha1.h>
+#include <sha1/sha1.h>
 #include <string.h>
 
 int strcasecontains(const char* value, const char* needle) {
