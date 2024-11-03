@@ -290,8 +290,8 @@ typedef struct {
 	char* message;
 } CloseReason;
 
-static CloseReason maybe_parse_close_reason(WebSocketRawMessage raw_message,
-                                            bool also_parse_message) {
+static NODISCARD CloseReason maybe_parse_close_reason(WebSocketRawMessage raw_message,
+                                                      bool also_parse_message) {
 	assert(raw_message.opCode == WS_OPCODE_CLOSE);
 
 	uint64_t payload_len = raw_message.payload_len;
@@ -316,6 +316,33 @@ static CloseReason maybe_parse_close_reason(WebSocketRawMessage raw_message,
 
 	CloseReason result = { .success = true, .code = code, .message = NULL };
 	return result;
+}
+
+// see: https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.2
+// and https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.1
+static NODISCARD bool is_valid_close_code(uint16_t close_code) {
+	if(close_code >= 0 && close_code <= 999) {
+		return false;
+	}
+
+	if(close_code >= 3000 && close_code <= 4999) {
+		return true;
+	}
+
+	if(close_code >= 1000 && close_code <= 2999) {
+		if(close_code >= 1004 && close_code <= 1006) {
+			return false;
+		}
+
+		if(close_code >= 1015) {
+			return false;
+		}
+
+		return true;
+	}
+
+	// not specified, but also not valid
+	return false;
 }
 
 static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* connection,
@@ -707,9 +734,25 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 					if(raw_message.payload_len != 0) {
 						CloseReason new_reason = maybe_parse_close_reason(raw_message, true);
 						if(new_reason.success) {
-							reason = new_reason;
 
-							// TODO
+							if(!is_valid_close_code(new_reason.code)) {
+								CloseReason invalid_close_code_reason = {
+									.code = CloseCode_ProtocolError, .message = "Invalid Close Code"
+								};
+
+								const char* result = close_websocket_connection(
+								    connection, argument->manager, invalid_close_code_reason);
+
+								if(result != NULL) {
+									LOG_MESSAGE(LogLevelError,
+									            "Error while closing the websocket connection: "
+									            "Invalid Close Code: %s\n",
+									            result);
+								}
+								return NULL;
+							}
+
+							reason = new_reason;
 						}
 					}
 
