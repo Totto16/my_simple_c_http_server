@@ -7,6 +7,8 @@ src_files += files(
     'string_builder.h',
     'string_helper.c',
     'string_helper.h',
+    'thread_helper.c',
+    'thread_helper.h',
     'thread_pool.c',
     'thread_pool.h',
     'utils.c',

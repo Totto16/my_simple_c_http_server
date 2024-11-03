@@ -1,11 +1,7 @@
 
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#include <unistd.h>
-
 #include "log.h"
+#include "thread_helper.h"
 #include "utils/utils.h"
 
 #include <pthread.h>
@@ -94,10 +90,10 @@ const char* __get_thread_name(void) {
 		return __log_thread_state.name;
 	}
 
-	pid_t tid = gettid();
+	pid_t tid = get_thread_id();
 
-	char* name;
-	formatString(&name, "%d", tid);
+	char* name = NULL;
+	formatString(&name, "TID %d", tid);
 
 	__log_thread_state.name = name;
 

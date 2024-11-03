@@ -4,6 +4,7 @@
 #include "generic/read.h"
 #include "generic/send.h"
 #include "utils/log.h"
+#include "utils/thread_helper.h"
 #include "utils/utils.h"
 
 #include <arpa/inet.h>
@@ -293,8 +294,12 @@ static NODISCARD bool close_websocket_connection(WebSocketConnection* connection
 
 void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
+	SET_THREAD_NAME_FORMATTED("ws listener %d", get_thread_id());
+
 	// TODO: free in every possible path;
 	WebSocketListenerArg* argument = (WebSocketListenerArg*)arg;
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting WS Listener\n");
 
 	WebSocketConnection* connection = argument->connection;
 
