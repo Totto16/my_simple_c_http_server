@@ -35,6 +35,8 @@ bool is_secure(const SecureOptions* const options) {
 	return options->type == SECURE_OPTIONS_TYPE_SECURE;
 }
 
+#ifndef _HTTP_SERVER_SECURE_DISABLED
+
 static bool file_exists(const char* const file) {
 	return access(file, R_OK) == 0;
 }
@@ -109,6 +111,8 @@ static void free_secure_data(SecureData* data) {
 	free(data);
 }
 
+#endif
+
 SecureOptions* initialize_secure_options(bool secure, const char* const public_cert_file,
                                          const char* const private_cert_file) {
 
@@ -118,6 +122,12 @@ SecureOptions* initialize_secure_options(bool secure, const char* const public_c
 		options->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
 		return options;
 	}
+
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+	UNUSED(public_cert_file);
+	UNUSED(private_cert_file);
+	UNREACHABLE();
+#else
 
 	options->type = SECURE_OPTIONS_TYPE_SECURE;
 
@@ -130,6 +140,7 @@ SecureOptions* initialize_secure_options(bool secure, const char* const public_c
 	options->data.data = data;
 
 	return options;
+#endif
 }
 
 void free_secure_options(SecureOptions* const options) {
@@ -139,13 +150,20 @@ void free_secure_options(SecureOptions* const options) {
 		return;
 	}
 
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+	UNREACHABLE();
+#else
+
 	free_secure_data(options->data.data);
 	free(options);
+#endif
 }
 
 bool is_secure_context(const ConnectionContext* const context) {
 	return context->type == SECURE_OPTIONS_TYPE_SECURE;
 }
+
+#ifndef _HTTP_SERVER_SECURE_DISABLED
 
 static SSL* new_ssl_structure_from_ctx(SSL_CTX* ssl_context) {
 	SSL* ssl_structure = SSL_new(ssl_context);
@@ -158,6 +176,8 @@ static SSL* new_ssl_structure_from_ctx(SSL_CTX* ssl_context) {
 	return ssl_structure;
 }
 
+#endif
+
 ConnectionContext* get_connection_context(const SecureOptions* const options) {
 
 	ConnectionContext* context = mallocOrFail(sizeof(ConnectionContext), true);
@@ -166,6 +186,11 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 		context->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
 		return context;
 	}
+
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+	UNUSED(context);
+	UNREACHABLE();
+#else
 
 	context->type = SECURE_OPTIONS_TYPE_SECURE;
 
@@ -181,6 +206,7 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 	context->data.data.options = options;
 
 	return context;
+#endif
 }
 
 ConnectionContext* copy_connection_context(const ConnectionContext* const old_context) {
@@ -191,6 +217,11 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 		context->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
 		return context;
 	}
+
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+	UNUSED(context);
+	UNREACHABLE();
+#else
 
 	context->type = SECURE_OPTIONS_TYPE_SECURE;
 
@@ -208,6 +239,7 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 	context->data.data.options = options;
 
 	return context;
+#endif
 }
 
 void free_connection_context(ConnectionContext* context) {
@@ -217,9 +249,14 @@ void free_connection_context(ConnectionContext* context) {
 		return;
 	}
 
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+	UNREACHABLE();
+#else
+
 	SSL_free(context->data.data.ssl_structure);
 
 	free(context);
+#endif
 }
 
 static bool is_secure_descriptor(const ConnectionDescriptor* const descriptor) {
@@ -235,6 +272,11 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 		descriptor->data.fd = fd;
 		return descriptor;
 	}
+
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+	UNUSED(context);
+	UNREACHABLE();
+#else
 
 	descriptor->type = SECURE_OPTIONS_TYPE_SECURE;
 
@@ -259,6 +301,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	descriptor->data.ssl_structure = ssl_structure;
 
 	return descriptor;
+#endif
 }
 
 int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
@@ -267,6 +310,11 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 	if(!is_secure_descriptor(descriptor)) {
 		return close(descriptor->data.fd);
 	}
+
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+	UNUSED(context);
+	UNREACHABLE();
+#else
 
 	SSL* ssl_structure = descriptor->data.ssl_structure;
 
@@ -337,6 +385,7 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 	}
 
 	return 0;
+#endif
 }
 
 int read_from_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,
@@ -345,9 +394,15 @@ int read_from_descriptor(const ConnectionDescriptor* const descriptor, void* buf
 		return read(descriptor->data.fd, buffer, n_bytes);
 	}
 
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+
+	UNREACHABLE();
+#else
+
 	SSL* ssl_structure = descriptor->data.ssl_structure;
 
 	return SSL_read(ssl_structure, buffer, n_bytes);
+#endif
 }
 
 ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,
@@ -357,15 +412,25 @@ ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* 
 		return write(descriptor->data.fd, buffer, n_bytes);
 	}
 
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+
+	UNREACHABLE();
+#else
+
 	SSL* ssl_structure = descriptor->data.ssl_structure;
 
 	return SSL_write(ssl_structure, buffer, n_bytes);
+#endif
 }
 
 int get_underlying_socket(const ConnectionDescriptor* const descriptor) {
 	if(!is_secure_descriptor(descriptor)) {
 		return descriptor->data.fd;
 	}
+
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+	UNREACHABLE();
+#else
 
 	SSL* ssl_structure = descriptor->data.ssl_structure;
 
@@ -378,4 +443,5 @@ int get_underlying_socket(const ConnectionDescriptor* const descriptor) {
 	}
 
 	return fd;
+#endif
 }

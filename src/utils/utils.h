@@ -27,6 +27,21 @@
 
 #endif
 
+#ifdef NDEBUG
+#define UNREACHABLE() \
+	do { \
+		fprintf(stderr, "UNREACHABLE\n"); \
+		exit(EXIT_FAILURE); \
+	} while(false)
+#else
+
+#define UNREACHABLE() \
+	do { \
+		assert(false && "UNREACHABLE"); \
+	} while(false)
+
+#endif
+
 // uses snprintf feature with passing NULL,0 as first two arguments to automatically determine the
 // required buffer size, for more read man page
 // for variadic functions its easier to use macro

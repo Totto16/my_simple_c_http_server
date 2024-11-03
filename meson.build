@@ -15,10 +15,23 @@ project(
 )
 
 deps = []
+compile_flags = [
+    '-DPROGRAM_NAME=' + meson.project_name(),
+    '-DVERSION_STRING=' + meson.project_version(),
+]
 
 deps += dependency('threads')
 
-deps += dependency('openssl')
+secure_option = get_option('secure')
+
+openssl_dep = dependency('openssl', required: secure_option)
+
+if openssl_dep.found()
+    deps += openssl_dep
+else
+    compile_flags += '-D_HTTP_SERVER_SECURE_DISABLED'
+
+endif
 
 deps += dependency(
     'libutf8proc',
@@ -28,11 +41,6 @@ deps += dependency(
 
 src_files = []
 inc_dirs = []
-
-compile_flags = [
-    '-DPROGRAM_NAME=' + meson.project_name(),
-    '-DVERSION_STRING=' + meson.project_version(),
-]
 
 subdir('src')
 

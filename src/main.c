@@ -47,6 +47,11 @@ int main(int argc, const char* argv[]) {
 		const char* arg = argv[processed_args];
 
 		if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--secure") == 0)) {
+#ifdef _HTTP_SERVER_SECURE_DISABLED
+			fprintf(stderr, "Server was build without support for 'secure'\n");
+			printUsage(argv[0]);
+			return EXIT_FAILURE;
+#else
 			secure = true;
 			if(processed_args + 3 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'secure' option\n");
@@ -57,6 +62,7 @@ int main(int argc, const char* argv[]) {
 			public_cert_file = argv[processed_args + 1];
 			private_cert_file = argv[processed_args + 2];
 			processed_args += 3;
+#endif
 		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
 			if(processed_args + 2 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
