@@ -9,6 +9,7 @@ Module: PS OS 08
 #include "generic/secure.h"
 #include "generic/send.h"
 #include "server.h"
+#include "utils/log.h"
 #include "utils/thread_pool.h"
 #include "utils/utils.h"
 #include "ws/thread_manager.h"
@@ -71,6 +72,10 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 
 	ConnectionContext* context = argument.contexts[workerInfo.workerIndex];
 
+	SET_THREAD_NAME_FORMATTED("connection handler %lu", workerInfo.workerIndex);
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
+
 	const ConnectionDescriptor* const descriptor =
 	    get_connection_descriptor(context, argument.connectionFd);
 
@@ -86,13 +91,14 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 	char* rawHttpRequest = readStringFromConnection(descriptor);
 
 	if(!rawHttpRequest) {
-		bool _result =
+		bool result =
 		    sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
 		                            "Request couldn't be read, a connection error occurred!",
 		                            MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		// no recover strategy, if we fail on send, we close this anyway
-		(void)_result;
+		if(!result) {
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+		}
 
 		goto cleanup;
 	}
@@ -107,12 +113,13 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 	// httpRequest can be null, then it wasn't parseable, according to parseHttpRequest, see
 	// there for more information
 	if(httpRequest == NULL) {
-		bool _result = sendMessageToConnection(
+		bool result = sendMessageToConnection(
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "Request couldn't be parsed, it was malformed!",
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		// no recover strategy, if we fail on send, we close this anyway
-		(void)_result;
+		if(!result) {
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+		}
 
 		goto cleanup;
 	}
@@ -127,12 +134,13 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 			// HTTP GET
 			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
 				printf("Shutdown requested!\n");
-				bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down",
+				bool result1 = sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down",
 				                                       MIME_TYPE_TEXT, NULL, 0,
 				                                       CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-				// no recover strategy, if we fail on send, we close this anyway
-				(void)_result;
+				if(!result1) {
+					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				}
 
 				// just cancel the listener thread, then no new connection are accepted and the
 				// main thread cleans the pool and queue, all jobs are finished so shutdown
@@ -141,13 +149,14 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 				checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
-				bool _result = sendMessageToConnection(
+				bool result = sendMessageToConnection(
 				    descriptor, HTTP_STATUS_OK,
 				    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
 				    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
-				// no recover strategy, if we fail on send, we close this anyway
-				(void)_result;
+				if(!result) {
+					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				}
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
 				bool wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
 
@@ -174,12 +183,13 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 					// request, this is done at the end of this big if else statements
 				}
 			} else {
-				bool _result = sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND,
-				                                       "File not Found", MIME_TYPE_TEXT, NULL, 0,
-				                                       CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				bool result = sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND,
+				                                      "File not Found", MIME_TYPE_TEXT, NULL, 0,
+				                                      CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-				// no recover strategy, if we fail on send, we close this anyway
-				(void)_result;
+				if(!result) {
+					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				}
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
 			// HTTP POST
@@ -289,6 +299,10 @@ static int myqueue_size(myqueue* q) {
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
 anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
+
+	set_thread_name("listener thread");
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting\n");
 
 	ThreadArgument argument = *((ThreadArgument*)arg);
 
@@ -430,8 +444,10 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	result = listen(socketFd, SOCKET_BACKLOG_SIZE);
 	checkResultForErrorAndExit("While trying to listen on socket");
 
-	printf("To use this simple Http Server visit '%s://localhost:%d'.\n",
-	       is_secure(options) ? "https" : "http", port);
+	const char* protocol_string = is_secure(options) ? "https" : "http";
+
+	LOG_MESSAGE(LogLevelInfo, "To use this simple Http Server visit '%s://localhost:%d'.\n",
+	            protocol_string, port);
 
 	// set up the signal handler
 	// just create a sitgaction structure, then add the handler

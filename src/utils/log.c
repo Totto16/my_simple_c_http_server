@@ -41,15 +41,49 @@ bool __should_log_to_stderr(LogLevel level) {
 	return level >= LogLevelError;
 }
 
-const char* __get_level_name(LogLevel level) {
+bool __log_should_use_color() {
+	return isatty(STDIN_FILENO);
+}
+
+#define NC "\033[0m" // NO COLOR
+
+#define BOLD "\033[1m"
+
+#define RED "\033[31m"
+#define GREEN "\033[32m"
+#define YELLOW "\033[33m"
+#define BLUE "\033[34m"
+#define MAGENTA "\033[35m"
+#define LBLUE "\033[36m"
+#define LGRAY "\033[37m"
+#define DEFAULT "\033[39m"
+#define WHITE "\033[97m"
+
+const char* __get_level_name(LogLevel level, bool color) {
+
+	if(!color) {
+
+		switch(level) {
+			case LogLevelTrace: return "trace";
+			case LogLevelDebug: return "debug";
+			case LogLevelInfo: return "info";
+			case LogLevelWarn: return "warn";
+			case LogLevelError: return "error";
+			case LogLevelCritical: return "critical";
+			case LogLevelOff: return "off";
+			default: return "<UNKNOWN LOG LEVEL>";
+		}
+	}
+
 	switch(level) {
-		case LogLevelTrace: return "trace";
-		case LogLevelDebug: return "debug";
-		case LogLevelInfo: return "info";
-		case LogLevelWarn: return "warn";
-		case LogLevelError: return "error";
-		case LogLevelCritical: return "critical";
-		case LogLevelOff: return "off";
+
+		case LogLevelTrace: return WHITE BOLD "trace" NC;
+		case LogLevelDebug: return LBLUE BOLD "debug" NC;
+		case LogLevelInfo: return BLUE BOLD "info" NC;
+		case LogLevelWarn: return YELLOW BOLD "warn" NC;
+		case LogLevelError: return RED BOLD "error" NC;
+		case LogLevelCritical: return MAGENTA BOLD "critical" NC;
+		case LogLevelOff: return DEFAULT BOLD "off" NC;
 		default: return "<UNKNOWN LOG LEVEL>";
 	}
 }
@@ -117,4 +151,8 @@ int parse_log_level(const char* level) {
 	}
 
 	return -1;
+}
+
+const char* get_level_name(LogLevel level) {
+	return __get_level_name(level, false);
 }

@@ -79,4 +79,5 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg);
 int startServer(uint16_t port, SecureOptions* const options);
 
 void print_job_error(FILE* file, const JobError* const error);
+
 void free_job_error(JobError* error);

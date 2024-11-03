@@ -87,6 +87,10 @@ int main(int argc, const char* argv[]) {
 
 	set_thread_name("main thread");
 
+	LOG_MESSAGE(LogLevelTrace, "Setting LogLevel to %s\n", get_level_name(log_level));
+	const char* secure_string = secure ? "true" : "false";
+	LOG_MESSAGE(LogLevelTrace, "Using secure connections: %s\n", secure_string);
+
 	SecureOptions* options = initialize_secure_options(secure, public_cert_file, private_cert_file);
 
 	if(options == NULL) {
