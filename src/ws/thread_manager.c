@@ -318,13 +318,22 @@ static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* co
 	return ws_send_message_raw_internal(connection, message_raw, false);
 }
 
-static NODISCARD bool close_websocket_connection(WebSocketConnection* connection,
-                                                 WebSocketThreadManager* manager,
-                                                 CloseReason reason) {
+static NODISCARD const char* close_websocket_connection(WebSocketConnection* connection,
+                                                        WebSocketThreadManager* manager,
+                                                        CloseReason reason) {
 	bool result = ws_send_close_message_raw_internal(connection, reason);
 
+	if(!result) {
+		return "send error";
+	}
+
 	bool result2 = thread_manager_remove_connection(manager, connection);
-	return result && result2;
+
+	if(!result2) {
+		return "thread manager remove error";
+	}
+
+	return NULL;
 }
 
 static NODISCARD bool setup_signal_handler(void) {
@@ -380,13 +389,15 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 				CloseReason reason = { .code = CloseCode_ProtocolError, .message = errorMessage };
 
-				bool result = close_websocket_connection(connection, argument->manager, reason);
+				const char* result =
+				    close_websocket_connection(connection, argument->manager, reason);
 
 				free(errorMessage);
 
-				if(!result) {
-					LOG_MESSAGE_SIMPLE(LogLevelError,
-					                   "Error while closing the websocket connection\n");
+				if(result != NULL) {
+					LOG_MESSAGE(LogLevelError,
+					            "Error while closing the websocket connection: read error: %s\n",
+					            result);
 				}
 				return NULL;
 			}
@@ -401,12 +412,14 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							"Received Opcode CONTINUATION, but no start frame received"
 						};
 
-						bool result =
+						const char* result =
 						    close_websocket_connection(connection, argument->manager, reason);
 
-						if(!result) {
-							LOG_MESSAGE_SIMPLE(LogLevelError,
-							                   "Error while closing the websocket connection\n");
+						if(result != NULL) {
+							LOG_MESSAGE(
+							    LogLevelError,
+							    "Error while closing the websocket connection: CONT error: %s\n",
+							    result);
 						}
 						return NULL;
 					}
@@ -458,11 +471,14 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						}
 					}
 
-					bool result = close_websocket_connection(connection, argument->manager, reason);
+					const char* result =
+					    close_websocket_connection(connection, argument->manager, reason);
 
-					if(!result) {
-						LOG_MESSAGE_SIMPLE(LogLevelError,
-						                   "Error while closing the websocket connection\n");
+					if(result != NULL) {
+						LOG_MESSAGE(LogLevelError,
+						            "Error while closing the websocket connection: planned "
+						            "close: %s\n",
+						            result);
 					}
 					return NULL;
 				}
@@ -478,12 +494,14 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						CloseReason reason = { .code = CloseCode_ProtocolError,
 							                   "Couldn't send PONG opCode" };
 
-						bool result1 =
+						const char* result1 =
 						    close_websocket_connection(connection, argument->manager, reason);
 
-						if(!result1) {
-							LOG_MESSAGE_SIMPLE(LogLevelError,
-							                   "Error while closing the websocket connection\n");
+						if(result1 != NULL) {
+							LOG_MESSAGE(LogLevelError,
+							            "Error while closing the websocket connection: PONG send "
+							            "error: %s\n",
+							            result1);
 						}
 						return NULL;
 					}
@@ -500,11 +518,14 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 					CloseReason reason = { .code = CloseCode_NotSupportedType,
 						                   "Received Opcode that is not supported" };
 
-					bool result = close_websocket_connection(connection, argument->manager, reason);
+					const char* result =
+					    close_websocket_connection(connection, argument->manager, reason);
 
-					if(!result) {
-						LOG_MESSAGE_SIMPLE(LogLevelError,
-						                   "Error while closing the websocket connection\n");
+					if(result != NULL) {
+						LOG_MESSAGE(LogLevelError,
+						            "Error while closing the websocket connection: "
+						            "Unsupported opCode: %s\n",
+						            result);
 					}
 					return NULL;
 				}
@@ -521,22 +542,28 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				CloseReason reason = { .code = CloseCode_Normal,
 					                   "ServerApplication requested shutdown" };
 
-				bool result = close_websocket_connection(connection, argument->manager, reason);
+				const char* result =
+				    close_websocket_connection(connection, argument->manager, reason);
 
-				if(!result) {
-					LOG_MESSAGE_SIMPLE(LogLevelError,
-					                   "Error while closing the websocket connection\n");
+				if(result != NULL) {
+					LOG_MESSAGE(
+					    LogLevelError,
+					    "Error while closing the websocket connection: shutdown requested: %s\n",
+					    result);
 				}
 				return NULL;
 			} else if(action == WebSocketAction_Error) {
 				CloseReason reason = { .code = CloseCode_ProtocolError,
 					                   "ServerApplication callback has an error" };
 
-				bool result = close_websocket_connection(connection, argument->manager, reason);
+				const char* result =
+				    close_websocket_connection(connection, argument->manager, reason);
 
-				if(!result) {
-					LOG_MESSAGE_SIMPLE(LogLevelError,
-					                   "Error while closing the websocket connection\n");
+				if(result != NULL) {
+					LOG_MESSAGE(LogLevelError,
+					            "Error while closing the websocket connection: "
+					            "callback has error: %s\n",
+					            result);
 				}
 				return NULL;
 			}
@@ -578,19 +605,26 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	connection->descriptor = descriptor;
 	connection->function = function;
 
-	struct connection_node_t* current_node = manager->head;
+	struct connection_node_t* current_node = NULL;
+	struct connection_node_t* next_node = manager->head;
 
 	while(true) {
-		if(current_node == NULL) {
+		if(next_node == NULL) {
 			struct connection_node_t* new_node =
 			    mallocOrFail(sizeof(struct connection_node_t), true);
 
 			new_node->connection = connection;
 			new_node->next = NULL;
+			if(current_node == NULL) {
+				manager->head = new_node;
+			} else {
+				current_node->next = new_node;
+			}
 			break;
 		}
 
-		current_node = current_node->next;
+		current_node = next_node;
+		next_node = current_node->next;
 	}
 
 	WebSocketListenerArg* threadArgument =
@@ -616,9 +650,8 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 		bool result = ws_send_close_message_raw_internal(connection, reason);
 
 		if(!result) {
-			LOG_MESSAGE_SIMPLE(
-			    LogLevelError,
-			    "Error while closing the websocket connection (in free_connection)\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error while closing the websocket connection: close "
+			                                  "reason: server shutting down\n");
 		}
 	}
 
