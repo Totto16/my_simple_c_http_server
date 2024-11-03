@@ -248,11 +248,15 @@ static NODISCARD bool ws_send_message_raw_internal(WebSocketConnection* connecti
 	if(is_control_op_code(raw_message.opCode)) {
 		if(!raw_message.fin) {
 			// TODO: add error message
+			LOG_MESSAGE_SIMPLE(LogLevelDebug,
+			                   "Control frame payload is fragmented, that isn't allowed\n");
 			return false;
 		}
 
 		if(raw_message.payload_len > 125) {
 			// TODO: add error message
+			LOG_MESSAGE(LogLevelDebug, "Control frame payload length is too large: %lu > 125\n",
+			            raw_message.payload_len);
 			return false;
 		}
 	}
@@ -285,19 +289,25 @@ typedef enum /* :uint16_t */ {
 } CloseCode;
 
 typedef struct {
-	bool success;
 	CloseCode code; // as uint16_t
 	char* message;
+	int16_t message_len; // max length is 123 bytes
 } CloseReason;
 
-static NODISCARD CloseReason maybe_parse_close_reason(WebSocketRawMessage raw_message,
-                                                      bool also_parse_message) {
+typedef struct {
+	bool success;
+	CloseReason reason;
+} CloseReasonResult;
+
+static NODISCARD CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage raw_message,
+                                                            bool also_parse_message) {
 	assert(raw_message.opCode == WS_OPCODE_CLOSE);
 
 	uint64_t payload_len = raw_message.payload_len;
 
 	if(payload_len < 2) {
-		CloseReason failed = { .success = false, .code = 0, .message = NULL };
+		CloseReasonResult failed = { .success = false,
+			                         .reason = { .code = 0, .message = NULL, .message_len = 0 } };
 		return failed;
 	}
 
@@ -310,11 +320,15 @@ static NODISCARD CloseReason maybe_parse_close_reason(WebSocketRawMessage raw_me
 	((uint8_t*)(&code))[1] = message[0];
 
 	if(payload_len > 2 && also_parse_message) {
-		CloseReason result = { .success = true, .code = code, .message = (char*)(message + 2) };
+		CloseReasonResult result = { .success = true,
+			                         .reason = { .code = code,
+			                                     .message = (char*)(message + 2),
+			                                     .message_len = payload_len - 2 } };
 		return result;
 	}
 
-	CloseReason result = { .success = true, .code = code, .message = NULL };
+	CloseReasonResult result = { .success = true,
+		                         .reason = { .code = code, .message = NULL, .message_len = 0 } };
 	return result;
 }
 
@@ -348,7 +362,8 @@ static NODISCARD bool is_valid_close_code(uint16_t close_code) {
 static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* connection,
                                                          CloseReason reason) {
 
-	size_t message_len = reason.message ? strlen(reason.message) : 0;
+	size_t message_len =
+	    reason.message ? (reason.message_len < 0 ? strlen(reason.message) : reason.message_len) : 0;
 
 	uint64_t payload_len = 2 + message_len;
 
@@ -376,7 +391,9 @@ static NODISCARD const char* close_websocket_connection(WebSocketConnection* con
                                                         CloseReason reason) {
 
 	if(reason.message) {
-		LOG_MESSAGE(LogLevelTrace, "Closing the websocket connection: %s\n", reason.message);
+		int message_size = reason.message_len < 0 ? strlen(reason.message) : reason.message_len;
+		LOG_MESSAGE(LogLevelTrace, "Closing the websocket connection: %.*s\n", message_size,
+		            reason.message);
 	} else {
 		LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing the websocket connection: (no message)\n");
 	}
@@ -487,7 +504,9 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 				LOG_MESSAGE(LogLevelInfo, "%s\n", errorMessage);
 
-				CloseReason reason = { .code = CloseCode_ProtocolError, .message = errorMessage };
+				CloseReason reason = { .code = CloseCode_ProtocolError,
+					                   .message = errorMessage,
+					                   .message_len = -1 };
 
 				const char* result =
 				    close_websocket_connection(connection, argument->manager, reason);
@@ -509,7 +528,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 				if(!raw_message.fin) {
 					CloseReason reason = { .code = CloseCode_ProtocolError,
-						                   "Received fragmented control frame" };
+						                   .message = "Received fragmented control frame",
+						                   .message_len = -1 };
 
 					const char* result =
 					    close_websocket_connection(connection, argument->manager, reason);
@@ -525,7 +545,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 				if(raw_message.payload_len > 125) {
 					CloseReason reason = { .code = CloseCode_ProtocolError,
-						                   "Control frame payload to large" };
+						                   .message = "Control frame payload to large",
+						                   .message_len = -1 };
 
 					const char* result =
 					    close_websocket_connection(connection, argument->manager, reason);
@@ -549,7 +570,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						if(raw_message.payload_len < 2) {
 							CloseReason reason = { .code = CloseCode_ProtocolError,
 								                   .message = "Close data has invalid code, it has "
-								                              "to be at least 2 bytes long" };
+								                              "to be at least 2 bytes long",
+								                   .message_len = -1 };
 
 							const char* result =
 							    close_websocket_connection(connection, argument->manager, reason);
@@ -572,7 +594,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							             utf8_result.data.error);
 
 							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
-								                   .message = errorMessage };
+								                   .message = errorMessage,
+								                   .message_len = -1 };
 
 							const char* result =
 							    close_websocket_connection(connection, argument->manager, reason);
@@ -598,7 +621,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 					if(!has_message) {
 						CloseReason reason = {
 							.code = CloseCode_ProtocolError,
-							"Received Opcode CONTINUATION, but no start frame received"
+							.message = "Received Opcode CONTINUATION, but no start frame received",
+							.message_len = -1
 						};
 
 						const char* result =
@@ -642,7 +666,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							             utf8_result.data.error);
 
 							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
-								                   .message = errorMessage };
+								                   .message = errorMessage,
+								                   .message_len = -1 };
 
 							const char* result =
 							    close_websocket_connection(connection, argument->manager, reason);
@@ -669,7 +694,9 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 					if(has_message) {
 						CloseReason reason = {
 							.code = CloseCode_ProtocolError,
-							"Received other opCode than CONTINUATION after the first fragment"
+							.message =
+							    "Received other opCode than CONTINUATION after the first fragment",
+							.message_len = -1
 						};
 
 						const char* result =
@@ -705,7 +732,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							             utf8_result.data.error);
 
 							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
-								                   .message = errorMessage };
+								                   .message = errorMessage,
+								                   .message_len = -1 };
 
 							const char* result =
 							    close_websocket_connection(connection, argument->manager, reason);
@@ -729,15 +757,22 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				}
 				case WS_OPCODE_CLOSE: {
 
-					CloseReason reason = { .code = CloseCode_NormalClosure, "Planned close" };
+					CloseReason reason = { .code = CloseCode_NormalClosure,
+						                   .message = "Planned close",
+						                   .message_len = -1 };
 
 					if(raw_message.payload_len != 0) {
-						CloseReason new_reason = maybe_parse_close_reason(raw_message, true);
-						if(new_reason.success) {
+						CloseReasonResult reason_parse_result =
+						    maybe_parse_close_reason(raw_message, true);
+						if(reason_parse_result.success) {
+
+							CloseReason new_reason = reason_parse_result.reason;
 
 							if(!is_valid_close_code(new_reason.code)) {
 								CloseReason invalid_close_code_reason = {
-									.code = CloseCode_ProtocolError, .message = "Invalid Close Code"
+									.code = CloseCode_ProtocolError,
+									.message = "Invalid Close Code",
+									.message_len = -1
 								};
 
 								const char* result = close_websocket_connection(
@@ -777,7 +812,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 					if(!result) {
 						CloseReason reason = { .code = CloseCode_ProtocolError,
-							                   "Couldn't send PONG opCode" };
+							                   .message = "Couldn't send PONG opCode",
+							                   .message_len = -1 };
 
 						const char* result1 =
 						    close_websocket_connection(connection, argument->manager, reason);
@@ -801,7 +837,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 				default: {
 					CloseReason reason = { .code = CloseCode_ProtocolError,
-						                   "Received Opcode that is not supported" };
+						                   .message = "Received Opcode that is not supported",
+						                   .message_len = -1 };
 
 					const char* result =
 					    close_websocket_connection(connection, argument->manager, reason);
@@ -825,7 +862,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 
 			if(action == WebSocketAction_Close) {
 				CloseReason reason = { .code = CloseCode_NormalClosure,
-					                   "ServerApplication requested shutdown" };
+					                   .message = "ServerApplication requested shutdown",
+					                   .message_len = -1 };
 
 				const char* result =
 				    close_websocket_connection(connection, argument->manager, reason);
@@ -839,7 +877,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 				return NULL;
 			} else if(action == WebSocketAction_Error) {
 				CloseReason reason = { .code = CloseCode_ProtocolError,
-					                   "ServerApplication callback has an error" };
+					                   .message = "ServerApplication callback has an error",
+					                   .message_len = -1 };
 
 				const char* result =
 				    close_websocket_connection(connection, argument->manager, reason);
@@ -931,7 +970,9 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 static void free_connection(WebSocketConnection* connection, bool send_go_away) {
 
 	if(send_go_away) {
-		CloseReason reason = { .code = CloseCode_GoingAway, "Server is shutting down" };
+		CloseReason reason = { .code = CloseCode_GoingAway,
+			                   .message = "Server is shutting down",
+			                   .message_len = -1 };
 		bool result = ws_send_close_message_raw_internal(connection, reason);
 
 		if(!result) {
