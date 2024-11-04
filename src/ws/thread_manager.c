@@ -202,11 +202,15 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	return result;
 }
 
-static NODISCARD bool ws_send_message_raw_internal(WebSocketConnection* connection,
-                                                   WebSocketRawMessage raw_message, bool mask) {
+static NODISCARD int ws_send_message_raw_internal(WebSocketConnection* connection,
+                                                  WebSocketRawMessage raw_message, bool mask) {
 
 	if(raw_message.payload == NULL) {
-		assert(raw_message.payload_len == 0 && "payload and payload length have to match");
+		if(raw_message.payload_len != 0) {
+
+			LOG_MESSAGE_SIMPLE(LogLevelWarn, "payload and payload length have to match\n");
+			return -1;
+		}
 	}
 
 	uint8_t mask_len = mask ? 4 : 0;
@@ -218,7 +222,12 @@ static NODISCARD bool ws_send_message_raw_internal(WebSocketConnection* connecti
 
 	uint64_t size = header_offset + raw_message.payload_len;
 
-	uint8_t* resultingFrame = (uint8_t*)mallocOrFail(size, false);
+	uint8_t* resultingFrame = (uint8_t*)malloc(size);
+
+	if(resultingFrame == NULL) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn, "Couldn't allocate memory!\n");
+		return -1;
+	}
 
 	uint8_t headerOne = ((raw_message.fin & 0b1) << 7) | (raw_message.opCode & 0b1111);
 
@@ -272,18 +281,26 @@ static NODISCARD bool ws_send_message_raw_internal(WebSocketConnection* connecti
 			// TODO: add error message
 			LOG_MESSAGE_SIMPLE(LogLevelDebug,
 			                   "Control frame payload is fragmented, that isn't allowed\n");
-			return false;
+
+			free(resultingFrame);
+			return -2;
 		}
 
 		if(raw_message.payload_len > 125) {
 			// TODO: add error message
 			LOG_MESSAGE(LogLevelDebug, "Control frame payload length is too large: %lu > 125\n",
 			            raw_message.payload_len);
-			return false;
+
+			free(resultingFrame);
+			return -3;
 		}
 	}
 
-	return sendDataToConnection(connection->descriptor, resultingFrame, size);
+	int result = sendDataToConnection(connection->descriptor, resultingFrame, size);
+
+	free(resultingFrame);
+
+	return result;
 }
 
 static NODISCARD bool ws_send_message_internal_normal(WebSocketConnection* connection,
@@ -464,8 +481,8 @@ static NODISCARD bool is_valid_close_code(uint16_t close_code) {
 	return false;
 }
 
-static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* connection,
-                                                         CloseReason reason) {
+static NODISCARD int ws_send_close_message_raw_internal(WebSocketConnection* connection,
+                                                        CloseReason reason) {
 
 	size_t message_len = reason.message ? (reason.message_len < 0 ? strlen(reason.message)
 	                                                              : (size_t)reason.message_len)
@@ -473,7 +490,12 @@ static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* co
 
 	uint64_t payload_len = 2 + message_len;
 
-	uint8_t* payload = (uint8_t*)mallocOrFail(payload_len, false);
+	uint8_t* payload = (uint8_t*)malloc(payload_len);
+
+	if(payload == NULL) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn, "Couldn't allocate memory!\n");
+		return -1;
+	}
 
 	uint8_t* reason_code = (uint8_t*)(&reason.code);
 
@@ -489,7 +511,11 @@ static NODISCARD bool ws_send_close_message_raw_internal(WebSocketConnection* co
 		.fin = true, .opCode = WS_OPCODE_CLOSE, .payload = payload, .payload_len = payload_len
 	};
 
-	return ws_send_message_raw_internal(connection, message_raw, false);
+	int result = ws_send_message_raw_internal(connection, message_raw, false);
+
+	free(payload);
+
+	return result;
 }
 
 static NODISCARD const char* close_websocket_connection(WebSocketConnection* connection,
@@ -579,17 +605,25 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, uint64_t size) {
 	return value;
 }
 
-void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
+void* wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
 
-	SET_THREAD_NAME_FORMATTED("ws listener %d", get_thread_id());
+	WebSocketListenerArg* argument = (WebSocketListenerArg*)_arg;
+
+	char* thread_name_buffer = NULL;
+	formatString(&thread_name_buffer, "ws listener %d", get_thread_id());
+	set_thread_name(thread_name_buffer);
+
 	bool _result = setup_signal_handler();
 
-	// an erro message was already sent, and just because the setting of the signal handler failed,
+	// an error message was already sent, and just because the setting of the signal handler failed,
 	// we shouldn't exit or close the connection!
 	UNUSED(_result);
 
-	// TODO: free in every possible path;
-	WebSocketListenerArg* argument = (WebSocketListenerArg*)arg;
+#define FREE_AT_END() \
+	do { \
+		free(thread_name_buffer); \
+		free(argument); \
+	} while(false)
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting WS Listener\n");
 
@@ -625,6 +659,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 					            "Error while closing the websocket connection: read error: %s\n",
 					            result);
 				}
+
+				FREE_AT_END();
 				return NULL;
 			}
 
@@ -647,6 +683,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						            "fragmented control frame: %s\n",
 						            result);
 					}
+
+					FREE_AT_END();
 					return NULL;
 				}
 
@@ -664,6 +702,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						            "Control frame payload to large: %s\n",
 						            result);
 					}
+
+					FREE_AT_END();
 					return NULL;
 				}
 
@@ -689,6 +729,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 								            "Close data has invalid code: %s\n",
 								            result);
 							}
+
+							FREE_AT_END();
 							return NULL;
 						}
 
@@ -707,12 +749,16 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							const char* result =
 							    close_websocket_connection(connection, argument->manager, reason);
 
+							free(errorMessage);
+
 							if(result != NULL) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
 								            "Invalid utf8 payload in control frame: %s\n",
 								            result);
 							}
+
+							FREE_AT_END();
 							return NULL;
 						}
 
@@ -741,6 +787,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							    "Error while closing the websocket connection: CONT error: %s\n",
 							    result);
 						}
+
+						FREE_AT_END();
 						return NULL;
 					}
 
@@ -779,12 +827,16 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							const char* result =
 							    close_websocket_connection(connection, argument->manager, reason);
 
+							free(errorMessage);
+
 							if(result != NULL) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
 								            "Invalid utf8 payload in fragmented message: %s\n",
 								            result);
 							}
+
+							FREE_AT_END();
 							return NULL;
 						}
 
@@ -815,6 +867,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							    "Error while closing the websocket connection: no CONT error: %s\n",
 							    result);
 						}
+
+						FREE_AT_END();
 						return NULL;
 					}
 
@@ -845,12 +899,16 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							const char* result =
 							    close_websocket_connection(connection, argument->manager, reason);
 
+							free(errorMessage);
+
 							if(result != NULL) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
 								            "Invalid utf8 payload in un-fragmented message: %s\n",
 								            result);
 							}
+
+							FREE_AT_END();
 							return NULL;
 						}
 
@@ -891,6 +949,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 									            "Invalid Close Code: %s\n",
 									            result);
 								}
+
+								FREE_AT_END();
 								return NULL;
 							}
 
@@ -907,6 +967,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						            "close: %s\n",
 						            result);
 					}
+
+					FREE_AT_END();
 					return NULL;
 				}
 
@@ -931,6 +993,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 							            "error: %s\n",
 							            result1);
 						}
+
+						FREE_AT_END();
 						return NULL;
 					}
 
@@ -956,6 +1020,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 						            "Unsupported opCode: %s\n",
 						            result);
 					}
+
+					FREE_AT_END();
 					return NULL;
 				}
 			}
@@ -981,6 +1047,8 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 					    "Error while closing the websocket connection: shutdown requested: %s\n",
 					    result);
 				}
+
+				FREE_AT_END();
 				return NULL;
 			} else if(action == WebSocketAction_Error) {
 				CloseReason reason = { .code = CloseCode_ProtocolError,
@@ -996,13 +1064,18 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) arg) {
 					            "callback has error: %s\n",
 					            result);
 				}
+
+				FREE_AT_END();
 				return NULL;
 			}
 		}
 	}
 
+	FREE_AT_END();
 	return NULL;
 }
+
+#undef FREE_AT_END
 
 bool ws_send_message(WebSocketConnection* connection, WebSocketMessage message) {
 

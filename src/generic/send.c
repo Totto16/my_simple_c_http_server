@@ -3,8 +3,8 @@
 #include "send.h"
 #include "utils/log.h"
 
-bool sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toSend,
-                          size_t length) {
+int sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toSend,
+                         size_t length) {
 
 	size_t remainingLength = length;
 
@@ -16,11 +16,11 @@ bool sendDataToConnection(const ConnectionDescriptor* const descriptor, void* to
 
 		if(wroteBytes == -1) {
 			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));
-			return false;
+			return -1;
 		} else if(wroteBytes == 0) {
 			/// shouldn't occur!
 			LOG_MESSAGE_SIMPLE(LogLevelError, "FATAL: Write has an unsupported state!\n");
-			return false;
+			return -2;
 		} else if(wroteBytes == (ssize_t)remainingLength) {
 			// the message was sent in one time
 			break;
@@ -31,19 +31,19 @@ bool sendDataToConnection(const ConnectionDescriptor* const descriptor, void* to
 		}
 	}
 
-	return true;
+	return 0;
 }
 
 // sends a string to the connection, makes all write calls under the hood, deals with arbitrary
 // large null terminated strings!
-bool sendStringToConnection(const ConnectionDescriptor* const descriptor, char* toSend) {
+int sendStringToConnection(const ConnectionDescriptor* const descriptor, char* toSend) {
 	return sendDataToConnection(descriptor, toSend, strlen(toSend));
 }
 
 // just a warpper to send a string buffer to a connection, it also frees the string buffer!
-bool sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
-                                   StringBuilder* stringBuilder) {
-	bool result = sendStringToConnection(descriptor, string_builder_get_string(stringBuilder));
+int sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
+                                  StringBuilder* stringBuilder) {
+	int result = sendStringToConnection(descriptor, string_builder_get_string(stringBuilder));
 	string_builder_free(stringBuilder);
 	return result;
 }
@@ -57,7 +57,7 @@ static NODISCARD bool sendMessageToConnectionWithHeadersMalloced(
 
 	StringBuilder* messageString = httpResponseToStringBuilder(message);
 
-	bool result = sendStringBuilderToConnection(descriptor, messageString);
+	int result = sendStringBuilderToConnection(descriptor, messageString);
 	// body gets freed
 	freeHttpResponse(message);
 	return result;
@@ -66,15 +66,14 @@ static NODISCARD bool sendMessageToConnectionWithHeadersMalloced(
 // sends a http message to the connection, takes status and if that special status needs some
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
-static NODISCARD bool sendMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
-                                                      int status, char* body,
-                                                      const char* MIMEType) {
+static NODISCARD int sendMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
+                                                     int status, char* body, const char* MIMEType) {
 
 	HttpResponse* message = constructHttpResponse(status, body, MIMEType);
 
 	StringBuilder* messageString = httpResponseToStringBuilder(message);
 
-	bool result = sendStringBuilderToConnection(descriptor, messageString);
+	int result = sendStringBuilderToConnection(descriptor, messageString);
 	// body gets freed
 	freeHttpResponse(message);
 	return result;
@@ -83,9 +82,9 @@ static NODISCARD bool sendMessageToConnectionMalloced(const ConnectionDescriptor
 // sends a http message to the connection, takes status and if that special status needs some
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
-bool sendMessageToConnection(const ConnectionDescriptor* const descriptor, int status, char* body,
-                             const char* MIMEType, HttpHeaderField* headerFields,
-                             const int headerFieldsAmount, CONNECTION_SEND_FLAGS FLAGS) {
+int sendMessageToConnection(const ConnectionDescriptor* const descriptor, int status, char* body,
+                            const char* MIMEType, HttpHeaderField* headerFields,
+                            const int headerFieldsAmount, CONNECTION_SEND_FLAGS FLAGS) {
 
 	char* final_body = body;
 

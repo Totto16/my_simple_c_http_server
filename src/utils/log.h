@@ -64,14 +64,6 @@ void set_log_level(LogLevel level);
 // IS thread safe
 void set_thread_name(const char* name);
 
-// NOTE :this isn't freed at the end
-#define SET_THREAD_NAME_FORMATTED(name, ...) \
-	do { \
-		char* result = NULL; \
-		formatString(&result, name, __VA_ARGS__); \
-		set_thread_name(result); \
-	} while(false)
-
 // IS thread safe
 int parse_log_level(const char* level);
 

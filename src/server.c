@@ -97,19 +97,26 @@ WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo) {
+JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo workerInfo) {
 
 	// attention arg is malloced!
-	ConnectionArgument argument = *((ConnectionArgument*)arg);
+	ConnectionArgument* argument = (ConnectionArgument*)_arg;
 
-	ConnectionContext* context = argument.contexts[workerInfo.workerIndex];
+	ConnectionContext* context = argument->contexts[workerInfo.workerIndex];
+	char* thread_name_buffer = NULL;
+	formatString(&thread_name_buffer, "connection handler %lu", workerInfo.workerIndex);
+	set_thread_name(thread_name_buffer);
 
-	SET_THREAD_NAME_FORMATTED("connection handler %lu", workerInfo.workerIndex);
+#define FREE_AT_END() \
+	do { \
+		free(thread_name_buffer); \
+		free(argument); \
+	} while(false)
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
 
 	const ConnectionDescriptor* const descriptor =
-	    get_connection_descriptor(context, argument.connectionFd);
+	    get_connection_descriptor(context, argument->connectionFd);
 
 	if(descriptor == NULL) {
 		fprintf(stderr, "Error: get_connection_descriptor failed\n");
@@ -177,7 +184,7 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 				// just cancel the listener thread, then no new connection are accepted and the
 				// main thread cleans the pool and queue, all jobs are finished so shutdown
 				// gracefully
-				int result = pthread_cancel(argument.listenerThread);
+				int result = pthread_cancel(argument->listenerThread);
 				checkResultForErrorAndExit("While trying to cancel the listener Thread");
 
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
@@ -196,15 +203,15 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 					// move the context so that we can use it in the long standing web socket
 					// thread
 					ConnectionContext* newContext = copy_connection_context(context);
-					argument.contexts[workerInfo.workerIndex] = newContext;
+					argument->contexts[workerInfo.workerIndex] = newContext;
 
-					thread_manager_add_connection(argument.webSocketManager, descriptor, context,
+					thread_manager_add_connection(argument->webSocketManager, descriptor, context,
 					                              websocketFunction);
 
 					// finally free everything necessary
 
 					freeHttpRequest(httpRequest);
-					free(arg);
+					FREE_AT_END();
 
 					return NULL;
 
@@ -219,15 +226,15 @@ JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerI
 					// move the context so that we can use it in the long standing web socket
 					// thread
 					ConnectionContext* newContext = copy_connection_context(context);
-					argument.contexts[workerInfo.workerIndex] = newContext;
+					argument->contexts[workerInfo.workerIndex] = newContext;
 
-					thread_manager_add_connection(argument.webSocketManager, descriptor, context,
+					thread_manager_add_connection(argument->webSocketManager, descriptor, context,
 					                              websocketFunctionFragmented);
 
 					// finally free everything necessary
 
 					freeHttpRequest(httpRequest);
-					free(arg);
+					FREE_AT_END();
 
 					return NULL;
 
@@ -343,9 +350,11 @@ cleanup:
 	int result = close_connection_descriptor(descriptor, context);
 	checkResultForErrorAndExit("While trying to close the connection descriptor");
 	// and free the malloced argument
-	free(arg);
+	FREE_AT_END();
 	return NULL;
 }
+
+#undef FREE_AT_END
 
 // implemented specifically for the http Server, it just gets the internal value, but it's better to
 // not access that, since additional steps can be required, like  boundary checks!
@@ -421,6 +430,7 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 
 		ConnectionArgument* connectionArgument =
 		    (ConnectionArgument*)mallocOrFail(sizeof(ConnectionArgument), true);
+
 		// to have longer lifetime, that is needed here, since otherwise it would be "dead"
 		connectionArgument->contexts = argument.contexts;
 		connectionArgument->connectionFd = connectionFd;
