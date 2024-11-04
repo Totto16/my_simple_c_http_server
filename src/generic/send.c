@@ -18,7 +18,7 @@ int sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toS
 
 		if(wroteBytes == -1) {
 			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));
-			return -1;
+			return -errno;
 		}
 
 		if(wroteBytes == 0) {

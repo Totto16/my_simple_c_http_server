@@ -15,7 +15,7 @@ struct job_id_impl {
 // callable from different threads.
 // it reads from the queue and then executes the job, and then marks it as complete (posting the job
 // semaphore)
-anyType(NULL) _thread_pool_Worker_thread_function(anyType(my_thread_pool_ThreadArgument*) arg) {
+anyType(NULL) thread_pool_worker_thread_function(anyType(my_thread_pool_ThreadArgument*) arg) {
 	// casting it to the given element, (arg) is a malloced struct, so it has to be freed at the end
 	// of that function!
 	my_thread_pool_ThreadArgument argument = *((my_thread_pool_ThreadArgument*)arg);
@@ -120,7 +120,7 @@ int pool_create(thread_pool* pool, size_t size) {
 		threadArgument->threadPool = pool;
 		// now launch the worker thread
 		result = pthread_create(&((pool->workerThreads[i]).thread), NULL,
-		                        _thread_pool_Worker_thread_function, threadArgument);
+		                        thread_pool_worker_thread_function, threadArgument);
 		checkForThreadError(result,
 		                    "An Error occurred while trying to create a new Worker "
 		                    "Thread in the implementation of thread pool",

@@ -150,6 +150,8 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	}
 	RawHeaderOneResult raw_header_result = get_raw_header(header_bytes);
 
+	free(header_bytes);
+
 	if(raw_header_result.has_error) {
 		return (WebSocketRawMessageResult){ .has_error = true,
 			                                .data = { .error = raw_header_result.data.error } };
@@ -170,6 +172,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		}
 		// in network byte order
 		payload_len = (uint64_t)htons(*payload_len_result);
+		free(payload_len_result);
 	} else if(payload_len == EXTENDED_PAYLOAD_MAGIC_NUMBER2) {
 		uint64_t* payload_len_result =
 		    (uint64_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_2_SIZE);
@@ -181,6 +184,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		}
 		// in network byte order (alias big endian = be)
 		payload_len = htobe64(*payload_len_result);
+		free(payload_len_result);
 	}
 
 	uint8_t* mask_byte = NULL;
@@ -204,6 +208,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		for(size_t i = 0; i < payload_len; ++i) {
 			((uint8_t*)payload)[i] = ((uint8_t*)payload)[i] ^ mask_byte[i % 4];
 		}
+		free(mask_byte);
 	}
 
 	WebSocketRawMessage value = { .fin = raw_header.fin,
