@@ -79,6 +79,8 @@ int main(int argc, const char* argv[]) {
 				return EXIT_FAILURE;
 			}
 
+			log_level = parsed_level;
+
 			processed_args += 2;
 		} else {
 			fprintf(stderr, "Unrecognized option: %s\n", arg);
