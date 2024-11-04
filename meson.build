@@ -11,7 +11,7 @@ project(
         'werror': 'true',
         'b_ndebug': 'if-release',
     },
-    version: '3.0.1',
+    version: '3.1.2',
 )
 
 deps = []
