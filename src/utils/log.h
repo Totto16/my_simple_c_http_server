@@ -17,51 +17,51 @@ typedef enum { LogPrintLocation = 0x08 } LogFlags;
 
 // only for internal use!!
 
-bool __should_log(LogLevel level);
+bool should_log(LogLevel level);
 
-bool __should_log_to_stderr(LogLevel level);
+bool should_log_to_stderr(LogLevel level);
 
-const char* __get_level_name(LogLevel level, bool color);
+const char* get_level_name_internal(LogLevel level, bool color);
 
-const char* __get_thread_name(void);
+const char* get_thread_name(void);
 
-void __log_lock_mutex(void);
+void log_lock_mutex(void);
 
-void __log_unlock_mutex(void);
+void log_unlock_mutex(void);
 
-bool __log_should_use_color(void);
+bool log_should_use_color(void);
 
-bool __has_flag(int flags, LogFlags needle);
+bool has_flag(int flags, LogFlags needle);
 
 typedef struct {
 	int level;
 	int flags;
 } LevelAndFlags;
 
-LevelAndFlags __get_level_and_flags(int level_and_flags);
+LevelAndFlags get_level_and_flags(int level_and_flags);
 
 #define LOG_MESSAGE(level_and_flags, msg, ...) \
 	do { \
-		LevelAndFlags destructured = __get_level_and_flags(level_and_flags); \
+		LevelAndFlags destructured = get_level_and_flags(level_and_flags); \
 		int level = destructured.level; \
 		int flags = destructured.flags; \
-		if(__should_log(level)) { \
-			bool should_use_color = __log_should_use_color(); \
-			const char* level_name = __get_level_name(level, should_use_color); \
-			const char* thread_name = __get_thread_name(); \
-			__log_lock_mutex(); \
-			FILE* file_stream = __should_log_to_stderr(level) ? stderr : stdout; \
+		if(should_log(level)) { \
+			bool should_use_color = log_should_use_color(); \
+			const char* level_name = get_level_name_internal(level, should_use_color); \
+			const char* thread_name = get_thread_name(); \
+			log_lock_mutex(); \
+			FILE* file_stream = should_log_to_stderr(level) ? stderr : stdout; \
 			fprintf(file_stream, "[%s] ", level_name); \
 			if(should_use_color) { \
 				fprintf(file_stream, "[\033[32m%s\033[0m] ", thread_name); /*GREEN*/ \
 			} else { \
 				fprintf(file_stream, "[%s] ", thread_name); \
 			} \
-			if(__has_flag(flags, LogPrintLocation)) { \
+			if(has_flag(flags, LogPrintLocation)) { \
 				fprintf(file_stream, "[%s %s:%d] ", __func__, __FILE__, __LINE__); \
 			} \
 			fprintf(file_stream, msg, __VA_ARGS__); \
-			__log_unlock_mutex(); \
+			log_unlock_mutex(); \
 		} \
 	} while(false);
 

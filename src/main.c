@@ -96,7 +96,8 @@ int main(int argc, const char* argv[]) {
 	set_thread_name("main thread");
 
 	LOG_MESSAGE(LogLevelTrace, "Setting LogLevel to %s\n", get_level_name(log_level));
-	const char* secure_string = secure ? "true" : "false";
+	const char* secure_string =
+	    secure ? "true" : "false"; // NOLINT(readability-implicit-bool-conversion)
 	LOG_MESSAGE(LogLevelTrace, "Using secure connections: %s\n", secure_string);
 
 	SecureOptions* options = initialize_secure_options(secure, public_cert_file, private_cert_file);
@@ -109,5 +110,5 @@ int main(int argc, const char* argv[]) {
 	return startServer(port, options);
 }
 
-// TODO: general, don't use exit() in error cases, try to do the best to "recover" in such
+// TODO(Totto): general, don't use exit() in error cases, try to do the best to "recover" in such
 // situations

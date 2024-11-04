@@ -9,10 +9,10 @@
 #include "myqueue.h"
 #include "utils.h"
 
-#define __THREAD_SHUTDOWN_JOB_INTERNAL 0x02
+#define THREAD_SHUTDOWN_JOB_INTERNAL 0x02
 
 // defining the Shutdown Macro
-#define _THREAD_SHUTDOWN_JOB ((job_function)__THREAD_SHUTDOWN_JOB_INTERNAL)
+#define THREAD_SHUTDOWN_JOB ((job_function)THREAD_SHUTDOWN_JOB_INTERNAL)
 
 // defining the type defs
 
@@ -25,29 +25,29 @@ typedef anyType(JobResult*) (*job_function)(anyType(UserType*), WorkerInfo);
 typedef struct {
 	pthread_t thread;
 	// used to have more information, therefore a struct, it doesn'T take more memory, so its fine
-} _my_thread_pool_ThreadInformation;
+} my_thread_pool_ThreadInformation;
 
 typedef struct {
 	size_t workerThreadAmount;
 	myqueue jobqueue;
-	_my_thread_pool_ThreadInformation* workerThreads;
+	my_thread_pool_ThreadInformation* workerThreads;
 	sem_t jobsAvailable;
 } thread_pool;
 
 typedef struct job_id_impl job_id;
 
 typedef struct {
-	_my_thread_pool_ThreadInformation* information;
+	my_thread_pool_ThreadInformation* information;
 	thread_pool* threadPool;
 	WorkerInfo workerInfo;
-} _my_thread_pool_ThreadArgument;
+} my_thread_pool_ThreadArgument;
 
 // this function is used internally as worker thread Function, therefore the rather cryptic name
 // it handles all the submitted jobs, it wait for them with a semaphore, that is thread safe, and
 // callable from different threads.
 // it reads from the queue and then executes the job, and then marks it as complete (posting the job
 // semaphore)
-anyType(NULL) _thread_pool_Worker_thread_function(anyType(_my_thread_pool_ThreadArgument*) arg);
+anyType(NULL) thread_pool_Worker_thread_function(anyType(_my_thread_pool_ThreadArgument*) arg);
 
 // creates a pool, the size denotes the size of the worker threads, if you don't know how to choose
 // this value, use pool_create_dynamic to have an adjusted value, to your running system, it

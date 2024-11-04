@@ -10,11 +10,11 @@
 
 #include "utils/log.h"
 
-// TODO: use c23 builtin, if available
+// TODO(Totto): use c23 builtin, if available
 // see e.g. https://www.gnu.org/software/gnulib/manual/html_node/Attributes.html
 #define NODISCARD __attribute__((__warn_unused_result__))
 
-#define UNUSED(v) ((void)v)
+#define UNUSED(v) ((void)(v))
 
 // cool trick from here:
 // https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
@@ -47,7 +47,7 @@
 // simple error helper macro, with some more used "overloads"
 #define checkForError(toCheck, errorString, statement) \
 	do { \
-		if(toCheck == -1) { \
+		if((toCheck) == -1) { \
 			LOG_MESSAGE(LogLevelError | LogPrintLocation, "%s: %s\n", errorString, \
 			            strerror(errno)); \
 			statement; \
@@ -56,7 +56,7 @@
 
 #define checkForThreadError(toCheck, errorString, statement) \
 	do { \
-		if(toCheck != 0) { \
+		if((toCheck) != 0) { \
 			/*pthread function don't set errno, but return the error value \
 			 * directly*/ \
 			LOG_MESSAGE(LogLevelError | LogPrintLocation, "%s: %s\n", errorString, \
@@ -80,7 +80,7 @@ uint16_t parseU16Safely(const char* toParse, const char* description);
 #define anyType(type) /* Type helper for readability */ any
 
 // simple malloc Wrapper, using also memset to set everything to 0
-void* mallocWithMemset(const size_t size, const bool initializeWithZeros);
+void* mallocWithMemset(size_t size, bool initializeWithZeros);
 
 // uses snprintf feature with passing NULL,0 as first two arguments to automatically determine the
 // required buffer size, for more read man page
@@ -117,5 +117,5 @@ void* mallocWithMemset(const size_t size, const bool initializeWithZeros);
 	}
 
 // simple realloc Wrapper, using also memset to set everything to 0
-void* reallocWithMemset(void* previousPtr, const size_t oldSize, const size_t newSize,
-                        const bool initializeWithZeros);
+void* reallocWithMemset(void* previousPtr, size_t oldSize, size_t newSize,
+                        bool initializeWithZeros);

@@ -41,7 +41,7 @@ WebSocketThreadManager* initialize_thread_manager(void);
  * Thread safe
  */
 WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
-                                                   const ConnectionDescriptor* const descriptor,
+                                                   const ConnectionDescriptor* descriptor,
                                                    ConnectionContext* context,
                                                    WebSocketFunction function);
 

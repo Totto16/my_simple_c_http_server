@@ -65,10 +65,10 @@ typedef struct {
 // it receives all the necessary information and also handles the html parsing and response
 
 anyType(JobError*)
-    __socket_connection_handler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo);
+    socket_connection_handler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(NULL) __listener_thread_function(anyType(ThreadArgument*) arg);
+anyType(NULL) listener_thread_function(anyType(ThreadArgument*) arg);
 
-int startServer(uint16_t port, SecureOptions* const options);
+int startServer(uint16_t port, SecureOptions* options);

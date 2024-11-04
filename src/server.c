@@ -50,7 +50,7 @@ static void receiveSignal(int signalNumber) {
 // it receives all the necessary information and also handles the html parsing and response
 
 anyType(JobError*)
-    __socket_connection_handler(anyType(ConnectionArgument*) _arg, WorkerInfo workerInfo) {
+    socket_connection_handler(anyType(ConnectionArgument*) _arg, WorkerInfo workerInfo) {
 
 	// attention arg is malloced!
 	ConnectionArgument* argument = (ConnectionArgument*)_arg;
@@ -331,7 +331,7 @@ static int myqueue_size(myqueue* q) {
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(ListenerError*) __listener_thread_function(anyType(ThreadArgument*) arg) {
+anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
 
 	set_thread_name("listener thread");
 
@@ -407,7 +407,7 @@ anyType(ListenerError*) __listener_thread_function(anyType(ThreadArgument*) arg)
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(myqueue_push(argument.jobIds, pool_submit(argument.pool, __socket_connection_handler,
+		if(myqueue_push(argument.jobIds, pool_submit(argument.pool, socket_connection_handler,
 		                                             connectionArgument)) < 0) {
 			return ListenerError_QueuePush;
 		}
@@ -559,7 +559,7 @@ int startServer(uint16_t port, SecureOptions* const options) {
 		                              .webSocketManager = webSocketManager };
 
 	// creating the thread
-	result = pthread_create(&listenerThread, NULL, __listener_thread_function, &threadArgument);
+	result = pthread_create(&listenerThread, NULL, listener_thread_function, &threadArgument);
 	checkForThreadError(result, "An Error occurred while trying to create a new Thread",
 	                    return EXIT_FAILURE;);
 

@@ -27,7 +27,7 @@ typedef struct {
 
 static _Thread_local ThreadState __log_thread_state = { .name = NULL };
 
-bool __should_log(LogLevel level) {
+bool should_log(LogLevel level) {
 	if(__global_log_entry.log_level == LogLevelOff) {
 		return false;
 	}
@@ -35,21 +35,21 @@ bool __should_log(LogLevel level) {
 	return __global_log_entry.log_level <= level;
 }
 
-bool __should_log_to_stderr(LogLevel level) {
+bool should_log_to_stderr(LogLevel level) {
 	return level >= LogLevelError;
 }
 
-bool __log_should_use_color(void) {
+bool log_should_use_color(void) {
 	return isatty(STDIN_FILENO);
 }
 
-bool __has_flag(int flags, LogFlags needle) {
+bool has_flag(int flags, LogFlags needle) {
 	return (flags & needle) != 0;
 }
 
 static const int level_flag_mask = 0b111;
 
-LevelAndFlags __get_level_and_flags(int level_and_flags) {
+LevelAndFlags get_level_and_flags(int level_and_flags) {
 	int level = level_and_flags & level_flag_mask;
 	int flags = level_and_flags & (~(level_flag_mask));
 
@@ -70,7 +70,7 @@ LevelAndFlags __get_level_and_flags(int level_and_flags) {
 #define DEFAULT "\033[39m"
 #define WHITE "\033[97m"
 
-const char* __get_level_name(LogLevel level, bool color) {
+const char* get_level_name_internal(LogLevel level, bool color) {
 
 	if(!color) {
 
@@ -99,7 +99,7 @@ const char* __get_level_name(LogLevel level, bool color) {
 	}
 }
 
-const char* __get_thread_name(void) {
+const char* get_thread_name(void) {
 
 	if(__log_thread_state.name) {
 		return __log_thread_state.name;
@@ -115,13 +115,13 @@ const char* __get_thread_name(void) {
 	return __log_thread_state.name;
 }
 
-void __log_lock_mutex(void) {
+void log_lock_mutex(void) {
 	int result = pthread_mutex_lock(&__global_log_entry.mutex);
 	checkResultForThreadErrorAndExit(
 	    "An Error occurred while trying to lock the mutex for the logger");
 }
 
-void __log_unlock_mutex(void) {
+void log_unlock_mutex(void) {
 	int result = pthread_mutex_unlock(&__global_log_entry.mutex);
 	checkResultForThreadErrorAndExit(
 	    "An Error occurred while trying to unlock the mutex for the logger");
@@ -165,5 +165,5 @@ int parse_log_level(const char* level) {
 }
 
 const char* get_level_name(LogLevel level) {
-	return __get_level_name(level, false);
+	return get_level_name_internal(level, false);
 }

@@ -31,14 +31,14 @@ typedef struct {
 	int size;
 } myqueue;
 
-[[nodiscard]] int myqueue_init(myqueue* q);
+[[nodiscard]] int myqueue_init(myqueue* queue);
 
-[[nodiscard]] int myqueue_destroy(myqueue* q);
+[[nodiscard]] int myqueue_destroy(myqueue* queue);
 
-bool myqueue_is_empty(myqueue* q);
+bool myqueue_is_empty(myqueue* queue);
 
 // not checked for error code of malloc :(
 // modified to use void * instead of int as stored value
-[[nodiscard]] int myqueue_push(myqueue* q, void* value);
+[[nodiscard]] int myqueue_push(myqueue* queue, void* value);
 
-void* myqueue_pop(myqueue* q);
+void* myqueue_pop(myqueue* queue);

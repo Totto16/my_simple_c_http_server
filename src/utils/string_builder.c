@@ -34,7 +34,7 @@ char* normalStringToMalloced(const char* notMallocedString) {
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-int __string_builder_append(StringBuilder* stringBuilder, char* string) {
+int string_builder_append_internal(StringBuilder* stringBuilder, char* string) {
 	size_t length = strlen(string);
 	// if te string builder is empty malloc the right size
 	if(stringBuilder->currentSize == 0) {
@@ -76,7 +76,7 @@ int __string_builder_append(StringBuilder* stringBuilder, char* string) {
 // simple wrapper if just a constant string has to be appended
 int string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString) {
 	char* mallocedString = normalStringToMalloced(notMallocedString);
-	return __string_builder_append(stringBuilder, mallocedString);
+	return string_builder_append_internal(stringBuilder, mallocedString);
 }
 
 // attention the two methods to_string and get_string are different in that sense, that after

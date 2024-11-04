@@ -15,10 +15,10 @@ struct job_id_impl {
 // callable from different threads.
 // it reads from the queue and then executes the job, and then marks it as complete (posting the job
 // semaphore)
-anyType(NULL) _thread_pool_Worker_thread_function(anyType(_my_thread_pool_ThreadArgument*) arg) {
+anyType(NULL) _thread_pool_Worker_thread_function(anyType(my_thread_pool_ThreadArgument*) arg) {
 	// casting it to the given element, (arg) is a malloced struct, so it has to be freed at the end
 	// of that function!
-	_my_thread_pool_ThreadArgument argument = *((_my_thread_pool_ThreadArgument*)arg);
+	my_thread_pool_ThreadArgument argument = *((my_thread_pool_ThreadArgument*)arg);
 	// extracting the queue for later use
 	myqueue* JobsQueue = &(argument.threadPool->jobqueue);
 	// looping until receiving the shutdown signal, to know more about that, read pool_destroy
@@ -41,7 +41,7 @@ anyType(NULL) _thread_pool_Worker_thread_function(anyType(_my_thread_pool_Thread
 		job_id* currentJob = (job_id*)myqueue_pop(JobsQueue);
 
 		// when receiving shutdown signal, It breaks out of the while loop and finsishes
-		if(currentJob->jobFunction == _THREAD_SHUTDOWN_JOB) {
+		if(currentJob->jobFunction == THREAD_SHUTDOWN_JOB) {
 			// to be able to await for this job toot, it has to post the sempahore before leaving!
 			result = sem_post(&(currentJob->status));
 			checkForError(result,
@@ -80,8 +80,8 @@ int pool_create(thread_pool* pool, size_t size) {
 	// writing the values to the struct
 	pool->workerThreadAmount = size;
 	// allocating the worker Threads array, they are freed in destroy!
-	pool->workerThreads = (_my_thread_pool_ThreadInformation*)mallocWithMemset(
-	    sizeof(_my_thread_pool_ThreadInformation) * size, true);
+	pool->workerThreads = (my_thread_pool_ThreadInformation*)mallocWithMemset(
+	    sizeof(my_thread_pool_ThreadInformation) * size, true);
 
 	if(!pool->workerThreads) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
@@ -106,8 +106,8 @@ int pool_create(thread_pool* pool, size_t size) {
 		// doing a malloc for every single one, so that it can be freed after the threads is
 		// finished, here a struct, that is allocated on the stack wouldn't have a lifetime that is
 		// suited for that use case, after the for loop it's "dead", unusable
-		_my_thread_pool_ThreadArgument* threadArgument =
-		    (_my_thread_pool_ThreadArgument*)malloc(sizeof(_my_thread_pool_ThreadArgument));
+		my_thread_pool_ThreadArgument* threadArgument =
+		    (my_thread_pool_ThreadArgument*)malloc(sizeof(my_thread_pool_ThreadArgument));
 
 		if(!threadArgument) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
@@ -192,7 +192,7 @@ static job_id* __pool_submit(thread_pool* pool, job_function start_routine, anyT
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its an invalid function pointer) so it is
 // checked here and printing a warning if its _THREAD_SHUTDOWN_JOB and returns a SubmitError
 job_id* pool_submit(thread_pool* pool, job_function start_routine, anyType(JobArg) arg) {
-	if(start_routine != _THREAD_SHUTDOWN_JOB) {
+	if(start_routine != THREAD_SHUTDOWN_JOB) {
 		return __pool_submit(pool, start_routine, arg);
 	}
 
@@ -230,7 +230,7 @@ static anyType(JobResult) __pool_await(job_id* jobDescription) {
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its an invalid function pointer) so it is
 // checked here and printing a warning if its _THREAD_SHUTDOWN_JOB
 anyType(JobResult) pool_await(job_id* jobDescription) {
-	if(jobDescription != (void*)__THREAD_SHUTDOWN_JOB_INTERNAL) {
+	if(jobDescription != (void*)THREAD_SHUTDOWN_JOB_INTERNAL) {
 		return __pool_await(jobDescription);
 	} else {
 		fprintf(stderr, "WARNING: invalid job_function passed to pool_submit!\n");
@@ -250,7 +250,7 @@ int pool_destroy(thread_pool* pool) {
 	// destroy, they DON'T get worked upon, and also it is shutdown after ALL remaining jobs
 	// are finished, so it's only well defined, if waited upon all jobs!
 	for(size_t i = 0; i < pool->workerThreadAmount; ++i) {
-		__pool_await(__pool_submit(pool, _THREAD_SHUTDOWN_JOB, NULL));
+		__pool_await(__pool_submit(pool, THREAD_SHUTDOWN_JOB, NULL));
 	}
 
 	// then finally join all the worker threads, this is done after sending a shutdown signal, so

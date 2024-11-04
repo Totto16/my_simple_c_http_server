@@ -20,30 +20,27 @@ typedef struct ConnectionContextImpl ConnectionContext;
 
 typedef struct ConnectionDescriptorImpl ConnectionDescriptor;
 
-bool is_secure(const SecureOptions* const options);
+bool is_secure(const SecureOptions* options);
 
-bool is_secure_context(const ConnectionContext* const context);
+bool is_secure_context(const ConnectionContext* context);
 
-SecureOptions* initialize_secure_options(bool secure, const char* const public_cert_file,
-                                         const char* const private_cert_file);
+SecureOptions* initialize_secure_options(bool secure, const char* public_cert_file,
+                                         const char* private_cert_file);
 
-void free_secure_options(SecureOptions* const options);
+void free_secure_options(SecureOptions* options);
 
-ConnectionContext* get_connection_context(const SecureOptions* const options);
+ConnectionContext* get_connection_context(const SecureOptions* options);
 
-ConnectionContext* copy_connection_context(const ConnectionContext* const old_context);
+ConnectionContext* copy_connection_context(const ConnectionContext* old_context);
 
 void free_connection_context(ConnectionContext* context);
 
-ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const context, int fd);
+ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* context, int native_fd);
 
-int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
-                                ConnectionContext* const context);
+int close_connection_descriptor(const ConnectionDescriptor* descriptor, ConnectionContext* context);
 
-int read_from_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,
-                         size_t n_bytes);
+int read_from_descriptor(const ConnectionDescriptor* descriptor, void* buffer, size_t n_bytes);
 
-ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,
-                            size_t n_bytes);
+ssize_t write_to_descriptor(const ConnectionDescriptor* descriptor, void* buffer, size_t n_bytes);
 
-int get_underlying_socket(const ConnectionDescriptor* const descriptor);
+int get_underlying_socket(const ConnectionDescriptor* descriptor);

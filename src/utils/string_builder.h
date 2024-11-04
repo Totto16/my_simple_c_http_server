@@ -28,14 +28,14 @@ char* normalStringToMalloced(const char* notMallocedString);
 	{ \
 		char* __append_buf = NULL; \
 		formatString(&__append_buf, statement, format, __VA_ARGS__); \
-		__string_builder_append(stringBuilder, __append_buf); \
+		string_builder_append_internal(stringBuilder, __append_buf); \
 	}
 
-// TODO: make them NODISCARD
+// TODO(Totto): make them NODISCARD
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-int __string_builder_append(StringBuilder* stringBuilder, char* string);
+int string_builder_append_internal(StringBuilder* stringBuilder, char* string);
 
 // simple wrapper if just a constant string has to be appended
 int string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString);

@@ -67,7 +67,7 @@ enum HTTP_STATUS_CODES {
 
 #define freeIfNotNULL(pointerToFree) \
 	do { \
-		if(pointerToFree != NULL) { \
+		if((pointerToFree) != NULL) { \
 			free(pointerToFree); \
 		} \
 	} while(false)
