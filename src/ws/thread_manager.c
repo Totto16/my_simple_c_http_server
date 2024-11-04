@@ -198,10 +198,16 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		}
 	}
 
-	void* payload = readExactBytes(connection->descriptor, payload_len);
-	if(!payload) {
-		return (WebSocketRawMessageResult){ .has_error = true,
-			                                .data = { .error = "couldn't read payload bytes" } };
+	void* payload = NULL;
+
+	if(payload_len != 0) {
+
+		payload = readExactBytes(connection->descriptor, payload_len);
+		if(!payload) {
+			return (WebSocketRawMessageResult){
+				.has_error = true, .data = { .error = "couldn't read payload bytes" }
+			};
+		}
 	}
 
 	if(raw_header.mask) {
@@ -730,6 +736,8 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 			WebSocketRawMessageResult raw_message_result = read_raw_message(connection);
 
+#define FREE_RAW_WS_MESSAGE() free(raw_message_result.data.message.payload)
+
 			if(raw_message_result.has_error) {
 
 				char* errorMessage = NULL;
@@ -783,6 +791,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 						            result);
 					}
 
+					FREE_RAW_WS_MESSAGE();
 					FREE_AT_END();
 					return NULL;
 				}
@@ -802,6 +811,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 						            result);
 					}
 
+					FREE_RAW_WS_MESSAGE();
 					FREE_AT_END();
 					return NULL;
 				}
@@ -829,6 +839,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 								            result);
 							}
 
+							FREE_RAW_WS_MESSAGE();
 							FREE_AT_END();
 							return NULL;
 						}
@@ -864,6 +875,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 								            result);
 							}
 
+							FREE_RAW_WS_MESSAGE();
 							FREE_AT_END();
 							return NULL;
 						}
@@ -895,6 +907,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 							    result);
 						}
 
+						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
@@ -906,17 +919,23 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 					if(!current_message.data) {
 						// TODO(Totto): report this error
+						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
 
 					current_message.data_len += raw_message.payload_len;
 
-					memcpy(current_message.data, old_data, old_length);
-					memcpy(((uint8_t*)current_message.data) + old_length, raw_message.payload,
-					       raw_message.payload_len);
+					if(old_length != 0 && old_data != NULL) {
+						memcpy(current_message.data, old_data, old_length);
+						free(old_data);
+					}
 
-					free(old_data);
+					if(raw_message.payload_len != 0 && raw_message.payload != NULL) {
+						memcpy(((uint8_t*)current_message.data) + old_length, raw_message.payload,
+						       raw_message.payload_len);
+						free(raw_message.payload);
+					}
 
 					if(!raw_message.fin) {
 						continue;
@@ -950,6 +969,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 								            result);
 							}
 
+							FREE_RAW_WS_MESSAGE();
 							FREE_AT_END();
 							return NULL;
 						}
@@ -982,6 +1002,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 							    result);
 						}
 
+						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
@@ -1007,6 +1028,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 							formatString(
 							    &errorMessage,
 							    {
+								    FREE_RAW_WS_MESSAGE();
 								    FREE_AT_END();
 								    return NULL;
 							    },
@@ -1029,6 +1051,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 								            result);
 							}
 
+							FREE_RAW_WS_MESSAGE();
 							FREE_AT_END();
 							return NULL;
 						}
@@ -1072,6 +1095,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 									            result);
 								}
 
+								FREE_RAW_WS_MESSAGE();
 								FREE_AT_END();
 								return NULL;
 							}
@@ -1090,6 +1114,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 						            result);
 					}
 
+					FREE_RAW_WS_MESSAGE();
 					FREE_AT_END();
 					return NULL;
 				}
@@ -1116,6 +1141,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 							            result1);
 						}
 
+						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
@@ -1143,6 +1169,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 						            result);
 					}
 
+					FREE_RAW_WS_MESSAGE();
 					FREE_AT_END();
 					return NULL;
 				}
@@ -1198,6 +1225,8 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 	FREE_AT_END();
 	return NULL;
 }
+
+#undef FREE_RAW_WS_MESSAGE
 
 #undef FREE_AT_END
 
