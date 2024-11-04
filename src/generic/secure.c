@@ -342,11 +342,13 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 #endif
 }
 
-int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
+int close_connection_descriptor(ConnectionDescriptor* descriptor,
                                 ConnectionContext* const context) {
 
 	if(!is_secure_descriptor(descriptor)) {
-		return close(descriptor->data.fd);
+		int result = close(descriptor->data.fd);
+		free(descriptor);
+		return result;
 	}
 
 #ifdef _HTTP_SERVER_SECURE_DISABLED
@@ -421,6 +423,8 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 			return -1;
 		}
 	}
+
+	free(descriptor);
 
 	return 0;
 #endif

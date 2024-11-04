@@ -41,7 +41,7 @@ WebSocketThreadManager* initialize_thread_manager(void);
  * Thread safe
  */
 WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
-                                                   const ConnectionDescriptor* descriptor,
+                                                   ConnectionDescriptor* descriptor,
                                                    ConnectionContext* context,
                                                    WebSocketFunction function);
 
@@ -51,7 +51,7 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
  * returns true if it was successfully removed, false if it was an invalid connection
  */
 NODISCARD int thread_manager_remove_connection(WebSocketThreadManager* manager,
-                                                WebSocketConnection* connection);
+                                               WebSocketConnection* connection);
 
 /**
  * NOT Thread safe

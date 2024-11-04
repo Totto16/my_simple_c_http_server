@@ -28,7 +28,7 @@ struct WebSocketThreadManagerImpl {
 
 struct WebSocketConnectionImpl {
 	ConnectionContext* context;
-	const ConnectionDescriptor* descriptor;
+	ConnectionDescriptor* descriptor;
 	WebSocketFunction function;
 	pthread_t thread_id;
 };
@@ -917,13 +917,6 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 					current_message.data = malloc(old_length + raw_message.payload_len);
 
-					if(!current_message.data) {
-						// TODO(Totto): report this error
-						FREE_RAW_WS_MESSAGE();
-						FREE_AT_END();
-						return NULL;
-					}
-
 					current_message.data_len += raw_message.payload_len;
 
 					if(old_length != 0 && old_data != NULL) {
@@ -1261,7 +1254,7 @@ WebSocketThreadManager* initialize_thread_manager(void) {
 }
 
 WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
-                                                   const ConnectionDescriptor* const descriptor,
+                                                   ConnectionDescriptor* const descriptor,
                                                    ConnectionContext* context,
                                                    WebSocketFunction function) {
 

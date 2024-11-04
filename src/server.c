@@ -77,7 +77,7 @@ anyType(JobError*)
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
 
-	const ConnectionDescriptor* const descriptor =
+	ConnectionDescriptor* const descriptor =
 	    get_connection_descriptor(context, argument->connectionFd);
 
 	if(descriptor == NULL) {
