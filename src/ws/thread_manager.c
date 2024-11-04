@@ -104,11 +104,12 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
 	uint8_t rsv_bytes =
 	    (header_bytes[0] >> 4) &
 	    0b111; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	// TODO(Totto): better error handling
+
 	if(rsv_bytes != 0) {
 		return (RawHeaderOneResult){ .has_error = true,
 			                         .data = { .error = "only 0 allowed for the rsv bytes" } };
 	};
+
 	WS_OPCODE opCode =
 	    header_bytes[0] &
 	    0b1111; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)

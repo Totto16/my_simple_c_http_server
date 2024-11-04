@@ -226,8 +226,6 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	header[2].key = secWebsocketAcceptHeaderBuffer;
 	header[2].value = secWebsocketAcceptHeaderBuffer + strlen(secWebsocketAcceptHeaderBuffer) + 1;
 
-	LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintLocation, "HERE3\n");
-
 	return sendMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL, header,
 	                               headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
 }

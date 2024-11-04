@@ -56,7 +56,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	// then parsing that accordingly
 	do {
 		char* resultingIndex = strstr(currentlyAt, separators);
-		// no"\r\n" could be found, so a parse Error occurred, a NULl signals that
+		// no"\r\n" could be found, so a parse Error occurred, a NULL signals that
 		if(resultingIndex == NULL) {
 			// also the input rawHttpRequest string has to be freed
 			free(rawHttpRequest);
@@ -78,7 +78,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 		if(currentlyAt == rawHttpRequest) {
 			// parsing the string and inserting"\0" bytes at the" " space byte, so the three part
 			// string can vbe used in three different fields, with the correct start address, this
-			// trick is used more often troughout this implementation, you don't have to understand
+			// trick is used more often trough-out this implementation, you don't have to understand
 			// it, since its abstracted away when using only the provided function
 			char* begin = index(all, ' ');
 			*begin = '\0';
@@ -94,7 +94,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 		} else {
 			if(strlen(all) == 0) {
 				// that denotes now comes the body! so the body is assigned and the loop ends with
-				// the parsed = true the while loop finshes
+				// the parsed = true the while loop finishes
 				free(all);
 				size_t bodyLength =
 				    strlen(rawHttpRequest) - ((resultingIndex - rawHttpRequest) + separatorsLength);

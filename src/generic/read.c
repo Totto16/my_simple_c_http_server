@@ -25,6 +25,7 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 		int readBytes = read_from_descriptor(
 		    descriptor, messageBuffer + (INITIAL_MESSAGE_BUF_SIZE * buffersUsed),
 		    INITIAL_MESSAGE_BUF_SIZE);
+
 		if(readBytes == -1) {
 			LOG_MESSAGE(LogLevelWarn, "Couldn't read from a connection: %s\n", strerror(errno));
 			return NULL;
@@ -48,11 +49,16 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 				                   "Couldn't re-allocate memory!\n");
 				return NULL;
 			}
+
 			messageBuffer = new_buffer;
+
+			messageBuffer[oldSize + INITIAL_MESSAGE_BUF_SIZE] = '\0';
 
 			++buffersUsed;
 			continue;
 		}
+
+		*(messageBuffer + (INITIAL_MESSAGE_BUF_SIZE * buffersUsed) + readBytes) = '\0';
 
 		// the message was shorter and could fit in the existing buffer!
 		break;
@@ -77,6 +83,7 @@ char* readExactBytes(const ConnectionDescriptor* const descriptor, size_t n_byte
 		// read bytes, save the amount of read bytes, and then test for various scenarios
 		int readBytes = read_from_descriptor(descriptor, messageBuffer + actualBytesRead,
 		                                     n_bytes - actualBytesRead);
+
 		if(readBytes == -1) {
 			LOG_MESSAGE(LogLevelWarn, "Couldn't read from a connection: %s\n", strerror(errno));
 			return NULL;

@@ -36,6 +36,8 @@ int isRequestSupported(HttpRequest* request) {
 	    strcmp(request->head.requestLine.method, "HEAD") == 0 ||
 	    strcmp(request->head.requestLine.method, "OPTIONS") == 0) &&
 	   strlen(request->body) != 0) {
+		LOG_MESSAGE(LogLevelDebug, "Non Empty body in GET / HEAD or OPTIONS: '%s'\n",
+		            request->body);
 		return REQUEST_INVALID_NONEMPTY_BODY;
 	}
 
