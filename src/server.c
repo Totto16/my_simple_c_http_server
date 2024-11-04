@@ -23,22 +23,28 @@ Module: PS OS 08
 int isRequestSupported(HttpRequest* request) {
 	if(strcmp(request->head.requestLine.protocolVersion, "HTTP/1.1") != 0) {
 		return REQUEST_INVALID_HTTP_VERSION;
-	} else if(strcmp(request->head.requestLine.method, "GET") != 0 &&
-	          strcmp(request->head.requestLine.method, "POST") != 0 &&
-	          strcmp(request->head.requestLine.method, "HEAD") != 0 &&
-	          strcmp(request->head.requestLine.method, "OPTIONS") != 0) {
+	}
+
+	if(strcmp(request->head.requestLine.method, "GET") != 0 &&
+	   strcmp(request->head.requestLine.method, "POST") != 0 &&
+	   strcmp(request->head.requestLine.method, "HEAD") != 0 &&
+	   strcmp(request->head.requestLine.method, "OPTIONS") != 0) {
 		return REQUEST_METHOD_NOT_SUPPORTED;
-	} else if((strcmp(request->head.requestLine.method, "GET") == 0 ||
-	           strcmp(request->head.requestLine.method, "HEAD") == 0 ||
-	           strcmp(request->head.requestLine.method, "OPTIONS") == 0) &&
-	          strlen(request->body) != 0) {
+	}
+
+	if((strcmp(request->head.requestLine.method, "GET") == 0 ||
+	    strcmp(request->head.requestLine.method, "HEAD") == 0 ||
+	    strcmp(request->head.requestLine.method, "OPTIONS") == 0) &&
+	   strlen(request->body) != 0) {
 		return REQUEST_INVALID_NONEMPTY_BODY;
 	}
 
 	return REQUEST_SUPPORTED;
 }
 
-static volatile sig_atomic_t signal_received = 0;
+static volatile sig_atomic_t
+    signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    0;
 
 // only setting the volatile sig_atomic_t signal_received' in here
 static void receiveSignal(int signalNumber) {
@@ -75,6 +81,7 @@ anyType(JobError*)
 	if(descriptor == NULL) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "get_connection_descriptor failed\n");
 
+		FREE_AT_END();
 		return JobError_Desc;
 	}
 
@@ -136,8 +143,10 @@ anyType(JobError*)
 				// main thread cleans the pool and queue, all jobs are finished so shutdown
 				// gracefully
 				int cancel_result = pthread_cancel(argument->listenerThread);
-				checkForError(cancel_result, "While trying to cancel the listener Thread",
-				              return JobError_ThreadCancel;);
+				checkForError(cancel_result, "While trying to cancel the listener Thread", {
+					FREE_AT_END();
+					return JobError_ThreadCancel;
+				});
 
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
 				int result = sendMessageToConnection(
@@ -215,7 +224,7 @@ anyType(JobError*)
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
-			// TODO send actual Content-Length, experiment with e.g a large video file!
+			// TODO(Totto): send actual Content-Length, experiment with e.g a large video file!
 			int result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
 			                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
@@ -227,13 +236,20 @@ anyType(JobError*)
 
 			if(!allowedHeader) {
 				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+				FREE_AT_END();
 				return JobError_Malloc;
 			}
 
 			char* allowedHeaderBuffer = NULL;
 			// all 405 have to have a Allow filed according to spec
-			formatString(&allowedHeaderBuffer, return JobError_StringFormat;
-			             , "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
+			formatString(
+			    &allowedHeaderBuffer,
+			    {
+				    free(allowedHeader);
+				    FREE_AT_END();
+				    return JobError_StringFormat;
+			    },
+			    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
 			allowedHeader[0].key = allowedHeaderBuffer;
 			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
@@ -268,13 +284,20 @@ anyType(JobError*)
 
 		if(!allowedHeader) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			FREE_AT_END();
 			return JobError_Malloc;
 		}
 
 		char* allowedHeaderBuffer = NULL;
 		// all 405 have to have a Allow filed according to spec
-		formatString(&allowedHeaderBuffer, return JobError_StringFormat;
-		             , "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
+		formatString(
+		    &allowedHeaderBuffer,
+		    {
+			    free(allowedHeader);
+			    FREE_AT_END();
+			    return JobError_StringFormat;
+		    },
+		    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
 		allowedHeader[0].key = allowedHeaderBuffer;
 		allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
@@ -310,7 +333,10 @@ anyType(JobError*)
 cleanup:
 	// finally close the connection
 	int result = close_connection_descriptor(descriptor, context);
-	checkForError(result, "While trying to close the connection descriptor", return JobError_Close);
+	checkForError(result, "While trying to close the connection descriptor", {
+		FREE_AT_END();
+		return JobError_Close;
+	});
 	// and free the malloced argument
 	FREE_AT_END();
 	return JobError_None;
@@ -320,13 +346,13 @@ cleanup:
 
 // implemented specifically for the http Server, it just gets the internal value, but it's better to
 // not access that, since additional steps can be required, like  boundary checks!
-static int myqueue_size(myqueue* q) {
-	if(q->size < 0) {
+static int myqueue_size(myqueue* queue) {
+	if(queue->size < 0) {
 		fprintf(stderr,
 		        "FATAL: internal size implementation error in the queue, value negative: %d!",
-		        q->size);
+		        queue->size);
 	}
-	return q->size;
+	return queue->size;
 }
 
 // this is the function, that runs in the listener, it receives all necessary information
@@ -358,14 +384,16 @@ anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
 	// loop and accept incoming requests
 	while(true) {
 
-		// TODO: Set cancel state in correct places!
+		// TODO(Totto): Set cancel state in correct places!
 
 		// the function poll makes the heavy lifting, the timeout 5000 is completely
 		// arbitrary and should not be to short, but otherwise it doesn't matter that much,
 		// since it aborts on POLLIN from the socketFd or the signalFd
 		int status = 0;
 		while(status == 0) {
-			status = poll(poll_fds, POLL_FD_AMOUNT, 5000);
+			status = poll(
+			    poll_fds, POLL_FD_AMOUNT,
+			    5000); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			if(status < 0) {
 				LOG_MESSAGE(LogLevelError, "poll failed: %s\n", strerror(errno));
 				continue;
@@ -373,7 +401,7 @@ anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
 		}
 
 		if(poll_fds[1].revents == POLLIN || signal_received != 0) {
-			// TODO: This fd isn't closed, when pthread_cancel is called from somewhere else,
+			// TODO(Totto): This fd isn't closed, when pthread_cancel is called from somewhere else,
 			// fix that somehow
 			close(poll_fds[1].fd);
 			int result = pthread_cancel(pthread_self());
@@ -389,7 +417,7 @@ anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
 
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.socketFd, NULL, NULL);
-		checkForError(connectionFd, "While Trying to accept a socket", continue;);
+		checkForError(connectionFd, "While Trying to accept a socket", break;);
 
 		ConnectionArgument* connectionArgument =
 		    (ConnectionArgument*)malloc(sizeof(ConnectionArgument));
@@ -494,12 +522,13 @@ int startServer(uint16_t port, SecureOptions* const options) {
 
 	// SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
-	// the protocol discards these requests listen starts listining on that socket, meaning
+	// the protocol discards these requests listen starts listening on that socket, meaning
 	// new connections can be accepted
 	result = listen(socketFd, SOCKET_BACKLOG_SIZE);
 	checkForError(result, "While trying to listen on socket", return EXIT_FAILURE;);
 
-	const char* protocol_string = is_secure(options) ? "https" : "http";
+	const char* protocol_string =
+	    is_secure(options) ? "https" : "http"; // NOLINT(readability-implicit-bool-conversion)
 
 	LOG_MESSAGE(LogLevelInfo, "To use this simple Http Server visit '%s://localhost:%d'.\n",
 	            protocol_string, port);
@@ -536,7 +565,8 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	};
 
 	// this is an array of pointers
-	ConnectionContext** contexts = malloc(sizeof(ConnectionContext*) * pool.workerThreadAmount);
+	ConnectionContext** contexts =
+	    (ConnectionContext**)malloc(sizeof(ConnectionContext*) * pool.workerThreadAmount);
 
 	if(!contexts) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
@@ -551,7 +581,7 @@ int startServer(uint16_t port, SecureOptions* const options) {
 
 	// initializing the thread Arguments for the single listener thread, it receives all
 	// necessary arguments
-	pthread_t listenerThread;
+	pthread_t listenerThread = {};
 	ThreadArgument threadArgument = { .pool = &pool,
 		                              .jobIds = &jobIds,
 		                              .contexts = contexts,
@@ -565,7 +595,7 @@ int startServer(uint16_t port, SecureOptions* const options) {
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
-	ListenerError returnValue;
+	ListenerError returnValue = ListenerError_None;
 	result = pthread_join(listenerThread, &returnValue);
 	checkForThreadError(result, "An Error occurred while trying to wait for a Thread",
 	                    return EXIT_FAILURE;);
@@ -638,7 +668,7 @@ int startServer(uint16_t port, SecureOptions* const options) {
 		return EXIT_FAILURE;
 	}
 
-	free(contexts);
+	free((void*)contexts);
 
 	free_secure_options(options);
 
