@@ -671,6 +671,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
 	    0); // NOLINT(cppcoreguidelines-narrowing-conversions,clang-analyzer-optin.core.EnumCastOutOfRange)
 
 	if(result < 0) {
+		free(buffer);
 		return (Utf8DataResult){ .has_error = true, .data = { .error = utf8proc_errmsg(result) } };
 	}
 
@@ -1255,7 +1256,8 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 
 			if(!new_node) {
 				// TODO(Totto): better report error
-				return NULL; // NOLINT(clang-analyzer-unix.Malloc)
+				free(connection);
+				return NULL;
 			}
 
 			new_node->connection = connection;
