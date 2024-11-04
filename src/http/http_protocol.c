@@ -208,6 +208,7 @@ const char* getStatusMessage(int statusCode) {
 		case HTTP_STATUS_SERVICE_UNAVAILABLE: result = "Service Unavailable"; break;
 		case HTTP_STATUS_GATEWAY_TIMEOUT: result = "Gateway Timeout"; break;
 		case HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED: result = "HTTP Version Not Supported"; break;
+		default: break;
 	}
 	return result;
 }

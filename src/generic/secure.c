@@ -32,13 +32,14 @@ struct ConnectionDescriptorImpl {
 };
 
 bool is_secure(const SecureOptions* const options) {
-	return options->type == SECURE_OPTIONS_TYPE_SECURE;
+	return options->type == // NOLINT(readability-implicit-bool-conversion)
+	       SECURE_OPTIONS_TYPE_SECURE;
 }
 
 #ifndef _HTTP_SERVER_SECURE_DISABLED
 
 static bool file_exists(const char* const file) {
-	return access(file, R_OK) == 0;
+	return access(file, R_OK) == 0; // NOLINT(readability-implicit-bool-conversion)
 }
 
 // NOTE: this has to return the number of bytes written, if this returns <= 0, the error reporting
@@ -49,7 +50,7 @@ static int error_logger(const char* str, size_t len, void* user_data) {
 	UNUSED(user_data);
 
 	LOG_MESSAGE(LogLevelError, "\t%.*s\n", (int)len, str);
-	return len;
+	return (int)len;
 }
 
 static SecureData* initialize_secure_data(const char* const public_cert_file,
@@ -71,7 +72,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	SecureData* data = malloc(sizeof(SecureData));
 
 	if(!data) {
-		// TODO: better report error
+		// TODO(Totto): better report error
 		return NULL;
 	}
 
@@ -79,6 +80,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	if(ssl_context == NULL) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_new failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
+		free(data);
 		return NULL;
 	}
 
@@ -86,6 +88,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_use_certificate_file failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
+		free(data);
 		return NULL;
 	}
 
@@ -94,6 +97,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_use_PrivateKey_file failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
+		free(data);
 		return NULL;
 	}
 
@@ -102,6 +106,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_check_private_key failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
+		free(data);
 		return NULL;
 	}
 
@@ -124,7 +129,7 @@ SecureOptions* initialize_secure_options(bool secure, const char* const public_c
 	SecureOptions* options = malloc(sizeof(SecureOptions));
 
 	if(!options) {
-		// TODO: better report error
+		// TODO(Totto): better report error
 		return NULL;
 	}
 
@@ -144,6 +149,7 @@ SecureOptions* initialize_secure_options(bool secure, const char* const public_c
 	SecureData* data = initialize_secure_data(public_cert_file, private_cert_file);
 
 	if(data == NULL) {
+		free(options);
 		return NULL;
 	}
 
@@ -170,7 +176,8 @@ void free_secure_options(SecureOptions* const options) {
 }
 
 bool is_secure_context(const ConnectionContext* const context) {
-	return context->type == SECURE_OPTIONS_TYPE_SECURE;
+	return context->type == // NOLINT(readability-implicit-bool-conversion)
+	       SECURE_OPTIONS_TYPE_SECURE;
 }
 
 #ifndef _HTTP_SERVER_SECURE_DISABLED
@@ -193,7 +200,7 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 	ConnectionContext* context = malloc(sizeof(ConnectionContext));
 
 	if(!context) {
-		// TODO: better report error
+		// TODO(Totto): better report error
 		return NULL;
 	}
 
@@ -214,6 +221,7 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 	SSL* ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
 
 	if(ssl_structure == NULL) {
+		free(context);
 		return NULL;
 	}
 
@@ -229,7 +237,7 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 	ConnectionContext* context = malloc(sizeof(ConnectionContext));
 
 	if(!context) {
-		// TODO: better report error
+		// TODO(Totto): better report error
 		return NULL;
 	}
 
@@ -252,6 +260,7 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 	SSL* ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
 
 	if(ssl_structure == NULL) {
+		free(context);
 		return NULL;
 	}
 
@@ -280,21 +289,23 @@ void free_connection_context(ConnectionContext* context) {
 }
 
 static bool is_secure_descriptor(const ConnectionDescriptor* const descriptor) {
-	return descriptor->type == SECURE_OPTIONS_TYPE_SECURE;
+	return descriptor->type == // NOLINT(readability-implicit-bool-conversion)
+	       SECURE_OPTIONS_TYPE_SECURE;
 }
 
-ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const context, int fd) {
+ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const context,
+                                                int native_fd) {
 
 	ConnectionDescriptor* descriptor = malloc(sizeof(ConnectionDescriptor));
 
 	if(!descriptor) {
-		// TODO: better report error
+		// TODO(Totto): better report error
 		return NULL;
 	}
 
 	if(!is_secure_context(context)) {
 		descriptor->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
-		descriptor->data.fd = fd;
+		descriptor->data.fd = native_fd;
 		return descriptor;
 	}
 
@@ -307,11 +318,12 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 
 	SSL* ssl_structure = context->data.data.ssl_structure;
 
-	int result = SSL_set_fd(ssl_structure, fd);
+	int result = SSL_set_fd(ssl_structure, native_fd);
 
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_set_fd failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
+		free(descriptor);
 		return NULL;
 	}
 
@@ -320,6 +332,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	if(ssl_result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_accept failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
+		free(descriptor);
 		return NULL;
 	}
 
@@ -379,9 +392,9 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 	}
 
 	// if it was closed correctly, we can reuse the connection, otherwise we can't
-	if(was_closed_correctly && allow_reuse) {
+	if(was_closed_correctly && allow_reuse) { // NOLINT(readability-implicit-bool-conversion)
 
-		// TODO: Warnings: allow_reuse should be configurable by keepalive connections:
+		// TODO(Totto): Warnings: allow_reuse should be configurable by keepalive connections:
 		/* SSL_clear() resets the SSL object to allow for another connection. The reset operation
 		 * however keeps several settings of the last sessions (some of these settings were made
 		 * automatically during the last handshake). It only makes sense when opening a new session
@@ -416,7 +429,7 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 int read_from_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,
                          size_t n_bytes) {
 	if(!is_secure_descriptor(descriptor)) {
-		return read(descriptor->data.fd, buffer, n_bytes);
+		return (int)read(descriptor->data.fd, buffer, n_bytes);
 	}
 
 #ifdef _HTTP_SERVER_SECURE_DISABLED
@@ -426,7 +439,7 @@ int read_from_descriptor(const ConnectionDescriptor* const descriptor, void* buf
 
 	SSL* ssl_structure = descriptor->data.ssl_structure;
 
-	return SSL_read(ssl_structure, buffer, n_bytes);
+	return SSL_read(ssl_structure, buffer, (int)n_bytes);
 #endif
 }
 
@@ -444,7 +457,7 @@ ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* 
 
 	SSL* ssl_structure = descriptor->data.ssl_structure;
 
-	return SSL_write(ssl_structure, buffer, n_bytes);
+	return SSL_write(ssl_structure, buffer, (int)n_bytes);
 #endif
 }
 
@@ -459,14 +472,14 @@ int get_underlying_socket(const ConnectionDescriptor* const descriptor) {
 
 	SSL* ssl_structure = descriptor->data.ssl_structure;
 
-	int fd = SSL_get_fd(ssl_structure);
+	int ssl_fd = SSL_get_fd(ssl_structure);
 
-	if(fd < 0) {
+	if(ssl_fd < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_get_fd failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
 		return -1;
 	}
 
-	return fd;
+	return ssl_fd;
 #endif
 }

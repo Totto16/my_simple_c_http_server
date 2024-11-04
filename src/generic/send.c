@@ -10,7 +10,7 @@ int sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toS
 
 	size_t remainingLength = length;
 
-	int alreadyWritten = 0;
+	size_t alreadyWritten = 0;
 	// write bytes until all are written
 	while(true) {
 		ssize_t wroteBytes =
@@ -19,18 +19,22 @@ int sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toS
 		if(wroteBytes == -1) {
 			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));
 			return -1;
-		} else if(wroteBytes == 0) {
+		}
+
+		if(wroteBytes == 0) {
 			/// shouldn't occur!
 			LOG_MESSAGE_SIMPLE(LogLevelError, "FATAL: Write has an unsupported state!\n");
 			return -2;
-		} else if(wroteBytes == (ssize_t)remainingLength) {
+		}
+
+		if(wroteBytes == (ssize_t)remainingLength) {
 			// the message was sent in one time
 			break;
-		} else {
-			// otherwise repeat until that happened
-			remainingLength -= wroteBytes;
-			alreadyWritten += wroteBytes;
 		}
+
+		// otherwise repeat until that happened
+		remainingLength -= wroteBytes;
+		alreadyWritten += wroteBytes;
 	}
 
 	return 0;
