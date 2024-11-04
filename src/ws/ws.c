@@ -10,6 +10,46 @@
 #include <b64/b64.h>
 #include <strings.h>
 
+static NODISCARD bool
+sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const descriptor) {
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Failed WS handshake: Upgrade required\n");
+
+	StringBuilder* message = string_builder_init();
+
+	string_builder_append_single(message, "Error: The client handshake was invalid: This endpoint "
+	                                      "requires an upgrade to the WebSocket protocol");
+
+	char* malloced_message = string_builder_get_string(message);
+
+	const int headerAmount = 2;
+
+	HttpHeaderField* header =
+	    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField) * headerAmount, true);
+
+	char* upgradeHeaderBuffer = NULL;
+	formatString(&upgradeHeaderBuffer, "%s%c%s", "Upgrade", '\0', "WebSocket");
+
+	header[0].key = upgradeHeaderBuffer;
+	header[0].value = upgradeHeaderBuffer + strlen(upgradeHeaderBuffer) + 1;
+
+	char* connectionHeaderBuffer = NULL;
+	formatString(&connectionHeaderBuffer, "%s%c%s", "Connection", '\0', "Upgrade");
+
+	header[1].key = connectionHeaderBuffer;
+	header[1].value = connectionHeaderBuffer + strlen(connectionHeaderBuffer) + 1;
+
+	bool result = sendMessageToConnection(descriptor, HTTP_STATUS_UPGRADE_REQUIRED,
+	                                      malloced_message, MIME_TYPE_TEXT, header, headerAmount,
+	                                      CONNECTION_SEND_FLAGS_MALLOCED);
+
+	if(!result) {
+		LOG_MESSAGE_SIMPLE(LogLevelError,
+		                   "Error while sending a response (in sendFailedHandshakeMessage)\n");
+	}
+	return false;
+}
+
 static NODISCARD bool sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
                                                  const char* error_reason) {
 
@@ -64,6 +104,8 @@ typedef enum {
 	HANDSHAKE_HEADER_HEADER_ALL_FOUND = 0b11111,
 } NEEDED_HEADER_FOR_HANDSHAKE;
 
+static const bool SEND_HTTP_UPGRADE_REQUIRED_STATUS_CODE = true;
+
 bool handleWSHandshake(const HttpRequest* const httpRequest,
                        const ConnectionDescriptor* const descriptor) {
 
@@ -87,6 +129,10 @@ bool handleWSHandshake(const HttpRequest* const httpRequest,
 		} else if(strcasecmp(header.key, "connection") == 0) {
 			foundList |= HANDSHAKE_HEADER_HEADER_CONNECTION;
 			if(strcasecontains(header.value, "upgrade") < 0) {
+				if(SEND_HTTP_UPGRADE_REQUIRED_STATUS_CODE) {
+					return sendFailedHandshakeMessageUpgradeRequired(descriptor);
+				}
+
 				return sendFailedHandshakeMessage(descriptor,
 				                                  "connection does not contain 'upgrade'");
 			}
@@ -124,6 +170,10 @@ bool handleWSHandshake(const HttpRequest* const httpRequest,
 	UNUSED(fromBrowser);
 
 	if((HANDSHAKE_HEADER_HEADER_ALL_FOUND & foundList) != HANDSHAKE_HEADER_HEADER_ALL_FOUND) {
+		if(SEND_HTTP_UPGRADE_REQUIRED_STATUS_CODE &&
+		   ((foundList & HANDSHAKE_HEADER_HEADER_UPGRADE) == 0)) {
+			return sendFailedHandshakeMessageUpgradeRequired(descriptor);
+		}
 		return sendFailedHandshakeMessage(descriptor, "missing required headers");
 	}
 
@@ -135,7 +185,7 @@ bool handleWSHandshake(const HttpRequest* const httpRequest,
 	    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField) * headerAmount, true);
 
 	char* upgradeHeaderBuffer = NULL;
-	formatString(&upgradeHeaderBuffer, "%s%c%s", "Upgrade", '\0', "websocket");
+	formatString(&upgradeHeaderBuffer, "%s%c%s", "Upgrade", '\0', "WebSocket");
 
 	header[0].key = upgradeHeaderBuffer;
 	header[0].value = upgradeHeaderBuffer + strlen(upgradeHeaderBuffer) + 1;
