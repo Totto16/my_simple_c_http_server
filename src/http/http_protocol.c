@@ -18,20 +18,20 @@ void freeHttpRequest(HttpRequest* request) {
 StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https) {
 	StringBuilder* result = string_builder_init();
 	string_builder_append_single(result, "HttpRequest:\n");
-	string_builder_append(result, "\tMethod: %s\n", request->head.requestLine.method);
-	string_builder_append(result, "\tURI: %s\n", request->head.requestLine.URI);
-	string_builder_append(result, "\tProtocolVersion : %s\n",
-	                      request->head.requestLine.protocolVersion);
+	string_builder_append(result, return NULL;, "\tMethod: %s\n", request->head.requestLine.method);
+	string_builder_append(result, return NULL;, "\tURI: %s\n", request->head.requestLine.URI);
+	string_builder_append(result, return NULL;
+	                      , "\tProtocolVersion : %s\n", request->head.requestLine.protocolVersion);
 
-	string_builder_append(result, "\tSecure : %s\n", https ? "true" : " false");
+	string_builder_append(result, return NULL;, "\tSecure : %s\n", https ? "true" : " false");
 
 	for(size_t i = 0; i < request->head.headerAmount; ++i) {
 		// same elegant freeing but wo at once :)
-		string_builder_append(result, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
-		                      request->head.headerFields[i].key,
-		                      request->head.headerFields[i].value);
+		string_builder_append(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
+		                                          request->head.headerFields[i].key,
+		                                          request->head.headerFields[i].value);
 	}
-	string_builder_append(result, "\tBody: %s\n", request->body);
+	string_builder_append(result, return NULL;, "\tBody: %s\n", request->body);
 	return result;
 }
 
@@ -47,7 +47,11 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	size_t separatorsLength = strlen(separators);
 	char* currentlyAt = rawHttpRequest;
 	bool parsed = false;
-	HttpRequest* request = (HttpRequest*)mallocOrFail(sizeof(HttpRequest), true);
+	HttpRequest* request = (HttpRequest*)mallocWithMemset(sizeof(HttpRequest), true);
+
+	if(!request) {
+		return NULL;
+	}
 	// iterating over each separated string, then determining if header or body or statusLine and
 	// then parsing that accordingly
 	do {
@@ -61,7 +65,12 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 			freeHttpRequest(request);
 			return NULL;
 		}
-		char* all = (char*)mallocOrFail(resultingIndex - currentlyAt + 1, true);
+		char* all = (char*)mallocWithMemset(resultingIndex - currentlyAt + 1, true);
+
+		if(!all) {
+			return NULL;
+		}
+
 		// return pointer == all, so is ignored
 		memcpy(all, currentlyAt, resultingIndex - currentlyAt);
 
@@ -89,7 +98,14 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 				free(all);
 				size_t bodyLength =
 				    strlen(rawHttpRequest) - ((resultingIndex - rawHttpRequest) + separatorsLength);
-				all = (char*)mallocOrFail(bodyLength + 1, true);
+				all = (char*)mallocWithMemset(bodyLength + 1, true);
+
+				if(!all) {
+					LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+					                   "Couldn't allocate memory!\n");
+					return NULL;
+				}
+
 				memcpy(all, currentlyAt + separatorsLength, bodyLength);
 				request->body = all;
 				parsed = true;
@@ -97,12 +113,24 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 				// here headers are parsed, here":" is the delimiter
 				if(request->head.headerAmount == 0) {
 					request->head.headerFields =
-					    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
+					    (HttpHeaderField*)mallocWithMemset(sizeof(HttpHeaderField), true);
+
+					if(!request->head.headerFields) {
+						LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+						                   "Couldn't allocate memory!\n");
+						return NULL;
+					}
 				} else {
-					request->head.headerFields = (HttpHeaderField*)reallocOrFail(
+					request->head.headerFields = (HttpHeaderField*)reallocWithMemset(
 					    request->head.headerFields,
 					    sizeof(HttpHeaderField) * request->head.headerAmount,
 					    sizeof(HttpHeaderField) * (request->head.headerAmount + 1), true);
+
+					if(!request->head.headerFields) {
+						LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+						                   "Couldn't allocate memory!\n");
+						return NULL;
+					}
 				}
 
 				// using same trick, the header string is one with the right 0 bytes :)
@@ -190,7 +218,12 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
                                                HttpHeaderField* additionalHeaders,
                                                size_t headersSize, const char* MIMEType) {
 
-	HttpResponse* response = (HttpResponse*)mallocOrFail(sizeof(HttpResponse), true);
+	HttpResponse* response = (HttpResponse*)mallocWithMemset(sizeof(HttpResponse), true);
+
+	if(!response) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return NULL;
+	}
 
 	// using the same trick as before, \0 in the malloced string :)
 	const char* protocolVersion = "HTTP/1.1";
@@ -198,8 +231,8 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 	const char* statusMessage = getStatusMessage(status);
 
 	char* responseLineBuffer = NULL;
-	formatString(&responseLineBuffer, "%s%c%d%c%s", protocolVersion, '\0', status, '\0',
-	             statusMessage);
+	formatString(&responseLineBuffer, return NULL;
+	             , "%s%c%d%c%s", protocolVersion, '\0', status, '\0', statusMessage);
 
 	response->head.responseLine.protocolVersion = responseLineBuffer;
 	response->head.responseLine.statusCode = responseLineBuffer + protocolLength + 1;
@@ -214,11 +247,22 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 	for(size_t i = 0; i < standard_header_length + headersSize; ++i) {
 		if(response->head.headerAmount == 0) {
 			response->head.headerFields =
-			    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
+			    (HttpHeaderField*)mallocWithMemset(sizeof(HttpHeaderField), true);
+
+			if(!response->head.headerFields) {
+				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+				return NULL;
+			}
+
 		} else {
-			response->head.headerFields = (HttpHeaderField*)reallocOrFail(
+			response->head.headerFields = (HttpHeaderField*)reallocWithMemset(
 			    response->head.headerFields, sizeof(HttpHeaderField) * response->head.headerAmount,
 			    sizeof(HttpHeaderField) * (response->head.headerAmount + 1), true);
+
+			if(!response->head.headerFields) {
+				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+				return NULL;
+			}
 		}
 
 		if(i >= standard_header_length) {
@@ -239,7 +283,8 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 	if(MIMEType) {
 		// add the standard ones, using %c with '\0' to use the trick, described above
 		char* contentTypeBuffer = NULL;
-		formatString(&contentTypeBuffer, "%s%c%s", "Content-Type", '\0',
+		formatString(&contentTypeBuffer, return NULL;
+		             , "%s%c%s", "Content-Type", '\0',
 		             MIMEType == NULL ? DEFAULT_MIME_TYPE : MIMEType);
 
 		response->head.headerFields[0].key = contentTypeBuffer;
@@ -249,15 +294,15 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 	size_t bodyLength = body ? strlen(body) : 0;
 
 	char* contentLengthBuffer = NULL;
-	formatString(&contentLengthBuffer, "%s%c%ld", "Content-Length", '\0', bodyLength);
+	formatString(&contentLengthBuffer, return NULL;, "%s%c%ld", "Content-Length", '\0', bodyLength);
 
 	response->head.headerFields[mimeTypeIndexOffset].key = contentLengthBuffer;
 	response->head.headerFields[mimeTypeIndexOffset].value =
 	    contentLengthBuffer + strlen(contentLengthBuffer) + 1;
 
 	char* serverBuffer = NULL;
-	formatString(&serverBuffer, "%s%c%s", "Server", '\0',
-	             "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
+	formatString(&serverBuffer, return NULL;
+	             , "%s%c%s", "Server", '\0', "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
 	response->head.headerFields[mimeTypeIndexOffset + 1].key = serverBuffer;
 	response->head.headerFields[mimeTypeIndexOffset + 1].value =
@@ -280,14 +325,15 @@ StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
 	StringBuilder* result = string_builder_init();
 	const char* const separators = "\r\n";
 
-	string_builder_append(result, "%s %s %s%s", response->head.responseLine.protocolVersion,
+	string_builder_append(result, return NULL;
+	                      , "%s %s %s%s", response->head.responseLine.protocolVersion,
 	                      response->head.responseLine.statusCode,
 	                      response->head.responseLine.statusMessage, separators);
 
 	for(size_t i = 0; i < response->head.headerAmount; ++i) {
 		// same elegant freeing but two at once :)
-		string_builder_append(result, "%s: %s%s", response->head.headerFields[i].key,
-		                      response->head.headerFields[i].value, separators);
+		string_builder_append(result, return NULL;, "%s: %s%s", response->head.headerFields[i].key,
+		                                          response->head.headerFields[i].value, separators);
 	}
 
 	string_builder_append_single(result, separators);
@@ -334,22 +380,23 @@ char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
 	    result, "<meta name=\"author\" content=\"Tobias Niederbrunner - csba1761\">");
 	string_builder_append_single(result, "<title> Page by Simple C Http Server</title>");
 	if(headContent != NULL) {
-		string_builder_append(result, "%s", headContent);
+		string_builder_append(result, return NULL;, "%s", headContent);
 	}
 	if(scriptContent != NULL) {
-		string_builder_append(result, "<script type=\"text/javascript\">%s</script>",
-		                      scriptContent);
+		string_builder_append(result, return NULL;
+		                      , "<script type=\"text/javascript\">%s</script>", scriptContent);
 		string_builder_append_single(
 		    result,
 		    "<noscript> Diese Seite Benötigt Javascript um zu funktionieren :( </noscript>");
 	}
 	if(styleContent != NULL) {
-		string_builder_append(result, "<style type=\"text/css\">%s</style>", styleContent);
+		string_builder_append(result, return NULL;
+		                      , "<style type=\"text/css\">%s</style>", styleContent);
 	}
 	string_builder_append_single(result, "</head>");
 	string_builder_append_single(result, "<body>");
 	if(bodyContent != NULL) {
-		string_builder_append(result, "%s", bodyContent);
+		string_builder_append(result, return NULL;, "%s", bodyContent);
 	}
 	string_builder_append_single(result, "</body>");
 	string_builder_append_single(result, "</html>");
@@ -359,23 +406,25 @@ char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
 
 char* httpRequestToJSON(HttpRequest* request, bool https) {
 	StringBuilder* body = string_builder_init();
-	string_builder_append(body, "{\"request\":\"%s\",", request->head.requestLine.method);
-	string_builder_append(body, "\"URI\": \"%s\",", request->head.requestLine.URI);
-	string_builder_append(body, "\"version\":\"%s\",", request->head.requestLine.protocolVersion);
-	string_builder_append(body, "\"secure\":%s,", https ? "true" : "false");
+	string_builder_append(body, return NULL;
+	                      , "{\"request\":\"%s\",", request->head.requestLine.method);
+	string_builder_append(body, return NULL;, "\"URI\": \"%s\",", request->head.requestLine.URI);
+	string_builder_append(body, return NULL;
+	                      , "\"version\":\"%s\",", request->head.requestLine.protocolVersion);
+	string_builder_append(body, return NULL;, "\"secure\":%s,", https ? "true" : "false");
 	string_builder_append_single(body, "\"headers\":[");
 	for(size_t i = 0; i < request->head.headerAmount; ++i) {
 		// same elegant freeing but wo at once :)
-		string_builder_append(body, "{\"header\":\"%s\", \"key\":\"%s\"}",
-		                      request->head.headerFields[i].key,
-		                      request->head.headerFields[i].value);
+		string_builder_append(body, return NULL;, "{\"header\":\"%s\", \"key\":\"%s\"}",
+		                                        request->head.headerFields[i].key,
+		                                        request->head.headerFields[i].value);
 		if(i + 1 < request->head.headerAmount) {
 			string_builder_append_single(body, ", ");
 		} else {
 			string_builder_append_single(body, "],");
 		}
 	}
-	string_builder_append(body, "\"body\":\"%s\"}", request->body);
+	string_builder_append(body, return NULL;, "\"body\":\"%s\"}", request->body);
 
 	return string_builder_to_string(body);
 }
@@ -383,23 +432,25 @@ char* httpRequestToJSON(HttpRequest* request, bool https) {
 char* httpRequestToHtml(HttpRequest* request, bool https) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append_single(body, "<h1 id=\"title\">HttpRequest:</h1><br>");
-	string_builder_append(body, "<div id=\"request\"><div>Method: %s</div>",
-	                      request->head.requestLine.method);
-	string_builder_append(body, "<div>URI: %s</div>", request->head.requestLine.URI);
-	string_builder_append(body, "<div>ProtocolVersion : %s</div>",
-	                      request->head.requestLine.protocolVersion);
-	string_builder_append(body,
+	string_builder_append(body, return NULL;, "<div id=\"request\"><div>Method: %s</div>",
+	                                        request->head.requestLine.method);
+	string_builder_append(body, return NULL;, "<div>URI: %s</div>", request->head.requestLine.URI);
+	string_builder_append(body, return NULL;, "<div>ProtocolVersion : %s</div>",
+	                                        request->head.requestLine.protocolVersion);
+	string_builder_append(body, return NULL;
+	                      ,
 	                      "<div>Secure : %s</div><button id=\"shutdown\"> Shutdown </button></div>",
 	                      https ? "true" : "false");
 	string_builder_append_single(body, "<div id=\"header\">");
 	for(size_t i = 0; i < request->head.headerAmount; ++i) {
 		// same elegant freeing but wo at once :)
 		string_builder_append(
-		    body, "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>",
+		    body, return NULL;
+		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>",
 		    request->head.headerFields[i].key, request->head.headerFields[i].value);
 	}
 	string_builder_append_single(body, "</div> <div id=\"body\">");
-	string_builder_append(body, "<h1>Body:</h1> <br>%s", request->body);
+	string_builder_append(body, return NULL;, "<h1>Body:</h1> <br>%s", request->body);
 	string_builder_append_single(body, "</div>");
 
 	// style

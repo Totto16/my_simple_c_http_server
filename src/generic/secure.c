@@ -68,7 +68,12 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	SSL_load_error_strings(); /* readable error messages */
 	SSL_library_init();       /* initialize library */
 
-	SecureData* data = mallocOrFail(sizeof(SecureData), true);
+	SecureData* data = malloc(sizeof(SecureData));
+
+	if(!data) {
+		// TODO: better report error
+		return NULL;
+	}
 
 	SSL_CTX* ssl_context = SSL_CTX_new(TLS_server_method());
 	if(ssl_context == NULL) {
@@ -87,7 +92,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	result = SSL_CTX_use_PrivateKey_file(ssl_context, private_cert_file, SSL_FILETYPE_PEM);
 
 	if(result != 1) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_CTX_use_PrivateKey_file failed:\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_use_PrivateKey_file failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
@@ -95,7 +100,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	result = SSL_CTX_check_private_key(ssl_context);
 
 	if(result != 1) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_CTX_check_private_key failed:\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_check_private_key failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
@@ -116,7 +121,12 @@ static void free_secure_data(SecureData* data) {
 SecureOptions* initialize_secure_options(bool secure, const char* const public_cert_file,
                                          const char* const private_cert_file) {
 
-	SecureOptions* options = mallocOrFail(sizeof(SecureOptions), true);
+	SecureOptions* options = malloc(sizeof(SecureOptions));
+
+	if(!options) {
+		// TODO: better report error
+		return NULL;
+	}
 
 	if(!secure) {
 		options->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
@@ -168,7 +178,7 @@ bool is_secure_context(const ConnectionContext* const context) {
 static SSL* new_ssl_structure_from_ctx(SSL_CTX* ssl_context) {
 	SSL* ssl_structure = SSL_new(ssl_context);
 	if(ssl_structure == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_new failed:\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_new failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
@@ -180,7 +190,12 @@ static SSL* new_ssl_structure_from_ctx(SSL_CTX* ssl_context) {
 
 ConnectionContext* get_connection_context(const SecureOptions* const options) {
 
-	ConnectionContext* context = mallocOrFail(sizeof(ConnectionContext), true);
+	ConnectionContext* context = malloc(sizeof(ConnectionContext));
+
+	if(!context) {
+		// TODO: better report error
+		return NULL;
+	}
 
 	if(!is_secure(options)) {
 		context->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
@@ -211,7 +226,12 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 
 ConnectionContext* copy_connection_context(const ConnectionContext* const old_context) {
 
-	ConnectionContext* context = mallocOrFail(sizeof(ConnectionContext), true);
+	ConnectionContext* context = malloc(sizeof(ConnectionContext));
+
+	if(!context) {
+		// TODO: better report error
+		return NULL;
+	}
 
 	if(!is_secure_context(old_context)) {
 		context->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
@@ -265,7 +285,12 @@ static bool is_secure_descriptor(const ConnectionDescriptor* const descriptor) {
 
 ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const context, int fd) {
 
-	ConnectionDescriptor* descriptor = mallocOrFail(sizeof(ConnectionDescriptor), true);
+	ConnectionDescriptor* descriptor = malloc(sizeof(ConnectionDescriptor));
+
+	if(!descriptor) {
+		// TODO: better report error
+		return NULL;
+	}
 
 	if(!is_secure_context(context)) {
 		descriptor->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
@@ -285,7 +310,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	int result = SSL_set_fd(ssl_structure, fd);
 
 	if(result != 1) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_set_fd failed:\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_set_fd failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
@@ -293,7 +318,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	int ssl_result = SSL_accept(ssl_structure);
 
 	if(ssl_result != 1) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_accept failed:\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_accept failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
 		return NULL;
 	}
@@ -335,7 +360,7 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 				break;
 			}
 
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_shutdown failed:\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_shutdown failed:\n");
 			ERR_print_errors_cb(error_logger, NULL);
 			errno = ESSL;
 			return -1;
@@ -365,7 +390,7 @@ int close_connection_descriptor(const ConnectionDescriptor* const descriptor,
 		result = SSL_clear(ssl_structure);
 
 		if(result != 1) {
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_clear failed:\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_clear failed:\n");
 			ERR_print_errors_cb(error_logger, NULL);
 			errno = ESSL;
 			return -1;
@@ -437,7 +462,7 @@ int get_underlying_socket(const ConnectionDescriptor* const descriptor) {
 	int fd = SSL_get_fd(ssl_structure);
 
 	if(fd < 0) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Error: SSL_get_fd failed:\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_get_fd failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
 		return -1;
 	}

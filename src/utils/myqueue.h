@@ -27,18 +27,18 @@ typedef struct myqueue_head myqueue_head;
 
 typedef struct {
 	myqueue_head head;
-	sem_t canAcces;
+	sem_t canAccess;
 	int size;
 } myqueue;
 
-void myqueue_init(myqueue* q);
+[[nodiscard]] int myqueue_init(myqueue* q);
 
-void myqueue_destroy(myqueue* q);
+[[nodiscard]] int myqueue_destroy(myqueue* q);
 
 bool myqueue_is_empty(myqueue* q);
 
 // not checked for error code of malloc :(
 // modified to use void * instead of int as stored value
-void myqueue_push(myqueue* q, void* value);
+[[nodiscard]] int myqueue_push(myqueue* q, void* value);
 
 void* myqueue_pop(myqueue* q);

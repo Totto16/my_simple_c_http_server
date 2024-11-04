@@ -6,6 +6,8 @@
 
 #include <pthread.h>
 
+#include "utils/unsafe_utils.h"
+
 #define DEFAULT_LOG_LEVEL LogLevelInfo
 
 // global state
@@ -39,6 +41,19 @@ bool __should_log_to_stderr(LogLevel level) {
 
 bool __log_should_use_color(void) {
 	return isatty(STDIN_FILENO);
+}
+
+bool __has_flag(int flags, LogFlags needle) {
+	return (flags & needle) != 0;
+}
+
+static const int level_flag_mask = 0b111;
+
+LevelAndFlags __get_level_and_flags(int level_and_flags) {
+	int level = level_and_flags & level_flag_mask;
+	int flags = level_and_flags & (~(level_flag_mask));
+
+	return (LevelAndFlags){ .level = level, .flags = flags };
 }
 
 #define NC "\033[0m" // NO COLOR
@@ -93,7 +108,7 @@ const char* __get_thread_name(void) {
 	pid_t tid = get_thread_id();
 
 	char* name = NULL;
-	formatString(&name, "TID %d", tid);
+	formatString(&name, exit(EXIT_FAILURE);, "TID %d", tid);
 
 	__log_thread_state.name = name;
 

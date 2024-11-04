@@ -1,24 +1,26 @@
 
 #include "myqueue.h"
 
-void myqueue_init(myqueue* q) {
-	int result = sem_init(&(q->canAcces), -1, 1);
-	checkResultForErrorAndExit("Couldn't initialize the internal queue Semaphore");
+int myqueue_init(myqueue* q) {
+	int result = sem_init(&(q->canAccess), -1, 1);
+	checkForError(result, "Couldn't initialize the internal queue Semaphore", return -1;);
 
 	myqueue_head* q_head = &(q->head);
 	STAILQ_INIT(q_head);
 	q->size = 0;
+	return 0;
 }
 
-void myqueue_destroy(myqueue* q) {
+int myqueue_destroy(myqueue* q) {
 	// to clean up, the mutex has to be destroyed
-	int result = sem_destroy(&(q->canAcces));
-	checkResultForErrorAndExit("Couldn't destroy the internal queue Semaphore");
+	int result = sem_destroy(&(q->canAccess));
+	checkForError(result, "Couldn't destroy the internal queue Semaphore", return -1;);
+	return 0;
 }
 
 bool myqueue_is_empty(myqueue* q) {
-	int result = sem_wait(&(q->canAcces));
-	checkResultForErrorAndExit("Couldn't wait for the internal queue Semaphore");
+	int result = sem_wait(&(q->canAccess));
+	checkForError(result, "Couldn't wait for the internal queue Semaphore", return false;);
 
 	myqueue_head* q_head = &(q->head);
 	bool empty = STAILQ_EMPTY(q_head);
@@ -27,17 +29,17 @@ bool myqueue_is_empty(myqueue* q) {
 	}
 
 	// now say that it can be accessed
-	result = sem_post(&(q->canAcces));
-	checkResultForErrorAndExit("Couldn't post the internal queue Semaphore");
+	result = sem_post(&(q->canAccess));
+	checkForError(result, "Couldn't post the internal queue Semaphore", return false;);
 	return empty;
 }
 
 // not checked for error code of malloc :(
 // modified to use void * instead of int as stored value
-void myqueue_push(myqueue* q, void* value) {
+int myqueue_push(myqueue* q, void* value) {
 
-	int result = sem_wait(&(q->canAcces));
-	checkResultForErrorAndExit("Couldn't wait for the internal queue Semaphore");
+	int result = sem_wait(&(q->canAccess));
+	checkForError(result, "Couldn't wait for the internal queue Semaphore", return -1;);
 
 	myqueue_head* q_head = &(q->head);
 	struct myqueue_entry* entry = (struct myqueue_entry*)malloc(sizeof(struct myqueue_entry));
@@ -47,14 +49,16 @@ void myqueue_push(myqueue* q, void* value) {
 	++(q->size);
 
 	// now say that it can be accessed
-	result = sem_post(&(q->canAcces));
-	checkResultForErrorAndExit("Couldn't post the internal queue Semaphore");
+	result = sem_post(&(q->canAccess));
+	checkForError(result, "Couldn't post the internal queue Semaphore", return -1;);
+
+	return 0;
 }
 
 void* myqueue_pop(myqueue* q) {
 
-	int result = sem_wait(&(q->canAcces));
-	checkResultForErrorAndExit("Couldn't wait for the internal queue Semaphore");
+	int result = sem_wait(&(q->canAccess));
+	checkForError(result, "Couldn't wait for the internal queue Semaphore", return NULL);
 
 	myqueue_head* q_head = &(q->head);
 	// would be a deadlock, due to also waiting on the semaphore
@@ -69,7 +73,7 @@ void* myqueue_pop(myqueue* q) {
 	--(q->size);
 
 	// now say that it can be accessed
-	result = sem_post(&(q->canAcces));
-	checkResultForErrorAndExit("Couldn't post the internal queue Semaphore");
+	result = sem_post(&(q->canAccess));
+	checkForError(result, "Couldn't post the internal queue Semaphore", return NULL;);
 	return value;
 }

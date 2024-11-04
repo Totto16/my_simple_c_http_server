@@ -9,6 +9,7 @@
 
 #include <arpa/inet.h>
 #include <endian.h>
+#include <errno.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -95,9 +96,8 @@ NODISCARD static RawHeaderOneResult get_raw_header(uint8_t header_bytes[RAW_MESS
 	uint8_t rsv_bytes = (header_bytes[0] >> 4) & 0b111;
 	// TODO: better error handling
 	if(rsv_bytes != 0) {
-		RawHeaderOneResult err = { .has_error = true,
-			                       .data = { .error = "only 0 allowed for the rsv bytes" } };
-		return err;
+		return (RawHeaderOneResult){ .has_error = true,
+			                         .data = { .error = "only 0 allowed for the rsv bytes" } };
 	};
 	WS_OPCODE opCode = header_bytes[0] & 0b1111;
 
@@ -126,16 +126,14 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	uint8_t* header_bytes =
 	    (uint8_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
 	if(!header_bytes) {
-		WebSocketRawMessageResult err = { .has_error = true,
-			                              .data = { .error = "couldn't read header bytes (2)" } };
-		return err;
+		return (WebSocketRawMessageResult){ .has_error = true,
+			                                .data = { .error = "couldn't read header bytes (2)" } };
 	}
 	RawHeaderOneResult raw_header_result = get_raw_header(header_bytes);
 
 	if(raw_header_result.has_error) {
-		WebSocketRawMessageResult err = { .has_error = true,
-			                              .data = { .error = raw_header_result.data.error } };
-		return err;
+		return (WebSocketRawMessageResult){ .has_error = true,
+			                                .data = { .error = raw_header_result.data.error } };
 	}
 
 	RawHeaderOne raw_header = raw_header_result.data.header;
@@ -146,11 +144,10 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		uint16_t* payload_len_result =
 		    (uint16_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_1_SIZE);
 		if(!payload_len_result) {
-			WebSocketRawMessageResult err = {
+			return (WebSocketRawMessageResult){
 				.has_error = true,
 				.data = { .error = "couldn't read extended payload length bytes (2)" }
 			};
-			return err;
 		}
 		// in network byte order
 		payload_len = (uint64_t)htons(*payload_len_result);
@@ -158,11 +155,10 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		uint64_t* payload_len_result =
 		    (uint64_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_2_SIZE);
 		if(!payload_len_result) {
-			WebSocketRawMessageResult err = {
+			return (WebSocketRawMessageResult){
 				.has_error = true,
 				.data = { .error = "couldn't read extended payload length bytes (8)" }
 			};
-			return err;
 		}
 		// in network byte order (alias big endian = be)
 		payload_len = htobe64(*payload_len_result);
@@ -173,17 +169,16 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	if(raw_header.mask) {
 		mask_byte = (uint8_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_MASK_BYTE_SIZE);
 		if(!mask_byte) {
-			WebSocketRawMessageResult err = { .has_error = true,
-				                              .data = { .error = "couldn't read mask bytes (4)" } };
-			return err;
+			return (WebSocketRawMessageResult){
+				.has_error = true, .data = { .error = "couldn't read mask bytes (4)" }
+			};
 		}
 	}
 
 	void* payload = readExactBytes(connection->descriptor, payload_len);
 	if(!payload) {
-		WebSocketRawMessageResult err = { .has_error = true,
-			                              .data = { .error = "couldn't read payload bytes" } };
-		return err;
+		return (WebSocketRawMessageResult){ .has_error = true,
+			                                .data = { .error = "couldn't read payload bytes" } };
 	}
 
 	if(raw_header.mask) {
@@ -225,7 +220,7 @@ static NODISCARD int ws_send_message_raw_internal(WebSocketConnection* connectio
 	uint8_t* resultingFrame = (uint8_t*)malloc(size);
 
 	if(resultingFrame == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 		return -1;
 	}
 
@@ -493,7 +488,7 @@ static NODISCARD int ws_send_close_message_raw_internal(WebSocketConnection* con
 	uint8_t* payload = (uint8_t*)malloc(payload_len);
 
 	if(payload == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 		return -1;
 	}
 
@@ -584,33 +579,39 @@ typedef struct {
 // isn't missing bytes at the end of the payload, like e.g. if we receive a whole invalid sequence
 NODISCARD Utf8DataResult get_utf8_string(const void* data, uint64_t size) {
 
-	utf8proc_int32_t* buffer = mallocOrFail(sizeof(utf8proc_int32_t) * size, false);
+	utf8proc_int32_t* buffer = malloc(sizeof(utf8proc_int32_t) * size);
+
+	if(!buffer) {
+		return (Utf8DataResult){ .has_error = true, .data = { .error = "failed malloc" } };
+	}
 
 	utf8proc_ssize_t result = utf8proc_decompose(data, size, buffer, size, 0);
 
 	if(result < 0) {
-		Utf8DataResult err = { .has_error = true, .data = { .error = utf8proc_errmsg(result) } };
-		return err;
+		return (Utf8DataResult){ .has_error = true, .data = { .error = utf8proc_errmsg(result) } };
 	}
 
 	if((uint64_t)result != size) {
 		// truncate the buffer
-		buffer = reallocOrFail(buffer, sizeof(utf8proc_int32_t) * size,
-		                       sizeof(utf8proc_int32_t) * result, false);
+		buffer = realloc(buffer, sizeof(utf8proc_int32_t) * result);
+
+		if(!buffer) {
+			return (Utf8DataResult){ .has_error = true, .data = { .error = "failed realloc" } };
+		}
 	}
 
 	Utf8Data utf8_data = { .size = result, .data = buffer };
 
-	Utf8DataResult value = { .has_error = false, .data = { .result = utf8_data } };
-	return value;
+	return (Utf8DataResult){ .has_error = false, .data = { .result = utf8_data } };
 }
 
-void* wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
+anyType(NULL) wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
 
 	WebSocketListenerArg* argument = (WebSocketListenerArg*)_arg;
 
 	char* thread_name_buffer = NULL;
-	formatString(&thread_name_buffer, "ws listener %d", get_thread_id());
+	// TODO: better report error
+	formatString(&thread_name_buffer, return NULL;, "ws listener %d", get_thread_id());
 	set_thread_name(thread_name_buffer);
 
 	bool _result = setup_signal_handler();
@@ -640,7 +641,9 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
 			if(raw_message_result.has_error) {
 
 				char* errorMessage = NULL;
-				formatString(&errorMessage, "Error while reading the needed bytes for a frame: %s",
+				// TODO: better report error
+				formatString(&errorMessage, return NULL;
+				             , "Error while reading the needed bytes for a frame: %s",
 				             raw_message_result.data.error);
 
 				LOG_MESSAGE(LogLevelInfo, "%s\n", errorMessage);
@@ -739,7 +742,9 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
 
 						if(utf8_result.has_error) {
 							char* errorMessage = NULL;
-							formatString(&errorMessage, "Invalid utf8 payload in control frame: %s",
+							// TODO: better report error
+							formatString(&errorMessage, return NULL;
+							             , "Invalid utf8 payload in control frame: %s",
 							             utf8_result.data.error);
 
 							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
@@ -795,8 +800,14 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
 					uint64_t old_length = current_message.data_len;
 					void* old_data = current_message.data;
 
-					current_message.data =
-					    mallocOrFail(old_length + raw_message.payload_len, false);
+					current_message.data = malloc(old_length + raw_message.payload_len);
+
+					if(!current_message.data) {
+						// TODO: report this error
+						FREE_AT_END();
+						return NULL;
+					}
+
 					current_message.data_len += raw_message.payload_len;
 
 					memcpy(current_message.data, old_data, old_length);
@@ -816,8 +827,9 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
 						if(utf8_result.has_error) {
 
 							char* errorMessage = NULL;
-							formatString(&errorMessage,
-							             "Invalid utf8 payload in fragmented message: %s",
+							// TODO: better report error
+							formatString(&errorMessage, return NULL;
+							             , "Invalid utf8 payload in fragmented message: %s",
 							             utf8_result.data.error);
 
 							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
@@ -888,8 +900,9 @@ void* wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
 
 						if(utf8_result.has_error) {
 							char* errorMessage = NULL;
-							formatString(&errorMessage,
-							             "Invalid utf8 payload in un-fragmented message: %s",
+							// TODO: better report error
+							formatString(&errorMessage, return NULL;
+							             , "Invalid utf8 payload in un-fragmented message: %s",
 							             utf8_result.data.error);
 
 							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
@@ -1089,11 +1102,19 @@ bool ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessag
 
 WebSocketThreadManager* initialize_thread_manager(void) {
 
-	WebSocketThreadManager* manager = mallocOrFail(sizeof(WebSocketThreadManager), true);
+	WebSocketThreadManager* manager = malloc(sizeof(WebSocketThreadManager));
+
+	if(!manager) {
+		// TODO: better report error
+		return NULL;
+	}
 
 	int result = pthread_mutex_init(&manager->mutex, NULL);
-	checkResultForThreadErrorAndExit(
-	    "An Error occurred while trying to initialize the mutex for the WebSocketThreadManager");
+	// TODO: better report error
+	checkForThreadError(
+	    result,
+	    "An Error occurred while trying to initialize the mutex for the WebSocketThreadManager",
+	    return NULL;);
 	manager->head = NULL;
 
 	return manager;
@@ -1105,10 +1126,17 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
                                                    WebSocketFunction function) {
 
 	int result = pthread_mutex_lock(&manager->mutex);
-	checkResultForThreadErrorAndExit(
-	    "An Error occurred while trying to lock the mutex for the WebSocketThreadManager");
+	// TODO: better report error
+	checkForThreadError(
+	    result, "An Error occurred while trying to lock the mutex for the WebSocketThreadManager",
+	    return NULL;);
 
-	WebSocketConnection* connection = mallocOrFail(sizeof(WebSocketConnection), true);
+	WebSocketConnection* connection = malloc(sizeof(WebSocketConnection));
+
+	if(!connection) {
+		// TODO: better report error
+		return NULL;
+	}
 
 	connection->context = context;
 	connection->descriptor = descriptor;
@@ -1119,8 +1147,12 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 
 	while(true) {
 		if(next_node == NULL) {
-			struct connection_node_t* new_node =
-			    mallocOrFail(sizeof(struct connection_node_t), true);
+			struct connection_node_t* new_node = malloc(sizeof(struct connection_node_t));
+
+			if(!new_node) {
+				// TODO: better report error
+				return NULL;
+			}
 
 			new_node->connection = connection;
 			new_node->next = NULL;
@@ -1137,17 +1169,27 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	}
 
 	WebSocketListenerArg* threadArgument =
-	    (WebSocketListenerArg*)mallocOrFail(sizeof(WebSocketListenerArg), true);
+	    (WebSocketListenerArg*)malloc(sizeof(WebSocketListenerArg));
+
+	if(!threadArgument) {
+		// TODO: better report error
+		return NULL;
+	}
+
 	// initializing the struct with the necessary values
 	threadArgument->connection = connection;
 	threadArgument->manager = manager;
 
 	result = pthread_create(&connection->thread_id, NULL, wsListenerFunction, threadArgument);
-	checkResultForThreadErrorAndExit("An Error occurred while trying to create a new Thread");
+	// TODO: better report error
+	checkForThreadError(result, "An Error occurred while trying to create a new Thread",
+	                    return NULL;);
 
 	result = pthread_mutex_unlock(&manager->mutex);
-	checkResultForThreadErrorAndExit(
-	    "An Error occurred while trying to unlock the mutex for the WebSocketThreadManager");
+	// TODO: better report error
+	checkForThreadError(
+	    result, "An Error occurred while trying to unlock the mutex for the WebSocketThreadManager",
+	    return NULL;);
 
 	return connection;
 }
@@ -1179,8 +1221,10 @@ bool thread_manager_remove_connection(WebSocketThreadManager* manager,
 	}
 
 	int result = pthread_mutex_lock(&manager->mutex);
-	checkResultForThreadErrorAndExit(
-	    "An Error occurred while trying to lock the mutex for the WebSocketThreadManager");
+	// TODO: better report error
+	checkForThreadError(
+	    result, "An Error occurred while trying to lock the mutex for the WebSocketThreadManager",
+	    return false;);
 
 	struct connection_node_t* current_node = manager->head;
 	struct connection_node_t* previous_node = NULL;
@@ -1217,13 +1261,15 @@ bool thread_manager_remove_connection(WebSocketThreadManager* manager,
 	}
 
 	result = pthread_mutex_unlock(&manager->mutex);
-	checkResultForThreadErrorAndExit(
-	    "An Error occurred while trying to unlock the mutex for the WebSocketThreadManager");
+	// TODO: better report error
+	checkForThreadError(
+	    result, "An Error occurred while trying to unlock the mutex for the WebSocketThreadManager",
+	    return false;);
 
 	return return_value;
 }
 
-void thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
+bool thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
 
 	struct connection_node_t* current_node = manager->head;
 
@@ -1238,7 +1284,8 @@ void thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
 		WebSocketConnection* connection = current_node->connection;
 
 		int result = pthread_cancel(connection->thread_id);
-		checkResultForErrorAndExit("While trying to cancel a WebSocketConnection Thread");
+		// TODO: better report error
+		checkForError(result, "While trying to cancel a WebSocketConnection Thread", return false;);
 
 		free_connection(connection, true);
 
@@ -1246,18 +1293,27 @@ void thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
 
 		current_node = current_node->next;
 		free(to_free);
+		return true;
 	}
 
 	manager->head = NULL;
+	return true;
 }
 
-void free_thread_manager(WebSocketThreadManager* manager) {
+bool free_thread_manager(WebSocketThreadManager* manager) {
 
 	int result = pthread_mutex_destroy(&manager->mutex);
-	checkResultForThreadErrorAndExit("An Error occurred while trying to destroy the mutex in "
-	                                 "cleaning up for the WebSocketThreadManager");
+	// TODO: better report error
+	checkForThreadError(result,
+	                    "An Error occurred while trying to destroy the mutex in "
+	                    "cleaning up for the WebSocketThreadManager",
+	                    return false;);
 
-	assert(manager->head == NULL && "All connections got removed correctly");
+	if(manager->head != NULL) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "All connections got removed correctly");
+		return false;
+	}
 
 	free(manager);
+	return true;
 }

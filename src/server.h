@@ -60,24 +60,15 @@ typedef struct {
 	WebSocketThreadManager* webSocketManager;
 } ConnectionArgument;
 
-typedef enum { JobErrorCode_DESC } JobErrorCode;
-
-typedef struct {
-	JobErrorCode error_code;
-} JobError;
-
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-JobResult connectionHandler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo);
+anyType(JobError*)
+    __socket_connection_handler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(NULL) threadFunction(anyType(ThreadArgument*) arg);
+anyType(NULL) __listener_thread_function(anyType(ThreadArgument*) arg);
 
 int startServer(uint16_t port, SecureOptions* const options);
-
-void print_job_error(FILE* file, const JobError* const error);
-
-void free_job_error(JobError* error);

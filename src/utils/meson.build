@@ -1,4 +1,6 @@
 src_files += files(
+    'errors.c',
+    'errors.h',
     'log.c',
     'log.h',
     'myqueue.c',
@@ -11,6 +13,7 @@ src_files += files(
     'thread_helper.h',
     'thread_pool.c',
     'thread_pool.h',
+    'unsafe_utils.h',
     'utils.c',
     'utils.h',
 )

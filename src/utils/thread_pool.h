@@ -10,7 +10,7 @@
 #include "utils.h"
 
 // defining the Shutdown Macro
-#define _THREAD_SHUTDOWN_JOB NULL
+#define _THREAD_SHUTDOWN_JOB ((job_function)0x02)
 
 // defining the type defs
 
@@ -18,9 +18,7 @@ typedef struct {
 	size_t workerIndex;
 } WorkerInfo;
 
-typedef void* job_arg;
-typedef void* JobResult;
-typedef JobResult (*job_function)(job_arg, WorkerInfo);
+typedef anyType(JobResult*) (*job_function)(anyType(UserType*), WorkerInfo);
 
 typedef struct {
 	pthread_t thread;
@@ -55,7 +53,7 @@ anyType(NULL) _thread_pool_Worker_thread_function(anyType(_my_thread_pool_Thread
 // recommended, since then this pool is more efficient, on every system
 // pool is a address of an already declared, either mallcoed or on the stack (please ensure the
 // lifetime is sufficient) thread_pool
-void pool_create(thread_pool* pool, size_t size);
+int pool_create(thread_pool* pool, size_t size);
 
 // using get_nprocs_conf to make a dynamic amount of worker Threads
 // returns the used dynamic thread amount, to use it in some way (maybe print it)
@@ -67,13 +65,13 @@ int pool_create_dynamic(thread_pool* pool);
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its NULL) so it is checked here and
 // printing a warning if its _THREAD_SHUTDOWN_JOB and returns NULL
-job_id* pool_submit(thread_pool* pool, job_function start_routine, job_arg arg);
+job_id* pool_submit(thread_pool* pool, job_function start_routine, anyType(USerType*) arg);
 
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its NULL) so it is checked here and
 // printing a warning if its _THREAD_SHUTDOWN_JOB
-[[nodiscard]] JobResult pool_await(job_id* jobDescription);
+[[nodiscard]] anyType(JobResult*) pool_await(job_id* jobDescription);
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined
 // behaviour! this cn also block, until all jobs are finished
-void pool_destroy(thread_pool* pool);
+[[nodiscard]] int pool_destroy(thread_pool* pool);

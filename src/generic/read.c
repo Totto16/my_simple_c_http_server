@@ -1,15 +1,23 @@
 
 #include "read.h"
 
+#include <errno.h>
+
 #include "utils/log.h"
-#include "utils/utils.h"
 
 #define INITIAL_MESSAGE_BUF_SIZE 1024
 
 char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 	// this buffer expands using realloc!!
 	// also not the + 1 and the zero initialization, means that it's null terminated
-	char* messageBuffer = (char*)mallocOrFail(INITIAL_MESSAGE_BUF_SIZE + 1, true);
+	char* messageBuffer = (char*)malloc(INITIAL_MESSAGE_BUF_SIZE + 1);
+
+	if(!messageBuffer) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return NULL;
+	}
+
+	messageBuffer[INITIAL_MESSAGE_BUF_SIZE] = '\0';
 
 	int buffersUsed = 0;
 	while(true) {
@@ -28,8 +36,15 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 			// initializes it with 0 and copies the old content, so nothing is lost and a new
 			// INITIAL_MESSAGE_BUF_SIZE capacity is available + a null byte at the end
 			size_t oldSize = ((buffersUsed + 1) * INITIAL_MESSAGE_BUF_SIZE) + 1;
-			messageBuffer = (char*)reallocOrFail(messageBuffer, oldSize,
-			                                     oldSize + INITIAL_MESSAGE_BUF_SIZE, true);
+			char* new_buffer = (char*)realloc(messageBuffer, oldSize + INITIAL_MESSAGE_BUF_SIZE);
+
+			if(!new_buffer) {
+				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+				                   "Couldn't re-allocate memory!\n");
+				return NULL;
+			}
+			messageBuffer = new_buffer;
+
 			++buffersUsed;
 		} else {
 			// the message was shorter and could fit in the existing buffer!
@@ -43,7 +58,12 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 
 char* readExactBytes(const ConnectionDescriptor* const descriptor, size_t n_bytes) {
 
-	char* messageBuffer = (char*)mallocOrFail(n_bytes, true);
+	char* messageBuffer = (char*)malloc(n_bytes);
+
+	if(!messageBuffer) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return NULL;
+	}
 
 	size_t actualBytesRead = 0;
 

@@ -3,7 +3,7 @@
 #include "string_builder.h"
 
 StringBuilder* string_builder_init() {
-	StringBuilder* result = (StringBuilder*)mallocOrFail(sizeof(StringBuilder), true);
+	StringBuilder* result = (StringBuilder*)malloc(sizeof(StringBuilder));
 	return result;
 }
 
@@ -12,29 +12,31 @@ StringBuilder* string_builder_init() {
 
 char* normalStringToMalloced(const char* notMallocedString) {
 	size_t length = strlen(notMallocedString);
-	char* mallocedString = (char*)mallocOrFail(length + 1, true);
+	char* mallocedString = (char*)malloc(length + 1);
+
+	if(!mallocedString) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return NULL;
+	}
+
 	memcpy(mallocedString, notMallocedString, length);
 	return mallocedString;
 }
 
-// macro for appending, to used variable argument length conveniently, it uses the formatString
-// (snprintf) and __string_builder_append method under the hood
-
-#define string_builder_append(stringBuilder, format, ...) \
-	{ \
-		char* __append_buf = NULL; \
-		formatString(&__append_buf, format, __VA_ARGS__); \
-		__string_builder_append(stringBuilder, __append_buf); \
-	}
-
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-void __string_builder_append(StringBuilder* stringBuilder, char* string) {
+int __string_builder_append(StringBuilder* stringBuilder, char* string) {
 	size_t length = strlen(string);
 	// if te string builder is empty malloc the right size
 	if(stringBuilder->currentSize == 0) {
 		// +1, so one trailing 0 byte is there :)
-		stringBuilder->data = (char*)mallocOrFail(length + 1, true);
+		stringBuilder->data = (char*)mallocWithMemset(length + 1, true);
+
+		if(!stringBuilder->data) {
+			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			return -1;
+		}
+
 		memcpy(stringBuilder->data, string, length);
 
 	} else {
@@ -42,19 +44,27 @@ void __string_builder_append(StringBuilder* stringBuilder, char* string) {
 		// memcpy copies everything in the right place, leaving a trailing null character at the
 		// end
 		stringBuilder->data =
-		    (char*)reallocOrFail(stringBuilder->data, stringBuilder->currentSize + 1,
-		                         stringBuilder->currentSize + length + 1, true);
+		    (char*)reallocWithMemset(stringBuilder->data, stringBuilder->currentSize + 1,
+		                             stringBuilder->currentSize + length + 1, true);
+
+		if(!stringBuilder->data) {
+			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			return -1;
+		}
+
 		memcpy(stringBuilder->data + stringBuilder->currentSize, string, length);
 	}
 	stringBuilder->currentSize += length; // trailing 0 byte is not included
 	// then free the input, since the bytes are already in the stringbuilder
 	free(string);
+
+	return 0;
 }
 
 // simple wrapper if just a constant string has to be appended
-void string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString) {
+int string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString) {
 	char* mallocedString = normalStringToMalloced(notMallocedString);
-	__string_builder_append(stringBuilder, mallocedString);
+	return __string_builder_append(stringBuilder, mallocedString);
 }
 
 // attention the two methods to_string and get_string are different in that sense, that after

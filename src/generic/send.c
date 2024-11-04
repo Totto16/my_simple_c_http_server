@@ -3,6 +3,8 @@
 #include "send.h"
 #include "utils/log.h"
 
+#include <errno.h>
+
 int sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toSend,
                          size_t length) {
 

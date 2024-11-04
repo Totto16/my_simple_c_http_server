@@ -56,9 +56,9 @@ NODISCARD bool thread_manager_remove_connection(WebSocketThreadManager* manager,
 /**
  * NOT Thread safe
  */
-void thread_manager_remove_all_connections(WebSocketThreadManager* manager);
+NODISCARD bool thread_manager_remove_all_connections(WebSocketThreadManager* manager);
 
 /**
  * NOT Thread safe
  */
-void free_thread_manager(WebSocketThreadManager* manager);
+NODISCARD bool free_thread_manager(WebSocketThreadManager* manager);

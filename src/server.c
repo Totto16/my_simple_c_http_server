@@ -3,15 +3,18 @@ Author: Tobias Niederbrunner - csba1761
 Module: PS OS 08
 */
 
+#include <errno.h>
 #include <signal.h>
 
 #include "generic/read.h"
 #include "generic/secure.h"
 #include "generic/send.h"
 #include "server.h"
+#include "utils/errors.h"
 #include "utils/log.h"
 #include "utils/thread_pool.h"
 #include "utils/utils.h"
+#include "ws/handler.h"
 #include "ws/thread_manager.h"
 #include "ws/ws.h"
 
@@ -42,69 +45,20 @@ static void receiveSignal(int signalNumber) {
 	signal_received = signalNumber;
 }
 
-// this returns true if everything is ok, and false if we should close the connection
-WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMessage message) {
-
-	if(message.is_text) {
-
-		if(message.data_len >= 200) {
-			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %lu\n", message.data_len);
-		} else {
-			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n", (int)(message.data_len),
-			            (char*)message.data);
-		}
-	} else {
-		LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %lu\n", message.data_len);
-	}
-
-	// for autobahn tests, just echoing the things
-	bool result = ws_send_message(connection, message);
-
-	if(!result) {
-		return WebSocketAction_Error;
-	}
-
-	return WebSocketAction_Continue;
-}
-
-// this returns true if everything is ok, and false if we should close the connection
-WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
-                                            WebSocketMessage message) {
-
-	if(message.is_text) {
-
-		if(message.data_len >= 200) {
-			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %lu\n", message.data_len);
-		} else {
-			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n", (int)(message.data_len),
-			            (char*)message.data);
-		}
-	} else {
-		LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %lu\n", message.data_len);
-	}
-
-	// for autobahn tests, just echoing the things
-	bool result = ws_send_message_fragmented(connection, message, WS_FRAGMENTATION_AUTO);
-
-	if(!result) {
-		return WebSocketAction_Error;
-	}
-
-	return WebSocketAction_Continue;
-}
-
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo workerInfo) {
+anyType(JobError*)
+    __socket_connection_handler(anyType(ConnectionArgument*) _arg, WorkerInfo workerInfo) {
 
 	// attention arg is malloced!
 	ConnectionArgument* argument = (ConnectionArgument*)_arg;
 
 	ConnectionContext* context = argument->contexts[workerInfo.workerIndex];
 	char* thread_name_buffer = NULL;
-	formatString(&thread_name_buffer, "connection handler %lu", workerInfo.workerIndex);
+	formatString(&thread_name_buffer, return JobError_StringFormat;
+	             , "connection handler %lu", workerInfo.workerIndex);
 	set_thread_name(thread_name_buffer);
 
 #define FREE_AT_END() \
@@ -119,18 +73,15 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 	    get_connection_descriptor(context, argument->connectionFd);
 
 	if(descriptor == NULL) {
-		fprintf(stderr, "Error: get_connection_descriptor failed\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "get_connection_descriptor failed\n");
 
-		JobError* error = mallocOrFail(sizeof(JobError), true);
-		error->error_code = JobErrorCode_DESC;
-
-		return error;
+		return JobError_Desc;
 	}
 
 	char* rawHttpRequest = readStringFromConnection(descriptor);
 
 	if(!rawHttpRequest) {
-		bool result =
+		int result =
 		    sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
 		                            "Request couldn't be read, a connection error occurred!",
 		                            MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
@@ -149,10 +100,10 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 	// '--http2' (doesn't work, since http can only be HTTP/1.1, https can be HTTP 2 or QUIC
 	// alias HTTP 3)
 
-	// httpRequest can be null, then it wasn't parseable, according to parseHttpRequest, see
+	// httpRequest can be null, then it wasn't parse-able, according to parseHttpRequest, see
 	// there for more information
 	if(httpRequest == NULL) {
-		bool result = sendMessageToConnection(
+		int result = sendMessageToConnection(
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "Request couldn't be parsed, it was malformed!",
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
@@ -173,22 +124,23 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 			// HTTP GET
 			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
 				printf("Shutdown requested!\n");
-				bool result1 = sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down",
-				                                       MIME_TYPE_TEXT, NULL, 0,
-				                                       CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				int result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down",
+				                                     MIME_TYPE_TEXT, NULL, 0,
+				                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-				if(!result1) {
+				if(result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 				}
 
 				// just cancel the listener thread, then no new connection are accepted and the
 				// main thread cleans the pool and queue, all jobs are finished so shutdown
 				// gracefully
-				int result = pthread_cancel(argument->listenerThread);
-				checkResultForErrorAndExit("While trying to cancel the listener Thread");
+				int cancel_result = pthread_cancel(argument->listenerThread);
+				checkForError(cancel_result, "While trying to cancel the listener Thread",
+				              return JobError_ThreadCancel;);
 
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
-				bool result = sendMessageToConnection(
+				int result = sendMessageToConnection(
 				    descriptor, HTTP_STATUS_OK,
 				    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
 				    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
@@ -213,7 +165,7 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 					freeHttpRequest(httpRequest);
 					FREE_AT_END();
 
-					return NULL;
+					return JobError_None;
 
 				} else {
 					// the error was already sent, just close the descriptor and free the http
@@ -236,16 +188,16 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 					freeHttpRequest(httpRequest);
 					FREE_AT_END();
 
-					return NULL;
+					return JobError_None;
 
 				} else {
 					// the error was already sent, just close the descriptor and free the http
 					// request, this is done at the end of this big if else statements
 				}
 			} else {
-				bool result = sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND,
-				                                      "File not Found", MIME_TYPE_TEXT, NULL, 0,
-				                                      CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				int result = sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND,
+				                                     "File not Found", MIME_TYPE_TEXT, NULL, 0,
+				                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 				if(!result) {
 					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
@@ -254,7 +206,7 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 		} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
 			// HTTP POST
 
-			bool result =
+			int result =
 			    sendMessageToConnection(descriptor, HTTP_STATUS_OK,
 			                            httpRequestToJSON(httpRequest, is_secure_context(context)),
 			                            MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
@@ -264,24 +216,29 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 			// TODO send actual Content-Length, experiment with e.g a large video file!
-			bool result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
-			                                      CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			int result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
+			                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(!result) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
-			HttpHeaderField* allowedHeader =
-			    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
+			HttpHeaderField* allowedHeader = (HttpHeaderField*)malloc(sizeof(HttpHeaderField));
+
+			if(!allowedHeader) {
+				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+				return JobError_Malloc;
+			}
 
 			char* allowedHeaderBuffer = NULL;
 			// all 405 have to have a Allow filed according to spec
-			formatString(&allowedHeaderBuffer, "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
+			formatString(&allowedHeaderBuffer, return JobError_StringFormat;
+			             , "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
 			allowedHeader[0].key = allowedHeaderBuffer;
 			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-			bool result =
+			int result =
 			    sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
 			                            CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
@@ -289,35 +246,40 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		} else {
-			bool result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-			                                      "Internal Server Error 1", MIME_TYPE_TEXT, NULL,
-			                                      0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			int result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+			                                     "Internal Server Error 1", MIME_TYPE_TEXT, NULL, 0,
+			                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(!result) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		}
 	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
-		bool result = sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
-		                                      "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT,
-		                                      NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		int result = sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
+		                                     "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT, NULL,
+		                                     0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 	} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
 
-		HttpHeaderField* allowedHeader =
-		    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField), true);
+		HttpHeaderField* allowedHeader = (HttpHeaderField*)malloc(sizeof(HttpHeaderField));
+
+		if(!allowedHeader) {
+			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			return JobError_Malloc;
+		}
 
 		char* allowedHeaderBuffer = NULL;
 		// all 405 have to have a Allow filed according to spec
-		formatString(&allowedHeaderBuffer, "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
+		formatString(&allowedHeaderBuffer, return JobError_StringFormat;
+		             , "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
 		allowedHeader[0].key = allowedHeaderBuffer;
 		allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-		bool result = sendMessageToConnection(
+		int result = sendMessageToConnection(
 		    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
 		    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
 		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
@@ -326,7 +288,7 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
-		bool result = sendMessageToConnection(
+		int result = sendMessageToConnection(
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "A GET, HEAD or OPTIONS Request can't have a body",
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
@@ -334,9 +296,9 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 	} else {
-		bool result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-		                                      "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
-		                                      CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		int result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+		                                     "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
+		                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(!result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
@@ -348,10 +310,10 @@ JobResult connectionHandler(anyType(ConnectionArgument*) _arg, WorkerInfo worker
 cleanup:
 	// finally close the connection
 	int result = close_connection_descriptor(descriptor, context);
-	checkResultForErrorAndExit("While trying to close the connection descriptor");
+	checkForError(result, "While trying to close the connection descriptor", return JobError_Close);
 	// and free the malloced argument
 	FREE_AT_END();
-	return NULL;
+	return JobError_None;
 }
 
 #undef FREE_AT_END
@@ -369,7 +331,7 @@ static int myqueue_size(myqueue* q) {
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
+anyType(ListenerError*) __listener_thread_function(anyType(ThreadArgument*) arg) {
 
 	set_thread_name("listener thread");
 
@@ -415,7 +377,8 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 			// fix that somehow
 			close(poll_fds[1].fd);
 			int result = pthread_cancel(pthread_self());
-			checkResultForErrorAndExit("While trying to cancel the listener Thread on signal");
+			checkForError(result, "While trying to cancel the listener Thread on signal",
+			              return ListenerError_ThreadCancel;);
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
@@ -429,7 +392,12 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 		checkForError(connectionFd, "While Trying to accept a socket", continue;);
 
 		ConnectionArgument* connectionArgument =
-		    (ConnectionArgument*)mallocOrFail(sizeof(ConnectionArgument), true);
+		    (ConnectionArgument*)malloc(sizeof(ConnectionArgument));
+
+		if(!connectionArgument) {
+			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			return ListenerError_Malloc;
+		}
 
 		// to have longer lifetime, that is needed here, since otherwise it would be "dead"
 		connectionArgument->contexts = argument.contexts;
@@ -439,8 +407,10 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		myqueue_push(argument.jobIds,
-		             pool_submit(argument.pool, connectionHandler, connectionArgument));
+		if(myqueue_push(argument.jobIds, pool_submit(argument.pool, __socket_connection_handler,
+		                                             connectionArgument)) < 0) {
+			return ListenerError_QueuePush;
+		}
 
 		// not waiting directly, but when the queue grows to fast, it is reduced, then the
 		// listener thread MIGHT block, but probably are these first jobs already finished,
@@ -454,11 +424,18 @@ anyType(NULL) threadFunction(anyType(ThreadArgument*) arg) {
 
 				job_id* jobId = (job_id*)myqueue_pop(argument.jobIds);
 
-				JobError* result = pool_await(jobId);
+				JobError result = pool_await(jobId);
 
-				if(result != NULL) {
-					print_job_error(stderr, result);
-					free_job_error(result);
+				if(is_job_error(result)) {
+					if(result != JobError_None) {
+						print_job_error(result);
+					}
+				} else if(result == PTHREAD_CANCELED) {
+					LOG_MESSAGE_SIMPLE(LogLevelError, "A connection thread was cancelled!\n");
+				} else {
+					LOG_MESSAGE(LogLevelError,
+					            "A connection thread was terminated with wrong error: %p!\n",
+					            result);
 				}
 
 				--size;
@@ -478,19 +455,26 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	// the socket type is SOCK_STREAM, meaning it has reliable read and write capabilities,
 	// all other types are not that well suited for that example
 	int socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	checkForError(socketFd, "While Trying to create socket", exit(EXIT_FAILURE););
+	checkForError(socketFd, "While Trying to create socket", return EXIT_FAILURE;);
 
 	// set the reuse port option to the socket, so it can be reused
 	const int optval = 1;
 	int optionReturn = setsockopt(socketFd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 	checkForError(optionReturn, "While Trying to set socket option 'SO_REUSEPORT'",
-	              exit(EXIT_FAILURE););
+	              return EXIT_FAILURE;);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
 	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
-	struct sockaddr_in* addr = (struct sockaddr_in*)mallocOrFail(sizeof(struct sockaddr_in), true);
+	struct sockaddr_in* addr =
+	    (struct sockaddr_in*)mallocWithMemset(sizeof(struct sockaddr_in), true);
+
+	if(!addr) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return EXIT_FAILURE;
+	}
+
 	addr->sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and
 	// linux has Little Endian
@@ -506,14 +490,14 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
 	// getting that is being root, or executing as root: sudo ...)
 	int result = bind(socketFd, (struct sockaddr*)addr, sizeof(*addr));
-	checkResultForErrorAndExit("While trying to bind socket to port");
+	checkForError(result, "While trying to bind socket to port", return EXIT_FAILURE;);
 
 	// SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
 	// the protocol discards these requests listen starts listining on that socket, meaning
 	// new connections can be accepted
 	result = listen(socketFd, SOCKET_BACKLOG_SIZE);
-	checkResultForErrorAndExit("While trying to listen on socket");
+	checkForError(result, "While trying to listen on socket", return EXIT_FAILURE;);
 
 	const char* protocol_string = is_secure(options) ? "https" : "http";
 
@@ -531,23 +515,33 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	int result1 = sigaction(SIGINT, &action, NULL);
 	if(result1 < 0 || emptySetResult < 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't set signal interception: %s\n", strerror(errno));
-		exit(EXIT_FAILURE);
+		return EXIT_FAILURE;
 	}
 
 	// create pool and queue! then initializing both!
 	// the pool is created and destroyed outside of the listener, so the listener can be
 	// cancelled and then the main thread destroys everything accordingly
 	thread_pool pool;
-	pool_create_dynamic(&pool);
+	int create_result = pool_create_dynamic(&pool);
+	if(create_result < 0) {
+		print_create_error(-create_result);
+		return EXIT_FAILURE;
+	}
 
 	// this is a internal synchronized queue! myqueue_init creates a semaphore that handles
 	// that
 	myqueue jobIds;
-	myqueue_init(&jobIds);
+	if(myqueue_init(&jobIds) < 0) {
+		return EXIT_FAILURE;
+	};
 
 	// this is an array of pointers
-	ConnectionContext** contexts =
-	    mallocOrFail(sizeof(ConnectionContext*) * pool.workerThreadAmount, true);
+	ConnectionContext** contexts = malloc(sizeof(ConnectionContext*) * pool.workerThreadAmount);
+
+	if(!contexts) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return EXIT_FAILURE;
+	}
 
 	for(size_t i = 0; i < pool.workerThreadAmount; ++i) {
 		contexts[i] = get_connection_context(options);
@@ -565,16 +559,26 @@ int startServer(uint16_t port, SecureOptions* const options) {
 		                              .webSocketManager = webSocketManager };
 
 	// creating the thread
-	result = pthread_create(&listenerThread, NULL, threadFunction, &threadArgument);
-	checkResultForThreadErrorAndExit("An Error occurred while trying to create a new Thread");
+	result = pthread_create(&listenerThread, NULL, __listener_thread_function, &threadArgument);
+	checkForThreadError(result, "An Error occurred while trying to create a new Thread",
+	                    return EXIT_FAILURE;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
-	void* returnValue;
+	ListenerError returnValue;
 	result = pthread_join(listenerThread, &returnValue);
-	checkResultForThreadErrorAndExit("An Error occurred while trying to wait for a Thread");
-	if(returnValue != PTHREAD_CANCELED) {
-		fprintf(stderr, "WARNING: the thread wasn't cancelled properly!");
+	checkForThreadError(result, "An Error occurred while trying to wait for a Thread",
+	                    return EXIT_FAILURE;);
+
+	if(is_listener_error(returnValue)) {
+		if(returnValue != ListenerError_None) {
+			print_listener_error(returnValue);
+		}
+	} else if(returnValue != PTHREAD_CANCELED) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "The listener thread wasn't cancelled properly!\n");
+	} else {
+		LOG_MESSAGE(LogLevelError, "The listener thread was terminated with wrong error: %p!\n",
+		            returnValue);
 	}
 
 	// since the listener doesn't wait on the jobs, the main thread has to do that work!
@@ -582,18 +586,29 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	while(!myqueue_is_empty(&jobIds)) {
 		job_id* jobId = (job_id*)myqueue_pop(&jobIds);
 
-		JobError* result = pool_await(jobId);
+		JobError result = pool_await(jobId);
 
-		if(result != NULL) {
-			print_job_error(stderr, result);
-			free_job_error(result);
+		if(is_job_error(result)) {
+			if(result != JobError_None) {
+				print_job_error(result);
+			}
+		} else if(result == PTHREAD_CANCELED) {
+			LOG_MESSAGE_SIMPLE(LogLevelError, "A connection thread was cancelled!\n");
+		} else {
+			LOG_MESSAGE(LogLevelError, "A connection thread was terminated with wrong error: %p!\n",
+			            result);
 		}
 	}
 
 	// then after all were awaited the pool is destroyed
-	pool_destroy(&pool);
+	if(pool_destroy(&pool) < 0) {
+		return EXIT_FAILURE;
+	}
+
 	// then the queue is destroyed
-	myqueue_destroy(&jobIds);
+	if(myqueue_destroy(&jobIds) < 0) {
+		return EXIT_FAILURE;
+	}
 
 	// finally closing the whole socket, so that the port is useable by other programs or by
 	// this again, NOTES: ip(7) states :" A TCP local socket address that has been bound is
@@ -602,7 +617,7 @@ int startServer(uint16_t port, SecureOptions* const options) {
 	// essentially saying, also correctly closed sockets aren't available after a certain
 	// time, even if closed correctly!
 	result = close(socketFd);
-	checkResultForErrorAndExit("While trying to close the socket");
+	checkForError(result, "While trying to close the socket", return EXIT_FAILURE;);
 
 	// and freeing the malloced sockaddr_in, could be done (probably, since the receiver of
 	// this option has already got that argument and doesn't read data from that pointer
@@ -613,29 +628,17 @@ int startServer(uint16_t port, SecureOptions* const options) {
 		free_connection_context(contexts[i]);
 	}
 
-	thread_manager_remove_all_connections(webSocketManager);
+	if(!thread_manager_remove_all_connections(webSocketManager)) {
+		return EXIT_FAILURE;
+	}
 
-	free_thread_manager(webSocketManager);
+	if(!free_thread_manager(webSocketManager)) {
+		return EXIT_FAILURE;
+	}
 
 	free(contexts);
 
 	free_secure_options(options);
 
 	return EXIT_SUCCESS;
-}
-
-void print_job_error(FILE* file, const JobError* const error) {
-
-	const char* error_str = "Unknown error";
-
-	switch(error->error_code) {
-		case JobErrorCode_DESC: error_str = "Description"; break;
-		default: break;
-	}
-
-	fprintf(file, "Job Error: %s\n", error_str);
-}
-
-void free_job_error(JobError* error) {
-	free(error);
 }

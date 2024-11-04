@@ -25,16 +25,21 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	const int headerAmount = 2;
 
 	HttpHeaderField* header =
-	    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField) * headerAmount, true);
+	    (HttpHeaderField*)mallocWithMemset(sizeof(HttpHeaderField) * headerAmount, true);
+
+	if(!header) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return false;
+	}
 
 	char* upgradeHeaderBuffer = NULL;
-	formatString(&upgradeHeaderBuffer, "%s%c%s", "Upgrade", '\0', "WebSocket");
+	formatString(&upgradeHeaderBuffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
 
 	header[0].key = upgradeHeaderBuffer;
 	header[0].value = upgradeHeaderBuffer + strlen(upgradeHeaderBuffer) + 1;
 
 	char* connectionHeaderBuffer = NULL;
-	formatString(&connectionHeaderBuffer, "%s%c%s", "Connection", '\0', "Upgrade");
+	formatString(&connectionHeaderBuffer, return false;, "%s%c%s", "Connection", '\0', "Upgrade");
 
 	header[1].key = connectionHeaderBuffer;
 	header[1].value = connectionHeaderBuffer + strlen(connectionHeaderBuffer) + 1;
@@ -57,7 +62,8 @@ static NODISCARD bool sendFailedHandshakeMessage(const ConnectionDescriptor* con
 
 	StringBuilder* message = string_builder_init();
 
-	string_builder_append(message, "Error: The client handshake was invalid: %s", error_reason);
+	string_builder_append(message, return false;
+	                      , "Error: The client handshake was invalid: %s", error_reason);
 
 	char* malloced_message = string_builder_get_string(message);
 	bool result = sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
@@ -87,13 +93,14 @@ static char* keyAcceptConstant = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 static char* generateKeyAnswer(const char* secKey) {
 
 	char* keyToHashBuffer = NULL;
-	formatString(&keyToHashBuffer, "%s%s", secKey, keyAcceptConstant);
+	formatString(&keyToHashBuffer, return NULL;, "%s%s", secKey, keyAcceptConstant);
 
 	uint8_t* sha1_hash = sha1(keyToHashBuffer);
 
 	char* result = b64_encode(sha1_hash, SHA1_LEN);
 
 	free(sha1_hash);
+	free(keyToHashBuffer);
 
 	return result;
 }
@@ -185,17 +192,21 @@ bool handleWSHandshake(const HttpRequest* const httpRequest,
 
 	const int headerAmount = 3;
 
-	HttpHeaderField* header =
-	    (HttpHeaderField*)mallocOrFail(sizeof(HttpHeaderField) * headerAmount, true);
+	HttpHeaderField* header = (HttpHeaderField*)malloc(sizeof(HttpHeaderField) * headerAmount);
+
+	if(!header) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return false;
+	}
 
 	char* upgradeHeaderBuffer = NULL;
-	formatString(&upgradeHeaderBuffer, "%s%c%s", "Upgrade", '\0', "WebSocket");
+	formatString(&upgradeHeaderBuffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
 
 	header[0].key = upgradeHeaderBuffer;
 	header[0].value = upgradeHeaderBuffer + strlen(upgradeHeaderBuffer) + 1;
 
 	char* connectionHeaderBuffer = NULL;
-	formatString(&connectionHeaderBuffer, "%s%c%s", "Connection", '\0', "Upgrade");
+	formatString(&connectionHeaderBuffer, return false;, "%s%c%s", "Connection", '\0', "Upgrade");
 
 	header[1].key = connectionHeaderBuffer;
 	header[1].value = connectionHeaderBuffer + strlen(connectionHeaderBuffer) + 1;
@@ -203,8 +214,8 @@ bool handleWSHandshake(const HttpRequest* const httpRequest,
 	char* keyAnswer = generateKeyAnswer(secKey);
 
 	char* secWebsocketAcceptHeaderBuffer = NULL;
-	formatString(&secWebsocketAcceptHeaderBuffer, "%s%c%s", "Sec-WebSocket-Accept", '\0',
-	             keyAnswer);
+	formatString(&secWebsocketAcceptHeaderBuffer, return false;
+	             , "%s%c%s", "Sec-WebSocket-Accept", '\0', keyAnswer);
 
 	free(keyAnswer);
 

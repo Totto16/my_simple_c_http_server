@@ -3,12 +3,14 @@
 #include "utils.h"
 #include <stdint.h>
 
+#include <errno.h>
+
 // simple malloc Wrapper, using also memset to set everything to 0
-void* mallocOrFail(const size_t size, const bool initializeWithZeros) {
+void* mallocWithMemset(const size_t size, const bool initializeWithZeros) {
 	void* result = malloc(size);
 	if(result == NULL) {
-		fprintf(stderr, "ERROR: Couldn't allocate memory!\n");
-		exit(EXIT_FAILURE);
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return NULL;
 	}
 	if(initializeWithZeros) {
 		// yes this could be done by calloc, but if you don't need that, its overhead!
@@ -18,19 +20,19 @@ void* mallocOrFail(const size_t size, const bool initializeWithZeros) {
 			fprintf(stderr, "FATAL: Couldn't set the memory allocated to zeros!!\n");
 			// free not really necessary, but also not that wrong
 			free(result);
-			exit(EXIT_FAILURE);
+			return NULL;
 		}
 	}
 	return result;
 }
 
 // simple realloc Wrapper, using also memset to set everything to 0
-void* reallocOrFail(void* previousPtr, const size_t oldSize, const size_t newSize,
-                    const bool initializeWithZeros) {
+void* reallocWithMemset(void* previousPtr, const size_t oldSize, const size_t newSize,
+                        const bool initializeWithZeros) {
 	void* result = realloc(previousPtr, newSize);
 	if(result == NULL) {
 		fprintf(stderr, "ERROR: Couldn't reallocate memory!\n");
-		exit(EXIT_FAILURE);
+		return NULL;
 	}
 	if(initializeWithZeros && newSize > oldSize) {
 		// yes this could be done by calloc, but if you don't need that, its overhead!
@@ -40,7 +42,7 @@ void* reallocOrFail(void* previousPtr, const size_t oldSize, const size_t newSiz
 			fprintf(stderr, "FATAL: Couldn't set the memory reallocated to zeros!!\n");
 			// free not really necessary, but also not that wrong
 			free(result);
-			exit(EXIT_FAILURE);
+			return NULL;
 		}
 	}
 	return result;
@@ -64,7 +66,7 @@ long parseLongSafely(const char* toParse, const char* description) {
 		        toParse, description);
 		exit(EXIT_FAILURE);
 	} else if(errno != 0) {
-		perror("Couldn't parse the incorrect long");
+		LOG_MESSAGE(LogLevelWarn, "Couldn't parse the incorrect long: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
