@@ -97,6 +97,7 @@ void* mallocWithMemset(size_t size, bool initializeWithZeros);
 		int toWrite = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
 		internalBuffer = (char*)malloc(toWrite * sizeof(char)); \
 		if(!internalBuffer) { \
+			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n"); \
 			statement \
 		} \
 		int written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \

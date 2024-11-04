@@ -17,9 +17,9 @@ typedef void* JobError;
 #define JobError_SemWait ((JobError)0x27)
 #define JobError_SemDest ((JobError)0x28)
 
-bool is_job_error(const JobError error);
+bool is_job_error(JobError error);
 
-void print_job_error(const JobError error);
+void print_job_error(JobError error);
 
 // listeners errors
 
@@ -31,9 +31,9 @@ typedef void* ListenerError;
 #define ListenerError_ThreadCancel ((ListenerError)0x81)
 #define ListenerError_QueuePush ((ListenerError)0x82)
 
-bool is_listener_error(const ListenerError error);
+bool is_listener_error(ListenerError error);
 
-void print_listener_error(const ListenerError error);
+void print_listener_error(ListenerError error);
 
 // Create errors
 
@@ -45,7 +45,7 @@ typedef enum {
 	CreateError_QueueInit
 } CreateError;
 
-void print_create_error(const CreateError error);
+void print_create_error(CreateError error);
 
 // submit errors
 
@@ -59,7 +59,7 @@ typedef void* SubmitError;
 #define SubmitError_InvalidStartRoutine ((SubmitError)0xA3)
 #define SubmitError_QueuePush ((SubmitError)0xA4)
 
-void print_submit_error(const SubmitError error);
+void print_submit_error(SubmitError error);
 
 // worker errors
 
@@ -70,4 +70,4 @@ typedef void* WorkerError;
 #define WorkerError_SemPost ((WorkerError)0xC0)
 #define WorkerError_SemWait ((WorkerError)0xC1)
 
-void print_worker_error(const WorkerError error);
+void print_worker_error(WorkerError error);

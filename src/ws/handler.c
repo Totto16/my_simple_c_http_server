@@ -6,7 +6,8 @@ WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMess
 
 	if(message.is_text) {
 
-		if(message.data_len >= 200) {
+		if(message.data_len >=
+		   200) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %lu\n", message.data_len);
 		} else {
 			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n", (int)(message.data_len),
@@ -31,7 +32,8 @@ WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
 
 	if(message.is_text) {
 
-		if(message.data_len >= 200) {
+		if(message.data_len >=
+		   200) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %lu\n", message.data_len);
 		} else {
 			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n", (int)(message.data_len),

@@ -50,7 +50,7 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
  *
  * returns true if it was successfully removed, false if it was an invalid connection
  */
-NODISCARD bool thread_manager_remove_connection(WebSocketThreadManager* manager,
+NODISCARD int thread_manager_remove_connection(WebSocketThreadManager* manager,
                                                 WebSocketConnection* connection);
 
 /**

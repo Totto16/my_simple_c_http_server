@@ -10,7 +10,7 @@
 #include <b64/b64.h>
 #include <strings.h>
 
-static NODISCARD bool
+static NODISCARD int
 sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const descriptor) {
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Failed WS handshake: Upgrade required\n");
@@ -29,7 +29,7 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 
 	if(!header) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-		return false;
+		return -1;
 	}
 
 	char* upgradeHeaderBuffer = NULL;
@@ -52,11 +52,11 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in sendFailedHandshakeMessage)\n");
 	}
-	return false;
+	return -1;
 }
 
-static NODISCARD bool sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
-                                                 const char* error_reason) {
+static NODISCARD int sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
+                                                const char* error_reason) {
 
 	LOG_MESSAGE(LogLevelTrace, "Failed WS handshake: %s\n", error_reason);
 
@@ -73,8 +73,10 @@ static NODISCARD bool sendFailedHandshakeMessage(const ConnectionDescriptor* con
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in sendFailedHandshakeMessage)\n");
 	}
-	return false;
+	return -1;
 }
+
+#define EXPECTED_WS_HEADER_SEC_KEY_LENGTH 16
 
 static NODISCARD bool isValidSecKey(const char* key) {
 	size_t size = 0;
@@ -85,10 +87,11 @@ static NODISCARD bool isValidSecKey(const char* key) {
 	}
 
 	free(b64_result);
-	return size == 16;
+	return size == // NOLINT(readability-implicit-bool-conversion)
+	       EXPECTED_WS_HEADER_SEC_KEY_LENGTH;
 }
 
-static char* keyAcceptConstant = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+static const char* const keyAcceptConstant = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 static char* generateKeyAnswer(const char* secKey) {
 
@@ -106,6 +109,7 @@ static char* generateKeyAnswer(const char* secKey) {
 }
 
 typedef enum {
+	HANDSHAKE_HEADER_NONE = 0b0,
 	HANDSHAKE_HEADER_HEADER_HOST = 0b1,
 	HANDSHAKE_HEADER_HEADER_UPGRADE = 0b10,
 	HANDSHAKE_HEADER_HEADER_CONNECTION = 0b100,
@@ -122,10 +126,10 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 
 	// check if it is a valid Websocket request
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-2 section 4.2.1.
-	NEEDED_HEADER_FOR_HANDSHAKE foundList = 0;
+	NEEDED_HEADER_FOR_HANDSHAKE foundList = HANDSHAKE_HEADER_NONE;
 
 	char* secKey = NULL;
-	bool fromBrowser;
+	bool fromBrowser = false;
 
 	for(size_t i = 0; i < httpRequest->head.headerAmount; ++i) {
 		HttpHeaderField header = httpRequest->head.headerFields[i];
@@ -166,7 +170,7 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 			// do nothing
 		}
 
-		// TODO: support this optional headers:
+		// TODO(Totto): support this optional headers:
 		/*
 		   8.   Optionally, a |Sec-WebSocket-Protocol| header field, with a list
 		        of values indicating which protocols the client would like to
@@ -181,7 +185,7 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	UNUSED(fromBrowser);
 
 	if((HANDSHAKE_HEADER_HEADER_ALL_FOUND & foundList) != HANDSHAKE_HEADER_HEADER_ALL_FOUND) {
-		if(SEND_HTTP_UPGRADE_REQUIRED_STATUS_CODE &&
+		if(SEND_HTTP_UPGRADE_REQUIRED_STATUS_CODE && /*NOLINT(readability-implicit-bool-conversion)*/
 		   ((foundList & HANDSHAKE_HEADER_HEADER_UPGRADE) == 0)) {
 			return sendFailedHandshakeMessageUpgradeRequired(descriptor);
 		}
@@ -196,7 +200,7 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 
 	if(!header) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-		return false;
+		return -1;
 	}
 
 	char* upgradeHeaderBuffer = NULL;
