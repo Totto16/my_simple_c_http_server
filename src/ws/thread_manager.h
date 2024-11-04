@@ -30,7 +30,7 @@ typedef enum { WS_FRAGMENTATION_OFF, WS_FRAGMENTATION_AUTO } FragmentOption;
 NODISCARD int ws_send_message(WebSocketConnection* connection, WebSocketMessage message);
 
 NODISCARD int ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
-                                          int64_t fragment_size);
+                                         int64_t fragment_size);
 
 /**
  * NOT Thread safe

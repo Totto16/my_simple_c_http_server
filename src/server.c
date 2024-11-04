@@ -149,9 +149,9 @@ anyType(JobError*)
 					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 				}
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
-				bool wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
+				int wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
 
-				if(wsRequestSuccessful) {
+				if(wsRequestSuccessful >= 0) {
 					// move the context so that we can use it in the long standing web socket
 					// thread
 					ConnectionContext* newContext = copy_connection_context(context);
@@ -166,15 +166,15 @@ anyType(JobError*)
 					FREE_AT_END();
 
 					return JobError_None;
-
-				} else {
-					// the error was already sent, just close the descriptor and free the http
-					// request, this is done at the end of this big if else statements
 				}
-			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws/fragmented") == 0) {
-				bool wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
 
-				if(wsRequestSuccessful) {
+				// the error was already sent, just close the descriptor and free the http
+				// request, this is done at the end of this big if else statements
+
+			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws/fragmented") == 0) {
+				int wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
+
+				if(wsRequestSuccessful >= 0) {
 					// move the context so that we can use it in the long standing web socket
 					// thread
 					ConnectionContext* newContext = copy_connection_context(context);
@@ -189,11 +189,11 @@ anyType(JobError*)
 					FREE_AT_END();
 
 					return JobError_None;
-
-				} else {
-					// the error was already sent, just close the descriptor and free the http
-					// request, this is done at the end of this big if else statements
 				}
+
+				// the error was already sent, just close the descriptor and free the http
+				// request, this is done at the end of this big if else statements
+
 			} else {
 				int result = sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND,
 				                                     "File not Found", MIME_TYPE_TEXT, NULL, 0,

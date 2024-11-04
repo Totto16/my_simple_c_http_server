@@ -9,8 +9,10 @@
 #include "myqueue.h"
 #include "utils.h"
 
+#define __THREAD_SHUTDOWN_JOB_INTERNAL 0x02
+
 // defining the Shutdown Macro
-#define _THREAD_SHUTDOWN_JOB ((job_function)0x02)
+#define _THREAD_SHUTDOWN_JOB ((job_function)__THREAD_SHUTDOWN_JOB_INTERNAL)
 
 // defining the type defs
 

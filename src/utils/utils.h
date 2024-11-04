@@ -96,7 +96,7 @@ void* mallocWithMemset(const size_t size, const bool initializeWithZeros);
 		} \
 		int toWrite = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
 		internalBuffer = (char*)malloc(toWrite * sizeof(char)); \
-		if(!malloc) { \
+		if(!internalBuffer) { \
 			statement \
 		} \
 		int written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \

@@ -91,7 +91,7 @@ int pool_create(thread_pool* pool, size_t size) {
 	// initialize the queue, this queue is synchronized internally, so it has to do some work with a
 	// synchronization method (here not necessary to know how it's implemented, but it'S a
 	// semaphore)
-	if(myqueue_init(&(pool->jobqueue))<0){
+	if(myqueue_init(&(pool->jobqueue)) < 0) {
 		return CreateError_QueueInit;
 	}
 
@@ -230,7 +230,7 @@ static anyType(JobResult) __pool_await(job_id* jobDescription) {
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its an invalid function pointer) so it is
 // checked here and printing a warning if its _THREAD_SHUTDOWN_JOB
 anyType(JobResult) pool_await(job_id* jobDescription) {
-	if(jobDescription != (void*)(_THREAD_SHUTDOWN_JOB)) {
+	if(jobDescription != (void*)__THREAD_SHUTDOWN_JOB_INTERNAL) {
 		return __pool_await(jobDescription);
 	} else {
 		fprintf(stderr, "WARNING: invalid job_function passed to pool_submit!\n");

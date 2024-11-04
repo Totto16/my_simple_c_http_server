@@ -117,8 +117,8 @@ typedef enum {
 
 static const bool SEND_HTTP_UPGRADE_REQUIRED_STATUS_CODE = true;
 
-bool handleWSHandshake(const HttpRequest* const httpRequest,
-                       const ConnectionDescriptor* const descriptor) {
+int handleWSHandshake(const HttpRequest* const httpRequest,
+                      const ConnectionDescriptor* const descriptor) {
 
 	// check if it is a valid Websocket request
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-2 section 4.2.1.
@@ -221,6 +221,8 @@ bool handleWSHandshake(const HttpRequest* const httpRequest,
 
 	header[2].key = secWebsocketAcceptHeaderBuffer;
 	header[2].value = secWebsocketAcceptHeaderBuffer + strlen(secWebsocketAcceptHeaderBuffer) + 1;
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintLocation, "HERE3\n");
 
 	return sendMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL, header,
 	                               headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
