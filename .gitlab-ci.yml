@@ -14,7 +14,6 @@ compile_clang:
         - chmod +x llvm.sh
         - ./llvm.sh 19
         - export CC="clang-19"
-        - export CXX="clang++-19"
         # install meson
         - pip install meson --break-system-packages
     script:
@@ -33,7 +32,6 @@ compile_gcc:
         - apt-get update
         - apt-get install gcc-14 g++-14 python3-pip ninja-build pkg-config openssl libssl-dev --no-install-recommends -y
         - export CC="gcc-14"
-        - export CXX="g++++-19"
         # install meson
         - pip install meson --break-system-packages
     script:
@@ -43,3 +41,38 @@ compile_gcc:
         - meson compile -C build_debug
         - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled
         - meson compile -C build_no_secure
+
+test:
+    stage: build
+    image: ubuntu:24.04
+    needs:
+        - compile_clang
+        - compile_gcc
+    dependencies: []
+    before_script:
+        # install gcc + other dependencies
+        - apt-get update
+        - apt-get install gcc-14 g++-14 python3-pip ninja-build pkg-config wget bzip2 --no-install-recommends -y
+        - export CC="gcc-14"
+        # install meson
+        - pip install meson --break-system-packages
+        # install pypy2
+        - ./tests/autobahn/install_pypy2.sh "$CI_RUNNER_EXECUTABLE_ARCH"
+        # install autobahn testsuite
+        - ./tests/autobahn/install_autobahn.sh "$CI_RUNNER_EXECUTABLE_ARCH"
+        # instal openssl 3
+        - apt-get install openssl libssl-dev --no-install-recommends -y
+    script:
+        - meson setup build -Dbuildtype=debug
+        - meson compile -C build
+        - ./build/http 8080 -l trace &
+        - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
+        - wget http://localhost:8080/shutdown -O -  -q
+    artifacts:
+        name: "autobahn test results"
+        paths:
+            - reports/servers/**
+    tags:
+        - amd64
+    rules:
+        - if: $CI_RUNNER_EXECUTABLE_ARCH == 'linux/amd64'
