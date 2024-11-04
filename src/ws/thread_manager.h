@@ -27,9 +27,9 @@ typedef enum { WS_FRAGMENTATION_OFF, WS_FRAGMENTATION_AUTO } FragmentOption;
 
 #define WS_MINIMUM_FRAGMENT_SIZE 16
 
-NODISCARD bool ws_send_message(WebSocketConnection* connection, WebSocketMessage message);
+NODISCARD int ws_send_message(WebSocketConnection* connection, WebSocketMessage message);
 
-NODISCARD bool ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
+NODISCARD int ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
                                           int64_t fragment_size);
 
 /**

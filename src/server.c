@@ -86,7 +86,7 @@ anyType(JobError*)
 		                            "Request couldn't be read, a connection error occurred!",
 		                            MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		if(!result) {
+		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 
@@ -107,7 +107,7 @@ anyType(JobError*)
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "Request couldn't be parsed, it was malformed!",
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		if(!result) {
+		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 
@@ -145,7 +145,7 @@ anyType(JobError*)
 				    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
 				    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
-				if(!result) {
+				if(result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 				}
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
@@ -199,7 +199,7 @@ anyType(JobError*)
 				                                     "File not Found", MIME_TYPE_TEXT, NULL, 0,
 				                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-				if(!result) {
+				if(result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 				}
 			}
@@ -211,7 +211,7 @@ anyType(JobError*)
 			                            httpRequestToJSON(httpRequest, is_secure_context(context)),
 			                            MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
-			if(!result) {
+			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
@@ -219,7 +219,7 @@ anyType(JobError*)
 			int result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
 			                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-			if(!result) {
+			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
@@ -242,7 +242,7 @@ anyType(JobError*)
 			    sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
 			                            CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-			if(!result) {
+			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		} else {
@@ -250,7 +250,7 @@ anyType(JobError*)
 			                                     "Internal Server Error 1", MIME_TYPE_TEXT, NULL, 0,
 			                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-			if(!result) {
+			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		}
@@ -284,7 +284,7 @@ anyType(JobError*)
 		    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
 		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		if(!result) {
+		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
@@ -292,7 +292,7 @@ anyType(JobError*)
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "A GET, HEAD or OPTIONS Request can't have a body",
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		if(!result) {
+		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 	} else {
@@ -300,7 +300,7 @@ anyType(JobError*)
 		                                     "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
 		                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
-		if(!result) {
+		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 	}
@@ -576,6 +576,8 @@ int startServer(uint16_t port, SecureOptions* const options) {
 		}
 	} else if(returnValue != PTHREAD_CANCELED) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "The listener thread wasn't cancelled properly!\n");
+	} else if(returnValue == PTHREAD_CANCELED) {
+		LOG_MESSAGE_SIMPLE(LogLevelInfo, "The listener thread was cancelled properly!\n");
 	} else {
 		LOG_MESSAGE(LogLevelError, "The listener thread was terminated with wrong error: %p!\n",
 		            returnValue);

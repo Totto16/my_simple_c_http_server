@@ -341,10 +341,10 @@ static NODISCARD bool ws_send_message_internal_fragmented(WebSocketConnection* c
 		WebSocketRawMessage raw_message = {
 			.fin = fin, .opCode = opCode, .payload = payload, .payload_len = payload_len
 		};
-		bool result = ws_send_message_raw_internal(connection, raw_message, mask);
+		int result = ws_send_message_raw_internal(connection, raw_message, mask);
 
-		if(!result) {
-			return false;
+		if(result < 0) {
+			return result;
 		}
 	}
 
@@ -526,16 +526,16 @@ static NODISCARD const char* close_websocket_connection(WebSocketConnection* con
 		LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing the websocket connection: (no message)\n");
 	}
 
-	bool result = ws_send_close_message_raw_internal(connection, reason);
+	int result = ws_send_close_message_raw_internal(connection, reason);
 
 	// even if above failed, we need to remove the connection nevertheless
-	bool result2 = thread_manager_remove_connection(manager, connection);
+	int result2 = thread_manager_remove_connection(manager, connection);
 
-	if(!result) {
+	if(result < 0) {
 		return "send error";
 	}
 
-	if(!result2) {
+	if(result2 < 0) {
 		return "thread manager remove error";
 	}
 
@@ -605,7 +605,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, uint64_t size) {
 	return (Utf8DataResult){ .has_error = false, .data = { .result = utf8_data } };
 }
 
-anyType(NULL) wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
+anyType(NULL) __ws__listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 	WebSocketListenerArg* argument = (WebSocketListenerArg*)_arg;
 
@@ -990,9 +990,9 @@ anyType(NULL) wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
 						                                .opCode = WS_OPCODE_PONG,
 						                                .payload = raw_message.payload,
 						                                .payload_len = raw_message.payload_len };
-					bool result = ws_send_message_raw_internal(connection, message_raw, false);
+					int result = ws_send_message_raw_internal(connection, message_raw, false);
 
-					if(!result) {
+					if(result < 0) {
 						CloseReason reason = { .code = CloseCode_ProtocolError,
 							                   .message = "Couldn't send PONG opCode",
 							                   .message_len = -1 };
@@ -1090,13 +1090,13 @@ anyType(NULL) wsListenerFunction(anyType(WebSocketListenerArg*) _arg) {
 
 #undef FREE_AT_END
 
-bool ws_send_message(WebSocketConnection* connection, WebSocketMessage message) {
+int ws_send_message(WebSocketConnection* connection, WebSocketMessage message) {
 
 	return ws_send_message_internal(connection, message, false, WS_FRAGMENTATION_OFF);
 }
 
-bool ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
-                                int64_t fragment_size) {
+int ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
+                               int64_t fragment_size) {
 	return ws_send_message_internal(connection, message, false, fragment_size);
 }
 
@@ -1180,7 +1180,7 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	threadArgument->connection = connection;
 	threadArgument->manager = manager;
 
-	result = pthread_create(&connection->thread_id, NULL, wsListenerFunction, threadArgument);
+	result = pthread_create(&connection->thread_id, NULL, __ws__listener_function, threadArgument);
 	// TODO: better report error
 	checkForThreadError(result, "An Error occurred while trying to create a new Thread",
 	                    return NULL;);
@@ -1200,9 +1200,9 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 		CloseReason reason = { .code = CloseCode_GoingAway,
 			                   .message = "Server is shutting down",
 			                   .message_len = -1 };
-		bool result = ws_send_close_message_raw_internal(connection, reason);
+		int result = ws_send_close_message_raw_internal(connection, reason);
 
-		if(!result) {
+		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error while closing the websocket connection: close "
 			                                  "reason: server shutting down\n");
 		}

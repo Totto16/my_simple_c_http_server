@@ -17,9 +17,9 @@ WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMess
 	}
 
 	// for autobahn tests, just echoing the things
-	bool result = ws_send_message(connection, message);
+	int result = ws_send_message(connection, message);
 
-	if(!result) {
+	if(result) {
 		return WebSocketAction_Error;
 	}
 
@@ -42,9 +42,9 @@ WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
 	}
 
 	// for autobahn tests, just echoing the things
-	bool result = ws_send_message_fragmented(connection, message, WS_FRAGMENTATION_AUTO);
+	int result = ws_send_message_fragmented(connection, message, WS_FRAGMENTATION_AUTO);
 
-	if(!result) {
+	if(result < 0) {
 		return WebSocketAction_Error;
 	}
 

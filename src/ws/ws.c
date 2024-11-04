@@ -44,11 +44,11 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	header[1].key = connectionHeaderBuffer;
 	header[1].value = connectionHeaderBuffer + strlen(connectionHeaderBuffer) + 1;
 
-	bool result = sendMessageToConnection(descriptor, HTTP_STATUS_UPGRADE_REQUIRED,
-	                                      malloced_message, MIME_TYPE_TEXT, header, headerAmount,
-	                                      CONNECTION_SEND_FLAGS_MALLOCED);
+	int result = sendMessageToConnection(descriptor, HTTP_STATUS_UPGRADE_REQUIRED, malloced_message,
+	                                     MIME_TYPE_TEXT, header, headerAmount,
+	                                     CONNECTION_SEND_FLAGS_MALLOCED);
 
-	if(!result) {
+	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in sendFailedHandshakeMessage)\n");
 	}
@@ -66,10 +66,10 @@ static NODISCARD bool sendFailedHandshakeMessage(const ConnectionDescriptor* con
 	                      , "Error: The client handshake was invalid: %s", error_reason);
 
 	char* malloced_message = string_builder_get_string(message);
-	bool result = sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
-	                                      MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+	int result = sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
+	                                     MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
-	if(!result) {
+	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in sendFailedHandshakeMessage)\n");
 	}
@@ -78,13 +78,13 @@ static NODISCARD bool sendFailedHandshakeMessage(const ConnectionDescriptor* con
 
 static NODISCARD bool isValidSecKey(const char* key) {
 	size_t size = 0;
-	unsigned char* result = b64_decode_ex(key, strlen(key), &size);
-	if(!result) {
-		free(result);
+	unsigned char* b64_result = b64_decode_ex(key, strlen(key), &size);
+	if(!b64_result) {
+		free(b64_result);
 		return false;
 	}
 
-	free(result);
+	free(b64_result);
 	return size == 16;
 }
 

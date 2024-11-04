@@ -50,7 +50,7 @@ int sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
 	return result;
 }
 
-static NODISCARD bool sendMessageToConnectionWithHeadersMalloced(
+static NODISCARD int sendMessageToConnectionWithHeadersMalloced(
     const ConnectionDescriptor* const descriptor, int status, char* body, const char* MIMEType,
     HttpHeaderField* headerFields, const int headerFieldsAmount) {
 

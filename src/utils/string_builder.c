@@ -4,6 +4,13 @@
 
 StringBuilder* string_builder_init() {
 	StringBuilder* result = (StringBuilder*)malloc(sizeof(StringBuilder));
+	if(!result) {
+		return NULL;
+	}
+
+	result->currentSize = 0;
+	result->data = NULL;
+
 	return result;
 }
 
@@ -19,6 +26,8 @@ char* normalStringToMalloced(const char* notMallocedString) {
 		return NULL;
 	}
 
+	mallocedString[length] = '\0';
+
 	memcpy(mallocedString, notMallocedString, length);
 	return mallocedString;
 }
@@ -30,12 +39,14 @@ int __string_builder_append(StringBuilder* stringBuilder, char* string) {
 	// if te string builder is empty malloc the right size
 	if(stringBuilder->currentSize == 0) {
 		// +1, so one trailing 0 byte is there :)
-		stringBuilder->data = (char*)mallocWithMemset(length + 1, true);
+		stringBuilder->data = (char*)malloc(length + 1);
 
 		if(!stringBuilder->data) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 			return -1;
 		}
+
+		stringBuilder->data[length] = '\0';
 
 		memcpy(stringBuilder->data, string, length);
 
@@ -44,13 +55,14 @@ int __string_builder_append(StringBuilder* stringBuilder, char* string) {
 		// memcpy copies everything in the right place, leaving a trailing null character at the
 		// end
 		stringBuilder->data =
-		    (char*)reallocWithMemset(stringBuilder->data, stringBuilder->currentSize + 1,
-		                             stringBuilder->currentSize + length + 1, true);
+		    (char*)realloc(stringBuilder->data, stringBuilder->currentSize + length + 1);
 
 		if(!stringBuilder->data) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 			return -1;
 		}
+
+		stringBuilder->data[stringBuilder->currentSize + length] = '\0';
 
 		memcpy(stringBuilder->data + stringBuilder->currentSize, string, length);
 	}
