@@ -74,5 +74,3 @@ test:
             - reports/servers/**
     tags:
         - amd64
-    rules:
-        - if: $CI_RUNNER_EXECUTABLE_ARCH == 'linux/amd64'
