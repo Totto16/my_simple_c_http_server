@@ -1322,6 +1322,11 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	checkForThreadError(result, "An Error occurred while trying to create a new Thread",
 	                    return NULL;);
 
+	result = pthread_detach(connection->thread_id);
+	checkForThreadError(result,
+	                    "An Error occurred while trying to detach the new WS connection Thread",
+	                    return NULL;);
+
 	result = pthread_mutex_unlock(&manager->mutex);
 	// TODO(Totto): better report error
 	checkForThreadError(
