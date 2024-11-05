@@ -57,9 +57,9 @@ test:
         # install meson
         - pip install meson --break-system-packages
         # install pypy2
-        - ./tests/autobahn/install_pypy2.sh "$CI_RUNNER_EXECUTABLE_ARCH"
+        - ./tests/autobahn/install_pypy2.sh
         # install autobahn testsuite
-        - ./tests/autobahn/install_autobahn.sh "$CI_RUNNER_EXECUTABLE_ARCH"
+        - ./tests/autobahn/install_autobahn.sh
         # instal openssl 3
         - apt-get install openssl libssl-dev --no-install-recommends -y
     script:
@@ -72,5 +72,3 @@ test:
         name: "autobahn test results"
         paths:
             - reports/servers/**
-    tags:
-        - amd64

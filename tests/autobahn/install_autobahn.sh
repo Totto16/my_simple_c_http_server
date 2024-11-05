@@ -13,7 +13,8 @@ case "${DPKG_ARCH##*-}" in
     url="http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.23_amd64.deb"
     ;;
 'arm64')
-    echo >&2 "error: arm64 does not have a libssl 1 binary release"
+    dev_url='http://ports.ubuntu.com/pool/main/o/openssl/libssl-dev_1.1.1f-1ubuntu2.23_arm64.deb'
+    url="http://ports.ubuntu.com/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.23_arm64.deb"
     ;;
 'i386')
 
