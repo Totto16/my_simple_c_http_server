@@ -106,7 +106,14 @@ const char* get_thread_name(void) {
 	pid_t tid = get_thread_id();
 
 	char* name = NULL;
-	formatString(&name, exit(EXIT_FAILURE);, "TID %d", tid);
+	formatString(
+	    &name,
+	    {
+		    const char* fallback_name = "<failed setting thread name>";
+		    __log_thread_state.name = fallback_name;
+		    return fallback_name;
+	    },
+	    "TID %d", tid);
 
 	__log_thread_state.name = name;
 

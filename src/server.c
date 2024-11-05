@@ -378,6 +378,7 @@ anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
 	sigemptyset(&mySigset);
 	sigaddset(&mySigset, SIGINT);
 	int sigFd = signalfd(-1, &mySigset, 0);
+	// TODO(Totto): don't exit here
 	checkForError(sigFd, "While trying to cancel the listener Thread on signal",
 	              exit(EXIT_FAILURE););
 

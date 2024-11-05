@@ -34,6 +34,7 @@ anyType(NULL) thread_pool_worker_thread_function(anyType(my_thread_pool_ThreadAr
 		if(myqueue_is_empty(JobsQueue)) {
 			fprintf(stderr, "Expected to have elements in the queue at this stage in internal "
 			                "thread pool implementation, but got nothing!\n");
+			// TODO(Totto): don't exit here
 			exit(EXIT_FAILURE);
 		}
 
