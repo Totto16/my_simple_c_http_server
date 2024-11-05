@@ -1,0 +1,18 @@
+src_files += files(
+    'errors.c',
+    'errors.h',
+    'log.c',
+    'log.h',
+    'myqueue.c',
+    'myqueue.h',
+    'string_builder.c',
+    'string_builder.h',
+    'string_helper.c',
+    'string_helper.h',
+    'thread_helper.c',
+    'thread_helper.h',
+    'thread_pool.c',
+    'thread_pool.h',
+    'utils.c',
+    'utils.h',
+)

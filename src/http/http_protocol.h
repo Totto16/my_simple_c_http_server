@@ -5,8 +5,8 @@
 #include <stdlib.h>
 
 // needed h files
-#include "string_builder.h"
-#include "utils.h"
+#include "utils/string_builder.h"
+#include "utils/utils.h"
 
 // some Mime Type Definitons:
 
@@ -67,7 +67,7 @@ enum HTTP_STATUS_CODES {
 
 #define freeIfNotNULL(pointerToFree) \
 	do { \
-		if(pointerToFree != NULL) { \
+		if((pointerToFree) != NULL) { \
 			free(pointerToFree); \
 		} \
 	} while(false)

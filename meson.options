@@ -1,0 +1,6 @@
+option(
+    'secure',
+    type: 'feature',
+    value: 'auto',
+    description: 'support secure connections (https / wss)',
+)

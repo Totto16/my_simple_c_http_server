@@ -11,22 +11,36 @@ project(
         'werror': 'true',
         'b_ndebug': 'if-release',
     },
-    version: '3.0.1',
+    version: '3.2.1',
 )
 
 deps = []
-
-deps += dependency('threads')
-
-deps += dependency('openssl')
-
-src_files = []
-inc_dirs = []
-
 compile_flags = [
     '-DPROGRAM_NAME=' + meson.project_name(),
     '-DVERSION_STRING=' + meson.project_version(),
 ]
+
+deps += dependency('threads')
+
+secure_option = get_option('secure')
+
+openssl_dep = dependency('openssl', required: secure_option)
+
+if openssl_dep.found()
+    deps += openssl_dep
+else
+    compile_flags += '-D_HTTP_SERVER_SECURE_DISABLED'
+
+endif
+
+deps += dependency(
+    'libutf8proc',
+    allow_fallback: true,
+    default_options: {'tests': 'disabled'},
+)
+
+src_files = []
+inc_dirs = []
 
 subdir('src')
 

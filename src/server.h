@@ -18,24 +18,19 @@ Module: PS OS 08
 
 // all headers that are needed, so modular dependencies can be solved easily and also some "topics"
 // stay in the same file
-#include "http_protocol.h"
-#include "secure.h"
-#include "thread_pool.h"
+#include "generic/secure.h"
+#include "http/http_protocol.h"
+#include "utils/thread_pool.h"
+#include "ws/thread_manager.h"
 
 // some general utils used in more programs, so saved into header!
-#include "utils.h"
+#include "utils/utils.h"
 
 // specific numbers for the task, these are arbitrary, but suited for that problem
 
 #define SOCKET_BACKLOG_SIZE 10
 
-#define INITIAL_MESSAGE_BUF_SIZE 1024
-
 #define MAX_QUEUE_SIZE 100
-
-// helper function that read string from connection, it handles everything that is necessary and
-// returns an malloced (also realloced probably) pointer to a string, that is null terminated
-char* readStringFromConnection(const ConnectionDescriptor* const descriptor);
 
 enum REQUEST_SUPPORT_STATUS {
 	REQUEST_SUPPORTED = 0,
@@ -53,33 +48,27 @@ int isRequestSupported(HttpRequest* request);
 typedef struct {
 	thread_pool* pool;
 	myqueue* jobIds;
-	ConnectionContext* const* contexts;
+	ConnectionContext** contexts;
 	int socketFd;
+	WebSocketThreadManager* webSocketManager;
 } ThreadArgument;
 
 typedef struct {
-	ConnectionContext* const* contexts;
+	ConnectionContext** contexts;
 	pthread_t listenerThread;
 	int connectionFd;
+	WebSocketThreadManager* webSocketManager;
 } ConnectionArgument;
-
-typedef enum { JobErrorCode_DESC } JobErrorCode;
-
-typedef struct {
-	JobErrorCode error_code;
-} JobError;
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-JobResult connectionHandler(job_arg arg, WorkerInfo workerInfo);
+anyType(JobError*)
+    socket_connection_handler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(NULL) threadFunction(anyType(ThreadArgument*) arg);
+anyType(NULL) listener_thread_function(anyType(ThreadArgument*) arg);
 
-int startServer(uint16_t port, SecureOptions* const options);
-
-void print_job_error(FILE* file, const JobError* const error);
-void free_job_error(JobError* error);
+int startServer(uint16_t port, SecureOptions* options);

@@ -14,7 +14,7 @@ typedef struct {
 	size_t currentSize;
 } StringBuilder;
 
-StringBuilder* string_builder_init();
+StringBuilder* string_builder_init(void);
 
 // helper function that turns a normal string into a malloced one, so the lifetime is extended and
 // he can be freed!
@@ -24,19 +24,21 @@ char* normalStringToMalloced(const char* notMallocedString);
 // macro for appending, to used variable argument length conveniently, it uses the formatString
 // (snprintf) and __string_builder_append method under the hood
 
-#define string_builder_append(stringBuilder, format, ...) \
+#define string_builder_append(stringBuilder, statement, format, ...) \
 	{ \
 		char* __append_buf = NULL; \
-		formatString(&__append_buf, format, __VA_ARGS__); \
-		__string_builder_append(stringBuilder, __append_buf); \
+		formatString(&__append_buf, statement, format, __VA_ARGS__); \
+		string_builder_append_internal(stringBuilder, __append_buf); \
 	}
+
+// TODO(Totto): make them NODISCARD
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-void __string_builder_append(StringBuilder* stringBuilder, char* string);
+int string_builder_append_internal(StringBuilder* stringBuilder, char* string);
 
 // simple wrapper if just a constant string has to be appended
-void string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString);
+int string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString);
 
 // attention the two methods to_string and get_string are different in that sense, that after
 // to_string the Stringbuilder is freed and invalid, after get_string not!
