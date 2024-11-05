@@ -736,7 +736,14 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 			WebSocketRawMessageResult raw_message_result = read_raw_message(connection);
 
-#define FREE_RAW_WS_MESSAGE() free(raw_message.payload)
+#define FREE_RAW_WS_MESSAGE() \
+	do { \
+		if(has_message) { \
+			free(current_message.data); \
+		} else { \
+			free(raw_message.payload); \
+		} \
+	} while(false)
 
 			if(raw_message_result.has_error) {
 
@@ -962,7 +969,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 								            result);
 							}
 
-							// NOTE: intentionally no FREE_RAW_WS_MESSAGE here
+							FREE_RAW_WS_MESSAGE();
 							FREE_AT_END();
 							return NULL;
 						}
