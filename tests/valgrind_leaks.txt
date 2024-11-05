@@ -1,0 +1,35 @@
+==238065== HEAP SUMMARY:
+==238065==     in use at exit: 13,254,452 bytes in 85 blocks
+==238065==   total heap usage: 1,424,961 allocs, 1,424,876 frees, 527,850,892,364 bytes allocated
+==238065== 
+==238065== 16 bytes in 4 blocks are definitely lost in loss record 1 of 3
+==238065==    at 0x4848858: malloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==238065==    by 0x116F38: readExactBytes (../src/generic/read.c:73)
+==238065==    by 0x12013E: read_raw_message (../src/ws/thread_manager.c:193)
+==238065==    by 0x12013E: ws_listener_function (???:737)
+==238065==    by 0x4FFEE2D: start_thread (pthread_create.c:447)
+==238065==    by 0x5090833: clone (clone.S:100)
+==238065== 
+==238065== 1,444 bytes in 76 blocks are definitely lost in loss record 2 of 3
+==238065==    at 0x4848858: malloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==238065==    by 0x116F38: readExactBytes (../src/generic/read.c:73)
+==238065==    by 0x120160: read_raw_message (../src/ws/thread_manager.c:205)
+==238065==    by 0x120160: ws_listener_function (???:737)
+==238065==    by 0x4FFEE2D: start_thread (pthread_create.c:447)
+==238065==    by 0x5090833: clone (clone.S:100)
+==238065== 
+==238065== 13,252,992 bytes in 5 blocks are definitely lost in loss record 3 of 3
+==238065==    at 0x4848858: malloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==238065==    by 0x120280: ws_listener_function (../src/ws/thread_manager.c:925)
+==238065==    by 0x4FFEE2D: start_thread (pthread_create.c:447)
+==238065==    by 0x5090833: clone (clone.S:100)
+==238065== 
+==238065== LEAK SUMMARY:
+==238065==    definitely lost: 13,254,452 bytes in 85 blocks
+==238065==    indirectly lost: 0 bytes in 0 blocks
+==238065==      possibly lost: 0 bytes in 0 blocks
+==238065==    still reachable: 0 bytes in 0 blocks
+==238065==         suppressed: 0 bytes in 0 blocks
+==238065== 
+==238065== For lists of detected and suppressed errors, rerun with: -s
+==238065== ERROR SUMMARY: 3 errors from 3 contexts (suppressed: 0 from 0)
