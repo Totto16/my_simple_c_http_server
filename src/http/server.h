@@ -71,4 +71,4 @@ anyType(JobError*)
 // trough the argument
 anyType(NULL) listener_thread_function(anyType(ThreadArgument*) arg);
 
-int startServer(uint16_t port, SecureOptions* options);
+int startHttpServer(uint16_t port, SecureOptions* options);

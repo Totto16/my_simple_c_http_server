@@ -3,9 +3,15 @@ Author: Tobias Niederbrunner - csba1761
 Module: PS OS 08
 */
 
+#include "ftp/server.h"
 #include "generic/secure.h"
-#include "server.h"
+#include "http/server.h"
 #include "utils/log.h"
+
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define IDENT1 "\t"
 #define IDENT2 IDENT1 IDENT1
@@ -20,10 +26,10 @@ void printHttpServerUsage() {
 }
 
 void printFtpServerUsage() {
-	printf(IDENT1 "ftp <port> [folder] [options]\n");
+	printf(IDENT1 "ftp <port> [options]\n");
 	printf(IDENT1 "port: the port to bind to (required)");
-	printf(IDENT1 "folder: the folder to server (optional) default: '.'");
 	printf(IDENT1 "options:\n");
+	printf(IDENT2 "-f, --folder <folder>: The folder to server, default is '.'\n");
 	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
 }
 
@@ -144,15 +150,106 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	return startServer(port, options);
+	return startHttpServer(port, options);
 }
 
 int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 
-	UNUSED(programName);
-	UNUSED(argc);
-	UNUSED(argv);
-	return EXIT_FAILURE;
+	if(argc < 1) {
+		printUsage(programName, USAGE_COMMAND_FTP);
+		return EXIT_FAILURE;
+	}
+
+	// parse the port
+	uint16_t port = parseU16Safely(argv[0], "<port>");
+
+	LogLevel log_level =
+#ifdef NDEBUG
+	    LogLevelError
+#else
+	    LogLevelTrace
+#endif
+	    ;
+
+	const char* folder_to_resolve = ".";
+
+	// the port
+	int processed_args = 1;
+
+	while(processed_args != argc) {
+
+		const char* arg = argv[processed_args];
+
+		if((strcmp(arg, "-f") == 0) || (strcmp(arg, "--folder") == 0)) {
+			if(processed_args + 2 > argc) {
+				fprintf(stderr, "Not enough arguments for the 'folder' option\n");
+				printUsage(argv[0], USAGE_COMMAND_FTP);
+				return EXIT_FAILURE;
+			}
+
+			folder_to_resolve = argv[processed_args + 1];
+			processed_args += 2;
+
+		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
+			if(processed_args + 2 > argc) {
+				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
+				printUsage(argv[0], USAGE_COMMAND_FTP);
+				return EXIT_FAILURE;
+			}
+
+			int parsed_level = parse_log_level(argv[processed_args + 1]);
+
+			if(parsed_level < 0) {
+				fprintf(stderr, "Wrong option for the 'loglevel' option, unrecognized level: %s\n",
+				        arg);
+				printUsage(argv[0], USAGE_COMMAND_FTP);
+				return EXIT_FAILURE;
+			}
+
+			log_level = parsed_level;
+
+			processed_args += 2;
+		} else {
+			fprintf(stderr, "Unrecognized option: %s\n", arg);
+			printUsage(argv[0], USAGE_COMMAND_FTP);
+			return EXIT_FAILURE;
+		}
+	}
+
+	char* folder = realpath(folder_to_resolve, NULL);
+
+	if(folder == NULL) {
+		fprintf(stderr, "Couldn't resolve folder '%s': %s\n", folder_to_resolve, strerror(errno));
+		return EXIT_FAILURE;
+	}
+
+	struct stat stat_result;
+	int result = stat(folder, &stat_result);
+
+	if(result != 0) {
+		fprintf(stderr, "Couldn't stat folder '%s': %s\n", folder, strerror(errno));
+		return EXIT_FAILURE;
+	}
+
+	if(!(S_ISDIR(stat_result.st_mode))) {
+		fprintf(stderr, "Folder '%s' is not a directory\n", folder);
+		return EXIT_FAILURE;
+	}
+
+	if(access(folder, R_OK) != 0) {
+		fprintf(stderr, "Can read from folder '%s': %s\n", folder, strerror(errno));
+		return EXIT_FAILURE;
+	}
+
+	initialize_logger();
+
+	set_log_level(log_level);
+
+	set_thread_name("main thread");
+
+	LOG_MESSAGE(LogLevelTrace, "Setting LogLevel to %s\n", get_level_name(log_level));
+
+	return startFtpServer(port, folder);
 }
 
 int main(int argc, const char* argv[]) {

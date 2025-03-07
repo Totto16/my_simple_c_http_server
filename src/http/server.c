@@ -6,10 +6,10 @@ Module: PS OS 08
 #include <errno.h>
 #include <signal.h>
 
+#include "./server.h"
 #include "generic/read.h"
 #include "generic/secure.h"
 #include "generic/send.h"
-#include "server.h"
 #include "utils/errors.h"
 #include "utils/log.h"
 #include "utils/thread_pool.h"
@@ -479,7 +479,7 @@ anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
 	}
 }
 
-int startServer(uint16_t port, SecureOptions* const options) {
+int startHttpServer(uint16_t port, SecureOptions* const options) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
