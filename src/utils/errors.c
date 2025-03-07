@@ -7,7 +7,7 @@
 #include "utils/log.h"
 
 bool is_job_error(const JobError error) {
-	return error == JobError_None || (error >= JobError_Desc && error <= JobError_SemDest);
+	return error == JobError_None || (error >= JobError_START && error <= JobError_END);
 }
 
 void print_job_error(const JobError error) {
@@ -34,6 +34,8 @@ void print_job_error(const JobError error) {
 		error_str = "SemWait";
 	} else if(error == JobError_SemDest) {
 		error_str = "SemDest";
+	}else if(error == JobError_SigHandler) {
+		error_str = "SigHandler";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Job Error: %s\n", error_str);
@@ -41,7 +43,7 @@ void print_job_error(const JobError error) {
 
 bool is_listener_error(const ListenerError error) {
 	return error == ListenerError_None ||
-	       (error >= ListenerError_Malloc && error <= ListenerError_QueuePush);
+	       (error >= ListenerError_START && error <= ListenerError_END);
 }
 
 void print_listener_error(const ListenerError error) {

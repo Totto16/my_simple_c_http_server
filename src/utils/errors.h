@@ -16,6 +16,10 @@ typedef void* JobError;
 #define JobError_NoResult ((JobError)0x26)
 #define JobError_SemWait ((JobError)0x27)
 #define JobError_SemDest ((JobError)0x28)
+#define JobError_SigHandler ((JobError)0x29)
+
+#define JobError_START JobError_Desc
+#define JobError_END JobError_SigHandler
 
 bool is_job_error(JobError error);
 
@@ -30,6 +34,10 @@ typedef void* ListenerError;
 #define ListenerError_Malloc ((ListenerError)0x80)
 #define ListenerError_ThreadCancel ((ListenerError)0x81)
 #define ListenerError_QueuePush ((ListenerError)0x82)
+
+#define ListenerError_START ListenerError_Malloc
+#define ListenerError_END ListenerError_QueuePush
+
 
 bool is_listener_error(ListenerError error);
 

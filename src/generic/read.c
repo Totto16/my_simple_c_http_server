@@ -33,7 +33,7 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 
 		if(readBytes == 0) {
 			// client disconnected, so done
-			LOG_MESSAGE_SIMPLE(LogLevelTrace, "client disconnected");
+			LOG_MESSAGE_SIMPLE(LogLevelTrace, "client disconnected\n");
 			break;
 		}
 

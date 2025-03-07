@@ -1,6 +1,7 @@
 
 
 #include "thread_manager.h"
+#include "generic/helper.h"
 #include "generic/read.h"
 #include "generic/send.h"
 #include "utils/log.h"
@@ -11,7 +12,7 @@
 #include <endian.h>
 #include <errno.h>
 #include <pthread.h>
-#include <signal.h>
+
 #include <stdlib.h>
 #include <sys/random.h>
 #include <utf8proc.h>
@@ -634,25 +635,6 @@ static NODISCARD const char* close_websocket_connection(WebSocketConnection* con
 	return NULL;
 }
 
-static NODISCARD bool setup_signal_handler(void) {
-
-	// set up the signal handler
-	// just create a sigaction structure, then add the handler
-	struct sigaction action = {};
-
-	action.sa_handler = SIG_IGN;
-	// initialize the mask to be empty
-	int emptySetResult = sigemptyset(&action.sa_mask);
-	sigaddset(&action.sa_mask, SIGPIPE);
-	int result1 = sigaction(SIGPIPE, &action, NULL);
-	if(result1 < 0 || emptySetResult < 0) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't set signal interception: %s\n", strerror(errno));
-		return false;
-	}
-
-	return true;
-}
-
 typedef struct {
 	utf8proc_int32_t* data;
 	uint64_t size;
@@ -712,11 +694,11 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 	formatString(&thread_name_buffer, return NULL;, "ws listener %d", get_thread_id());
 	set_thread_name(thread_name_buffer);
 
-	bool _result = setup_signal_handler();
+	bool result = setup_sigpipe_signal_handler();
 
-	// an error message was already sent, and just because the setting of the signal handler failed,
-	// we shouldn't exit or close the connection!
-	UNUSED(_result);
+	if(!result) {
+		return NULL;
+	}
 
 #define FREE_AT_END() \
 	do { \

@@ -4,6 +4,8 @@
 #include "./command.h"
 #include "./protocol.h"
 #include "./send.h"
+
+#include "generic/helper.h"
 #include "generic/read.h"
 #include "utils/errors.h"
 #include "utils/log.h"
@@ -33,6 +35,12 @@ anyType(JobError*)
 	formatString(&thread_name_buffer, return JobError_StringFormat;
 	             , "connection handler %lu", workerInfo.workerIndex);
 	set_thread_name(thread_name_buffer);
+
+	bool signal_result = setup_sigpipe_signal_handler();
+
+	if(!signal_result) {
+		return JobError_SigHandler;
+	}
 
 #define FREE_AT_END() \
 	do { \
@@ -74,9 +82,10 @@ anyType(JobError*)
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				goto cleanup;
 			}
 
-			goto cleanup;
+			continue;
 		}
 
 		// rawFtpCommands gets freed in here
@@ -91,9 +100,10 @@ anyType(JobError*)
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				goto cleanup;
 			}
 
-			goto cleanup;
+			continue;
 		}
 
 		for(size_t i = 0; i < ftpCommands->size; ++i) {
@@ -110,6 +120,7 @@ anyType(JobError*)
 	}
 
 cleanup:
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing Connection\n");
 	// finally close the connection
 	int result = close_connection_descriptor(descriptor, context);
 	checkForError(result, "While trying to close the connection descriptor", {
@@ -135,9 +146,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state
 			    CONNECTION_SEND_FLAGS_UN_MALLOCED);
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				return false;
 			}
 
-			return false;
+			return true;
 		}
 	}
 }
