@@ -3,6 +3,7 @@
 #include "ws.h"
 #include "generic/send.h"
 #include "http/http_protocol.h"
+#include "http/send.h"
 #include "utils/log.h"
 #include "utils/string_builder.h"
 #include "utils/string_helper.h"
@@ -44,7 +45,7 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	header[1].key = connectionHeaderBuffer;
 	header[1].value = connectionHeaderBuffer + strlen(connectionHeaderBuffer) + 1;
 
-	int result = sendMessageToConnection(descriptor, HTTP_STATUS_UPGRADE_REQUIRED, malloced_message,
+	int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_UPGRADE_REQUIRED, malloced_message,
 	                                     MIME_TYPE_TEXT, header, headerAmount,
 	                                     CONNECTION_SEND_FLAGS_MALLOCED);
 
@@ -66,7 +67,7 @@ static NODISCARD int sendFailedHandshakeMessage(const ConnectionDescriptor* cons
 	                      , "Error: The client handshake was invalid: %s", error_reason);
 
 	char* malloced_message = string_builder_get_string(message);
-	int result = sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
+	int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
 	                                     MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
 	if(result < 0) {
@@ -226,6 +227,6 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	header[2].key = secWebsocketAcceptHeaderBuffer;
 	header[2].value = secWebsocketAcceptHeaderBuffer + strlen(secWebsocketAcceptHeaderBuffer) + 1;
 
-	return sendMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL, header,
+	return sendHTTPMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL, header,
 	                               headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
 }

@@ -28,9 +28,9 @@ Module: PS OS 08
 
 // specific numbers for the task, these are arbitrary, but suited for that problem
 
-#define SOCKET_BACKLOG_SIZE 10
+#define HTTP_SOCKET_BACKLOG_SIZE 10
 
-#define MAX_QUEUE_SIZE 100
+#define HTTP_MAX_QUEUE_SIZE 100
 
 enum REQUEST_SUPPORT_STATUS {
 	REQUEST_SUPPORTED = 0,
@@ -51,24 +51,24 @@ typedef struct {
 	ConnectionContext** contexts;
 	int socketFd;
 	WebSocketThreadManager* webSocketManager;
-} ThreadArgument;
+} HTTPThreadArgument;
 
 typedef struct {
 	ConnectionContext** contexts;
 	pthread_t listenerThread;
 	int connectionFd;
 	WebSocketThreadManager* webSocketManager;
-} ConnectionArgument;
+} HTTPConnectionArgument;
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
 anyType(JobError*)
-    socket_connection_handler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo);
+    http_socket_connection_handler(anyType(HTTPConnectionArgument*) arg, WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(NULL) listener_thread_function(anyType(ThreadArgument*) arg);
+anyType(NULL) http_listener_thread_function(anyType(HTTPThreadArgument*) arg);
 
 int startHttpServer(uint16_t port, SecureOptions* options);

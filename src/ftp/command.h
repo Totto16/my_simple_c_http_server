@@ -1,0 +1,63 @@
+
+
+#pragma once
+
+#include <stdlib.h>
+
+#include "./state.h"
+
+// According to https://datatracker.ietf.org/doc/html/rfc959  5.3.1
+typedef enum {
+	FTP_COMMAND_USER = 0,
+	FTP_COMMAND_PASS,
+	FTP_COMMAND_ACCT,
+	FTP_COMMAND_CWD,
+	FTP_COMMAND_CDUP,
+	FTP_COMMAND_SMNT,
+	FTP_COMMAND_QUIT,
+	FTP_COMMAND_REIN,
+	FTP_COMMAND_PORT,
+	FTP_COMMAND_PASV,
+	FTP_COMMAND_TYPE,
+	FTP_COMMAND_STRU,
+	FTP_COMMAND_MODE,
+	FTP_COMMAND_RETR,
+	FTP_COMMAND_STOR,
+	FTP_COMMAND_STOU,
+	FTP_COMMAND_APPE,
+	FTP_COMMAND_ALLO,
+	FTP_COMMAND_REST,
+	FTP_COMMAND_RNFR,
+	FTP_COMMAND_RNTO,
+	FTP_COMMAND_ABOR,
+	FTP_COMMAND_DELE,
+	FTP_COMMAND_RMD,
+	FTP_COMMAND_MKD,
+	FTP_COMMAND_PWD,
+	FTP_COMMAND_LIST,
+	FTP_COMMAND_NLST,
+	FTP_COMMAND_SITE,
+	FTP_COMMAND_SYST,
+	FTP_COMMAND_STAT,
+	FTP_COMMAND_HELP,
+	FTP_COMMAND_NOOP,
+} FTP_COMMAND_ENUM;
+
+typedef struct {
+	FTP_COMMAND_ENUM type;
+	union {
+		char* string;
+	} data;
+
+} FTPCommand;
+
+typedef struct {
+	FTPCommand** data;
+	size_t size;
+} FTPCommandArray;
+
+FTPCommandArray* parseMultipleFTPCommands(char* input);
+
+void freeFTPCommand(FTPCommand*);
+
+void freeFTPCommandArray(FTPCommandArray*);

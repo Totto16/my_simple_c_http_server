@@ -1,1 +1,10 @@
-src_files += files('server.c', 'server.h')
+src_files += files(
+    'account.c',
+    'account.h',
+    'send.c',
+    'send.h',
+    'server.c',
+    'server.h',
+    'state.c',
+    'state.h',
+)

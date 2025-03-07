@@ -6,10 +6,10 @@ Module: PS OS 08
 #include <errno.h>
 #include <signal.h>
 
+#include "./send.h"
 #include "./server.h"
 #include "generic/read.h"
 #include "generic/secure.h"
-#include "generic/send.h"
 #include "utils/errors.h"
 #include "utils/log.h"
 #include "utils/thread_pool.h"
@@ -58,10 +58,10 @@ static void receiveSignal(int signalNumber) {
 // it receives all the necessary information and also handles the html parsing and response
 
 anyType(JobError*)
-    socket_connection_handler(anyType(ConnectionArgument*) _arg, WorkerInfo workerInfo) {
+    http_socket_connection_handler(anyType(HTTPConnectionArgument*) _arg, WorkerInfo workerInfo) {
 
 	// attention arg is malloced!
-	ConnectionArgument* argument = (ConnectionArgument*)_arg;
+	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)_arg;
 
 	ConnectionContext* context = argument->contexts[workerInfo.workerIndex];
 	char* thread_name_buffer = NULL;
@@ -91,9 +91,9 @@ anyType(JobError*)
 
 	if(!rawHttpRequest) {
 		int result =
-		    sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
-		                            "Request couldn't be read, a connection error occurred!",
-		                            MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
+		                                "Request couldn't be read, a connection error occurred!",
+		                                MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
@@ -112,7 +112,7 @@ anyType(JobError*)
 	// httpRequest can be null, then it wasn't parse-able, according to parseHttpRequest, see
 	// there for more information
 	if(httpRequest == NULL) {
-		int result = sendMessageToConnection(
+		int result = sendHTTPMessageToConnection(
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "Request couldn't be parsed, it was malformed!",
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
@@ -133,9 +133,9 @@ anyType(JobError*)
 			// HTTP GET
 			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
 				printf("Shutdown requested!\n");
-				int result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, "Shutting Down",
-				                                     MIME_TYPE_TEXT, NULL, 0,
-				                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK,
+				                                         "Shutting Down", MIME_TYPE_TEXT, NULL, 0,
+				                                         CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 				if(result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
@@ -151,7 +151,7 @@ anyType(JobError*)
 				});
 
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
-				int result = sendMessageToConnection(
+				int result = sendHTTPMessageToConnection(
 				    descriptor, HTTP_STATUS_OK,
 				    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
 				    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
@@ -206,9 +206,9 @@ anyType(JobError*)
 				// request, this is done at the end of this big if else statements
 
 			} else {
-				int result = sendMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND,
-				                                     "File not Found", MIME_TYPE_TEXT, NULL, 0,
-				                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND,
+				                                         "File not Found", MIME_TYPE_TEXT, NULL, 0,
+				                                         CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 				if(result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
@@ -217,18 +217,18 @@ anyType(JobError*)
 		} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
 			// HTTP POST
 
-			int result =
-			    sendMessageToConnection(descriptor, HTTP_STATUS_OK,
-			                            httpRequestToJSON(httpRequest, is_secure_context(context)),
-			                            MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+			int result = sendHTTPMessageToConnection(
+			    descriptor, HTTP_STATUS_OK,
+			    httpRequestToJSON(httpRequest, is_secure_context(context)), MIME_TYPE_JSON, NULL, 0,
+			    CONNECTION_SEND_FLAGS_MALLOCED);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 			// TODO(Totto): send actual Content-Length, experiment with e.g a large video file!
-			int result = sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
-			                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL,
+			                                         0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
@@ -257,25 +257,25 @@ anyType(JobError*)
 			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
 			int result =
-			    sendMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
-			                            CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader,
+			                                1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		} else {
-			int result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-			                                     "Internal Server Error 1", MIME_TYPE_TEXT, NULL, 0,
-			                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+			                                         "Internal Server Error 1", MIME_TYPE_TEXT,
+			                                         NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 			}
 		}
 	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
-		int result = sendMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
-		                                     "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT, NULL,
-		                                     0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
+		                                         "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT,
+		                                         NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
@@ -304,7 +304,7 @@ anyType(JobError*)
 		allowedHeader[0].key = allowedHeaderBuffer;
 		allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
 
-		int result = sendMessageToConnection(
+		int result = sendHTTPMessageToConnection(
 		    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
 		    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
 		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
@@ -313,7 +313,7 @@ anyType(JobError*)
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
-		int result = sendMessageToConnection(
+		int result = sendHTTPMessageToConnection(
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "A GET, HEAD or OPTIONS Request can't have a body",
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
@@ -321,9 +321,9 @@ anyType(JobError*)
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
 		}
 	} else {
-		int result = sendMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-		                                     "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
-		                                     CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
+		                                         "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
+		                                         CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
@@ -359,13 +359,13 @@ static int myqueue_size(myqueue* queue) {
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
+anyType(ListenerError*) http_listener_thread_function(anyType(HTTPThreadArgument*) arg) {
 
 	set_thread_name("listener thread");
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting\n");
 
-	ThreadArgument argument = *((ThreadArgument*)arg);
+	HTTPThreadArgument argument = *((HTTPThreadArgument*)arg);
 
 #define POLL_FD_AMOUNT 2
 
@@ -422,8 +422,8 @@ anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
 		int connectionFd = accept(argument.socketFd, NULL, NULL);
 		checkForError(connectionFd, "While Trying to accept a socket", break;);
 
-		ConnectionArgument* connectionArgument =
-		    (ConnectionArgument*)malloc(sizeof(ConnectionArgument));
+		HTTPConnectionArgument* connectionArgument =
+		    (HTTPConnectionArgument*)malloc(sizeof(HTTPConnectionArgument));
 
 		if(!connectionArgument) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
@@ -438,7 +438,7 @@ anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(myqueue_push(argument.jobIds, pool_submit(argument.pool, socket_connection_handler,
+		if(myqueue_push(argument.jobIds, pool_submit(argument.pool, http_socket_connection_handler,
 		                                             connectionArgument)) < 0) {
 			return ListenerError_QueuePush;
 		}
@@ -449,7 +449,7 @@ anyType(ListenerError*) listener_thread_function(anyType(ThreadArgument*) arg) {
 		// here is a cancellation point, so it's safe to cancel here, since only accept then
 		// really cancels
 		int size = myqueue_size(argument.jobIds);
-		if(size > MAX_QUEUE_SIZE) {
+		if(size > HTTP_MAX_QUEUE_SIZE) {
 			int boundary = size / 2;
 			while(size > boundary) {
 
@@ -527,7 +527,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
 	// the protocol discards these requests listen starts listening on that socket, meaning
 	// new connections can be accepted
-	result = listen(socketFd, SOCKET_BACKLOG_SIZE);
+	result = listen(socketFd, HTTP_SOCKET_BACKLOG_SIZE);
 	checkForError(result, "While trying to listen on socket", return EXIT_FAILURE;);
 
 	const char* protocol_string =
@@ -585,14 +585,14 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// initializing the thread Arguments for the single listener thread, it receives all
 	// necessary arguments
 	pthread_t listenerThread = {};
-	ThreadArgument threadArgument = { .pool = &pool,
-		                              .jobIds = &jobIds,
-		                              .contexts = contexts,
-		                              .socketFd = socketFd,
-		                              .webSocketManager = webSocketManager };
+	HTTPThreadArgument threadArgument = { .pool = &pool,
+		                                  .jobIds = &jobIds,
+		                                  .contexts = contexts,
+		                                  .socketFd = socketFd,
+		                                  .webSocketManager = webSocketManager };
 
 	// creating the thread
-	result = pthread_create(&listenerThread, NULL, listener_thread_function, &threadArgument);
+	result = pthread_create(&listenerThread, NULL, http_listener_thread_function, &threadArgument);
 	checkForThreadError(result, "An Error occurred while trying to create a new Thread",
 	                    return EXIT_FAILURE;);
 
