@@ -7,25 +7,62 @@ Module: PS OS 08
 #include "server.h"
 #include "utils/log.h"
 
-// prints the usage, if argc is not the right amount!
-void printUsage(const char* programName) {
-	printf("usage: %s <port> [options]\n", programName);
-	printf("options:\n");
-	printf("\t-s, --secure <public_cert_file> <private_cert_file>: Use a secure connection "
-	       "(https), you have to provide the public and private certificates\n");
-	printf("\t-l, --loglevel <loglevel>: Set the log level for the application\n");
+#define IDENT1 "\t"
+#define IDENT2 IDENT1 IDENT1
+
+void printHttpServerUsage() {
+	printf(IDENT1 "http <port> [options]\n");
+	printf(IDENT1 "port: the port to bind to (required)");
+	printf(IDENT1 "options:\n");
+	printf(IDENT2 "-s, --secure <public_cert_file> <private_cert_file>: Use a secure connection "
+	              "(https), you have to provide the public and private certificates\n");
+	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
 }
 
-int main(int argc, const char* argv[]) {
+void printFtpServerUsage() {
+	printf(IDENT1 "ftp <port> [folder] [options]\n");
+	printf(IDENT1 "port: the port to bind to (required)");
+	printf(IDENT1 "folder: the folder to server (optional) default: '.'");
+	printf(IDENT1 "options:\n");
+	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
+}
 
-	// checking if there are enough arguments
-	if(argc < 2) {
-		printUsage(argv[0]);
+typedef enum { USAGE_COMMAND_ALL = 0, USAGE_COMMAND_HTTP = 1, USAGE_COMMAND_FTP = 2 } USAGE_COMMAND;
+
+// prints the usage, if argc is not the right amount!
+void printUsage(const char* programName, USAGE_COMMAND usage_command) {
+	switch(usage_command) {
+		case USAGE_COMMAND_HTTP: {
+			printf("usage: %s http", programName);
+			printHttpServerUsage();
+			break;
+		}
+
+		case USAGE_COMMAND_FTP: {
+			printf("usage: %s ftp", programName);
+			printFtpServerUsage();
+			break;
+		}
+		case USAGE_COMMAND_ALL:
+		default: {
+			printf("usage: %s <command>", programName);
+			printf("commands: http, ftp\n");
+			printHttpServerUsage();
+			printFtpServerUsage();
+			break;
+		}
+	}
+}
+
+int subcommandHttp(const char* programName, int argc, const char* argv[]) {
+
+	if(argc < 1) {
+		printUsage(programName, USAGE_COMMAND_HTTP);
 		return EXIT_FAILURE;
 	}
 
 	// parse the port
-	uint16_t port = parseU16Safely(argv[1], "<port>");
+	uint16_t port = parseU16Safely(argv[0], "<port>");
 
 	bool secure = false;
 	const char* public_cert_file = "";
@@ -39,8 +76,8 @@ int main(int argc, const char* argv[]) {
 #endif
 	    ;
 
-	// the port and the program name
-	int processed_args = 2;
+	// the port
+	int processed_args = 1;
 
 	while(processed_args != argc) {
 
@@ -55,7 +92,7 @@ int main(int argc, const char* argv[]) {
 			secure = true;
 			if(processed_args + 3 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'secure' option\n");
-				printUsage(argv[0]);
+				printUsage(argv[0], USAGE_COMMAND_HTTP);
 				return EXIT_FAILURE;
 			}
 
@@ -66,7 +103,7 @@ int main(int argc, const char* argv[]) {
 		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
 			if(processed_args + 2 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
-				printUsage(argv[0]);
+				printUsage(argv[0], USAGE_COMMAND_HTTP);
 				return EXIT_FAILURE;
 			}
 
@@ -75,7 +112,7 @@ int main(int argc, const char* argv[]) {
 			if(parsed_level < 0) {
 				fprintf(stderr, "Wrong option for the 'loglevel' option, unrecognized level: %s\n",
 				        arg);
-				printUsage(argv[0]);
+				printUsage(argv[0], USAGE_COMMAND_HTTP);
 				return EXIT_FAILURE;
 			}
 
@@ -84,7 +121,7 @@ int main(int argc, const char* argv[]) {
 			processed_args += 2;
 		} else {
 			fprintf(stderr, "Unrecognized option: %s\n", arg);
-			printUsage(argv[0]);
+			printUsage(argv[0], USAGE_COMMAND_HTTP);
 			return EXIT_FAILURE;
 		}
 	}
@@ -108,4 +145,32 @@ int main(int argc, const char* argv[]) {
 	}
 
 	return startServer(port, options);
+}
+
+int subcommandFtp(const char* programName, int argc, const char* argv[]) {
+
+	UNUSED(programName);
+	UNUSED(argc);
+	UNUSED(argv);
+	return EXIT_FAILURE;
+}
+
+int main(int argc, const char* argv[]) {
+
+	// checking if there are enough arguments
+	if(argc < 2) {
+		printUsage(argv[0], USAGE_COMMAND_ALL);
+		return EXIT_FAILURE;
+	}
+
+	const char* command = argv[1];
+
+	if(strcmp(command, "http") == 0) {
+		return subcommandHttp(argv[0], argc - 2, argv + 2);
+	} else if(strcmp(command, "ftp") == 0) {
+		return subcommandFtp(argv[0], argc - 2, argv + 2);
+	} else {
+		printUsage(argv[0], USAGE_COMMAND_ALL);
+		return EXIT_FAILURE;
+	}
 }
