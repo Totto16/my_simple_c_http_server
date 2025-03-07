@@ -2,6 +2,7 @@
 
 #include "./server.h"
 #include "./command.h"
+#include "./protocol.h"
 #include "./send.h"
 #include "generic/read.h"
 #include "utils/errors.h"
@@ -51,8 +52,9 @@ anyType(JobError*)
 		return JobError_Desc;
 	}
 
-	int hello_result = sendFTPMessageToConnection(descriptor, 220, "Simple HTTP Server",
-	                                              CONNECTION_SEND_FLAGS_UN_MALLOCED);
+	int hello_result =
+	    sendFTPMessageToConnection(descriptor, FTP_RETURN_CODE_SRVC_READY, "Simple HTTP Server",
+	                               CONNECTION_SEND_FLAGS_UN_MALLOCED);
 	if(hello_result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending hello message\n");
 		goto cleanup;
@@ -65,9 +67,10 @@ anyType(JobError*)
 		char* rawFtpCommands = readStringFromConnection(descriptor);
 
 		if(!rawFtpCommands) {
-			int result = sendFTPMessageToConnection(
-			    descriptor, 200, "Request couldn't be read, a connection error occurred!",
-			    CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			int result =
+			    sendFTPMessageToConnection(descriptor, FTP_RETURN_CODE_SYNTAX_ERROR,
+			                               "Request couldn't be read, a connection error occurred!",
+			                               CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
@@ -82,8 +85,8 @@ anyType(JobError*)
 		// ftpCommands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
 		if(ftpCommands == NULL) {
-			int result = sendFTPMessageToConnection(descriptor, 500,
-			                                        "Request couldn't be parsed, it was malformed!",
+			int result = sendFTPMessageToConnection(descriptor, FTP_RETURN_CODE_SYNTAX_ERROR,
+			                                        "Invalid Command Sequence",
 			                                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
@@ -91,6 +94,16 @@ anyType(JobError*)
 			}
 
 			goto cleanup;
+		}
+
+		for(size_t i = 0; i < ftpCommands->size; ++i) {
+			FTPCommand* command = ftpCommands->data[i];
+			bool successfull = ftp_process_command(descriptor, argument->state, command);
+			if(!successfull) {
+				quit = true;
+				freeFTPCommandArray(ftpCommands);
+				break;
+			}
 		}
 
 		freeFTPCommandArray(ftpCommands);
@@ -109,6 +122,25 @@ cleanup:
 }
 
 #undef FREE_AT_END
+
+bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state,
+                         const FTPCommand* command) {
+
+	UNUSED(state);
+
+	switch(command->type) {
+		default: {
+			int result = sendFTPMessageToConnection(
+			    descriptor, FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED, "Command not implemented!",
+			    CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			if(result < 0) {
+				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			}
+
+			return false;
+		}
+	}
+}
 
 // implemented specifically for the ftp Server, it just gets the internal value, but it's better
 // to not access that, since additional steps can be required, like  boundary checks!

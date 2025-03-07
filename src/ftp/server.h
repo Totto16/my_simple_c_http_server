@@ -26,7 +26,7 @@ typedef struct {
 	FTPState* state;
 } FTPConnectionArgument;
 
-void ftp_process_command(FTPState*, const FTPCommand*);
+bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState*, const FTPCommand*);
 
 anyType(JobError*)
     ftp_socket_connection_handler(anyType(FTPConnectionArgument*) arg, WorkerInfo workerInfo);

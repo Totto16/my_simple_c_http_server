@@ -45,7 +45,7 @@ inc_dirs = []
 subdir('src')
 
 executable(
-    'http',
+    'server',
     src_files,
     dependencies: deps,
     include_directories: inc_dirs,

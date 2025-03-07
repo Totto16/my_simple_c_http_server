@@ -1,20 +1,23 @@
 
 
 #include "./send.h"
+#include "./protocol.h"
 #include "generic/send.h"
 
 static NODISCARD int sendMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
-                                                     int status, char* body) {
+                                                     FTP_RETURN_CODE status, char* body) {
 
-	if(status >= 1000) {
-		return sendFTPMessageToConnection(descriptor, 550, "TOD",
-		                                  CONNECTION_SEND_FLAGS_UN_MALLOCED);
+	if(status > INTERNAL_FTP_RETURN_CODE_MAXIMUM || status < INTERNAL_FTP_RETURN_CODE_MINIMUM) {
+		return sendFTPMessageToConnection(
+		    descriptor, FTP_RETURN_CODE_SYNTAX_ERROR,
+		    "Internal Error while processing command: sending hardcoded invalid status",
+		    CONNECTION_SEND_FLAGS_UN_MALLOCED);
 	}
 
 	StringBuilder* sb = string_builder_init();
 	const char* const separators = "\r\n";
 
-	string_builder_append(sb, return -3;, "%d %s%s", status, body, separators);
+	string_builder_append(sb, return -3;, "%03d %s%s", status, body, separators);
 
 	int result = sendStringBuilderToConnection(descriptor, sb);
 
