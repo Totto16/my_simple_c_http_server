@@ -159,6 +159,26 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 		command->type = FTP_COMMAND_HELP;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
+	} else if(strcmp("AUTH", commandStr) == 0) {
+		command->type = FTP_COMMAND_AUTH;
+		MAKE_STRING_ARG(argumentStr);
+		return command;
+	} else if(strcmp("ADAT", commandStr) == 0) {
+		command->type = FTP_COMMAND_ADAT;
+		MAKE_STRING_ARG(argumentStr);
+		return command;
+	} else if(strcmp("MIC", commandStr) == 0) {
+		command->type = FTP_COMMAND_MIC;
+		MAKE_STRING_ARG(argumentStr);
+		return command;
+	} else if(strcmp("CONF", commandStr) == 0) {
+		command->type = FTP_COMMAND_CONF;
+		MAKE_STRING_ARG(argumentStr);
+		return command;
+	} else if(strcmp("ENC", commandStr) == 0) {
+		command->type = FTP_COMMAND_ENC;
+		MAKE_STRING_ARG(argumentStr);
+		return command;
 	}
 
 	// TODO: implement these
@@ -167,6 +187,9 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 	//     MODE <SP> <mode-code> <CRLF>
 	//     ALLO <SP> <decimal-integer> [<SP> R <SP> <decimal-integer>] <CRLF>
 	//     REST <SP> <marker> <CRLF>
+
+	//     PROT <SP> <prot-code> <CRLF>
+	//     PBSZ <SP> <decimal-integer> <CRLF>
 
 	free(command);
 	return NULL;
@@ -258,7 +281,12 @@ void freeFTPCommand(FTPCommand* cmd) {
 		case FTP_COMMAND_DELE:
 		case FTP_COMMAND_RMD:
 		case FTP_COMMAND_MKD:
-		case FTP_COMMAND_SITE: {
+		case FTP_COMMAND_SITE:
+		case FTP_COMMAND_AUTH:
+		case FTP_COMMAND_ADAT:
+		case FTP_COMMAND_MIC:
+		case FTP_COMMAND_CONF:
+		case FTP_COMMAND_ENC: {
 			free(cmd->data.string);
 			break;
 		}

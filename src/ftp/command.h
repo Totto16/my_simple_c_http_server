@@ -41,6 +41,16 @@ typedef enum {
 	FTP_COMMAND_STAT,
 	FTP_COMMAND_HELP,
 	FTP_COMMAND_NOOP,
+	// see https://datatracker.ietf.org/doc/html/rfc2228
+	// and https://datatracker.ietf.org/doc/html/rfc4217
+	FTP_COMMAND_AUTH,
+	FTP_COMMAND_ADAT,
+	FTP_COMMAND_PROT,
+	FTP_COMMAND_PBSZ,
+	FTP_COMMAND_MIC,
+	FTP_COMMAND_CONF,
+	FTP_COMMAND_ENC,
+
 } FTP_COMMAND_ENUM;
 
 typedef struct {
