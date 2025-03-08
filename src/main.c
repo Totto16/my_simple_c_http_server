@@ -168,7 +168,15 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 	}
 
 	// parse the port
-	uint16_t port = parseU16Safely(argv[0], "<port>");
+	uint16_t control_port = parseU16Safely(argv[0], "<port>");
+
+	if(control_port < 1) {
+		fprintf(stderr, "port is too low, can't allocate data port oen below it\n");
+		printUsage(argv[0], USAGE_COMMAND_FTP);
+		return EXIT_FAILURE;
+	}
+
+	uint16_t data_port = control_port - 1;
 
 	LogLevel log_level =
 #ifdef NDEBUG
@@ -256,7 +264,7 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 
 	LOG_MESSAGE(LogLevelTrace, "Setting LogLevel to %s\n", get_level_name(log_level));
 
-	return startFtpServer(port, folder);
+	return startFtpServer(control_port, data_port, folder);
 }
 
 int main(int argc, const char* argv[]) {

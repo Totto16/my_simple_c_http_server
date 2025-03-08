@@ -3,6 +3,7 @@
 #pragma once
 
 #include "./account.h"
+#include <netinet/in.h>
 
 /**
  * @enum MASK / FLAGS
@@ -42,6 +43,22 @@ typedef enum {
 
 } FTP_STRUCTURE;
 
+/**
+ * @enum value
+ */
+typedef enum {
+	FT_DATA_MODE_STANDARD = 0, // standard is what?
+	FT_DATA_MODE_PASSIVE,
+	FT_DATA_MODE_ACTIVE,
+} FTPDataMode;
+
+typedef struct sockaddr_in FTPConnectAddr;
+
+typedef struct {
+	FTPDataMode mode;
+	FTPConnectAddr addr;
+} FTPDataSettings;
+
 typedef struct {
 	const char* global_folder;
 	AccountInfo* account;
@@ -49,11 +66,14 @@ typedef struct {
 	FTP_TRANSMISSION_TYPE current_type;
 	FTP_MODE mode;
 	FTP_STRUCTURE structure;
+	FTPDataSettings* data_settings;
 } FTPState;
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
-FTPState* alloc_default_state(const char* global_folder);
+FTPState* alloc_default_state(const char* global_folder, FTPConnectAddr addr);
 
 // TODO: free state
 
 char* get_current_dir_name(FTPState* state, bool escape);
+
+char* make_address_port_desc(FTPConnectAddr addr);

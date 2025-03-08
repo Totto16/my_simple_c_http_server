@@ -420,7 +420,8 @@ anyType(ListenerError*) http_listener_thread_function(anyType(HTTPThreadArgument
 
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.socketFd, NULL, NULL);
-		checkForError(connectionFd, "While Trying to accept a socket", break;);
+		checkForError(connectionFd, "While Trying to accept a socket",
+		              return ListenerError_Accept;);
 
 		HTTPConnectionArgument* connectionArgument =
 		    (HTTPConnectionArgument*)malloc(sizeof(HTTPConnectionArgument));

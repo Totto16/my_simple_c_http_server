@@ -34,8 +34,10 @@ void print_job_error(const JobError error) {
 		error_str = "SemWait";
 	} else if(error == JobError_SemDest) {
 		error_str = "SemDest";
-	}else if(error == JobError_SigHandler) {
+	} else if(error == JobError_SigHandler) {
 		error_str = "SigHandler";
+	} else if(error == JobError_GetSockName) {
+		error_str = "GetSockName";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Job Error: %s\n", error_str);
@@ -58,6 +60,8 @@ void print_listener_error(const ListenerError error) {
 		error_str = "ThreadCancel";
 	} else if(error == ListenerError_QueuePush) {
 		error_str = "QueuePush";
+	} else if(error == ListenerError_Accept) {
+		error_str = "Accept";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Listener Error: %s\n", error_str);

@@ -5,8 +5,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+FTPDataSettings* alloc_default_data_settings(FTPConnectAddr addr) {
+	FTPDataSettings* data_settings = (FTPDataSettings*)malloc(sizeof(FTPDataSettings));
+
+	if(!data_settings) {
+		return NULL;
+	}
+
+	data_settings->mode = FT_DATA_MODE_STANDARD;
+	data_settings->addr = addr;
+
+	return data_settings;
+}
+
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
-FTPState* alloc_default_state(const char* global_folder) {
+FTPState* alloc_default_state(const char* global_folder, FTPConnectAddr addr) {
 	FTPState* state = (FTPState*)malloc(sizeof(FTPState));
 
 	if(!state) {
@@ -37,6 +50,14 @@ FTPState* alloc_default_state(const char* global_folder) {
 	}
 
 	state->account = account;
+
+	FTPDataSettings* data_settings = alloc_default_data_settings(addr);
+
+	if(!data_settings) {
+		return NULL;
+	}
+
+	state->data_settings = data_settings;
 
 	state->global_folder = global_folder;
 	state->current_type = FTP_TRANSMISSION_TYPE_ASCII | FTP_TRANSMISSION_TYPE_FLAG_NP;
@@ -122,6 +143,30 @@ char* get_current_dir_name(FTPState* state, bool escape) {
 	}
 
 	result[needed_size] = '\0';
+
+	return result;
+}
+
+char* make_address_port_desc(FTPConnectAddr addr) {
+
+	// Format (h1,h2,h3,h4,p1,p2)
+
+	// port is stored in big endian
+	uint16_t port = addr.sin_port;
+
+	uint8_t p1 = port & 0xFF;
+	uint8_t p2 = port >> 8;
+
+	// addr is stored in big endian
+	uint32_t address = addr.sin_addr.s_addr;
+
+	uint8_t h1 = address & 0xFF;
+	uint8_t h2 = (address >> 8) & 0xFF;
+	uint8_t h3 = (address >> 16) & 0xFF;
+	uint8_t h4 = (address >> 24);
+
+	char* result = NULL;
+	formatString(&result, return NULL;, "(%d,%d,%d,%d,%d,%d)", h1, h2, h3, h4, p1, p2);
 
 	return result;
 }

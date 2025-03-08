@@ -45,9 +45,9 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	header[1].key = connectionHeaderBuffer;
 	header[1].value = connectionHeaderBuffer + strlen(connectionHeaderBuffer) + 1;
 
-	int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_UPGRADE_REQUIRED, malloced_message,
-	                                     MIME_TYPE_TEXT, header, headerAmount,
-	                                     CONNECTION_SEND_FLAGS_MALLOCED);
+	int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_UPGRADE_REQUIRED,
+	                                         malloced_message, MIME_TYPE_TEXT, header, headerAmount,
+	                                         CONNECTION_SEND_FLAGS_MALLOCED);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -67,8 +67,9 @@ static NODISCARD int sendFailedHandshakeMessage(const ConnectionDescriptor* cons
 	                      , "Error: The client handshake was invalid: %s", error_reason);
 
 	char* malloced_message = string_builder_get_string(message);
-	int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
-	                                     MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+	int result =
+	    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
+	                                MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -109,6 +110,9 @@ static char* generateKeyAnswer(const char* secKey) {
 	return result;
 }
 
+/**
+ * @enum MASK / FLAGS
+ */
 typedef enum {
 	HANDSHAKE_HEADER_NONE = 0b0,
 	HANDSHAKE_HEADER_HEADER_HOST = 0b1,
@@ -227,6 +231,6 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	header[2].key = secWebsocketAcceptHeaderBuffer;
 	header[2].value = secWebsocketAcceptHeaderBuffer + strlen(secWebsocketAcceptHeaderBuffer) + 1;
 
-	return sendHTTPMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL, header,
-	                               headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
+	return sendHTTPMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL,
+	                                   header, headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
 }

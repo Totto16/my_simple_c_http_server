@@ -34,6 +34,9 @@ struct WebSocketConnectionImpl {
 	pthread_t thread_id;
 };
 
+/**
+ * @enum value
+ */
 typedef enum {
 	WS_OPCODE_CONT = 0x0,
 	WS_OPCODE_TEXT = 0x1,
@@ -448,7 +451,10 @@ static NODISCARD int ws_send_message_internal(WebSocketConnection* connection,
 	return ws_send_message_internal_fragmented(connection, message, mask, (uint64_t)fragment_size);
 }
 
-// see: https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
+/**
+ * @enum value
+ * @see https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
+ */
 typedef enum /* :uint16_t */ {
 	CloseCode_NormalClosure = 1000,
 	CloseCode_GoingAway = 1001,
