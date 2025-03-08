@@ -92,7 +92,7 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 		if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--secure") == 0)) {
 #ifdef _HTTP_SERVER_SECURE_DISABLED
 			fprintf(stderr, "Server was build without support for 'secure'\n");
-			printUsage(argv[0]);
+			printUsage(argv[0], USAGE_COMMAND_HTTP);
 			return EXIT_FAILURE;
 #else
 			secure = true;
