@@ -164,7 +164,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state
 					return true;
 				}
 
-				AccountOkData ok_data = { .permissions = ACCCOUNT_ANON,
+				AccountOkData ok_data = { .permissions = ACCOUNT_ANON,
 					                      .username = malloced_username };
 
 				state->account->data.ok_data = ok_data;
@@ -195,6 +195,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state
 		}
 
 		case FTP_COMMAND_PASS: {
+
+			if(state->account->state == ACCOUNT_STATE_OK &&
+			   (state->account->data.ok_data.permissions & ACCOUNT_ANON) != 0) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_USER_LOGGED_IN,
+				                               "Already logged in as anon!");
+
+				return true;
+			}
 
 			// TODO: allow user changing
 			if(state->account->state != ACCOUNT_STATE_ONLY_USER) {

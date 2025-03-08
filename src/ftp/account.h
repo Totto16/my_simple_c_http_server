@@ -7,7 +7,7 @@
 typedef enum {
 	ACCOUNT_READ = 1,
 	ACCOUNT_WRITE = 2,
-	ACCCOUNT_ANON = 4,
+	ACCOUNT_ANON = 4,
 } ACCOUNT_PERMISSIONS;
 
 typedef enum {
