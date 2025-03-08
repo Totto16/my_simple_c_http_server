@@ -4,6 +4,7 @@
 #include "./command.h"
 #include "./protocol.h"
 #include "./send.h"
+#include "./state.h"
 
 #include "generic/helper.h"
 #include "generic/read.h"
@@ -318,6 +319,40 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state
 			SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_DIR_OP_SUCC, "\"%s\"", dirname);
 
 			free(dirname);
+
+			return true;
+		}
+
+		case FTP_COMMAND_TYPE: {
+
+			FTPCommandTypeInformation* type_info = command->data.type_info;
+			if(!type_info->is_normal) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED_FOR_PARAM,
+				                               "Not Implemented!");
+				return true;
+			}
+
+			switch(type_info->data.type & FTP_TRANSMISSION_TYPE_MASK_BASE) {
+				case FTP_TRANSMISSION_TYPE_ASCII: {
+					state->current_type = FTP_TRANSMISSION_TYPE_ASCII;
+					break;
+				}
+				case FTP_TRANSMISSION_TYPE_EBCDIC: {
+					state->current_type = FTP_TRANSMISSION_TYPE_EBCDIC;
+					break;
+				}
+				case FTP_TRANSMISSION_TYPE_IMAGE: {
+					state->current_type = FTP_TRANSMISSION_TYPE_IMAGE;
+					break;
+				}
+				default:
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR, "Internal ERROR!");
+
+					return true;
+			}
+
+			// TODO also handle flags
+			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_CMD_OK, "Set Type!");
 
 			return true;
 		}

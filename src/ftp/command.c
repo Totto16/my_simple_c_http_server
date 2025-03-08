@@ -16,6 +16,63 @@
 		command->data.string = malloced_str; \
 	} while(false)
 
+FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg) {
+	FTPCommandTypeInformation* info =
+	    (FTPCommandTypeInformation*)malloc(sizeof(FTPCommandTypeInformation));
+
+	if(!info) {
+		return NULL;
+	}
+
+	info->is_normal = true;
+	info->data.type = 0;
+
+	// <form-code> ::= N | T | C
+	// <type-code> ::= A [<sp> <form-code>]
+	// 			  | E [<sp> <form-code>]
+	// 			  | I
+	// 			  | L <sp> <byte-size>
+	// <byte-size> ::= <number>
+	// <number> ::= any decimal integer 1 through 255
+
+	size_t length = strlen(arg);
+
+	if(length < 1) {
+		free(info);
+		return NULL;
+	}
+
+	if(length == 1) {
+		switch(arg[0]) {
+			case 'A': {
+				info->is_normal = true;
+				info->data.type = FTP_TRANSMISSION_TYPE_ASCII;
+				return info;
+			}
+			case 'E': {
+				info->is_normal = true;
+				info->data.type = FTP_TRANSMISSION_TYPE_EBCDIC;
+				return info;
+			}
+			case 'I': {
+				info->is_normal = true;
+				info->data.type = FTP_TRANSMISSION_TYPE_IMAGE;
+				return info;
+			}
+			default: {
+				free(info);
+				return NULL;
+			}
+		}
+
+		UNREACHABLE();
+	}
+
+	// TODO_
+	free(info);
+	return NULL;
+}
+
 FTPCommand* parseSingleFTPCommand(char* commandStr) {
 
 	int length = strlen(commandStr);
@@ -179,6 +236,15 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 		command->type = FTP_COMMAND_ENC;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
+	} else if(strcasecmp("TYPE", commandStr) == 0) {
+		command->type = FTP_COMMAND_TYPE;
+		FTPCommandTypeInformation* info = parse_ftp_command_type_info(argumentStr);
+		if(info == NULL) {
+			free(command);
+			return NULL;
+		}
+		command->data.type_info = info;
+		return command;
 	}
 
 	// TODO: implement these
@@ -267,6 +333,11 @@ FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands) {
 
 void freeFTPCommand(FTPCommand* cmd) {
 	switch(cmd->type) {
+		// special things
+		case FTP_COMMAND_TYPE: {
+			free(cmd->data.type_info);
+			break;
+		}
 		// string arguments
 		case FTP_COMMAND_USER:
 		case FTP_COMMAND_PASS:

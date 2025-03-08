@@ -54,9 +54,18 @@ typedef enum {
 } FTP_COMMAND_ENUM;
 
 typedef struct {
+	bool is_normal;
+	union {
+		FTP_TRANSMISSION_TYPE type;
+		uint8_t num;
+	} data;
+} FTPCommandTypeInformation;
+
+typedef struct {
 	FTP_COMMAND_ENUM type;
 	union {
 		char* string;
+		FTPCommandTypeInformation* type_info;
 	} data;
 
 } FTPCommand;
@@ -71,3 +80,5 @@ FTPCommandArray* parseMultipleFTPCommands(char* input);
 void freeFTPCommand(FTPCommand*);
 
 void freeFTPCommandArray(FTPCommandArray*);
+
+FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg);

@@ -39,7 +39,7 @@ FTPState* alloc_default_state(const char* global_folder) {
 	state->account = account;
 
 	state->global_folder = global_folder;
-	state->current_type = FTP_TRANSMISSION_TYPE_ASCII_NP;
+	state->current_type = FTP_TRANSMISSION_TYPE_ASCII | FTP_TRANSMISSION_TYPE_FLAG_NP;
 	state->mode = FTP_MODE_STREAM;
 	state->structure = FTP_STRUCTURE_FILE;
 
