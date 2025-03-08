@@ -4,6 +4,9 @@
 
 #include "./account.h"
 
+/**
+ * @enum MASK / FLAGS
+ */
 typedef enum {
 	FTP_TRANSMISSION_TYPE_ASCII = 0x1,      // ASCII
 	FTP_TRANSMISSION_TYPE_EBCDIC = 0x2,     // EBCDIC
@@ -20,15 +23,21 @@ typedef enum {
 
 } FTP_TRANSMISSION_TYPE;
 
+/**
+ * @enum value
+ */
 typedef enum {
 	FTP_MODE_STREAM = 0,
 	// TODO: add rest
 
 } FTP_MODE;
 
+/**
+ * @enum value
+ */
 typedef enum {
-	FTP_STRUCTURE_FILE = 0x1,
-	FTP_STRUCTURE_RECORD = 0x2,
+	FTP_STRUCTURE_FILE = 0,
+	FTP_STRUCTURE_RECORD,
 	// TODO: add rest
 
 } FTP_STRUCTURE;

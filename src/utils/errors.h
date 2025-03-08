@@ -45,6 +45,9 @@ void print_listener_error(ListenerError error);
 
 // Create errors
 
+/**
+ * @enum value
+ */
 typedef enum {
 	CreateError_None = 0,
 	CreateError_ThreadCreate,

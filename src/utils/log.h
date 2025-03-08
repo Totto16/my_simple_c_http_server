@@ -3,6 +3,9 @@
 
 #include <stdio.h>
 
+/**
+ * @enum value
+ */
 typedef enum {
 	LogLevelTrace = 0x00,
 	LogLevelDebug = 0x01,
@@ -13,7 +16,12 @@ typedef enum {
 	LogLevelOff = 0x06,
 } LogLevel;
 
-typedef enum { LogPrintLocation = 0x08 } LogFlags;
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum {
+	LogPrintLocation = 0x08,
+} LogFlags;
 
 // only for internal use!!
 

@@ -33,7 +33,14 @@ void printFtpServerUsage() {
 	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
 }
 
-typedef enum { USAGE_COMMAND_ALL = 0, USAGE_COMMAND_HTTP = 1, USAGE_COMMAND_FTP = 2 } USAGE_COMMAND;
+/**
+ * @enum value
+ */
+typedef enum {
+	USAGE_COMMAND_ALL = 0,
+	USAGE_COMMAND_HTTP,
+	USAGE_COMMAND_FTP,
+} USAGE_COMMAND;
 
 // prints the usage, if argc is not the right amount!
 void printUsage(const char* programName, USAGE_COMMAND usage_command) {

@@ -2,6 +2,9 @@
 
 #pragma once
 
+/**
+ * @enum value
+ */
 typedef enum {
 	// INTERNAL USAGE ONLY
 	INTERNAL_FTP_RETURN_CODE_MINIMUM = 100,

@@ -7,7 +7,13 @@
 
 typedef struct SecureDataImpl SecureData;
 
-typedef enum { SECURE_OPTIONS_TYPE_NOT_SECURE, SECURE_OPTIONS_TYPE_SECURE } SECURE_OPTIONS_TYPE;
+/**
+ * @enum value
+ */
+typedef enum {
+	SECURE_OPTIONS_TYPE_NOT_SECURE = 0,
+	SECURE_OPTIONS_TYPE_SECURE,
+} SECURE_OPTIONS_TYPE;
 
 typedef struct {
 	SECURE_OPTIONS_TYPE type;

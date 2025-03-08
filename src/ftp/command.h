@@ -6,7 +6,10 @@
 
 #include "./state.h"
 
-// According to https://datatracker.ietf.org/doc/html/rfc959  5.3.1
+/**
+ * @ref https://datatracker.ietf.org/doc/html/rfc959  5.3.1
+ * @enum value
+ */
 typedef enum {
 	FTP_COMMAND_USER = 0,
 	FTP_COMMAND_PASS,

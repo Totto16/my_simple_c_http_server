@@ -32,12 +32,15 @@ Module: PS OS 08
 
 #define HTTP_MAX_QUEUE_SIZE 100
 
-enum REQUEST_SUPPORT_STATUS {
+/**
+ * @enum value
+ */
+typedef enum {
 	REQUEST_SUPPORTED = 0,
 	REQUEST_INVALID_HTTP_VERSION = 1,
 	REQUEST_METHOD_NOT_SUPPORTED = 2,
 	REQUEST_INVALID_NONEMPTY_BODY = 3,
-};
+} REQUEST_SUPPORT_STATUS;
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors

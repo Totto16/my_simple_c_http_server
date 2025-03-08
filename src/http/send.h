@@ -5,6 +5,9 @@
 #include "generic/secure.h"
 #include "http/http_protocol.h"
 
+/**
+ * @enum MASK / FLAGS
+ */
 typedef enum {
 	CONNECTION_SEND_FLAGS_MALLOCED = 0b01,
 	CONNECTION_SEND_FLAGS_UN_MALLOCED = 0b10

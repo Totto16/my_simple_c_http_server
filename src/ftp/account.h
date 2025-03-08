@@ -4,12 +4,18 @@
 
 #include "utils/utils.h"
 
+/**
+ * @enum MASK / FLAGS
+ */
 typedef enum {
-	ACCOUNT_READ = 1,
-	ACCOUNT_WRITE = 2,
-	ACCOUNT_ANON = 4,
+	ACCOUNT_PERMISSIONS_NONE = 0x00,
+	ACCOUNT_PERMISSIONS_READ = 0x01,
+	ACCOUNT_PERMISSIONS_WRITE = 0x02,
 } ACCOUNT_PERMISSIONS;
 
+/**
+ * @enum value
+ */
 typedef enum {
 	ACCOUNT_STATE_EMPTY = 0,
 	ACCOUNT_STATE_ONLY_USER,
@@ -37,6 +43,9 @@ AccountInfo* alloc_default_account(void);
 
 void free_account_data(AccountInfo*);
 
+/**
+ * @enum value
+ */
 typedef enum {
 	USER_VALIDITY_NO_SUCH_USER = 0,
 	USER_VALIDITY_WRONG_PASSWORD,
