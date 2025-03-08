@@ -361,7 +361,20 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 			SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_ENTERING_PASSIVE_MODE,
 			                                 "Entering Passive Mode %s.", port_desc);
 
+			state->data_settings->mode = FTP_DATA_MODE_PASSIVE;
+
 			free(port_desc);
+
+			return true;
+		}
+
+		case FTP_COMMAND_PORT: {
+
+			// TODO: also support active mode,it is way simpler than passive mode (jn multithreaded
+			// fashion)
+
+			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR_IN_PARAM,
+			                               "Only passive mode supported as for now");
 
 			return true;
 		}

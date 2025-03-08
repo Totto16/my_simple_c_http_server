@@ -12,7 +12,7 @@ FTPDataSettings* alloc_default_data_settings(FTPConnectAddr addr) {
 		return NULL;
 	}
 
-	data_settings->mode = FT_DATA_MODE_STANDARD;
+	data_settings->mode = FTP_DATA_MODE_STANDARD;
 	data_settings->addr = addr;
 
 	return data_settings;

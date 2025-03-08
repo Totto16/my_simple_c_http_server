@@ -27,11 +27,12 @@ FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg) {
 	info->is_normal = true;
 	info->data.type = 0;
 
-	// <form-code> ::= N | T | C
+	// return <type-code>
 	// <type-code> ::= A [<sp> <form-code>]
 	// 			  | E [<sp> <form-code>]
 	// 			  | I
 	// 			  | L <sp> <byte-size>
+	// <form-code> ::= N | T | C
 	// <byte-size> ::= <number>
 	// <number> ::= any decimal integer 1 through 255
 
@@ -71,6 +72,92 @@ FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg) {
 	// TODO_
 	free(info);
 	return NULL;
+}
+
+#define MAX_PORT_ARG 6
+
+bool parseU8Into(char* input, uint8_t* result_addr) {
+
+	if(strlen(input) > 3) {
+		return false;
+	}
+
+	char* endpointer;
+
+	errno = 0;
+	long result = strtol(input, &endpointer, 10);
+
+	// it isn't a number, if either errno is set or if the endpointer is not a '\0
+	if(*endpointer != '\0') {
+		return false;
+	} else if(errno != 0) {
+		return false;
+	}
+
+	if(result < 0 || result > 0xFF) {
+		return false;
+	}
+
+	*result_addr = (uint8_t)result;
+	return true;
+}
+
+FTPPortInformation* parse_ftp_command_port_info(char* arg) {
+	FTPPortInformation* info = (FTPPortInformation*)malloc(sizeof(FTPPortInformation));
+
+	if(!info) {
+		return NULL;
+	}
+
+	// return <host-port>
+	// <host-port> ::= <host-number>,<port-number>
+	// <host-number> ::= <number>,<number>,<number>,<number>
+	// <port-number> ::= <number>,<number>
+	// <number> ::= any decimal integer 1 through 255
+
+	char* currentlyAt = arg;
+
+	uint8_t result[MAX_PORT_ARG];
+
+	for(int i = 0; i < MAX_PORT_ARG; ++i) {
+		char* resultingIndex = strstr(currentlyAt, ",");
+
+		if(i == MAX_PORT_ARG - 1) {
+			if(resultingIndex != NULL) {
+				free(info);
+				return NULL;
+			}
+		} else {
+			if(resultingIndex == NULL) {
+				free(info);
+				return NULL;
+			}
+
+			*resultingIndex = '\0';
+		}
+
+		bool success = parseU8Into(currentlyAt, result + i);
+
+		if(!success) {
+			free(info);
+			return NULL;
+		}
+
+		currentlyAt = resultingIndex + 1;
+	}
+
+	uint64_t addr = result[0];
+	addr = (addr << 8) + result[1];
+	addr = (addr << 8) + result[2];
+	addr = (addr << 8) + result[3];
+
+	uint16_t port = result[4];
+	addr = (addr << 8) + result[5];
+
+	info->addr = addr;
+	info->port = port;
+
+	return info;
 }
 
 FTPCommand* parseSingleFTPCommand(char* commandStr) {
@@ -238,17 +325,25 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 		return command;
 	} else if(strcasecmp("TYPE", commandStr) == 0) {
 		command->type = FTP_COMMAND_TYPE;
-		FTPCommandTypeInformation* info = parse_ftp_command_type_info(argumentStr);
-		if(info == NULL) {
+		FTPCommandTypeInformation* type_info = parse_ftp_command_type_info(argumentStr);
+		if(type_info == NULL) {
 			free(command);
 			return NULL;
 		}
-		command->data.type_info = info;
+		command->data.type_info = type_info;
+		return command;
+	} else if(strcasecmp("PORT", commandStr) == 0) {
+		command->type = FTP_COMMAND_PORT;
+		FTPPortInformation* port_info = parse_ftp_command_port_info(argumentStr);
+		if(port_info == NULL) {
+			free(command);
+			return NULL;
+		}
+		command->data.port_info = port_info;
 		return command;
 	}
 
 	// TODO: implement these
-	//     TYPE <SP> <type-code> <CRLF>
 	//     STRU <SP> <structure-code> <CRLF>
 	//     MODE <SP> <mode-code> <CRLF>
 	//     ALLO <SP> <decimal-integer> [<SP> R <SP> <decimal-integer>] <CRLF>
@@ -336,6 +431,10 @@ void freeFTPCommand(FTPCommand* cmd) {
 		// special things
 		case FTP_COMMAND_TYPE: {
 			free(cmd->data.type_info);
+			break;
+		}
+		case FTP_COMMAND_PORT: {
+			free(cmd->data.port_info);
 			break;
 		}
 		// string arguments
