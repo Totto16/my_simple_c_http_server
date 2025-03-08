@@ -65,7 +65,7 @@ test:
     script:
         - meson setup build -Dbuildtype=debug
         - meson compile -C build
-        - ./build/http 8080 -l trace &
+        - ./build/server http 8080 -l trace &
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
         - wget http://localhost:8080/shutdown -O -  -q
     artifacts:
