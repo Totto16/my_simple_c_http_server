@@ -295,6 +295,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state
 			}
 
 			UNREACHABLE();
+			return true;
 		}
 
 		case FTP_COMMAND_PWD: {
@@ -358,10 +359,19 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state
 		}
 
 		case FTP_COMMAND_AUTH: {
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
+			SEND_RESPONSE_WITH_ERROR_CHECK(
+			    FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED,
+			    "AUTH not supported, server not build with ssl / tls enabled!");
+			return true;
+#else
+
 			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED,
 			                               "AUTH recognized, but command not implemented!");
 
 			return true;
+
+#endif
 		}
 
 		default: {
