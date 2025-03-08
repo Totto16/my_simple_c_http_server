@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "./protocol.h"
 #include "generic/secure.h"
+#include "utils/string_builder.h"
 #include "utils/utils.h"
 
 typedef enum {
@@ -11,5 +13,9 @@ typedef enum {
 
 } CONNECTION_SEND_FLAGS;
 
-NODISCARD int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, int status,
-                                          char* body, CONNECTION_SEND_FLAGS FLAGS);
+NODISCARD int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor,
+                                         FTP_RETURN_CODE status, char* body,
+                                         CONNECTION_SEND_FLAGS FLAGS);
+
+NODISCARD int sendFTPMessageToConnectionSb(const ConnectionDescriptor* descriptor,
+                                           FTP_RETURN_CODE status, StringBuilder* body);

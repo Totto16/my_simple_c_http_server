@@ -1,7 +1,6 @@
 
 
 #include "./send.h"
-#include "./protocol.h"
 #include "generic/send.h"
 
 static NODISCARD int sendMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
@@ -25,7 +24,7 @@ static NODISCARD int sendMessageToConnectionMalloced(const ConnectionDescriptor*
 	return result;
 }
 
-int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, int status, char* body,
+int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, FTP_RETURN_CODE status, char* body,
                                CONNECTION_SEND_FLAGS FLAGS) {
 	char* final_body = body;
 
@@ -36,4 +35,10 @@ int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, int statu
 	}
 
 	return sendMessageToConnectionMalloced(descriptor, status, final_body);
+}
+
+int sendFTPMessageToConnectionSb(const ConnectionDescriptor* const descriptor,
+                                 FTP_RETURN_CODE status, StringBuilder* body) {
+	return sendFTPMessageToConnection(descriptor, status, string_builder_to_string(body),
+	                                  CONNECTION_SEND_FLAGS_MALLOCED);
 }

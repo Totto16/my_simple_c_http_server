@@ -144,6 +144,17 @@ cleanup:
 		} \
 	} while(false)
 
+#define SEND_RESPONSE_WITH_ERROR_CHECK_F(code, format, ...) \
+	do { \
+		StringBuilder* sb = string_builder_init(); \
+		string_builder_append(sb, return false;, format, __VA_ARGS__); \
+		int result = sendFTPMessageToConnectionSb(descriptor, code, sb); \
+		if(result < 0) { \
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n"); \
+			return false; \
+		} \
+	} while(false)
+
 bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state,
                          const FTPCommand* command) {
 
@@ -283,6 +294,32 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state
 			}
 
 			UNREACHABLE();
+		}
+
+		case FTP_COMMAND_PWD: {
+
+			if(state->account->state != ACCOUNT_STATE_OK) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
+				                               "Not logged in: can't access files!");
+
+				return true;
+			}
+
+			char* dirname = get_current_dir_name(state, true);
+
+			if(!dirname) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR, "Internal Error!");
+
+				return true;
+			}
+
+			// permission model: everybody that is logged in can use PWD
+
+			SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_DIR_OP_SUCC, "\"%s\"", dirname);
+
+			free(dirname);
+
+			return true;
 		}
 
 		case FTP_COMMAND_AUTH: {

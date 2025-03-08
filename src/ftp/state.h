@@ -34,3 +34,7 @@ typedef struct {
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
 FTPState* alloc_default_state(const char* global_folder);
+
+// TODO: free state
+
+char* get_current_dir_name(FTPState* state, bool escape);
