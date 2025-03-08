@@ -361,6 +361,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 			                                 "Entering Passive Mode %s.", port_desc);
 
 			state->data_settings->mode = FTP_DATA_MODE_PASSIVE;
+			state->data_settings->addr = data_addr;
 
 			free(port_desc);
 
