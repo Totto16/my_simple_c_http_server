@@ -146,7 +146,7 @@ FTPPortInformation* parse_ftp_command_port_info(char* arg) {
 		currentlyAt = resultingIndex + 1;
 	}
 
-	uint64_t addr = result[0];
+	uint32_t addr = result[0];
 	addr = (addr << 8) + result[1];
 	addr = (addr << 8) + result[2];
 	addr = (addr << 8) + result[3];

@@ -64,16 +64,6 @@ typedef struct {
 	} data;
 } FTPCommandTypeInformation;
 
-/**
- * @brief everything here is little endian (so you have to use conversion functions to use it e.g.
- * htons for the port)
- *
- */
-typedef struct {
-	uint64_t addr;
-	uint16_t port;
-} FTPPortInformation;
-
 typedef struct {
 	FTP_COMMAND_ENUM type;
 	union {

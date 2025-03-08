@@ -34,12 +34,14 @@ typedef struct {
 	int socketFd;
 } FTPDataThreadArgument;
 
+typedef struct sockaddr_in RawNetworkAddress;
+
 typedef struct {
 	ConnectionContext** contexts;
 	pthread_t listenerThread;
 	int connectionFd;
 	FTPState* state;
-	FTPConnectAddr addr;
+	RawNetworkAddress addr;
 	FTPPorts ports;
 } FTPControlConnectionArgument;
 

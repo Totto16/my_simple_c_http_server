@@ -62,10 +62,9 @@ anyType(JobError*)
 		return JobError_GetSockName;
 	}
 
-	struct sockaddr_in data_addr = {};
-	memcpy(&data_addr, &server_addr, sizeof(server_addr));
+	FTPPortInformation data_addr = get_port_info_from_sockaddr(server_addr);
 
-	data_addr.sin_port = htons(argument->ports.data);
+	data_addr.port = argument->ports.data;
 
 #define FREE_AT_END() \
 	do { \
@@ -541,7 +540,7 @@ anyType(ListenerError*)
 			return ListenerError_Malloc;
 		}
 
-		FTPState* connection_ftp_state = alloc_default_state(argument.global_folder, client_addr);
+		FTPState* connection_ftp_state = alloc_default_state(argument.global_folder);
 
 		if(!connection_ftp_state) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");

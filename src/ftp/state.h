@@ -47,15 +47,27 @@ typedef enum {
  * @enum value
  */
 typedef enum {
-	FT_DATA_MODE_STANDARD = 0, // standard is what?
-	FT_DATA_MODE_PASSIVE,
-	FT_DATA_MODE_ACTIVE,
+	FTP_DATA_MODE_NONE = 0, // standard is what?
+	FTP_DATA_MODE_PASSIVE,
+	FTP_DATA_MODE_ACTIVE,
 } FTPDataMode;
 
-typedef struct sockaddr_in FTPConnectAddr;
+/**
+ * @brief everything here is little endian (so you have to use conversion functions to use it e.g.
+ * htons for the port)
+ *
+ */
+typedef struct {
+	uint32_t addr;
+	uint16_t port;
+} FTPPortInformation;
+
+typedef FTPPortInformation FTPConnectAddr;
 
 typedef struct {
 	FTPDataMode mode;
+	// in passive mode this is the data_addr (of the server), in active mode the port that was given
+	// to us, in standard mode this is undefined
 	FTPConnectAddr addr;
 } FTPDataSettings;
 
@@ -70,10 +82,12 @@ typedef struct {
 } FTPState;
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
-FTPState* alloc_default_state(const char* global_folder, FTPConnectAddr addr);
+NODISCARD FTPState* alloc_default_state(const char* global_folder);
 
 // TODO: free state
 
-char* get_current_dir_name(FTPState* state, bool escape);
+NODISCARD char* get_current_dir_name(FTPState* state, bool escape);
 
-char* make_address_port_desc(FTPConnectAddr addr);
+NODISCARD char* make_address_port_desc(FTPConnectAddr addr);
+
+NODISCARD FTPPortInformation get_port_info_from_sockaddr(struct sockaddr_in addr);

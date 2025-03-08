@@ -5,21 +5,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-FTPDataSettings* alloc_default_data_settings(FTPConnectAddr addr) {
+FTPDataSettings* alloc_default_data_settings() {
 	FTPDataSettings* data_settings = (FTPDataSettings*)malloc(sizeof(FTPDataSettings));
 
 	if(!data_settings) {
 		return NULL;
 	}
 
-	data_settings->mode = FTP_DATA_MODE_STANDARD;
-	data_settings->addr = addr;
+	data_settings->mode = FTP_DATA_MODE_NONE;
+	// ignore: data_settings->addr;
 
 	return data_settings;
 }
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
-FTPState* alloc_default_state(const char* global_folder, FTPConnectAddr addr) {
+FTPState* alloc_default_state(const char* global_folder) {
 	FTPState* state = (FTPState*)malloc(sizeof(FTPState));
 
 	if(!state) {
@@ -51,7 +51,7 @@ FTPState* alloc_default_state(const char* global_folder, FTPConnectAddr addr) {
 
 	state->account = account;
 
-	FTPDataSettings* data_settings = alloc_default_data_settings(addr);
+	FTPDataSettings* data_settings = alloc_default_data_settings();
 
 	if(!data_settings) {
 		return NULL;
@@ -151,22 +151,27 @@ char* make_address_port_desc(FTPConnectAddr addr) {
 
 	// Format (h1,h2,h3,h4,p1,p2)
 
-	// port is stored in big endian
-	uint16_t port = addr.sin_port;
+	uint16_t port = addr.port;
 
-	uint8_t p1 = port & 0xFF;
-	uint8_t p2 = port >> 8;
+	uint8_t p1 = port >> 8;
+	uint8_t p2 = port & 0xFF;
 
-	// addr is stored in big endian
-	uint32_t address = addr.sin_addr.s_addr;
+	uint32_t address = addr.addr;
 
-	uint8_t h1 = address & 0xFF;
-	uint8_t h2 = (address >> 8) & 0xFF;
-	uint8_t h3 = (address >> 16) & 0xFF;
-	uint8_t h4 = (address >> 24);
+	uint8_t h1 = (address >> 24);
+	uint8_t h2 = (address >> 16) & 0xFF;
+	uint8_t h3 = (address >> 8) & 0xFF;
+	uint8_t h4 = address & 0xFF;
 
 	char* result = NULL;
 	formatString(&result, return NULL;, "(%d,%d,%d,%d,%d,%d)", h1, h2, h3, h4, p1, p2);
 
 	return result;
+}
+
+NODISCARD FTPPortInformation get_port_info_from_sockaddr(struct sockaddr_in addr) {
+
+	FTPPortInformation info = { .addr = ntohl(addr.sin_addr.s_addr), .port = ntohs(addr.sin_port) };
+
+	return info;
 }
