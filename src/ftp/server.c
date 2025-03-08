@@ -134,20 +134,159 @@ cleanup:
 
 #undef FREE_AT_END
 
+#define SEND_RESPONSE_WITH_ERROR_CHECK(code, msg) \
+	do { \
+		int result = \
+		    sendFTPMessageToConnection(descriptor, code, msg, CONNECTION_SEND_FLAGS_UN_MALLOCED); \
+		if(result < 0) { \
+			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n"); \
+			return false; \
+		} \
+	} while(false)
+
 bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPState* state,
                          const FTPCommand* command) {
 
-	UNUSED(state);
-
 	switch(command->type) {
-		default: {
-			int result = sendFTPMessageToConnection(
-			    descriptor, FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED, "Command not implemented!",
-			    CONNECTION_SEND_FLAGS_UN_MALLOCED);
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
-				return false;
+		case FTP_COMMAND_USER: {
+
+			// see https://datatracker.ietf.org/doc/html/rfc1635
+			if(strcasecmp("anonymous", command->data.string) == 0) {
+				free_account_data(state->account);
+
+				state->account->state = ACCOUNT_STATE_OK;
+
+				char* malloced_username = copy_cstr(command->data.string);
+
+				if(!malloced_username) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR, "Internal ERROR!");
+
+					return true;
+				}
+
+				AccountOkData ok_data = { .permissions = ACCCOUNT_ANON,
+					                      .username = malloced_username };
+
+				state->account->data.ok_data = ok_data;
+
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_USER_LOGGED_IN,
+				                               "Logged In as anon!");
+
+				return true;
 			}
+
+			free_account_data(state->account);
+
+			state->account->state = ACCOUNT_STATE_ONLY_USER;
+
+			char* malloced_username = copy_cstr(command->data.string);
+
+			if(!malloced_username) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR, "Internal ERROR!");
+
+				return true;
+			}
+
+			state->account->data.temp_data.username = malloced_username;
+
+			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NEED_PSWD, "Need Password!");
+
+			return true;
+		}
+
+		case FTP_COMMAND_PASS: {
+
+			// TODO: allow user changing
+			if(state->account->state != ACCOUNT_STATE_ONLY_USER) {
+				free_account_data(state->account);
+
+				state->account->state = ACCOUNT_STATE_EMPTY;
+
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_BAD_SEQUENCE, "No user specified!");
+
+				return true;
+			}
+
+			char* username = state->account->data.temp_data.username;
+
+			char* passwd = command->data.string;
+
+			USER_VALIDITY user_validity = account_verify(username, passwd);
+
+			switch(user_validity) {
+				case USER_VALIDITY_OK: {
+
+					free_account_data(state->account);
+
+					state->account->state = ACCOUNT_STATE_OK;
+
+					char* malloced_username = copy_cstr(username);
+
+					if(!malloced_username) {
+						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR,
+						                               "Internal ERROR!");
+
+						return true;
+					}
+
+					// TODO: when to give write and when read+ write permission
+					AccountOkData ok_data = { .permissions = ACCOUNT_READ | ACCOUNT_WRITE,
+						                      .username = malloced_username };
+
+					state->account->data.ok_data = ok_data;
+
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_USER_LOGGED_IN,
+					                               "Logged In as user!");
+
+					return true;
+				}
+				case USER_VALIDITY_NO_SUCH_USER: {
+
+					free_account_data(state->account);
+
+					state->account->state = ACCOUNT_STATE_EMPTY;
+
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
+					                               "No such user found!");
+
+					return true;
+				}
+				case USER_VALIDITY_WRONG_PASSWORD: {
+					free_account_data(state->account);
+
+					state->account->state = ACCOUNT_STATE_EMPTY;
+
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
+					                               "Wrong password!");
+
+					return true;
+				}
+				case USER_VALIDITY_INTERNAL_ERROR:
+				default: {
+					free_account_data(state->account);
+
+					state->account->state = ACCOUNT_STATE_EMPTY;
+
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
+					                               "Internal Error!");
+
+					return true;
+				}
+			}
+
+			UNREACHABLE();
+		}
+
+		case FTP_COMMAND_AUTH: {
+			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED,
+			                               "AUTH recognized, but command not implemented!");
+
+			return true;
+		}
+
+		default: {
+			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED,
+			                               "Command not implemented!");
 
 			return true;
 		}

@@ -24,11 +24,21 @@ FTPState* alloc_default_state(const char* global_folder) {
 
 	memcpy(state->current_working_directory, global_folder, global_folder_length);
 
+	AccountInfo* account = alloc_default_account();
+
+	if(!account) {
+		return NULL;
+	}
+
+	state->account = account;
+
 	state->global_folder = global_folder;
-	state->account = NULL;
 	state->current_type = FTP_TRANSMISSION_TYPE_ASCII_NP;
 	state->mode = FTP_MODE_STREAM;
 	state->structure = FTP_STRUCTURE_FILE;
 
 	return state;
 }
+
+
+//TODO free state
