@@ -444,7 +444,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 			}
 
 			DataConnection* data_connection =
-			    get_data_connection_for_client(argument->data_controller, argument->addr);
+			    add_data_connection_ready_for_control(argument->data_controller, argument->addr);
 
 			if(data_connection == NULL) {
 
@@ -496,8 +496,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 						                               "Timeout on waiting for data connection");
 					}
 
-					data_connection =
-					    get_data_connection_for_client(argument->data_controller, argument->addr);
+					data_connection = add_data_connection_ready_for_control(
+					    argument->data_controller, argument->addr);
 
 					if(data_connection != NULL) {
 						break;
@@ -509,7 +509,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 				                               "Ok. Sending data");
 			}
 
-			// TODO: actually send data
+			// TODO: actually send data, if it fails, set control_satte to error,
+
+			// in any case after it finishes, notify the data_listener, so that it can clean up
+			// connections
+
+			// send final code
 
 			//   226, 250
 			//   425, 426, 451
@@ -792,22 +797,24 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			if(signal_received == SIGNAL_FOR_DATA_CONNECTION_REMOVAL) {
 				signal_received = 0;
 
-				// empty the data connections and close the ones, that are no longer required
-				int* fds_to_close = NULL;
-				int amount_to_close =
-				    data_connections_to_close(argument.data_controller, &fds_to_close);
+				{
+					// empty the data connections and close the ones, that are no longer required or
+					// timed out
+					int* fds_to_close = NULL;
+					int amount_to_close =
+					    data_connections_to_close(argument.data_controller, &fds_to_close);
 
-				if(amount_to_close < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "data_connections_to_close failed\n");
-					continue;
+					if(amount_to_close < 0) {
+						LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+						                   "data_connections_to_close failed\n");
+						continue;
+					}
+
+					for(int i = 0; i < amount_to_close; ++i) {
+						int fd_to_close = fds_to_close[i];
+						close(fd_to_close);
+					}
 				}
-
-				for(int i = 0; i < amount_to_close; ++i) {
-					int fd_to_close = fds_to_close[i];
-					close(fd_to_close);
-				}
-
 				continue;
 
 			} else {
@@ -826,6 +833,28 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
 		// will fail, just redo the poll
 		if(poll_fds[POLL_SOCKET_ARR_INDEX].revents != POLLIN) {
+
+			// do that here, so that it is done every now and then
+
+			{
+				// empty the data connections and close the ones, that are no longer required or
+				// timed out
+				int* fds_to_close = NULL;
+				int amount_to_close =
+				    data_connections_to_close(argument.data_controller, &fds_to_close);
+
+				if(amount_to_close < 0) {
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "data_connections_to_close failed\n");
+					continue;
+				}
+
+				for(int i = 0; i < amount_to_close; ++i) {
+					int fd_to_close = fds_to_close[i];
+					close(fd_to_close);
+				}
+			}
+
 			continue;
 		}
 
@@ -865,7 +894,25 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			return ListenerError_DataController;
 		}
 
-		// TODO
+		// clean up old ones
+		{
+			// empty the data connections and close the ones, that are no longer required or
+			// timed out
+			int* fds_to_close = NULL;
+			int amount_to_close =
+			    data_connections_to_close(argument.data_controller, &fds_to_close);
+
+			if(amount_to_close < 0) {
+				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+				                   "data_connections_to_close failed\n");
+				continue;
+			}
+
+			for(int i = 0; i < amount_to_close; ++i) {
+				int fd_to_close = fds_to_close[i];
+				close(fd_to_close);
+			}
+		}
 	}
 }
 

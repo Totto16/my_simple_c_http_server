@@ -29,3 +29,12 @@ NODISCARD bool data_controller_add_fd(DataController*, DataConnection*, int);
 
 // thread save
 NODISCARD int data_connections_to_close(DataController*, int**);
+
+// thread save
+NODISCARD DataConnection* add_data_connection_ready_for_control(DataController*,
+                                                                RawNetworkAddress addr);
+// thread save
+NODISCARD int get_fd_to_send_to(DataController*, DataConnection*);
+
+// thread save
+NODISCARD bool set_should_close(DataController*, DataConnection*);
