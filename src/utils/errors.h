@@ -36,9 +36,11 @@ typedef void* ListenerError;
 #define ListenerError_ThreadCancel ((ListenerError)0x81)
 #define ListenerError_QueuePush ((ListenerError)0x82)
 #define ListenerError_Accept ((ListenerError)0x83)
+#define ListenerError_DataController ((ListenerError)0x84)
+
 
 #define ListenerError_START ListenerError_Malloc
-#define ListenerError_END ListenerError_Accept
+#define ListenerError_END ListenerError_DataController
 
 bool is_listener_error(ListenerError error);
 

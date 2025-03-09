@@ -740,6 +740,8 @@ anyType(ListenerError*)
 	}
 }
 
+#define POLL_INTERVALL 5000
+
 anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadArgument*) arg) {
 
 	set_thread_name("listener thread (data)");
@@ -750,21 +752,25 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 
 #define POLL_FD_AMOUNT 2
 
+#define POLL_SOCKET_ARR_INDEX 0
+#define POLL_SIG_ARR_INDEX 1
+
 	struct pollfd poll_fds[POLL_FD_AMOUNT] = {};
 	// initializing the structs for poll
-	poll_fds[0].fd = argument.socketFd;
-	poll_fds[0].events = POLLIN;
+	poll_fds[POLL_SOCKET_ARR_INDEX].fd = argument.socketFd;
+	poll_fds[POLL_SOCKET_ARR_INDEX].events = POLLIN;
 
 	sigset_t mySigset;
 	sigemptyset(&mySigset);
 	sigaddset(&mySigset, SIGINT);
+	sigaddset(&mySigset, SIGNAL_FOR_DATA_CONNECTION_REMOVAL);
 	int sigFd = signalfd(-1, &mySigset, 0);
 	// TODO(Totto): don't exit here
 	checkForError(sigFd, "While trying to cancel the listener Thread on signal",
 	              exit(EXIT_FAILURE););
 
-	poll_fds[1].fd = sigFd;
-	poll_fds[1].events = POLLIN;
+	poll_fds[POLL_SIG_ARR_INDEX].fd = sigFd;
+	poll_fds[POLL_SIG_ARR_INDEX].events = POLLIN;
 	// loop and accept incoming requests
 	while(true) {
 
@@ -775,27 +781,51 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 		// since it aborts on POLLIN from the socketFd or the signalFd
 		int status = 0;
 		while(status == 0) {
-			status = poll(
-			    poll_fds, POLL_FD_AMOUNT,
-			    5000); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			status = poll(poll_fds, POLL_FD_AMOUNT, POLL_INTERVALL);
 			if(status < 0) {
-				LOG_MESSAGE(LogLevelError, "poll failed: %s\n", strerror(errno));
+				LOG_MESSAGE(LogLevelError | LogPrintLocation, "poll failed: %s\n", strerror(errno));
 				continue;
 			}
 		}
 
-		if(poll_fds[1].revents == POLLIN || signal_received != 0) {
-			// TODO(Totto): This fd isn't closed, when pthread_cancel is called from somewhere
-			// else, fix that somehow
-			close(poll_fds[1].fd);
-			int result = pthread_cancel(pthread_self());
-			checkForError(result, "While trying to cancel the listener Thread on signal",
-			              return ListenerError_ThreadCancel;);
+		if(poll_fds[POLL_SIG_ARR_INDEX].revents == POLLIN || signal_received != 0) {
+			if(signal_received == SIGNAL_FOR_DATA_CONNECTION_REMOVAL) {
+				signal_received = 0;
+
+				// empty the data connections and close the ones, that are no longer required
+				int* fds_to_close = NULL;
+				int amount_to_close =
+				    data_connections_to_close(argument.data_controller, &fds_to_close);
+
+				if(amount_to_close < 0) {
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "data_connections_to_close failed\n");
+					continue;
+				}
+
+				for(int i = 0; i < amount_to_close; ++i) {
+					int fd_to_close = fds_to_close[i];
+					close(fd_to_close);
+				}
+
+				continue;
+
+			} else {
+
+				// TODO(Totto): This fd (sigset fd) isn't closed, when pthread_cancel is called from
+				// somewhere else, fix that somehow
+				close(poll_fds[POLL_SIG_ARR_INDEX].fd);
+				int result = pthread_cancel(pthread_self());
+				checkForError(result, "While trying to cancel the listener Thread on signal",
+				              return ListenerError_ThreadCancel;);
+
+				UNREACHABLE();
+			}
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
 		// will fail, just redo the poll
-		if(poll_fds[0].revents != POLLIN) {
+		if(poll_fds[POLL_SOCKET_ARR_INDEX].revents != POLLIN) {
 			continue;
 		}
 
@@ -814,16 +844,28 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 
 		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Got a new data connection\n");
 
-		// search this exact client address in the control connections, that wait for such things,
-		// that is a array with entries we can search!
-		// TODO
-		/* 	if(is_in_that) {
-		        // DO SOMETHING
-		    }
-	 */
+		DataConnection* data_connection =
+		    get_data_connection_for_client(argument.data_controller, client_addr);
 
-		// TODO: remove
-		close(connectionFd);
+		if(data_connection == NULL) {
+			data_connection = data_controller_add_entry(argument.data_controller, client_addr);
+
+			if(data_connection == NULL) {
+				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+				                   "data_controller_add_entry failed\n");
+				return ListenerError_DataController;
+			}
+		}
+
+		bool success =
+		    data_controller_add_fd(argument.data_controller, data_connection, connectionFd);
+
+		if(!success) {
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "data_controller_add_fd failed\n");
+			return ListenerError_DataController;
+		}
+
+		// TODO
 	}
 }
 

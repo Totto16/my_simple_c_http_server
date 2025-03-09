@@ -14,6 +14,8 @@
 
 #define FTP_MAX_QUEUE_SIZE 100
 
+#define SIGNAL_FOR_DATA_CONNECTION_REMOVAL SIGTRAP
+
 typedef uint16_t PortSize;
 typedef struct {
 	PortSize control;
