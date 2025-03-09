@@ -1,8 +1,3 @@
-/*
-Author: Tobias Niederbrunner - csba1761
-Module: PS OS 08
-*/
-
 #include "ftp/server.h"
 #include "generic/secure.h"
 #include "http/server.h"

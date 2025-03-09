@@ -1,8 +1,3 @@
-/*
-Author: Tobias Niederbrunner - csba1761
-Module: PS OS 08
-*/
-
 #pragma once
 
 // Note -D_POSIX_C_SOURCE -D_BSD_SOURCE are needed feature flags ONLY for ZID-DPL, on

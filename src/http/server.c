@@ -1,8 +1,3 @@
-/*
-Author: Tobias Niederbrunner - csba1761
-Module: PS OS 08
-*/
-
 #include <errno.h>
 #include <signal.h>
 
