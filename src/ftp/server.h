@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 #include "./command.h"
+#include "./data.h"
+
 #include "generic/secure.h"
 #include "utils/thread_pool.h"
 
@@ -25,6 +27,7 @@ typedef struct {
 	int socketFd;
 	const char* const global_folder;
 	FTPPorts ports;
+	DataController* data_controller;
 } FTPControlThreadArgument;
 
 typedef struct {
@@ -32,9 +35,8 @@ typedef struct {
 	myqueue* jobIds;
 	ConnectionContext** contexts;
 	int socketFd;
+	DataController* data_controller;
 } FTPDataThreadArgument;
-
-typedef struct sockaddr_in RawNetworkAddress;
 
 typedef struct {
 	ConnectionContext** contexts;
@@ -43,10 +45,11 @@ typedef struct {
 	FTPState* state;
 	RawNetworkAddress addr;
 	FTPPorts ports;
+	DataController* data_controller;
 } FTPControlConnectionArgument;
 
-NODISCARD bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr data_addr,
-                                   FTPState* state, const FTPCommand* command);
+NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPConnectAddr data_addr,
+                                   FTPControlConnectionArgument*, const FTPCommand* command);
 
 anyType(JobError*) ftp_control_socket_connection_handler(anyType(FTPControlConnectionArgument*) arg,
                                                          WorkerInfo workerInfo);

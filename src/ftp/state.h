@@ -86,8 +86,6 @@ NODISCARD FTPState* alloc_default_state(const char* global_folder);
 
 // TODO: free state
 
-NODISCARD char* get_current_dir_name(FTPState* state, bool escape);
-
 NODISCARD char* make_address_port_desc(FTPConnectAddr addr);
 
 NODISCARD FTPPortInformation get_port_info_from_sockaddr(struct sockaddr_in addr);

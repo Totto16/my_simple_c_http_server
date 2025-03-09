@@ -2,6 +2,7 @@
 
 #include "./server.h"
 #include "./command.h"
+#include "./file_ops.h"
 #include "./protocol.h"
 #include "./send.h"
 #include "./state.h"
@@ -19,6 +20,7 @@
 #include <signal.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define ANON_USERNAME "anonymous"
@@ -132,7 +134,7 @@ anyType(JobError*)
 
 		for(size_t i = 0; i < ftpCommands->size; ++i) {
 			FTPCommand* command = ftpCommands->data[i];
-			bool successfull = ftp_process_command(descriptor, data_addr, argument->state, command);
+			bool successfull = ftp_process_command(descriptor, data_addr, argument, command);
 			if(!successfull) {
 				quit = true;
 				freeFTPCommandArray(ftpCommands);
@@ -179,8 +181,17 @@ cleanup:
 		} \
 	} while(false)
 
+// the timeout is 30 seconds
+#define DATA_CONNECTION_WAIT_TIMEOUT_S 30
+
+// the interval is 1,5 seconds
+#define DATA_CONNECTION_INTERVAL_NS (NS(1) / 2)
+#define DATA_CONNECTION_INTERVAL_S 1
+
 bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr data_addr,
-                         FTPState* state, const FTPCommand* command) {
+                         FTPControlConnectionArgument* argument, const FTPCommand* command) {
+
+	FTPState* state = argument->state;
 
 	switch(command->type) {
 		case FTP_COMMAND_USER: {
@@ -321,6 +332,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 			return true;
 		}
 
+		// permission model: everybody that is logged in can use PWD
 		case FTP_COMMAND_PWD: {
 
 			if(state->account->state != ACCOUNT_STATE_OK) {
@@ -337,8 +349,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 
 				return true;
 			}
-
-			// permission model: everybody that is logged in can use PWD
 
 			SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_DIR_OP_SUCC, "\"%s\"", dirname);
 
@@ -375,6 +385,135 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 
 			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR_IN_PARAM,
 			                               "Only passive mode supported as for now");
+
+			return true;
+		}
+
+		// permission model: everybody that is logged in can use LIST
+		case FTP_COMMAND_LIST: {
+
+			if(state->account->state != ACCOUNT_STATE_OK) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
+				                               "Not logged in: can't access files!");
+
+				return true;
+			}
+
+			char* arg = command->data.string;
+
+			if(arg == NULL) {
+				// A null argument implies the user's current working or default directory.
+				arg = ".";
+			}
+
+			char* final_file_path = resolve_path_in_cwd(state, arg);
+
+			if(!final_file_path) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+				                               "No such dir");
+
+				return true;
+			}
+
+			struct stat stat_result;
+			int result = stat(final_file_path, &stat_result);
+
+			if(result != 0) {
+				if(errno == ENOENT) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+					                               "No such dir");
+
+					return true;
+				}
+
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+				                               "Internal error");
+
+				return true;
+			}
+
+			bool is_folder = S_ISDIR(stat_result.st_mode);
+
+			if(access(final_file_path, R_OK) != 0) {
+				const char* file_type_str = is_folder ? "folder" : "file";
+
+				SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+				                                 "Access to %s denied", file_type_str);
+
+				return true;
+			}
+
+			DataConnection* data_connection =
+			    get_data_connection_for_client(argument->data_controller, argument->addr);
+
+			if(data_connection == NULL) {
+
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_WAITING_FOR_OPEN,
+				                               "Ok. Waiting for data connection");
+
+				// Wait for data connection
+
+				// y2k -> 2038 bug avoidance
+				static_assert(sizeof(time_t) == sizeof(uint64_t));
+				time_t start_time = time(NULL);
+
+				if(start_time == ((time_t)-1)) {
+					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
+					            strerror(errno));
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+					                               "Internal error");
+					return true;
+				}
+
+				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
+					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
+
+				while(true) {
+					int sleep_result = nanosleep(&interval, NULL);
+
+					// ignore EINTR errors, as we just want to sleep, if it'S shorter it's not that
+					// bad
+					if(sleep_result != 0 && errno != EINTR) {
+						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+						                               "Internal error");
+						return true;
+					}
+
+					time_t current_time = time(NULL);
+
+					if(current_time == ((time_t)-1)) {
+						LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
+						            strerror(errno));
+						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+						                               "Internal error");
+						return true;
+					}
+
+					time_t diff_time = current_time - start_time;
+
+					if(diff_time >= DATA_CONNECTION_WAIT_TIMEOUT_S) {
+						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_OPEN_ERROR,
+						                               "Timeout on waiting for data connection");
+					}
+
+					data_connection =
+					    get_data_connection_for_client(argument->data_controller, argument->addr);
+
+					if(data_connection != NULL) {
+						break;
+					}
+				}
+
+			} else {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_ALREADY_OPEN,
+				                               "Ok. Sending data");
+			}
+
+			// TODO: actually send data
+
+			//   226, 250
+			//   425, 426, 451
+			// 450
 
 			return true;
 		}
@@ -555,6 +694,7 @@ anyType(ListenerError*)
 		connectionArgument->state = connection_ftp_state;
 		connectionArgument->addr = client_addr;
 		connectionArgument->ports = argument.ports;
+		connectionArgument->data_controller = argument.data_controller;
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
@@ -834,22 +974,33 @@ int startFtpServer(PortSize control_port, PortSize data_port, char* folder) {
 		data_contexts[i] = get_connection_context(options);
 	}
 
+	DataController* data_controller = initialize_data_controller();
+
+	if(!data_controller) {
+		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		return EXIT_FAILURE;
+	}
+
 	// initializing the thread Arguments for the single listener thread, it receives all
 	// necessary arguments
 	pthread_t controlListenerThread = {};
-	FTPControlThreadArgument control_threadArgument = { .pool = &control_pool,
-		                                                .jobIds = &control_jobIds,
-		                                                .contexts = control_contexts,
-		                                                .socketFd = controlSocketFd,
-		                                                .global_folder = folder,
-		                                                .ports = { .control = control_port,
-		                                                           .data = data_port } };
+	FTPControlThreadArgument control_threadArgument = {
+		.pool = &control_pool,
+		.jobIds = &control_jobIds,
+		.contexts = control_contexts,
+		.socketFd = controlSocketFd,
+		.global_folder = folder,
+		.ports = { .control = control_port, .data = data_port },
+		.data_controller = data_controller
+
+	};
 
 	pthread_t dataListenerThread = {};
 	FTPDataThreadArgument data_threadArgument = { .pool = &data_pool,
 		                                          .jobIds = &data_jobIds,
 		                                          .contexts = data_contexts,
-		                                          .socketFd = dataSocketFd };
+		                                          .socketFd = dataSocketFd,
+		                                          .data_controller = data_controller };
 
 	// creating the thread
 	result1 = pthread_create(&controlListenerThread, NULL, ftp_control_listener_thread_function,

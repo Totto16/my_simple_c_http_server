@@ -122,3 +122,8 @@ void* reallocWithMemset(void* previousPtr, size_t oldSize, size_t newSize,
                         bool initializeWithZeros);
 
 NODISCARD char* copy_cstr(char*);
+
+// helpful macro for e.g sleeping
+#define MS(x) ((x) * 1000)
+#define US(x) (MS((x) * 1000))
+#define NS(x) (US((x) * 1000))
