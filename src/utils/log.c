@@ -1,10 +1,11 @@
 
+#define _GNU_SOURCE
+#include <pthread.h>
+#undef _GNU_SOURCE
 
 #include "log.h"
 #include "thread_helper.h"
 #include "utils/utils.h"
-
-#include <pthread.h>
 
 #define DEFAULT_LOG_LEVEL LogLevelInfo
 
@@ -144,8 +145,36 @@ void set_log_level(LogLevel level) {
 	__global_log_entry.log_level = level;
 }
 
+// taken from my work in oopetris
+// inspired by SDL_SYS_SetupThread also uses that code for most platforms
+void set_platform_thread_name(const char* name) {
+
+#if defined(__APPLE__) || defined(__MACOSX__)
+	if(pthread_setname_np(name) == ERANGE) {
+		char namebuf[16] = {}; /* Limited to 16 chars (with 0 byte) */
+		memcpy(namebuf, name, 15);
+		namebuf[15] = '\0';
+		pthread_setname_np(namebuf);
+	}
+#elif defined(__linux__) || defined(__ANDROID__)
+	if(pthread_setname_np(pthread_self(), name) == ERANGE) {
+		char namebuf[16] = {}; /* Limited to 16 chars (with 0 byte) */
+		memcpy(namebuf, name, 15);
+		namebuf[15] = '\0';
+		pthread_setname_np(pthread_self(), namebuf);
+	}
+#elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+
+	SetThreadDescription(GetCurrentThread(), name);
+
+#else
+	UNUSED(name);
+#endif
+}
+
 void set_thread_name(const char* name) {
 	__log_thread_state.name = name;
+	set_platform_thread_name(name);
 }
 
 int parse_log_level(const char* level) {
