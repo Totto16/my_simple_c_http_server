@@ -183,11 +183,11 @@ cleanup:
 		} \
 	} while(false)
 
-// the timeout is 30 seconds
-#define DATA_CONNECTION_WAIT_TIMEOUT_S 30
+// the timeout is 15 seconds
+#define DATA_CONNECTION_WAIT_TIMEOUT_S 15
 
-// the interval is 1,5 seconds
-#define DATA_CONNECTION_INTERVAL_NS (NS(1) / 2)
+// the interval is 1,4 seconds
+#define DATA_CONNECTION_INTERVAL_NS (NS(2) / 5)
 #define DATA_CONNECTION_INTERVAL_S 1
 
 bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr data_addr,
