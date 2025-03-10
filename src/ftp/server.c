@@ -443,6 +443,26 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 				return true;
 			}
 
+			// cleanup old connections, this has to happend, so that old connections for the same
+			// client are free 100%, in most of the cases this is a noop
+			{
+				// empty the data connections and close the ones, that are no longer required or
+				// timed out
+				int* fds_to_close = NULL;
+				int amount_to_close =
+				    data_connections_to_close(argument->data_controller, &fds_to_close);
+
+				if(amount_to_close < 0) {
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "data_connections_to_close failed\n");
+				} else {
+					for(int i = 0; i < amount_to_close; ++i) {
+						int fd_to_close = fds_to_close[i];
+						close(fd_to_close);
+					}
+				}
+			}
+
 			DataConnection* data_connection =
 			    add_data_connection_ready_for_control(argument->data_controller, argument->addr);
 
