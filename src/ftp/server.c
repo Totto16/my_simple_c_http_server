@@ -465,8 +465,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 				}
 			}
 
-			DataConnection* data_connection =
-			    add_data_connection_ready_for_control(argument->data_controller, argument->addr);
+			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
+			    argument->data_controller, argument->addr);
 
 			if(data_connection == NULL) {
 
@@ -518,7 +518,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 						                               "Timeout on waiting for data connection");
 					}
 
-					data_connection = add_data_connection_ready_for_control(
+					data_connection = get_data_connection_for_control_thread_or_add(
 					    argument->data_controller, argument->addr);
 
 					if(data_connection != NULL) {
@@ -951,16 +951,12 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 		LOG_MESSAGE_SIMPLE(LogLevelError, "Got a new data connection\n");
 
 		DataConnection* data_connection =
-		    get_data_connection_for_client(argument.data_controller, client_addr);
+		    get_data_connection_for_data_thread_or_add(argument.data_controller, client_addr);
 
 		if(data_connection == NULL) {
-			data_connection = data_controller_add_entry(argument.data_controller, client_addr);
-
-			if(data_connection == NULL) {
-				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-				                   "data_controller_add_entry failed\n");
-				return ListenerError_DataController;
-			}
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+			                   "data_controller_add_entry failed\n");
+			return ListenerError_DataController;
 		}
 
 		// TODO: get correct context, in future if we use tls

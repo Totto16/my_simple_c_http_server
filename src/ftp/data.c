@@ -20,7 +20,7 @@ struct DataControllerImpl {
  */
 typedef enum {
 	DATA_CONNECTION_STATE_EMPTY = 0,
-	DATA_CONNECTION_STATE_HAS_FD,
+	DATA_CONNECTION_STATE_HAS_DESCRIPTOR,
 	DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL,
 	DATA_CONNECTION_STATE_HAS_BOTH
 } DataConnectionState;
@@ -71,8 +71,21 @@ NODISCARD bool addr_eq(RawNetworkAddress addr1, RawNetworkAddress addr2) {
 	return addr1.sin_addr.s_addr == addr2.sin_addr.s_addr;
 }
 
-NODISCARD DataConnection* get_data_connection_for_client(DataController* const data_controller,
-                                                         RawNetworkAddress addr) {
+NODISCARD bool internal_set_last_change_to_now(DataConnection* connection) {
+	time_t current_time = time(NULL);
+
+	if(current_time == ((time_t)-1)) {
+		return false;
+	}
+
+	connection->last_change = current_time;
+
+	return true;
+}
+
+NODISCARD DataConnection*
+get_data_connection_for_data_thread_or_add(DataController* const data_controller,
+                                           RawNetworkAddress addr) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
 	checkForThreadError(result,
@@ -92,8 +105,44 @@ NODISCARD DataConnection* get_data_connection_for_client(DataController* const d
 				break;
 			}
 		}
+
+		if(connection == NULL) {
+
+			connection = (DataConnection*)malloc(sizeof(DataConnection));
+
+			if(!connection) {
+				goto cleanup;
+			}
+
+			// NOTE: no check is performed, if this is a duplicate
+
+			connection->addr = addr;
+			connection->state = DATA_CONNECTION_STATE_EMPTY;
+			connection->descriptor = NULL;
+			connection->control_state = DATA_CONNECTION_CONTROL_STATE_MISSING;
+			if(!internal_set_last_change_to_now(connection)) {
+				free(connection);
+				connection = NULL;
+				goto cleanup;
+			}
+
+			data_controller->connections_size++;
+			DataConnection** new_conns = (DataConnection**)realloc(
+			    data_controller->connections, data_controller->connections_size);
+
+			if(new_conns == NULL) {
+				data_controller->connections_size--;
+				free(connection);
+				connection = NULL;
+				goto cleanup;
+			}
+
+			data_controller->connections = new_conns;
+			data_controller->connections[data_controller->connections_size - 1] = connection;
+		}
 	}
 
+cleanup:
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
 	checkForThreadError(
@@ -101,74 +150,6 @@ NODISCARD DataConnection* get_data_connection_for_client(DataController* const d
 	    return NULL;);
 
 	return connection;
-}
-
-NODISCARD bool internal_set_last_change_to_now(DataConnection* connection) {
-	time_t current_time = time(NULL);
-
-	if(current_time == ((time_t)-1)) {
-		return false;
-	}
-
-	connection->last_change = current_time;
-
-	return true;
-}
-
-NODISCARD DataConnection* data_controller_add_entry(DataController* data_controller,
-                                                    RawNetworkAddress addr) {
-
-	int result = pthread_mutex_lock(&data_controller->mutex);
-	checkForThreadError(result,
-	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return NULL;);
-
-	DataConnection* new_connection = NULL;
-
-	{
-
-		new_connection = (DataConnection*)malloc(sizeof(DataConnection));
-
-		if(!new_connection) {
-			goto cleanup;
-		}
-
-		// NOTE: no check is performed, if this is a duplicate
-
-		new_connection->addr = addr;
-		new_connection->state = DATA_CONNECTION_STATE_EMPTY;
-		new_connection->descriptor = NULL;
-		new_connection->control_state = DATA_CONNECTION_CONTROL_STATE_MISSING;
-		if(!internal_set_last_change_to_now(new_connection)) {
-			free(new_connection);
-			new_connection = NULL;
-			goto cleanup;
-		}
-
-		data_controller->connections_size++;
-		DataConnection** new_conns = (DataConnection**)realloc(data_controller->connections,
-		                                                       data_controller->connections_size);
-
-		if(new_conns == NULL) {
-			data_controller->connections_size--;
-			free(new_connection);
-			new_connection = NULL;
-			goto cleanup;
-		}
-
-		data_controller->connections = new_conns;
-		data_controller->connections[data_controller->connections_size - 1] = new_connection;
-	}
-
-cleanup:
-
-	result = pthread_mutex_unlock(&data_controller->mutex);
-	// TODO(Totto): better report error
-	checkForThreadError(
-	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
-	    return NULL;);
-
-	return new_connection;
 }
 
 bool data_controller_add_descriptor(DataController* data_controller,
@@ -199,10 +180,10 @@ bool data_controller_add_descriptor(DataController* data_controller,
 				data_connection->state =
 				    data_connection->state == DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL
 				        ? DATA_CONNECTION_STATE_HAS_BOTH
-				        : DATA_CONNECTION_STATE_HAS_FD;
+				        : DATA_CONNECTION_STATE_HAS_DESCRIPTOR;
 				break;
 			}
-			case DATA_CONNECTION_STATE_HAS_FD:
+			case DATA_CONNECTION_STATE_HAS_DESCRIPTOR:
 			case DATA_CONNECTION_STATE_HAS_BOTH:
 			default: {
 				success = false;
@@ -312,8 +293,8 @@ cleanup:
 }
 
 NODISCARD DataConnection*
-add_data_connection_ready_for_control(DataController* const data_controller,
-                                      RawNetworkAddress addr) {
+get_data_connection_for_control_thread_or_add(DataController* const data_controller,
+                                              RawNetworkAddress addr) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
 	checkForThreadError(result,
@@ -341,7 +322,7 @@ add_data_connection_ready_for_control(DataController* const data_controller,
 						connection = NULL;
 						break;
 					}
-					case DATA_CONNECTION_STATE_HAS_FD: {
+					case DATA_CONNECTION_STATE_HAS_DESCRIPTOR: {
 						connection->state = DATA_CONNECTION_STATE_HAS_BOTH;
 						connection->control_state = DATA_CONNECTION_CONTROL_STATE_RETRIEVED;
 						break;

@@ -20,10 +20,7 @@ NODISCARD DataController* initialize_data_controller();
 typedef struct sockaddr_in RawNetworkAddress;
 
 // thread save
-NODISCARD DataConnection* get_data_connection_for_client(DataController*, RawNetworkAddress addr);
-
-// thread save
-NODISCARD DataConnection* data_controller_add_entry(DataController*, RawNetworkAddress addr);
+NODISCARD DataConnection* get_data_connection_for_data_thread_or_add(DataController*, RawNetworkAddress addr);
 
 // thread save
 NODISCARD bool data_controller_add_descriptor(DataController*, DataConnection*,
@@ -33,7 +30,7 @@ NODISCARD bool data_controller_add_descriptor(DataController*, DataConnection*,
 NODISCARD int data_connections_to_close(DataController*, ConnectionDescriptor***);
 
 // thread save
-NODISCARD DataConnection* add_data_connection_ready_for_control(DataController*,
+NODISCARD DataConnection* get_data_connection_for_control_thread_or_add(DataController*,
                                                                 RawNetworkAddress addr);
 // thread save
 NODISCARD ConnectionDescriptor* data_connection_get_descriptor_to_send_to(DataController*,
