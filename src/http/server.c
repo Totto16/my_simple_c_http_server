@@ -93,7 +93,7 @@ anyType(JobError*)
 		                                MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 
 		goto cleanup;
@@ -114,7 +114,7 @@ anyType(JobError*)
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 
 		goto cleanup;
@@ -135,7 +135,8 @@ anyType(JobError*)
 				                                         CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 				if(result < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "Error in sending response\n");
 				}
 
 				// just cancel the listener thread, then no new connection are accepted and the
@@ -154,7 +155,8 @@ anyType(JobError*)
 				    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
 				if(result < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "Error in sending response\n");
 				}
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
 				int wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
@@ -208,7 +210,8 @@ anyType(JobError*)
 				                                         CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 				if(result < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "Error in sending response\n");
 				}
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
@@ -220,7 +223,7 @@ anyType(JobError*)
 			    CONNECTION_SEND_FLAGS_MALLOCED);
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 			// TODO(Totto): send actual Content-Length, experiment with e.g a large video file!
@@ -228,7 +231,7 @@ anyType(JobError*)
 			                                         0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
 			HttpHeaderField* allowedHeader = (HttpHeaderField*)malloc(sizeof(HttpHeaderField));
@@ -258,7 +261,7 @@ anyType(JobError*)
 			                                1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
 		} else {
 			int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
@@ -266,7 +269,7 @@ anyType(JobError*)
 			                                         NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
 		}
 	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
@@ -275,7 +278,7 @@ anyType(JobError*)
 		                                         NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result) {
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 	} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
 
@@ -307,7 +310,7 @@ anyType(JobError*)
 		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
 		int result = sendHTTPMessageToConnection(
@@ -315,7 +318,7 @@ anyType(JobError*)
 		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 	} else {
 		int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
@@ -323,7 +326,7 @@ anyType(JobError*)
 		                                         CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 	}
 

@@ -108,7 +108,7 @@ anyType(JobError*)
 			                               CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 				goto cleanup;
 			}
 
@@ -126,7 +126,7 @@ anyType(JobError*)
 			                                        CONNECTION_SEND_FLAGS_UN_MALLOCED);
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 				goto cleanup;
 			}
 
@@ -167,7 +167,7 @@ cleanup:
 		int result = \
 		    sendFTPMessageToConnection(descriptor, code, msg, CONNECTION_SEND_FLAGS_UN_MALLOCED); \
 		if(result < 0) { \
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n"); \
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n"); \
 			return false; \
 		} \
 	} while(false)
@@ -178,7 +178,7 @@ cleanup:
 		string_builder_append(sb, return false;, format, __VA_ARGS__); \
 		int result = sendFTPMessageToConnectionSb(descriptor, code, sb); \
 		if(result < 0) { \
-			LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending response\n"); \
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n"); \
 			return false; \
 		} \
 	} while(false)
