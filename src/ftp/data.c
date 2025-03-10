@@ -127,7 +127,7 @@ NODISCARD DataConnection* data_controller_add_entry(DataController* data_control
 
 	{
 
-		new_connection = malloc(sizeof(DataConnection));
+		new_connection = (DataConnection*)malloc(sizeof(DataConnection));
 
 		if(!new_connection) {
 			goto cleanup;
@@ -157,7 +157,7 @@ NODISCARD DataConnection* data_controller_add_entry(DataController* data_control
 		}
 
 		data_controller->connections = new_conns;
-		new_conns[data_controller->connections_size - 1] = new_connection;
+		data_controller->connections[data_controller->connections_size - 1] = new_connection;
 	}
 
 cleanup:
@@ -363,7 +363,7 @@ add_data_connection_ready_for_control(DataController* const data_controller,
 		// add a new one!
 		{
 
-			DataConnection* new_connection = malloc(sizeof(DataConnection));
+			DataConnection* new_connection = (DataConnection*)malloc(sizeof(DataConnection));
 
 			if(!new_connection) {
 				goto cleanup;
@@ -391,6 +391,7 @@ add_data_connection_ready_for_control(DataController* const data_controller,
 			}
 
 			data_controller->connections = new_conns;
+			data_controller->connections[data_controller->connections_size - 1] = new_connection;
 			connection = NULL;
 		}
 	}

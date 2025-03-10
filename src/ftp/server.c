@@ -683,7 +683,7 @@ static void receiveSignal(int signalNumber) {
 anyType(ListenerError*)
     ftp_control_listener_thread_function(anyType(FTPControlThreadArgument*) arg) {
 
-	set_thread_name("listener thread (control)");
+	set_thread_name("control listener thread");
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting thread\n");
 
@@ -826,7 +826,7 @@ anyType(ListenerError*)
 
 anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadArgument*) arg) {
 
-	set_thread_name("listener thread (data)");
+	set_thread_name("data listener thread");
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting thread\n");
 
@@ -948,7 +948,7 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			return ListenerError_Accept;
 		}
 
-		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Got a new data connection\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Got a new data connection\n");
 
 		DataConnection* data_connection =
 		    get_data_connection_for_client(argument.data_controller, client_addr);
