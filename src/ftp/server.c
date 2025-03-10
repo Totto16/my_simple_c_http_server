@@ -24,6 +24,7 @@
 #include <unistd.h>
 
 #define ANON_USERNAME "anonymous"
+#define ALLOW_SSL_AUTO_CONTEXT_REUSE false
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
@@ -148,7 +149,8 @@ anyType(JobError*)
 cleanup:
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing Connection\n");
 	// finally close the connection
-	int result = close_connection_descriptor(descriptor, context);
+	int result =
+	    close_connection_descriptor_advanced(descriptor, context, ALLOW_SSL_AUTO_CONTEXT_REUSE);
 	checkForError(result, "While trying to close the connection descriptor", {
 		FREE_AT_END();
 		return JobError_Close;
@@ -448,17 +450,17 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				int* fds_to_close = NULL;
+				ConnectionDescriptor** connections_to_close = NULL;
 				int amount_to_close =
-				    data_connections_to_close(argument->data_controller, &fds_to_close);
+				    data_connections_to_close(argument->data_controller, &connections_to_close);
 
 				if(amount_to_close < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "data_connections_to_close failed\n");
 				} else {
 					for(int i = 0; i < amount_to_close; ++i) {
-						int fd_to_close = fds_to_close[i];
-						close(fd_to_close);
+						ConnectionDescriptor* connection_to_close = connections_to_close[i];
+						close_connection_descriptor(connection_to_close);
 					}
 				}
 			}
@@ -529,16 +531,70 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 				                               "Ok. Sending data");
 			}
 
-			// TODO: actually send data, if it fails, set control_satte to error,
+			// send data
+			{
 
-			// in any case after it finishes, notify the data_listener, so that it can clean up
-			// connections
+				ConnectionDescriptor* descriptor = data_connection_get_descriptor_to_send_to(
+				    argument->data_controller, data_connection);
 
-			// send final code
+				if(descriptor == NULL) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+					                               "Internal error");
+					return true;
+				}
 
-			//   226, 250
-			//   425, 426, 451
-			// 450
+				SendMode send_mode = get_current_send_mode(state);
+
+				if(send_mode == SEND_MODE_UNSUPPORTED) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+					                               "Unsupported send mode");
+					return true;
+				}
+
+				SendData* data_to_send = get_data_to_send_for_list(is_folder, final_file_path);
+
+				if(data_to_send == NULL) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+					                               "Internal error");
+					return true;
+				}
+
+				// this is used, so that we can check in between single sends (e.g. in a list), if
+				// the user send us a ABORT COMMAND
+				SendProgress send_progress = setup_send_progress(data_to_send, send_mode);
+
+				while(!send_progress.finished) {
+
+					if(!send_data_to_send(data_to_send, descriptor, send_mode, &send_progress)) {
+						free_send_data(data_to_send);
+
+						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+						                               "Internal send error");
+						return true;
+					}
+				}
+
+				free_send_data(data_to_send);
+
+				if(!data_connection_set_should_close(argument->data_controller, data_connection)) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+					                               "Internal error");
+					return true;
+				}
+
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_CLOSING_DATA_CONNECTION_REQ_OK,
+				                               "Success. Closing Data Connection");
+
+				// notify the data listener, to clean up connections
+
+				int pthread_result =
+				    pthread_kill(argument->data_listener, SIGNAL_FOR_DATA_CONNECTION_REMOVAL);
+				if(pthread_result != 0) {
+					LOG_MESSAGE(LogLevelError | LogPrintLocation,
+					            "pthread_kill failed, connection might get cleaned up later: %s\n",
+					            strerror(pthread_result));
+				}
+			}
 
 			return true;
 		}
@@ -721,6 +777,7 @@ anyType(ListenerError*)
 		connectionArgument->ports = argument.ports;
 		connectionArgument->data_controller = argument.data_controller;
 
+		connectionArgument->data_listener = argument.data_listener;
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
 		if(myqueue_push(argument.jobIds,
@@ -820,9 +877,9 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 				{
 					// empty the data connections and close the ones, that are no longer required or
 					// timed out
-					int* fds_to_close = NULL;
+					ConnectionDescriptor** connections_to_close = NULL;
 					int amount_to_close =
-					    data_connections_to_close(argument.data_controller, &fds_to_close);
+					    data_connections_to_close(argument.data_controller, &connections_to_close);
 
 					if(amount_to_close < 0) {
 						LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
@@ -831,8 +888,8 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 					}
 
 					for(int i = 0; i < amount_to_close; ++i) {
-						int fd_to_close = fds_to_close[i];
-						close(fd_to_close);
+						ConnectionDescriptor* connection_to_close = connections_to_close[i];
+						close_connection_descriptor(connection_to_close);
 					}
 				}
 				continue;
@@ -859,9 +916,9 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				int* fds_to_close = NULL;
+				ConnectionDescriptor** connections_to_close = NULL;
 				int amount_to_close =
-				    data_connections_to_close(argument.data_controller, &fds_to_close);
+				    data_connections_to_close(argument.data_controller, &connections_to_close);
 
 				if(amount_to_close < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
@@ -870,8 +927,8 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 				}
 
 				for(int i = 0; i < amount_to_close; ++i) {
-					int fd_to_close = fds_to_close[i];
-					close(fd_to_close);
+					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+					close_connection_descriptor(connection_to_close);
 				}
 			}
 
@@ -906,8 +963,16 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			}
 		}
 
+		// TODO: get correct context, in future if we use tls
+		// TODO: should we also support tls here?
+		const SecureOptions* const options = initialize_secure_options(false, "", "");
+
+		ConnectionContext* context = get_connection_context(options);
+
+		ConnectionDescriptor* const descriptor = get_connection_descriptor(context, connectionFd);
+
 		bool success =
-		    data_controller_add_fd(argument.data_controller, data_connection, connectionFd);
+		    data_controller_add_descriptor(argument.data_controller, data_connection, descriptor);
 
 		if(!success) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "data_controller_add_fd failed\n");
@@ -918,9 +983,9 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 		{
 			// empty the data connections and close the ones, that are no longer required or
 			// timed out
-			int* fds_to_close = NULL;
+			ConnectionDescriptor** connections_to_close = NULL;
 			int amount_to_close =
-			    data_connections_to_close(argument.data_controller, &fds_to_close);
+			    data_connections_to_close(argument.data_controller, &connections_to_close);
 
 			if(amount_to_close < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
@@ -929,8 +994,8 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			}
 
 			for(int i = 0; i < amount_to_close; ++i) {
-				int fd_to_close = fds_to_close[i];
-				close(fd_to_close);
+				ConnectionDescriptor* connection_to_close = connections_to_close[i];
+				close_connection_descriptor(connection_to_close);
 			}
 		}
 	}
@@ -1092,6 +1157,20 @@ int startFtpServer(PortSize control_port, PortSize data_port, char* folder) {
 
 	// initializing the thread Arguments for the single listener thread, it receives all
 	// necessary arguments
+	pthread_t dataListenerThread = {};
+	FTPDataThreadArgument data_threadArgument = { .pool = &data_pool,
+		                                          .jobIds = &data_jobIds,
+		                                          .contexts = data_contexts,
+		                                          .socketFd = dataSocketFd,
+		                                          .data_controller = data_controller };
+
+	// creating the data thread
+	result2 = pthread_create(&dataListenerThread, NULL, ftp_data_listener_thread_function,
+	                         &data_threadArgument);
+	checkForThreadError(result2,
+	                    "An Error occurred while trying to create a new data listener Thread",
+	                    return EXIT_FAILURE;);
+
 	pthread_t controlListenerThread = {};
 	FTPControlThreadArgument control_threadArgument = {
 		.pool = &control_pool,
@@ -1100,28 +1179,16 @@ int startFtpServer(PortSize control_port, PortSize data_port, char* folder) {
 		.socketFd = controlSocketFd,
 		.global_folder = folder,
 		.ports = { .control = control_port, .data = data_port },
-		.data_controller = data_controller
+		.data_controller = data_controller,
+		.data_listener = dataListenerThread
 
 	};
 
-	pthread_t dataListenerThread = {};
-	FTPDataThreadArgument data_threadArgument = { .pool = &data_pool,
-		                                          .jobIds = &data_jobIds,
-		                                          .contexts = data_contexts,
-		                                          .socketFd = dataSocketFd,
-		                                          .data_controller = data_controller };
-
-	// creating the thread
+	// creating the control thread
 	result1 = pthread_create(&controlListenerThread, NULL, ftp_control_listener_thread_function,
 	                         &control_threadArgument);
 	checkForThreadError(result1,
 	                    "An Error occurred while trying to create a new control listener Thread",
-	                    return EXIT_FAILURE;);
-
-	result2 = pthread_create(&dataListenerThread, NULL, ftp_data_listener_thread_function,
-	                         &data_threadArgument);
-	checkForThreadError(result2,
-	                    "An Error occurred while trying to create a new data listener Thread",
 	                    return EXIT_FAILURE;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via

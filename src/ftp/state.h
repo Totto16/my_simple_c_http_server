@@ -29,7 +29,8 @@ typedef enum {
  */
 typedef enum {
 	FTP_MODE_STREAM = 0,
-	// TODO: add rest
+	FTP_MODE_BLOCK,
+	FTP_MODE_COMPRESSED,
 
 } FTP_MODE;
 
@@ -39,9 +40,18 @@ typedef enum {
 typedef enum {
 	FTP_STRUCTURE_FILE = 0,
 	FTP_STRUCTURE_RECORD,
-	// TODO: add rest
+	FTP_STRUCTURE_PAGE
 
 } FTP_STRUCTURE;
+
+/**
+ * @enum value
+ */
+typedef enum {
+	SEND_MODE_UNSUPPORTED = 0, // standard is what?
+	SEND_MODE_STREAM_BINARY_FILE,
+	SEND_MODE_STREAM_BINARY_RECORD,
+} SendMode;
 
 /**
  * @enum value
@@ -89,3 +99,5 @@ NODISCARD FTPState* alloc_default_state(const char* global_folder);
 NODISCARD char* make_address_port_desc(FTPConnectAddr addr);
 
 NODISCARD FTPPortInformation get_port_info_from_sockaddr(struct sockaddr_in addr);
+
+NODISCARD SendMode get_current_send_mode(FTPState* state);

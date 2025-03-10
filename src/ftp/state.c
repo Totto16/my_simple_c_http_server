@@ -95,3 +95,32 @@ NODISCARD FTPPortInformation get_port_info_from_sockaddr(struct sockaddr_in addr
 
 	return info;
 }
+
+NODISCARD SendMode get_current_send_mode(FTPState* state) {
+
+	// NOTE: state->current_type is a value with flags, so == and != doesn#t work always
+
+	if(state->current_type != FTP_TRANSMISSION_TYPE_IMAGE) {
+		return SEND_MODE_UNSUPPORTED;
+	}
+
+	if(state->mode != FTP_MODE_STREAM) {
+		return SEND_MODE_UNSUPPORTED;
+	}
+
+	switch(state->structure) {
+		case FTP_STRUCTURE_FILE: {
+			return SEND_MODE_STREAM_BINARY_FILE;
+		}
+		case FTP_STRUCTURE_RECORD: {
+			return SEND_MODE_STREAM_BINARY_RECORD;
+		}
+		case FTP_STRUCTURE_PAGE:
+		default: {
+			return SEND_MODE_UNSUPPORTED;
+		}
+	}
+
+	UNREACHABLE();
+	return SEND_MODE_UNSUPPORTED;
+}

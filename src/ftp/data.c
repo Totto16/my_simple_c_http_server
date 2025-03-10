@@ -36,7 +36,7 @@ typedef enum {
 struct DataConnectionImpl {
 	RawNetworkAddress addr;
 	DataConnectionState state;
-	int fd;
+	ConnectionDescriptor* descriptor;
 	DataConnectionControlState control_state;
 	time_t last_change;
 };
@@ -137,7 +137,7 @@ NODISCARD DataConnection* data_controller_add_entry(DataController* data_control
 
 		new_connection->addr = addr;
 		new_connection->state = DATA_CONNECTION_STATE_EMPTY;
-		new_connection->fd = 0;
+		new_connection->descriptor = NULL;
 		new_connection->control_state = DATA_CONNECTION_CONTROL_STATE_MISSING;
 		if(!internal_set_last_change_to_now(new_connection)) {
 			free(new_connection);
@@ -171,8 +171,9 @@ cleanup:
 	return new_connection;
 }
 
-bool data_controller_add_fd(DataController* data_controller, DataConnection* data_connection,
-                            int fd) {
+bool data_controller_add_descriptor(DataController* data_controller,
+                                    DataConnection* data_connection,
+                                    ConnectionDescriptor* descriptor) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
 	checkForThreadError(result,
@@ -189,7 +190,7 @@ bool data_controller_add_fd(DataController* data_controller, DataConnection* dat
 		switch(data_connection->state) {
 			case DATA_CONNECTION_STATE_EMPTY:
 			case DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL: {
-				data_connection->fd = fd;
+				data_connection->descriptor = descriptor;
 				if(!internal_set_last_change_to_now(data_connection)) {
 					success = false;
 					break;
@@ -248,7 +249,8 @@ NODISCARD bool should_close_connection(DataConnection* connection) {
 	return false;
 }
 
-int data_connections_to_close(DataController* data_controller, int** fds) {
+int data_connections_to_close(DataController* data_controller,
+                              ConnectionDescriptor*** descriptors) {
 	int result = pthread_mutex_lock(&data_controller->mutex);
 	checkForThreadError(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
@@ -267,17 +269,18 @@ int data_connections_to_close(DataController* data_controller, int** fds) {
 			if(should_close_connection(current_conn)) {
 				close_amount++;
 
-				int* new_fds = (int*)realloc(*fds, close_amount);
+				ConnectionDescriptor** new_descriptors =
+				    (ConnectionDescriptor**)realloc((void*)(*descriptors), close_amount);
 
-				if(new_fds == NULL) {
-					*fds = NULL;
+				if(new_descriptors == NULL) {
+					*descriptors = NULL;
 					close_amount = -1;
 					goto cleanup;
 				}
 
-				*fds = new_fds;
+				*descriptors = new_descriptors;
 
-				new_fds[close_amount - 1] = current_conn->fd;
+				new_descriptors[close_amount - 1] = current_conn->descriptor;
 			} else {
 
 				data_controller->connections[current_keep_index] = current_conn;
@@ -368,7 +371,7 @@ add_data_connection_ready_for_control(DataController* const data_controller,
 
 			new_connection->addr = addr;
 			new_connection->state = DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL;
-			new_connection->fd = 0;
+			new_connection->descriptor = NULL;
 			new_connection->control_state = DATA_CONNECTION_CONTROL_STATE_MISSING;
 			if(!internal_set_last_change_to_now(new_connection)) {
 				free(new_connection);
@@ -400,4 +403,81 @@ cleanup:
 	    return NULL;);
 
 	return connection;
+}
+
+NODISCARD ConnectionDescriptor*
+data_connection_get_descriptor_to_send_to(DataController* data_controller,
+                                          DataConnection* connection) {
+
+	int result = pthread_mutex_lock(&data_controller->mutex);
+	checkForThreadError(result,
+	                    "An Error occurred while trying to lock the mutex for the data_controller",
+	                    return NULL;);
+
+	ConnectionDescriptor* descriptor = NULL;
+
+	{
+
+		if(connection->state != DATA_CONNECTION_STATE_HAS_BOTH) {
+			descriptor = NULL;
+			connection->control_state = DATA_CONNECTION_CONTROL_STATE_ERROR;
+			goto cleanup;
+		}
+
+		if(connection->control_state != DATA_CONNECTION_CONTROL_STATE_RETRIEVED) {
+			descriptor = NULL;
+			connection->control_state = DATA_CONNECTION_CONTROL_STATE_ERROR;
+			goto cleanup;
+		}
+
+		descriptor = connection->descriptor;
+		connection->control_state = DATA_CONNECTION_CONTROL_STATE_SENDING;
+	}
+cleanup:
+
+	result = pthread_mutex_unlock(&data_controller->mutex);
+	// TODO(Totto): better report error
+	checkForThreadError(
+	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
+	    return NULL;);
+
+	return descriptor;
+}
+
+NODISCARD bool data_connection_set_should_close(DataController* data_controller,
+                                                DataConnection* connection) {
+
+	int result = pthread_mutex_lock(&data_controller->mutex);
+	checkForThreadError(result,
+	                    "An Error occurred while trying to lock the mutex for the data_controller",
+	                    return false;);
+
+	bool success = true;
+
+	{
+
+		if(connection->state != DATA_CONNECTION_STATE_HAS_BOTH) {
+			success = false;
+			connection->control_state = DATA_CONNECTION_CONTROL_STATE_ERROR;
+			goto cleanup;
+		}
+
+		if(connection->control_state != DATA_CONNECTION_CONTROL_STATE_SENDING) {
+			success = false;
+			connection->control_state = DATA_CONNECTION_CONTROL_STATE_ERROR;
+			goto cleanup;
+		}
+
+		success = true;
+		connection->control_state = DATA_CONNECTION_CONTROL_STATE_SHOULD_CLOSE;
+	}
+cleanup:
+
+	result = pthread_mutex_unlock(&data_controller->mutex);
+	// TODO(Totto): better report error
+	checkForThreadError(
+	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
+	    return false;);
+
+	return success;
 }

@@ -84,6 +84,8 @@ typedef struct {
 	WebSocketThreadManager* manager;
 } WebSocketListenerArg;
 
+#define WS_ALLOW_SSL_CONTEXT_REUSE false
+
 #define RAW_MESSAGE_HEADER_SIZE 2
 
 #define RAW_MESSAGE_PAYLOAD_1_SIZE 2
@@ -1345,7 +1347,8 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 		}
 	}
 
-	close_connection_descriptor(connection->descriptor, connection->context);
+	close_connection_descriptor_advanced(connection->descriptor, connection->context,
+	                                     WS_ALLOW_SSL_CONTEXT_REUSE);
 	free_connection_context(connection->context);
 	free(connection);
 }

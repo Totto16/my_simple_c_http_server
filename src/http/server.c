@@ -13,6 +13,8 @@
 #include "ws/thread_manager.h"
 #include "ws/ws.h"
 
+#define SUPPORT_KEEPALIVE false
+
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
 int isRequestSupported(HttpRequest* request) {
@@ -329,7 +331,7 @@ anyType(JobError*)
 
 cleanup:
 	// finally close the connection
-	int result = close_connection_descriptor(descriptor, context);
+	int result = close_connection_descriptor_advanced(descriptor, context, SUPPORT_KEEPALIVE);
 	checkForError(result, "While trying to close the connection descriptor", {
 		FREE_AT_END();
 		return JobError_Close;

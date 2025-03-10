@@ -342,8 +342,13 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 #endif
 }
 
-int close_connection_descriptor(ConnectionDescriptor* descriptor,
-                                ConnectionContext* const context) {
+int close_connection_descriptor(ConnectionDescriptor* descriptor) {
+
+	return close_connection_descriptor_advanced(descriptor, NULL, false);
+}
+
+int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
+                                         ConnectionContext* const context, bool allow_reuse) {
 
 	if(!is_secure_descriptor(descriptor)) {
 		int result = close(descriptor->data.fd);
@@ -387,7 +392,6 @@ int close_connection_descriptor(ConnectionDescriptor* descriptor,
 	// side didn't clean up correctly
 	int shutdown_flags = SSL_get_shutdown(ssl_structure);
 	bool was_closed_correctly = false;
-	bool allow_reuse = false;
 
 	if((shutdown_flags & SSL_SENT_SHUTDOWN) != 0 && (shutdown_flags & SSL_RECEIVED_SHUTDOWN) != 0) {
 		was_closed_correctly = true;
@@ -396,7 +400,6 @@ int close_connection_descriptor(ConnectionDescriptor* descriptor,
 	// if it was closed correctly, we can reuse the connection, otherwise we can't
 	if(was_closed_correctly && allow_reuse) { // NOLINT(readability-implicit-bool-conversion)
 
-		// TODO(Totto): Warnings: allow_reuse should be configurable by keepalive connections:
 		/* SSL_clear() resets the SSL object to allow for another connection. The reset operation
 		 * however keeps several settings of the last sessions (some of these settings were made
 		 * automatically during the last handshake). It only makes sense when opening a new session
@@ -414,13 +417,16 @@ int close_connection_descriptor(ConnectionDescriptor* descriptor,
 	} else {
 		SSL_free(ssl_structure);
 
-		assert(context->data.data.ssl_structure == ssl_structure);
-		context->data.data.ssl_structure =
-		    new_ssl_structure_from_ctx(context->data.data.options->data.data->ssl_context);
+		// if context is NULL; we don't allow reallocating of the new context
+		if(context != NULL) {
+			assert(context->data.data.ssl_structure == ssl_structure);
+			context->data.data.ssl_structure =
+			    new_ssl_structure_from_ctx(context->data.data.options->data.data->ssl_context);
 
-		if(context->data.data.ssl_structure == NULL) {
-			errno = ESSL;
-			return -1;
+			if(context->data.data.ssl_structure == NULL) {
+				errno = ESSL;
+				return -1;
+			}
 		}
 	}
 

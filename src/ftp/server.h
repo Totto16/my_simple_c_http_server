@@ -30,6 +30,7 @@ typedef struct {
 	const char* const global_folder;
 	FTPPorts ports;
 	DataController* data_controller;
+	pthread_t data_listener;
 } FTPControlThreadArgument;
 
 typedef struct {
@@ -48,6 +49,7 @@ typedef struct {
 	RawNetworkAddress addr;
 	FTPPorts ports;
 	DataController* data_controller;
+	pthread_t data_listener;
 } FTPControlConnectionArgument;
 
 NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPConnectAddr data_addr,
