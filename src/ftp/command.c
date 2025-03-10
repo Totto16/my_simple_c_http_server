@@ -369,7 +369,7 @@ FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands) {
 		return NULL;
 	}
 
-	array->data = NULL;
+	array->content = NULL;
 	array->size = 0;
 
 	const char* const separators = "\r\n";
@@ -406,8 +406,8 @@ FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands) {
 		}
 
 		array->size++;
-		array->data = realloc(array->data, array->size);
-		array->data[array->size - 1] = command;
+		array->content = realloc((void*)array->content, array->size * sizeof(FTPCommand*));
+		array->content[array->size - 1] = command;
 
 		int actualLength = length + separatorsLength;
 		size_to_proccess -= actualLength;
@@ -485,7 +485,7 @@ void freeFTPCommand(FTPCommand* cmd) {
 
 void freeFTPCommandArray(FTPCommandArray* array) {
 	for(size_t i = 0; i < array->size; ++i) {
-		freeFTPCommand(array->data[i]);
+		freeFTPCommand(array->content[i]);
 	}
 
 	free(array);

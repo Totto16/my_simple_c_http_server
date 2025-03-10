@@ -127,3 +127,18 @@ NODISCARD char* copy_cstr(char*);
 #define MS(x) ((x) * 1000)
 #define US(x) (MS((x) * 1000))
 #define NS(x) (US((x) * 1000))
+
+#define ARRAY_STRUCT(NAME, TYPE) \
+	typedef struct { \
+		TYPE* content; \
+		size_t size; \
+	} NAME
+
+#define ARRAY_ADD_SLOT(TYPE, RESULT_NAME, ARRAY) \
+	ARRAY->size++; \
+	TYPE* RESULT_NAME = (TYPE*)realloc((void*)ARRAY->content, ARRAY->size * sizeof(TYPE))
+
+#define FREE_ARRAY(ARRAY) \
+	for(size_t array_idx = 0; array_idx < ARRAY->size; ++array_idx) { \
+		free(ARRAY->content[array_idx]); \
+	}

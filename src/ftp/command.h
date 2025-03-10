@@ -74,10 +74,7 @@ typedef struct {
 
 } FTPCommand;
 
-typedef struct {
-	FTPCommand** data;
-	size_t size;
-} FTPCommandArray;
+ARRAY_STRUCT(FTPCommandArray, FTPCommand*);
 
 FTPCommandArray* parseMultipleFTPCommands(char* input);
 

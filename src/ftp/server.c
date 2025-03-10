@@ -134,7 +134,7 @@ anyType(JobError*)
 		}
 
 		for(size_t i = 0; i < ftpCommands->size; ++i) {
-			FTPCommand* command = ftpCommands->data[i];
+			FTPCommand* command = ftpCommands->content[i];
 			bool successfull = ftp_process_command(descriptor, data_addr, argument, command);
 			if(!successfull) {
 				quit = true;
@@ -450,16 +450,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPConnectAddr 
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionDescriptor** connections_to_close = NULL;
-				int amount_to_close =
-				    data_connections_to_close(argument->data_controller, &connections_to_close);
+				ConnectionsToClose* connections_to_close =
+				    data_connections_to_close(argument->data_controller);
 
-				if(amount_to_close < 0) {
+				if(connections_to_close == NULL) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "data_connections_to_close failed\n");
 				} else {
-					for(int i = 0; i < amount_to_close; ++i) {
-						ConnectionDescriptor* connection_to_close = connections_to_close[i];
+					for(size_t i = 0; i < connections_to_close->size; ++i) {
+						ConnectionDescriptor* connection_to_close =
+						    connections_to_close->content[i];
 						close_connection_descriptor(connection_to_close);
 					}
 				}
@@ -877,18 +877,18 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 				{
 					// empty the data connections and close the ones, that are no longer required or
 					// timed out
-					ConnectionDescriptor** connections_to_close = NULL;
-					int amount_to_close =
-					    data_connections_to_close(argument.data_controller, &connections_to_close);
+					ConnectionsToClose* connections_to_close =
+					    data_connections_to_close(argument.data_controller);
 
-					if(amount_to_close < 0) {
+					if(connections_to_close == NULL) {
 						LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 						                   "data_connections_to_close failed\n");
 						continue;
 					}
 
-					for(int i = 0; i < amount_to_close; ++i) {
-						ConnectionDescriptor* connection_to_close = connections_to_close[i];
+					for(size_t i = 0; i < connections_to_close->size; ++i) {
+						ConnectionDescriptor* connection_to_close =
+						    connections_to_close->content[i];
 						close_connection_descriptor(connection_to_close);
 					}
 				}
@@ -916,18 +916,18 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionDescriptor** connections_to_close = NULL;
-				int amount_to_close =
-				    data_connections_to_close(argument.data_controller, &connections_to_close);
+				ConnectionsToClose* connections_to_close =
 
-				if(amount_to_close < 0) {
+				    data_connections_to_close(argument.data_controller);
+
+				if(connections_to_close == NULL) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "data_connections_to_close failed\n");
 					continue;
 				}
 
-				for(int i = 0; i < amount_to_close; ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+				for(size_t i = 0; i < connections_to_close->size; ++i) {
+					ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
 					close_connection_descriptor(connection_to_close);
 				}
 			}
@@ -979,18 +979,17 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 		{
 			// empty the data connections and close the ones, that are no longer required or
 			// timed out
-			ConnectionDescriptor** connections_to_close = NULL;
-			int amount_to_close =
-			    data_connections_to_close(argument.data_controller, &connections_to_close);
+			ConnectionsToClose* connections_to_close =
+			    data_connections_to_close(argument.data_controller);
 
-			if(amount_to_close < 0) {
+			if(connections_to_close == NULL) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 				                   "data_connections_to_close failed\n");
 				continue;
 			}
 
-			for(int i = 0; i < amount_to_close; ++i) {
-				ConnectionDescriptor* connection_to_close = connections_to_close[i];
+			for(size_t i = 0; i < connections_to_close->size; ++i) {
+				ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
 				close_connection_descriptor(connection_to_close);
 			}
 		}

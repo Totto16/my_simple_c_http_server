@@ -128,7 +128,8 @@ get_data_connection_for_data_thread_or_add(DataController* const data_controller
 
 			data_controller->connections_size++;
 			DataConnection** new_conns = (DataConnection**)realloc(
-			    data_controller->connections, data_controller->connections_size);
+			    data_controller->connections,
+			    data_controller->connections_size * sizeof(DataConnection*));
 
 			if(new_conns == NULL) {
 				data_controller->connections_size--;
@@ -230,14 +231,20 @@ NODISCARD bool should_close_connection(DataConnection* connection) {
 	return false;
 }
 
-int data_connections_to_close(DataController* data_controller,
-                              ConnectionDescriptor*** descriptors) {
+ConnectionsToClose* data_connections_to_close(DataController* data_controller) {
 	int result = pthread_mutex_lock(&data_controller->mutex);
 	checkForThreadError(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return -1;);
+	                    return NULL;);
 
-	int close_amount = 0;
+	ConnectionsToClose* connections = (ConnectionsToClose*)malloc(sizeof(ConnectionsToClose));
+
+	if(!connections) {
+		return NULL;
+	}
+
+	connections->content = NULL;
+	connections->size = 0;
 
 	{
 
@@ -248,20 +255,19 @@ int data_connections_to_close(DataController* data_controller,
 			DataConnection* current_conn = data_controller->connections[i];
 
 			if(should_close_connection(current_conn)) {
-				close_amount++;
 
-				ConnectionDescriptor** new_descriptors =
-				    (ConnectionDescriptor**)realloc((void*)(*descriptors), close_amount);
+				ARRAY_ADD_SLOT(ConnectionDescriptor*, new_descriptors, connections);
 
 				if(new_descriptors == NULL) {
-					*descriptors = NULL;
-					close_amount = -1;
+					FREE_ARRAY(connections);
+					free(connections);
+					connections = NULL;
 					goto cleanup;
 				}
 
-				*descriptors = new_descriptors;
+				connections->content = new_descriptors;
 
-				new_descriptors[close_amount - 1] = current_conn->descriptor;
+				new_descriptors[connections->size - 1] = current_conn->descriptor;
 			} else {
 
 				data_controller->connections[current_keep_index] = current_conn;
@@ -271,8 +277,9 @@ int data_connections_to_close(DataController* data_controller,
 		}
 
 		data_controller->connections_size = current_keep_index;
-		DataConnection** new_conns = (DataConnection**)realloc(data_controller->connections,
-		                                                       data_controller->connections_size);
+		DataConnection** new_conns =
+		    (DataConnection**)realloc((void*)data_controller->connections,
+		                              data_controller->connections_size * sizeof(DataConnection*));
 
 		if(new_conns == NULL) {
 			// just ignore, the array memory area might be to big but it'S no hard error
@@ -287,9 +294,9 @@ cleanup:
 	// TODO(Totto): better report error
 	checkForThreadError(
 	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
-	    return -1;);
+	    return NULL;);
 
-	return close_amount;
+	return connections;
 }
 
 NODISCARD DataConnection*
@@ -362,7 +369,8 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 			data_controller->connections_size++;
 			DataConnection** new_conns = (DataConnection**)realloc(
-			    data_controller->connections, data_controller->connections_size);
+			    data_controller->connections,
+			    data_controller->connections_size * sizeof(DataConnection*));
 
 			if(new_conns == NULL) {
 				data_controller->connections_size--;
