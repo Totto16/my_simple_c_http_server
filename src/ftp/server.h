@@ -14,32 +14,14 @@
 
 #define FTP_MAX_QUEUE_SIZE 100
 
-#define SIGNAL_FOR_DATA_CONNECTION_REMOVAL SIGTRAP
-
-typedef uint16_t PortSize;
-typedef struct {
-	PortSize control;
-	PortSize data;
-} FTPPorts;
-
 typedef struct {
 	thread_pool* pool;
 	myqueue* jobIds;
 	ConnectionContext** contexts;
 	int socketFd;
 	const char* const global_folder;
-	FTPPorts ports;
 	DataController* data_controller;
-	pthread_t data_listener;
 } FTPControlThreadArgument;
-
-typedef struct {
-	thread_pool* pool;
-	myqueue* jobIds;
-	ConnectionContext** contexts;
-	int socketFd;
-	DataController* data_controller;
-} FTPDataThreadArgument;
 
 typedef struct {
 	ConnectionContext** contexts;
@@ -47,12 +29,30 @@ typedef struct {
 	int connectionFd;
 	FTPState* state;
 	RawNetworkAddress addr;
-	FTPPorts ports;
 	DataController* data_controller;
-	pthread_t data_listener;
+	pthread_t data_orchestrator;
 } FTPControlConnectionArgument;
 
-NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPConnectAddr data_addr,
+typedef struct {
+	DataController* data_controller;
+	FTPPortField* ports;
+	size_t port_amount;
+} FTPDataOrchestratorArgument;
+
+typedef struct {
+	DataController* data_controller;
+	FTPPortField port;
+	size_t port_index;
+	int fd;
+} FTPDataThreadArgument;
+
+typedef struct {
+	pthread_t thread_ref;
+	FTPPortField port;
+	bool success;
+} FTPPassivePortStatus;
+
+NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPAddrField server_addr,
                                    FTPControlConnectionArgument*, const FTPCommand* command);
 
 anyType(JobError*) ftp_control_socket_connection_handler(anyType(FTPControlConnectionArgument*) arg,
@@ -65,4 +65,7 @@ anyType(ListenerError*)
 
 anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadArgument*) arg);
 
-NODISCARD int startFtpServer(PortSize control_port, PortSize data_port, char* folder);
+anyType(ListenerError*)
+    ftp_data_orchestrator_thread_function(anyType(FTPDataOrchestratorArgument*) arg);
+
+NODISCARD int startFtpServer(FTPPortField control_port, char* folder);

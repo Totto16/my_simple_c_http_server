@@ -71,12 +71,12 @@ char* make_address_port_desc(FTPConnectAddr addr) {
 
 	// Format (h1,h2,h3,h4,p1,p2)
 
-	uint16_t port = addr.port;
+	FTPPortField port = addr.port;
 
 	uint8_t p1 = port >> 8;
 	uint8_t p2 = port & 0xFF;
 
-	uint32_t address = addr.addr;
+	FTPAddrField address = addr.addr;
 
 	uint8_t h1 = (address >> 24);
 	uint8_t h2 = (address >> 16) & 0xFF;

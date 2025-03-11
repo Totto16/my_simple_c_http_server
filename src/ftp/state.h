@@ -62,14 +62,17 @@ typedef enum {
 	FTP_DATA_MODE_ACTIVE,
 } FTPDataMode;
 
+typedef uint32_t FTPAddrField;
+typedef uint16_t FTPPortField;
+
 /**
  * @brief everything here is little endian (so you have to use conversion functions to use it e.g.
  * htons for the port)
  *
  */
 typedef struct {
-	uint32_t addr;
-	uint16_t port;
+	FTPAddrField addr;
+	FTPPortField port;
 } FTPPortInformation;
 
 typedef FTPPortInformation FTPConnectAddr;

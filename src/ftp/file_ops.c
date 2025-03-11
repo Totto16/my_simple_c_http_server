@@ -296,7 +296,7 @@ MultipleFiles get_files_in_folder(const char* const folder) {
 
 		result.count++;
 
-		char** new_array = (char**)malloc(result.count);
+		char** new_array = (char**)realloc(result.files, sizeof(char*) * result.count);
 
 		if(!new_array) {
 			errno = ENOMEM;
