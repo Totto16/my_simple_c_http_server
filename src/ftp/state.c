@@ -18,6 +18,21 @@ FTPDataSettings* alloc_default_data_settings() {
 	return data_settings;
 }
 
+NODISCARD static FTPSupportedFeatures* alloc_supported_features(void) {
+
+	FTPSupportedFeatures* supported_features =
+	    (FTPSupportedFeatures*)malloc(sizeof(FTPSupportedFeatures));
+
+	if(!supported_features) {
+		return NULL;
+	}
+
+	supported_features->features = NULL,
+	supported_features->size = 0;
+
+	return supported_features;
+}
+
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
 FTPState* alloc_default_state(const char* global_folder) {
 	FTPState* state = (FTPState*)malloc(sizeof(FTPState));
@@ -58,6 +73,14 @@ FTPState* alloc_default_state(const char* global_folder) {
 	}
 
 	state->data_settings = data_settings;
+
+	FTPSupportedFeatures* supported_features = alloc_supported_features();
+
+	if(!supported_features) {
+		return NULL;
+	}
+
+	state->supported_features = supported_features;
 
 	state->global_folder = global_folder;
 	state->current_type = FTP_TRANSMISSION_TYPE_ASCII | FTP_TRANSMISSION_TYPE_FLAG_NP;

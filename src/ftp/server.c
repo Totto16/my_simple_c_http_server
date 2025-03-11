@@ -9,6 +9,7 @@
 
 #include "generic/helper.h"
 #include "generic/read.h"
+#include "generic/send.h"
 #include "utils/errors.h"
 #include "utils/log.h"
 #include "utils/thread_pool.h"
@@ -493,6 +494,64 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			state->data_settings->addr = data_addr;
 
 			free(port_desc);
+
+			return true;
+		}
+
+		case FTP_COMMAND_FEAT: {
+
+			if(state->supported_features->size == 0) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FEATURE_LIST,
+				                               "No additional features supported");
+
+				return true;
+			}
+
+			// send start
+			{
+				StringBuilder* sb = string_builder_init();
+
+				if(!sb) {
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "Error in sending start feature response\n");
+					return false;
+				}
+
+				string_builder_append(sb, return false;
+				                      , "%03d-Extensions supported:", FTP_RETURN_CODE_FEATURE_LIST);
+				int send_result = sendStringBuilderToConnection(descriptor, sb);
+				if(send_result < 0) {
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "Error in sending start feature response\n");
+					return false;
+				}
+			}
+			for(size_t i = 0; state->supported_features->size; ++i) {
+				FTPSupportedFeature feature = state->supported_features->features[i];
+
+				StringBuilder* sb = string_builder_init();
+
+				if(!sb) {
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "Error in sending manual feature response\n");
+					return false;
+				}
+
+				string_builder_append(sb, return false;, " %s", feature.name);
+
+				if(feature.arguments != NULL) {
+					string_builder_append(sb, return false;, " %s", feature.arguments);
+				}
+
+				int send_result = sendStringBuilderToConnection(descriptor, sb);
+				if(send_result < 0) {
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "Error in sending manual feature response\n");
+					return false;
+				}
+			}
+
+			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FEATURE_LIST, "END");
 
 			return true;
 		}

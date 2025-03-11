@@ -85,6 +85,16 @@ typedef struct {
 } FTPDataSettings;
 
 typedef struct {
+	char* name;
+	char* arguments;
+} FTPSupportedFeature;
+
+typedef struct {
+	FTPSupportedFeature* features;
+	size_t size;
+} FTPSupportedFeatures;
+
+typedef struct {
 	const char* global_folder;
 	AccountInfo* account;
 	char* current_working_directory;
@@ -92,6 +102,7 @@ typedef struct {
 	FTP_MODE mode;
 	FTP_STRUCTURE structure;
 	FTPDataSettings* data_settings;
+	FTPSupportedFeatures* supported_features;
 } FTPState;
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5

@@ -217,6 +217,9 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 	} else if(strcasecmp("NOOP", commandStr) == 0) {
 		command->type = FTP_COMMAND_NOOP;
 		return command;
+	} else if(strcasecmp("FEAT", commandStr) == 0) {
+		command->type = FTP_COMMAND_FEAT;
+		return command;
 	}
 
 	char* resultingIndex = strstr(commandStr, " ");
@@ -479,6 +482,7 @@ void freeFTPCommand(FTPCommand* cmd) {
 		case FTP_COMMAND_PWD:
 		case FTP_COMMAND_SYST:
 		case FTP_COMMAND_NOOP:
+		case FTP_COMMAND_FEAT:
 		default: break;
 	}
 }
@@ -526,6 +530,7 @@ const char* get_command_name(const FTPCommand* const command) {
 		case FTP_COMMAND_PWD: return "PWD";
 		case FTP_COMMAND_SYST: return "SYST";
 		case FTP_COMMAND_NOOP: return "NOOP";
+		case FTP_COMMAND_FEAT: return "FEAT";
 		default: return "<UNKNOWN COMMAND>";
 	}
 }

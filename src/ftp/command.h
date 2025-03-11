@@ -53,7 +53,9 @@ typedef enum {
 	FTP_COMMAND_MIC,
 	FTP_COMMAND_CONF,
 	FTP_COMMAND_ENC,
-
+	// see: https://datatracker.ietf.org/doc/html/rfc2389
+	FTP_COMMAND_FEAT,
+	FTP_COMMAND_OPTS
 } FTP_COMMAND_ENUM;
 
 typedef struct {
