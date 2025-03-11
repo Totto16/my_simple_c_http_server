@@ -483,6 +483,7 @@ void freeFTPCommand(FTPCommand* cmd) {
 		case FTP_COMMAND_SYST:
 		case FTP_COMMAND_NOOP:
 		case FTP_COMMAND_FEAT:
+		case FTP_COMMAND_QUIT:
 		default: break;
 	}
 }
@@ -531,6 +532,7 @@ const char* get_command_name(const FTPCommand* const command) {
 		case FTP_COMMAND_SYST: return "SYST";
 		case FTP_COMMAND_NOOP: return "NOOP";
 		case FTP_COMMAND_FEAT: return "FEAT";
+		case FTP_COMMAND_QUIT: return "QUIT";
 		default: return "<UNKNOWN COMMAND>";
 	}
 }
