@@ -285,6 +285,13 @@ MultipleFiles get_files_in_folder(const char* const folder) {
 		}
 
 		char* name = ent->d_name;
+
+		if(strcmp(".", name) == 0) {
+			continue;
+		} else if(strcmp("..", name) == 0) {
+			continue;
+		}
+
 		size_t name_len = strlen(name);
 
 		char* new_name = (char*)malloc(name_len + 1);
@@ -293,6 +300,10 @@ MultipleFiles get_files_in_folder(const char* const folder) {
 			errno = ENOMEM;
 			goto error;
 		}
+
+		memcpy(new_name, name, name_len);
+
+		new_name[name_len] = '\0';
 
 		result.count++;
 
@@ -386,6 +397,11 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 			char* value = data->data.file_names.files[progress->_impl.sent_count];
 
 			int sent_result = sendStringToConnection(descriptor, value);
+			if(sent_result < 0) {
+				return false;
+			}
+
+			sent_result = sendStringToConnection(descriptor, "\n");
 			if(sent_result < 0) {
 				return false;
 			}

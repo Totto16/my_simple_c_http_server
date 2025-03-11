@@ -21,15 +21,17 @@ int sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toS
 			return -errno;
 		}
 
-		if(wroteBytes == 0) {
-			/// shouldn't occur!
-			LOG_MESSAGE_SIMPLE(LogLevelError, "FATAL: Write has an unsupported state!\n");
-			return -2;
-		}
-
 		if(wroteBytes == (ssize_t)remainingLength) {
 			// the message was sent in one time
 			break;
+		}
+
+		if(wroteBytes == 0) {
+			/// shouldn't occur!
+			LOG_MESSAGE(LogLevelError,
+			            "FATAL: Write has an unsupported state: written %lu of %lu bytes\n",
+			            alreadyWritten, length);
+			return -2;
 		}
 
 		// otherwise repeat until that happened

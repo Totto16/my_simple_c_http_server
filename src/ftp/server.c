@@ -740,6 +740,8 @@ anyType(ListenerError*)
 			int result = pthread_cancel(pthread_self());
 			checkForError(result, "While trying to cancel the listener Thread on signal",
 			              return ListenerError_ThreadCancel;);
+
+			return ListenerError_ThreadAfterCancel;
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
@@ -889,7 +891,7 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			checkForError(result, "While trying to cancel a data listener Thread on signal",
 			              return ListenerError_ThreadCancel;);
 
-			return ListenerError_ThreadCancel;
+			return ListenerError_ThreadAfterCancel;
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
@@ -933,7 +935,7 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			return ListenerError_Accept;
 		}
 
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Got a new data connection\n");
+		LOG_MESSAGE_SIMPLE(LogLevelInfo, "Got a new passive data connection\n");
 
 		DataConnection* data_connection = get_data_connection_for_data_thread_or_add_passive(
 		    argument.data_controller, argument.port_index);

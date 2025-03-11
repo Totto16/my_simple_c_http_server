@@ -62,8 +62,10 @@ void print_listener_error(const ListenerError error) {
 		error_str = "QueuePush";
 	} else if(error == ListenerError_Accept) {
 		error_str = "Accept";
-	}else if(error == ListenerError_DataController) {
+	} else if(error == ListenerError_DataController) {
 		error_str = "DataController";
+	} else if(error == ListenerError_ThreadAfterCancel) {
+		error_str = "ThreadAfterCancel";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Listener Error: %s\n", error_str);

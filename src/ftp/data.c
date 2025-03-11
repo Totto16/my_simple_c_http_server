@@ -356,6 +356,29 @@ _nts_internal_data_connections_to_close(DataController* data_controller, DataCon
 
 				connections->content = new_descriptors;
 
+				if(!current_conn->identifier.active) {
+					// dealloc port
+
+					bool port_found = false;
+
+					for(size_t port_idx = 0; port_idx < data_controller->port_amount; ++port_idx) {
+						PortMetadata* port_metadata = &data_controller->ports[port_idx];
+						if(port_metadata->associated_connection == current_conn) {
+							port_found = true;
+
+							port_metadata->associated_connection = NULL,
+							port_metadata->reserved = false;
+
+							break;
+						}
+					}
+
+					if(!port_found) {
+						LOG_MESSAGE_SIMPLE(LogLevelError, "Error in closing connection, couldn't "
+						                                  "find passive port metadata to clean!\n");
+					}
+				}
+
 				new_descriptors[connections->size - 1] = current_conn->descriptor;
 			} else {
 
@@ -366,14 +389,20 @@ _nts_internal_data_connections_to_close(DataController* data_controller, DataCon
 		}
 
 		data_controller->connections_size = current_keep_index;
-		DataConnection** new_conns =
-		    (DataConnection**)realloc((void*)data_controller->connections,
-		                              data_controller->connections_size * sizeof(DataConnection*));
-
-		if(new_conns == NULL) {
-			// just ignore, the array memory area might be to big but it'S no hard error
+		if(current_keep_index == 0) {
+			free(data_controller->connections);
+			data_controller->connections = NULL;
 		} else {
-			data_controller->connections = new_conns;
+
+			DataConnection** new_conns = (DataConnection**)realloc(
+			    (void*)data_controller->connections,
+			    data_controller->connections_size * sizeof(DataConnection*));
+
+			if(new_conns == NULL) {
+				// just ignore, the array memory area might be to big but it'S no hard error
+			} else {
+				data_controller->connections = new_conns;
+			}
 		}
 	}
 
@@ -718,8 +747,8 @@ cleanup:
 	return descriptor;
 }
 
-NODISCARD bool _nts_internal_close_active_connection(DataController* data_controller,
-                                                     DataConnection* connection) {
+NODISCARD bool _nts_internal_close_connection(DataController* data_controller,
+                                              DataConnection* connection) {
 
 	ConnectionsToClose* connections_to_close =
 	    _nts_internal_data_connections_to_close(data_controller, connection);
@@ -752,11 +781,6 @@ NODISCARD bool data_connection_close(DataController* data_controller, DataConnec
 
 	{
 
-		if(connection->identifier.active && connection->active_data != NULL) {
-			success = _nts_internal_close_active_connection(data_controller, connection);
-			goto cleanup;
-		}
-
 		if(connection->state != DATA_CONNECTION_STATE_HAS_BOTH) {
 			success = false;
 			connection->control_state = DATA_CONNECTION_CONTROL_STATE_ERROR;
@@ -771,6 +795,8 @@ NODISCARD bool data_connection_close(DataController* data_controller, DataConnec
 
 		success = true;
 		connection->control_state = DATA_CONNECTION_CONTROL_STATE_SHOULD_CLOSE;
+
+		success = _nts_internal_close_connection(data_controller, connection);
 	}
 cleanup:
 
