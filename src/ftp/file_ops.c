@@ -531,7 +531,10 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path) 
 	}
 
 	// note: the exact data is not specified by the RFC :(
-	// So i just do the stuff that the FTP server did, I used to observer behaviour
+	// So i just do the stuff that the FTP server did, I used to observer behaviour and looked at
+	// filezilla sourcecode, on which format it understands (as it has to parse it)
+	// a good in depth explanation is in the filezilla source code at
+	// src/engine/directorylistingparser.h:4
 
 	if(is_folder) {
 		data->type = SEND_TYPE_MULTIPLE_FILES;
@@ -597,7 +600,11 @@ NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes)
 		return NULL;
 	}
 
-	size_t result = strftime(date_str, max_bytes, "%b %d %H:%M %Y", &converted_time);
+	// see filezilla source code at src/engine/directorylistingparser.cpp:1094 at
+	// CDirectoryListingParser::ParseUnixDateTime on why this exact format is used, it has the most
+	// available information, while being recognized
+
+	size_t result = strftime(date_str, max_bytes, "%Y-%m-%d %H:%M", &converted_time);
 
 	if(result == 0) {
 		free(date_str);
