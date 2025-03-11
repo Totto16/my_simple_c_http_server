@@ -358,6 +358,7 @@ int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
 
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNUSED(context);
+	UNUSED(allow_reuse);
 	UNREACHABLE();
 #else
 
