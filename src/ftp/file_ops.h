@@ -17,12 +17,24 @@ typedef struct {
 	SendProgressImplData _impl;
 } SendProgress;
 
+/**
+ * @enum value
+ */
+typedef enum {
+	DIR_CHANGE_RESULT_OK = 0,
+	DIR_CHANGE_RESULT_NO_SUCH_DIR,
+	DIR_CHANGE_RESULT_ERROR,
+	DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL,
+} DirChangeResult;
+
 NODISCARD char* get_dir_name_relative_to_ftp_root(const FTPState* state, const char* file,
                                                   bool escape);
 
-NODISCARD char* get_current_dir_name(const FTPState* state, bool escape);
+NODISCARD char* get_current_dir_name_relative_to_ftp_root(const FTPState* state, bool escape);
 
 NODISCARD char* resolve_path_in_cwd(const FTPState* state, const char* file);
+
+NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file);
 
 NODISCARD SendProgress setup_send_progress(const SendData* data, SendMode send_mode);
 

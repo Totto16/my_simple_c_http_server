@@ -342,7 +342,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* dirname = get_current_dir_name(state, true);
+			char* dirname = get_current_dir_name_relative_to_ftp_root(state, true);
 
 			if(!dirname) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR, "Internal Error!");
@@ -351,6 +351,59 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			}
 
 			SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_DIR_OP_SUCC, "\"%s\"", dirname);
+
+			free(dirname);
+
+			return true;
+		}
+
+		// permission model: everybody that is logged in can use CWD
+		case FTP_COMMAND_CWD: {
+
+			if(state->account->state != ACCOUNT_STATE_OK) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
+				                               "Not logged in: can't access files!");
+
+				return true;
+			}
+
+			char* argument = command->data.string;
+
+			DirChangeResult result = change_dirname_to(state, argument);
+
+			switch(result) {
+				case DIR_CHANGE_RESULT_OK: {
+					break;
+				}
+				case DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL: {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN_FATAL,
+					                               "Path traversal detected, aborting!");
+					return true;
+				}
+				case DIR_CHANGE_RESULT_NO_SUCH_DIR: {
+
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN_FATAL,
+					                               "No such directory!");
+					return true;
+				}
+				case DIR_CHANGE_RESULT_ERROR:
+				default: {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN_FATAL,
+					                               "An unknown error occurred!");
+					return true;
+				}
+			}
+
+			char* dirname = get_current_dir_name_relative_to_ftp_root(state, true);
+
+			if(!dirname) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR, "Internal Error!");
+
+				return true;
+			}
+
+			SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_FILE_ACTION_OK,
+			                                 "directory changed to \"%s\"", dirname);
 
 			free(dirname);
 

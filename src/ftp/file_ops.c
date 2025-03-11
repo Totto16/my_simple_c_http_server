@@ -13,7 +13,7 @@
 // both end NOT in /
 // cwd is the same or a subpath of global_f
 
-char* get_current_dir_name(const FTPState* const state, bool escape) {
+char* get_current_dir_name_relative_to_ftp_root(const FTPState* const state, bool escape) {
 
 	char* current_working_directory = state->current_working_directory;
 
@@ -30,13 +30,13 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 
 	// invariant check 1
 	if((global_folder[g_length - 1] == '/') || (file[f_length - 1] == '/')) {
-		LOG_MESSAGE_SIMPLE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated\n");
+		LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated: %s\n", file);
 		return NULL;
 	}
 
 	// invariant check 2
 	if(strstr(file, global_folder) != file) {
-		LOG_MESSAGE_SIMPLE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated\n");
+		LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated: %s\n", file);
 		return NULL;
 	}
 
@@ -52,11 +52,11 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 		}
 
 		if(f_length == g_length) {
-			memcpy(result, "/", needed_size);
+			result[0] = '/';
 
 			result[needed_size] = '\0';
 		} else {
-			size_t pos = 0;
+			size_t pos = g_length;
 			size_t result_pos = 0;
 			while(true) {
 				if(file[pos] == '\0') {
@@ -86,7 +86,7 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 	}
 
 	if(f_length == g_length) {
-		memcpy(result, "/", needed_size);
+		result[0] = '/';
 	} else {
 		memcpy(result, file + g_length, needed_size);
 	}
@@ -96,7 +96,7 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 	return result;
 }
 
-bool file_is_absolute(const char* const file) {
+static bool file_is_absolute(const char* const file) {
 	if(strlen(file) == 0) {
 		// NOTE: 0 length is the same as "." so it is not absolute
 		return false;
@@ -105,14 +105,18 @@ bool file_is_absolute(const char* const file) {
 	return file[0] == '/';
 }
 
-NODISCARD char* resolve_abs_path_in_cwd(const FTPState* const state,
-                                        const char* const user_File_input_to_sanitize) {
+NODISCARD static char* resolve_abs_path_in_cwd(const FTPState* const state,
+                                               const char* const user_file_input_to_sanitize,
+                                               DirChangeResult* result) {
 
 	// normalize the absolute path, so that eg <g>/../ gets resolved, then it fails one invariant
 	// below, so it poses no risk to path traversal
-	char* file = realpath(user_File_input_to_sanitize, NULL);
+	char* file = realpath(user_file_input_to_sanitize, NULL);
 
 	if(!file) {
+		if(result) {
+			*result = DIR_CHANGE_RESULT_ERROR;
+		}
 		return NULL;
 	}
 
@@ -124,34 +128,48 @@ NODISCARD char* resolve_abs_path_in_cwd(const FTPState* const state,
 
 	// invariant check 1
 	if((global_folder[g_length - 1] == '/') || (file[f_length - 1] == '/')) {
-		LOG_MESSAGE_SIMPLE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated\n");
+		if(result) {
+			*result = DIR_CHANGE_RESULT_ERROR;
+		} else {
+			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated: %s\n",
+			            file);
+		}
 		return NULL;
 	}
 
 	// invariant check 2
 	if(strstr(file, global_folder) != file) {
-		LOG_MESSAGE_SIMPLE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated\n");
+		if(result) {
+			*result = DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL;
+		} else {
+			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated: %s\n",
+			            file);
+		}
 		return NULL;
 	}
 
-	// everything is fine, after the invariants are checked
+	// everything is fine, after the invariants are
+	if(result) {
+		*result = DIR_CHANGE_RESULT_OK;
+	}
 	return file;
 }
 
-NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* const file) {
+NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
+                                                    const char* const file,
+                                                    DirChangeResult* dir_result) {
 
 	// check if the file is absolute or relative
-	if(file_is_absolute(file)) {
-		return resolve_abs_path_in_cwd(state, file);
-	}
+	bool is_absolute = file_is_absolute(file);
 
-	char* current_working_directory = state->current_working_directory;
+	const char* base_dir = is_absolute ? state->global_folder : state->current_working_directory;
 
-	size_t c_length = strlen(current_working_directory);
+	size_t b_length = strlen(base_dir);
 	size_t f_length = strlen(file);
 
-	// 1 for the "/"" and one for the \0 byte
-	char* abs_string = malloc(c_length + f_length + 2);
+	// 1 for the "/" (only if relative) and one for the \0 byte
+	size_t final_length = b_length + f_length + (is_absolute ? 1 : 2);
+	char* abs_string = malloc(final_length * sizeof(char));
 
 	if(!abs_string) {
 		return NULL;
@@ -159,16 +177,23 @@ NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* con
 
 	// NOTE: no need to normalize the resulting path to avoid bad patterns (e.g. <g>/../..), that is
 	// done in resolve_abs_path_in_cwd
-	memcpy(abs_string, current_working_directory, c_length);
-	abs_string[c_length] = '/';
-	memcpy(abs_string + c_length + 1, file, f_length);
-	abs_string[c_length + f_length + 1] = '\0';
+	memcpy(abs_string, base_dir, b_length);
 
-	char* result = resolve_abs_path_in_cwd(state, abs_string);
+	if(!is_absolute) {
+		abs_string[b_length] = '/';
+	}
+	memcpy(abs_string + b_length + (is_absolute ? 0 : 1), file, f_length);
+	abs_string[final_length - 1] = '\0';
+
+	char* result = resolve_abs_path_in_cwd(state, abs_string, dir_result);
 
 	free(abs_string);
 
 	return result;
+}
+
+NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* const file) {
+	return internal_resolve_path_in_cwd(state, file, NULL);
 }
 
 /**
@@ -693,4 +718,33 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 void free_send_data(SendData* data) {
 	// TODO
 	UNUSED(data);
+}
+
+NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
+
+	DirChangeResult dir_result = DIR_CHANGE_RESULT_OK;
+	char* new_dir = internal_resolve_path_in_cwd(state, file, &dir_result);
+
+	if(!new_dir) {
+		if(dir_result == DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL) {
+			// change nothing, leave as is
+			return DIR_CHANGE_RESULT_OK;
+		}
+
+		return DIR_CHANGE_RESULT_NO_SUCH_DIR;
+	}
+
+	// invariant check 1
+	if(new_dir[strlen(new_dir) - 1] == '/') {
+		return DIR_CHANGE_RESULT_ERROR;
+	}
+
+	// invariant check 2
+	if(strstr(new_dir, state->global_folder) != new_dir) {
+		return DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL;
+	}
+
+	state->current_working_directory = new_dir;
+
+	return DIR_CHANGE_RESULT_OK;
 }
