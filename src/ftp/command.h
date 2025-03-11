@@ -76,10 +76,12 @@ typedef struct {
 
 ARRAY_STRUCT(FTPCommandArray, FTPCommand*);
 
-FTPCommandArray* parseMultipleFTPCommands(char* input);
+NODISCARD FTPCommandArray* parseMultipleFTPCommands(char* input);
 
 void freeFTPCommand(FTPCommand*);
 
 void freeFTPCommandArray(FTPCommandArray*);
 
-FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg);
+NODISCARD const char* get_command_name(const FTPCommand*);
+
+NODISCARD FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg);

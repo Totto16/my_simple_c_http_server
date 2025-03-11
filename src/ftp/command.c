@@ -490,3 +490,42 @@ void freeFTPCommandArray(FTPCommandArray* array) {
 
 	free(array);
 }
+
+const char* get_command_name(const FTPCommand* const command) {
+	switch(command->type) {
+		case FTP_COMMAND_TYPE: return "TYPE";
+		case FTP_COMMAND_PORT: return "PORT";
+		case FTP_COMMAND_USER: return "USER";
+		case FTP_COMMAND_PASS: return "PASS";
+		case FTP_COMMAND_ACCT: return "ACCT";
+		case FTP_COMMAND_CWD: return "CWD";
+		case FTP_COMMAND_SMNT: return "SMNT";
+		case FTP_COMMAND_RETR: return "RETR";
+		case FTP_COMMAND_STOR: return "STOR";
+		case FTP_COMMAND_APPE: return "APPE";
+		case FTP_COMMAND_RNFR: return "RNFR";
+		case FTP_COMMAND_RNTO: return "RNTO";
+		case FTP_COMMAND_DELE: return "DELE";
+		case FTP_COMMAND_RMD: return "RMD";
+		case FTP_COMMAND_MKD: return "MKD";
+		case FTP_COMMAND_SITE: return "SITE";
+		case FTP_COMMAND_AUTH: return "AUTH";
+		case FTP_COMMAND_ADAT: return "ADAT";
+		case FTP_COMMAND_MIC: return "MIC";
+		case FTP_COMMAND_CONF: return "CONF";
+		case FTP_COMMAND_ENC: return "ENC";
+		case FTP_COMMAND_LIST: return "LIST";
+		case FTP_COMMAND_NLST: return "NLST";
+		case FTP_COMMAND_STAT: return "STAT";
+		case FTP_COMMAND_HELP: return "HELP";
+		case FTP_COMMAND_CDUP: return "CDUP";
+		case FTP_COMMAND_REIN: return "REIN";
+		case FTP_COMMAND_PASV: return "PASV";
+		case FTP_COMMAND_STOU: return "STOU";
+		case FTP_COMMAND_ABOR: return "ABOR";
+		case FTP_COMMAND_PWD: return "PWD";
+		case FTP_COMMAND_SYST: return "SYST";
+		case FTP_COMMAND_NOOP: return "NOOP";
+		default: return "<UNKNOWN COMMAND>";
+	}
+}

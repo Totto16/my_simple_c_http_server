@@ -39,6 +39,10 @@ deps += dependency(
     default_options: {'tests': 'disabled'},
 )
 
+cc = meson.get_compiler('c')
+
+deps += cc.find_library('m', required: false)
+
 src_files = []
 inc_dirs = []
 

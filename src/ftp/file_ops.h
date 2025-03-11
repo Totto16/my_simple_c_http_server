@@ -26,9 +26,9 @@ NODISCARD char* resolve_path_in_cwd(const FTPState* state, const char* file);
 
 NODISCARD SendProgress setup_send_progress(const SendData* data, SendMode send_mode);
 
-NODISCARD SendData* get_data_to_send_for_list(bool is_folder, const char* path);
+NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* path);
 
-NODISCARD bool send_data_to_send(const SendData* data, ConnectionDescriptor*  descriptor, SendMode send_mode,
-                                 SendProgress* progress);
+NODISCARD bool send_data_to_send(const SendData* data, ConnectionDescriptor* descriptor,
+                                 SendMode send_mode, SendProgress* progress);
 
 void free_send_data(SendData* data);

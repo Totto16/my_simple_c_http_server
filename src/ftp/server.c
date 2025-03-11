@@ -137,7 +137,6 @@ anyType(JobError*)
 			bool successfull = ftp_process_command(descriptor, server_addr, argument, command);
 			if(!successfull) {
 				quit = true;
-				freeFTPCommandArray(ftpCommands);
 				break;
 			}
 		}
@@ -543,7 +542,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						break;
 					}
 				}
-
 			} else {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_ALREADY_OPEN,
 				                               "Ok. Sending data");
@@ -552,8 +550,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			// send data
 			{
 
-				ConnectionDescriptor* descriptor = data_connection_get_descriptor_to_send_to(
-				    argument->data_controller, data_connection);
+				ConnectionDescriptor* data_conn_descriptor =
+				    data_connection_get_descriptor_to_send_to(argument->data_controller,
+				                                              data_connection);
 
 				if(descriptor == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
@@ -583,7 +582,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				while(!send_progress.finished) {
 
-					if(!send_data_to_send(data_to_send, descriptor, send_mode, &send_progress)) {
+					if(!send_data_to_send(data_to_send, data_conn_descriptor, send_mode,
+					                      &send_progress)) {
 						free_send_data(data_to_send);
 
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
@@ -627,7 +627,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				}
 				case FTP_TRANSMISSION_TYPE_IMAGE: {
 					state->current_type = FTP_TRANSMISSION_TYPE_IMAGE;
-					break;
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_CMD_OK, "Set Type To Binary!");
+					return true;
 				}
 				default:
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR, "Internal ERROR!");
@@ -658,6 +659,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		default: {
+			LOG_MESSAGE(LogLevelWarn, "Command %s not implemented\n", get_command_name(command));
 			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED,
 			                               "Command not implemented!");
 

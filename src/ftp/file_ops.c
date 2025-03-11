@@ -2,8 +2,12 @@
 
 #include "./file_ops.h"
 #include "generic/send.h"
+#include "utils/string_builder.h"
 
 #include <dirent.h>
+#include <math.h>
+#include <sys/stat.h>
+#include <time.h>
 
 // note: global_folder <-> current_working_directory invariants:
 // both end NOT in /
@@ -170,22 +174,45 @@ NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* con
 /**
  * @enum value
  */
-typedef enum {
-	SEND_TYPE_FILE_NAME = 0,
-	SEND_TYPE_MULTIPLE_FILE_NAMES,
-	SEND_TYPE_METADATA,
-	SEND_TYPE_RAW_DATA
-} SendType;
+typedef enum { SEND_TYPE_FILE = 0, SEND_TYPE_MULTIPLE_FILES, SEND_TYPE_RAW_DATA } SendType;
 
 typedef struct {
-	char** files;
+	bool read;
+	bool write;
+	bool execute;
+} OnePermission;
+
+typedef struct {
+	char special_type;
+	OnePermission permissions[3];
+} FilePermissions;
+
+typedef struct {
+	uid_t user;  /* User ID of owner */
+	gid_t group; /* Group ID of owner */
+} Owners;
+
+typedef struct {
+	FilePermissions permissions;
+	size_t link_amount;
+	Owners owners;
+	size_t size;
+	time_t last_mod;
+	char* file_name;
+} FileWithMetadata;
+
+typedef struct {
+	size_t link;
+	size_t user;
+	size_t group;
+	size_t size;
+} MaxSize;
+
+typedef struct {
+	FileWithMetadata** files;
 	size_t count;
+	MaxSize sizes;
 } MultipleFiles;
-
-// TODO:
-typedef struct {
-	int todo;
-} MetaData;
 
 typedef struct {
 	void* data;
@@ -195,9 +222,8 @@ typedef struct {
 struct SendDataImpl {
 	SendType type;
 	union {
-		char* file_name;
-		MultipleFiles file_names;
-		MetaData metadata;
+		FileWithMetadata* file;
+		MultipleFiles* multiple_files;
 		RawData data;
 	} data;
 };
@@ -209,16 +235,12 @@ NODISCARD SendProgress setup_send_progress(const SendData* const data, SendMode 
 	size_t original_data_count = 0;
 
 	switch(data->type) {
-		case SEND_TYPE_FILE_NAME: {
+		case SEND_TYPE_FILE: {
 			original_data_count = 1;
 			break;
 		}
-		case SEND_TYPE_MULTIPLE_FILE_NAMES: {
-			original_data_count = data->data.file_names.count;
-			break;
-		}
-		case SEND_TYPE_METADATA: {
-			// TODO
+		case SEND_TYPE_MULTIPLE_FILES: {
+			original_data_count = data->data.multiple_files->count;
 			break;
 		}
 		case SEND_TYPE_RAW_DATA: {
@@ -249,25 +271,198 @@ NODISCARD SendProgress setup_send_progress(const SendData* const data, SendMode 
 	return result;
 }
 
-MetaData get_metadata_for_file(const char* const file) {
+NODISCARD char get_type_from_mode(mode_t mode) {
+	switch(mode & S_IFMT) {
+		case S_IFREG: return '-';
+		case S_IFBLK: return 'b';
+		case S_IFCHR: return 'c';
+		case S_IFDIR: return 'd';
+		case S_IFIFO: return 'p';
+		case S_IFLNK: return 'l';
+		case S_IFSOCK: return 's';
+		default: return '?';
+	}
+}
 
-	// TODO
-	UNUSED(file);
-	MetaData metadata = { .todo = 0 };
+NODISCARD FilePermissions permissions_from_mode(mode_t mode) {
+
+	char special_type = get_type_from_mode(mode);
+
+	FilePermissions file_permissions = { .special_type = special_type, .permissions = {} };
+
+	int masks[3] = { S_IRWXU, S_IRWXG, S_IRWXO };
+	for(size_t i = 0; i < 3; ++i) {
+		int mask = masks[i];
+		int value = (mode & mask) >> ((2 - i) * 3);
+		file_permissions.permissions[i] = (OnePermission){ .read = (value & 0b100) != 0,
+			                                               .write = (value & 0b010) != 0,
+			                                               .execute = (value & 0b001) != 0 };
+	}
+
+	return file_permissions;
+}
+
+NODISCARD FileWithMetadata* get_metadata_for_file(const char* absolute_path, const char* name);
+
+NODISCARD FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path) {
+
+	char* name_ptr = absolute_path;
+
+	while(true) {
+		char* result = strstr(name_ptr, "/");
+
+		if(result == NULL) {
+			break;
+		}
+
+		name_ptr = result + 1;
+	}
+
+	char* final_name = copy_cstr(name_ptr);
+
+	FileWithMetadata* result = get_metadata_for_file(absolute_path, final_name);
+
+	free(final_name);
+
+	return result;
+}
+
+NODISCARD FileWithMetadata* get_metadata_for_file_folder(const char* const folder,
+                                                         const char* const name) {
+
+	size_t folder_len = strlen(folder);
+	size_t name_len = strlen(name);
+
+	bool has_trailing_backslash = folder[folder_len - 1] == '/';
+	size_t final_length = folder_len + name_len + (has_trailing_backslash ? 1 : 2);
+
+	char* absolute_path = (char*)malloc(final_length);
+
+	if(!absolute_path) {
+		return NULL;
+	}
+
+	memcpy(absolute_path, folder, folder_len);
+
+	if(!has_trailing_backslash) {
+		absolute_path[folder_len] = '/';
+	}
+
+	memcpy(absolute_path + folder_len + (has_trailing_backslash ? 0 : 1), name, name_len);
+
+	absolute_path[final_length - 1] = '\0';
+
+	FileWithMetadata* result = get_metadata_for_file(absolute_path, name);
+
+	free(absolute_path);
+
+	return result;
+}
+
+NODISCARD FileWithMetadata* get_metadata_for_file(const char* const absolute_path,
+                                                  const char* const name) {
+
+	FileWithMetadata* metadata = (FileWithMetadata*)malloc(sizeof(FileWithMetadata));
+
+	if(!metadata) {
+		return NULL;
+	}
+
+	struct stat stat_result;
+	int result = stat(absolute_path, &stat_result);
+
+	if(result != 0) {
+		LOG_MESSAGE(LogLevelError | LogPrintLocation, "Couldn't stat folder '%s': %s\n",
+		            absolute_path, strerror(errno));
+		return NULL;
+	}
+
+	FilePermissions permissions = permissions_from_mode(stat_result.st_mode);
+
+	Owners owners = { .user = stat_result.st_uid, .group = stat_result.st_gid };
+
+	size_t name_len = strlen(name);
+
+	char* new_name = (char*)malloc(name_len + 1);
+
+	if(!new_name) {
+		return NULL;
+	}
+
+	memcpy(new_name, name, name_len);
+
+	new_name[name_len] = '\0';
+
+	metadata->permissions = permissions;
+	metadata->link_amount = stat_result.st_nlink;
+	metadata->owners = owners;
+	metadata->size = stat_result.st_size;
+	metadata->last_mod = stat_result.st_mtim.tv_sec;
+	metadata->file_name = new_name;
+
 	return metadata;
 }
 
-MultipleFiles get_files_in_folder(const char* const folder) {
+void free_file_metadata(FileWithMetadata* metadata) {
 
-	errno = 0;
-	MultipleFiles result = { .files = NULL, .count = 0 };
+	free(metadata->file_name);
+	free(metadata);
+}
+
+inline size_t size_for_number(size_t num) {
+
+	return floor(log10((double)num)) + 1;
+}
+
+NODISCARD MaxSize internal_get_size_for(FileWithMetadata* metadata) {
+
+	MaxSize result = {};
+
+	result.link = size_for_number(metadata->link_amount);
+	result.user = size_for_number(metadata->owners.user);
+	result.group = size_for_number(metadata->owners.group);
+	result.size = size_for_number(metadata->size);
+
+	return result;
+}
+
+void internal_update_max_size(MaxSize* sizes, FileWithMetadata* metadata) {
+
+	MaxSize size = internal_get_size_for(metadata);
+
+	if(size.link > sizes->link) {
+		sizes->link = size.link;
+	}
+
+	if(size.user > sizes->user) {
+		sizes->user = size.user;
+	}
+
+	if(size.group > sizes->group) {
+		sizes->group = size.group;
+	}
+
+	if(size.size > sizes->size) {
+		sizes->size = size.size;
+	}
+}
+
+MultipleFiles* get_files_in_folder(const char* const folder) {
+
+	MultipleFiles* result = (MultipleFiles*)malloc(sizeof(MultipleFiles));
+
+	if(!result) {
+		return NULL;
+	}
+
+	result->count = 0;
+	result->files = NULL;
+	result->sizes = (MaxSize){ .link = 0, .user = 0, .group = 0, .size = 0 };
 
 	DIR* dir = opendir(folder);
 	if(dir == NULL) {
-		if(errno == 0) {
-			errno = ENOENT;
-		}
-		return result;
+		free(result);
+		return NULL;
 	}
 
 	while(true) {
@@ -292,50 +487,42 @@ MultipleFiles get_files_in_folder(const char* const folder) {
 			continue;
 		}
 
-		size_t name_len = strlen(name);
+		FileWithMetadata* metadata = get_metadata_for_file_folder(folder, name);
 
-		char* new_name = (char*)malloc(name_len + 1);
-
-		if(!new_name) {
-			errno = ENOMEM;
+		if(!metadata) {
 			goto error;
 		}
 
-		memcpy(new_name, name, name_len);
+		result->count++;
 
-		new_name[name_len] = '\0';
-
-		result.count++;
-
-		char** new_array = (char**)realloc(result.files, sizeof(char*) * result.count);
+		FileWithMetadata** new_array =
+		    (FileWithMetadata**)realloc(result->files, sizeof(FileWithMetadata*) * result->count);
 
 		if(!new_array) {
-			errno = ENOMEM;
 			goto error;
 		}
 
-		result.files = new_array;
+		result->files = new_array;
 
-		result.files[result.count - 1] = new_name;
+		result->files[result->count - 1] = metadata;
+		internal_update_max_size(&result->sizes, metadata);
 	}
 
 error:
-	for(size_t i = 0; i < result.count; ++i) {
-		free(result.files[i]);
+	for(size_t i = 0; i < result->count; ++i) {
+		free_file_metadata(result->files[i]);
 	}
 success:
 
 	int close_res = closedir(dir);
 	if(close_res != 0) {
-		if(errno == 0) {
-			errno = ENOENT;
-		}
+		return NULL;
 	}
 
 	return result;
 }
 
-NODISCARD SendData* get_data_to_send_for_list(bool is_folder, const char* const path) {
+NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path) {
 
 	SendData* data = (SendData*)malloc(sizeof(SendData));
 
@@ -347,20 +534,89 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, const char* const 
 	// So i just do the stuff that the FTP server did, I used to observer behaviour
 
 	if(is_folder) {
-		data->type = SEND_TYPE_MULTIPLE_FILE_NAMES;
-		MultipleFiles files = get_files_in_folder(path);
-		if(errno != 0) {
+		data->type = SEND_TYPE_MULTIPLE_FILES;
+		MultipleFiles* files = get_files_in_folder(path);
+		if(files == NULL) {
 			free(data);
 			return NULL;
 		}
-		data->data.file_names = files;
+		data->data.multiple_files = files;
 	} else {
-		data->type = SEND_TYPE_METADATA;
-		data->data.metadata = get_metadata_for_file(path);
+		data->type = SEND_TYPE_FILE;
+		FileWithMetadata* file = get_metadata_for_file_abs(path);
+
+		if(file == NULL) {
+			free(data);
+			return NULL;
+		}
+
+		data->data.file = file;
 	}
 
 	return data;
 }
+
+#define FORMAT_SPACES "    "
+
+NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes) {
+
+	StringBuilder* sb = string_builder_init();
+
+	if(!sb) {
+		return NULL;
+	}
+
+	// append permissions string
+
+	{
+		FilePermissions permissions = file->permissions;
+
+		char modes[3][3] = {};
+
+		for(size_t i = 0; i < 3; ++i) {
+
+			OnePermission perm = permissions.permissions[i];
+
+			modes[i][0] = perm.read ? 'r' : '-';
+			modes[i][1] = perm.write ? 'w' : '-';
+			modes[i][2] = perm.execute ? 'x' : '-';
+		}
+
+		string_builder_append(sb, return NULL;, "%c%.*s%.*s%.*s", permissions.special_type, 3,
+		                                      modes[0], 3, modes[1], 3, modes[2]);
+	}
+
+	size_t max_bytes = 0xFF;
+	char* date_str = (char*)malloc(max_bytes * sizeof(char));
+
+	struct tm converted_time;
+
+	struct tm* convert_result = localtime_r(&file->last_mod, &converted_time);
+
+	if(!convert_result) {
+		return NULL;
+	}
+
+	size_t result = strftime(date_str, max_bytes, "%b %d %H:%M %Y", &converted_time);
+
+	if(result == 0) {
+		free(date_str);
+		return NULL;
+	}
+
+	date_str[result] = '\0';
+
+	string_builder_append(sb, return NULL;,
+	                                      FORMAT_SPACES "%*lu" FORMAT_SPACES "%*d" FORMAT_SPACES
+	                                                    "%*d" FORMAT_SPACES "%*lu %s %s\n",
+	                                      ((int)sizes.link), file->link_amount, ((int)sizes.user),
+	                                      file->owners.user, ((int)sizes.group), file->owners.group,
+	                                      ((int)sizes.size), file->size, date_str, file->file_name);
+
+	return sb;
+}
+
+#undef FORMAT_SPACES
 
 NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescriptor* descriptor,
                                  SendMode send_mode, SendProgress* progress) {
@@ -376,7 +632,6 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 
 	switch(send_mode) {
 		case SEND_MODE_STREAM_BINARY_FILE: {
-
 			break;
 		}
 		case SEND_MODE_STREAM_BINARY_RECORD: {
@@ -388,20 +643,22 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 	}
 
 	switch(data->type) {
-		case SEND_TYPE_FILE_NAME: {
+		case SEND_TYPE_FILE: {
 			// TODO
 			return false;
 			break;
 		}
-		case SEND_TYPE_MULTIPLE_FILE_NAMES: {
-			char* value = data->data.file_names.files[progress->_impl.sent_count];
+		case SEND_TYPE_MULTIPLE_FILES: {
+			FileWithMetadata* value = data->data.multiple_files->files[progress->_impl.sent_count];
 
-			int sent_result = sendStringToConnection(descriptor, value);
-			if(sent_result < 0) {
+			StringBuilder* string_builder =
+			    format_file_line(value, data->data.multiple_files->sizes);
+
+			if(!string_builder) {
 				return false;
 			}
 
-			sent_result = sendStringToConnection(descriptor, "\n");
+			int sent_result = sendStringBuilderToConnection(descriptor, string_builder);
 			if(sent_result < 0) {
 				return false;
 			}
@@ -410,11 +667,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 
 			break;
 		}
-		case SEND_TYPE_METADATA: {
-			// TODO
-			return false;
-			break;
-		}
+
 		case SEND_TYPE_RAW_DATA: {
 			// TODO
 			return false;
