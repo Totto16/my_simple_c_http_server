@@ -658,6 +658,24 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 #endif
 		}
 
+		case FTP_COMMAND_SYST:
+
+		{
+			// se e.g: https://cr.yp.to/ftp/syst.html
+			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYSTEM_NAME,
+			                               "UNIX Type: L8 Version: Linux");
+
+			return true;
+		}
+
+		case FTP_COMMAND_NOOP:
+
+		{
+			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_CMD_OK, "");
+
+			return true;
+		}
+
 		default: {
 			LOG_MESSAGE(LogLevelWarn, "Command %s not implemented\n", get_command_name(command));
 			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED,

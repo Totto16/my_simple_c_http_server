@@ -3,8 +3,9 @@
 #include "./send.h"
 #include "generic/send.h"
 
-static NODISCARD int sendMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
-                                                     FTP_RETURN_CODE status, char* body) {
+static NODISCARD int
+sendFTPMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
+                                   FTP_RETURN_CODE status, char* body) {
 
 	if(status > INTERNAL_FTP_RETURN_CODE_MAXIMUM || status < INTERNAL_FTP_RETURN_CODE_MINIMUM) {
 		return sendFTPMessageToConnection(
@@ -16,7 +17,11 @@ static NODISCARD int sendMessageToConnectionMalloced(const ConnectionDescriptor*
 	StringBuilder* sb = string_builder_init();
 	const char* const separators = "\r\n";
 
-	string_builder_append(sb, return -3;, "%03d %s%s", status, body, separators);
+	if(strlen(body) == 0) {
+		string_builder_append(sb, return -3;, "%03d%s", status, separators);
+	} else {
+		string_builder_append(sb, return -3;, "%03d %s%s", status, body, separators);
+	}
 
 	int result = sendStringBuilderToConnection(descriptor, sb);
 
@@ -24,8 +29,8 @@ static NODISCARD int sendMessageToConnectionMalloced(const ConnectionDescriptor*
 	return result;
 }
 
-int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, FTP_RETURN_CODE status, char* body,
-                               CONNECTION_SEND_FLAGS FLAGS) {
+int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, FTP_RETURN_CODE status,
+                               char* body, CONNECTION_SEND_FLAGS FLAGS) {
 	char* final_body = body;
 
 	if((FLAGS & CONNECTION_SEND_FLAGS_UN_MALLOCED) != 0) {
@@ -34,7 +39,7 @@ int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, FTP_RETUR
 		}
 	}
 
-	return sendMessageToConnectionMalloced(descriptor, status, final_body);
+	return sendFTPMessageToConnectionMalloced(descriptor, status, final_body);
 }
 
 int sendFTPMessageToConnectionSb(const ConnectionDescriptor* const descriptor,
