@@ -2,5 +2,5 @@ option(
     'secure',
     type: 'feature',
     value: 'auto',
-    description: 'support secure connections (https / wss)',
+    description: 'support secure connections (https / wss / ftps)',
 )
