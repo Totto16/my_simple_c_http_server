@@ -38,3 +38,35 @@ meson setup build
 meson compile -C build
 ./build/server --help
 ```
+
+## Resources used
+
+### LibC Calls
+
+Just man pages
+
+### Libraries
+
+The documentation for each library:
+
+- Openssl [manpages](https://docs.openssl.org/3.3/man3/SSL_clear/)
+- utf8proc [docs](https://juliastrings.github.io/utf8proc/doc/)
+
+### HTTP
+
+- HTTP Spec: [rfc7231](https://datatracker.ietf.org/doc/html/rfc7231)
+
+## WS
+
+- WebSocket Spec: [rfc6455](https://datatracker.ietf.org/doc/html/rfc6455)
+
+## FTP
+
+FTP has many specs, and I used many specs:
+
+- [rfc959](https://datatracker.ietf.org/doc/html/rfc959)
+- [rfc2228](https://datatracker.ietf.org/doc/html/rfc2228)
+- [rfc4217](https://datatracker.ietf.org/doc/html/rfc4217)
+- [rfc2389](https://datatracker.ietf.org/doc/html/rfc2389)
+- [rfc1635](https://datatracker.ietf.org/doc/html/rfc1635)
+- [EPLF Spec](http://cr.yp.to/ftp/list/eplf.html)
