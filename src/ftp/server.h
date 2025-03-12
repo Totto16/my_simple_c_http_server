@@ -68,4 +68,4 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 anyType(ListenerError*)
     ftp_data_orchestrator_thread_function(anyType(FTPDataOrchestratorArgument*) arg);
 
-NODISCARD int startFtpServer(FTPPortField control_port, char* folder);
+NODISCARD int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* options);

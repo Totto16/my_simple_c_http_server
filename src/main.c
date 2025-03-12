@@ -24,6 +24,10 @@ void printFtpServerUsage() {
 	printf(IDENT1 "ftp <port> [options]\n");
 	printf(IDENT1 "port: the port to bind to (required)");
 	printf(IDENT1 "options:\n");
+	printf(IDENT2
+	       "-s, --secure <public_cert_file> <private_cert_file>: Provide a secure variant of ftp "
+	       "(ftps), you have to provide the public and private certificates. This uses implicit "
+	       "TLS, and can negotiate TLS with clients, if needed\n");
 	printf(IDENT2 "-f, --folder <folder>: The folder to server, default is '.'\n");
 	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
 }
@@ -165,6 +169,10 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 	// parse the port
 	uint16_t control_port = parseU16Safely(argv[0], "<port>");
 
+	bool secure = false;
+	const char* public_cert_file = "";
+	const char* private_cert_file = "";
+
 	LogLevel log_level =
 #ifdef NDEBUG
 	    LogLevelError
@@ -182,7 +190,24 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 
 		const char* arg = argv[processed_args];
 
-		if((strcmp(arg, "-f") == 0) || (strcmp(arg, "--folder") == 0)) {
+		if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--secure") == 0)) {
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
+			fprintf(stderr, "Server was build without support for 'secure'\n");
+			printUsage(argv[0], USAGE_COMMAND_FTP);
+			return EXIT_FAILURE;
+#else
+			secure = true;
+			if(processed_args + 3 > argc) {
+				fprintf(stderr, "Not enough arguments for the 'secure' option\n");
+				printUsage(argv[0], USAGE_COMMAND_HTTP);
+				return EXIT_FAILURE;
+			}
+
+			public_cert_file = argv[processed_args + 1];
+			private_cert_file = argv[processed_args + 2];
+			processed_args += 3;
+#endif
+		} else if((strcmp(arg, "-f") == 0) || (strcmp(arg, "--folder") == 0)) {
 			if(processed_args + 2 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'folder' option\n");
 				printUsage(argv[0], USAGE_COMMAND_FTP);
@@ -251,7 +276,18 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 
 	LOG_MESSAGE(LogLevelTrace, "Setting LogLevel to %s\n", get_level_name(log_level));
 
-	return startFtpServer(control_port, folder);
+	const char* secure_string =
+	    secure ? "true" : "false"; // NOLINT(readability-implicit-bool-conversion)
+	LOG_MESSAGE(LogLevelTrace, "Providing implicit TLS: %s\n", secure_string);
+
+	SecureOptions* options = initialize_secure_options(secure, public_cert_file, private_cert_file);
+
+	if(options == NULL) {
+		fprintf(stderr, "Couldn't initialize secure options\n");
+		return EXIT_FAILURE;
+	}
+
+	return startFtpServer(control_port, folder, options);
 }
 
 int main(int argc, const char* argv[]) {

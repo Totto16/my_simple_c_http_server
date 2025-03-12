@@ -1284,7 +1284,10 @@ anyType(ListenerError*)
 	return is_error ? ListenerError_ThreadCancel : ListenerError_None;
 }
 
-int startFtpServer(FTPPortField control_port, char* folder) {
+int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* wip_options) {
+
+	//TODO: implement implict TLS
+	UNUSED(wip_options);
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
