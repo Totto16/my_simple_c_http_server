@@ -76,7 +76,10 @@ struct DataConnectionImpl {
 	// data, dependend on state
 	ConnectionDescriptor* descriptor;
 	ConnectionTypeIdentifier identifier;
+	// active only data
 	ActiveConnectionData* active_data;
+	// passive only data
+	pthread_t associated_thread;
 };
 
 DataController* initialize_data_controller(size_t passive_port_amount) {
@@ -151,6 +154,8 @@ NODISCARD static bool _nts_internal_set_last_change_to_now(DataConnection* conne
 	time_t current_time = time(NULL);
 
 	if(current_time == ((time_t)-1)) {
+		LOG_MESSAGE(LogLevelError | LogPrintLocation, "Getting the time failed: %s\n",
+		            strerror(errno));
 		return false;
 	}
 
@@ -269,11 +274,26 @@ bool data_controller_add_descriptor(DataController* data_controller,
 					success = false;
 					break;
 				}
+
 				success = true;
 				data_connection->state =
 				    data_connection->state == DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL
 				        ? DATA_CONNECTION_STATE_HAS_BOTH
 				        : DATA_CONNECTION_STATE_HAS_DESCRIPTOR;
+
+				// TODO: maybe use this instead of signals: https://linux.die.net/man/2/eventfd2
+				int pthread_res = pthread_kill(data_connection->associated_thread,
+				                               FTP_PASSIVE_DATA_CONNECTION_SIGNAL);
+
+				checkForThreadError(pthread_res,
+				                    "An Error occurred while trying to send a signal to the data "
+				                    "connections associated thread",
+				                    goto break_lbl;);
+
+				break;
+
+			break_lbl:
+				success = false;
 				break;
 			}
 			case DATA_CONNECTION_STATE_HAS_DESCRIPTOR:
@@ -587,12 +607,14 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 						// an error here means not the world end
 						bool _ignore = _nts_internal_set_last_change_to_now(connection);
 						UNUSED(_ignore);
+						connection->associated_thread = pthread_self();
 						connection = NULL;
 						break;
 					}
 					case DATA_CONNECTION_STATE_HAS_DESCRIPTOR: {
 						connection->state = DATA_CONNECTION_STATE_HAS_BOTH;
 						connection->control_state = DATA_CONNECTION_CONTROL_STATE_RETRIEVED;
+						connection->associated_thread = pthread_self();
 						break;
 					}
 					case DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL: {
@@ -601,6 +623,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 					}
 					case DATA_CONNECTION_STATE_HAS_BOTH: {
 						connection->control_state = DATA_CONNECTION_CONTROL_STATE_RETRIEVED;
+						connection->associated_thread = pthread_self();
 						break;
 					}
 				}
@@ -651,6 +674,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 			new_connection->state = DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL;
 			new_connection->descriptor = NULL;
 			new_connection->control_state = DATA_CONNECTION_CONTROL_STATE_MISSING;
+			new_connection->associated_thread = pthread_self();
 			if(!_nts_internal_set_last_change_to_now(new_connection)) {
 				free(new_connection);
 				new_connection = NULL;

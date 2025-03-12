@@ -28,6 +28,33 @@
 #define ALLOW_SSL_AUTO_CONTEXT_REUSE false
 #define DEFAULT_PASSIVE_PORT_AMOUNT 10
 
+static bool setup_signal_handler_impl(int signal_number) {
+	// set up the signal handler
+	// just create a sigaction structure, then add the handler
+	struct sigaction action = {};
+
+	action.sa_handler = SIG_IGN;
+	// initialize the mask to be empty
+	int emptySetResult = sigemptyset(&action.sa_mask);
+	sigaddset(&action.sa_mask, signal_number);
+	int result1 = sigaction(signal_number, &action, NULL);
+	if(result1 < 0 || emptySetResult < 0) {
+		LOG_MESSAGE(LogLevelWarn, "Couldn't set signal interception: %s\n", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+static bool setup_relevant_signal_handlers(void) {
+
+	if(!setup_signal_handler_impl(SIGPIPE)) {
+		return false;
+	}
+
+	return setup_signal_handler_impl(FTP_PASSIVE_DATA_CONNECTION_SIGNAL);
+}
+
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
@@ -45,7 +72,7 @@ anyType(JobError*)
 	             , "connection handler %lu", workerInfo.workerIndex);
 	set_thread_name(thread_name_buffer);
 
-	bool signal_result = setup_sigpipe_signal_handler();
+	bool signal_result = setup_relevant_signal_handlers();
 
 	if(!signal_result) {
 		return JobError_SigHandler;
@@ -673,11 +700,13 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
 					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
 
+				// TODO: don't use intervalls for active connection, use poll() for that!
 				while(true) {
 					int sleep_result = nanosleep(&interval, NULL);
 
 					// ignore EINTR errors, as we just want to sleep, if it'S shorter it's not that
-					// bad
+					// bad, we also interrupt this thread in passive mode, so that we are faster,
+					// than waiting a fixed amount
 					if(sleep_result != 0 && errno != EINTR) {
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
 						                               "Internal error");
@@ -705,12 +734,19 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					    argument->data_controller, *state->data_settings);
 
 					if(data_connection != NULL) {
+
+						LOG_MESSAGE(LogLevelTrace | LogPrintLocation,
+						            "Data connection established after %lu s\n", diff_time);
+
 						break;
 					}
 				}
 			} else {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_ALREADY_OPEN,
 				                               "Ok. Sending data");
+
+				LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintLocation,
+				                   "Data connection already established\n");
 			}
 
 			// send data
@@ -1129,7 +1165,7 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 
 		if(data_connection == NULL) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-			                   "data_controller_add_entry failed\n");
+			                   "get_data_connection_for_data_thread_or_add_passive failed\n");
 			return ListenerError_DataController;
 		}
 
@@ -1145,7 +1181,8 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 		    data_controller_add_descriptor(argument.data_controller, data_connection, descriptor);
 
 		if(!success) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "data_controller_add_fd failed\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+			                   "data_controller_add_descriptor failed\n");
 			return ListenerError_DataController;
 		}
 

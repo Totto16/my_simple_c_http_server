@@ -7,6 +7,9 @@
 #include "utils/utils.h"
 
 #include <netinet/in.h>
+#include <signal.h>
+
+#define FTP_PASSIVE_DATA_CONNECTION_SIGNAL SIGUSR1
 
 // opaque type
 typedef struct DataControllerImpl DataController;
