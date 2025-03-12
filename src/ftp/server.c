@@ -734,7 +734,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				SendData* data_to_send = get_data_to_send_for_list(is_folder, final_file_path);
+				SendData* data_to_send = get_data_to_send_for_list(is_folder, final_file_path,
+				                                                   state->options->send_format);
 
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
@@ -1286,7 +1287,7 @@ anyType(ListenerError*)
 
 int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* wip_options) {
 
-	//TODO: implement implict TLS
+	// TODO: implement implict TLS
 	UNUSED(wip_options);
 
 	// using TCP  and not 0, which is more explicit about what protocol to use

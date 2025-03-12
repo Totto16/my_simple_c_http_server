@@ -94,6 +94,18 @@ typedef struct {
 	size_t size;
 } FTPSupportedFeatures;
 
+/**
+ * @enum value
+ */
+typedef enum {
+	FILE_SEND_FORMAT_LS = 0,
+	FILE_SEND_FORMAT_EPLF,
+} FileSendFormat;
+
+typedef struct {
+	FileSendFormat send_format;
+} CustomFTPOptions;
+
 typedef struct {
 	const char* global_folder;
 	AccountInfo* account;
@@ -103,6 +115,7 @@ typedef struct {
 	FTP_STRUCTURE structure;
 	FTPDataSettings* data_settings;
 	FTPSupportedFeatures* supported_features;
+	CustomFTPOptions* options;
 } FTPState;
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5

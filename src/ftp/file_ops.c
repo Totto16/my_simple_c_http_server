@@ -218,12 +218,18 @@ typedef struct {
 } Owners;
 
 typedef struct {
-	FilePermissions permissions;
+	dev_t dev;
+	ino_t ino;
+} UniqueIdentifier;
+
+typedef struct {
+	mode_t mode;
 	size_t link_amount;
 	Owners owners;
 	size_t size;
-	time_t last_mod;
+	struct timespec last_mod;
 	char* file_name;
+	UniqueIdentifier identifier;
 } FileWithMetadata;
 
 typedef struct {
@@ -237,6 +243,7 @@ typedef struct {
 	FileWithMetadata** files;
 	size_t count;
 	MaxSize sizes;
+	FileSendFormat format;
 } MultipleFiles;
 
 typedef struct {
@@ -244,10 +251,15 @@ typedef struct {
 	size_t size;
 } RawData;
 
+typedef struct {
+	FileWithMetadata* file;
+	FileSendFormat format;
+} SingleFile;
+
 struct SendDataImpl {
 	SendType type;
 	union {
-		FileWithMetadata* file;
+		SingleFile* file;
 		MultipleFiles* multiple_files;
 		RawData data;
 	} data;
@@ -352,6 +364,29 @@ NODISCARD FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path)
 	return result;
 }
 
+NODISCARD SingleFile* get_metadata_for_single_file(char* const absolute_path,
+                                                   FileSendFormat format) {
+
+	SingleFile* result = (SingleFile*)malloc(sizeof(SingleFile));
+
+	if(!result) {
+		return NULL;
+	}
+
+	result->format = format;
+
+	FileWithMetadata* file = get_metadata_for_file_abs(absolute_path);
+
+	if(!file) {
+		free(result);
+		return NULL;
+	}
+
+	result->file = file;
+
+	return result;
+}
+
 NODISCARD FileWithMetadata* get_metadata_for_file_folder(const char* const folder,
                                                          const char* const name) {
 
@@ -402,8 +437,6 @@ NODISCARD FileWithMetadata* get_metadata_for_file(const char* const absolute_pat
 		return NULL;
 	}
 
-	FilePermissions permissions = permissions_from_mode(stat_result.st_mode);
-
 	Owners owners = { .user = stat_result.st_uid, .group = stat_result.st_gid };
 
 	size_t name_len = strlen(name);
@@ -418,12 +451,14 @@ NODISCARD FileWithMetadata* get_metadata_for_file(const char* const absolute_pat
 
 	new_name[name_len] = '\0';
 
-	metadata->permissions = permissions;
+	metadata->mode = stat_result.st_mode;
 	metadata->link_amount = stat_result.st_nlink;
 	metadata->owners = owners;
 	metadata->size = stat_result.st_size;
-	metadata->last_mod = stat_result.st_mtim.tv_sec;
+	metadata->last_mod = stat_result.st_mtim;
 	metadata->file_name = new_name;
+	metadata->identifier.dev = stat_result.st_dev;
+	metadata->identifier.ino = stat_result.st_ino;
 
 	return metadata;
 }
@@ -472,7 +507,7 @@ void internal_update_max_size(MaxSize* sizes, FileWithMetadata* metadata) {
 	}
 }
 
-MultipleFiles* get_files_in_folder(const char* const folder) {
+MultipleFiles* get_files_in_folder(const char* const folder, FileSendFormat format) {
 
 	MultipleFiles* result = (MultipleFiles*)malloc(sizeof(MultipleFiles));
 
@@ -483,6 +518,7 @@ MultipleFiles* get_files_in_folder(const char* const folder) {
 	result->count = 0;
 	result->files = NULL;
 	result->sizes = (MaxSize){ .link = 0, .user = 0, .group = 0, .size = 0 };
+	result->format = format;
 
 	DIR* dir = opendir(folder);
 	if(dir == NULL) {
@@ -547,7 +583,8 @@ success:
 	return result;
 }
 
-NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path) {
+NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
+                                              FileSendFormat format) {
 
 	SendData* data = (SendData*)malloc(sizeof(SendData));
 
@@ -563,7 +600,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path) 
 
 	if(is_folder) {
 		data->type = SEND_TYPE_MULTIPLE_FILES;
-		MultipleFiles* files = get_files_in_folder(path);
+		MultipleFiles* files = get_files_in_folder(path, format);
 		if(files == NULL) {
 			free(data);
 			return NULL;
@@ -571,7 +608,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path) 
 		data->data.multiple_files = files;
 	} else {
 		data->type = SEND_TYPE_FILE;
-		FileWithMetadata* file = get_metadata_for_file_abs(path);
+		SingleFile* file = get_metadata_for_single_file(path, format);
 
 		if(file == NULL) {
 			free(data);
@@ -586,7 +623,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path) 
 
 #define FORMAT_SPACES "    "
 
-NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes) {
+NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, MaxSize sizes) {
 
 	StringBuilder* sb = string_builder_init();
 
@@ -597,7 +634,7 @@ NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes)
 	// append permissions string
 
 	{
-		FilePermissions permissions = file->permissions;
+		FilePermissions permissions = permissions_from_mode(file->mode);
 
 		char modes[3][3] = {};
 
@@ -619,7 +656,7 @@ NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes)
 
 	struct tm converted_time;
 
-	struct tm* convert_result = localtime_r(&file->last_mod, &converted_time);
+	struct tm* convert_result = localtime_r(&file->last_mod.tv_sec, &converted_time);
 
 	if(!convert_result) {
 		return NULL;
@@ -649,6 +686,96 @@ NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes)
 }
 
 #undef FORMAT_SPACES
+
+#define ELPF_PRETTY_PRINT_PERMISSIONS true
+
+NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file) {
+
+	StringBuilder* sb = string_builder_init();
+
+	if(!sb) {
+		return NULL;
+	}
+
+	// see https://cr.yp.to/ftp/list/eplf.html
+
+	// 1. a plus sign (\053);
+	string_builder_append_single(sb, "+");
+
+	// 2. a series of facts about the file;
+	{
+
+		bool is_dir = S_ISDIR(file->mode);
+
+		if(!is_dir) {
+			// can be retrieved
+			string_builder_append_single(sb, "r,");
+		}
+
+		if(is_dir) {
+			// i a dir essentially
+			string_builder_append_single(sb, "/,");
+		}
+
+		if(!is_dir) {
+			// has a size
+			string_builder_append(sb, return NULL;, "s%lu,", file->size);
+		}
+
+		// last mod time in UNIX epoch seconds
+		string_builder_append(sb, return NULL;, "m%lu,", file->last_mod.tv_sec);
+
+		// unique identifier (dev.ino)
+		string_builder_append(sb, return NULL;
+		                      , "i%lu.%lu,", file->identifier.dev, file->identifier.ino);
+
+		if(ELPF_PRETTY_PRINT_PERMISSIONS) {
+			FilePermissions permissions = permissions_from_mode(file->mode);
+
+			char modes[3][3] = {};
+
+			for(size_t i = 0; i < 3; ++i) {
+
+				OnePermission perm = permissions.permissions[i];
+
+				modes[i][0] = perm.read ? 'r' : '-';
+				modes[i][1] = perm.write ? 'w' : '-';
+				modes[i][2] = perm.execute ? 'x' : '-';
+			}
+
+			// permissions, look nicer, many clients just display the string, NOT spec compliant
+			string_builder_append(sb, return NULL;, "up%c%.*s%.*s%.*s", permissions.special_type, 3,
+			                                      modes[0], 3, modes[1], 3, modes[2]);
+		} else {
+
+			uint32_t permission = (S_IRWXU | S_IRWXG | S_IRWXO) & file->mode;
+
+			// permissions, according to spec
+			string_builder_append(sb, return NULL;, "up%o,", permission);
+		}
+	}
+
+	// 3. a tab (\011);
+	// 4. an abbreviated pathname; and
+	// 5. \015\012. (\r\n)
+	string_builder_append(sb, return NULL;, "\t%s\r\n", file->file_name);
+
+	return sb;
+}
+
+NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
+                                          FileSendFormat format) {
+
+	switch(format) {
+		case FILE_SEND_FORMAT_LS: {
+			return format_file_line_in_ls_format(file, sizes);
+		}
+		case FILE_SEND_FORMAT_EPLF: {
+			return format_file_line_in_eplf_format(file);
+		}
+		default: return NULL;
+	}
+}
 
 NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescriptor* descriptor,
                                  SendMode send_mode, SendProgress* progress) {
@@ -683,8 +810,8 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		case SEND_TYPE_MULTIPLE_FILES: {
 			FileWithMetadata* value = data->data.multiple_files->files[progress->_impl.sent_count];
 
-			StringBuilder* string_builder =
-			    format_file_line(value, data->data.multiple_files->sizes);
+			StringBuilder* string_builder = format_file_line(
+			    value, data->data.multiple_files->sizes, data->data.multiple_files->format);
 
 			if(!string_builder) {
 				return false;

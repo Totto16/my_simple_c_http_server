@@ -27,10 +27,21 @@ NODISCARD static FTPSupportedFeatures* alloc_supported_features(void) {
 		return NULL;
 	}
 
-	supported_features->features = NULL,
-	supported_features->size = 0;
+	supported_features->features = NULL, supported_features->size = 0;
 
 	return supported_features;
+}
+
+CustomFTPOptions* alloc_default_options() {
+	CustomFTPOptions* options = (CustomFTPOptions*)malloc(sizeof(CustomFTPOptions));
+
+	if(!options) {
+		return NULL;
+	}
+
+	options->send_format = FILE_SEND_FORMAT_EPLF;
+
+	return options;
 }
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
@@ -81,6 +92,14 @@ FTPState* alloc_default_state(const char* global_folder) {
 	}
 
 	state->supported_features = supported_features;
+
+	CustomFTPOptions* options = alloc_default_options();
+
+	if(!options) {
+		return NULL;
+	}
+
+	state->options = options;
 
 	state->global_folder = global_folder;
 	state->current_type = FTP_TRANSMISSION_TYPE_ASCII | FTP_TRANSMISSION_TYPE_FLAG_NP;
