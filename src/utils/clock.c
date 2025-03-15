@@ -126,7 +126,7 @@ static TimeDiff _impl_time_diff(Time time1, Time time2) {
 	time_t diff_s_part = (time_t)(diff_ns / S_TO_NS_RATE);
 
 	result.diff.value.tv_sec = diff_s_part;
-	result.diff.value.tv_nsec = (long)(diff_ns - diff_s_part);
+	result.diff.value.tv_nsec = (long)(diff_ns - (diff_s_part * S_TO_NS_RATE));
 
 	return result;
 }
