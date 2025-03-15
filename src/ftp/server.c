@@ -10,6 +10,7 @@
 #include "generic/helper.h"
 #include "generic/read.h"
 #include "generic/send.h"
+#include "utils/clock.h"
 #include "utils/errors.h"
 #include "utils/log.h"
 #include "utils/thread_pool.h"
@@ -210,10 +211,10 @@ cleanup:
 	} while(false)
 
 // the timeout is 15 seconds
-#define DATA_CONNECTION_WAIT_TIMEOUT_S 15
+#define DATA_CONNECTION_WAIT_TIMEOUT_S_D 15.0
 
 // the interval is 1,4 seconds
-#define DATA_CONNECTION_INTERVAL_NS (NS(2) / 5)
+#define DATA_CONNECTION_INTERVAL_NS (S_TO_NS(2) / 5)
 #define DATA_CONNECTION_INTERVAL_S 1
 
 bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField server_addr,
@@ -685,11 +686,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				// Wait for data connection
 
-				// y2k -> 2038 bug avoidance
-				static_assert(sizeof(time_t) == sizeof(uint64_t));
-				time_t start_time = time(NULL);
+				Time start_time;
+				bool clock_result = get_monotonic_time(&start_time);
 
-				if(start_time == ((time_t)-1)) {
+				if(!clock_result) {
 					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
 					            strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
@@ -713,19 +713,20 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						return true;
 					}
 
-					time_t current_time = time(NULL);
+					Time current_time;
+					bool clock_result = get_monotonic_time(&current_time);
 
-					if(current_time == ((time_t)-1)) {
-						LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
-						            strerror(errno));
+					if(!clock_result) {
+						LOG_MESSAGE(LogLevelError | LogPrintLocation,
+						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
 						                               "Internal error");
 						return true;
 					}
 
-					time_t diff_time = current_time - start_time;
+					double diff_time = time_diff_in_exact_seconds(current_time, start_time);
 
-					if(diff_time >= DATA_CONNECTION_WAIT_TIMEOUT_S) {
+					if(diff_time >= DATA_CONNECTION_WAIT_TIMEOUT_S_D) {
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_OPEN_ERROR,
 						                               "Timeout on waiting for data connection");
 					}
@@ -736,7 +737,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					if(data_connection != NULL) {
 
 						LOG_MESSAGE(LogLevelTrace | LogPrintLocation,
-						            "Data connection established after %lu s\n", diff_time);
+						            "Data connection established after %f s\n", diff_time);
 
 						break;
 					}

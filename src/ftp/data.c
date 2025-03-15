@@ -1,11 +1,12 @@
 
 
 #include "./data.h"
+#include "utils/clock.h"
 
 #include <pthread.h>
 
 // the timeout is 30 seconds
-#define DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S 30
+#define DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S_D 30.0
 
 typedef struct {
 	DataConnection* associated_connection;
@@ -72,7 +73,7 @@ typedef struct {
 struct DataConnectionImpl {
 	DataConnectionState state;
 	DataConnectionControlState control_state;
-	time_t last_change;
+	Time last_change;
 	// data, dependend on state
 	ConnectionDescriptor* descriptor;
 	ConnectionTypeIdentifier identifier;
@@ -151,9 +152,10 @@ cleanup:
 // NOTE: _nts_internal_ stands for non thread safe internal
 
 NODISCARD static bool _nts_internal_set_last_change_to_now(DataConnection* connection) {
-	time_t current_time = time(NULL);
+	Time current_time;
+	bool clock_result = get_monotonic_time(&current_time);
 
-	if(current_time == ((time_t)-1)) {
+	if(!clock_result) {
 		LOG_MESSAGE(LogLevelError | LogPrintLocation, "Getting the time failed: %s\n",
 		            strerror(errno));
 		return false;
@@ -320,15 +322,17 @@ NODISCARD static bool _nts_internal_should_close_connection(DataConnection* conn
 
 		// Check timeout
 
-		time_t current_time = time(NULL);
+		Time current_time;
+		bool clock_result = get_monotonic_time(&current_time);
 
-		if(current_time == ((time_t)-1)) {
+		if(!clock_result) {
 			return false;
 		}
 
-		time_t diff_time = current_time - connection->last_change;
+		// same as: current_time - last_change;
+		double diff_time = time_diff_in_exact_seconds(current_time, connection->last_change);
 
-		if(diff_time >= DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S) {
+		if(diff_time >= DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S_D) {
 			return true;
 		}
 

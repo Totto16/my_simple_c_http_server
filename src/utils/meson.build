@@ -1,4 +1,6 @@
 src_files += files(
+    'clock.c',
+    'clock.h',
     'errors.c',
     'errors.h',
     'log.c',
