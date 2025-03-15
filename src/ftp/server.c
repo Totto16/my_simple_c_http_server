@@ -29,12 +29,12 @@
 #define ALLOW_SSL_AUTO_CONTEXT_REUSE false
 #define DEFAULT_PASSIVE_PORT_AMOUNT 10
 
-static bool setup_signal_handler_impl(int signal_number) {
+static bool setup_signal_handler_impl_with_handler(int signal_number, __sighandler_t handle) {
 	// set up the signal handler
 	// just create a sigaction structure, then add the handler
 	struct sigaction action = {};
 
-	action.sa_handler = SIG_IGN;
+	action.sa_handler = handle;
 	// initialize the mask to be empty
 	int emptySetResult = sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, signal_number);
@@ -47,13 +47,26 @@ static bool setup_signal_handler_impl(int signal_number) {
 	return true;
 }
 
+static bool setup_signal_handler_impl(int signal_number) {
+	return setup_signal_handler_impl_with_handler(signal_number, SIG_IGN);
+}
+
+static volatile sig_atomic_t
+    usr1_signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    0;
+
+// only setting the volatile sig_atomic_t signal_received' in here
+static void usr1_handler(int signalNumber) {
+	usr1_signal_received = signalNumber;
+}
+
 static bool setup_relevant_signal_handlers(void) {
 
 	if(!setup_signal_handler_impl(SIGPIPE)) {
 		return false;
 	}
 
-	return setup_signal_handler_impl(FTP_PASSIVE_DATA_CONNECTION_SIGNAL);
+	return setup_signal_handler_impl_with_handler(FTP_PASSIVE_DATA_CONNECTION_SIGNAL, usr1_handler);
 }
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
@@ -702,15 +715,20 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				// TODO: don't use intervalls for active connection, use poll() for that!
 				while(true) {
-					int sleep_result = nanosleep(&interval, NULL);
 
-					// ignore EINTR errors, as we just want to sleep, if it'S shorter it's not that
-					// bad, we also interrupt this thread in passive mode, so that we are faster,
-					// than waiting a fixed amount
-					if(sleep_result != 0 && errno != EINTR) {
-						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-						                               "Internal error");
-						return true;
+					if(usr1_signal_received == 0) {
+						int sleep_result = nanosleep(&interval, NULL);
+
+						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's not
+						// that bad, we also interrupt this thread in passive mode, so that we are
+						// faster, than waiting a fixed amount
+						if(sleep_result != 0 && errno != EINTR) {
+							SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+							                               "Internal error");
+							return true;
+						}
+
+						usr1_signal_received = 0;
 					}
 
 					Time current_time;
