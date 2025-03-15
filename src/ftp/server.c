@@ -729,6 +729,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					if(diff_time >= DATA_CONNECTION_WAIT_TIMEOUT_S_D) {
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_OPEN_ERROR,
 						                               "Timeout on waiting for data connection");
+
+						return true;
 					}
 
 					data_connection = get_data_connection_for_control_thread_or_add(
