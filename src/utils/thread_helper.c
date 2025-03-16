@@ -1,9 +1,8 @@
 
 
-#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
-#endif
 #include <unistd.h>
+#undef _GNU_SOURCE
 
 #include "thread_helper.h"
 

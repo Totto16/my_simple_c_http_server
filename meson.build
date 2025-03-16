@@ -2,11 +2,11 @@ project(
     'simple http server',
     'c',
     license: 'MIT',
-    meson_version: '>=1.2.0',
+    meson_version: '>=1.3.0',
     default_options: {
         'buildtype': 'release',
         'optimization': '3',
-        'c_std': 'gnu2x',
+        'c_std': ['gnu23', 'gnu2x'],
         'warning_level': '3',
         'werror': 'true',
         'b_ndebug': 'if-release',
