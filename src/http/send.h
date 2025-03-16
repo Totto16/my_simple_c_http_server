@@ -8,7 +8,7 @@
 /**
  * @enum MASK / FLAGS
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	CONNECTION_SEND_FLAGS_MALLOCED = 0b01,
 	CONNECTION_SEND_FLAGS_UN_MALLOCED = 0b10
 

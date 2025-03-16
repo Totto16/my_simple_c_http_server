@@ -35,7 +35,7 @@ void printFtpServerUsage() {
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	USAGE_COMMAND_ALL = 0,
 	USAGE_COMMAND_HTTP,
 	USAGE_COMMAND_FTP,

@@ -1,6 +1,7 @@
 
 
 #include "./state.h"
+#include "utils/log.h"
 
 #include <stdlib.h>
 #include <string.h>

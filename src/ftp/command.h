@@ -10,7 +10,7 @@
  * @ref https://datatracker.ietf.org/doc/html/rfc959  5.3.1
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FTP_COMMAND_USER = 0,
 	FTP_COMMAND_PASS,
 	FTP_COMMAND_ACCT,

@@ -20,7 +20,7 @@ typedef struct {
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	DIR_CHANGE_RESULT_OK = 0,
 	DIR_CHANGE_RESULT_NO_SUCH_DIR,
 	DIR_CHANGE_RESULT_ERROR,

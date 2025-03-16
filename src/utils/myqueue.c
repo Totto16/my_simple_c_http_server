@@ -1,5 +1,6 @@
 
 #include "myqueue.h"
+#include "utils/log.h"
 
 int myqueue_init(myqueue* q) {
 	int result = sem_init(&(q->canAccess), -1, 1);

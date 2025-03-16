@@ -30,11 +30,11 @@
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	REQUEST_SUPPORTED = 0,
-	REQUEST_INVALID_HTTP_VERSION = 1,
-	REQUEST_METHOD_NOT_SUPPORTED = 2,
-	REQUEST_INVALID_NONEMPTY_BODY = 3,
+	REQUEST_INVALID_HTTP_VERSION,
+	REQUEST_METHOD_NOT_SUPPORTED,
+	REQUEST_INVALID_NONEMPTY_BODY,
 } REQUEST_SUPPORT_STATUS;
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if

@@ -8,7 +8,7 @@
 /**
  * @enum MASK / FLAGS
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	FTP_TRANSMISSION_TYPE_ASCII = 0x1,      // ASCII
 	FTP_TRANSMISSION_TYPE_EBCDIC = 0x2,     // EBCDIC
 	FTP_TRANSMISSION_TYPE_IMAGE = 0x4,      // Image
@@ -27,7 +27,7 @@ typedef enum {
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FTP_MODE_STREAM = 0,
 	FTP_MODE_BLOCK,
 	FTP_MODE_COMPRESSED,
@@ -37,7 +37,7 @@ typedef enum {
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FTP_STRUCTURE_FILE = 0,
 	FTP_STRUCTURE_RECORD,
 	FTP_STRUCTURE_PAGE
@@ -47,7 +47,7 @@ typedef enum {
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	SEND_MODE_UNSUPPORTED = 0, // standard is what?
 	SEND_MODE_STREAM_BINARY_FILE,
 	SEND_MODE_STREAM_BINARY_RECORD,
@@ -56,7 +56,7 @@ typedef enum {
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FTP_DATA_MODE_NONE = 0, // standard is what?
 	FTP_DATA_MODE_PASSIVE,
 	FTP_DATA_MODE_ACTIVE,
@@ -97,7 +97,7 @@ typedef struct {
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FILE_SEND_FORMAT_LS = 0,
 	FILE_SEND_FORMAT_EPLF,
 } FileSendFormat;

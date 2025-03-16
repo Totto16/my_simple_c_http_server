@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "utils/utils.h"
+
 // job errors
 
 typedef void* JobError;
@@ -51,7 +53,7 @@ void print_listener_error(ListenerError error);
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	CreateError_None = 0,
 	CreateError_ThreadCreate,
 	CreateError_Malloc,

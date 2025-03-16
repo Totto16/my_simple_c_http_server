@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 // needed h files
+#include "utils/log.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
 
@@ -24,7 +25,7 @@
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	HTTP_STATUS_CONTINUE = 100,
 	HTTP_STATUS_SWITCHING_PROTOCOLS = 101,
 	HTTP_STATUS_OK = 200,

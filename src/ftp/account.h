@@ -7,7 +7,7 @@
 /**
  * @enum MASK / FLAGS
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	ACCOUNT_PERMISSIONS_NONE = 0x00,
 	ACCOUNT_PERMISSIONS_READ = 0x01,
 	ACCOUNT_PERMISSIONS_WRITE = 0x02,
@@ -16,7 +16,7 @@ typedef enum {
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	ACCOUNT_STATE_EMPTY = 0,
 	ACCOUNT_STATE_ONLY_USER,
 	ACCOUNT_STATE_OK,
@@ -46,7 +46,7 @@ void free_account_data(AccountInfo*);
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	USER_VALIDITY_NO_SUCH_USER = 0,
 	USER_VALIDITY_WRONG_PASSWORD,
 	USER_VALIDITY_OK,

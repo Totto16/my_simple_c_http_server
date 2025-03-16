@@ -1,5 +1,6 @@
-#include "string_helper.h"
-#include "utils.h"
+#include "utils/string_helper.h"
+#include "utils/log.h"
+#include "utils/utils.h"
 
 #include <sha1/sha1.h>
 #include <string.h>

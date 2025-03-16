@@ -1,6 +1,8 @@
 
 
 #include "./helper.h"
+#include "utils/log.h"
+
 #include <signal.h>
 
 bool setup_sigpipe_signal_handler(void) {

@@ -113,7 +113,7 @@ static char* generateKeyAnswer(const char* secKey) {
 /**
  * @enum MASK / FLAGS
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HANDSHAKE_HEADER_NONE = 0b0,
 	HANDSHAKE_HEADER_HEADER_HOST = 0b1,
 	HANDSHAKE_HEADER_HEADER_UPGRADE = 0b10,

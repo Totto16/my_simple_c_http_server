@@ -2,6 +2,7 @@
 
 #include "./data.h"
 #include "utils/clock.h"
+#include "utils/log.h"
 
 #include <pthread.h>
 
@@ -30,14 +31,14 @@ struct DataControllerImpl {
  *
  * @note this could be a mask / flag, but it also works like this
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	DATA_CONNECTION_STATE_EMPTY = 0,
 	DATA_CONNECTION_STATE_HAS_DESCRIPTOR,
 	DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL,
 	DATA_CONNECTION_STATE_HAS_BOTH
 } DataConnectionState;
 
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	DATA_CONNECTION_CONTROL_STATE_MISSING = 0,
 	DATA_CONNECTION_CONTROL_STATE_RETRIEVED,
 	DATA_CONNECTION_CONTROL_STATE_SENDING,

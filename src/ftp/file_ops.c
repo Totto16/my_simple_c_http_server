@@ -199,7 +199,11 @@ NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* con
 /**
  * @enum value
  */
-typedef enum { SEND_TYPE_FILE = 0, SEND_TYPE_MULTIPLE_FILES, SEND_TYPE_RAW_DATA } SendType;
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	SEND_TYPE_FILE = 0,
+	SEND_TYPE_MULTIPLE_FILES,
+	SEND_TYPE_RAW_DATA,
+} SendType;
 
 typedef struct {
 	bool read;

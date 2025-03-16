@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "utils/utils.h"
+
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	// INTERNAL USAGE ONLY
 	INTERNAL_FTP_RETURN_CODE_MINIMUM = 100,
 	INTERNAL_FTP_RETURN_CODE_MAXIMUM = 999,

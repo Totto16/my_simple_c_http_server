@@ -3,6 +3,8 @@
 
 #include <openssl/ssl.h>
 
+#include "utils/utils.h"
+
 #define ESSL 167
 
 typedef struct SecureDataImpl SecureData;
@@ -10,7 +12,7 @@ typedef struct SecureDataImpl SecureData;
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	SECURE_OPTIONS_TYPE_NOT_SECURE = 0,
 	SECURE_OPTIONS_TYPE_SECURE,
 } SECURE_OPTIONS_TYPE;

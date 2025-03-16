@@ -2,6 +2,8 @@
 
 #include "string_builder.h"
 
+#include "utils/log.h"
+
 StringBuilder* string_builder_init() {
 	StringBuilder* result = (StringBuilder*)malloc(sizeof(StringBuilder));
 	if(!result) {

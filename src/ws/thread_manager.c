@@ -37,7 +37,7 @@ struct WebSocketConnectionImpl {
 /**
  * @enum value
  */
-typedef enum {
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	WS_OPCODE_CONT = 0x0,
 	WS_OPCODE_TEXT = 0x1,
 	WS_OPCODE_BIN = 0x2,
@@ -457,7 +457,7 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
  * @enum value
  * @see https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
  */
-typedef enum /* :uint16_t */ {
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	CloseCode_NormalClosure = 1000,
 	CloseCode_GoingAway = 1001,
 	CloseCode_ProtocolError = 1002,
