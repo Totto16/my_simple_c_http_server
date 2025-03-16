@@ -10,9 +10,14 @@
 
 #include "utils/log.h"
 
-// TODO(Totto): use c23 builtin, if available
+#if __STDC_VERSION__ >= 202000
+#define NODISCARD [[nodiscard]]
+#else
+
 // see e.g. https://www.gnu.org/software/gnulib/manual/html_node/Attributes.html
 #define NODISCARD __attribute__((__warn_unused_result__))
+
+#endif
 
 #define UNUSED(v) ((void)(v))
 
@@ -122,7 +127,6 @@ void* reallocWithMemset(void* previousPtr, size_t oldSize, size_t newSize,
                         bool initializeWithZeros);
 
 NODISCARD char* copy_cstr(char*);
-
 
 #define ARRAY_STRUCT(NAME, TYPE) \
 	typedef struct { \

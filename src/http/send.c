@@ -3,7 +3,7 @@
 #include "./send.h"
 #include "generic/send.h"
 
-static NODISCARD int sendMessageToConnectionWithHeadersMalloced(
+NODISCARD static int sendMessageToConnectionWithHeadersMalloced(
     const ConnectionDescriptor* const descriptor, int status, char* body, const char* MIMEType,
     HttpHeaderField* headerFields, const int headerFieldsAmount) {
 
@@ -21,7 +21,7 @@ static NODISCARD int sendMessageToConnectionWithHeadersMalloced(
 // sends a http message to the connection, takes status and if that special status needs some
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
-static NODISCARD int sendMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
+NODISCARD static int sendMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
                                                      int status, char* body, const char* MIMEType) {
 
 	HttpResponse* message = constructHttpResponse(status, body, MIMEType);

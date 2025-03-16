@@ -11,7 +11,7 @@
 #include <b64/b64.h>
 #include <strings.h>
 
-static NODISCARD int
+NODISCARD static int
 sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const descriptor) {
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Failed WS handshake: Upgrade required\n");
@@ -56,7 +56,7 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	return -1;
 }
 
-static NODISCARD int sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
+NODISCARD static int sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
                                                 const char* error_reason) {
 
 	LOG_MESSAGE(LogLevelTrace, "Failed WS handshake: %s\n", error_reason);
@@ -80,7 +80,7 @@ static NODISCARD int sendFailedHandshakeMessage(const ConnectionDescriptor* cons
 
 #define EXPECTED_WS_HEADER_SEC_KEY_LENGTH 16
 
-static NODISCARD bool isValidSecKey(const char* key) {
+NODISCARD static bool isValidSecKey(const char* key) {
 	size_t size = 0;
 	unsigned char* b64_result = b64_decode_ex(key, strlen(key), &size);
 	if(!b64_result) {

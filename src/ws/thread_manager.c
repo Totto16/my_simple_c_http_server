@@ -233,7 +233,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	return result;
 }
 
-static NODISCARD int ws_send_message_raw_internal(WebSocketConnection* connection,
+NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connection,
                                                   WebSocketRawMessage raw_message, bool mask) {
 
 	if(raw_message.payload == NULL) {
@@ -351,7 +351,7 @@ static NODISCARD int ws_send_message_raw_internal(WebSocketConnection* connectio
 	return result;
 }
 
-static NODISCARD int ws_send_message_internal_normal(WebSocketConnection* connection,
+NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connection,
                                                      WebSocketMessage message, bool mask) {
 
 	WS_OPCODE opCode = message.is_text // NOLINT(readability-implicit-bool-conversion)
@@ -364,7 +364,7 @@ static NODISCARD int ws_send_message_internal_normal(WebSocketConnection* connec
 	return ws_send_message_raw_internal(connection, raw_message, mask);
 }
 
-static NODISCARD int ws_send_message_internal_fragmented(WebSocketConnection* connection,
+NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* connection,
                                                          WebSocketMessage message, bool mask,
                                                          uint64_t fragment_size) {
 
@@ -412,7 +412,7 @@ static NODISCARD int ws_send_message_internal_fragmented(WebSocketConnection* co
 
 #define DEFAULT_AUTO_FRAGMENT_SIZE 4096
 
-static NODISCARD int ws_send_message_internal(WebSocketConnection* connection,
+NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
                                               WebSocketMessage message, bool mask,
                                               int64_t fragment_size) {
 
@@ -481,7 +481,7 @@ typedef struct {
 	CloseReason reason;
 } CloseReasonResult;
 
-static NODISCARD CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage raw_message,
+NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage raw_message,
                                                             bool also_parse_message) {
 	if(raw_message.opCode != WS_OPCODE_CLOSE) {
 		return (CloseReasonResult){
@@ -540,7 +540,7 @@ static NODISCARD CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 
 // see: https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.2
 // and https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.1
-static NODISCARD bool is_valid_close_code(uint16_t close_code) {
+NODISCARD static bool is_valid_close_code(uint16_t close_code) {
 	if(close_code <=
 	   999) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		return false;
@@ -576,7 +576,7 @@ static NODISCARD bool is_valid_close_code(uint16_t close_code) {
 	return false;
 }
 
-static NODISCARD int ws_send_close_message_raw_internal(WebSocketConnection* connection,
+NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* connection,
                                                         CloseReason reason) {
 
 	size_t reason_msg_len =
@@ -614,7 +614,7 @@ static NODISCARD int ws_send_close_message_raw_internal(WebSocketConnection* con
 	return result;
 }
 
-static NODISCARD const char* close_websocket_connection(WebSocketConnection* connection,
+NODISCARD static const char* close_websocket_connection(WebSocketConnection* connection,
                                                         WebSocketThreadManager* manager,
                                                         CloseReason reason) {
 

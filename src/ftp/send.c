@@ -3,7 +3,7 @@
 #include "./send.h"
 #include "generic/send.h"
 
-static NODISCARD int
+NODISCARD static int
 sendFTPMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
                                    FTP_RETURN_CODE status, char* body) {
 
