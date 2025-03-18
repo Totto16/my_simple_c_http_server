@@ -645,11 +645,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			// NOTE: we allow overwrites, as the ftp spec says
 
-			char* final_file_path = resolve_path_in_cwd(state, arg, true);
+			char* final_file_path = resolve_path_in_cwd(state, arg);
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "Internal error");
+				                               "Path resolve error");
 
 				return true;
 			}
@@ -831,11 +831,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			char* arg = command->data.string;
 
-			char* final_file_path = resolve_path_in_cwd(state, arg, false);
+			char* final_file_path = resolve_path_in_cwd(state, arg);
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "No such file / dir");
+				                               "Path resolve error");
 
 				return true;
 			}
@@ -1061,11 +1061,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				arg = ".";
 			}
 
-			char* final_file_path = resolve_path_in_cwd(state, arg, false);
+			char* final_file_path = resolve_path_in_cwd(state, arg);
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "No such file / dir");
+				                               "Path resolve error");
 
 				return true;
 			}

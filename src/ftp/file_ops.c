@@ -4,12 +4,15 @@
 #include "generic/send.h"
 #include "utils/string_builder.h"
 
+#include <cwalk.h>
 #include <dirent.h>
 #include <math.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+
+// TODO(Totto): use more cwk_* functions from cwalk, see https://likle.github.io/cwalk/reference/
 
 // note: global_folder <-> current_working_directory invariants:
 // both end NOT in /
@@ -106,60 +109,37 @@ static bool file_is_absolute(const char* const file) {
 		return false;
 	}
 
-	return file[0] == '/';
+	// TODO(Totto): check or report if upstream supports empty value here
+	return cwk_path_is_absolute(file);
 }
 
 NODISCARD static char*
 resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion)
-                        const char* const user_file_input_to_sanitize, DirChangeResult* result,
-                        bool allow_non_existent) {
+                        const char* const user_file_input_to_sanitize, DirChangeResult* result) {
 
 	// normalize the absolute path, so that eg <g>/../ gets resolved, then it fails one invariant
 	// below, so it poses no risk to path traversal
-	char* file = realpath(user_file_input_to_sanitize, NULL);
+
+	size_t buffer_size = strlen(user_file_input_to_sanitize) + 1;
+
+	char* file = (char*)malloc(buffer_size * sizeof(char));
 
 	if(!file) {
-		if(errno == ENOENT && allow_non_existent) { // NOLINT(readability-implicit-bool-conversion)
-
-			// TODO(Totto): this is kinda unsafe, as we create and delete files, that might not safe
-			// to delete / create, use realpath alternative, that actually just canonicalizes!
-
-			FILE* result_file = fopen(user_file_input_to_sanitize, "wb");
-
-			if(result_file == NULL) {
-				LOG_MESSAGE(LogLevelError, "Couldn't open file for writing '%s': %s\n",
-				            user_file_input_to_sanitize, strerror(errno));
-				return NULL;
-			}
-
-			int fclose_result = fclose(result_file);
-
-			if(fclose_result != 0) {
-				LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n",
-				            user_file_input_to_sanitize, strerror(errno));
-
-				return NULL;
-			}
-
-			char* temp_result =
-			    resolve_abs_path_in_cwd(state, user_file_input_to_sanitize, result, false);
-
-			int unlink_result = unlink(user_file_input_to_sanitize);
-
-			if(unlink_result != 0) {
-				LOG_MESSAGE(LogLevelWarn, "Couldn't delete file '%s': %s\n",
-				            user_file_input_to_sanitize, strerror(errno));
-
-				return NULL;
-			}
-
-			return temp_result;
-		}
-
 		if(result) {
 			*result = DIR_CHANGE_RESULT_ERROR;
 		}
-		LOG_MESSAGE(LogLevelCritical, "REASOn 2: %p -> %s\n", file, strerror(errno));
+
+		return NULL;
+	}
+
+	size_t buffer_size_result = cwk_path_normalize(user_file_input_to_sanitize, file, buffer_size);
+
+	// the normalization had not enough bytes in the file buffer
+	if(buffer_size_result >= buffer_size) {
+		if(result) {
+			*result = DIR_CHANGE_RESULT_ERROR;
+		}
+
 		return NULL;
 	}
 
@@ -178,7 +158,6 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 			            file);
 		}
 
-		LOG_MESSAGE(LogLevelCritical, "REASOn 3: %p\n", file);
 		return NULL;
 	}
 
@@ -191,7 +170,6 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 			            file);
 		}
 
-		LOG_MESSAGE(LogLevelCritical, "REASOn 4: %p\n", file);
 		return NULL;
 	}
 
@@ -204,8 +182,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 
 NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
                                                     const char* const file,
-                                                    DirChangeResult* dir_result,
-                                                    bool allow_non_existent) {
+                                                    DirChangeResult* dir_result) {
 
 	// check if the file is absolute or relative
 	bool is_absolute = file_is_absolute(file);
@@ -223,7 +200,6 @@ NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
 	char* abs_string = malloc(final_length * sizeof(char));
 
 	if(!abs_string) {
-		LOG_MESSAGE(LogLevelCritical, "REASOn 1: %p\n", abs_string);
 		return NULL;
 	}
 
@@ -239,16 +215,15 @@ NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
 	       file, f_length);
 	abs_string[final_length - 1] = '\0';
 
-	char* result = resolve_abs_path_in_cwd(state, abs_string, dir_result, allow_non_existent);
+	char* result = resolve_abs_path_in_cwd(state, abs_string, dir_result);
 
 	free(abs_string);
 
 	return result;
 }
 
-NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* const file,
-                                    bool allow_non_existent) {
-	return internal_resolve_path_in_cwd(state, file, NULL, allow_non_existent);
+NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* const file) {
+	return internal_resolve_path_in_cwd(state, file, NULL);
 }
 
 /**
@@ -1043,7 +1018,7 @@ void free_send_data(SendData* data) {
 NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
 
 	DirChangeResult dir_result = DIR_CHANGE_RESULT_OK;
-	char* new_dir = internal_resolve_path_in_cwd(state, file, &dir_result, false);
+	char* new_dir = internal_resolve_path_in_cwd(state, file, &dir_result);
 
 	if(!new_dir) {
 		if(dir_result == DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL) {

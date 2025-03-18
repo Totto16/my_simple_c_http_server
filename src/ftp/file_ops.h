@@ -32,7 +32,7 @@ NODISCARD char* get_dir_name_relative_to_ftp_root(const FTPState* state, const c
 
 NODISCARD char* get_current_dir_name_relative_to_ftp_root(const FTPState* state, bool escape);
 
-NODISCARD char* resolve_path_in_cwd(const FTPState* state, const char* file, bool allow_non_existent);
+NODISCARD char* resolve_path_in_cwd(const FTPState* state, const char* file);
 
 NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file);
 
