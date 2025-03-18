@@ -6,11 +6,12 @@
 
 #ifdef __APPLE__
 
-#include <stdlib.h>
+#include <stdint.h>
 
 typedef uint64_t THREAD_ID_TYPE;
-#define PRI_THREADID "%lu"
+#define PRI_THREADID PRIu64
 #else
+
 typedef pid_t THREAD_ID_TYPE;
 #define PRI_THREADID "%d"
 #endif
