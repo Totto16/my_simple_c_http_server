@@ -626,12 +626,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			if((state->account->data.ok_data.permissions & ACCOUNT_PERMISSIONS_WRITE) == 0) {
-				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NED_ACCT_FOR_STORE,
-				                               "No write permissions with this user!");
+			/* if((state->account->data.ok_data.permissions & ACCOUNT_PERMISSIONS_WRITE) == 0) {
+			    SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NED_ACCT_FOR_STORE,
+			                                   "No write permissions with this user!");
 
-				return true;
-			}
+			    return true;
+			} */
 
 			if(state->data_settings->mode == FTP_DATA_MODE_NONE) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(
@@ -645,11 +645,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			// NOTE: we allow overwrites, as the ftp spec says
 
-			char* final_file_path = resolve_path_in_cwd(state, arg);
+			char* final_file_path = resolve_path_in_cwd(state, arg, true);
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "Traversal error");
+				                               "Internal error");
 
 				return true;
 			}
@@ -831,11 +831,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			char* arg = command->data.string;
 
-			char* final_file_path = resolve_path_in_cwd(state, arg);
+			char* final_file_path = resolve_path_in_cwd(state, arg, false);
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "Traversal error");
+				                               "No such file / dir");
 
 				return true;
 			}
@@ -1061,11 +1061,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				arg = ".";
 			}
 
-			char* final_file_path = resolve_path_in_cwd(state, arg);
+			char* final_file_path = resolve_path_in_cwd(state, arg, false);
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "Traversal error");
+				                               "No such file / dir");
 
 				return true;
 			}

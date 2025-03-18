@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 // note: global_folder <-> current_working_directory invariants:
 // both end NOT in /
@@ -108,18 +109,57 @@ static bool file_is_absolute(const char* const file) {
 	return file[0] == '/';
 }
 
-NODISCARD static char* resolve_abs_path_in_cwd(const FTPState* const state,
-                                               const char* const user_file_input_to_sanitize,
-                                               DirChangeResult* result) {
+NODISCARD static char*
+resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion)
+                        const char* const user_file_input_to_sanitize, DirChangeResult* result,
+                        bool allow_non_existent) {
 
 	// normalize the absolute path, so that eg <g>/../ gets resolved, then it fails one invariant
 	// below, so it poses no risk to path traversal
 	char* file = realpath(user_file_input_to_sanitize, NULL);
 
 	if(!file) {
+		if(errno == ENOENT && allow_non_existent) { // NOLINT(readability-implicit-bool-conversion)
+
+			// TODO(Totto): this is kinda unsafe, as we create and delete files, that might not safe
+			// to delete / create, use realpath alternative, that actually just canonicalizes!
+
+			FILE* result_file = fopen(user_file_input_to_sanitize, "wb");
+
+			if(result_file == NULL) {
+				LOG_MESSAGE(LogLevelError, "Couldn't open file for writing '%s': %s\n",
+				            user_file_input_to_sanitize, strerror(errno));
+				return NULL;
+			}
+
+			int fclose_result = fclose(result_file);
+
+			if(fclose_result != 0) {
+				LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n",
+				            user_file_input_to_sanitize, strerror(errno));
+
+				return NULL;
+			}
+
+			char* temp_result =
+			    resolve_abs_path_in_cwd(state, user_file_input_to_sanitize, result, false);
+
+			int unlink_result = unlink(user_file_input_to_sanitize);
+
+			if(unlink_result != 0) {
+				LOG_MESSAGE(LogLevelWarn, "Couldn't delete file '%s': %s\n",
+				            user_file_input_to_sanitize, strerror(errno));
+
+				return NULL;
+			}
+
+			return temp_result;
+		}
+
 		if(result) {
 			*result = DIR_CHANGE_RESULT_ERROR;
 		}
+		LOG_MESSAGE(LogLevelCritical, "REASOn 2: %p -> %s\n", file, strerror(errno));
 		return NULL;
 	}
 
@@ -137,6 +177,8 @@ NODISCARD static char* resolve_abs_path_in_cwd(const FTPState* const state,
 			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated: %s\n",
 			            file);
 		}
+
+		LOG_MESSAGE(LogLevelCritical, "REASOn 3: %p\n", file);
 		return NULL;
 	}
 
@@ -148,6 +190,8 @@ NODISCARD static char* resolve_abs_path_in_cwd(const FTPState* const state,
 			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated: %s\n",
 			            file);
 		}
+
+		LOG_MESSAGE(LogLevelCritical, "REASOn 4: %p\n", file);
 		return NULL;
 	}
 
@@ -160,7 +204,8 @@ NODISCARD static char* resolve_abs_path_in_cwd(const FTPState* const state,
 
 NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
                                                     const char* const file,
-                                                    DirChangeResult* dir_result) {
+                                                    DirChangeResult* dir_result,
+                                                    bool allow_non_existent) {
 
 	// check if the file is absolute or relative
 	bool is_absolute = file_is_absolute(file);
@@ -178,6 +223,7 @@ NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
 	char* abs_string = malloc(final_length * sizeof(char));
 
 	if(!abs_string) {
+		LOG_MESSAGE(LogLevelCritical, "REASOn 1: %p\n", abs_string);
 		return NULL;
 	}
 
@@ -193,15 +239,16 @@ NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
 	       file, f_length);
 	abs_string[final_length - 1] = '\0';
 
-	char* result = resolve_abs_path_in_cwd(state, abs_string, dir_result);
+	char* result = resolve_abs_path_in_cwd(state, abs_string, dir_result, allow_non_existent);
 
 	free(abs_string);
 
 	return result;
 }
 
-NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* const file) {
-	return internal_resolve_path_in_cwd(state, file, NULL);
+NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* const file,
+                                    bool allow_non_existent) {
+	return internal_resolve_path_in_cwd(state, file, NULL, allow_non_existent);
 }
 
 /**
@@ -996,7 +1043,7 @@ void free_send_data(SendData* data) {
 NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
 
 	DirChangeResult dir_result = DIR_CHANGE_RESULT_OK;
-	char* new_dir = internal_resolve_path_in_cwd(state, file, &dir_result);
+	char* new_dir = internal_resolve_path_in_cwd(state, file, &dir_result, false);
 
 	if(!new_dir) {
 		if(dir_result == DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL) {
