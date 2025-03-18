@@ -1,0 +1,60 @@
+name: Lint CI
+on:
+  push:
+    branches: ['main']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  cpp-linter:
+    name: C++ lints(clang-format + clang-tidy)
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
+      - name: Setup Meson
+        run: |
+          pip install meson --break-system-packages
+
+      - name: Setup Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 20
+          echo "CC=clang-20" >> "$GITHUB_ENV"
+          echo "CXX=clang++-20" >> "$GITHUB_ENV"
+          echo "OBJC=clang-20" >> "$GITHUB_ENV"
+
+      - name: Prepare compile_commands.json
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build openssl-dev -y --no-install-recommends
+
+          meson setup build -Dbuildtype=release -Dsecure=enabled
+
+      - uses: cpp-linter/cpp-linter-action@v2
+        id: linter
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: file
+          version: 20
+          database: build
+          files-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
+          lines-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
+          thread-comments: update
+          tidy-checks: ''
+          step-summary: true
+          file-annotations: true
+          ignore: subprojects|build|src/thirdparty
+
+      - name: Fail CI run if linter checks failed
+        if: steps.linter.outputs.checks-failed != 0
+        run: |
+          echo "${{ steps.linter.outputs.checks-failed }} linter checks failed"
+          exit 1
