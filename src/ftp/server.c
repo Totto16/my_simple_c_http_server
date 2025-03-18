@@ -10,6 +10,7 @@
 #include "generic/helper.h"
 #include "generic/read.h"
 #include "generic/send.h"
+#include "generic/signal_fd.h"
 #include "utils/clock.h"
 #include "utils/errors.h"
 #include "utils/log.h"
@@ -20,7 +21,6 @@
 #include <netinet/ip.h>
 #include <poll.h>
 #include <signal.h>
-#include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -952,10 +952,7 @@ anyType(ListenerError*)
 	poll_fds[0].fd = argument.socketFd;
 	poll_fds[0].events = POLLIN;
 
-	sigset_t mySigset;
-	sigemptyset(&mySigset);
-	sigaddset(&mySigset, SIGINT);
-	int sigFd = signalfd(-1, &mySigset, 0);
+	int sigFd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	checkForError(sigFd, "While trying to cancel the listener Thread on signal",
 	              exit(EXIT_FAILURE););
@@ -1103,10 +1100,7 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 	poll_fds[POLL_SOCKET_ARR_INDEX].fd = argument.fd;
 	poll_fds[POLL_SOCKET_ARR_INDEX].events = POLLIN;
 
-	sigset_t mySigset;
-	sigemptyset(&mySigset);
-	sigaddset(&mySigset, SIGINT);
-	int sigFd = signalfd(-1, &mySigset, 0);
+	int sigFd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	checkForError(sigFd, "While trying to cancel a data listener Thread on signal",
 	              exit(EXIT_FAILURE););

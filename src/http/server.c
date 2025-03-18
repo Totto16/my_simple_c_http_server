@@ -5,6 +5,7 @@
 #include "./server.h"
 #include "generic/read.h"
 #include "generic/secure.h"
+#include "generic/signal_fd.h"
 #include "utils/errors.h"
 #include "utils/log.h"
 #include "utils/thread_pool.h"
@@ -374,10 +375,7 @@ anyType(ListenerError*) http_listener_thread_function(anyType(HTTPThreadArgument
 	poll_fds[0].fd = argument.socketFd;
 	poll_fds[0].events = POLLIN;
 
-	sigset_t mySigset;
-	sigemptyset(&mySigset);
-	sigaddset(&mySigset, SIGINT);
-	int sigFd = signalfd(-1, &mySigset, 0);
+	int sigFd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	checkForError(sigFd, "While trying to cancel the listener Thread on signal",
 	              exit(EXIT_FAILURE););

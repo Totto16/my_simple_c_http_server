@@ -139,6 +139,7 @@ int pool_create(thread_pool* pool, size_t size) {
 
 int get_active_cpu_core(void) {
 #ifdef _DONT_HAVE_SYS_SYSINFO
+	// see https://www.unix.com/man_page/osx/3/sysconf
 	return sysconf(_SC_NPROCESSORS_ONLN);
 #else
 	return get_nprocs();
