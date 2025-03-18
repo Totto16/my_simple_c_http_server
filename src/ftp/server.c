@@ -1273,12 +1273,20 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			switch(type_info->data.type & FTP_TRANSMISSION_TYPE_MASK_BASE) {
 				case FTP_TRANSMISSION_TYPE_ASCII: {
-					state->current_type = FTP_TRANSMISSION_TYPE_ASCII;
-					break;
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR,
+					                               "ASCII type not supported atm!");
+
+					return false;
+					// state->current_type = FTP_TRANSMISSION_TYPE_ASCII;
+					// break;
 				}
 				case FTP_TRANSMISSION_TYPE_EBCDIC: {
-					state->current_type = FTP_TRANSMISSION_TYPE_EBCDIC;
-					break;
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR,
+					                               "EBCDIC type not supported atm!");
+
+					return false;
+					// state->current_type = FTP_TRANSMISSION_TYPE_EBCDIC;
+					// break;
 				}
 				case FTP_TRANSMISSION_TYPE_IMAGE: {
 					state->current_type = FTP_TRANSMISSION_TYPE_IMAGE;
