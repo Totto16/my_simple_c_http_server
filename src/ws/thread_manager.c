@@ -17,7 +17,7 @@
 #include <sys/random.h>
 #include <utf8proc.h>
 
-#if defined(OS_MACOSX)
+#ifdef __APPLE__
 #include <machine/endian.h>
 
 #include "./macos_endian_compat.h"
@@ -344,7 +344,8 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 
 		if(raw_message.payload_len > MAX_CONTROL_FRAME_PAYLOAD) {
 			// TODO(Totto): add error message
-			LOG_MESSAGE(LogLevelDebug, "Control frame payload length is too large: %lu > %d\n",
+			LOG_MESSAGE(LogLevelDebug,
+			            "Control frame payload length is too large: %" PRIu64 " > %d\n",
 			            raw_message.payload_len, MAX_CONTROL_FRAME_PAYLOAD);
 
 			free(resultingFrame);
