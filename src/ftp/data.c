@@ -217,6 +217,7 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 			connection->state = DATA_CONNECTION_STATE_EMPTY;
 			connection->descriptor = NULL;
 			connection->control_state = DATA_CONNECTION_CONTROL_STATE_MISSING;
+			connection->associated_thread = 0;
 			if(!nts_internal_set_last_change_to_now(connection)) {
 				free(connection);
 				connection = NULL;
@@ -287,13 +288,18 @@ bool data_controller_add_descriptor(DataController* data_controller,
 
 				// TODO(Totto): maybe use this instead of signals:
 				// https://linux.die.net/man/2/eventfd2
-				int pthread_res = pthread_kill(data_connection->associated_thread,
-				                               FTP_PASSIVE_DATA_CONNECTION_SIGNAL);
 
-				checkForThreadError(pthread_res,
-				                    "An Error occurred while trying to send a signal to the data "
-				                    "connections associated thread",
-				                    goto break_lbl;);
+				if(data_connection->associated_thread != 0) {
+
+					int pthread_res = pthread_kill(data_connection->associated_thread,
+					                               FTP_PASSIVE_DATA_CONNECTION_SIGNAL);
+
+					checkForThreadError(
+					    pthread_res,
+					    "An Error occurred while trying to send a signal to the data "
+					    "connections associated thread",
+					    goto break_lbl;);
+				}
 
 				break;
 
