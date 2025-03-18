@@ -1,6 +1,7 @@
 
 
 #ifdef _DONT_HAVE_SYS_SIGNALFD
+#include <stdlib.h>
 #include <sys/event.h>
 #else
 #include <signal.h>

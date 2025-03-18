@@ -25,7 +25,7 @@ FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg) {
 	}
 
 	info->is_normal = true;
-	info->data.type = 0;
+	info->data.type = FTP_TRANSMISSION_TYPE_NONE;
 
 	// return <type-code>
 	// <type-code> ::= A [<sp> <form-code>]
