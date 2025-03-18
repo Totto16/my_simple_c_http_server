@@ -40,8 +40,16 @@ static bool _impl_get_time(Time* time, clockid_t clockid) {
 	return true;
 }
 
+#ifdef __linux
+#define CLOCK_MONOTONIC_OR_BETTER CLOCK_BOOTTIME
+#else
+#define CLOCK_MONOTONIC_OR_BETTER CLOCK_MONOTONIC
+#endif
+
+
+
 bool get_monotonic_time(Time* time) {
-	return _impl_get_time(time, CLOCK_BOOTTIME);
+	return _impl_get_time(time, CLOCK_MONOTONIC_OR_BETTER);
 }
 
 bool get_current_time(Time* time) {
