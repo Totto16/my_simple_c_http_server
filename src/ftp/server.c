@@ -29,6 +29,10 @@
 #define ALLOW_SSL_AUTO_CONTEXT_REUSE false
 #define DEFAULT_PASSIVE_PORT_AMOUNT 10
 
+#ifdef _NO_SIGNAL_HANDLER_TYPED_DEFINED
+typedef void (*__sighandler_t)(int);
+#endif
+
 static bool setup_signal_handler_impl_with_handler(int signal_number, __sighandler_t handle) {
 	// set up the signal handler
 	// just create a sigaction structure, then add the handler
