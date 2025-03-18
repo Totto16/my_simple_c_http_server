@@ -9,7 +9,6 @@
 #include "utils/utils.h"
 
 #include <arpa/inet.h>
-#include <endian.h>
 #include <errno.h>
 #include <pthread.h>
 
