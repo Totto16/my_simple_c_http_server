@@ -69,7 +69,7 @@ FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg) {
 		UNREACHABLE();
 	}
 
-	// TODO_
+	// TODO(Totto): also parse other flags and longer strings
 	free(info);
 	return NULL;
 }
@@ -90,11 +90,10 @@ bool parseU8Into(char* input, uint8_t* result_addr) {
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
 	if(*endpointer != '\0') {
 		return false;
-	} else if(errno != 0) {
-		return false;
 	}
 
-	if(result < 0 || result > 0xFF) {
+	if(errno != 0 || result < 0 ||
+	   result > 0xFF) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		return false;
 	}
 
@@ -147,12 +146,16 @@ FTPPortInformation* parse_ftp_command_port_info(char* arg) {
 	}
 
 	uint32_t addr = result[0];
-	addr = (addr << 8) + result[1];
-	addr = (addr << 8) + result[2];
-	addr = (addr << 8) + result[3];
+	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	       result[1];
+	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	       result[2];
+	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	       result[3];
 
 	uint16_t port = result[4];
-	addr = (addr << 8) + result[5];
+	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	       result[5];    // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	info->addr = addr;
 	info->port = port;
@@ -162,7 +165,7 @@ FTPPortInformation* parse_ftp_command_port_info(char* arg) {
 
 FTPCommand* parseSingleFTPCommand(char* commandStr) {
 
-	int length = strlen(commandStr);
+	size_t length = strlen(commandStr);
 
 	if(length < 3) {
 		return NULL;
@@ -177,47 +180,73 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 	if(strcasecmp("CDUP", commandStr) == 0) {
 		command->type = FTP_COMMAND_CDUP;
 		return command;
-	} else if(strcasecmp("QUIT", commandStr) == 0) {
+	}
+
+	if(strcasecmp("QUIT", commandStr) == 0) {
 		command->type = FTP_COMMAND_QUIT;
 		return command;
-	} else if(strcasecmp("REIN", commandStr) == 0) {
+	}
+
+	if(strcasecmp("REIN", commandStr) == 0) {
 		command->type = FTP_COMMAND_REIN;
 		return command;
-	} else if(strcasecmp("PASV", commandStr) == 0) {
+	}
+
+	if(strcasecmp("PASV", commandStr) == 0) {
 		command->type = FTP_COMMAND_PASV;
 		return command;
-	} else if(strcasecmp("STOU", commandStr) == 0) {
+	}
+
+	if(strcasecmp("STOU", commandStr) == 0) {
 		command->type = FTP_COMMAND_STOU;
 		return command;
-	} else if(strcasecmp("ABOR", commandStr) == 0) {
+	}
+
+	if(strcasecmp("ABOR", commandStr) == 0) {
 		command->type = FTP_COMMAND_ABOR;
 		return command;
-	} else if(strcasecmp("PWD", commandStr) == 0) {
+	}
+
+	if(strcasecmp("PWD", commandStr) == 0) {
 		command->type = FTP_COMMAND_PWD;
 		return command;
-	} else if(strcasecmp("LIST", commandStr) == 0) {
+	}
+
+	if(strcasecmp("LIST", commandStr) == 0) {
 		command->type = FTP_COMMAND_LIST;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
-	} else if(strcasecmp("NLST", commandStr) == 0) {
+	}
+
+	if(strcasecmp("NLST", commandStr) == 0) {
 		command->type = FTP_COMMAND_NLST;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
-	} else if(strcasecmp("SYST", commandStr) == 0) {
+	}
+
+	if(strcasecmp("SYST", commandStr) == 0) {
 		command->type = FTP_COMMAND_SYST;
 		return command;
-	} else if(strcasecmp("STAT", commandStr) == 0) {
+	}
+
+	if(strcasecmp("STAT", commandStr) == 0) {
 		command->type = FTP_COMMAND_STAT;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
-	} else if(strcasecmp("HELP", commandStr) == 0) {
+	}
+
+	if(strcasecmp("HELP", commandStr) == 0) {
 		command->type = FTP_COMMAND_HELP;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
-	} else if(strcasecmp("NOOP", commandStr) == 0) {
+	}
+
+	if(strcasecmp("NOOP", commandStr) == 0) {
 		command->type = FTP_COMMAND_NOOP;
 		return command;
-	} else if(strcasecmp("FEAT", commandStr) == 0) {
+	}
+
+	if(strcasecmp("FEAT", commandStr) == 0) {
 		command->type = FTP_COMMAND_FEAT;
 		return command;
 	}
@@ -238,95 +267,141 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 		command->type = FTP_COMMAND_USER;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("PASS", commandStr) == 0) {
+	}
+
+	if(strcasecmp("PASS", commandStr) == 0) {
 		command->type = FTP_COMMAND_PASS;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("ACCT", commandStr) == 0) {
+	}
+
+	if(strcasecmp("ACCT", commandStr) == 0) {
 		command->type = FTP_COMMAND_ACCT;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("CWD", commandStr) == 0) {
+	}
+
+	if(strcasecmp("CWD", commandStr) == 0) {
 		command->type = FTP_COMMAND_CWD;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("SMNT", commandStr) == 0) {
+	}
+
+	if(strcasecmp("SMNT", commandStr) == 0) {
 		command->type = FTP_COMMAND_SMNT;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("RETR", commandStr) == 0) {
+	}
+
+	if(strcasecmp("RETR", commandStr) == 0) {
 		command->type = FTP_COMMAND_RETR;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("STOR", commandStr) == 0) {
+	}
+
+	if(strcasecmp("STOR", commandStr) == 0) {
 		command->type = FTP_COMMAND_STOR;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("APPE", commandStr) == 0) {
+	}
+
+	if(strcasecmp("APPE", commandStr) == 0) {
 		command->type = FTP_COMMAND_APPE;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("RNFR", commandStr) == 0) {
+	}
+
+	if(strcasecmp("RNFR", commandStr) == 0) {
 		command->type = FTP_COMMAND_RNFR;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("RNTO", commandStr) == 0) {
+	}
+
+	if(strcasecmp("RNTO", commandStr) == 0) {
 		command->type = FTP_COMMAND_RNTO;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("DELE", commandStr) == 0) {
+	}
+
+	if(strcasecmp("DELE", commandStr) == 0) {
 		command->type = FTP_COMMAND_DELE;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("RMD", commandStr) == 0) {
+	}
+
+	if(strcasecmp("RMD", commandStr) == 0) {
 		command->type = FTP_COMMAND_RMD;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("MKD", commandStr) == 0) {
+	}
+
+	if(strcasecmp("MKD", commandStr) == 0) {
 		command->type = FTP_COMMAND_MKD;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("LIST", commandStr) == 0) {
+	}
+
+	if(strcasecmp("LIST", commandStr) == 0) {
 		command->type = FTP_COMMAND_LIST;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("NLST", commandStr) == 0) {
+	}
+
+	if(strcasecmp("NLST", commandStr) == 0) {
 		command->type = FTP_COMMAND_NLST;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("SITE", commandStr) == 0) {
+	}
+
+	if(strcasecmp("SITE", commandStr) == 0) {
 		command->type = FTP_COMMAND_SITE;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("STAT", commandStr) == 0) {
+	}
+
+	if(strcasecmp("STAT", commandStr) == 0) {
 		command->type = FTP_COMMAND_STAT;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("HELP", commandStr) == 0) {
+	}
+
+	if(strcasecmp("HELP", commandStr) == 0) {
 		command->type = FTP_COMMAND_HELP;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("AUTH", commandStr) == 0) {
+	}
+
+	if(strcasecmp("AUTH", commandStr) == 0) {
 		command->type = FTP_COMMAND_AUTH;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("ADAT", commandStr) == 0) {
+	}
+
+	if(strcasecmp("ADAT", commandStr) == 0) {
 		command->type = FTP_COMMAND_ADAT;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("MIC", commandStr) == 0) {
+	}
+
+	if(strcasecmp("MIC", commandStr) == 0) {
 		command->type = FTP_COMMAND_MIC;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("CONF", commandStr) == 0) {
+	}
+
+	if(strcasecmp("CONF", commandStr) == 0) {
 		command->type = FTP_COMMAND_CONF;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("ENC", commandStr) == 0) {
+	}
+
+	if(strcasecmp("ENC", commandStr) == 0) {
 		command->type = FTP_COMMAND_ENC;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
-	} else if(strcasecmp("TYPE", commandStr) == 0) {
+	}
+
+	if(strcasecmp("TYPE", commandStr) == 0) {
 		command->type = FTP_COMMAND_TYPE;
 		FTPCommandTypeInformation* type_info = parse_ftp_command_type_info(argumentStr);
 		if(type_info == NULL) {
@@ -335,7 +410,9 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 		}
 		command->data.type_info = type_info;
 		return command;
-	} else if(strcasecmp("PORT", commandStr) == 0) {
+	}
+
+	if(strcasecmp("PORT", commandStr) == 0) {
 		command->type = FTP_COMMAND_PORT;
 		FTPPortInformation* port_info = parse_ftp_command_port_info(argumentStr);
 		if(port_info == NULL) {
@@ -346,7 +423,7 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 		return command;
 	}
 
-	// TODO: implement these
+	// TODO(Totto): implement these
 	//     STRU <SP> <structure-code> <CRLF>
 	//     MODE <SP> <mode-code> <CRLF>
 	//     ALLO <SP> <decimal-integer> [<SP> R <SP> <decimal-integer>] <CRLF>
@@ -378,7 +455,7 @@ FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands) {
 	const char* const separators = "\r\n";
 	size_t separatorsLength = strlen(separators);
 
-	int size_to_proccess = strlen(rawFtpCommands);
+	size_t size_to_proccess = strlen(rawFtpCommands);
 	char* currentlyAt = rawFtpCommands;
 
 	if(size_to_proccess == 0) {
@@ -395,7 +472,7 @@ FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands) {
 			return NULL;
 		}
 
-		int length = resultingIndex - currentlyAt;
+		size_t length = resultingIndex - currentlyAt;
 
 		// overwrite this, so that this is the end of ths string
 		*resultingIndex = '\0';
@@ -409,10 +486,20 @@ FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands) {
 		}
 
 		array->size++;
-		array->content = realloc((void*)array->content, array->size * sizeof(FTPCommand*));
+
+		FTPCommand** new_content =
+		    (FTPCommand**)realloc((void*)array->content, array->size * sizeof(FTPCommand*));
+		if(!new_content) {
+			freeFTPCommandArray(array);
+			FREE_AT_END();
+			return NULL;
+		}
+
+		array->content = new_content;
+
 		array->content[array->size - 1] = command;
 
-		int actualLength = length + separatorsLength;
+		size_t actualLength = length + separatorsLength;
 		size_to_proccess -= actualLength;
 		currentlyAt += actualLength;
 	}

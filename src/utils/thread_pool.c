@@ -173,7 +173,7 @@ int pool_create_dynamic(thread_pool* pool) {
 // otherwise the behaviour is undefined!
 // the function argument has to be malloced or on a stack with enough lifetime, the pointer to it
 // has to be valid until pool_await is called!
-static job_id* __pool_submit(thread_pool* pool, job_function start_routine, anyType(JobArg) arg) {
+static job_id* int_pool_submit(thread_pool* pool, job_function start_routine, anyType(JobArg) arg) {
 	job_id* jobDescription = (job_id*)malloc(sizeof(job_id));
 
 	if(!jobDescription) {
@@ -209,7 +209,7 @@ static job_id* __pool_submit(thread_pool* pool, job_function start_routine, anyT
 // checked here and printing a warning if its _THREAD_SHUTDOWN_JOB and returns a SubmitError
 job_id* pool_submit(thread_pool* pool, job_function start_routine, anyType(JobArg) arg) {
 	if(start_routine != THREAD_SHUTDOWN_JOB) {
-		return __pool_submit(pool, start_routine, arg);
+		return int_pool_submit(pool, start_routine, arg);
 	}
 
 	LOG_MESSAGE_SIMPLE(LogLevelWarn, "invalid job_function passed to pool_submit!\n");
@@ -248,10 +248,10 @@ static anyType(JobResult) __pool_await(job_id* jobDescription) {
 anyType(JobResult) pool_await(job_id* jobDescription) {
 	if(jobDescription != (void*)THREAD_SHUTDOWN_JOB_INTERNAL) {
 		return __pool_await(jobDescription);
-	} else {
-		fprintf(stderr, "WARNING: invalid job_function passed to pool_submit!\n");
-		return JobError_InvalidJob;
 	}
+
+	fprintf(stderr, "WARNING: invalid job_function passed to pool_submit!\n");
+	return JobError_InvalidJob;
 }
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined
@@ -266,7 +266,7 @@ int pool_destroy(thread_pool* pool) {
 	// destroy, they DON'T get worked upon, and also it is shutdown after ALL remaining jobs
 	// are finished, so it's only well defined, if waited upon all jobs!
 	for(size_t i = 0; i < pool->workerThreadAmount; ++i) {
-		__pool_await(__pool_submit(pool, THREAD_SHUTDOWN_JOB, NULL));
+		__pool_await(int_pool_submit(pool, THREAD_SHUTDOWN_JOB, NULL));
 	}
 
 	// then finally join all the worker threads, this is done after sending a shutdown signal, so

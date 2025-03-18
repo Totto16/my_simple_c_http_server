@@ -36,7 +36,7 @@ void* reallocWithMemset(void* previousPtr, const size_t oldSize, const size_t ne
 		fprintf(stderr, "ERROR: Couldn't reallocate memory!\n");
 		return NULL;
 	}
-	if(initializeWithZeros && newSize > oldSize) {
+	if(initializeWithZeros && newSize > oldSize) { // NOLINT(readability-implicit-bool-conversion)
 		// yes this could be done by calloc, but if you don't need that, its overhead!
 		void* secondResult = memset(((char*)result) + oldSize, 0, newSize - oldSize);
 		if(((char*)result) + oldSize != secondResult) {

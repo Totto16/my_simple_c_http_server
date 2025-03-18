@@ -78,7 +78,7 @@ typedef struct {
 
 ARRAY_STRUCT(FTPCommandArray, FTPCommand*);
 
-NODISCARD FTPCommandArray* parseMultipleFTPCommands(char* input);
+NODISCARD FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands);
 
 void freeFTPCommand(FTPCommand*);
 

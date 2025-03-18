@@ -49,7 +49,7 @@ jobs:
           tidy-checks: ''
           step-summary: true
           file-annotations: true
-          ignore: subprojects|build|src/thirdparty
+          ignore: subprojects|build|src/thirdparty|src/ws/macos_endian_compat.h
 
       - name: Fail CI run if linter checks failed
         if: steps.linter.outputs.checks-failed != 0

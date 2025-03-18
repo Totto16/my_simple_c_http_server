@@ -715,17 +715,18 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 	formatString(&thread_name_buffer, return NULL;, "ws listener " PRI_THREADID, get_thread_id());
 	set_thread_name(thread_name_buffer);
 
-	bool result = setup_sigpipe_signal_handler();
-
-	if(!result) {
-		return NULL;
-	}
-
 #define FREE_AT_END() \
 	do { \
 		free(thread_name_buffer); \
 		free(argument); \
 	} while(false)
+
+	bool result = setup_sigpipe_signal_handler();
+
+	if(!result) {
+		FREE_AT_END();
+		return NULL;
+	}
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting WS Listener\n");
 
@@ -1184,7 +1185,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 		if(has_message) {
 			WebSocketAction action = connection->function(connection, current_message);
 			free(current_message.data);
-			has_message = false;
+			// has_message = false;
 			current_message.data = NULL;
 			current_message.data_len = 0;
 
