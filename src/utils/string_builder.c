@@ -2,6 +2,8 @@
 
 #include "string_builder.h"
 
+#include "utils/log.h"
+
 StringBuilder* string_builder_init() {
 	StringBuilder* result = (StringBuilder*)malloc(sizeof(StringBuilder));
 	if(!result) {
@@ -91,7 +93,7 @@ char* string_builder_to_string(StringBuilder* stringBuilder) {
 	return result;
 }
 
-// the struct or implementation can change, this function has to adapt, not thew user!
+// the struct or implementation can change, this function has to adapt, not the user!
 // after that call the stringbuilder is reusable and can be freed, appended uppon etc.
 char* string_builder_get_string(StringBuilder* stringBuilder) {
 	return stringBuilder->data;

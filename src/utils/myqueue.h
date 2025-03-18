@@ -1,12 +1,18 @@
 
 #pragma once
 
-#include <semaphore.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _USE_BSD_QUEUE
+#include "bsd/sys/queue.h"
+#else
 #include <sys/queue.h>
+#endif
+
+#include "generic/sem.h"
 
 // in here there are several utilities that are used across all .h and .c files
 #include "utils.h"
@@ -27,7 +33,7 @@ typedef struct myqueue_head myqueue_head;
 
 typedef struct {
 	myqueue_head head;
-	sem_t canAccess;
+	SEMAPHORE_TYPE canAccess;
 	int size;
 } myqueue;
 

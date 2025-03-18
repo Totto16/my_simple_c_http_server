@@ -3,11 +3,19 @@
 
 #include <openssl/ssl.h>
 
+#include "utils/utils.h"
+
 #define ESSL 167
 
 typedef struct SecureDataImpl SecureData;
 
-typedef enum { SECURE_OPTIONS_TYPE_NOT_SECURE, SECURE_OPTIONS_TYPE_SECURE } SECURE_OPTIONS_TYPE;
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	SECURE_OPTIONS_TYPE_NOT_SECURE = 0,
+	SECURE_OPTIONS_TYPE_SECURE,
+} SECURE_OPTIONS_TYPE;
 
 typedef struct {
 	SECURE_OPTIONS_TYPE type;
@@ -37,7 +45,10 @@ void free_connection_context(ConnectionContext* context);
 
 ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* context, int native_fd);
 
-int close_connection_descriptor(ConnectionDescriptor* descriptor, ConnectionContext* context);
+int close_connection_descriptor(ConnectionDescriptor* descriptor);
+
+int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
+                                         ConnectionContext* context, bool allow_reuse);
 
 int read_from_descriptor(const ConnectionDescriptor* descriptor, void* buffer, size_t n_bytes);
 

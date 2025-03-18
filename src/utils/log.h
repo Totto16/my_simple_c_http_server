@@ -1,9 +1,12 @@
 
 #pragma once
 
+#include "utils/utils.h"
 #include <stdio.h>
-
-typedef enum {
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	LogLevelTrace = 0x00,
 	LogLevelDebug = 0x01,
 	LogLevelInfo = 0x02,
@@ -13,7 +16,12 @@ typedef enum {
 	LogLevelOff = 0x06,
 } LogLevel;
 
-typedef enum { LogPrintLocation = 0x08 } LogFlags;
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	LogPrintLocation = 0x08,
+} LogFlags;
 
 // only for internal use!!
 

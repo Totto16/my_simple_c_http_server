@@ -1,6 +1,8 @@
 
 
-#include "utils.h"
+#include "utils/utils.h"
+#include "utils/log.h"
+
 #include <stdint.h>
 
 #include <errno.h>
@@ -34,7 +36,7 @@ void* reallocWithMemset(void* previousPtr, const size_t oldSize, const size_t ne
 		fprintf(stderr, "ERROR: Couldn't reallocate memory!\n");
 		return NULL;
 	}
-	if(initializeWithZeros && newSize > oldSize) {
+	if(initializeWithZeros && newSize > oldSize) { // NOLINT(readability-implicit-bool-conversion)
 		// yes this could be done by calloc, but if you don't need that, its overhead!
 		void* secondResult = memset(((char*)result) + oldSize, 0, newSize - oldSize);
 		if(((char*)result) + oldSize != secondResult) {
@@ -52,7 +54,7 @@ void* reallocWithMemset(void* previousPtr, const size_t oldSize, const size_t ne
 long parseLongSafely(const char* toParse, const char* description) {
 	// this is just allocated, so that strtol can write an address into it,
 	// therefore it doesn't need to be initialized
-	char* endpointer;
+	char* endpointer = NULL;
 	// reseting errno, since it's not guaranteed to be that, but strtol can return some values that
 	// generally are also valid, so errno is the only REAL and consistent method of checking for
 	// error
@@ -92,4 +94,18 @@ uint16_t parseU16Safely(const char* toParse, const char* description) {
 	}
 
 	return (uint16_t)result;
+}
+
+char* copy_cstr(char* input) {
+	size_t length = strlen(input) + 1;
+
+	char* result = malloc(length);
+
+	if(!result) {
+		return NULL;
+	}
+
+	memcpy(result, input, length);
+
+	return result;
 }

@@ -36,7 +36,7 @@ bool is_secure(const SecureOptions* const options) {
 	       SECURE_OPTIONS_TYPE_SECURE;
 }
 
-#ifndef _HTTP_SERVER_SECURE_DISABLED
+#ifndef _SIMPLE_SERVER_SECURE_DISABLED
 
 static bool file_exists(const char* const file) {
 	return access(file, R_OK) == 0; // NOLINT(readability-implicit-bool-conversion)
@@ -138,7 +138,7 @@ SecureOptions* initialize_secure_options(bool secure, const char* const public_c
 		return options;
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNUSED(public_cert_file);
 	UNUSED(private_cert_file);
 	UNREACHABLE();
@@ -166,7 +166,7 @@ void free_secure_options(SecureOptions* const options) {
 		return;
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNREACHABLE();
 #else
 
@@ -180,7 +180,7 @@ bool is_secure_context(const ConnectionContext* const context) {
 	       SECURE_OPTIONS_TYPE_SECURE;
 }
 
-#ifndef _HTTP_SERVER_SECURE_DISABLED
+#ifndef _SIMPLE_SERVER_SECURE_DISABLED
 
 static SSL* new_ssl_structure_from_ctx(SSL_CTX* ssl_context) {
 	SSL* ssl_structure = SSL_new(ssl_context);
@@ -209,7 +209,7 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 		return context;
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNUSED(context);
 	UNREACHABLE();
 #else
@@ -246,7 +246,7 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 		return context;
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNUSED(context);
 	UNREACHABLE();
 #else
@@ -278,7 +278,7 @@ void free_connection_context(ConnectionContext* context) {
 		return;
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNREACHABLE();
 #else
 
@@ -309,7 +309,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 		return descriptor;
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNUSED(context);
 	UNREACHABLE();
 #else
@@ -342,8 +342,13 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 #endif
 }
 
-int close_connection_descriptor(ConnectionDescriptor* descriptor,
-                                ConnectionContext* const context) {
+int close_connection_descriptor(ConnectionDescriptor* descriptor) {
+
+	return close_connection_descriptor_advanced(descriptor, NULL, false);
+}
+
+int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
+                                         ConnectionContext* const context, bool allow_reuse) {
 
 	if(!is_secure_descriptor(descriptor)) {
 		int result = close(descriptor->data.fd);
@@ -351,8 +356,9 @@ int close_connection_descriptor(ConnectionDescriptor* descriptor,
 		return result;
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNUSED(context);
+	UNUSED(allow_reuse);
 	UNREACHABLE();
 #else
 
@@ -387,7 +393,6 @@ int close_connection_descriptor(ConnectionDescriptor* descriptor,
 	// side didn't clean up correctly
 	int shutdown_flags = SSL_get_shutdown(ssl_structure);
 	bool was_closed_correctly = false;
-	bool allow_reuse = false;
 
 	if((shutdown_flags & SSL_SENT_SHUTDOWN) != 0 && (shutdown_flags & SSL_RECEIVED_SHUTDOWN) != 0) {
 		was_closed_correctly = true;
@@ -396,7 +401,6 @@ int close_connection_descriptor(ConnectionDescriptor* descriptor,
 	// if it was closed correctly, we can reuse the connection, otherwise we can't
 	if(was_closed_correctly && allow_reuse) { // NOLINT(readability-implicit-bool-conversion)
 
-		// TODO(Totto): Warnings: allow_reuse should be configurable by keepalive connections:
 		/* SSL_clear() resets the SSL object to allow for another connection. The reset operation
 		 * however keeps several settings of the last sessions (some of these settings were made
 		 * automatically during the last handshake). It only makes sense when opening a new session
@@ -414,13 +418,16 @@ int close_connection_descriptor(ConnectionDescriptor* descriptor,
 	} else {
 		SSL_free(ssl_structure);
 
-		assert(context->data.data.ssl_structure == ssl_structure);
-		context->data.data.ssl_structure =
-		    new_ssl_structure_from_ctx(context->data.data.options->data.data->ssl_context);
+		// if context is NULL; we don't allow reallocating of the new context
+		if(context != NULL) {
+			assert(context->data.data.ssl_structure == ssl_structure);
+			context->data.data.ssl_structure =
+			    new_ssl_structure_from_ctx(context->data.data.options->data.data->ssl_context);
 
-		if(context->data.data.ssl_structure == NULL) {
-			errno = ESSL;
-			return -1;
+			if(context->data.data.ssl_structure == NULL) {
+				errno = ESSL;
+				return -1;
+			}
 		}
 	}
 
@@ -436,7 +443,7 @@ int read_from_descriptor(const ConnectionDescriptor* const descriptor, void* buf
 		return (int)read(descriptor->data.fd, buffer, n_bytes);
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 
 	UNREACHABLE();
 #else
@@ -454,7 +461,7 @@ ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* 
 		return write(descriptor->data.fd, buffer, n_bytes);
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 
 	UNREACHABLE();
 #else
@@ -470,7 +477,7 @@ int get_underlying_socket(const ConnectionDescriptor* const descriptor) {
 		return descriptor->data.fd;
 	}
 
-#ifdef _HTTP_SERVER_SECURE_DISABLED
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNREACHABLE();
 #else
 

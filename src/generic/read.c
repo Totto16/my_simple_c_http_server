@@ -33,7 +33,7 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 
 		if(readBytes == 0) {
 			// client disconnected, so done
-			LOG_MESSAGE_SIMPLE(LogLevelTrace, "client disconnected");
+			LOG_MESSAGE_SIMPLE(LogLevelTrace, "client disconnected\n");
 			break;
 		}
 
@@ -42,7 +42,8 @@ char* readStringFromConnection(const ConnectionDescriptor* const descriptor) {
 			// initializes it with 0 and copies the old content, so nothing is lost and a new
 			// INITIAL_MESSAGE_BUF_SIZE capacity is available + a null byte at the end
 			size_t oldSize = ((buffersUsed + 1) * INITIAL_MESSAGE_BUF_SIZE) + 1;
-			char* new_buffer = (char*)realloc(messageBuffer, oldSize + INITIAL_MESSAGE_BUF_SIZE);
+			char* new_buffer =
+			    (char*)realloc(messageBuffer, (oldSize + INITIAL_MESSAGE_BUF_SIZE) * sizeof(char));
 
 			if(!new_buffer) {
 				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,

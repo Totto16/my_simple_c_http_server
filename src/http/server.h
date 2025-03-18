@@ -1,8 +1,3 @@
-/*
-Author: Tobias Niederbrunner - csba1761
-Module: PS OS 08
-*/
-
 #pragma once
 
 // Note -D_POSIX_C_SOURCE -D_BSD_SOURCE are needed feature flags ONLY for ZID-DPL, on
@@ -12,7 +7,6 @@ Module: PS OS 08
 #include <poll.h>
 #include <stdbool.h>
 #include <strings.h>
-#include <sys/signalfd.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -28,16 +22,19 @@ Module: PS OS 08
 
 // specific numbers for the task, these are arbitrary, but suited for that problem
 
-#define SOCKET_BACKLOG_SIZE 10
+#define HTTP_SOCKET_BACKLOG_SIZE 10
 
-#define MAX_QUEUE_SIZE 100
+#define HTTP_MAX_QUEUE_SIZE 100
 
-enum REQUEST_SUPPORT_STATUS {
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	REQUEST_SUPPORTED = 0,
-	REQUEST_INVALID_HTTP_VERSION = 1,
-	REQUEST_METHOD_NOT_SUPPORTED = 2,
-	REQUEST_INVALID_NONEMPTY_BODY = 3,
-};
+	REQUEST_INVALID_HTTP_VERSION,
+	REQUEST_METHOD_NOT_SUPPORTED,
+	REQUEST_INVALID_NONEMPTY_BODY,
+} REQUEST_SUPPORT_STATUS;
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
@@ -51,24 +48,24 @@ typedef struct {
 	ConnectionContext** contexts;
 	int socketFd;
 	WebSocketThreadManager* webSocketManager;
-} ThreadArgument;
+} HTTPThreadArgument;
 
 typedef struct {
 	ConnectionContext** contexts;
 	pthread_t listenerThread;
 	int connectionFd;
 	WebSocketThreadManager* webSocketManager;
-} ConnectionArgument;
+} HTTPConnectionArgument;
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
 anyType(JobError*)
-    socket_connection_handler(anyType(ConnectionArgument*) arg, WorkerInfo workerInfo);
+    http_socket_connection_handler(anyType(HTTPConnectionArgument*) arg, WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(NULL) listener_thread_function(anyType(ThreadArgument*) arg);
+anyType(NULL) http_listener_thread_function(anyType(HTTPThreadArgument*) arg);
 
-int startServer(uint16_t port, SecureOptions* options);
+int startHttpServer(uint16_t port, SecureOptions* options);

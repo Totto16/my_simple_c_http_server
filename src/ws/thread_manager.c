@@ -1,6 +1,7 @@
 
 
 #include "thread_manager.h"
+#include "generic/helper.h"
 #include "generic/read.h"
 #include "generic/send.h"
 #include "utils/log.h"
@@ -8,13 +9,22 @@
 #include "utils/utils.h"
 
 #include <arpa/inet.h>
-#include <endian.h>
+
 #include <errno.h>
 #include <pthread.h>
-#include <signal.h>
+
 #include <stdlib.h>
 #include <sys/random.h>
+#include <time.h>
 #include <utf8proc.h>
+
+#ifdef __APPLE__
+#include <machine/endian.h>
+
+#include "./macos_endian_compat.h"
+#else
+#include <endian.h>
+#endif
 
 struct connection_node_t {
 	WebSocketConnection* connection;
@@ -33,7 +43,10 @@ struct WebSocketConnectionImpl {
 	pthread_t thread_id;
 };
 
-typedef enum {
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	WS_OPCODE_CONT = 0x0,
 	WS_OPCODE_TEXT = 0x1,
 	WS_OPCODE_BIN = 0x2,
@@ -79,6 +92,8 @@ typedef struct {
 	WebSocketConnection* connection;
 	WebSocketThreadManager* manager;
 } WebSocketListenerArg;
+
+#define WS_ALLOW_SSL_CONTEXT_REUSE false
 
 #define RAW_MESSAGE_HEADER_SIZE 2
 
@@ -227,7 +242,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	return result;
 }
 
-static NODISCARD int ws_send_message_raw_internal(WebSocketConnection* connection,
+NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connection,
                                                   WebSocketRawMessage raw_message, bool mask) {
 
 	if(raw_message.payload == NULL) {
@@ -294,10 +309,12 @@ static NODISCARD int ws_send_message_raw_internal(WebSocketConnection* connectio
 	}
 
 	if(mask) {
-
+#ifdef __APPLE__
+		srandom(time(NULL));
+		uint32_t mask_byte = random();
+#else
 		uint32_t mask_byte = 0;
 		ssize_t result = getrandom((uint8_t*)(&mask_byte), sizeof(uint32_t), 0);
-
 		if(result != sizeof(uint32_t)) {
 			if(result < 0) {
 				LOG_MESSAGE(LogLevelWarn, "Get random failed: %s\n", strerror(errno));
@@ -308,6 +325,7 @@ static NODISCARD int ws_send_message_raw_internal(WebSocketConnection* connectio
 			// use rand_r like normal rand:
 			mask_byte = rand_r(&seed);
 		}
+#endif
 
 		*((uint32_t*)(resultingFrame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len)) =
 		    mask_byte;
@@ -330,7 +348,8 @@ static NODISCARD int ws_send_message_raw_internal(WebSocketConnection* connectio
 
 		if(raw_message.payload_len > MAX_CONTROL_FRAME_PAYLOAD) {
 			// TODO(Totto): add error message
-			LOG_MESSAGE(LogLevelDebug, "Control frame payload length is too large: %lu > %d\n",
+			LOG_MESSAGE(LogLevelDebug,
+			            "Control frame payload length is too large: %" PRIu64 " > %d\n",
 			            raw_message.payload_len, MAX_CONTROL_FRAME_PAYLOAD);
 
 			free(resultingFrame);
@@ -345,7 +364,7 @@ static NODISCARD int ws_send_message_raw_internal(WebSocketConnection* connectio
 	return result;
 }
 
-static NODISCARD int ws_send_message_internal_normal(WebSocketConnection* connection,
+NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connection,
                                                      WebSocketMessage message, bool mask) {
 
 	WS_OPCODE opCode = message.is_text // NOLINT(readability-implicit-bool-conversion)
@@ -358,7 +377,7 @@ static NODISCARD int ws_send_message_internal_normal(WebSocketConnection* connec
 	return ws_send_message_raw_internal(connection, raw_message, mask);
 }
 
-static NODISCARD int ws_send_message_internal_fragmented(WebSocketConnection* connection,
+NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* connection,
                                                          WebSocketMessage message, bool mask,
                                                          uint64_t fragment_size) {
 
@@ -406,7 +425,7 @@ static NODISCARD int ws_send_message_internal_fragmented(WebSocketConnection* co
 
 #define DEFAULT_AUTO_FRAGMENT_SIZE 4096
 
-static NODISCARD int ws_send_message_internal(WebSocketConnection* connection,
+NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
                                               WebSocketMessage message, bool mask,
                                               int64_t fragment_size) {
 
@@ -447,8 +466,11 @@ static NODISCARD int ws_send_message_internal(WebSocketConnection* connection,
 	return ws_send_message_internal_fragmented(connection, message, mask, (uint64_t)fragment_size);
 }
 
-// see: https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
-typedef enum /* :uint16_t */ {
+/**
+ * @enum value
+ * @see https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	CloseCode_NormalClosure = 1000,
 	CloseCode_GoingAway = 1001,
 	CloseCode_ProtocolError = 1002,
@@ -472,7 +494,7 @@ typedef struct {
 	CloseReason reason;
 } CloseReasonResult;
 
-static NODISCARD CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage raw_message,
+NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage raw_message,
                                                             bool also_parse_message) {
 	if(raw_message.opCode != WS_OPCODE_CLOSE) {
 		return (CloseReasonResult){
@@ -531,7 +553,7 @@ static NODISCARD CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 
 // see: https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.2
 // and https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.1
-static NODISCARD bool is_valid_close_code(uint16_t close_code) {
+NODISCARD static bool is_valid_close_code(uint16_t close_code) {
 	if(close_code <=
 	   999) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		return false;
@@ -567,7 +589,7 @@ static NODISCARD bool is_valid_close_code(uint16_t close_code) {
 	return false;
 }
 
-static NODISCARD int ws_send_close_message_raw_internal(WebSocketConnection* connection,
+NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* connection,
                                                         CloseReason reason) {
 
 	size_t reason_msg_len =
@@ -605,7 +627,7 @@ static NODISCARD int ws_send_close_message_raw_internal(WebSocketConnection* con
 	return result;
 }
 
-static NODISCARD const char* close_websocket_connection(WebSocketConnection* connection,
+NODISCARD static const char* close_websocket_connection(WebSocketConnection* connection,
                                                         WebSocketThreadManager* manager,
                                                         CloseReason reason) {
 
@@ -632,25 +654,6 @@ static NODISCARD const char* close_websocket_connection(WebSocketConnection* con
 	}
 
 	return NULL;
-}
-
-static NODISCARD bool setup_signal_handler(void) {
-
-	// set up the signal handler
-	// just create a sigaction structure, then add the handler
-	struct sigaction action = {};
-
-	action.sa_handler = SIG_IGN;
-	// initialize the mask to be empty
-	int emptySetResult = sigemptyset(&action.sa_mask);
-	sigaddset(&action.sa_mask, SIGPIPE);
-	int result1 = sigaction(SIGPIPE, &action, NULL);
-	if(result1 < 0 || emptySetResult < 0) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't set signal interception: %s\n", strerror(errno));
-		return false;
-	}
-
-	return true;
 }
 
 typedef struct {
@@ -709,20 +712,21 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 	char* thread_name_buffer = NULL;
 	// TODO(Totto): better report error
-	formatString(&thread_name_buffer, return NULL;, "ws listener %d", get_thread_id());
+	formatString(&thread_name_buffer, return NULL;, "ws listener " PRI_THREADID, get_thread_id());
 	set_thread_name(thread_name_buffer);
-
-	bool _result = setup_signal_handler();
-
-	// an error message was already sent, and just because the setting of the signal handler failed,
-	// we shouldn't exit or close the connection!
-	UNUSED(_result);
 
 #define FREE_AT_END() \
 	do { \
 		free(thread_name_buffer); \
 		free(argument); \
 	} while(false)
+
+	bool result = setup_sigpipe_signal_handler();
+
+	if(!result) {
+		FREE_AT_END();
+		return NULL;
+	}
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting WS Listener\n");
 
@@ -1181,7 +1185,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 		if(has_message) {
 			WebSocketAction action = connection->function(connection, current_message);
 			free(current_message.data);
-			has_message = false;
+			// has_message = false;
 			current_message.data = NULL;
 			current_message.data_len = 0;
 
@@ -1357,7 +1361,8 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 		}
 	}
 
-	close_connection_descriptor(connection->descriptor, connection->context);
+	close_connection_descriptor_advanced(connection->descriptor, connection->context,
+	                                     WS_ALLOW_SSL_CONTEXT_REUSE);
 	free_connection_context(connection->context);
 	free(connection);
 }

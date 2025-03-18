@@ -3,6 +3,7 @@
 #include "ws.h"
 #include "generic/send.h"
 #include "http/http_protocol.h"
+#include "http/send.h"
 #include "utils/log.h"
 #include "utils/string_builder.h"
 #include "utils/string_helper.h"
@@ -10,7 +11,7 @@
 #include <b64/b64.h>
 #include <strings.h>
 
-static NODISCARD int
+NODISCARD static int
 sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const descriptor) {
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Failed WS handshake: Upgrade required\n");
@@ -44,9 +45,9 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	header[1].key = connectionHeaderBuffer;
 	header[1].value = connectionHeaderBuffer + strlen(connectionHeaderBuffer) + 1;
 
-	int result = sendMessageToConnection(descriptor, HTTP_STATUS_UPGRADE_REQUIRED, malloced_message,
-	                                     MIME_TYPE_TEXT, header, headerAmount,
-	                                     CONNECTION_SEND_FLAGS_MALLOCED);
+	int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_UPGRADE_REQUIRED,
+	                                         malloced_message, MIME_TYPE_TEXT, header, headerAmount,
+	                                         CONNECTION_SEND_FLAGS_MALLOCED);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -55,7 +56,7 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	return -1;
 }
 
-static NODISCARD int sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
+NODISCARD static int sendFailedHandshakeMessage(const ConnectionDescriptor* const descriptor,
                                                 const char* error_reason) {
 
 	LOG_MESSAGE(LogLevelTrace, "Failed WS handshake: %s\n", error_reason);
@@ -66,8 +67,9 @@ static NODISCARD int sendFailedHandshakeMessage(const ConnectionDescriptor* cons
 	                      , "Error: The client handshake was invalid: %s", error_reason);
 
 	char* malloced_message = string_builder_get_string(message);
-	int result = sendMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
-	                                     MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+	int result =
+	    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST, malloced_message,
+	                                MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -78,7 +80,7 @@ static NODISCARD int sendFailedHandshakeMessage(const ConnectionDescriptor* cons
 
 #define EXPECTED_WS_HEADER_SEC_KEY_LENGTH 16
 
-static NODISCARD bool isValidSecKey(const char* key) {
+NODISCARD static bool isValidSecKey(const char* key) {
 	size_t size = 0;
 	unsigned char* b64_result = b64_decode_ex(key, strlen(key), &size);
 	if(!b64_result) {
@@ -108,7 +110,10 @@ static char* generateKeyAnswer(const char* secKey) {
 	return result;
 }
 
-typedef enum {
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HANDSHAKE_HEADER_NONE = 0b0,
 	HANDSHAKE_HEADER_HEADER_HOST = 0b1,
 	HANDSHAKE_HEADER_HEADER_UPGRADE = 0b10,
@@ -226,6 +231,6 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	header[2].key = secWebsocketAcceptHeaderBuffer;
 	header[2].value = secWebsocketAcceptHeaderBuffer + strlen(secWebsocketAcceptHeaderBuffer) + 1;
 
-	return sendMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL, header,
-	                               headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
+	return sendHTTPMessageToConnection(descriptor, HTTP_STATUS_SWITCHING_PROTOCOLS, NULL, NULL,
+	                                   header, headerAmount, CONNECTION_SEND_FLAGS_MALLOCED);
 }

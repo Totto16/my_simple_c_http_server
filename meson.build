@@ -2,11 +2,11 @@ project(
     'simple http server',
     'c',
     license: 'MIT',
-    meson_version: '>=1.2.0',
+    meson_version: '>=1.3.0',
     default_options: {
         'buildtype': 'release',
         'optimization': '3',
-        'c_std': 'gnu2x',
+        'c_std': ['gnu23', 'gnu2x'],
         'warning_level': '3',
         'werror': 'true',
         'b_ndebug': 'if-release',
@@ -24,13 +24,12 @@ deps += dependency('threads')
 
 secure_option = get_option('secure')
 
-openssl_dep = dependency('openssl', required: secure_option)
+openssl_dep = dependency('openssl', required: secure_option, version: '>=3.0')
 
 if openssl_dep.found()
     deps += openssl_dep
 else
-    compile_flags += '-D_HTTP_SERVER_SECURE_DISABLED'
-
+    compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
 endif
 
 deps += dependency(
@@ -39,13 +38,19 @@ deps += dependency(
     default_options: {'tests': 'disabled'},
 )
 
+deps += dependency('cwalk', allow_fallback: true)
+
+cc = meson.get_compiler('c')
+
+deps += cc.find_library('m', required: false)
+
 src_files = []
 inc_dirs = []
 
 subdir('src')
 
 executable(
-    'http',
+    'server',
     src_files,
     dependencies: deps,
     include_directories: inc_dirs,

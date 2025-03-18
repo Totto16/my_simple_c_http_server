@@ -14,8 +14,11 @@ typedef struct {
 	uint64_t data_len;
 } WebSocketMessage;
 
-typedef enum {
-	WebSocketAction_Continue,
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	WebSocketAction_Continue = 0,
 	WebSocketAction_Error,
 	WebSocketAction_Close
 } WebSocketAction;
@@ -23,7 +26,13 @@ typedef enum {
 typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,
                                              WebSocketMessage message);
 
-typedef enum { WS_FRAGMENTATION_OFF, WS_FRAGMENTATION_AUTO } FragmentOption;
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	WS_FRAGMENTATION_OFF,
+	WS_FRAGMENTATION_AUTO,
+} FragmentOption;
 
 #define WS_MINIMUM_FRAGMENT_SIZE 16
 

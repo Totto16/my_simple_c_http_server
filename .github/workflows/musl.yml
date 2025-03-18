@@ -1,0 +1,41 @@
+name: Musl CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.config.name }}
+    runs-on: ubuntu-24.04
+    container: alpine:3.21
+
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: Linux GCC (musl)
+            use-clang: false
+
+          - name: Linux Clang (musl)
+            use-clang: true
+
+
+    steps:
+      - name: Install dependencies
+        run: |
+          apk update
+          apk add wget meson ca-certificates samurai git openssl-dev openssl pkgconf ${{ ( matrix.config.use-clang == true ) && 'clang19' || 'gcc musl-dev' }}
+          echo "CC=${{ matrix.config.use-clang == true && 'clang-19' || 'gcc' }}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: '0'
+  
+      - name: Configure
+        run: meson setup build -Dbuildtype=release -Dsecure=enabled
+
+      - name: Build
+        run: meson compile -C build

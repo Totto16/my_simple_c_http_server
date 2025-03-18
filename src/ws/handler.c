@@ -8,13 +8,14 @@ WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMess
 
 		if(message.data_len >=
 		   200) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %lu\n", message.data_len);
+			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %" PRIu64 "\n",
+			            message.data_len);
 		} else {
 			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n", (int)(message.data_len),
 			            (char*)message.data);
 		}
 	} else {
-		LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %lu\n", message.data_len);
+		LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %" PRIu64 "\n", message.data_len);
 	}
 
 	// for autobahn tests, just echoing the things
@@ -34,13 +35,14 @@ WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
 
 		if(message.data_len >=
 		   200) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %lu\n", message.data_len);
+			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %" PRIu64 "\n",
+			            message.data_len);
 		} else {
 			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n", (int)(message.data_len),
 			            (char*)message.data);
 		}
 	} else {
-		LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %lu\n", message.data_len);
+		LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %" PRIu64 "\n", message.data_len);
 	}
 
 	// for autobahn tests, just echoing the things

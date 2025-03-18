@@ -8,11 +8,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "utils/log.h"
+#if __STDC_VERSION__ >= 202000
+#define NODISCARD [[nodiscard]]
 
-// TODO(Totto): use c23 builtin, if available
+#define C_23_NARROW_ENUM_TO(x) : x
+#else
+
 // see e.g. https://www.gnu.org/software/gnulib/manual/html_node/Attributes.html
 #define NODISCARD __attribute__((__warn_unused_result__))
+
+#define C_23_NARROW_ENUM_TO(x)
+#endif
 
 #define UNUSED(v) ((void)(v))
 
@@ -120,3 +126,25 @@ void* mallocWithMemset(size_t size, bool initializeWithZeros);
 // simple realloc Wrapper, using also memset to set everything to 0
 void* reallocWithMemset(void* previousPtr, size_t oldSize, size_t newSize,
                         bool initializeWithZeros);
+
+NODISCARD char* copy_cstr(char*);
+
+#define ARRAY_STRUCT(NAME, TYPE) \
+	typedef struct { \
+		TYPE* content; /*NOLINT(bugprone-macro-parentheses)*/ \
+		size_t size; \
+	} NAME
+
+#define ARRAY_ADD_SLOT(TYPE, RESULT_NAME, ARRAY) \
+	(ARRAY)->size++; \
+	TYPE* RESULT_NAME = /*NOLINT(bugprone-macro-parentheses)*/ (TYPE*)realloc( \
+	    (void*)(ARRAY)->content, (ARRAY)->size * sizeof(TYPE))
+
+#define FREE_ARRAY(ARRAY) \
+	do { \
+		if((ARRAY)->content != NULL) { \
+			for(size_t array_idx = 0; array_idx < (ARRAY)->size; ++array_idx) { \
+				free((ARRAY)->content[array_idx]); \
+			} \
+		} \
+	} while(false)

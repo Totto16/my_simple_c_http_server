@@ -17,7 +17,7 @@ compile_clang:
         # install meson
         - pip install meson --break-system-packages
     script:
-        - meson setup build -Dbuildtype=release
+        - meson setup build -Dbuildtype=release -Dsecure=enabled
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
@@ -30,12 +30,12 @@ compile_gcc:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 g++-14 python3-pip ninja-build pkg-config openssl libssl-dev --no-install-recommends -y
+        - apt-get install gcc-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev --no-install-recommends -y
         - export CC="gcc-14"
         # install meson
         - pip install meson --break-system-packages
     script:
-        - meson setup build -Dbuildtype=release
+        - meson setup build -Dbuildtype=release -Dsecure=enabled
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
@@ -52,7 +52,7 @@ test:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 g++-14 python3-pip ninja-build pkg-config wget bzip2 --no-install-recommends -y
+        - apt-get install gcc-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config wget bzip2 --no-install-recommends -y
         - export CC="gcc-14"
         # install meson
         - pip install meson --break-system-packages
@@ -63,9 +63,9 @@ test:
         # instal openssl 3
         - apt-get install openssl libssl-dev --no-install-recommends -y
     script:
-        - meson setup build -Dbuildtype=debug
+        - meson setup build -Dbuildtype=debug -Dsecure=enabled
         - meson compile -C build
-        - ./build/http 8080 -l trace &
+        - ./build/server http 8080 -l trace &
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
         - wget http://localhost:8080/shutdown -O -  -q
     artifacts:

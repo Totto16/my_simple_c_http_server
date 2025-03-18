@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 // needed h files
+#include "utils/log.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
 
@@ -21,7 +22,10 @@
 
 // according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 // + 418
-enum HTTP_STATUS_CODES {
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	HTTP_STATUS_CONTINUE = 100,
 	HTTP_STATUS_SWITCHING_PROTOCOLS = 101,
 	HTTP_STATUS_OK = 200,
@@ -63,7 +67,7 @@ enum HTTP_STATUS_CODES {
 	HTTP_STATUS_SERVICE_UNAVAILABLE = 503,
 	HTTP_STATUS_GATEWAY_TIMEOUT = 504,
 	HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED = 505,
-};
+} HTTP_STATUS_CODES;
 
 #define freeIfNotNULL(pointerToFree) \
 	do { \
@@ -71,9 +75,6 @@ enum HTTP_STATUS_CODES {
 			free(pointerToFree); \
 		} \
 	} while(false)
-
-// helpful macro for e.g sleeping
-#define MS(x) ((x) * 1000)
 
 // self implemented Http Request and Http Response Structs
 
