@@ -62,7 +62,9 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 				if(file[pos] == '\0') {
 					result[result_pos] = '\0';
 					break;
-				} else if(file[pos] == '"') {
+				}
+
+				if(file[pos] == '"') {
 					result[result_pos] = '"';
 					result[result_pos + 1] = '"';
 					result_pos += 2;
@@ -162,13 +164,16 @@ NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
 	// check if the file is absolute or relative
 	bool is_absolute = file_is_absolute(file);
 
-	const char* base_dir = is_absolute ? state->global_folder : state->current_working_directory;
+	const char* base_dir = is_absolute // NOLINT(readability-implicit-bool-conversion)
+	                           ? state->global_folder
+	                           : state->current_working_directory;
 
 	size_t b_length = strlen(base_dir);
 	size_t f_length = strlen(file);
 
 	// 1 for the "/" (only if relative) and one for the \0 byte
-	size_t final_length = b_length + f_length + (is_absolute ? 1 : 2);
+	size_t final_length =
+	    b_length + f_length + (is_absolute ? 1 : 2); // NOLINT(readability-implicit-bool-conversion)
 	char* abs_string = malloc(final_length * sizeof(char));
 
 	if(!abs_string) {
@@ -182,7 +187,9 @@ NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
 	if(!is_absolute) {
 		abs_string[b_length] = '/';
 	}
-	memcpy(abs_string + b_length + (is_absolute ? 0 : 1), file, f_length);
+	memcpy(abs_string + b_length +
+	           (is_absolute ? 0 : 1), // NOLINT(readability-implicit-bool-conversion)
+	       file, f_length);
 	abs_string[final_length - 1] = '\0';
 
 	char* result = resolve_abs_path_in_cwd(state, abs_string, dir_result);
@@ -299,7 +306,7 @@ NODISCARD SendProgress setup_send_progress(const SendData* const data, SendMode 
 			break;
 		}
 		case SEND_MODE_STREAM_BINARY_RECORD: {
-			// TODO calculate this based on record metadata etc
+			// TODO(Totto): calculate this based on record metadata etc
 			break;
 		}
 
@@ -334,7 +341,8 @@ NODISCARD FilePermissions permissions_from_mode(mode_t mode) {
 	int masks[3] = { S_IRWXU, S_IRWXG, S_IRWXO };
 	for(size_t i = 0; i < 3; ++i) {
 		int mask = masks[i];
-		int value = (mode & mask) >> ((2 - i) * 3);
+		mode_t value =
+		    (mode & mask) >> ((2 - i) * 3); // NOLINT(readability-implicit-bool-conversion)
 		file_permissions.permissions[i] = (OnePermission){ .read = (value & 0b100) != 0,
 			                                               .write = (value & 0b010) != 0,
 			                                               .execute = (value & 0b001) != 0 };
@@ -398,7 +406,9 @@ NODISCARD FileWithMetadata* get_metadata_for_file_folder(const char* const folde
 	size_t name_len = strlen(name);
 
 	bool has_trailing_backslash = folder[folder_len - 1] == '/';
-	size_t final_length = folder_len + name_len + (has_trailing_backslash ? 1 : 2);
+	size_t final_length =
+	    folder_len + name_len +
+	    (has_trailing_backslash ? 1 : 2); // NOLINT(readability-implicit-bool-conversion)
 
 	char* absolute_path = (char*)malloc(final_length);
 
@@ -412,7 +422,9 @@ NODISCARD FileWithMetadata* get_metadata_for_file_folder(const char* const folde
 		absolute_path[folder_len] = '/';
 	}
 
-	memcpy(absolute_path + folder_len + (has_trailing_backslash ? 0 : 1), name, name_len);
+	memcpy(absolute_path + folder_len +
+	           (has_trailing_backslash ? 0 : 1), // NOLINT(readability-implicit-bool-conversion)
+	       name, name_len);
 
 	absolute_path[final_length - 1] = '\0';
 
@@ -423,8 +435,9 @@ NODISCARD FileWithMetadata* get_metadata_for_file_folder(const char* const folde
 	return result;
 }
 
-NODISCARD FileWithMetadata* get_metadata_for_file(const char* const absolute_path,
-                                                  const char* const name) {
+NODISCARD FileWithMetadata* get_metadata_for_file(
+    const char* const absolute_path, // NOLINT(bugprone-easily-swappable-parameters)
+    const char* const name) {
 
 	FileWithMetadata* metadata = (FileWithMetadata*)malloc(sizeof(FileWithMetadata));
 
@@ -438,6 +451,8 @@ NODISCARD FileWithMetadata* get_metadata_for_file(const char* const absolute_pat
 	if(result != 0) {
 		LOG_MESSAGE(LogLevelError | LogPrintLocation, "Couldn't stat folder '%s': %s\n",
 		            absolute_path, strerror(errno));
+
+		free(metadata);
 		return NULL;
 	}
 
@@ -448,6 +463,7 @@ NODISCARD FileWithMetadata* get_metadata_for_file(const char* const absolute_pat
 	char* new_name = (char*)malloc(name_len + 1);
 
 	if(!new_name) {
+		free(metadata);
 		return NULL;
 	}
 
@@ -480,7 +496,7 @@ void free_file_metadata(FileWithMetadata* metadata) {
 
 inline size_t size_for_number(size_t num) {
 
-	return floor(log10((double)num)) + 1;
+	return ((size_t)(floor(log10((double)num)))) + 1;
 }
 
 NODISCARD MaxSize internal_get_size_for(FileWithMetadata* metadata) {
@@ -553,7 +569,9 @@ MultipleFiles* get_files_in_folder(const char* const folder, FileSendFormat form
 
 		if(strcmp(".", name) == 0) {
 			continue;
-		} else if(strcmp("..", name) == 0) {
+		}
+
+		if(strcmp("..", name) == 0) {
 			continue;
 		}
 
@@ -565,10 +583,11 @@ MultipleFiles* get_files_in_folder(const char* const folder, FileSendFormat form
 
 		result->count++;
 
-		FileWithMetadata** new_array =
-		    (FileWithMetadata**)realloc(result->files, sizeof(FileWithMetadata*) * result->count);
+		FileWithMetadata** new_array = (FileWithMetadata**)realloc(
+		    (void*)result->files, sizeof(FileWithMetadata*) * result->count);
 
 		if(!new_array) {
+			free(metadata);
 			goto error;
 		}
 
@@ -579,13 +598,17 @@ MultipleFiles* get_files_in_folder(const char* const folder, FileSendFormat form
 	}
 
 error:
-	for(size_t i = 0; i < result->count; ++i) {
-		free_file_metadata(result->files[i]);
+
+	if(result->files != NULL) {
+		for(size_t i = 0; i < result->count; ++i) {
+			free_file_metadata(result->files[i]);
+		}
 	}
 success:
 
 	int close_res = closedir(dir);
 	if(close_res != 0) {
+		free(result);
 		return NULL;
 	}
 
@@ -634,9 +657,9 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 
 NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, MaxSize sizes) {
 
-	StringBuilder* sb = string_builder_init();
+	StringBuilder* string_builder = string_builder_init();
 
-	if(!sb) {
+	if(!string_builder) {
 		return NULL;
 	}
 
@@ -651,16 +674,18 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 
 			OnePermission perm = permissions.permissions[i];
 
-			modes[i][0] = perm.read ? 'r' : '-';
-			modes[i][1] = perm.write ? 'w' : '-';
-			modes[i][2] = perm.execute ? 'x' : '-';
+			modes[i][0] = perm.read ? 'r' : '-';    // NOLINT(readability-implicit-bool-conversion)
+			modes[i][1] = perm.write ? 'w' : '-';   // NOLINT(readability-implicit-bool-conversion)
+			modes[i][2] = perm.execute ? 'x' : '-'; // NOLINT(readability-implicit-bool-conversion)
 		}
 
-		string_builder_append(sb, return NULL;, "%c%.*s%.*s%.*s", permissions.special_type, 3,
-		                                      modes[0], 3, modes[1], 3, modes[2]);
+		string_builder_append(string_builder, return NULL;, "%c%.*s%.*s%.*s",
+		                                                  permissions.special_type, 3, modes[0], 3,
+		                                                  modes[1], 3, modes[2]);
 	}
 
-	size_t max_bytes = 0xFF;
+	size_t max_bytes =
+	    0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	char* date_str = (char*)malloc(max_bytes * sizeof(char));
 
 	struct tm converted_time;
@@ -668,6 +693,7 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 	struct tm* convert_result = localtime_r(&file->last_mod.tv_sec, &converted_time);
 
 	if(!convert_result) {
+		free(date_str);
 		return NULL;
 	}
 
@@ -684,14 +710,19 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 
 	date_str[result] = '\0';
 
-	string_builder_append(sb, return NULL;,
-	                                      FORMAT_SPACES "%*lu" FORMAT_SPACES "%*d" FORMAT_SPACES
-	                                                    "%*d" FORMAT_SPACES "%*lu %s %s\n",
-	                                      ((int)sizes.link), file->link_amount, ((int)sizes.user),
-	                                      file->owners.user, ((int)sizes.group), file->owners.group,
-	                                      ((int)sizes.size), file->size, date_str, file->file_name);
+	string_builder_append(
+	    string_builder,
+	    {
+		    free(date_str);
+		    return NULL;
+	    },
+	    FORMAT_SPACES "%*lu" FORMAT_SPACES "%*d" FORMAT_SPACES "%*d" FORMAT_SPACES "%*lu %s %s\n",
+	    ((int)sizes.link), file->link_amount, ((int)sizes.user), file->owners.user,
+	    ((int)sizes.group), file->owners.group, ((int)sizes.size), file->size, date_str,
+	    file->file_name);
 
-	return sb;
+	free(date_str);
+	return string_builder;
 }
 
 #undef FORMAT_SPACES
@@ -708,16 +739,16 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 
 NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file) {
 
-	StringBuilder* sb = string_builder_init();
+	StringBuilder* string_builder = string_builder_init();
 
-	if(!sb) {
+	if(!string_builder) {
 		return NULL;
 	}
 
 	// see https://cr.yp.to/ftp/list/eplf.html
 
 	// 1. a plus sign (\053);
-	string_builder_append_single(sb, "+");
+	string_builder_append_single(string_builder, "+");
 
 	// 2. a series of facts about the file;
 	{
@@ -726,25 +757,26 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 
 		if(!is_dir) {
 			// can be retrieved
-			string_builder_append_single(sb, "r,");
+			string_builder_append_single(string_builder, "r,");
 		}
 
 		if(is_dir) {
 			// i a dir essentially
-			string_builder_append_single(sb, "/,");
+			string_builder_append_single(string_builder, "/,");
 		}
 
 		if(!is_dir) {
 			// has a size
-			string_builder_append(sb, return NULL;, "s%lu,", file->size);
+			string_builder_append(string_builder, return NULL;, "s%lu,", file->size);
 		}
 
 		// last mod time in UNIX epoch seconds
-		string_builder_append(sb, return NULL;, "m%lu,", file->last_mod.tv_sec);
+		string_builder_append(string_builder, return NULL;, "m%lu,", file->last_mod.tv_sec);
 
 		// unique identifier (dev.ino)
-		string_builder_append(sb, return NULL;, "i" DEV_FMT "." INO_FMT ",", file->identifier.dev,
-		                                      file->identifier.ino);
+		string_builder_append(string_builder, return NULL;, "i" DEV_FMT "." INO_FMT ",",
+		                                                  file->identifier.dev,
+		                                                  file->identifier.ino);
 
 		if(ELPF_PRETTY_PRINT_PERMISSIONS) {
 			FilePermissions permissions = permissions_from_mode(file->mode);
@@ -755,29 +787,32 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 
 				OnePermission perm = permissions.permissions[i];
 
-				modes[i][0] = perm.read ? 'r' : '-';
-				modes[i][1] = perm.write ? 'w' : '-';
-				modes[i][2] = perm.execute ? 'x' : '-';
+				modes[i][0] = perm.read ? 'r' : '-'; // NOLINT(readability-implicit-bool-conversion)
+				modes[i][1] =
+				    perm.write ? 'w' : '-'; // NOLINT(readability-implicit-bool-conversion)
+				modes[i][2] =
+				    perm.execute ? 'x' : '-'; // NOLINT(readability-implicit-bool-conversion)
 			}
 
 			// permissions, look nicer, many clients just display the string, NOT spec compliant
-			string_builder_append(sb, return NULL;, "up%c%.*s%.*s%.*s", permissions.special_type, 3,
-			                                      modes[0], 3, modes[1], 3, modes[2]);
+			string_builder_append(string_builder, return NULL;, "up%c%.*s%.*s%.*s",
+			                                                  permissions.special_type, 3, modes[0],
+			                                                  3, modes[1], 3, modes[2]);
 		} else {
 
 			uint32_t permission = (S_IRWXU | S_IRWXG | S_IRWXO) & file->mode;
 
 			// permissions, according to spec
-			string_builder_append(sb, return NULL;, "up%o,", permission);
+			string_builder_append(string_builder, return NULL;, "up%o,", permission);
 		}
 	}
 
 	// 3. a tab (\011);
 	// 4. an abbreviated pathname; and
 	// 5. \015\012. (\r\n)
-	string_builder_append(sb, return NULL;, "\t%s\r\n", file->file_name);
+	string_builder_append(string_builder, return NULL;, "\t%s\r\n", file->file_name);
 
-	return sb;
+	return string_builder;
 }
 
 NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
@@ -820,7 +855,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 
 	switch(data->type) {
 		case SEND_TYPE_FILE: {
-			// TODO
+			// TODO(Totto): implement
 			return false;
 			break;
 		}
@@ -845,7 +880,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		}
 
 		case SEND_TYPE_RAW_DATA: {
-			// TODO
+			// TODO(Totto): implement
 			return false;
 			break;
 		}
@@ -860,7 +895,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 }
 
 void free_send_data(SendData* data) {
-	// TODO
+	// TODO(Totto): implement
 	UNUSED(data);
 }
 

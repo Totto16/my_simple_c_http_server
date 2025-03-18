@@ -34,7 +34,7 @@ void free_account_data(AccountInfo* account) {
 
 USER_VALIDITY
 account_verify(const char* const username, // NOLINT(bugprone-easily-swappable-parameters)
-               const char* const passwd) { // NOLINT(bugprone-easily-swappable-parameters)
+               const char* const passwd) {
 
 	// TODO(Totto): https://stackoverflow.com/questions/64184960/pam-authenticate-a-user-in-c
 	//  and https://github.com/linux-pam/linux-pam/blob/master/examples/check_user.c
