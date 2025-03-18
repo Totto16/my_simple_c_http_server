@@ -32,7 +32,7 @@ jobs:
       - name: Prepare compile_commands.json
         run: |
           sudo apt-get update
-          sudo apt-get install ninja-build openssl-dev -y --no-install-recommends
+          sudo apt-get install ninja-build openssl libssl-dev -y --no-install-recommends
 
           meson setup build -Dbuildtype=release -Dsecure=enabled
 
