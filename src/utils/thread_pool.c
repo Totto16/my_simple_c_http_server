@@ -4,7 +4,7 @@
 #include "utils/log.h"
 
 #ifdef _DONT_HAVE_SYS_SYSINFO
-#error TODO
+#include <unistd.h>
 #else
 #include <sys/sysinfo.h>
 #endif
@@ -137,6 +137,14 @@ int pool_create(thread_pool* pool, size_t size) {
 	return CreateError_None;
 }
 
+int get_active_cpu_core(void) {
+#ifdef _DONT_HAVE_SYS_SYSINFO
+	return sysconf(_SC_NPROCESSORS_ONLN);
+#else
+	return get_nprocs();
+#endif
+}
+
 // using get_nprocs_conf to make a dynamic amount of worker Threads
 // returns the used dynamic thread amount, to use it in some way (maybe print it)
 // this does the same as the pool_create method, but is recommended, since it calculates the worker
@@ -144,7 +152,7 @@ int pool_create(thread_pool* pool, size_t size) {
 // required!
 int pool_create_dynamic(thread_pool* pool) {
 	// can't fail according to man pages
-	int activeCPUCores = get_nprocs();
+	int activeCPUCores = get_active_cpu_core();
 	// + 1 since not all threads run all the time, so the extra one thread is used for compensating
 	// the idle time of a core
 	size_t workerThreadsAmount = (size_t)activeCPUCores + 1;
