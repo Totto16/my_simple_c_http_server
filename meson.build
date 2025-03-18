@@ -24,7 +24,7 @@ deps += dependency('threads')
 
 secure_option = get_option('secure')
 
-openssl_dep = dependency('openssl', required: secure_option)
+openssl_dep = dependency('openssl', required: secure_option, version: '>=3.0')
 
 if openssl_dep.found()
     deps += openssl_dep
