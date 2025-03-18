@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 typedef uint64_t THREAD_ID_TYPE;
-#define PRI_THREADID PRIu64
+#define PRI_THREADID "%llu"
 #else
 
 typedef pid_t THREAD_ID_TYPE;
