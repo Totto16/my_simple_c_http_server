@@ -10,7 +10,7 @@
 static inline int comp_sem_init(SEMAPHORE_TYPE* sem, uint32_t value) {
 #ifdef __APPLE__
 	*sem = dispatch_semaphore_create(value);
-	return *sem == NULL ? -1 : 0
+	return *sem == NULL ? -1 : 0;
 #else
 	return sem_init(sem, -1, value);
 #endif
