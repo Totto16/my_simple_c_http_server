@@ -4,6 +4,7 @@
 #include "utils/clock.h"
 #include "utils/log.h"
 
+#include <fcntl.h>
 #include <pthread.h>
 
 // the timeout is 30 seconds
@@ -531,8 +532,16 @@ _nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 		return NULL;
 	}
 
+#ifdef __linux
 	int sockFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 	checkForError(sockFd, "While Trying to create a active connection", return NULL;);
+#else
+	int sockFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	checkForError(sockFd, "While Trying to create a active connection", return NULL;);
+
+	int fcntl_flags = fcntl(sockFd, F_GETFL, 0);
+	fcntl(sockFd, F_SETFL, fcntl_flags | O_NONBLOCK);
+#endif
 
 	struct sockaddr_in* connect_addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
 
