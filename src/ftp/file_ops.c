@@ -665,7 +665,8 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 	FILE* file = fopen(path, "rb");
 
 	if(file == NULL) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't open file '%s': %s\n", path, strerror(errno));
+		LOG_MESSAGE(LogLevelError, "Couldn't open file for reading '%s': %s\n", path,
+		            strerror(errno));
 
 		free(data);
 		return NULL;
@@ -674,7 +675,8 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 	int fseek_res = fseek(file, 0, SEEK_END);
 
 	if(fseek_res != 0) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't seek to end of file '%s': %s\n", path, strerror(errno));
+		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", path,
+		            strerror(errno));
 
 		free(data);
 		return NULL;
@@ -684,7 +686,8 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 	fseek_res = fseek(file, 0, SEEK_SET);
 
 	if(fseek_res != 0) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't seek to end of file '%s': %s\n", path, strerror(errno));
+		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", path,
+		            strerror(errno));
 
 		free(data);
 		return NULL;
@@ -697,9 +700,9 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 		return NULL;
 	}
 
-	int fread_result = fread(file_data, 1, file_size, file);
+	size_t fread_result = fread(file_data, 1, file_size, file);
 
-	if(fread_result != file_size) {
+	if(fread_result != (size_t)file_size) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't read the correct amount of bytes from file '%s': %s\n",
 		            path, strerror(errno));
 
@@ -1017,4 +1020,35 @@ NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
 	state->current_working_directory = new_dir;
 
 	return DIR_CHANGE_RESULT_OK;
+}
+
+NODISCARD bool write_to_file(char* path, void* data, size_t dataSize) {
+
+	FILE* file = fopen(path, "wb");
+
+	if(file == NULL) {
+		LOG_MESSAGE(LogLevelError, "Couldn't open file for writing '%s': %s\n", path,
+		            strerror(errno));
+
+		return false;
+	}
+
+	size_t fwrite_result = fwrite(data, 1, dataSize, file);
+
+	if(fwrite_result != dataSize) {
+		LOG_MESSAGE(LogLevelError, "Couldn't write the correct amount of bytes to file '%s': %s\n",
+		            path, strerror(errno));
+
+		return false;
+	}
+
+	int fclose_result = fclose(file);
+
+	if(fclose_result != 0) {
+		LOG_MESSAGE(LogLevelError, "Couldn't close file '%s': %s\n", path, strerror(errno));
+
+		return false;
+	}
+
+	return true;
 }

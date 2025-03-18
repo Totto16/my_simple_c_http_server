@@ -46,3 +46,6 @@ NODISCARD bool send_data_to_send(const SendData* data, ConnectionDescriptor* des
                                  SendMode send_mode, SendProgress* progress);
 
 void free_send_data(SendData* data);
+
+//NOTE: this overwrites files
+NODISCARD bool write_to_file(char* path, void* data, size_t dataSize);
