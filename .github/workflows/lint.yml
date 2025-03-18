@@ -26,8 +26,6 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh 20
           echo "CC=clang-20" >> "$GITHUB_ENV"
-          echo "CXX=clang++-20" >> "$GITHUB_ENV"
-          echo "OBJC=clang-20" >> "$GITHUB_ENV"
 
       - name: Prepare compile_commands.json
         run: |

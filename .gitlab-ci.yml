@@ -30,7 +30,7 @@ compile_gcc:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 g++-14 python3-pip ninja-build pkg-config openssl libssl-dev --no-install-recommends -y
+        - apt-get install gcc-14 python3-pip ninja-build pkg-config openssl libssl-dev --no-install-recommends -y
         - export CC="gcc-14"
         # install meson
         - pip install meson --break-system-packages
@@ -52,7 +52,7 @@ test:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 g++-14 python3-pip ninja-build pkg-config wget bzip2 --no-install-recommends -y
+        - apt-get install gcc-14 python3-pip ninja-build pkg-config wget bzip2 --no-install-recommends -y
         - export CC="gcc-14"
         # install meson
         - pip install meson --break-system-packages

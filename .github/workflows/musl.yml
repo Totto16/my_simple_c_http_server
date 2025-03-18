@@ -27,9 +27,8 @@ jobs:
       - name: Install dependencies
         run: |
           apk update
-          apk add wget meson ca-certificates samurai git openssl-dev openssl pkgconf ${{ ( matrix.config.use-clang == true ) && 'clang19' || 'gcc g++' }}
+          apk add wget meson ca-certificates samurai git openssl-dev openssl pkgconf ${{ ( matrix.config.use-clang == true ) && 'clang19' || 'gcc musl-dev' }}
           echo "CC=${{ matrix.config.use-clang == true && 'clang-19' || 'gcc' }}" >> "$GITHUB_ENV"
-          echo "CXX=${{ matrix.config.use-clang == true && 'clang++-19' || 'g++' }}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
         with:
