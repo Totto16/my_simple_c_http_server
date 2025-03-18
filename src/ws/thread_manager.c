@@ -9,12 +9,21 @@
 #include "utils/utils.h"
 
 #include <arpa/inet.h>
+
 #include <errno.h>
 #include <pthread.h>
 
 #include <stdlib.h>
 #include <sys/random.h>
 #include <utf8proc.h>
+
+#if defined(OS_MACOSX)
+#include <machine/endian.h>
+
+#include "./macos_endian_compat.h"
+#else
+#include <endian.h>
+#endif
 
 struct connection_node_t {
 	WebSocketConnection* connection;
