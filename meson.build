@@ -30,7 +30,6 @@ if openssl_dep.found()
     deps += openssl_dep
 else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
-
 endif
 
 deps += dependency(

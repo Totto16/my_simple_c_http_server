@@ -6,8 +6,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/queue.h>
 
+#ifdef _USE_BSD_QUEUE
+#include "bsd/sys/queue.h"
+#else
+#include <sys/queue.h>
+#endif
 // in here there are several utilities that are used across all .h and .c files
 #include "utils.h"
 
