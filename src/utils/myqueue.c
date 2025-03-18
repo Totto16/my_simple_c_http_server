@@ -2,50 +2,8 @@
 #include "myqueue.h"
 #include "utils/log.h"
 
-// semaphore compatibility
-// see
-// https://stackoverflow.com/questions/27736618/why-are-sem-init-sem-getvalue-sem-destroy-deprecated-on-mac-os-x-and-w
-// see https://www.unix.com/man_page/mojave/3/dispatch_semaphore_create/
-
-static inline int comp_sem_init(SEMAPHORE_TYPE* sem, uint32_t value) {
-#ifdef __APPLE__
-	*sem = dispatch_semaphore_create(value);
-	return *sem == NULL ? -1 : 0;
-#else
-	return sem_init(sem, -1, value);
-#endif
-}
-
-static inline int comp_sem_wait(SEMAPHORE_TYPE* sem) {
-
-#ifdef __APPLE__
-	return dispatch_semaphore_wait(*sem, DISPATCH_TIME_FOREVER);
-#else
-	return sem_wait(sem);
-#endif
-}
-
-static inline int comp_sem_post(SEMAPHORE_TYPE* sem) {
-
-#ifdef __APPLE__
-	return dispatch_semaphore_signal(*sem);
-#else
-	return sem_post(sem);
-#endif
-}
-
-static inline int comp_sem_destroy(SEMAPHORE_TYPE* sem) {
-
-#ifdef __APPLE__
-	dispatch_release(*sem);
-	return 0;
-#else
-	return sem_destroy(sem);
-#endif
-}
-
 int myqueue_init(myqueue* q) {
-	int result = comp_sem_init(&(q->canAccess), 1);
+	int result = comp_sem_init(&(q->canAccess), 1, false);
 	checkForError(result, "Couldn't initialize the internal queue Semaphore", return -1;);
 
 	myqueue_head* q_head = &(q->head);

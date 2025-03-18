@@ -10,7 +10,7 @@
 #endif
 
 struct job_id_impl {
-	sem_t status;
+	SEMAPHORE_TYPE status;
 	job_function jobFunction;
 	anyType(JobArgument) argument;
 	anyType(JobResult) result;
@@ -31,7 +31,7 @@ anyType(NULL) thread_pool_worker_thread_function(anyType(my_thread_pool_ThreadAr
 	while(true) {
 
 		// block here until a job is available and can be worked uppon
-		int result = sem_wait(&(argument.threadPool->jobsAvailable));
+		int result = comp_sem_wait(&(argument.threadPool->jobsAvailable));
 		checkForError(result, "Couldn't wait for the internal thread pool Semaphore",
 		              return WorkerError_SemWait;);
 
@@ -50,7 +50,7 @@ anyType(NULL) thread_pool_worker_thread_function(anyType(my_thread_pool_ThreadAr
 		// when receiving shutdown signal, It breaks out of the while loop and finsishes
 		if(currentJob->jobFunction == THREAD_SHUTDOWN_JOB) {
 			// to be able to await for this job toot, it has to post the sempahore before leaving!
-			result = sem_post(&(currentJob->status));
+			result = comp_sem_post(&(currentJob->status));
 			checkForError(result,
 			              "Couldn't post the internal thread pool Semaphore for a single job",
 			              return WorkerError_SemPost;);
@@ -66,7 +66,7 @@ anyType(NULL) thread_pool_worker_thread_function(anyType(my_thread_pool_ThreadAr
 		currentJob->result = returnValue;
 
 		// finally cleaning up by posting the semaphore
-		result = sem_post(&(currentJob->status));
+		result = comp_sem_post(&(currentJob->status));
 		checkForError(result, "Couldn't post the internal thread pool Semaphore for a single job",
 		              return WorkerError_SemPost;);
 	}
@@ -105,7 +105,7 @@ int pool_create(thread_pool* pool, size_t size) {
 	// now initialize the thread jobsAvailable sempahore, it denotes how many jobs are in the queue,
 	// so that a worker thread can get one from the queue and work upon that job
 	// pshared i 0, since it'S shared between threads!
-	int result = sem_init(&(pool->jobsAvailable), 0, 0);
+	int result = comp_sem_init(&(pool->jobsAvailable), 0, true);
 	checkForError(result, "Couldn't initialize the internal thread pool Semaphore",
 	              return CreateError_SemInit;);
 
@@ -187,7 +187,7 @@ static job_id* __pool_submit(thread_pool* pool, job_function start_routine, anyT
 
 	// initializing with 0, it gets posted after the job was proccessed by a worker!!
 	// pshared i 0, since it'S shared between threads!
-	int result = sem_init(&(jobDescription->status), 0, 0);
+	int result = comp_sem_init(&(jobDescription->status), 0, true);
 	checkForError(result, "Couldn't initialize the internal thread pool Semaphore for a single job",
 	              return SubmitError_SemInit;);
 	// then finally push the job to the queue, so it can worked upon
@@ -195,7 +195,7 @@ static job_id* __pool_submit(thread_pool* pool, job_function start_routine, anyT
 		return SubmitError_QueuePush;
 	}
 	// after the push the semaphore gets posted, so a worker can get the job already, if available
-	result = sem_post(&(pool->jobsAvailable));
+	result = comp_sem_post(&(pool->jobsAvailable));
 	checkForError(result, "Couldn't post the internal thread pool Semaphore",
 	              return SubmitError_SemPost);
 
@@ -225,12 +225,12 @@ job_id* pool_submit(thread_pool* pool, job_function start_routine, anyType(JobAr
 // copy, DON'T use it, it is undefined what happens when using this already freed chunk of memory
 static anyType(JobResult) __pool_await(job_id* jobDescription) {
 	// wait for the internal semaphore, that can block
-	int result = sem_wait(&(jobDescription->status));
+	int result = comp_sem_wait(&(jobDescription->status));
 	checkForError(result, "Couldn't wait for the internal thread pool Semaphore for a single job",
 	              return JobError_SemWait;);
 
 	// then finally destroy the semaphore, it isn't used anymore
-	result = sem_destroy(&(jobDescription->status));
+	result = comp_sem_destroy(&(jobDescription->status));
 	checkForError(result, "Couldn't destroy the internal thread pool Semaphore",
 	              return JobError_SemDest;);
 
@@ -289,7 +289,7 @@ int pool_destroy(thread_pool* pool) {
 	}
 
 	// and the finally the semaphore, that is responsible for the jobs
-	int result = sem_destroy(&(pool->jobsAvailable));
+	int result = comp_sem_destroy(&(pool->jobsAvailable));
 	checkForError(result, "Couldn't destroy the internal thread pool Semaphore", return -1;);
 
 	return 0;

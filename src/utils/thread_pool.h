@@ -1,10 +1,10 @@
 #pragma once
 
 #include <pthread.h>
-#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "generic/sem.h"
 #include "myqueue.h"
 #include "utils.h"
 
@@ -30,7 +30,7 @@ typedef struct {
 	size_t workerThreadAmount;
 	myqueue jobqueue;
 	my_thread_pool_ThreadInformation* workerThreads;
-	sem_t jobsAvailable;
+	SEMAPHORE_TYPE jobsAvailable;
 } thread_pool;
 
 typedef struct job_id_impl job_id;

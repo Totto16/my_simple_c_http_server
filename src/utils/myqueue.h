@@ -12,11 +12,7 @@
 #include <sys/queue.h>
 #endif
 
-#ifdef __APPLE__
-#include <dispatch/dispatch.h>
-#else
-#include <semaphore.h>
-#endif
+#include "generic/sem.h"
 
 // in here there are several utilities that are used across all .h and .c files
 #include "utils.h"
@@ -34,12 +30,6 @@ struct myqueue_entry {
 STAILQ_HEAD(myqueue_head, myqueue_entry);
 
 typedef struct myqueue_head myqueue_head;
-
-#ifdef __APPLE__
-typedef dispatch_semaphore_t SEMAPHORE_TYPE;
-#else
-typedef sem_t SEMAPHORE_TYPE;
-#endif
 
 typedef struct {
 	myqueue_head head;
