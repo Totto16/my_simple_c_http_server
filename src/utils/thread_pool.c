@@ -3,6 +3,12 @@
 #include "errors.h"
 #include "utils/log.h"
 
+#ifdef _DONT_HAVE_SYS_SYSINFO
+#error TODO
+#else
+#include <sys/sysinfo.h>
+#endif
+
 struct job_id_impl {
 	sem_t status;
 	job_function jobFunction;

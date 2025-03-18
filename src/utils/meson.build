@@ -18,3 +18,13 @@ src_files += files(
     'utils.c',
     'utils.h',
 )
+
+
+## detect if we have the sys/sysinfo.h header
+
+cc = meson.get_compiler('c')
+
+has_sys_sysinfo_header = cc.check_header('sys/sysinfo.h')
+if not has_sys_sysinfo_header
+    compile_flags += '-D_DONT_HAVE_SYS_SYSINFO'
+endif

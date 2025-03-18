@@ -4,7 +4,6 @@
 #include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/sysinfo.h>
 
 #include "myqueue.h"
 #include "utils.h"
