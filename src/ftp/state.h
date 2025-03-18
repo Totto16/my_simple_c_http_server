@@ -121,7 +121,7 @@ typedef struct {
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
 NODISCARD FTPState* alloc_default_state(const char* global_folder);
 
-// TODO: free state
+void free_state(FTPState* state);
 
 NODISCARD char* make_address_port_desc(FTPConnectAddr addr);
 

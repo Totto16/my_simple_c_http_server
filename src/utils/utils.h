@@ -131,15 +131,16 @@ NODISCARD char* copy_cstr(char*);
 
 #define ARRAY_STRUCT(NAME, TYPE) \
 	typedef struct { \
-		TYPE* content; \
+		TYPE* content; /*NOLINT(bugprone-macro-parentheses)*/ \
 		size_t size; \
 	} NAME
 
 #define ARRAY_ADD_SLOT(TYPE, RESULT_NAME, ARRAY) \
-	ARRAY->size++; \
-	TYPE* RESULT_NAME = (TYPE*)realloc((void*)ARRAY->content, ARRAY->size * sizeof(TYPE))
+	(ARRAY)->size++; \
+	TYPE* RESULT_NAME = /*NOLINT(bugprone-macro-parentheses)*/ (TYPE*)realloc( \
+	    (void*)(ARRAY)->content, (ARRAY)->size * sizeof(TYPE))
 
 #define FREE_ARRAY(ARRAY) \
-	for(size_t array_idx = 0; array_idx < ARRAY->size; ++array_idx) { \
-		free(ARRAY->content[array_idx]); \
+	for(size_t array_idx = 0; array_idx < (ARRAY)->size; ++array_idx) { \
+		free((ARRAY)->content[array_idx]); \
 	}

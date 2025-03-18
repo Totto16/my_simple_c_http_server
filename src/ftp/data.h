@@ -23,7 +23,7 @@ typedef struct sockaddr_in RawNetworkAddress;
 
 NODISCARD DataController* initialize_data_controller(size_t passive_port_amount);
 
-// TODO free DataController
+void free_data_controller(DataController* data_controller);
 
 // thread save
 NODISCARD DataConnection* get_data_connection_for_data_thread_or_add_passive(DataController*,

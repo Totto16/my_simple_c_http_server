@@ -10,7 +10,7 @@ typedef struct SendDataImpl SendData;
 typedef struct {
 	size_t total_count;
 	size_t sent_count;
-	// TODO: support records, so  that we can keep track of the records we sent!
+	// TODO(Totto): support records, so  that we can keep track of the records we sent!
 } SendProgressImplData;
 typedef struct {
 	bool finished;

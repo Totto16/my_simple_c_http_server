@@ -39,8 +39,6 @@ typedef struct {
 
 AccountInfo* alloc_default_account(void);
 
-// TODO free account
-
 void free_account_data(AccountInfo*);
 
 /**
