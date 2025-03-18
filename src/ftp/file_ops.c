@@ -459,7 +459,12 @@ NODISCARD FileWithMetadata* get_metadata_for_file(const char* const absolute_pat
 	metadata->link_amount = stat_result.st_nlink;
 	metadata->owners = owners;
 	metadata->size = stat_result.st_size;
+#ifdef __APPLE__
+	metadata->last_mod = stat_result.st_mtimespec;
+#else
 	metadata->last_mod = stat_result.st_mtim;
+#endif
+
 	metadata->file_name = new_name;
 	metadata->identifier.dev = stat_result.st_dev;
 	metadata->identifier.ino = stat_result.st_ino;
@@ -691,6 +696,14 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 
 #undef FORMAT_SPACES
 
+#ifdef __APPLE__
+#define DEV_FMT "%d"
+#define INO_FMT "%llu"
+#else
+#define DEV_FMT "%lu"
+#define INO_FMT "%lu"
+#endif
+
 #define ELPF_PRETTY_PRINT_PERMISSIONS true
 
 NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file) {
@@ -730,8 +743,8 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 		string_builder_append(sb, return NULL;, "m%lu,", file->last_mod.tv_sec);
 
 		// unique identifier (dev.ino)
-		string_builder_append(sb, return NULL;
-		                      , "i%lu.%lu,", file->identifier.dev, file->identifier.ino);
+		string_builder_append(sb, return NULL;, "i" DEV_FMT "." INO_FMT ",", file->identifier.dev,
+		                                      file->identifier.ino);
 
 		if(ELPF_PRETTY_PRINT_PERMISSIONS) {
 			FilePermissions permissions = permissions_from_mode(file->mode);
