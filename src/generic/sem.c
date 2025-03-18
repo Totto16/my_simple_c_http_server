@@ -13,7 +13,7 @@ int comp_sem_init(SEMAPHORE_TYPE* sem, uint32_t value, bool shared) {
 	(void)shared;
 	return *sem == NULL ? -1 : 0;
 #else
-	return sem_init(sem, shared ? 0 : -1, value);
+	return sem_init(sem, shared ? 0 : -1, value); // NOLINT(readability-implicit-bool-conversion)
 #endif
 }
 

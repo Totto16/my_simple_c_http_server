@@ -48,7 +48,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* context
 int close_connection_descriptor(ConnectionDescriptor* descriptor);
 
 int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
-                                         ConnectionContext* const context, bool allow_reuse);
+                                         ConnectionContext* context, bool allow_reuse);
 
 int read_from_descriptor(const ConnectionDescriptor* descriptor, void* buffer, size_t n_bytes);
 

@@ -90,9 +90,16 @@ anyType(JobError*)
 	             , "connection handler %lu", workerInfo.workerIndex);
 	set_thread_name(thread_name_buffer);
 
+#define FREE_AT_END() \
+	do { \
+		free(thread_name_buffer); \
+		free(argument); \
+	} while(false)
+
 	bool signal_result = setup_relevant_signal_handlers();
 
 	if(!signal_result) {
+		FREE_AT_END();
 		return JobError_SigHandler;
 	}
 
@@ -104,21 +111,19 @@ anyType(JobError*)
 	    getsockname(argument->connectionFd, (struct sockaddr*)&server_addr_raw, &addr_len);
 	if(socknameResult != 0) {
 		LOG_MESSAGE(LogLevelError | LogPrintLocation, "getsockname error: %s\n", strerror(errno));
+
+		FREE_AT_END();
 		return JobError_GetSockName;
 	}
 
 	if(addr_len != sizeof(server_addr_raw)) {
 		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "getsockname has wrong addr_len\n");
+
+		FREE_AT_END();
 		return JobError_GetSockName;
 	}
 
 	FTPAddrField server_addr = get_port_info_from_sockaddr(server_addr_raw).addr;
-
-#define FREE_AT_END() \
-	do { \
-		free(thread_name_buffer); \
-		free(argument); \
-	} while(false)
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
 
@@ -218,9 +223,9 @@ cleanup:
 
 #define SEND_RESPONSE_WITH_ERROR_CHECK_F(code, format, ...) \
 	do { \
-		StringBuilder* sb = string_builder_init(); \
-		string_builder_append(sb, return false;, format, __VA_ARGS__); \
-		int result = sendFTPMessageToConnectionSb(descriptor, code, sb); \
+		StringBuilder* string_builder = string_builder_init(); \
+		string_builder_append(string_builder, return false;, format, __VA_ARGS__); \
+		int result = sendFTPMessageToConnectionSb(descriptor, code, string_builder); \
 		if(result < 0) { \
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n"); \
 			return false; \
@@ -231,7 +236,7 @@ cleanup:
 #define DATA_CONNECTION_WAIT_TIMEOUT_S_D 15.0
 
 // the interval is 1,4 seconds
-#define DATA_CONNECTION_INTERVAL_NS (S_TO_NS(2) / 5)
+#define DATA_CONNECTION_INTERVAL_NS (S_TO_NS(2, uint64_t) / 5)
 #define DATA_CONNECTION_INTERVAL_S 1
 
 bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField server_addr,
@@ -296,7 +301,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			// TODO: allow user changing
+			// TODO(Totto): allow user changing
 			if(state->account->state != ACCOUNT_STATE_ONLY_USER) {
 				free_account_data(state->account);
 
@@ -329,8 +334,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						return true;
 					}
 
-					AccountOkData ok_data = { .permissions = ACCOUNT_PERMISSIONS_READ |
-						                                     ACCOUNT_PERMISSIONS_WRITE,
+					AccountOkData ok_data = { .permissions = ACCOUNT_PERMISSIONS_READ_WRITE,
 						                      .username = malloced_username };
 
 					state->account->data.ok_data = ok_data;
@@ -554,17 +558,17 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			// send start
 			{
-				StringBuilder* sb = string_builder_init();
+				StringBuilder* string_builder = string_builder_init();
 
-				if(!sb) {
+				if(!string_builder) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending start feature response\n");
 					return false;
 				}
 
-				string_builder_append(sb, return false;
+				string_builder_append(string_builder, return false;
 				                      , "%03d-Extensions supported:", FTP_RETURN_CODE_FEATURE_LIST);
-				int send_result = sendStringBuilderToConnection(descriptor, sb);
+				int send_result = sendStringBuilderToConnection(descriptor, string_builder);
 				if(send_result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending start feature response\n");
@@ -574,21 +578,21 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			for(size_t i = 0; state->supported_features->size; ++i) {
 				FTPSupportedFeature feature = state->supported_features->features[i];
 
-				StringBuilder* sb = string_builder_init();
+				StringBuilder* string_builder = string_builder_init();
 
-				if(!sb) {
+				if(!string_builder) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending manual feature response\n");
 					return false;
 				}
 
-				string_builder_append(sb, return false;, " %s", feature.name);
+				string_builder_append(string_builder, return false;, " %s", feature.name);
 
 				if(feature.arguments != NULL) {
-					string_builder_append(sb, return false;, " %s", feature.arguments);
+					string_builder_append(string_builder, return false;, " %s", feature.arguments);
 				}
 
-				int send_result = sendStringBuilderToConnection(descriptor, sb);
+				int send_result = sendStringBuilderToConnection(descriptor, string_builder);
 				if(send_result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending manual feature response\n");
@@ -665,7 +669,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			bool is_folder = S_ISDIR(stat_result.st_mode);
 
 			if(access(final_file_path, R_OK) != 0) {
-				const char* file_type_str = is_folder ? "folder" : "file";
+				const char* file_type_str =
+				    is_folder ? "folder" : "file"; // NOLINT(readability-implicit-bool-conversion)
 
 				SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
 				                                 "Access to %s denied", file_type_str);
@@ -718,7 +723,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
 					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
 
-				// TODO: don't use intervalls for active connection, use poll() for that!
+				// TODO(Totto): don't use intervalls for active connection, use poll() for that!
 				while(true) {
 
 					if(usr1_signal_received == 0) {
@@ -865,7 +870,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 			}
 
-			// TODO also handle flags
+			// TODO(Totto): also handle flags
 			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_CMD_OK, "Set Type!");
 
 			return true;
@@ -1021,6 +1026,7 @@ anyType(ListenerError*)
 
 		if(!connection_ftp_state) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			free(connectionArgument);
 			return ListenerError_Malloc;
 		}
 
@@ -1190,8 +1196,9 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			return ListenerError_DataController;
 		}
 
-		// TODO: get correct context, in future if we use tls
-		// TODO: should we also support tls here?
+		// TODO(Totto): get correct context, in future if we use tls
+		// TODO(Totto): should we also support tls here? Answer, there is a separate FTP rfc
+		// extension to set the encryption state of the data connection, per default it is off
 		const SecureOptions* const options = initialize_secure_options(false, "", "");
 
 		ConnectionContext* context = get_connection_context(options);
@@ -1341,13 +1348,11 @@ anyType(ListenerError*)
 	}
 
 	free(local_port_status_arr);
-	return is_error ? ListenerError_ThreadCancel : ListenerError_None;
+	return is_error ? ListenerError_ThreadCancel // NOLINT(readability-implicit-bool-conversion)
+	                : ListenerError_None;
 }
 
-int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* wip_options) {
-
-	// TODO: implement implict TLS
-	UNUSED(wip_options);
+int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* options) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -1442,10 +1447,14 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* wip_o
 		return EXIT_FAILURE;
 	}
 
-	const SecureOptions* const options = initialize_secure_options(false, "", "");
+	// TODO(Totto): implement implicit TLS
+	const SecureOptions* const final_options =
+	    is_secure(options) // NOLINT(readability-implicit-bool-conversion)
+	        ? initialize_secure_options(false, "", "")
+	        : options;
 
 	for(size_t i = 0; i < control_pool.workerThreadAmount; ++i) {
-		control_contexts[i] = get_connection_context(options);
+		control_contexts[i] = get_connection_context(final_options);
 	}
 
 	size_t port_amount = DEFAULT_PASSIVE_PORT_AMOUNT;
@@ -1454,6 +1463,11 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* wip_o
 
 	if(!data_controller) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+
+		for(size_t i = 0; i < control_pool.workerThreadAmount; ++i) {
+			free_connection_context(control_contexts[i]);
+		}
+		free((void*)control_contexts);
 		return EXIT_FAILURE;
 	}
 
@@ -1522,7 +1536,7 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* wip_o
 
 	ListenerError data_returnValue = ListenerError_None;
 	result2 = pthread_join(dataOrchestratorThread, &data_returnValue);
-	checkForThreadError(result1, "An Error occurred while trying to wait for a data Thread",
+	checkForThreadError(result2, "An Error occurred while trying to wait for a data Thread",
 	                    return EXIT_FAILURE;);
 
 	if(is_listener_error(data_returnValue)) {

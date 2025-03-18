@@ -13,7 +13,7 @@ static_assert(sizeof(time_t) == sizeof(uint64_t));
 inline static bool valid_time(Time time) {
 
 	/* Nanoseconds [0, 999'999'999] */
-	if(time.value.tv_nsec >= S_TO_NS_RATE) {
+	if(time.value.tv_nsec >= ((uint32_t)(S_TO_NS_RATE))) {
 		return false;
 	}
 
@@ -24,7 +24,7 @@ inline static bool valid_time(Time time) {
 	return true;
 }
 
-static bool _impl_get_time(Time* time, clockid_t clockid) {
+static bool impl_get_time(Time* time, clockid_t clockid) {
 
 	if(time == NULL) {
 		return false;
@@ -47,11 +47,11 @@ static bool _impl_get_time(Time* time, clockid_t clockid) {
 #endif
 
 bool get_monotonic_time(Time* time) {
-	return _impl_get_time(time, CLOCK_MONOTONIC_OR_BETTER);
+	return impl_get_time(time, CLOCK_MONOTONIC_OR_BETTER);
 }
 
 bool get_current_time(Time* time) {
-	return _impl_get_time(time, CLOCK_REALTIME);
+	return impl_get_time(time, CLOCK_REALTIME);
 }
 
 uint64_t get_time_in_seconds(Time time) {
@@ -61,15 +61,15 @@ uint64_t get_time_in_seconds(Time time) {
 }
 
 #define NS_TO_US(x) ((x) / S_TO_MS_RATE)
-#define NS_TO_MS(x) ((x) / S_TO_US_RATE)
-#define NS_TO_S(x) ((x) / S_TO_NS_RATE)
+#define NS_TO_MS(x, TYPE) ((x) / ((TYPE)(S_TO_US_RATE)))
+#define NS_TO_S(x, TYPE) ((x) / S_TO_NS_RATE)
 
 uint64_t get_time_in_milli_seconds(Time time) {
 	assert(valid_time(time) && "Valid time");
 
 	uint64_t result = S_TO_MS(time.value.tv_sec);
 
-	result += NS_TO_MS(time.value.tv_nsec);
+	result += NS_TO_MS(time.value.tv_nsec, time_t);
 
 	return result;
 }
@@ -77,7 +77,7 @@ uint64_t get_time_in_milli_seconds(Time time) {
 uint64_t get_time_in_nano_seconds(Time time) {
 	assert(valid_time(time) && "Valid time");
 
-	uint64_t result = S_TO_NS(time.value.tv_sec);
+	uint64_t result = S_TO_NS(time.value.tv_sec, time_t);
 
 	result += time.value.tv_nsec;
 
@@ -110,7 +110,7 @@ typedef struct {
 } TimeDiff;
 
 // same as: time1 - time2;
-static TimeDiff _impl_time_diff(Time time1, Time time2) {
+static TimeDiff impl_time_diff(Time time1, Time time2) {
 
 	assert(valid_time(time1) && "Valid time1");
 	assert(valid_time(time2) && "Valid time2");
@@ -129,17 +129,17 @@ static TimeDiff _impl_time_diff(Time time1, Time time2) {
 
 	uint64_t diff_ns = time1_ns - time2_ns;
 
-	time_t diff_s_part = (time_t)(diff_ns / S_TO_NS_RATE);
+	time_t diff_s_part = (time_t)(diff_ns / ((uint64_t)(S_TO_NS_RATE)));
 
 	result.diff.value.tv_sec = diff_s_part;
-	result.diff.value.tv_nsec = (long)(diff_ns - (diff_s_part * S_TO_NS_RATE));
+	result.diff.value.tv_nsec = (long)(diff_ns - (diff_s_part * ((time_t)(S_TO_NS_RATE))));
 
 	return result;
 }
 
 double time_diff_in_exact_seconds(Time time1, Time time2) {
 
-	TimeDiff diff = _impl_time_diff(time1, time2);
+	TimeDiff diff = impl_time_diff(time1, time2);
 
 	double exact_seconds = get_time_in_seconds_exact(diff.diff);
 

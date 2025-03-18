@@ -58,6 +58,8 @@ FTPState* alloc_default_state(const char* global_folder) {
 	// invariant check
 	if(global_folder[global_folder_length - 2] == '/') {
 		LOG_MESSAGE_SIMPLE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated\n");
+
+		free(state);
 		return NULL;
 	}
 
@@ -73,6 +75,7 @@ FTPState* alloc_default_state(const char* global_folder) {
 	AccountInfo* account = alloc_default_account();
 
 	if(!account) {
+		free(state);
 		return NULL;
 	}
 
@@ -81,6 +84,7 @@ FTPState* alloc_default_state(const char* global_folder) {
 	FTPDataSettings* data_settings = alloc_default_data_settings();
 
 	if(!data_settings) {
+		free(state);
 		return NULL;
 	}
 
@@ -89,6 +93,7 @@ FTPState* alloc_default_state(const char* global_folder) {
 	FTPSupportedFeatures* supported_features = alloc_supported_features();
 
 	if(!supported_features) {
+		free(state);
 		return NULL;
 	}
 
@@ -97,13 +102,16 @@ FTPState* alloc_default_state(const char* global_folder) {
 	CustomFTPOptions* options = alloc_default_options();
 
 	if(!options) {
+		free(state);
 		return NULL;
 	}
 
 	state->options = options;
 
 	state->global_folder = global_folder;
-	state->current_type = FTP_TRANSMISSION_TYPE_ASCII | FTP_TRANSMISSION_TYPE_FLAG_NP;
+	state->current_type =
+	    FTP_TRANSMISSION_TYPE_ASCII | // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+	    FTP_TRANSMISSION_TYPE_FLAG_NP;
 	state->mode = FTP_MODE_STREAM;
 	state->structure = FTP_STRUCTURE_FILE;
 
@@ -116,18 +124,27 @@ char* make_address_port_desc(FTPConnectAddr addr) {
 
 	FTPPortField port = addr.port;
 
-	uint8_t p1 = port >> 8;
-	uint8_t p2 = port & 0xFF;
+	uint8_t port1 =
+	    port >> 8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint8_t port2 =
+	    port & 0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	FTPAddrField address = addr.addr;
 
-	uint8_t h1 = (address >> 24);
-	uint8_t h2 = (address >> 16) & 0xFF;
-	uint8_t h3 = (address >> 8) & 0xFF;
-	uint8_t h4 = address & 0xFF;
+	uint8_t host1 =
+	    (address >> 24); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint8_t host2 =
+	    (address >> 16) & // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	    0xFF;             // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint8_t host3 =
+	    (address >> 8) & // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	    0xFF;            // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint8_t host4 =
+	    address & 0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	char* result = NULL;
-	formatString(&result, return NULL;, "(%d,%d,%d,%d,%d,%d)", h1, h2, h3, h4, p1, p2);
+	formatString(&result, return NULL;
+	             , "(%d,%d,%d,%d,%d,%d)", host1, host2, host3, host4, port1, port2);
 
 	return result;
 }

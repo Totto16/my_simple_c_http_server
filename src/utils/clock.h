@@ -16,7 +16,7 @@ typedef struct {
 
 #define S_TO_MS(x) ((x) * S_TO_MS_RATE)
 #define S_TO_US(x) ((x) * S_TO_US_RATE)
-#define S_TO_NS(x) ((x) * S_TO_NS_RATE)
+#define S_TO_NS(x, TYPE) ((x) * ((TYPE)(S_TO_NS_RATE)))
 
 bool get_monotonic_time(Time* time);
 
