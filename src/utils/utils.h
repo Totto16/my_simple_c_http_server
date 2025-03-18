@@ -141,6 +141,10 @@ NODISCARD char* copy_cstr(char*);
 	    (void*)(ARRAY)->content, (ARRAY)->size * sizeof(TYPE))
 
 #define FREE_ARRAY(ARRAY) \
-	for(size_t array_idx = 0; array_idx < (ARRAY)->size; ++array_idx) { \
-		free((ARRAY)->content[array_idx]); \
-	}
+	do { \
+		if((ARRAY)->content != NULL) { \
+			for(size_t array_idx = 0; array_idx < (ARRAY)->size; ++array_idx) { \
+				free((ARRAY)->content[array_idx]); \
+			} \
+		} \
+	} while(false)

@@ -335,11 +335,7 @@ NODISCARD static bool nts_internal_should_close_connection(DataConnection* conne
 		// same as: current_time - last_change;
 		double diff_time = time_diff_in_exact_seconds(current_time, connection->last_change);
 
-		if(diff_time >= DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S_D) {
-			return true;
-		}
-
-		return false;
+		return (diff_time >= DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S_D);
 	}
 
 	if(connection->control_state == DATA_CONNECTION_CONTROL_STATE_SHOULD_CLOSE ||
@@ -418,7 +414,7 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 
 		data_controller->connections_size = current_keep_index;
 		if(current_keep_index == 0) {
-			free(data_controller->connections);
+			free((void*)data_controller->connections);
 			data_controller->connections = NULL;
 		} else {
 
@@ -535,7 +531,10 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 
 #ifdef __linux
 	int sockFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
-	checkForError(sockFd, "While Trying to create a active connection", return NULL;);
+	checkForError(sockFd, "While Trying to create a active connection", {
+		free(active_conn_data);
+		return NULL;
+	});
 #else
 	int sockFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	checkForError(sockFd, "While Trying to create a active connection", return NULL;);
@@ -559,6 +558,7 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 	active_conn_data->data.resume_data.connect_addr = connect_addr;
 
 	if(!nts_internal_try_if_active_connection_is_connected(active_conn_data)) {
+		free(active_conn_data);
 		return NULL;
 	}
 
@@ -584,9 +584,9 @@ NODISCARD static bool nts_internal_conn_identifier_eq(ConnectionTypeIdentifier i
 
 	if(ident1.active) {
 		return nts_internal_addr_eq(ident1.data.addr, ident2.data.addr);
-	} else {
-		return ident1.data.port == ident2.data.port;
 	}
+
+	return ident1.data.port == ident2.data.port;
 }
 
 NODISCARD DataConnection*
@@ -643,7 +643,9 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 					}
 				}
 
-				if(current_conn->identifier.active && current_conn->active_data != NULL) {
+				if(current_conn // NOLINT(readability-implicit-bool-conversion)
+				       ->identifier.active &&
+				   current_conn->active_data != NULL) {
 
 					if(!nts_internal_try_if_active_connection_is_connected(
 					       current_conn->active_data)) {
@@ -656,7 +658,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 						connection->control_state = DATA_CONNECTION_CONTROL_STATE_RETRIEVED;
 						bool _ignore = nts_internal_set_last_change_to_now(connection);
 						UNUSED(_ignore);
-						// TODO were do we get evcentual ssl conetxts here?
+						// TODO(Totto): where do we get eventual ssl conetxts here?
 						const SecureOptions* const options =
 						    initialize_secure_options(false, "", "");
 
@@ -666,7 +668,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 						    context, connection->active_data->data.conn_data.sockFd);
 
 						connection->descriptor = descriptor;
-						// TODO free appropiately
+						// TODO(Totto): free appropriately
 						connection->active_data = NULL;
 						goto cleanup;
 					}
@@ -698,7 +700,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 			data_controller->connections_size++;
 			DataConnection** new_conns = (DataConnection**)realloc(
-			    data_controller->connections,
+			    (void*)data_controller->connections,
 			    data_controller->connections_size * sizeof(DataConnection*));
 
 			if(new_conns == NULL) {
@@ -799,6 +801,8 @@ NODISCARD bool nts_internal_close_connection(DataController* data_controller,
 	if(connections_to_close->size > 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 		                   "ASSERT: maximal one connection should be closed, if we set a filter\n");
+
+		free(connections_to_close);
 		return false;
 	}
 
@@ -806,6 +810,8 @@ NODISCARD bool nts_internal_close_connection(DataController* data_controller,
 		ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
 		close_connection_descriptor(connection_to_close);
 	}
+
+	free(connections_to_close);
 	return true;
 }
 
@@ -832,7 +838,6 @@ NODISCARD bool data_connection_close(DataController* data_controller, DataConnec
 			goto cleanup;
 		}
 
-		success = true;
 		connection->control_state = DATA_CONNECTION_CONTROL_STATE_SHOULD_CLOSE;
 
 		success = nts_internal_close_connection(data_controller, connection);

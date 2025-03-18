@@ -85,7 +85,9 @@ bool parseU8Into(char* input, uint8_t* result_addr) {
 	char* endpointer = NULL;
 
 	errno = 0;
-	long result = strtol(input, &endpointer, 10);
+	long result =
+	    strtol(input, &endpointer,
+	           10); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
 	if(*endpointer != '\0') {
@@ -576,8 +578,14 @@ void freeFTPCommand(FTPCommand* cmd) {
 }
 
 void freeFTPCommandArray(FTPCommandArray* array) {
-	for(size_t i = 0; i < array->size; ++i) {
-		freeFTPCommand(array->content[i]);
+	if(array == NULL) {
+		return;
+	}
+
+	if(array->content != NULL) {
+		for(size_t i = 0; i < array->size; ++i) {
+			freeFTPCommand(array->content[i]);
+		}
 	}
 
 	free(array);

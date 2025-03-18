@@ -690,6 +690,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						    connections_to_close->content[i];
 						close_connection_descriptor(connection_to_close);
 					}
+					free(connections_to_close);
 				}
 			}
 
@@ -1159,6 +1160,7 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 					ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
 					close_connection_descriptor(connection_to_close);
 				}
+				free(connections_to_close);
 			}
 
 			continue;
@@ -1222,6 +1224,7 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 				ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
 				close_connection_descriptor(connection_to_close);
 			}
+			free(connections_to_close);
 		}
 	}
 
