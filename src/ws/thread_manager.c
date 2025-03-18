@@ -699,7 +699,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 	char* thread_name_buffer = NULL;
 	// TODO(Totto): better report error
-	formatString(&thread_name_buffer, return NULL;, "ws listener %d", get_thread_id());
+	formatString(&thread_name_buffer, return NULL;, "ws listener " PRI_THREADID, get_thread_id());
 	set_thread_name(thread_name_buffer);
 
 	bool result = setup_sigpipe_signal_handler();
