@@ -15,6 +15,7 @@
 
 #include <stdlib.h>
 #include <sys/random.h>
+#include <time.h>
 #include <utf8proc.h>
 
 #ifdef __APPLE__
@@ -308,10 +309,13 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 	}
 
 	if(mask) {
-
+#ifdef __APPLE__
+		srandom(time(NULL));
+		uint32_t mask_byte = random();
+#else
 		uint32_t mask_byte = 0;
 		ssize_t result = getrandom((uint8_t*)(&mask_byte), sizeof(uint32_t), 0);
-
+#endif
 		if(result != sizeof(uint32_t)) {
 			if(result < 0) {
 				LOG_MESSAGE(LogLevelWarn, "Get random failed: %s\n", strerror(errno));
