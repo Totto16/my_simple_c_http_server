@@ -21,7 +21,7 @@ int get_signal_like_fd(int signal) {
 	// TODO(Totto): this war not yet tested
 	struct kevent sigevent;
 	EV_SET(&sigevent, signal, EVFILT_SIGNAL, EV_ADD | EV_ENABLE, 0, 0, NULL);
-	kevent(kq, &sigevent, 1, NULL, 0, NULL);
+	kevent(kqueue_id, &sigevent, 1, NULL, 0, NULL);
 	return kqueue_id;
 #else
 	sigset_t mySigset;
