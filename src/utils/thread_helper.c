@@ -5,7 +5,7 @@
 #undef _GNU_SOURCE
 
 #ifdef __APPLE__
-#include <pthread_np.h>
+#include <pthread.h>
 #endif
 
 #include "thread_helper.h"
