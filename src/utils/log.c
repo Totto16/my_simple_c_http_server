@@ -114,7 +114,7 @@ const char* get_thread_name(void) {
 		    __log_thread_state.name = fallback_name;
 		    return fallback_name;
 	    },
-	    "TID "  PRI_THREADID, tid);
+	    "TID " PRI_THREADID, tid);
 
 	__log_thread_state.name = name;
 

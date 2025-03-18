@@ -46,8 +46,6 @@ static bool _impl_get_time(Time* time, clockid_t clockid) {
 #define CLOCK_MONOTONIC_OR_BETTER CLOCK_MONOTONIC
 #endif
 
-
-
 bool get_monotonic_time(Time* time) {
 	return _impl_get_time(time, CLOCK_MONOTONIC_OR_BETTER);
 }
