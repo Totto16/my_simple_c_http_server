@@ -40,6 +40,8 @@ NODISCARD SendProgress setup_send_progress(const SendData* data, SendMode send_m
 
 NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* path, FileSendFormat format);
 
+NODISCARD SendData* get_data_to_send_for_retr(char* path);
+
 NODISCARD bool send_data_to_send(const SendData* data, ConnectionDescriptor* descriptor,
                                  SendMode send_mode, SendProgress* progress);
 

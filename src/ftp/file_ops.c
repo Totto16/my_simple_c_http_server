@@ -6,6 +6,7 @@
 
 #include <dirent.h>
 #include <math.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <time.h>
 
@@ -653,6 +654,76 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 	return data;
 }
 
+NODISCARD SendData* get_data_to_send_for_retr(char* path) {
+
+	SendData* data = (SendData*)malloc(sizeof(SendData));
+
+	if(!data) {
+		return NULL;
+	}
+
+	FILE* file = fopen(path, "rb");
+
+	if(file == NULL) {
+		LOG_MESSAGE(LogLevelWarn, "Couldn't open file '%s': %s\n", path, strerror(errno));
+
+		free(data);
+		return NULL;
+	}
+
+	int fseek_res = fseek(file, 0, SEEK_END);
+
+	if(fseek_res != 0) {
+		LOG_MESSAGE(LogLevelWarn, "Couldn't seek to end of file '%s': %s\n", path, strerror(errno));
+
+		free(data);
+		return NULL;
+	}
+
+	long file_size = ftell(file);
+	fseek_res = fseek(file, 0, SEEK_SET);
+
+	if(fseek_res != 0) {
+		LOG_MESSAGE(LogLevelWarn, "Couldn't seek to end of file '%s': %s\n", path, strerror(errno));
+
+		free(data);
+		return NULL;
+	}
+
+	uint8_t* file_data = (uint8_t*)malloc(file_size * sizeof(uint8_t));
+
+	if(!file_data) {
+		free(data);
+		return NULL;
+	}
+
+	int fread_result = fread(file_data, 1, file_size, file);
+
+	if(fread_result != file_size) {
+		LOG_MESSAGE(LogLevelWarn, "Couldn't read the correct amount of bytes from file '%s': %s\n",
+		            path, strerror(errno));
+
+		free(data);
+		return NULL;
+	}
+
+	int fclose_result = fclose(file);
+
+	if(fclose_result != 0) {
+		LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n", path, strerror(errno));
+
+		free(data);
+		return NULL;
+	}
+
+	RawData raw_data = { .data = file_data, .size = file_size };
+
+	data->type = SEND_TYPE_RAW_DATA;
+	data->data.data = raw_data;
+
+	return data;
+}
+
 #define FORMAT_SPACES "    "
 
 NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, MaxSize sizes) {
@@ -829,6 +900,8 @@ NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
 	}
 }
 
+#define SEND_CHUNK_SIZE 0xFF
+
 NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescriptor* descriptor,
                                  SendMode send_mode, SendProgress* progress) {
 
@@ -869,8 +942,8 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				return false;
 			}
 
-			int sent_result = sendStringBuilderToConnection(descriptor, string_builder);
-			if(sent_result < 0) {
+			int send_result = sendStringBuilderToConnection(descriptor, string_builder);
+			if(send_result < 0) {
 				return false;
 			}
 
@@ -880,8 +953,26 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		}
 
 		case SEND_TYPE_RAW_DATA: {
-			// TODO(Totto): implement
-			return false;
+			RawData raw_data = data->data.data;
+
+			size_t offset = progress->_impl.sent_count;
+
+			void* toSend = ((uint8_t*)raw_data.data) + offset;
+
+			size_t sendLength = SEND_CHUNK_SIZE;
+
+			if(offset + sendLength >= progress->_impl.total_count) {
+				sendLength = progress->_impl.total_count - offset;
+			}
+
+			int send_result = sendDataToConnection(descriptor, toSend, sendLength);
+			if(send_result < 0) {
+				return false;
+			}
+
+			progress->_impl.sent_count += sendLength;
+
+			return true;
 			break;
 		}
 		default: break;

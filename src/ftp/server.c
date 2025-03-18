@@ -615,8 +615,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
-		// permission model: everybody that is logged in can use LIST
-		case FTP_COMMAND_LIST: {
+			// TODO(Totto): deduplicate LIST / RETR and file commands
+
+			// permission model: everybody that is logged in can use RETR
+		case FTP_COMMAND_RETR: {
 
 			if(state->account->state != ACCOUNT_STATE_OK) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
@@ -635,16 +637,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			char* arg = command->data.string;
 
-			if(arg == NULL) {
-				// A null argument implies the user's current working or default directory.
-				arg = ".";
-			}
-
 			char* final_file_path = resolve_path_in_cwd(state, arg);
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "No such dir");
+				                               "No such file / dir");
 
 				return true;
 			}
@@ -655,7 +652,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			if(result != 0) {
 				if(errno == ENOENT) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "No such dir");
+					                               "No such file / dir");
 
 					return true;
 				}
@@ -668,18 +665,23 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			bool is_folder = S_ISDIR(stat_result.st_mode);
 
-			if(access(final_file_path, R_OK) != 0) {
-				const char* file_type_str =
-				    is_folder ? "folder" : "file"; // NOLINT(readability-implicit-bool-conversion)
-
-				SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                                 "Access to %s denied", file_type_str);
+			if(is_folder) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+				                               "Can't RETR a folder");
 
 				return true;
 			}
 
-			// cleanup old connections, this has to happend, so that old connections for the same
-			// client are free 100%, in most of the cases this is a noop
+			if(access(final_file_path, R_OK) != 0) {
+
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+				                               "Access to file denied");
+
+				return true;
+			}
+
+			// cleanup old connections, this has to happend, so that old connections for the
+			// same client are free 100%, in most of the cases this is a noop
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
@@ -723,15 +725,240 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
 					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
 
-				// TODO(Totto): don't use intervalls for active connection, use poll() for that!
+				// TODO(Totto): don't use intervals for active connection, use poll() for that!
 				while(true) {
 
 					if(usr1_signal_received == 0) {
 						int sleep_result = nanosleep(&interval, NULL);
 
-						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's not
-						// that bad, we also interrupt this thread in passive mode, so that we are
-						// faster, than waiting a fixed amount
+						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's
+						// not that bad, we also interrupt this thread in passive mode, so that
+						// we are faster, than waiting a fixed amount
+						if(sleep_result != 0 && errno != EINTR) {
+							SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+							                               "Internal error");
+							return true;
+						}
+
+						usr1_signal_received = 0;
+					}
+
+					Time current_time;
+					bool clock_result = get_monotonic_time(&current_time);
+
+					if(!clock_result) {
+						LOG_MESSAGE(LogLevelError | LogPrintLocation,
+						            "getting the time failed: %s\n", strerror(errno));
+						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+						                               "Internal error");
+						return true;
+					}
+
+					double diff_time = time_diff_in_exact_seconds(current_time, start_time);
+
+					if(diff_time >= DATA_CONNECTION_WAIT_TIMEOUT_S_D) {
+						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_OPEN_ERROR,
+						                               "Timeout on waiting for data connection");
+
+						return true;
+					}
+
+					data_connection = get_data_connection_for_control_thread_or_add(
+					    argument->data_controller, *state->data_settings);
+
+					if(data_connection != NULL) {
+
+						LOG_MESSAGE(LogLevelTrace | LogPrintLocation,
+						            "Data connection established after %f s\n", diff_time);
+
+						break;
+					}
+				}
+			} else {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_ALREADY_OPEN,
+				                               "Ok. Sending data");
+
+				LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintLocation,
+				                   "Data connection already established\n");
+			}
+
+			// send data
+			{
+
+				ConnectionDescriptor* data_conn_descriptor =
+				    data_connection_get_descriptor_to_send_to(argument->data_controller,
+				                                              data_connection);
+
+				if(descriptor == NULL) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+					                               "Internal error");
+					return true;
+				}
+
+				SendMode send_mode = get_current_send_mode(state);
+
+				if(send_mode == SEND_MODE_UNSUPPORTED) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+					                               "Unsupported send mode");
+					return true;
+				}
+
+				SendData* data_to_send = get_data_to_send_for_retr(final_file_path);
+
+				if(data_to_send == NULL) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+					                               "Internal error");
+					return true;
+				}
+
+				// this is used, so that we can check in between single sends (e.g. in a list),
+				// if the user send us a ABORT COMMAND
+				SendProgress send_progress = setup_send_progress(data_to_send, send_mode);
+
+				while(!send_progress.finished) {
+
+					if(!send_data_to_send(data_to_send, data_conn_descriptor, send_mode,
+					                      &send_progress)) {
+						free_send_data(data_to_send);
+
+						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+						                               "Internal send error");
+						return true;
+					}
+				}
+
+				free_send_data(data_to_send);
+
+				if(!data_connection_close(argument->data_controller, data_connection)) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
+					                               "Internal error");
+					return true;
+				}
+
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_CLOSING_DATA_CONNECTION_REQ_OK,
+				                               "Success. Closing Data Connection");
+			}
+
+			return true;
+		}
+
+		// permission model: everybody that is logged in can use LIST
+		case FTP_COMMAND_LIST: {
+
+			if(state->account->state != ACCOUNT_STATE_OK) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
+				                               "Not logged in: can't access files!");
+
+				return true;
+			}
+
+			if(state->data_settings->mode == FTP_DATA_MODE_NONE) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(
+				    FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+				    "No data conenction mode specified, specify either PASSIVE or ACTIVE");
+
+				return true;
+			}
+
+			char* arg = command->data.string;
+
+			if(arg == NULL) {
+				// A null argument implies the user's current working or default directory.
+				arg = ".";
+			}
+
+			char* final_file_path = resolve_path_in_cwd(state, arg);
+
+			if(!final_file_path) {
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+				                               "No such file / dir");
+
+				return true;
+			}
+
+			struct stat stat_result;
+			int result = stat(final_file_path, &stat_result);
+
+			if(result != 0) {
+				if(errno == ENOENT) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+					                               "No such file / dir");
+
+					return true;
+				}
+
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+				                               "Internal error");
+
+				return true;
+			}
+
+			bool is_folder = S_ISDIR(stat_result.st_mode);
+
+			if(access(final_file_path, R_OK) != 0) {
+				const char* file_type_str =
+				    is_folder ? "folder" : "file"; // NOLINT(readability-implicit-bool-conversion)
+
+				SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+				                                 "Access to %s denied", file_type_str);
+
+				return true;
+			}
+
+			// cleanup old connections, this has to happend, so that old connections for the
+			// same client are free 100%, in most of the cases this is a noop
+			{
+				// empty the data connections and close the ones, that are no longer required or
+				// timed out
+				ConnectionsToClose* connections_to_close =
+				    data_connections_to_close(argument->data_controller);
+
+				if(connections_to_close == NULL) {
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "data_connections_to_close failed\n");
+				} else {
+					for(size_t i = 0; i < connections_to_close->size; ++i) {
+						ConnectionDescriptor* connection_to_close =
+						    connections_to_close->content[i];
+						close_connection_descriptor(connection_to_close);
+					}
+					free(connections_to_close);
+				}
+			}
+
+			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
+			    argument->data_controller, *state->data_settings);
+
+			if(data_connection == NULL) {
+
+				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_DATA_CONNECTION_WAITING_FOR_OPEN,
+				                               "Ok. Waiting for data connection");
+
+				// Wait for data connection
+
+				Time start_time;
+				bool clock_result = get_monotonic_time(&start_time);
+
+				if(!clock_result) {
+					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
+					            strerror(errno));
+					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
+					                               "Internal error");
+					return true;
+				}
+
+				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
+					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
+
+				// TODO(Totto): don't use intervals for active connection, use poll() for that!
+				while(true) {
+
+					if(usr1_signal_received == 0) {
+						int sleep_result = nanosleep(&interval, NULL);
+
+						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's
+						// not that bad, we also interrupt this thread in passive mode, so that
+						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
 							SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
 							                               "Internal error");
@@ -810,8 +1037,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				// this is used, so that we can check in between single sends (e.g. in a list), if
-				// the user send us a ABORT COMMAND
+				// this is used, so that we can check in between single sends (e.g. in a list),
+				// if the user send us a ABORT COMMAND
 				SendProgress send_progress = setup_send_progress(data_to_send, send_mode);
 
 				while(!send_progress.finished) {
