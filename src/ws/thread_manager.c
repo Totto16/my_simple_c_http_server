@@ -315,7 +315,6 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 #else
 		uint32_t mask_byte = 0;
 		ssize_t result = getrandom((uint8_t*)(&mask_byte), sizeof(uint32_t), 0);
-#endif
 		if(result != sizeof(uint32_t)) {
 			if(result < 0) {
 				LOG_MESSAGE(LogLevelWarn, "Get random failed: %s\n", strerror(errno));
@@ -326,6 +325,7 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 			// use rand_r like normal rand:
 			mask_byte = rand_r(&seed);
 		}
+#endif
 
 		*((uint32_t*)(resultingFrame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len)) =
 		    mask_byte;
