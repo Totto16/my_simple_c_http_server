@@ -718,6 +718,8 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 	uint8_t* file_data = (uint8_t*)malloc(file_size * sizeof(uint8_t));
 
 	if(!file_data) {
+
+		fclose(file);
 		free(data);
 		return NULL;
 	}
@@ -728,6 +730,8 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't read the correct amount of bytes from file '%s': %s\n",
 		            path, strerror(errno));
 
+		fclose(file);
+		free(file_data);
 		free(data);
 		return NULL;
 	}
@@ -737,6 +741,7 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 	if(fclose_result != 0) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n", path, strerror(errno));
 
+		free(file_data);
 		free(data);
 		return NULL;
 	}
