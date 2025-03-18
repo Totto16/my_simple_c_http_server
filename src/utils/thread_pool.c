@@ -163,7 +163,7 @@ int pool_create_dynamic(thread_pool* pool) {
 		return -result;
 	}
 
-	return workerThreadsAmount;
+	return (int)workerThreadsAmount;
 }
 
 // submits a function with argument to the job queue, returns a job_id struct, that HAS to be used
@@ -223,7 +223,7 @@ job_id* pool_submit(thread_pool* pool, job_function start_routine, anyType(JobAr
 // otherwise undefined behaviour might occur!
 // after calling this function the content of the job_id is garbage, since it'S free, if you have a
 // copy, DON'T use it, it is undefined what happens when using this already freed chunk of memory
-static anyType(JobResult) __pool_await(job_id* jobDescription) {
+static anyType(JobResult) impl_pool_await(job_id* jobDescription) {
 	// wait for the internal semaphore, that can block
 	int result = comp_sem_wait(&(jobDescription->status));
 	checkForError(result, "Couldn't wait for the internal thread pool Semaphore for a single job",
@@ -237,7 +237,7 @@ static anyType(JobResult) __pool_await(job_id* jobDescription) {
 	anyType(JobResult) job_result = jobDescription->result;
 
 	// finally free the allocated job_id
-	free(jobDescription);
+	free(jobDescription); // NOLINT(clang-analyzer-unix.Malloc)
 
 	return job_result;
 }
@@ -247,7 +247,7 @@ static anyType(JobResult) __pool_await(job_id* jobDescription) {
 // checked here and printing a warning if its _THREAD_SHUTDOWN_JOB
 anyType(JobResult) pool_await(job_id* jobDescription) {
 	if(jobDescription != (void*)THREAD_SHUTDOWN_JOB_INTERNAL) {
-		return __pool_await(jobDescription);
+		return impl_pool_await(jobDescription);
 	}
 
 	fprintf(stderr, "WARNING: invalid job_function passed to pool_submit!\n");
@@ -266,7 +266,7 @@ int pool_destroy(thread_pool* pool) {
 	// destroy, they DON'T get worked upon, and also it is shutdown after ALL remaining jobs
 	// are finished, so it's only well defined, if waited upon all jobs!
 	for(size_t i = 0; i < pool->workerThreadAmount; ++i) {
-		__pool_await(int_pool_submit(pool, THREAD_SHUTDOWN_JOB, NULL));
+		impl_pool_await(int_pool_submit(pool, THREAD_SHUTDOWN_JOB, NULL));
 	}
 
 	// then finally join all the worker threads, this is done after sending a shutdown signal, so

@@ -6,11 +6,12 @@
 
 #include "utils/log.h"
 
-bool is_job_error(const JobError error) {
-	return error == JobError_None || (error >= JobError_START && error <= JobError_END);
+bool is_job_error(JobError error) {
+	return error == JobError_None // NOLINT(readability-implicit-bool-conversion)
+	       || (error >= JobError_START && error <= JobError_END);
 }
 
-void print_job_error(const JobError error) {
+void print_job_error(JobError error) {
 
 	const char* error_str = "Unknown error";
 
@@ -43,12 +44,12 @@ void print_job_error(const JobError error) {
 	LOG_MESSAGE(LogLevelError, "Job Error: %s\n", error_str);
 }
 
-bool is_listener_error(const ListenerError error) {
-	return error == ListenerError_None ||
+bool is_listener_error(ListenerError error) {
+	return error == ListenerError_None || // NOLINT(readability-implicit-bool-conversion)
 	       (error >= ListenerError_START && error <= ListenerError_END);
 }
 
-void print_listener_error(const ListenerError error) {
+void print_listener_error(ListenerError error) {
 
 	const char* error_str = "Unknown error";
 
@@ -73,7 +74,7 @@ void print_listener_error(const ListenerError error) {
 
 void print_create_error(const CreateError error) {
 
-	const char* error_str = "Unknown error";
+	const char* error_str = "Unknown error"; // NOLINT(clang-analyzer-deadcode.DeadStores)
 	switch(error) {
 		case CreateError_None: error_str = "None"; break;
 		case CreateError_ThreadCreate: error_str = "ThreadCreate"; break;
@@ -86,7 +87,7 @@ void print_create_error(const CreateError error) {
 	LOG_MESSAGE(LogLevelError, "Create Error: %s\n", error_str);
 }
 
-void print_submit_error(const SubmitError error) {
+void print_submit_error(SubmitError error) {
 
 	const char* error_str = "Unknown error";
 
@@ -107,7 +108,7 @@ void print_submit_error(const SubmitError error) {
 	LOG_MESSAGE(LogLevelError, "Submit Error: %s\n", error_str);
 }
 
-void print_worker_error(const WorkerError error) {
+void print_worker_error(WorkerError error) {
 
 	const char* error_str = "Unknown error";
 
