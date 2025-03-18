@@ -2,8 +2,50 @@
 #include "myqueue.h"
 #include "utils/log.h"
 
+// semaphore compatibility
+// see
+// https://stackoverflow.com/questions/27736618/why-are-sem-init-sem-getvalue-sem-destroy-deprecated-on-mac-os-x-and-w
+// see https://www.unix.com/man_page/mojave/3/dispatch_semaphore_create/
+
+static inline int comp_sem_init(SEMAPHORE_TYPE* sem, uint32_t value) {
+#ifdef __APPLE__
+	*sem = dispatch_semaphore_create(value);
+	return *sem == NULL ? -1 : 0
+#else
+	return sem_init(sem, -1, value);
+#endif
+}
+
+static inline int comp_sem_wait(SEMAPHORE_TYPE* sem) {
+
+#ifdef __APPLE__
+	return dispatch_semaphore_wait(*sem, DISPATCH_TIME_FOREVER);
+#else
+	return sem_wait(sem);
+#endif
+}
+
+static inline int comp_sem_post(SEMAPHORE_TYPE* sem) {
+
+#ifdef __APPLE__
+	return dispatch_semaphore_signal(*sem);
+#else
+	return sem_post(sem);
+#endif
+}
+
+static inline int comp_sem_destroy(SEMAPHORE_TYPE* sem) {
+
+#ifdef __APPLE__
+	dispatch_release(*sem);
+	return 0;
+#else
+	return sem_destroy(sem);
+#endif
+}
+
 int myqueue_init(myqueue* q) {
-	int result = sem_init(&(q->canAccess), -1, 1);
+	int result = comp_sem_init(&(q->canAccess), 1);
 	checkForError(result, "Couldn't initialize the internal queue Semaphore", return -1;);
 
 	myqueue_head* q_head = &(q->head);
@@ -14,13 +56,13 @@ int myqueue_init(myqueue* q) {
 
 int myqueue_destroy(myqueue* q) {
 	// to clean up, the mutex has to be destroyed
-	int result = sem_destroy(&(q->canAccess));
+	int result = comp_sem_destroy(&(q->canAccess));
 	checkForError(result, "Couldn't destroy the internal queue Semaphore", return -1;);
 	return 0;
 }
 
 bool myqueue_is_empty(myqueue* q) {
-	int result = sem_wait(&(q->canAccess));
+	int result = comp_sem_wait(&(q->canAccess));
 	checkForError(result, "Couldn't wait for the internal queue Semaphore", return false;);
 
 	myqueue_head* q_head = &(q->head);
@@ -30,7 +72,7 @@ bool myqueue_is_empty(myqueue* q) {
 	}
 
 	// now say that it can be accessed
-	result = sem_post(&(q->canAccess));
+	result = comp_sem_post(&(q->canAccess));
 	checkForError(result, "Couldn't post the internal queue Semaphore", return false;);
 	return empty;
 }
@@ -39,7 +81,7 @@ bool myqueue_is_empty(myqueue* q) {
 // modified to use void * instead of int as stored value
 int myqueue_push(myqueue* q, void* value) {
 
-	int result = sem_wait(&(q->canAccess));
+	int result = comp_sem_wait(&(q->canAccess));
 	checkForError(result, "Couldn't wait for the internal queue Semaphore", return -1;);
 
 	myqueue_head* q_head = &(q->head);
@@ -50,7 +92,7 @@ int myqueue_push(myqueue* q, void* value) {
 	++(q->size);
 
 	// now say that it can be accessed
-	result = sem_post(&(q->canAccess));
+	result = comp_sem_post(&(q->canAccess));
 	checkForError(result, "Couldn't post the internal queue Semaphore", return -1;);
 
 	return 0;
@@ -58,7 +100,7 @@ int myqueue_push(myqueue* q, void* value) {
 
 void* myqueue_pop(myqueue* q) {
 
-	int result = sem_wait(&(q->canAccess));
+	int result = comp_sem_wait(&(q->canAccess));
 	checkForError(result, "Couldn't wait for the internal queue Semaphore", return NULL);
 
 	myqueue_head* q_head = &(q->head);
@@ -74,7 +116,7 @@ void* myqueue_pop(myqueue* q) {
 	--(q->size);
 
 	// now say that it can be accessed
-	result = sem_post(&(q->canAccess));
+	result = comp_sem_post(&(q->canAccess));
 	checkForError(result, "Couldn't post the internal queue Semaphore", return NULL;);
 	return value;
 }
