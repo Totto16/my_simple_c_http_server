@@ -38,6 +38,8 @@ deps += dependency(
     default_options: {'tests': 'disabled'},
 )
 
+deps += dependency('cwalk', allow_fallback: true)
+
 cc = meson.get_compiler('c')
 
 deps += cc.find_library('m', required: false)
