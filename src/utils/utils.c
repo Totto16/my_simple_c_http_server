@@ -54,7 +54,7 @@ void* reallocWithMemset(void* previousPtr, const size_t oldSize, const size_t ne
 long parseLongSafely(const char* toParse, const char* description) {
 	// this is just allocated, so that strtol can write an address into it,
 	// therefore it doesn't need to be initialized
-	char* endpointer;
+	char* endpointer = NULL;
 	// reseting errno, since it's not guaranteed to be that, but strtol can return some values that
 	// generally are also valid, so errno is the only REAL and consistent method of checking for
 	// error

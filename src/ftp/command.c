@@ -82,7 +82,7 @@ bool parseU8Into(char* input, uint8_t* result_addr) {
 		return false;
 	}
 
-	char* endpointer;
+	char* endpointer = NULL;
 
 	errno = 0;
 	long result = strtol(input, &endpointer, 10);
