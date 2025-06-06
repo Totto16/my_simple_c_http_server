@@ -13,7 +13,7 @@
 
 void printHttpServerUsage() {
 	printf(IDENT1 "http <port> [options]\n");
-	printf(IDENT1 "port: the port to bind to (required)");
+	printf(IDENT1 "port: the port to bind to (required)\n");
 	printf(IDENT1 "options:\n");
 	printf(IDENT2 "-s, --secure <public_cert_file> <private_cert_file>: Use a secure connection "
 	              "(https), you have to provide the public and private certificates\n");
@@ -22,13 +22,13 @@ void printHttpServerUsage() {
 
 void printFtpServerUsage() {
 	printf(IDENT1 "ftp <port> [options]\n");
-	printf(IDENT1 "port: the port to bind to (required)");
+	printf(IDENT1 "port: the port to bind to (required)\n");
 	printf(IDENT1 "options:\n");
 	printf(IDENT2
 	       "-s, --secure <public_cert_file> <private_cert_file>: Provide a secure variant of ftp "
 	       "(ftps), you have to provide the public and private certificates. This uses implicit "
 	       "TLS, and can negotiate TLS with clients, if needed\n");
-	printf(IDENT2 "-f, --folder <folder>: The folder to server, default is '.'\n");
+	printf(IDENT2 "-f, --folder <folder>: The folder to serve, default is '.'\n");
 	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
 }
 
@@ -57,7 +57,7 @@ void printUsage(const char* programName, USAGE_COMMAND usage_command) {
 		}
 		case USAGE_COMMAND_ALL:
 		default: {
-			printf("usage: %s <command>", programName);
+			printf("usage: %s <command>\n", programName);
 			printf("commands: http, ftp\n");
 			printHttpServerUsage();
 			printFtpServerUsage();
