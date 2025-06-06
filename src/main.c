@@ -294,6 +294,7 @@ int main(int argc, const char* argv[]) {
 
 	// checking if there are enough arguments
 	if(argc < 2) {
+		printf("No command specified\n");
 		printUsage(argv[0], USAGE_COMMAND_ALL);
 		return EXIT_FAILURE;
 	}
@@ -304,6 +305,9 @@ int main(int argc, const char* argv[]) {
 		return subcommandHttp(argv[0], argc - 2, argv + 2);
 	} else if(strcmp(command, "ftp") == 0) {
 		return subcommandFtp(argv[0], argc - 2, argv + 2);
+	} else if(strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
+		printUsage(argv[0], USAGE_COMMAND_ALL);
+		return EXIT_SUCCESS;
 	} else {
 		printUsage(argv[0], USAGE_COMMAND_ALL);
 		return EXIT_FAILURE;
