@@ -11,8 +11,13 @@
 #define IDENT1 "\t"
 #define IDENT2 IDENT1 IDENT1
 
-void printHttpServerUsage() {
-	printf(IDENT1 "http <port> [options]\n");
+void printHttpServerUsage(bool isSubcommand) {
+	if(isSubcommand) {
+		printf("<port> [options]\n");
+	} else {
+		printf(IDENT1 "http <port> [options]\n");
+	}
+
 	printf(IDENT1 "port: the port to bind to (required)\n");
 	printf(IDENT1 "options:\n");
 	printf(IDENT2 "-s, --secure <public_cert_file> <private_cert_file>: Use a secure connection "
@@ -20,8 +25,13 @@ void printHttpServerUsage() {
 	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
 }
 
-void printFtpServerUsage() {
-	printf(IDENT1 "ftp <port> [options]\n");
+void printFtpServerUsage(bool isSubcommand) {
+	if(isSubcommand) {
+		printf("<port> [options]\n");
+	} else {
+		printf(IDENT1 "ftp <port> [options]\n");
+	}
+
 	printf(IDENT1 "port: the port to bind to (required)\n");
 	printf(IDENT1 "options:\n");
 	printf(IDENT2
@@ -45,22 +55,22 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 void printUsage(const char* programName, USAGE_COMMAND usage_command) {
 	switch(usage_command) {
 		case USAGE_COMMAND_HTTP: {
-			printf("usage: %s http", programName);
-			printHttpServerUsage();
+			printf("usage: %s http ", programName);
+			printHttpServerUsage(true);
 			break;
 		}
 
 		case USAGE_COMMAND_FTP: {
-			printf("usage: %s ftp", programName);
-			printFtpServerUsage();
+			printf("usage: %s ftp ", programName);
+			printFtpServerUsage(true);
 			break;
 		}
 		case USAGE_COMMAND_ALL:
 		default: {
 			printf("usage: %s <command>\n", programName);
 			printf("commands: http, ftp\n");
-			printHttpServerUsage();
-			printFtpServerUsage();
+			printHttpServerUsage(false);
+			printFtpServerUsage(false);
 			break;
 		}
 	}
