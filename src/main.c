@@ -66,12 +66,30 @@ void printUsage(const char* programName, USAGE_COMMAND usage_command) {
 	}
 }
 
+bool isHelpString(const char* str) {
+	if(strcmp(str, "--help") == 0) {
+		return true;
+	} else if(strcmp(str, "-h") == 0) {
+		return true;
+	} else if(strcmp(str, "-?") == 0) {
+		return true;
+	}
+
+	return false;
+}
+
 int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 
 	if(argc < 1) {
 		fprintf(stderr, "missing <port>\n");
 		printUsage(programName, USAGE_COMMAND_HTTP);
 		return EXIT_FAILURE;
+	}
+
+	if(isHelpString(argv[0])) {
+		printf("'http' command help menu:\n");
+		printUsage(programName, USAGE_COMMAND_HTTP);
+		return EXIT_SUCCESS;
 	}
 
 	// parse the port
@@ -166,6 +184,12 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 		fprintf(stderr, "missing <port>\n");
 		printUsage(programName, USAGE_COMMAND_FTP);
 		return EXIT_FAILURE;
+	}
+
+	if(isHelpString(argv[0])) {
+		printf("'ftp' command help menu:\n");
+		printUsage(programName, USAGE_COMMAND_FTP);
+		return EXIT_SUCCESS;
 	}
 
 	// parse the port
@@ -307,8 +331,8 @@ int main(int argc, const char* argv[]) {
 		return subcommandHttp(argv[0], argc - 2, argv + 2);
 	} else if(strcmp(command, "ftp") == 0) {
 		return subcommandFtp(argv[0], argc - 2, argv + 2);
-	} else if(strcmp(command, "--help") == 0 || strcmp(command, "-h") == 0) {
-		printf("Help menu:\n");
+	} else if(isHelpString(command)) {
+		printf("General help menu:\n");
 		printUsage(argv[0], USAGE_COMMAND_ALL);
 		return EXIT_SUCCESS;
 	} else {
