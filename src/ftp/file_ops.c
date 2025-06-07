@@ -517,7 +517,7 @@ void free_file_metadata(FileWithMetadata* metadata) {
 	free(metadata);
 }
 
-inline size_t size_for_number(size_t num) {
+static inline size_t size_for_number(size_t num) {
 
 	return ((size_t)(floor(log10((double)num)))) + 1;
 }
