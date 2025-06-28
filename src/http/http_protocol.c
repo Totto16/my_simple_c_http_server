@@ -200,8 +200,7 @@ const char* getStatusMessage(int statusCode) {
 	return result;
 }
 
-NODISCARD static HttpHeaderField* find_header_by_key(STBDS_ARRAY(HttpHeaderField) array,
-                                                     const char* key) {
+NODISCARD static HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
 
 	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
 		HttpHeaderField* header = &(array[i]);
@@ -433,8 +432,7 @@ SendSettings getSendSettings(RequestSettings* requestSettings) {
 
 	SendSettings result = { .compression_to_use = COMPRESSION_TYPE_NONE };
 
-	STBDS_ARRAY(CompressionEntry)
-	entries = requestSettings->compression_settings->entries;
+	CompressionEntries entries = requestSettings->compression_settings->entries;
 
 	size_t entries_length = stbds_arrlenu(entries);
 

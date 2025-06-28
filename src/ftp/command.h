@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "./state.h"
+#include <stb/ds.h>
 
 /**
  * @ref https://datatracker.ietf.org/doc/html/rfc959  5.3.1
@@ -76,13 +77,13 @@ typedef struct {
 
 } FTPCommand;
 
-ARRAY_STRUCT(FTPCommandArray, FTPCommand*);
+typedef STBDS_ARRAY(FTPCommand*) FTPCommandArray;
 
-NODISCARD FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands);
+NODISCARD FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands);
 
 void freeFTPCommand(FTPCommand*);
 
-void freeFTPCommandArray(FTPCommandArray*);
+void freeFTPCommandArray(FTPCommandArray);
 
 NODISCARD const char* get_command_name(const FTPCommand*);
 

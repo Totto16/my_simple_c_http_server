@@ -166,7 +166,7 @@ anyType(JobError*)
 		}
 
 		// rawFtpCommands gets freed in here
-		FTPCommandArray* ftpCommands = parseMultipleFTPCommands(rawFtpCommands);
+		FTPCommandArray ftpCommands = parseMultipleFTPCommands(rawFtpCommands);
 
 		// ftpCommands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
@@ -183,8 +183,8 @@ anyType(JobError*)
 			continue;
 		}
 
-		for(size_t i = 0; i < ftpCommands->size; ++i) {
-			FTPCommand* command = ftpCommands->content[i];
+		for(size_t i = 0; i < stbds_arrlenu(ftpCommands); ++i) {
+			FTPCommand* command = ftpCommands[i];
 			bool successfull = ftp_process_command(descriptor, server_addr, argument, command);
 			if(!successfull) {
 				quit = true;
@@ -681,20 +681,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose* connections_to_close =
-				    data_connections_to_close(argument->data_controller);
+				ConnectionsToClose connections_to_close =
+				   data_connections_to_close(argument->data_controller);
 
-				if(connections_to_close == NULL) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "data_connections_to_close failed\n");
-				} else {
-					for(size_t i = 0; i < connections_to_close->size; ++i) {
-						ConnectionDescriptor* connection_to_close =
-						    connections_to_close->content[i];
-						close_connection_descriptor(connection_to_close);
-					}
-					free(connections_to_close);
+				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+					close_connection_descriptor(connection_to_close);
 				}
+				stbds_arrfree(connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -879,20 +873,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose* connections_to_close =
+				ConnectionsToClose connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				if(connections_to_close == NULL) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "data_connections_to_close failed\n");
-				} else {
-					for(size_t i = 0; i < connections_to_close->size; ++i) {
-						ConnectionDescriptor* connection_to_close =
-						    connections_to_close->content[i];
-						close_connection_descriptor(connection_to_close);
-					}
-					free(connections_to_close);
+				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+					close_connection_descriptor(connection_to_close);
 				}
+				stbds_arrfree(connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -1104,20 +1092,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose* connections_to_close =
+				ConnectionsToClose connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				if(connections_to_close == NULL) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "data_connections_to_close failed\n");
-				} else {
-					for(size_t i = 0; i < connections_to_close->size; ++i) {
-						ConnectionDescriptor* connection_to_close =
-						    connections_to_close->content[i];
-						close_connection_descriptor(connection_to_close);
-					}
-					free(connections_to_close);
+				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+					close_connection_descriptor(connection_to_close);
 				}
+				stbds_arrfree(connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -1581,21 +1563,14 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose* connections_to_close =
-
+				ConnectionsToClose connections_to_close =
 				    data_connections_to_close(argument.data_controller);
 
-				if(connections_to_close == NULL) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "data_connections_to_close failed\n");
-					continue;
-				}
-
-				for(size_t i = 0; i < connections_to_close->size; ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
+				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close = connections_to_close[i];
 					close_connection_descriptor(connection_to_close);
 				}
-				free(connections_to_close);
+				stbds_arrfree(connections_to_close);
 			}
 
 			continue;
@@ -1647,20 +1622,14 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 		{
 			// empty the data connections and close the ones, that are no longer required or
 			// timed out
-			ConnectionsToClose* connections_to_close =
+			ConnectionsToClose connections_to_close =
 			    data_connections_to_close(argument.data_controller);
 
-			if(connections_to_close == NULL) {
-				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-				                   "data_connections_to_close failed\n");
-				continue;
-			}
-
-			for(size_t i = 0; i < connections_to_close->size; ++i) {
-				ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
+			for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+				ConnectionDescriptor* connection_to_close = connections_to_close[i];
 				close_connection_descriptor(connection_to_close);
 			}
-			free(connections_to_close);
+			stbds_arrfree(connections_to_close);
 		}
 	}
 

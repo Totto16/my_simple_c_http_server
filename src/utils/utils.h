@@ -129,27 +129,6 @@ void* reallocWithMemset(void* previousPtr, size_t oldSize, size_t newSize,
 
 NODISCARD char* copy_cstr(char*);
 
-// TODO: use stbds for this
-#define ARRAY_STRUCT(NAME, TYPE) \
-	typedef struct { \
-		TYPE* content; /*NOLINT(bugprone-macro-parentheses)*/ \
-		size_t size; \
-	} NAME
-
-#define ARRAY_ADD_SLOT(TYPE, RESULT_NAME, ARRAY) \
-	(ARRAY)->size++; \
-	TYPE* RESULT_NAME = /*NOLINT(bugprone-macro-parentheses)*/ (TYPE*)realloc( \
-	    (void*)(ARRAY)->content, (ARRAY)->size * sizeof(TYPE))
-
-#define FREE_ARRAY(ARRAY) \
-	do { \
-		if((ARRAY)->content != NULL) { \
-			for(size_t array_idx = 0; array_idx < (ARRAY)->size; ++array_idx) { \
-				free((ARRAY)->content[array_idx]); \
-			} \
-		} \
-	} while(false)
-
 NODISCARD float parseFloat(char* value);
 
 typedef struct {
@@ -158,3 +137,13 @@ typedef struct {
 } SizedBuffer;
 
 void freeSizedBuffer(SizedBuffer buffer);
+
+#define FREE_ARRAY_AND_ENTRIES(ARRAY) \
+	do { \
+		if(ARRAY) { \
+			for(size_t array_idx = 0; array_idx < stbds_arrlenu(ARRAY); ++array_idx) { \
+				free((ARRAY)[array_idx]); \
+			} \
+			stbds_arrfree(ARRAY); \
+		} \
+	} while(false)

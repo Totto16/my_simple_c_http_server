@@ -5,6 +5,7 @@
 #include "./state.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
+#include <stb/ds.h>
 
 #include <netinet/in.h>
 #include <signal.h>
@@ -17,7 +18,7 @@ typedef struct DataControllerImpl DataController;
 // opaque type
 typedef struct DataConnectionImpl DataConnection;
 
-ARRAY_STRUCT(ConnectionsToClose, ConnectionDescriptor*);
+typedef STBDS_ARRAY(ConnectionDescriptor*) ConnectionsToClose;
 
 typedef struct sockaddr_in RawNetworkAddress;
 
@@ -34,7 +35,7 @@ NODISCARD bool data_controller_add_descriptor(DataController*, DataConnection*,
                                               ConnectionDescriptor*);
 
 // thread save
-NODISCARD ConnectionsToClose* data_connections_to_close(DataController*);
+NODISCARD ConnectionsToClose data_connections_to_close(DataController*);
 
 // thread save
 NODISCARD DataConnection* get_data_connection_for_control_thread_or_add(DataController*,

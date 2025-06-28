@@ -9,3 +9,5 @@
 #define STBDS_ARRAY(TypeName) TypeName *
 
 #define STBDS_ARRAY_INIT(value) value = NULL
+
+#define STBDS_ARRAY_EMPTY() {0}

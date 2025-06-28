@@ -438,21 +438,14 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 	return NULL;
 }
 
-FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands) {
+FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands) {
 
 #define FREE_AT_END() \
 	do { \
 		free(rawFtpCommands); \
 	} while(false)
 
-	FTPCommandArray* array = (FTPCommandArray*)malloc(sizeof(FTPCommandArray));
-	if(!array) {
-		FREE_AT_END();
-		return NULL;
-	}
-
-	array->content = NULL;
-	array->size = 0;
+	FTPCommandArray array = STBDS_ARRAY_EMPTY();
 
 	const char* const separators = "\r\n";
 	size_t separatorsLength = strlen(separators);
@@ -487,19 +480,7 @@ FTPCommandArray* parseMultipleFTPCommands(char* rawFtpCommands) {
 			return NULL;
 		}
 
-		array->size++;
-
-		FTPCommand** new_content =
-		    (FTPCommand**)realloc((void*)array->content, array->size * sizeof(FTPCommand*));
-		if(!new_content) {
-			freeFTPCommandArray(array);
-			FREE_AT_END();
-			return NULL;
-		}
-
-		array->content = new_content;
-
-		array->content[array->size - 1] = command;
+		stbds_arrput(array, command);
 
 		size_t actualLength = length + separatorsLength;
 		size_to_proccess -= actualLength;
@@ -577,18 +558,16 @@ void freeFTPCommand(FTPCommand* cmd) {
 	}
 }
 
-void freeFTPCommandArray(FTPCommandArray* array) {
+void freeFTPCommandArray(FTPCommandArray array) {
 	if(array == NULL) {
 		return;
 	}
 
-	if(array->content != NULL) {
-		for(size_t i = 0; i < array->size; ++i) {
-			freeFTPCommand(array->content[i]);
-		}
+	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
+		freeFTPCommand(array[i]);
 	}
 
-	free(array);
+	stbds_arrfree(array);
 }
 
 const char* get_command_name(const FTPCommand* const command) {

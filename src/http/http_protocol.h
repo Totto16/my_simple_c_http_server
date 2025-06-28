@@ -97,14 +97,16 @@ typedef struct {
 	char* statusMessage;
 } HttpResponseLine;
 
+typedef STBDS_ARRAY(HttpHeaderField) HttpHeaderFields;
+
 typedef struct {
 	HttpRequestLine requestLine;
-	STBDS_ARRAY(HttpHeaderField) headerFields;
+	HttpHeaderFields headerFields;
 } HttpRequestHead;
 
 typedef struct {
 	HttpResponseLine responseLine;
-	STBDS_ARRAY(HttpHeaderField) headerFields;
+	HttpHeaderFields headerFields;
 } HttpResponseHead;
 
 typedef struct {
@@ -161,8 +163,10 @@ typedef struct {
 	float weight;
 } CompressionEntry;
 
+typedef STBDS_ARRAY(CompressionEntry) CompressionEntries;
+
 typedef struct {
-	STBDS_ARRAY(CompressionEntry) entries;
+	CompressionEntries entries;
 } CompressionSettings;
 
 typedef struct {
