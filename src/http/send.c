@@ -3,6 +3,22 @@
 #include "./send.h"
 #include "generic/send.h"
 
+NODISCARD static int sendConcattedResponseToConnection(const ConnectionDescriptor* const descriptor,
+                                                       HttpConcattedResponse* concattedResponse) {
+	int result = sendStringBuilderToConnection(descriptor, concattedResponse->headers);
+	if(result < 0) {
+		return result;
+	}
+
+	if(concattedResponse->body.data) {
+		result = sendSizedBufferToConnection(descriptor, concattedResponse->body);
+	}
+
+	free(concattedResponse);
+
+	return result;
+}
+
 NODISCARD static int sendMessageToConnectionWithHeadersMalloced(
     const ConnectionDescriptor* const descriptor, int status, char* body, const char* MIMEType,
     HttpHeaderField* headerFields, const int headerFieldsAmount, SendSettings send_settings) {
@@ -10,9 +26,13 @@ NODISCARD static int sendMessageToConnectionWithHeadersMalloced(
 	HttpResponse* message = constructHttpResponseWithHeaders(
 	    status, body, headerFields, headerFieldsAmount, MIMEType, send_settings);
 
-	StringBuilder* messageString = httpResponseToStringBuilder(message);
+	HttpConcattedResponse* concattedResponse = httpResponseConcat(message);
 
-	int result = sendStringBuilderToConnection(descriptor, messageString);
+	if(!concattedResponse) {
+		return -7;
+	}
+
+	int result = sendConcattedResponseToConnection(descriptor, concattedResponse);
 	// body gets freed
 	freeHttpResponse(message);
 	return result;
@@ -22,14 +42,19 @@ NODISCARD static int sendMessageToConnectionWithHeadersMalloced(
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
 NODISCARD static int sendMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
-                                                     int status, char* body, const char* MIMEType,
+                                                     int status, char* string_body,
+                                                     const char* MIMEType,
                                                      SendSettings send_settings) {
 
-	HttpResponse* message = constructHttpResponse(status, body, MIMEType,send_settings);
+	HttpResponse* message = constructHttpResponse(status, string_body, MIMEType, send_settings);
 
-	StringBuilder* messageString = httpResponseToStringBuilder(message);
+	HttpConcattedResponse* concattedResponse = httpResponseConcat(message);
 
-	int result = sendStringBuilderToConnection(descriptor, messageString);
+	if(!concattedResponse) {
+		return -7;
+	}
+
+	int result = sendConcattedResponseToConnection(descriptor, concattedResponse);
 	// body gets freed
 	freeHttpResponse(message);
 	return result;

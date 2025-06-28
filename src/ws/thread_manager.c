@@ -1464,7 +1464,7 @@ bool free_thread_manager(WebSocketThreadManager* manager) {
 	                    return false;);
 
 	if(manager->head != NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "All connections got removed correctly");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "All connections got removed correctly\n");
 		return false;
 	}
 

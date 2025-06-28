@@ -36,7 +36,7 @@ char* normalStringToMalloced(const char* notMallocedString) {
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-int string_builder_append_internal(StringBuilder* stringBuilder, char* string) {
+int string_builder_append_string(StringBuilder* stringBuilder, char* string) {
 	size_t length = strlen(string);
 	// if te string builder is empty malloc the right size
 	if(stringBuilder->currentSize == 0) {
@@ -78,7 +78,7 @@ int string_builder_append_internal(StringBuilder* stringBuilder, char* string) {
 // simple wrapper if just a constant string has to be appended
 int string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString) {
 	char* mallocedString = normalStringToMalloced(notMallocedString);
-	return string_builder_append_internal(stringBuilder, mallocedString);
+	return string_builder_append_string(stringBuilder, mallocedString);
 }
 
 // attention the two methods to_string and get_string are different in that sense, that after
@@ -99,8 +99,12 @@ char* string_builder_get_string(StringBuilder* stringBuilder) {
 	return stringBuilder->data;
 }
 
+NODISCARD SizedBuffer string_builder_get_sized_buffer(StringBuilder* stringBuilder) {
+	return (SizedBuffer){ .data = stringBuilder->data, .size = stringBuilder->currentSize };
+}
+
 // just free the stringbuilder and the associated string
-void string_builder_free(StringBuilder* stringBuilder) {
+void free_string_builder(StringBuilder* stringBuilder) {
 	free(stringBuilder->data);
 	free(stringBuilder);
 }

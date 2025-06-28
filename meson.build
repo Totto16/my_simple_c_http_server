@@ -32,6 +32,14 @@ else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
 endif
 
+zlib_dep = dependency('zlib', required: false)
+
+if zlib_dep.found()
+    deps += zlib_dep
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP'
+endif
+
+
 deps += dependency(
     'libutf8proc',
     allow_fallback: true,

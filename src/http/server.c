@@ -213,6 +213,17 @@ anyType(JobError*)
 				// the error was already sent, just close the descriptor and free the http
 				// request, this is done at the end of this big if else statements
 
+			} else if(strcmp(httpRequest->head.requestLine.URI, "/json") == 0) {
+
+				int result = sendHTTPMessageToConnection(
+				    descriptor, HTTP_STATUS_OK,
+				    httpRequestToJSON(httpRequest, is_secure_context(context), send_settings),
+				    MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED, send_settings);
+
+				if(result < 0) {
+					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					                   "Error in sending response\n");
+				}
 			} else {
 				int result = sendHTTPMessageToConnection(
 				    descriptor, HTTP_STATUS_NOT_FOUND, "File not Found", MIME_TYPE_TEXT, NULL, 0,

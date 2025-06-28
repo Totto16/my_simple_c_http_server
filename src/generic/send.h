@@ -12,6 +12,9 @@ NODISCARD int sendDataToConnection(const ConnectionDescriptor* descriptor, void*
 // large null terminated strings!
 NODISCARD int sendStringToConnection(const ConnectionDescriptor* descriptor, char* toSend);
 
+NODISCARD int sendSizedBufferToConnection(const ConnectionDescriptor* const descriptor,
+                                          SizedBuffer buffer);
+
 // just a wrapper to send a string buffer to a connection, it also frees the string buffer!
 NODISCARD int sendStringBuilderToConnection(const ConnectionDescriptor* descriptor,
                                             StringBuilder* stringBuilder);

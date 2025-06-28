@@ -15,7 +15,7 @@ typedef struct {
 	size_t currentSize;
 } StringBuilder;
 
-StringBuilder* string_builder_init(void);
+NODISCARD StringBuilder* string_builder_init(void);
 
 // helper function that turns a normal string into a malloced one, so the lifetime is extended and
 // he can be freed!
@@ -23,20 +23,20 @@ StringBuilder* string_builder_init(void);
 char* normalStringToMalloced(const char* notMallocedString);
 
 // macro for appending, to used variable argument length conveniently, it uses the formatString
-// (snprintf) and __string_builder_append method under the hood
+// (snprintf) and string_builder_append_string method under the hood
 
 #define string_builder_append(stringBuilder, statement, format, ...) \
 	{ \
 		char* __append_buf = NULL; \
 		formatString(&__append_buf, statement, format, __VA_ARGS__); \
-		string_builder_append_internal(stringBuilder, __append_buf); \
+		string_builder_append_string(stringBuilder, __append_buf); \
 	}
 
 // TODO(Totto): make them NODISCARD
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-int string_builder_append_internal(StringBuilder* stringBuilder, char* string);
+int string_builder_append_string(StringBuilder* stringBuilder, char* string);
 
 // simple wrapper if just a constant string has to be appended
 int string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString);
@@ -47,11 +47,13 @@ int string_builder_append_single(StringBuilder* stringBuilder, const char* notMa
 // the struct or implementation can change, this function has to adapt, not thew user!
 // ATTENTION: after this call the stringbuilder is destroyed! meaning the string you receive is a
 // single malloced string you have to take care of
-char* string_builder_to_string(StringBuilder* stringBuilder);
+NODISCARD char* string_builder_to_string(StringBuilder* stringBuilder);
 
 // the struct or implementation can change, this function has to adapt, not the user!
 // after that call the stringbuilder is reusable and can be freed, appended uppon etc.
-char* string_builder_get_string(StringBuilder* stringBuilder);
+NODISCARD char* string_builder_get_string(StringBuilder* stringBuilder);
+
+NODISCARD SizedBuffer string_builder_get_sized_buffer(StringBuilder* stringBuilder);
 
 // just free the stringbuilder and the associated string
-void string_builder_free(StringBuilder* stringBuilder);
+void free_string_builder(StringBuilder* stringBuilder);

@@ -125,3 +125,7 @@ NODISCARD float parseFloat(char* value) {
 
 	return result;
 }
+
+void freeSizedBuffer(SizedBuffer buffer) {
+	free(buffer.data);
+}

@@ -21,4 +21,4 @@ NODISCARD bool is_compressions_supported(COMPRESSION_TYPE format);
 
 NODISCARD const char* get_string_for_compress_format(COMPRESSION_TYPE format);
 
-NODISCARD char* compress_string_with(char* string, COMPRESSION_TYPE format);
+NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, COMPRESSION_TYPE format);

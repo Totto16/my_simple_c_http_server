@@ -151,3 +151,10 @@ NODISCARD char* copy_cstr(char*);
 	} while(false)
 
 NODISCARD float parseFloat(char* value);
+
+typedef struct {
+	void* data;
+	size_t size;
+} SizedBuffer;
+
+void freeSizedBuffer(SizedBuffer buffer);

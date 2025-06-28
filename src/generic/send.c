@@ -48,10 +48,16 @@ int sendStringToConnection(const ConnectionDescriptor* const descriptor, char* t
 	return sendDataToConnection(descriptor, toSend, strlen(toSend));
 }
 
+NODISCARD int sendSizedBufferToConnection(const ConnectionDescriptor* const descriptor,
+                                          SizedBuffer buffer) {
+	return sendDataToConnection(descriptor, buffer.data, buffer.size);
+}
+
 // just a warpper to send a string buffer to a connection, it also frees the string buffer!
 int sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
                                   StringBuilder* stringBuilder) {
-	int result = sendStringToConnection(descriptor, string_builder_get_string(stringBuilder));
-	string_builder_free(stringBuilder);
+	int result =
+	    sendSizedBufferToConnection(descriptor, string_builder_get_sized_buffer(stringBuilder));
+	free_string_builder(stringBuilder);
 	return result;
 }

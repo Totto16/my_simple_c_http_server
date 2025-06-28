@@ -111,10 +111,9 @@ typedef struct {
 	HttpRequestHead head;
 	char* body;
 } HttpRequest;
-
 typedef struct {
 	HttpResponseHead head;
-	char* body;
+	SizedBuffer body;
 } HttpResponse;
 
 /*
@@ -182,18 +181,23 @@ SendSettings getSendSettings(RequestSettings* requestSettings);
 
 // simple http Response constructor using string builder, headers can be NULL, when headerSize is
 // also null!
-HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
+HttpResponse* constructHttpResponseWithHeaders(int status, char* string_body,
                                                HttpHeaderField* additionalHeaders,
                                                size_t headersSize, const char* MIMEType,
                                                SendSettings send_settings);
 
 // wrapper if no additionalHeaders are required
-HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType,
+HttpResponse* constructHttpResponse(int status, char* string_body, const char* MIMEType,
                                     SendSettings send_settings);
+
+typedef struct {
+	StringBuilder* headers;
+	SizedBuffer body;
+} HttpConcattedResponse;
 
 // makes a stringBuilder from the HttpResponse, just does the opposite of parsing A Request, but
 // with some slight modification
-StringBuilder* httpResponseToStringBuilder(HttpResponse* response);
+HttpConcattedResponse* httpResponseConcat(HttpResponse* response);
 
 // free the HttpResponse, just freeing everything necessary
 void freeHttpResponse(HttpResponse* response);

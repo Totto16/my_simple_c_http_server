@@ -234,7 +234,7 @@ static COMPRESSION_TYPE parse_compression_type(char* compression_name, bool* ok)
 		return COMPRESSION_TYPE_ZSTD;
 	}
 
-	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %s", compression_name);
+	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %s\n", compression_name);
 
 	*ok = false;
 	return COMPRESSION_TYPE_NONE;
@@ -337,7 +337,7 @@ static CompressionSettings* getCompressionSettings(HttpRequest* httpRequest) {
 
 				stbds_arrput(compressionSettings->entries, entry);
 			} else {
-				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%s'", compression_name);
+				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%s'\n", compression_name);
 			}
 		}
 
@@ -476,9 +476,8 @@ break_for:
 	return result;
 }
 
-static bool constructHeadersForRequest(size_t bodyLength, HttpHeaderField* additionalHeaders,
-                                       size_t headersSize, const char* MIMEType,
-                                       HttpResponse* response,
+static bool constructHeadersForRequest(HttpHeaderField* additionalHeaders, size_t headersSize,
+                                       const char* MIMEType, HttpResponse* response,
                                        COMPRESSION_TYPE compression_format) {
 
 	STBDS_ARRAY_INIT(response->head.headerFields);
@@ -508,7 +507,7 @@ static bool constructHeadersForRequest(size_t bodyLength, HttpHeaderField* addit
 
 		char* contentLengthBuffer = NULL;
 		formatString(&contentLengthBuffer, return NULL;
-		             , "%s%c%ld", "Content-Length", '\0', bodyLength);
+		             , "%s%c%ld", "Content-Length", '\0', response->body.size);
 
 		size_t current_array_index = stbds_arrlenu(response->head.headerFields);
 
@@ -582,7 +581,7 @@ static bool constructHeadersForRequest(size_t bodyLength, HttpHeaderField* addit
 
 // simple http Response constructor using string builder, headers can be NULL, when headerSize is
 // also null!
-HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
+HttpResponse* constructHttpResponseWithHeaders(int status, char* string_body,
                                                HttpHeaderField* additionalHeaders,
                                                size_t headersSize, const char* MIMEType,
                                                SendSettings send_settings) {
@@ -608,37 +607,37 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 	response->head.responseLine.statusMessage =
 	    responseLineBuffer + protocolLength + strlen(responseLineBuffer + protocolLength + 1) + 2;
 
-	size_t bodyLength = 0;
 	COMPRESSION_TYPE format_used = send_settings.compression_to_use;
+	SizedBuffer start_body = { .data = string_body, .size = string_body ? strlen(string_body) : 0 };
 
-	if(body) {
+	if(start_body.data) {
+
 		if(format_used != COMPRESSION_TYPE_NONE) {
-			// here only supported protocols can be used, otherwise previous checks were wrong
-			char* new_body = compress_string_with(body, send_settings.compression_to_use);
 
-			if(!new_body) {
+			// here only supported protocols can be used, otherwise previous checks were wrong
+			SizedBuffer new_body =
+			    compress_buffer_with(start_body, send_settings.compression_to_use);
+
+			if(!new_body.data) {
 				LOG_MESSAGE(
 				    LogLevelError,
-				    "An error occured while compressing the body with the compression format %s",
+				    "An error occured while compressing the body with the compression format %s\n",
 				    get_string_for_compress_format(send_settings.compression_to_use));
 				format_used = COMPRESSION_TYPE_NONE;
-				response->body = body;
-				bodyLength = strlen(body);
+				response->body = start_body;
 			} else {
 				response->body = new_body;
-				bodyLength = strlen(new_body);
-				free(body);
+				freeSizedBuffer(start_body);
 			}
 		} else {
-			response->body = body;
-			bodyLength = strlen(body);
+			response->body = start_body;
 		}
 	} else {
-		response->body = body;
+		response->body = start_body;
 		format_used = COMPRESSION_TYPE_NONE;
 	}
 
-	if(!constructHeadersForRequest(bodyLength, additionalHeaders, headersSize, MIMEType, response,
+	if(!constructHeadersForRequest(additionalHeaders, headersSize, MIMEType, response,
 	                               format_used)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
@@ -655,9 +654,16 @@ HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType
 	return constructHttpResponseWithHeaders(status, body, NULL, 0, MIMEType, send_settings);
 }
 
-// makes a stringBuilder from the HttpResponse, just does the opposite of parsing A Request, but
-// with some slight modification
-StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
+// makes a stringBuilder + a sized body from the HttpResponse, just does the opposite of parsing a
+// Request, but with some slight modification
+HttpConcattedResponse* httpResponseConcat(HttpResponse* response) {
+	HttpConcattedResponse* concattedResponse =
+	    (HttpConcattedResponse*)mallocWithMemset(sizeof(HttpConcattedResponse), true);
+
+	if(!concattedResponse) {
+		return NULL;
+	}
+
 	StringBuilder* result = string_builder_init();
 	const char* const separators = "\r\n";
 
@@ -674,11 +680,10 @@ StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
 
 	string_builder_append_single(result, separators);
 
-	if(response->body) {
-		string_builder_append_single(result, response->body);
-	}
+	concattedResponse->headers = result;
+	concattedResponse->body = response->body;
 
-	return result;
+	return concattedResponse;
 }
 
 // free the HttpResponse, just freeing everything necessary
@@ -692,9 +697,7 @@ void freeHttpResponse(HttpResponse* response) {
 	}
 	stbds_arrfree(response->head.headerFields);
 
-	if(response->body) {
-		free(response->body);
-	}
+	freeSizedBuffer(response->body);
 
 	free(response);
 }
@@ -764,10 +767,10 @@ char* httpRequestToJSON(HttpRequest* request, bool https, SendSettings send_sett
 	}
 	string_builder_append(body, return NULL;, "\"body\":\"%s\"", request->body);
 
-	string_builder_append_single(body, "\"settings\": {");
+	string_builder_append_single(body, ", \"settings\": {");
 
 	string_builder_append(body, return NULL;
-	                      , "\"send_settings\":{\"compression\" : \"%s\"}",
+	                      , "\"send_settings\":{\"compression\" : \"%s\"} }",
 	                      get_string_for_compress_format(send_settings.compression_to_use));
 
 	string_builder_append_single(body, "}");
@@ -863,8 +866,8 @@ char* httpRequestToHtml(HttpRequest* request, bool https, SendSettings send_sett
 	char* htmlResult =
 	    htmlFromString(NULL, string_builder_get_string(script), string_builder_get_string(style),
 	                   string_builder_get_string(body));
-	string_builder_free(body);
-	string_builder_free(style);
-	string_builder_free(script);
+	free_string_builder(body);
+	free_string_builder(style);
+	free_string_builder(script);
 	return htmlResult;
 }
