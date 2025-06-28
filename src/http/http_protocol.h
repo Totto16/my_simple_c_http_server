@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 // needed h files
+#include "./compression.h"
 #include "utils/log.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
@@ -140,14 +141,37 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest);
 // only the ones needed
 const char* getStatusMessage(int statusCode);
 
+typedef struct {
+	int todo;
+} CompressionSettings;
+
+typedef struct {
+	int todo;
+} AcceptSettings;
+
+typedef struct {
+	CompressionSettings compression_settings;
+	AcceptSettings accept_settings;
+} RequestSettings;
+
+typedef struct {
+	COMPRESSION_TYPE compression_to_use;
+} SendSettings;
+
+RequestSettings* getRequestSettings(HttpRequest* httpRequest);
+
+SendSettings getSendSettings(RequestSettings* requestSettings);
+
 // simple http Response constructor using string builder, headers can be NULL, when headerSize is
 // also null!
 HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
                                                HttpHeaderField* additionalHeaders,
-                                               size_t headersSize, const char* MIMEType);
+                                               size_t headersSize, const char* MIMEType,
+                                               SendSettings send_settings);
 
 // wrapper if no additionalHeaders are required
-HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType);
+HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType,
+                                    SendSettings send_settings);
 
 // makes a stringBuilder from the HttpResponse, just does the opposite of parsing A Request, but
 // with some slight modification
@@ -161,6 +185,6 @@ void freeHttpResponse(HttpResponse* response);
 
 char* htmlFromString(char* headContent, char* scriptContent, char* styleContent, char* bodyContent);
 
-char* httpRequestToJSON(HttpRequest* request, bool https);
+char* httpRequestToJSON(HttpRequest* request, bool https, SendSettings send_settings);
 
-char* httpRequestToHtml(HttpRequest* request, bool https);
+char* httpRequestToHtml(HttpRequest* request, bool https, SendSettings send_settings);

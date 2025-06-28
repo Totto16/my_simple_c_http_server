@@ -17,4 +17,9 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD int sendHTTPMessageToConnection(const ConnectionDescriptor* descriptor, int status,
                                           char* body, const char* MIMEType,
                                           HttpHeaderField* headerFields, int headerFieldsAmount,
-                                          CONNECTION_SEND_FLAGS FLAGS);
+                                          CONNECTION_SEND_FLAGS FLAGS, SendSettings send_settings);
+
+// TODO: enforce styles e.g. camelcase or snake:_case
+//  factor our send message into struct, so that there arent 7 paramnaters
+//  compression in and out, flask  and value enum
+//  use ds_arr everywhere (realloc)

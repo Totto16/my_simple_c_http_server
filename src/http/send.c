@@ -5,10 +5,10 @@
 
 NODISCARD static int sendMessageToConnectionWithHeadersMalloced(
     const ConnectionDescriptor* const descriptor, int status, char* body, const char* MIMEType,
-    HttpHeaderField* headerFields, const int headerFieldsAmount) {
+    HttpHeaderField* headerFields, const int headerFieldsAmount, SendSettings send_settings) {
 
-	HttpResponse* message =
-	    constructHttpResponseWithHeaders(status, body, headerFields, headerFieldsAmount, MIMEType);
+	HttpResponse* message = constructHttpResponseWithHeaders(
+	    status, body, headerFields, headerFieldsAmount, MIMEType, send_settings);
 
 	StringBuilder* messageString = httpResponseToStringBuilder(message);
 
@@ -22,9 +22,10 @@ NODISCARD static int sendMessageToConnectionWithHeadersMalloced(
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
 NODISCARD static int sendMessageToConnectionMalloced(const ConnectionDescriptor* const descriptor,
-                                                     int status, char* body, const char* MIMEType) {
+                                                     int status, char* body, const char* MIMEType,
+                                                     SendSettings send_settings) {
 
-	HttpResponse* message = constructHttpResponse(status, body, MIMEType);
+	HttpResponse* message = constructHttpResponse(status, body, MIMEType,send_settings);
 
 	StringBuilder* messageString = httpResponseToStringBuilder(message);
 
@@ -39,7 +40,8 @@ NODISCARD static int sendMessageToConnectionMalloced(const ConnectionDescriptor*
 // for more
 int sendHTTPMessageToConnection(const ConnectionDescriptor* const descriptor, int status,
                                 char* body, const char* MIMEType, HttpHeaderField* headerFields,
-                                const int headerFieldsAmount, CONNECTION_SEND_FLAGS FLAGS) {
+                                const int headerFieldsAmount, CONNECTION_SEND_FLAGS FLAGS,
+                                SendSettings send_settings) {
 
 	char* final_body = body;
 
@@ -50,9 +52,10 @@ int sendHTTPMessageToConnection(const ConnectionDescriptor* const descriptor, in
 	}
 
 	if(headerFields == NULL || headerFieldsAmount == 0) {
-		return sendMessageToConnectionMalloced(descriptor, status, final_body, MIMEType);
+		return sendMessageToConnectionMalloced(descriptor, status, final_body, MIMEType,
+		                                       send_settings);
 	}
 
-	return sendMessageToConnectionWithHeadersMalloced(descriptor, status, final_body, MIMEType,
-	                                                  headerFields, headerFieldsAmount);
+	return sendMessageToConnectionWithHeadersMalloced(
+	    descriptor, status, final_body, MIMEType, headerFields, headerFieldsAmount, send_settings);
 }

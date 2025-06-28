@@ -88,10 +88,11 @@ anyType(JobError*)
 	char* rawHttpRequest = readStringFromConnection(descriptor);
 
 	if(!rawHttpRequest) {
-		int result =
-		    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_BAD_REQUEST,
-		                                "Request couldn't be read, a connection error occurred!",
-		                                MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		int result = sendHTTPMessageToConnection(
+		    descriptor, HTTP_STATUS_BAD_REQUEST,
+		    "Request couldn't be read, a connection error occurred!", MIME_TYPE_TEXT, NULL, 0,
+		    CONNECTION_SEND_FLAGS_UN_MALLOCED,
+		    (SendSettings){ .compression_to_use = COMPRESSION_TYPE_NONE });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -112,7 +113,8 @@ anyType(JobError*)
 	if(httpRequest == NULL) {
 		int result = sendHTTPMessageToConnection(
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "Request couldn't be parsed, it was malformed!",
-		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED,
+		    (SendSettings){ .compression_to_use = COMPRESSION_TYPE_NONE });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -124,6 +126,10 @@ anyType(JobError*)
 	// if the request is supported then the "beautiful" website is sent, if the URI is /shutdown
 	// a shutdown is issued
 
+	RequestSettings* request_settings = getRequestSettings(httpRequest);
+
+	SendSettings send_settings = getSendSettings(request_settings);
+
 	const int isSupported = isRequestSupported(httpRequest);
 
 	if(isSupported == REQUEST_SUPPORTED) {
@@ -131,9 +137,9 @@ anyType(JobError*)
 			// HTTP GET
 			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
 				printf("Shutdown requested!\n");
-				int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK,
-				                                         "Shutting Down", MIME_TYPE_TEXT, NULL, 0,
-				                                         CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				int result = sendHTTPMessageToConnection(
+				    descriptor, HTTP_STATUS_OK, "Shutting Down", MIME_TYPE_TEXT, NULL, 0,
+				    CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 				if(result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
@@ -152,8 +158,8 @@ anyType(JobError*)
 			} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
 				int result = sendHTTPMessageToConnection(
 				    descriptor, HTTP_STATUS_OK,
-				    httpRequestToHtml(httpRequest, is_secure_context(context)), MIME_TYPE_HTML,
-				    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED);
+				    httpRequestToHtml(httpRequest, is_secure_context(context), send_settings),
+				    MIME_TYPE_HTML, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED, send_settings);
 
 				if(result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
@@ -206,9 +212,9 @@ anyType(JobError*)
 				// request, this is done at the end of this big if else statements
 
 			} else {
-				int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_NOT_FOUND,
-				                                         "File not Found", MIME_TYPE_TEXT, NULL, 0,
-				                                         CONNECTION_SEND_FLAGS_UN_MALLOCED);
+				int result = sendHTTPMessageToConnection(
+				    descriptor, HTTP_STATUS_NOT_FOUND, "File not Found", MIME_TYPE_TEXT, NULL, 0,
+				    CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 				if(result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
@@ -220,16 +226,17 @@ anyType(JobError*)
 
 			int result = sendHTTPMessageToConnection(
 			    descriptor, HTTP_STATUS_OK,
-			    httpRequestToJSON(httpRequest, is_secure_context(context)), MIME_TYPE_JSON, NULL, 0,
-			    CONNECTION_SEND_FLAGS_MALLOCED);
+			    httpRequestToJSON(httpRequest, is_secure_context(context), send_settings),
+			    MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED, send_settings);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
 		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
 			// TODO(Totto): send actual Content-Length, experiment with e.g a large video file!
-			int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL,
-			                                         0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			int result =
+			    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
+			                                CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -259,24 +266,24 @@ anyType(JobError*)
 
 			int result =
 			    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader,
-			                                1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			                                1, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
 		} else {
-			int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-			                                         "Internal Server Error 1", MIME_TYPE_TEXT,
-			                                         NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+			int result = sendHTTPMessageToConnection(
+			    descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR, "Internal Server Error 1",
+			    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
 		}
 	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
-		int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
-		                                         "Only HTTP/1.1 is supported atm", MIME_TYPE_TEXT,
-		                                         NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		int result = sendHTTPMessageToConnection(
+		    descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED, "Only HTTP/1.1 is supported atm",
+		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 		if(result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -308,7 +315,7 @@ anyType(JobError*)
 		int result = sendHTTPMessageToConnection(
 		    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
 		    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
-		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -316,7 +323,7 @@ anyType(JobError*)
 	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
 		int result = sendHTTPMessageToConnection(
 		    descriptor, HTTP_STATUS_BAD_REQUEST, "A GET, HEAD or OPTIONS Request can't have a body",
-		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -324,7 +331,7 @@ anyType(JobError*)
 	} else {
 		int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
 		                                         "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
-		                                         CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		                                         CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");

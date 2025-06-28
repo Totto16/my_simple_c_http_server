@@ -198,9 +198,47 @@ const char* getStatusMessage(int statusCode) {
 	return result;
 }
 
+static CompressionSettings getCompressionSettings(HttpRequest* httpRequest) {
+
+	UNUSED(httpRequest);
+
+	return (CompressionSettings){ .todo = 0 };
+}
+
+static AcceptSettings getAcceptSettings(HttpRequest* httpRequest) {
+
+	// e.g. text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+
+	UNUSED(httpRequest);
+	return (AcceptSettings){ .todo = 0 };
+}
+
+RequestSettings* getRequestSettings(HttpRequest* httpRequest) {
+
+	RequestSettings* requestSettings =
+	    (RequestSettings*)mallocWithMemset(sizeof(RequestSettings), true);
+
+	if(!requestSettings) {
+		return NULL;
+	}
+
+	requestSettings->compression_settings = getCompressionSettings(httpRequest);
+
+	requestSettings->accept_settings = getAcceptSettings(httpRequest);
+
+	return requestSettings;
+}
+
+SendSettings getSendSettings(RequestSettings* requestSettings) {
+
+	UNUSED(requestSettings);
+	return (SendSettings){ .compression_to_use = COMPRESSION_TYPE_NONE };
+}
+
 static bool constructHeadersForRequest(size_t bodyLength, HttpHeaderField* additionalHeaders,
                                        size_t headersSize, const char* MIMEType,
-                                       HttpResponse* response) {
+                                       HttpResponse* response,
+                                       COMPRESSION_TYPE compression_format) {
 
 	STBDS_ARRAY_INIT(response->head.headerFields);
 
@@ -209,21 +247,19 @@ static bool constructHeadersForRequest(size_t bodyLength, HttpHeaderField* addit
 	{
 		// MIME TYPE
 
-		if(MIMEType) {
-			// add the standard ones, using %c with '\0' to use the trick, described above
-			char* contentTypeBuffer = NULL;
-			formatString(&contentTypeBuffer, return NULL;
-			             , "%s%c%s", "Content-Type", '\0',
-			             MIMEType == NULL ? DEFAULT_MIME_TYPE : MIMEType);
+		// add the standard ones, using %c with '\0' to use the trick, described above
+		char* contentTypeBuffer = NULL;
+		formatString(&contentTypeBuffer, return NULL;
+		             , "%s%c%s", "Content-Type", '\0',
+		             MIMEType == NULL ? DEFAULT_MIME_TYPE : MIMEType);
 
-			size_t current_array_index = stbds_arrlenu(response->head.headerFields);
+		size_t current_array_index = stbds_arrlenu(response->head.headerFields);
 
-			stbds_arrsetlen(response->head.headerFields, current_array_index + 1);
+		stbds_arrsetlen(response->head.headerFields, current_array_index + 1);
 
-			response->head.headerFields[current_array_index].key = contentTypeBuffer;
-			response->head.headerFields[current_array_index].value =
-			    contentTypeBuffer + strlen(contentTypeBuffer) + 1;
-		}
+		response->head.headerFields[current_array_index].key = contentTypeBuffer;
+		response->head.headerFields[current_array_index].value =
+		    contentTypeBuffer + strlen(contentTypeBuffer) + 1;
 	}
 
 	{
@@ -259,6 +295,27 @@ static bool constructHeadersForRequest(size_t bodyLength, HttpHeaderField* addit
 		    serverBuffer + strlen(serverBuffer) + 1;
 	}
 
+	{
+
+		// Content-Encoding
+
+		if(compression_format != COMPRESSION_TYPE_NONE) {
+			// add the standard ones, using %c with '\0' to use the trick, described above
+			char* contentEncodingBuffer = NULL;
+			formatString(&contentEncodingBuffer, return NULL;
+			             , "%s%c%s", "Content-Encoding", '\0',
+			             get_string_for_compress_format(compression_format));
+
+			size_t current_array_index = stbds_arrlenu(response->head.headerFields);
+
+			stbds_arrsetlen(response->head.headerFields, current_array_index + 1);
+
+			response->head.headerFields[current_array_index].key = contentEncodingBuffer;
+			response->head.headerFields[current_array_index].value =
+			    contentEncodingBuffer + strlen(contentEncodingBuffer) + 1;
+		}
+	}
+
 	size_t current_array_size = stbds_arrlenu(response->head.headerFields);
 
 	stbds_arrsetcap(response->head.headerFields, current_array_size + headersSize);
@@ -286,7 +343,8 @@ static bool constructHeadersForRequest(size_t bodyLength, HttpHeaderField* addit
 // also null!
 HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
                                                HttpHeaderField* additionalHeaders,
-                                               size_t headersSize, const char* MIMEType) {
+                                               size_t headersSize, const char* MIMEType,
+                                               SendSettings send_settings) {
 
 	HttpResponse* response = (HttpResponse*)mallocWithMemset(sizeof(HttpResponse), true);
 
@@ -309,23 +367,51 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 	response->head.responseLine.statusMessage =
 	    responseLineBuffer + protocolLength + strlen(responseLineBuffer + protocolLength + 1) + 2;
 
-	size_t bodyLength = body ? strlen(body) : 0;
+	size_t bodyLength = 0;
+	COMPRESSION_TYPE format_used = send_settings.compression_to_use;
 
-	if(!constructHeadersForRequest(bodyLength, additionalHeaders, headersSize, MIMEType,
-	                               response)) {
+	if(body) {
+		if(format_used != COMPRESSION_TYPE_NONE) {
+			// here only supported protocols can be used, otherwise previous checks were wrong
+			char* new_body = compress_string_with(body, send_settings.compression_to_use);
+
+			if(!new_body) {
+				LOG_MESSAGE(
+				    LogLevelError,
+				    "An error occured while compressing the body with the compression format %s",
+				    get_string_for_compress_format(send_settings.compression_to_use));
+				format_used = COMPRESSION_TYPE_NONE;
+				response->body = body;
+				bodyLength = strlen(body);
+			} else {
+				response->body = new_body;
+				bodyLength = strlen(new_body);
+				free(body);
+			}
+		} else {
+			response->body = body;
+			bodyLength = strlen(body);
+		}
+	} else {
+		response->body = body;
+		format_used = COMPRESSION_TYPE_NONE;
+	}
+
+	if(!constructHeadersForRequest(bodyLength, additionalHeaders, headersSize, MIMEType, response,
+	                               format_used)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
 	}
 
 	// for that the body has to be malloced
-	response->body = body;
 	// finally retuning the malloced httpResponse
 	return response;
 }
 
 // wrapper if no additionalHeaders are required
-HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType) {
-	return constructHttpResponseWithHeaders(status, body, NULL, 0, MIMEType);
+HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType,
+                                    SendSettings send_settings) {
+	return constructHttpResponseWithHeaders(status, body, NULL, 0, MIMEType, send_settings);
 }
 
 // makes a stringBuilder from the HttpResponse, just does the opposite of parsing A Request, but
@@ -412,7 +498,7 @@ char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
 	return string_builder_to_string(result);
 }
 
-char* httpRequestToJSON(HttpRequest* request, bool https) {
+char* httpRequestToJSON(HttpRequest* request, bool https, SendSettings send_settings) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append(body, return NULL;
 	                      , "{\"request\":\"%s\",", request->head.requestLine.method);
@@ -435,12 +521,19 @@ char* httpRequestToJSON(HttpRequest* request, bool https) {
 			string_builder_append_single(body, "],");
 		}
 	}
-	string_builder_append(body, return NULL;, "\"body\":\"%s\"}", request->body);
+	string_builder_append(body, return NULL;, "\"body\":\"%s\"", request->body);
 
+	string_builder_append_single(body, "\"settings\": {");
+
+	string_builder_append(body, return NULL;
+	                      , "\"send_settings\":{\"compression\" : \"%s\"}",
+	                      get_string_for_compress_format(send_settings.compression_to_use));
+
+	string_builder_append_single(body, "}");
 	return string_builder_to_string(body);
 }
 
-char* httpRequestToHtml(HttpRequest* request, bool https) {
+char* httpRequestToHtml(HttpRequest* request, bool https, SendSettings send_settings) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append_single(body, "<h1 id=\"title\">HttpRequest:</h1><br>");
 	string_builder_append(body, return NULL;, "<div id=\"request\"><div>Method: %s</div>",
@@ -460,6 +553,19 @@ char* httpRequestToHtml(HttpRequest* request, bool https) {
 		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>",
 		    request->head.headerFields[i].key, request->head.headerFields[i].value);
 	}
+
+	string_builder_append_single(body, "</div> <div id=\"settings\">");
+	string_builder_append_single(body, "<h1>Settings:</h1> <br>");
+	{
+		string_builder_append_single(body, "</div> <div id=\"send_settings\">");
+		string_builder_append_single(body, "<h2>Send Settings:</h2> <br>");
+		string_builder_append(body, return NULL;
+		                      , "<h3>Compression:</h3> %s",
+		                      get_string_for_compress_format(send_settings.compression_to_use));
+		string_builder_append_single(body, "</div>");
+	}
+	string_builder_append_single(body, "</div>");
+
 	string_builder_append_single(body, "</div> <div id=\"body\">");
 	string_builder_append(body, return NULL;, "<h1>Body:</h1> <br>%s", request->body);
 	string_builder_append_single(body, "</div>");
@@ -468,18 +574,25 @@ char* httpRequestToHtml(HttpRequest* request, bool https) {
 
 	StringBuilder* style = string_builder_init();
 	string_builder_append_single(
-	    style, "body{background: linear-gradient( 90deg, rgb(255, 0, 0) 0%, rgb(255, 154, 0) 10%, "
-	           "rgb(208, 222, 33) 20%, rgb(79, 220, 74) 30%, rgb(63, 218, 216) 40%, rgb(47, 201, "
-	           "226) 50%, rgb(28, 127, 238) 60%, rgb(95, 21, 242) 70%, rgb(186, 12, 248) 80%, "
-	           "rgb(251, 7, 217) 90%, rgb(255, 0, 0) 100% );}"
-	           "#request {display: flex;justify-content: center;gap: 5%;color: #1400ff;text-align: "
-	           "center;align-items: center;}"
-	           "#header {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
-	           "anywhere;text-align: center;word-wrap: anywhere;}"
-	           "#body {padding: 1%;text-align: center;border: solid 4px black;margin: 1%;}"
-	           "#shutdown {border: none;cursor: crosshair;opacity: .9;padding: 16px "
-	           "20px;background-color: #c7ff00;font-weight: 900;color: #000;}"
-	           "#title{text-align: center;}");
+	    style,
+	    "body{background: linear-gradient( 90deg, rgb(255, 0, 0) 0%, rgb(255, 154, 0) 10%, "
+	    "rgb(208, 222, 33) 20%, rgb(79, 220, 74) 30%, rgb(63, 218, 216) 40%, rgb(47, 201, "
+	    "226) 50%, rgb(28, 127, 238) 60%, rgb(95, 21, 242) 70%, rgb(186, 12, 248) 80%, "
+	    "rgb(251, 7, 217) 90%, rgb(255, 0, 0) 100% );}"
+	    "#request {display: flex;justify-content: center;gap: 5%;color: #1400ff;text-align: "
+	    "center;align-items: center;}"
+	    "#header {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
+	    "anywhere;text-align: center;word-wrap: anywhere;}"
+	    "#body {padding: 1%;text-align: center;border: solid 4px black;margin: 1%;}"
+	    "#shutdown {border: none;cursor: crosshair;opacity: .9;padding: 16px "
+	    "20px;background-color: #c7ff00;font-weight: 900;color: #000;}"
+	    "#title{text-align: center;}"
+	    "#settings {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
+	    "anywhere;text-align: center;word-wrap: anywhere;}"
+	    "#send_settings {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
+	    "anywhere;text-align: center;word-wrap: anywhere;}"
+
+	);
 
 	// script
 	StringBuilder* script = string_builder_init();
