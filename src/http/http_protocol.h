@@ -8,6 +8,7 @@
 #include "utils/log.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
+#include <stb/ds.h>
 
 // some Mime Type Definitons:
 
@@ -97,14 +98,12 @@ typedef struct {
 
 typedef struct {
 	HttpRequestLine requestLine;
-	HttpHeaderField* headerFields;
-	size_t headerAmount;
+	STBDS_ARRAY(HttpHeaderField) headerFields;
 } HttpRequestHead;
 
 typedef struct {
 	HttpResponseLine responseLine;
-	HttpHeaderField* headerFields;
-	size_t headerAmount;
+	STBDS_ARRAY(HttpHeaderField) headerFields;
 } HttpResponseHead;
 
 typedef struct {

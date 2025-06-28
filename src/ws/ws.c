@@ -136,7 +136,7 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	char* secKey = NULL;
 	bool fromBrowser = false;
 
-	for(size_t i = 0; i < httpRequest->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(httpRequest->head.headerFields); ++i) {
 		HttpHeaderField header = httpRequest->head.headerFields[i];
 		if(strcasecmp(header.key, "host") == 0) {
 			foundList |= HANDSHAKE_HEADER_HEADER_HOST;

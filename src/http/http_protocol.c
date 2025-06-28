@@ -5,11 +5,11 @@
 // when a corrupted request e.g was parsed partly correct
 void freeHttpRequest(HttpRequest* request) {
 	freeIfNotNULL(request->head.requestLine.method);
-	for(size_t i = 0; i < request->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(request->head.headerFields); ++i) {
 		// same elegant freeing but two at once :)
 		freeIfNotNULL(request->head.headerFields[i].key);
 	}
-	freeIfNotNULL(request->head.headerFields);
+	stbds_arrfree(request->head.headerFields);
 	freeIfNotNULL(request->body);
 	freeIfNotNULL(request);
 }
@@ -25,7 +25,7 @@ StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https) {
 
 	string_builder_append(result, return NULL;, "\tSecure : %s\n", https ? "true" : " false");
 
-	for(size_t i = 0; i < request->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(request->head.headerFields); ++i) {
 		// same elegant freeing but wo at once :)
 		string_builder_append(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
 		                                          request->head.headerFields[i].key,
@@ -52,6 +52,9 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	if(!request) {
 		return NULL;
 	}
+
+	STBDS_ARRAY_INIT(request->head.headerFields);
+
 	// iterating over each separated string, then determining if header or body or statusLine and
 	// then parsing that accordingly
 	do {
@@ -111,27 +114,6 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 				parsed = true;
 			} else {
 				// here headers are parsed, here":" is the delimiter
-				if(request->head.headerAmount == 0) {
-					request->head.headerFields =
-					    (HttpHeaderField*)mallocWithMemset(sizeof(HttpHeaderField), true);
-
-					if(!request->head.headerFields) {
-						LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
-						                   "Couldn't allocate memory!\n");
-						return NULL;
-					}
-				} else {
-					request->head.headerFields = (HttpHeaderField*)reallocWithMemset(
-					    request->head.headerFields,
-					    sizeof(HttpHeaderField) * request->head.headerAmount,
-					    sizeof(HttpHeaderField) * (request->head.headerAmount + 1), true);
-
-					if(!request->head.headerFields) {
-						LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
-						                   "Couldn't allocate memory!\n");
-						return NULL;
-					}
-				}
 
 				// using same trick, the header string is one with the right 0 bytes :)
 				char* begin = index(all, ':');
@@ -141,9 +123,12 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 					*begin = '\0';
 				}
 
-				request->head.headerFields[request->head.headerAmount].key = all;
-				request->head.headerFields[request->head.headerAmount].value = begin + 1;
-				++request->head.headerAmount;
+				size_t current_array_index = stbds_arrlenu(request->head.headerFields);
+
+				stbds_arrsetlen(request->head.headerFields, current_array_index + 1);
+
+				request->head.headerFields[current_array_index].key = all;
+				request->head.headerFields[current_array_index].value = begin + 1;
 			}
 		}
 
@@ -213,6 +198,90 @@ const char* getStatusMessage(int statusCode) {
 	return result;
 }
 
+static bool constructHeadersForRequest(size_t bodyLength, HttpHeaderField* additionalHeaders,
+                                       size_t headersSize, const char* MIMEType,
+                                       HttpResponse* response) {
+
+	STBDS_ARRAY_INIT(response->head.headerFields);
+
+	// add standard fields
+
+	{
+		// MIME TYPE
+
+		if(MIMEType) {
+			// add the standard ones, using %c with '\0' to use the trick, described above
+			char* contentTypeBuffer = NULL;
+			formatString(&contentTypeBuffer, return NULL;
+			             , "%s%c%s", "Content-Type", '\0',
+			             MIMEType == NULL ? DEFAULT_MIME_TYPE : MIMEType);
+
+			size_t current_array_index = stbds_arrlenu(response->head.headerFields);
+
+			stbds_arrsetlen(response->head.headerFields, current_array_index + 1);
+
+			response->head.headerFields[current_array_index].key = contentTypeBuffer;
+			response->head.headerFields[current_array_index].value =
+			    contentTypeBuffer + strlen(contentTypeBuffer) + 1;
+		}
+	}
+
+	{
+		// CONTENT LENGTH
+
+		char* contentLengthBuffer = NULL;
+		formatString(&contentLengthBuffer, return NULL;
+		             , "%s%c%ld", "Content-Length", '\0', bodyLength);
+
+		size_t current_array_index = stbds_arrlenu(response->head.headerFields);
+
+		stbds_arrsetlen(response->head.headerFields, current_array_index + 1);
+
+		response->head.headerFields[current_array_index].key = contentLengthBuffer;
+		response->head.headerFields[current_array_index].value =
+		    contentLengthBuffer + strlen(contentLengthBuffer) + 1;
+	}
+
+	{
+		// Server
+
+		char* serverBuffer = NULL;
+		formatString(&serverBuffer, return NULL;
+		             , "%s%c%s", "Server", '\0',
+		             "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
+
+		size_t current_array_index = stbds_arrlenu(response->head.headerFields);
+
+		stbds_arrsetlen(response->head.headerFields, current_array_index + 1);
+
+		response->head.headerFields[current_array_index].key = serverBuffer;
+		response->head.headerFields[current_array_index].value =
+		    serverBuffer + strlen(serverBuffer) + 1;
+	}
+
+	size_t current_array_size = stbds_arrlenu(response->head.headerFields);
+
+	stbds_arrsetcap(response->head.headerFields, current_array_size + headersSize);
+
+	for(size_t i = 0; i < headersSize; ++i) {
+
+		size_t current_array_index = stbds_arrlenu(response->head.headerFields);
+
+		stbds_arrsetlen(response->head.headerFields, current_array_index + 1);
+
+		// ATTENTION; this things have to be ALL malloced
+		response->head.headerFields[current_array_index].key = additionalHeaders[i].key;
+		response->head.headerFields[current_array_index].value = additionalHeaders[i].value;
+	}
+
+	// if additional Headers are specified free them now
+	if(headersSize > 0) {
+		free(additionalHeaders);
+	}
+
+	return true;
+}
+
 // simple http Response constructor using string builder, headers can be NULL, when headerSize is
 // also null!
 HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
@@ -240,74 +309,13 @@ HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
 	response->head.responseLine.statusMessage =
 	    responseLineBuffer + protocolLength + strlen(responseLineBuffer + protocolLength + 1) + 2;
 
-	// now adding headers, adjust this value for more manual fields that are available in the array
-	// you have to asssign below
-	const size_t mimeTypeIndexOffset = MIMEType ? 1 : 0;
-	const size_t standard_header_length = mimeTypeIndexOffset + 2;
-
-	for(size_t i = 0; i < standard_header_length + headersSize; ++i) {
-		if(response->head.headerAmount == 0) {
-			response->head.headerFields =
-			    (HttpHeaderField*)mallocWithMemset(sizeof(HttpHeaderField), true);
-
-			if(!response->head.headerFields) {
-				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-				return NULL;
-			}
-
-		} else {
-			response->head.headerFields = (HttpHeaderField*)reallocWithMemset(
-			    response->head.headerFields, sizeof(HttpHeaderField) * response->head.headerAmount,
-			    sizeof(HttpHeaderField) * (response->head.headerAmount + 1), true);
-
-			if(!response->head.headerFields) {
-				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-				return NULL;
-			}
-		}
-
-		if(i >= standard_header_length) {
-			// ATTENTION; this things have to be ALL malloced
-			response->head.headerFields[response->head.headerAmount].key =
-			    additionalHeaders[i - standard_header_length].key;
-			response->head.headerFields[response->head.headerAmount].value =
-			    additionalHeaders[i - standard_header_length].value;
-		}
-		++response->head.headerAmount;
-	}
-
-	// if additional Headers are specified free them now
-	if(headersSize > 0) {
-		free(additionalHeaders);
-	}
-
-	if(MIMEType) {
-		// add the standard ones, using %c with '\0' to use the trick, described above
-		char* contentTypeBuffer = NULL;
-		formatString(&contentTypeBuffer, return NULL;
-		             , "%s%c%s", "Content-Type", '\0',
-		             MIMEType == NULL ? DEFAULT_MIME_TYPE : MIMEType);
-
-		response->head.headerFields[0].key = contentTypeBuffer;
-		response->head.headerFields[0].value = contentTypeBuffer + strlen(contentTypeBuffer) + 1;
-	}
-
 	size_t bodyLength = body ? strlen(body) : 0;
 
-	char* contentLengthBuffer = NULL;
-	formatString(&contentLengthBuffer, return NULL;, "%s%c%ld", "Content-Length", '\0', bodyLength);
-
-	response->head.headerFields[mimeTypeIndexOffset].key = contentLengthBuffer;
-	response->head.headerFields[mimeTypeIndexOffset].value =
-	    contentLengthBuffer + strlen(contentLengthBuffer) + 1;
-
-	char* serverBuffer = NULL;
-	formatString(&serverBuffer, return NULL;
-	             , "%s%c%s", "Server", '\0', "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
-
-	response->head.headerFields[mimeTypeIndexOffset + 1].key = serverBuffer;
-	response->head.headerFields[mimeTypeIndexOffset + 1].value =
-	    serverBuffer + strlen(serverBuffer) + 1;
+	if(!constructHeadersForRequest(bodyLength, additionalHeaders, headersSize, MIMEType,
+	                               response)) {
+		// TODO(Totto): free things accordingly
+		return NULL;
+	}
 
 	// for that the body has to be malloced
 	response->body = body;
@@ -331,7 +339,7 @@ StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
 	                      response->head.responseLine.statusCode,
 	                      response->head.responseLine.statusMessage, separators);
 
-	for(size_t i = 0; i < response->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(response->head.headerFields); ++i) {
 		// same elegant freeing but two at once :)
 		string_builder_append(result, return NULL;, "%s: %s%s", response->head.headerFields[i].key,
 		                                          response->head.headerFields[i].value, separators);
@@ -350,12 +358,12 @@ StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
 void freeHttpResponse(HttpResponse* response) {
 	// elegantly freeing three at once :)
 	free(response->head.responseLine.protocolVersion);
-	for(size_t i = 0; i < response->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(response->head.headerFields); ++i) {
 		// same elegant freeing but two at once :)
 
 		free(response->head.headerFields[i].key);
 	}
-	free(response->head.headerFields);
+	stbds_arrfree(response->head.headerFields);
 
 	if(response->body) {
 		free(response->body);
@@ -413,12 +421,15 @@ char* httpRequestToJSON(HttpRequest* request, bool https) {
 	                      , "\"version\":\"%s\",", request->head.requestLine.protocolVersion);
 	string_builder_append(body, return NULL;, "\"secure\":%s,", https ? "true" : "false");
 	string_builder_append_single(body, "\"headers\":[");
-	for(size_t i = 0; i < request->head.headerAmount; ++i) {
+
+	const size_t headerAmount = stbds_arrlenu(request->head.headerFields);
+
+	for(size_t i = 0; i < headerAmount; ++i) {
 		// same elegant freeing but wo at once :)
 		string_builder_append(body, return NULL;, "{\"header\":\"%s\", \"key\":\"%s\"}",
 		                                        request->head.headerFields[i].key,
 		                                        request->head.headerFields[i].value);
-		if(i + 1 < request->head.headerAmount) {
+		if(i + 1 < headerAmount) {
 			string_builder_append_single(body, ", ");
 		} else {
 			string_builder_append_single(body, "],");
@@ -442,7 +453,7 @@ char* httpRequestToHtml(HttpRequest* request, bool https) {
 	                      "<div>Secure : %s</div><button id=\"shutdown\"> Shutdown </button></div>",
 	                      https ? "true" : "false");
 	string_builder_append_single(body, "<div id=\"header\">");
-	for(size_t i = 0; i < request->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(request->head.headerFields); ++i) {
 		// same elegant freeing but wo at once :)
 		string_builder_append(
 		    body, return NULL;
