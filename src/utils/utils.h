@@ -129,7 +129,7 @@ void* reallocWithMemset(void* previousPtr, size_t oldSize, size_t newSize,
 
 NODISCARD char* copy_cstr(char*);
 
-//TODO: use stbds for this
+// TODO: use stbds for this
 #define ARRAY_STRUCT(NAME, TYPE) \
 	typedef struct { \
 		TYPE* content; /*NOLINT(bugprone-macro-parentheses)*/ \
@@ -149,3 +149,5 @@ NODISCARD char* copy_cstr(char*);
 			} \
 		} \
 	} while(false)
+
+NODISCARD float parseFloat(char* value);

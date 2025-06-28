@@ -141,17 +141,33 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest);
 // only the ones needed
 const char* getStatusMessage(int statusCode);
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	CompressionValueType_NO_ENCODING = 0,
+	CompressionValueType_ALL_ENCODINGS,
+	CompressionValueType_NORMAL_ENCODING,
+} CompressionValueType;
+
 typedef struct {
-	int todo;
+	CompressionValueType type;
+	union {
+		COMPRESSION_TYPE normal_compression;
+	} data;
+} CompressionValue;
+
+typedef struct {
+	CompressionValue value;
+	float weight;
+} CompressionEntry;
+
+typedef struct {
+	STBDS_ARRAY(CompressionEntry) entries;
 } CompressionSettings;
 
 typedef struct {
-	int todo;
-} AcceptSettings;
-
-typedef struct {
-	CompressionSettings compression_settings;
-	AcceptSettings accept_settings;
+	CompressionSettings* compression_settings;
 } RequestSettings;
 
 typedef struct {
@@ -159,6 +175,8 @@ typedef struct {
 } SendSettings;
 
 RequestSettings* getRequestSettings(HttpRequest* httpRequest);
+
+void freeRequestSettings(RequestSettings* requestSettings);
 
 SendSettings getSendSettings(RequestSettings* requestSettings);
 

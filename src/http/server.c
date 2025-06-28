@@ -129,6 +129,8 @@ anyType(JobError*)
 	RequestSettings* request_settings = getRequestSettings(httpRequest);
 
 	SendSettings send_settings = getSendSettings(request_settings);
+	freeRequestSettings(request_settings);
+	request_settings = NULL;
 
 	const int isSupported = isRequestSupported(httpRequest);
 

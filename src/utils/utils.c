@@ -3,6 +3,7 @@
 #include "utils/utils.h"
 #include "utils/log.h"
 
+#include <math.h>
 #include <stdint.h>
 
 #include <errno.h>
@@ -106,6 +107,21 @@ char* copy_cstr(char* input) {
 	}
 
 	memcpy(result, input, length);
+
+	return result;
+}
+
+NODISCARD float parseFloat(char* value) {
+	char* endpointer = NULL;
+	errno = 0;
+	float result = strtof(value, &endpointer);
+
+	// it isn't a number, if either errno is set or if the endpointer is not a '\0
+	if(*endpointer != '\0') {
+		return NAN;
+	} else if(errno != 0) {
+		return NAN;
+	}
 
 	return result;
 }

@@ -1,5 +1,7 @@
 
 #include "http_protocol.h"
+#include <ctype.h>
+#include <math.h>
 
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
@@ -80,7 +82,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 		// other way of checking if at the beginning
 		if(currentlyAt == rawHttpRequest) {
 			// parsing the string and inserting"\0" bytes at the" " space byte, so the three part
-			// string can vbe used in three different fields, with the correct start address, this
+			// string can be used in three different fields, with the correct start address, this
 			// trick is used more often trough-out this implementation, you don't have to understand
 			// it, since its abstracted away when using only the provided function
 			char* begin = index(all, ' ');
@@ -198,19 +200,170 @@ const char* getStatusMessage(int statusCode) {
 	return result;
 }
 
-static CompressionSettings getCompressionSettings(HttpRequest* httpRequest) {
+NODISCARD static HttpHeaderField* find_header_by_key(STBDS_ARRAY(HttpHeaderField) array,
+                                                     const char* key) {
 
-	UNUSED(httpRequest);
+	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
+		HttpHeaderField* header = &(array[i]);
+		if(strcasecmp(header->key, key) == 0) {
+			return header;
+		}
+	}
 
-	return (CompressionSettings){ .todo = 0 };
+	return NULL;
 }
 
-static AcceptSettings getAcceptSettings(HttpRequest* httpRequest) {
+static COMPRESSION_TYPE parse_compression_type(char* compression_name, bool* ok) {
+	if(strcmp(compression_name, "gzip") == 0) {
+		*ok = true;
+		return COMPRESSION_TYPE_GZIP;
+	}
 
-	// e.g. text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+	if(strcmp(compression_name, "deflate") == 0) {
+		*ok = true;
+		return COMPRESSION_TYPE_DEFLATE;
+	}
 
-	UNUSED(httpRequest);
-	return (AcceptSettings){ .todo = 0 };
+	if(strcmp(compression_name, "br") == 0) {
+		*ok = true;
+		return COMPRESSION_TYPE_BR;
+	}
+
+	if(strcmp(compression_name, "zstd") == 0) {
+		*ok = true;
+		return COMPRESSION_TYPE_ZSTD;
+	}
+
+	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %s", compression_name);
+
+	*ok = false;
+	return COMPRESSION_TYPE_NONE;
+}
+
+static CompressionValue parse_compression_value(char* compression_name, bool* ok) {
+
+	if(strcmp(compression_name, "*") == 0) {
+		*ok = true;
+		return (CompressionValue){ .type = CompressionValueType_ALL_ENCODINGS };
+	}
+
+	if(strcmp(compression_name, "identity") == 0) {
+		*ok = true;
+		return (CompressionValue){ .type = CompressionValueType_NO_ENCODING };
+	}
+
+	CompressionValue result = { .type = CompressionValueType_NORMAL_ENCODING };
+
+	COMPRESSION_TYPE type = parse_compression_type(compression_name, ok);
+
+	if(!(*ok)) {
+		return result;
+	}
+
+	result.data.normal_compression = type;
+	*ok = true;
+
+	return result;
+}
+
+static CompressionSettings* getCompressionSettings(HttpRequest* httpRequest) {
+
+	CompressionSettings* compressionSettings =
+	    (CompressionSettings*)mallocWithMemset(sizeof(CompressionSettings), true);
+
+	if(!compressionSettings) {
+		return NULL;
+	}
+
+	STBDS_ARRAY_INIT(compressionSettings->entries);
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
+
+	HttpHeaderField* acceptEncodingHeader =
+	    find_header_by_key(httpRequest->head.headerFields, "accept-encoding");
+
+	if(!acceptEncodingHeader) {
+		return compressionSettings;
+	}
+
+	char* raw_value = acceptEncodingHeader->value;
+
+	if(strlen(raw_value) == 0) {
+		return compressionSettings;
+	}
+
+	// copy the value, so that parsing is easier
+
+	char* value = strdup(raw_value);
+	char* original_value = value;
+
+	do {
+
+		char* index = strstr(value, ",");
+
+		if(index != NULL) {
+			*index = '\0';
+		}
+
+		// value points to the string to parse, that is null terminated
+
+		{
+
+			char* sub_index = strstr(value, ";");
+
+			char* compression_name = value;
+			char* compression_weight = NULL;
+
+			if(sub_index != NULL) {
+				*sub_index = '\0';
+				compression_weight = sub_index + 1;
+			}
+
+			CompressionEntry entry = { .weight = 1.0F };
+
+			if(compression_weight != NULL) {
+				float value = parseFloat(compression_weight);
+
+				if(!isnanf(value)) {
+					entry.weight = value;
+				}
+			}
+
+			bool ok = true;
+			CompressionValue comp_value = parse_compression_value(compression_name, &ok);
+
+			if(ok) {
+				entry.value = comp_value;
+
+				stbds_arrput(compressionSettings->entries, entry);
+			} else {
+				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%s'", compression_name);
+			}
+		}
+
+		if(index == NULL) {
+			break;
+		}
+
+		value = index + 1;
+
+		{
+
+			// strip whitespace
+			while(isspace(*value)) {
+				value++;
+			}
+		}
+
+	} while(true);
+
+	free(original_value);
+	return compressionSettings;
+}
+
+void freeCompressionSettings(CompressionSettings* compressionSettings) {
+	stbds_arrfree(compressionSettings->entries);
+	free(compressionSettings);
 }
 
 RequestSettings* getRequestSettings(HttpRequest* httpRequest) {
@@ -222,11 +375,22 @@ RequestSettings* getRequestSettings(HttpRequest* httpRequest) {
 		return NULL;
 	}
 
-	requestSettings->compression_settings = getCompressionSettings(httpRequest);
+	CompressionSettings* compressionSettings = getCompressionSettings(httpRequest);
 
-	requestSettings->accept_settings = getAcceptSettings(httpRequest);
+	if(!compressionSettings) {
+		free(requestSettings);
+		return NULL;
+	}
+
+	requestSettings->compression_settings = compressionSettings;
 
 	return requestSettings;
+}
+
+void freeRequestSettings(RequestSettings* requestSettings) {
+
+	freeCompressionSettings(requestSettings->compression_settings);
+	free(requestSettings);
 }
 
 SendSettings getSendSettings(RequestSettings* requestSettings) {
