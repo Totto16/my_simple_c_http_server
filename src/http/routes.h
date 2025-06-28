@@ -81,7 +81,11 @@ HTTPRoutes get_default_routes(void);
 
 NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes);
 
+void free_route_manager(RouteManager* routeManager);
+
 typedef struct SelectedRouteImpl SelectedRoute;
+
+void free_selected_route(SelectedRoute* selected_route);
 
 NODISCARD SelectedRoute*
 route_manager_get_route_for_request(const RouteManager* const routerManager,

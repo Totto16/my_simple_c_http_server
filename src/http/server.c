@@ -134,7 +134,7 @@ anyType(JobError*)
 	const int isSupported = isRequestSupported(httpRequest);
 
 	if(isSupported == REQUEST_SUPPORTED) {
-		const SelectedRoute* selectedRoute =
+		SelectedRoute* selectedRoute =
 		    route_manager_get_route_for_request(routeManager, httpRequest);
 
 		if(selectedRoute == NULL) {
@@ -298,6 +298,8 @@ anyType(JobError*)
 					break;
 				}
 			}
+
+			free_selected_route(selectedRoute);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -713,6 +715,8 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	if(!free_thread_manager(webSocketManager)) {
 		return EXIT_FAILURE;
 	}
+
+	free_route_manager(routeManager);
 
 	free((void*)contexts);
 

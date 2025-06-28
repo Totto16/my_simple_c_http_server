@@ -146,6 +146,13 @@ NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes) {
 	return routeManager;
 }
 
+void free_route_manager(RouteManager* routeManager) {
+
+	stbds_arrfree(routeManager->routes);
+
+	free(routeManager);
+}
+
 NODISCARD static bool is_matching(HTTPRequestRouteMethod routeMethod, HTTPRequestMethod method) {
 
 	if(routeMethod == HTTPRequestRouteMethodGet && method == HTTPRequestMethodHead) {
@@ -177,6 +184,10 @@ NODISCARD static SelectedRoute* selected_route_from_data(HTTPRoute route) {
 	selected_route->route = route;
 
 	return selected_route;
+}
+
+void free_selected_route(SelectedRoute* selected_route) {
+	free(selected_route);
 }
 
 NODISCARD SelectedRoute*
