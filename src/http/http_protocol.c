@@ -393,10 +393,87 @@ void freeRequestSettings(RequestSettings* requestSettings) {
 	free(requestSettings);
 }
 
+#define COMPRESSIONS_SIZE 4
+
+static COMPRESSION_TYPE get_best_compression_that_is_supported(void) {
+
+	// This are sorted by compression ratio, not by speed , but this may be inaccurate
+	COMPRESSION_TYPE supported_compressions[COMPRESSIONS_SIZE] = {
+		COMPRESSION_TYPE_BR,
+		COMPRESSION_TYPE_ZSTD,
+		COMPRESSION_TYPE_GZIP,
+		COMPRESSION_TYPE_DEFLATE,
+	};
+
+	for(size_t i = 0; i < COMPRESSIONS_SIZE; ++i) {
+		COMPRESSION_TYPE compression = supported_compressions[i];
+		if(is_compressions_supported(compression)) {
+			return compression;
+		}
+	}
+
+	return COMPRESSION_TYPE_NONE;
+}
+
+static int compare_function_entries(const anyType(CompressionEntry) _entry1,
+                                    const anyType(CompressionEntry) _entry2) {
+	const CompressionEntry* entry1 = (CompressionEntry*)_entry1;
+	const CompressionEntry* entry2 = (CompressionEntry*)_entry2;
+
+	// note weight is between 0.0 and 1.0
+
+	if(entry1->weight != entry2->weight) {
+		return (int)((entry1->weight - entry2->weight) * 10000.0f);
+	}
+
+	return 0;
+}
+
 SendSettings getSendSettings(RequestSettings* requestSettings) {
 
-	UNUSED(requestSettings);
-	return (SendSettings){ .compression_to_use = COMPRESSION_TYPE_NONE };
+	SendSettings result = { .compression_to_use = COMPRESSION_TYPE_NONE };
+
+	STBDS_ARRAY(CompressionEntry)
+	entries = requestSettings->compression_settings->entries;
+
+	size_t entries_length = stbds_arrlenu(entries);
+
+	if(entries_length == 0) {
+		return result;
+	}
+
+	// this sorts the entries by weight, same weight means, we prefer the ones that come first in
+	// the string, as it is unspecified in the spec, on what to sort as 2. criterium
+	qsort(entries, entries_length, sizeof(CompressionEntry), compare_function_entries);
+
+	for(size_t i = 0; i < entries_length; ++i) {
+		CompressionEntry entry = entries[i];
+
+		switch(entry.value.type) {
+			case CompressionValueType_NO_ENCODING: {
+				result.compression_to_use = COMPRESSION_TYPE_NONE;
+				goto break_for;
+			}
+			case CompressionValueType_ALL_ENCODINGS: {
+				result.compression_to_use = get_best_compression_that_is_supported();
+				goto break_for;
+			}
+			case CompressionValueType_NORMAL_ENCODING: {
+				if(is_compressions_supported(entry.value.data.normal_compression)) {
+					result.compression_to_use = entry.value.data.normal_compression;
+					goto break_for;
+				}
+				break;
+			}
+			default: {
+				result.compression_to_use = COMPRESSION_TYPE_NONE;
+				goto break_for;
+			}
+		}
+	}
+break_for:
+
+	return result;
 }
 
 static bool constructHeadersForRequest(size_t bodyLength, HttpHeaderField* additionalHeaders,
