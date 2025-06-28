@@ -445,7 +445,7 @@ FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands) {
 		free(rawFtpCommands); \
 	} while(false)
 
-	FTPCommandArray array = STBDS_ARRAY_EMPTY();
+	FTPCommandArray array = STBDS_ARRAY_EMPTY;
 
 	const char* const separators = "\r\n";
 	size_t separatorsLength = strlen(separators);

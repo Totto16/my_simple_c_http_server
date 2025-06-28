@@ -354,7 +354,7 @@ NODISCARD static bool nts_internal_should_close_connection(DataConnection* conne
 
 NODISCARD static ConnectionsToClose
 nts_internal_data_connections_to_close(DataController* data_controller, DataConnection* filter) {
-	ConnectionsToClose connections = STBDS_ARRAY_EMPTY();
+	ConnectionsToClose connections = STBDS_ARRAY_EMPTY;
 
 	if(!connections) {
 		goto cleanup;
