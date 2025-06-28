@@ -3,11 +3,9 @@
 
 #include "utils/log.h"
 
-#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP
+#if defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP) || \
+    defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE)
 #include <zlib.h>
-#endif
-#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
-#error "TODO"
 #endif
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
 #error "TODO"
@@ -56,13 +54,15 @@ bool is_compressions_supported(COMPRESSION_TYPE format) {
 
 #define SIZED_BUFFER_ERROR (SizedBuffer){ .data = NULL, .size = 0 }
 
-#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP
+#if defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP) || \
+    defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE)
+
 #define Z_WINDOW_SIZE 15       // 9-15
 #define Z_MEMORY_USAGE_LEVEL 8 // 1-9
 
 #define Z_GZIP_ENCODING 16 // not inside the zlib header, unfortunately
 
-NODISCARD static SizedBuffer compress_buffer_with_gzip(SizedBuffer buffer) {
+NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool gzip) {
 
 	size_t chunk_size = 1 << Z_WINDOW_SIZE;
 
@@ -83,9 +83,14 @@ NODISCARD static SizedBuffer compress_buffer_with_gzip(SizedBuffer buffer) {
 	zs.avail_out = chunk_size;
 	zs.next_out = (Bytef*)resultBuffer.data;
 
-	int result =
-	    deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, Z_WINDOW_SIZE | Z_GZIP_ENCODING,
-	                 Z_MEMORY_USAGE_LEVEL, Z_DEFAULT_STRATEGY);
+	int windowBits = Z_WINDOW_SIZE;
+
+	if(gzip) {
+		windowBits = windowBits | Z_GZIP_ENCODING;
+	}
+
+	int result = deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, windowBits,
+	                          Z_MEMORY_USAGE_LEVEL, Z_DEFAULT_STRATEGY);
 
 	if(result != Z_OK) {
 		LOG_MESSAGE(LogLevelError, "An error in gzip compression initiliaization occured: %s\n",
@@ -133,6 +138,18 @@ NODISCARD static SizedBuffer compress_buffer_with_gzip(SizedBuffer buffer) {
 }
 #endif
 
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP
+static SizedBuffer compress_buffer_with_gzip(SizedBuffer buffer) {
+	return compress_buffer_with_zlib(buffer, true);
+}
+#endif
+
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
+static SizedBuffer compress_buffer_with_deflate(SizedBuffer buffer) {
+	return compress_buffer_with_zlib(buffer, false);
+}
+#endif
+
 NODISCARD const char* get_string_for_compress_format(COMPRESSION_TYPE format) {
 
 	switch(format) {
@@ -158,10 +175,25 @@ NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, COMPRESSION_TYPE 
 #endif
 		};
 		case COMPRESSION_TYPE_DEFLATE: {
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
+			return compress_buffer_with_deflate(buffer);
+#else
+			return SIZED_BUFFER_ERROR;
+#endif
 		};
 		case COMPRESSION_TYPE_BR: {
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
+			return compress_buffer_with_br(buffer);
+#else
+			return SIZED_BUFFER_ERROR;
+#endif
 		};
 		case COMPRESSION_TYPE_ZSTD: {
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
+			return compress_buffer_with_zstd(buffer);
+#else
+			return SIZED_BUFFER_ERROR;
+#endif
 		};
 		default: {
 			return SIZED_BUFFER_ERROR;

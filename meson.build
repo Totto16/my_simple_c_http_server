@@ -37,6 +37,7 @@ zlib_dep = dependency('zlib', required: false)
 if zlib_dep.found()
     deps += zlib_dep
     compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP'
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE'
 endif
 
 
