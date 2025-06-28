@@ -87,11 +87,14 @@ anyType(JobError*)
 	char* rawHttpRequest = readStringFromConnection(descriptor);
 
 	if(!rawHttpRequest) {
+		HTTPResponseToSend toSend = { .status = HTTP_STATUS_BAD_REQUEST,
+			                          .body = httpResponseBodyFromStaticString(
+			                              "Request couldn't be read, a connection error occurred!"),
+			                          .MIMEType = MIME_TYPE_TEXT,
+			                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+
 		int result = sendHTTPMessageToConnection(
-		    descriptor, HTTP_STATUS_BAD_REQUEST,
-		    "Request couldn't be read, a connection error occurred!", MIME_TYPE_TEXT, NULL, 0,
-		    CONNECTION_SEND_FLAGS_UN_MALLOCED,
-		    (SendSettings){ .compression_to_use = COMPRESSION_TYPE_NONE });
+		    descriptor, toSend, (SendSettings){ .compression_to_use = COMPRESSION_TYPE_NONE });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -110,10 +113,14 @@ anyType(JobError*)
 	// httpRequest can be null, then it wasn't parse-able, according to parseHttpRequest, see
 	// there for more information
 	if(httpRequest == NULL) {
+		HTTPResponseToSend toSend = { .status = HTTP_STATUS_BAD_REQUEST,
+			                          .body = httpResponseBodyFromStaticString(
+			                              "Request couldn't be parsed, it was malformed!"),
+			                          .MIMEType = MIME_TYPE_TEXT,
+			                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+
 		int result = sendHTTPMessageToConnection(
-		    descriptor, HTTP_STATUS_BAD_REQUEST, "Request couldn't be parsed, it was malformed!",
-		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED,
-		    (SendSettings){ .compression_to_use = COMPRESSION_TYPE_NONE });
+		    descriptor, toSend, (SendSettings){ .compression_to_use = COMPRESSION_TYPE_NONE });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -146,54 +153,56 @@ anyType(JobError*)
 				case HTTPRequestMethodPost:
 				case HTTPRequestMethodHead: {
 
-					const bool isHeadReq =
-					    httpRequest->head.requestLine.method == HTTPRequestMethodHead;
+					HTTPResponseToSend toSend = { .status = HTTP_STATUS_NOT_FOUND,
+						                          .body = httpResponseBodyFromStaticString(
+						                              "File not Found"),
+						                          .MIMEType = MIME_TYPE_TEXT,
+						                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 
-					char* body = isHeadReq ? NULL : "File not Found";
+					httpResponseAdjustToRequestMethod(&toSend,
+					                                  httpRequest->head.requestLine.method);
 
-					char* MIMEType = isHeadReq ? NULL : MIME_TYPE_TEXT;
-
-					result = sendHTTPMessageToConnection(
-					    descriptor, HTTP_STATUS_NOT_FOUND, body, MIMEType, NULL, 0,
-					    CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+					result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
 					break;
 				}
 				case HTTPRequestMethodOptions: {
-					HttpHeaderField* allowedHeader =
-					    (HttpHeaderField*)malloc(sizeof(HttpHeaderField));
-
-					if(!allowedHeader) {
-						LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
-						                   "Couldn't allocate memory!\n");
-						FREE_AT_END();
-						return JobError_Malloc;
-					}
+					HttpHeaderFields additionalHeaders = STBDS_ARRAY_EMPTY;
 
 					char* allowedHeaderBuffer = NULL;
 					// all 405 have to have a Allow filed according to spec
 					formatString(
 					    &allowedHeaderBuffer,
 					    {
-						    free(allowedHeader);
+						    stbds_arrfree(additionalHeaders);
 						    FREE_AT_END();
 						    return JobError_StringFormat;
 					    },
 					    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
-					allowedHeader[0].key = allowedHeaderBuffer;
-					allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
+					HttpHeaderField field = { .key = allowedHeaderBuffer,
+						                      .value = allowedHeaderBuffer +
+						                               strlen(allowedHeaderBuffer) + 1 };
 
-					result = sendHTTPMessageToConnection(
-					    descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
-					    CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+					stbds_arrput(additionalHeaders, field);
+
+					HTTPResponseToSend toSend = { .status = HTTP_STATUS_OK,
+						                          .body = httpResponseBodyEmpty(),
+						                          .MIMEType = NULL,
+						                          .additionalHeaders = additionalHeaders };
+
+					result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
 
 					break;
 				}
 				case HTTPRequestMethodInvalid:
 				default: {
-					result = sendHTTPMessageToConnection(
-					    descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR, "Internal Server Error 1",
-					    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+					HTTPResponseToSend toSend = { .status = HTTP_STATUS_INTERNAL_SERVER_ERROR,
+						                          .body = httpResponseBodyFromStaticString(
+						                              "Internal Server Error 1"),
+						                          .MIMEType = MIME_TYPE_TEXT,
+						                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+
+					result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
 					break;
 				}
 			}
@@ -213,9 +222,17 @@ anyType(JobError*)
 					switch(route_data.data.special) {
 						case HTTPRouteSpecialDataShutdown: {
 							printf("Shutdown requested!\n");
-							result = sendHTTPMessageToConnection(
-							    descriptor, HTTP_STATUS_OK, "Shutting Down", MIME_TYPE_TEXT, NULL,
-							    0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+
+							HTTPResponseToSend toSend = { .status = HTTP_STATUS_OK,
+								                          .body = httpResponseBodyFromStaticString(
+								                              "Shutting Down"),
+								                          .MIMEType = MIME_TYPE_TEXT,
+								                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+
+							httpResponseAdjustToRequestMethod(&toSend,
+							                                  httpRequest->head.requestLine.method);
+
+							result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
 
 							// just cancel the listener thread, then no new connection are accepted
 							// and the main thread cleans the pool and queue, all jobs are finished
@@ -231,7 +248,8 @@ anyType(JobError*)
 						}
 						case HTTPRouteSpecialDataWs: {
 
-							int wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
+							int wsRequestSuccessful =
+							    handleWSHandshake(httpRequest, descriptor, send_settings);
 
 							if(wsRequestSuccessful >= 0) {
 								// move the context so that we can use it in the long standing web
@@ -256,7 +274,8 @@ anyType(JobError*)
 							break;
 						}
 						case HTTPRouteSpecialDataWsFragmented: {
-							int wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
+							int wsRequestSuccessful =
+							    handleWSHandshake(httpRequest, descriptor, send_settings);
 
 							if(wsRequestSuccessful >= 0) {
 								// move the context so that we can use it in the long standing web
@@ -306,57 +325,78 @@ anyType(JobError*)
 			}
 		}
 	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
-		int result = sendHTTPMessageToConnection(
-		    descriptor, HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED, "Only HTTP/1.1 is supported atm",
-		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+		HTTPResponseToSend toSend = { .status = HTTP_STATUS_HTTP_VERSION_NOT_SUPPORTED,
+			                          .body = httpResponseBodyFromStaticString(
+			                              "Only HTTP/1.1 is supported atm"),
+			                          .MIMEType = MIME_TYPE_TEXT,
+			                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+
+		httpResponseAdjustToRequestMethod(&toSend, httpRequest->head.requestLine.method);
+
+		int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
 
 		if(result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 	} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
 
-		HttpHeaderField* allowedHeader = (HttpHeaderField*)malloc(sizeof(HttpHeaderField));
-
-		if(!allowedHeader) {
-			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-			FREE_AT_END();
-			return JobError_Malloc;
-		}
+		HttpHeaderFields additionalHeaders = STBDS_ARRAY_EMPTY;
 
 		char* allowedHeaderBuffer = NULL;
 		// all 405 have to have a Allow filed according to spec
 		formatString(
 		    &allowedHeaderBuffer,
 		    {
-			    free(allowedHeader);
+			    stbds_arrfree(additionalHeaders);
 			    FREE_AT_END();
 			    return JobError_StringFormat;
 		    },
 		    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
-		allowedHeader[0].key = allowedHeaderBuffer;
-		allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
+		HttpHeaderField field = { .key = allowedHeaderBuffer,
+			                      .value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1 };
 
-		int result = sendHTTPMessageToConnection(
-		    descriptor, HTTP_STATUS_METHOD_NOT_ALLOWED,
-		    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests",
-		    MIME_TYPE_TEXT, allowedHeader, 1, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+		stbds_arrput(additionalHeaders, field);
+
+		HTTPResponseToSend toSend = {
+			.status = HTTP_STATUS_METHOD_NOT_ALLOWED,
+			.body = httpResponseBodyFromStaticString(
+			    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests"),
+			.MIMEType = MIME_TYPE_TEXT,
+			.additionalHeaders = additionalHeaders
+		};
+
+		httpResponseAdjustToRequestMethod(&toSend, httpRequest->head.requestLine.method);
+
+		int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
-		int result = sendHTTPMessageToConnection(
-		    descriptor, HTTP_STATUS_BAD_REQUEST, "A GET, HEAD or OPTIONS Request can't have a body",
-		    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+		HTTPResponseToSend toSend = { .status = HTTP_STATUS_BAD_REQUEST,
+			                          .body = httpResponseBodyFromStaticString(
+			                              "A GET, HEAD or OPTIONS Request can't have a body"),
+			                          .MIMEType = MIME_TYPE_TEXT,
+			                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+
+		httpResponseAdjustToRequestMethod(&toSend, httpRequest->head.requestLine.method);
+
+		int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 	} else {
-		int result = sendHTTPMessageToConnection(descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR,
-		                                         "Internal Server Error 2", MIME_TYPE_TEXT, NULL, 0,
-		                                         CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+		HTTPResponseToSend toSend = { .status = HTTP_STATUS_INTERNAL_SERVER_ERROR,
+			                          .body = httpResponseBodyFromStaticString(
+			                              "Internal Server Error 2"),
+			                          .MIMEType = MIME_TYPE_TEXT,
+			                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+
+		httpResponseAdjustToRequestMethod(&toSend, httpRequest->head.requestLine.method);
+
+		int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");

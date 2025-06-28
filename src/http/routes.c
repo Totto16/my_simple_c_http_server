@@ -7,39 +7,36 @@ struct RouteManagerImpl {
 	HTTPRoutes routes;
 };
 
-static int index_executor_fn_extended(const ConnectionDescriptor* const descriptor,
-                                      SendSettings send_settings,
-                                      const HttpRequest* const httpRequest,
-                                      const ConnectionContext* const context) {
-	// TODO: this still doesn't handle HEAD requests!
+static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
+                                                     const HttpRequest* const httpRequest,
+                                                     const ConnectionContext* const context) {
 
-	int result = sendHTTPMessageToConnection(
-	    descriptor, HTTP_STATUS_OK,
-	    httpRequestToHtml(httpRequest, is_secure_context(context), send_settings), MIME_TYPE_HTML,
-	    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED, send_settings);
-
+	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+		                          .body = httpResponseBodyFromStringBuilder(httpRequestToHtml(
+		                              httpRequest, is_secure_context(context), send_settings)),
+		                          .MIMEType = MIME_TYPE_HTML,
+		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
-static int json_executor_fn_extended(const ConnectionDescriptor* const descriptor,
-                                     SendSettings send_settings,
-                                     const HttpRequest* const httpRequest,
-                                     const ConnectionContext* const context) {
+static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
+                                                    const HttpRequest* const httpRequest,
+                                                    const ConnectionContext* const context) {
 
-	int result = sendHTTPMessageToConnection(
-	    descriptor, HTTP_STATUS_OK,
-	    httpRequestToJSON(httpRequest, is_secure_context(context), send_settings), MIME_TYPE_JSON,
-	    NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED, send_settings);
-
+	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+		                          .body = httpResponseBodyFromStringBuilder(httpRequestToJSON(
+		                              httpRequest, is_secure_context(context), send_settings)),
+		                          .MIMEType = MIME_TYPE_JSON,
+		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
-static int static_executor_fn(const ConnectionDescriptor* const descriptor,
-                              SendSettings send_settings) {
+static HTTPResponseToSend static_executor_fn() {
 
-	int result =
-	    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK, "{\"static\":true}", MIME_TYPE_JSON,
-	                                NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+		                          .body = httpResponseBodyFromStaticString("{\"static\":true}"),
+		                          .MIMEType = MIME_TYPE_JSON,
+		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
@@ -223,22 +220,35 @@ NODISCARD int route_manager_execute_route(HTTPRouteFn route,
                                           const HttpRequest* const httpRequest,
                                           const ConnectionContext* const context) {
 
-	int result = 0;
+	HTTPResponseToSend response = {};
 
 	switch(route.type) {
 		case HTTPRouteFnTypeExecutor: {
-			result = route.fn.executor(descriptor, send_settings);
+			response = route.fn.executor();
+
 			break;
 		}
 		case HTTPRouteFnTypeExecutorExtended: {
-			result = route.fn.executor_extended(descriptor, send_settings, httpRequest, context);
+			response = route.fn.executor_extended(send_settings, httpRequest, context);
 			break;
 		}
 		default: {
-			result = -11;
+			return -11;
 			break;
 		}
 	}
 
+	httpResponseAdjustToRequestMethod(&response, httpRequest->head.requestLine.method);
+	int result = sendHTTPMessageToConnection(descriptor, response, send_settings);
+
 	return result;
+}
+
+void httpResponseAdjustToRequestMethod(HTTPResponseToSend* responsePtr, HTTPRequestMethod method) {
+
+	if(method == HTTPRequestMethodHead) {
+		responsePtr->MIMEType = NULL;
+		freeSizedBuffer(responsePtr->body.body);
+		responsePtr->body = httpResponseBodyEmpty();
+	}
 }

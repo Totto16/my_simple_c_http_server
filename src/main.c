@@ -11,6 +11,8 @@
 #define IDENT1 "\t"
 #define IDENT2 IDENT1 IDENT1
 
+// TODO(Totto): enforce styles e.g. CamelCase or snake:_case
+
 void printHttpServerUsage(bool isSubcommand) {
 	if(isSubcommand) {
 		printf("<port> [options]\n");

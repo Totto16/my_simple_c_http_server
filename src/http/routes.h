@@ -3,6 +3,7 @@
 #pragma once
 
 #include "./http_protocol.h"
+#include "./send.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
 #include <stb/ds.h>
@@ -20,14 +21,14 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRouteFnTypeExecutorExtended
 } HTTPRouteFnType;
 
-typedef int (*HTTPRouteFnExecutor)(const ConnectionDescriptor* const descriptor,
-                                   SendSettings send_settings);
+typedef HTTPResponseToSend (*HTTPRouteFnExecutor)();
 
-typedef int (*HTTPRouteFnExecutorExtended)(const ConnectionDescriptor* const descriptor,
-                                           SendSettings send_settings,
-                                           const HttpRequest* const httpRequest,
-                                           const ConnectionContext* const context);
+typedef HTTPResponseToSend (*HTTPRouteFnExecutorExtended)(SendSettings send_settings,
+                                                          const HttpRequest* const httpRequest,
+                                                          const ConnectionContext* const context);
 
+// TODO(Totto): add support for file routes, that e.g. just resolve to a file and retrieve the
+// mime-type from it and send it, for e.g. static file serving
 typedef struct {
 	HTTPRouteFnType type;
 	union {

@@ -38,20 +38,37 @@ char* normalStringToMalloced(const char* notMallocedString);
 // string there
 int string_builder_append_string(StringBuilder* stringBuilder, char* string);
 
+int string_builder_append_string_builder(StringBuilder* stringBuilder,
+                                         StringBuilder* stringBuilder2);
+
 // simple wrapper if just a constant string has to be appended
 int string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString);
 
 // attention the two methods to_string and get_string are different in that sense, that after
 // to_string the Stringbuilder is freed and invalid, after get_string not!
 
-// the struct or implementation can change, this function has to adapt, not thew user!
-// ATTENTION: after this call the stringbuilder is destroyed! meaning the string you receive is a
-// single malloced string you have to take care of
-NODISCARD char* string_builder_to_string(StringBuilder* stringBuilder);
+/**
+ * @brief  the struct or implementation can change, this function has to adapt, not the user!
+ * ATTENTION: after this call the stringbuilder is destroyed! meaning the string you receive is a
+ * single malloced string you have to take care of
+ *
+ * @deprecated use dedicated functions, and don't treat srting builder as string, as strlen for the
+ * length is not effective!
+ * @param stringBuilder
+ * @return char*
+ */
+NODISCARD char* string_builder_to_string_deprecated(StringBuilder* stringBuilder);
 
-// the struct or implementation can change, this function has to adapt, not the user!
-// after that call the stringbuilder is reusable and can be freed, appended uppon etc.
-NODISCARD char* string_builder_get_string(StringBuilder* stringBuilder);
+/**
+ * @brief  the struct or implementation can change, this function has to adapt, not the user! after
+ * that call the stringbuilder is reusable and can be freed, appended uppon etc.
+ *
+ * @deprecated use dedicated functions, and don't treat srting builder as string, as strlen for the
+ * length is not effective!
+ * @param stringBuilder
+ * @return char*
+ */
+NODISCARD char* string_builder_get_string_deprecated(StringBuilder* stringBuilder);
 
 NODISCARD SizedBuffer string_builder_get_sized_buffer(StringBuilder* stringBuilder);
 

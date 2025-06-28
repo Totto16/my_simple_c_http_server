@@ -36,43 +36,49 @@ char* normalStringToMalloced(const char* notMallocedString) {
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-int string_builder_append_string(StringBuilder* stringBuilder, char* string) {
-	size_t length = strlen(string);
+static int __string_builder_append_string_impl(StringBuilder* stringBuilder, char* string,
+                                               size_t size) {
 	// if te string builder is empty malloc the right size
 	if(stringBuilder->currentSize == 0) {
 		// +1, so one trailing 0 byte is there :)
-		stringBuilder->data = (char*)malloc(length + 1);
+		stringBuilder->data = (char*)malloc(size + 1);
 
 		if(!stringBuilder->data) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 			return -1;
 		}
 
-		stringBuilder->data[length] = '\0';
+		stringBuilder->data[size] = '\0';
 
-		memcpy(stringBuilder->data, string, length);
+		memcpy(stringBuilder->data, string, size);
 
 	} else {
 		// otherwise realloc, this realloc wrapper takes care of everything, then afterwards the
 		// memcpy copies everything in the right place, leaving a trailing null character at the
 		// end
 		stringBuilder->data =
-		    (char*)realloc(stringBuilder->data, stringBuilder->currentSize + length + 1);
+		    (char*)realloc(stringBuilder->data, stringBuilder->currentSize + size + 1);
 
 		if(!stringBuilder->data) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 			return -1;
 		}
 
-		stringBuilder->data[stringBuilder->currentSize + length] = '\0';
+		stringBuilder->data[stringBuilder->currentSize + size] = '\0';
 
-		memcpy(stringBuilder->data + stringBuilder->currentSize, string, length);
+		memcpy(stringBuilder->data + stringBuilder->currentSize, string, size);
 	}
-	stringBuilder->currentSize += length; // trailing 0 byte is not included
+	stringBuilder->currentSize += size; // trailing 0 byte is not included
 	// then free the input, since the bytes are already in the stringbuilder
 	free(string);
 
 	return 0;
+}
+
+int string_builder_append_string(StringBuilder* stringBuilder, char* string) {
+	size_t length = strlen(string);
+
+	return __string_builder_append_string_impl(stringBuilder, string, length);
 }
 
 // simple wrapper if just a constant string has to be appended
@@ -81,21 +87,19 @@ int string_builder_append_single(StringBuilder* stringBuilder, const char* notMa
 	return string_builder_append_string(stringBuilder, mallocedString);
 }
 
-// attention the two methods to_string and get_string are different in that sense, that after
-// to_string the Stringbuilder is freed and invalid, after get_string not!
-
-// the struct or implementation can change, this function has to adapt, not thew user!
-// ATTENTION: after this call the stringbuilder is destroyed! meaning the string you receive is a
-// single malloced string you have to take care of
-char* string_builder_to_string(StringBuilder* stringBuilder) {
+char* string_builder_to_string_deprecated(StringBuilder* stringBuilder) {
 	char* result = stringBuilder->data;
 	free(stringBuilder);
 	return result;
 }
 
-// the struct or implementation can change, this function has to adapt, not the user!
-// after that call the stringbuilder is reusable and can be freed, appended uppon etc.
-char* string_builder_get_string(StringBuilder* stringBuilder) {
+int string_builder_append_string_builder(StringBuilder* stringBuilder,
+                                         StringBuilder* stringBuilder2) {
+	return __string_builder_append_string_impl(stringBuilder, stringBuilder2->data,
+	                                           stringBuilder2->currentSize);
+}
+
+char* string_builder_get_string_deprecated(StringBuilder* stringBuilder) {
 	return stringBuilder->data;
 }
 

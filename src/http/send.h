@@ -5,19 +5,30 @@
 #include "generic/secure.h"
 #include "http/http_protocol.h"
 
-/**
- * @enum MASK / FLAGS
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	CONNECTION_SEND_FLAGS_MALLOCED = 0b01,
-	CONNECTION_SEND_FLAGS_UN_MALLOCED = 0b10
+typedef struct {
+	SizedBuffer body;
+} HTTPResponseBody;
 
-} CONNECTION_SEND_FLAGS;
+typedef STBDS_ARRAY(HttpHeaderField) HttpHeaderFields;
 
-NODISCARD int sendHTTPMessageToConnection(const ConnectionDescriptor* descriptor, int status,
-                                          char* body, const char* MIMEType,
-                                          HttpHeaderField* headerFields, int headerFieldsAmount,
-                                          CONNECTION_SEND_FLAGS FLAGS, SendSettings send_settings);
+typedef struct {
+	HTTP_STATUS_CODES status;
+	HTTPResponseBody body;
+	const char* MIMEType;
+	HttpHeaderFields additionalHeaders;
+} HTTPResponseToSend;
 
-// TODO: enforce styles e.g. camelcase or snake:_case
-//  factor our send message into struct, so that there arent 7 paramnaters
+NODISCARD int sendHTTPMessageToConnection(const ConnectionDescriptor* descriptor,
+                                          HTTPResponseToSend toSend, SendSettings send_settings);
+
+NODISCARD HTTPResponseBody httpResponseBodyFromStaticString(const char* static_string);
+
+NODISCARD HTTPResponseBody httpResponseBodyFromString(char* string);
+
+NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder* stringBuilder);
+
+NODISCARD HTTPResponseBody httpResponseBodyFromData(void* data, size_t size);
+
+NODISCARD HTTPResponseBody httpResponseBodyEmpty(void);
+
+void httpResponseAdjustToRequestMethod(HTTPResponseToSend* responsePtr, HTTPRequestMethod method);

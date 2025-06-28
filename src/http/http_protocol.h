@@ -170,7 +170,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
-const char* getStatusMessage(int statusCode);
+const char* getStatusMessage(HTTP_STATUS_CODES statusCode);
 
 /**
  * @enum value
@@ -213,17 +213,6 @@ void freeRequestSettings(RequestSettings* requestSettings);
 
 SendSettings getSendSettings(RequestSettings* requestSettings);
 
-// simple http Response constructor using string builder, headers can be NULL, when headerSize is
-// also null!
-HttpResponse* constructHttpResponseWithHeaders(int status, char* string_body,
-                                               HttpHeaderField* additionalHeaders,
-                                               size_t headersSize, const char* MIMEType,
-                                               SendSettings send_settings);
-
-// wrapper if no additionalHeaders are required
-HttpResponse* constructHttpResponse(int status, char* string_body, const char* MIMEType,
-                                    SendSettings send_settings);
-
 typedef struct {
 	StringBuilder* headers;
 	SizedBuffer body;
@@ -239,8 +228,8 @@ void freeHttpResponse(HttpResponse* response);
 // really simple and dumb html boilerplate, this is used for demonstration purposes, and is static,
 // but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
 
-char* htmlFromString(char* headContent, char* scriptContent, char* styleContent, char* bodyContent);
+StringBuilder* httpRequestToJSON(const HttpRequest* const request, bool https,
+                                 SendSettings send_settings);
 
-char* httpRequestToJSON(const HttpRequest* const request, bool https, SendSettings send_settings);
-
-char* httpRequestToHtml(const HttpRequest* const request, bool https, SendSettings send_settings);
+StringBuilder* httpRequestToHtml(const HttpRequest* const request, bool https,
+                                 SendSettings send_settings);
