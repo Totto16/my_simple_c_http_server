@@ -64,6 +64,8 @@ anyType(JobError*)
 	             , "connection handler %lu", workerInfo.workerIndex);
 	set_thread_name(thread_name_buffer);
 
+	const RouteManager* routeManager = argument->routeManager;
+
 #define FREE_AT_END() \
 	do { \
 		free(thread_name_buffer); \
@@ -132,159 +134,170 @@ anyType(JobError*)
 	const int isSupported = isRequestSupported(httpRequest);
 
 	if(isSupported == REQUEST_SUPPORTED) {
-		if(httpRequest->head.requestLine.method == HTTPRequestMethodGet) {
-			// HTTP GET
-			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
-				printf("Shutdown requested!\n");
-				int result = sendHTTPMessageToConnection(
-				    descriptor, HTTP_STATUS_OK, "Shutting Down", MIME_TYPE_TEXT, NULL, 0,
-				    CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+		const SelectedRoute* selectedRoute =
+		    route_manager_get_route_for_request(routeManager, httpRequest);
 
-				if(result < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "Error in sending response\n");
+		if(selectedRoute == NULL) {
+
+			int result = 0;
+
+			switch(httpRequest->head.requestLine.method) {
+				case HTTPRequestMethodGet:
+				case HTTPRequestMethodPost:
+				case HTTPRequestMethodHead: {
+
+					const bool isHeadReq =
+					    httpRequest->head.requestLine.method == HTTPRequestMethodHead;
+
+					char* body = isHeadReq ? NULL : "File not Found";
+
+					char* MIMEType = isHeadReq ? NULL : MIME_TYPE_TEXT;
+
+					result = sendHTTPMessageToConnection(
+					    descriptor, HTTP_STATUS_NOT_FOUND, body, MIMEType, NULL, 0,
+					    CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+					break;
 				}
+				case HTTPRequestMethodOptions: {
+					HttpHeaderField* allowedHeader =
+					    (HttpHeaderField*)malloc(sizeof(HttpHeaderField));
 
-				// just cancel the listener thread, then no new connection are accepted and the
-				// main thread cleans the pool and queue, all jobs are finished so shutdown
-				// gracefully
-				int cancel_result = pthread_cancel(argument->listenerThread);
-				checkForError(cancel_result, "While trying to cancel the listener Thread", {
-					FREE_AT_END();
-					return JobError_ThreadCancel;
-				});
+					if(!allowedHeader) {
+						LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+						                   "Couldn't allocate memory!\n");
+						FREE_AT_END();
+						return JobError_Malloc;
+					}
 
-			} else if(strcmp(httpRequest->head.requestLine.URI, "/") == 0) {
-				int result = sendHTTPMessageToConnection(
-				    descriptor, HTTP_STATUS_OK,
-				    httpRequestToHtml(httpRequest, is_secure_context(context), send_settings),
-				    MIME_TYPE_HTML, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED, send_settings);
+					char* allowedHeaderBuffer = NULL;
+					// all 405 have to have a Allow filed according to spec
+					formatString(
+					    &allowedHeaderBuffer,
+					    {
+						    free(allowedHeader);
+						    FREE_AT_END();
+						    return JobError_StringFormat;
+					    },
+					    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
-				if(result < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "Error in sending response\n");
+					allowedHeader[0].key = allowedHeaderBuffer;
+					allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
+
+					result = sendHTTPMessageToConnection(
+					    descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader, 1,
+					    CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+
+					break;
 				}
-			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws") == 0) {
-				int wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
-
-				if(wsRequestSuccessful >= 0) {
-					// move the context so that we can use it in the long standing web socket
-					// thread
-					ConnectionContext* newContext = copy_connection_context(context);
-					argument->contexts[workerInfo.workerIndex] = newContext;
-
-					thread_manager_add_connection(argument->webSocketManager, descriptor, context,
-					                              websocketFunction);
-
-					// finally free everything necessary
-
-					freeHttpRequest(httpRequest);
-					FREE_AT_END();
-
-					return JobError_None;
-				}
-
-				// the error was already sent, just close the descriptor and free the http
-				// request, this is done at the end of this big if else statements
-
-			} else if(strcmp(httpRequest->head.requestLine.URI, "/ws/fragmented") == 0) {
-				int wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
-
-				if(wsRequestSuccessful >= 0) {
-					// move the context so that we can use it in the long standing web socket
-					// thread
-					ConnectionContext* newContext = copy_connection_context(context);
-					argument->contexts[workerInfo.workerIndex] = newContext;
-
-					thread_manager_add_connection(argument->webSocketManager, descriptor, context,
-					                              websocketFunctionFragmented);
-
-					// finally free everything necessary
-
-					freeHttpRequest(httpRequest);
-					FREE_AT_END();
-
-					return JobError_None;
-				}
-
-				// the error was already sent, just close the descriptor and free the http
-				// request, this is done at the end of this big if else statements
-
-			} else if(strcmp(httpRequest->head.requestLine.URI, "/json") == 0) {
-
-				int result = sendHTTPMessageToConnection(
-				    descriptor, HTTP_STATUS_OK,
-				    httpRequestToJSON(httpRequest, is_secure_context(context), send_settings),
-				    MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED, send_settings);
-
-				if(result < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "Error in sending response\n");
-				}
-			} else {
-				int result = sendHTTPMessageToConnection(
-				    descriptor, HTTP_STATUS_NOT_FOUND, "File not Found", MIME_TYPE_TEXT, NULL, 0,
-				    CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
-
-				if(result < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "Error in sending response\n");
+				case HTTPRequestMethodInvalid:
+				default: {
+					result = sendHTTPMessageToConnection(
+					    descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR, "Internal Server Error 1",
+					    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+					break;
 				}
 			}
-		} else if(httpRequest->head.requestLine.method == HTTPRequestMethodPost) {
-			// HTTP POST
-
-			int result = sendHTTPMessageToConnection(
-			    descriptor, HTTP_STATUS_OK,
-			    httpRequestToJSON(httpRequest, is_secure_context(context), send_settings),
-			    MIME_TYPE_JSON, NULL, 0, CONNECTION_SEND_FLAGS_MALLOCED, send_settings);
-
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
-			}
-		} else if(httpRequest->head.requestLine.method == HTTPRequestMethodHead) {
-			// TODO(Totto): send actual Content-Length, experiment with e.g a large video file!
-			int result =
-			    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
-			                                CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
-
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
-			}
-		} else if(httpRequest->head.requestLine.method == HTTPRequestMethodOptions) {
-			HttpHeaderField* allowedHeader = (HttpHeaderField*)malloc(sizeof(HttpHeaderField));
-
-			if(!allowedHeader) {
-				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-				FREE_AT_END();
-				return JobError_Malloc;
-			}
-
-			char* allowedHeaderBuffer = NULL;
-			// all 405 have to have a Allow filed according to spec
-			formatString(
-			    &allowedHeaderBuffer,
-			    {
-				    free(allowedHeader);
-				    FREE_AT_END();
-				    return JobError_StringFormat;
-			    },
-			    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
-
-			allowedHeader[0].key = allowedHeaderBuffer;
-			allowedHeader[0].value = allowedHeaderBuffer + strlen(allowedHeaderBuffer) + 1;
-
-			int result =
-			    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, allowedHeader,
-			                                1, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
 		} else {
-			int result = sendHTTPMessageToConnection(
-			    descriptor, HTTP_STATUS_INTERNAL_SERVER_ERROR, "Internal Server Error 1",
-			    MIME_TYPE_TEXT, NULL, 0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+
+			HTTPRouteData route_data = get_route_data(selectedRoute);
+
+			int result = 0;
+
+			switch(route_data.type) {
+				case HTTPRouteTypeSpecial: {
+
+					switch(route_data.data.special) {
+						case HTTPRouteSpecialDataShutdown: {
+							printf("Shutdown requested!\n");
+							result = sendHTTPMessageToConnection(
+							    descriptor, HTTP_STATUS_OK, "Shutting Down", MIME_TYPE_TEXT, NULL,
+							    0, CONNECTION_SEND_FLAGS_UN_MALLOCED, send_settings);
+
+							// just cancel the listener thread, then no new connection are accepted
+							// and the main thread cleans the pool and queue, all jobs are finished
+							// so shutdown gracefully
+							int cancel_result = pthread_cancel(argument->listenerThread);
+							checkForError(cancel_result,
+							              "While trying to cancel the listener Thread", {
+								              FREE_AT_END();
+								              return JobError_ThreadCancel;
+							              });
+
+							break;
+						}
+						case HTTPRouteSpecialDataWs: {
+
+							int wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
+
+							if(wsRequestSuccessful >= 0) {
+								// move the context so that we can use it in the long standing web
+								// socket thread
+								ConnectionContext* newContext = copy_connection_context(context);
+								argument->contexts[workerInfo.workerIndex] = newContext;
+
+								thread_manager_add_connection(argument->webSocketManager,
+								                              descriptor, context,
+								                              websocketFunction);
+
+								// finally free everything necessary
+
+								freeHttpRequest(httpRequest);
+								FREE_AT_END();
+
+								return JobError_None;
+							}
+
+							// the error was already sent, just close the descriptor and free the
+							// http request, this is done at the end of this big if else statements
+							break;
+						}
+						case HTTPRouteSpecialDataWsFragmented: {
+							int wsRequestSuccessful = handleWSHandshake(httpRequest, descriptor);
+
+							if(wsRequestSuccessful >= 0) {
+								// move the context so that we can use it in the long standing web
+								// socket thread
+								ConnectionContext* newContext = copy_connection_context(context);
+								argument->contexts[workerInfo.workerIndex] = newContext;
+
+								thread_manager_add_connection(argument->webSocketManager,
+								                              descriptor, context,
+								                              websocketFunctionFragmented);
+
+								// finally free everything necessary
+
+								freeHttpRequest(httpRequest);
+								FREE_AT_END();
+
+								return JobError_None;
+							}
+
+							// the error was already sent, just close the descriptor and free the
+							// http request, this is done at the end of this big if else statements
+
+							break;
+						}
+						default: {
+							result = -10;
+							break;
+						}
+					}
+
+					break;
+				}
+
+				case HTTPRouteTypeNormal:
+				default: {
+
+					result = route_manager_execute_route(route_data.data.normal, descriptor,
+					                                     send_settings, httpRequest, context);
+					break;
+				}
+			}
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -451,6 +464,7 @@ anyType(ListenerError*) http_listener_thread_function(anyType(HTTPThreadArgument
 		connectionArgument->connectionFd = connectionFd;
 		connectionArgument->listenerThread = pthread_self();
 		connectionArgument->webSocketManager = argument.webSocketManager;
+		connectionArgument->routeManager = argument.routeManager;
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
@@ -598,6 +612,18 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 
 	WebSocketThreadManager* webSocketManager = initialize_thread_manager();
 
+	if(!webSocketManager) {
+		return EXIT_FAILURE;
+	}
+
+	HTTPRoutes default_routes = get_default_routes();
+
+	RouteManager* routeManager = initialize_route_manager(default_routes);
+
+	if(!routeManager) {
+		return EXIT_FAILURE;
+	}
+
 	// initializing the thread Arguments for the single listener thread, it receives all
 	// necessary arguments
 	pthread_t listenerThread = {};
@@ -605,7 +631,8 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 		                                  .jobIds = &jobIds,
 		                                  .contexts = contexts,
 		                                  .socketFd = socketFd,
-		                                  .webSocketManager = webSocketManager };
+		                                  .webSocketManager = webSocketManager,
+		                                  .routeManager = routeManager };
 
 	// creating the thread
 	result = pthread_create(&listenerThread, NULL, http_listener_thread_function, &threadArgument);

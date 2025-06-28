@@ -12,6 +12,7 @@
 
 // all headers that are needed, so modular dependencies can be solved easily and also some "topics"
 // stay in the same file
+#include "./routes.h"
 #include "generic/secure.h"
 #include "http/http_protocol.h"
 #include "utils/thread_pool.h"
@@ -48,6 +49,7 @@ typedef struct {
 	ConnectionContext** contexts;
 	int socketFd;
 	WebSocketThreadManager* webSocketManager;
+	const RouteManager* routeManager;
 } HTTPThreadArgument;
 
 typedef struct {
@@ -55,6 +57,7 @@ typedef struct {
 	pthread_t listenerThread;
 	int connectionFd;
 	WebSocketThreadManager* webSocketManager;
+	const RouteManager* routeManager;
 } HTTPConnectionArgument;
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread

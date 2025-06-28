@@ -161,7 +161,7 @@ NODISCARD HttpRequestLine getRequestLineFromRawLine(HttpRawRequestLine line);
 void freeHttpRequest(HttpRequest* request);
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
 
-StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https);
+StringBuilder* httpRequestToStringBuilder(const HttpRequest* const request, bool https);
 
 // if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
 // strings, but keep in mind that you gave to use the given free method to free that properly,
@@ -241,6 +241,6 @@ void freeHttpResponse(HttpResponse* response);
 
 char* htmlFromString(char* headContent, char* scriptContent, char* styleContent, char* bodyContent);
 
-char* httpRequestToJSON(HttpRequest* request, bool https, SendSettings send_settings);
+char* httpRequestToJSON(const HttpRequest* const request, bool https, SendSettings send_settings);
 
-char* httpRequestToHtml(HttpRequest* request, bool https, SendSettings send_settings);
+char* httpRequestToHtml(const HttpRequest* const request, bool https, SendSettings send_settings);

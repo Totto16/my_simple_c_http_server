@@ -71,7 +71,7 @@ void freeHttpRequest(HttpRequest* request) {
 }
 
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
-StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https) {
+StringBuilder* httpRequestToStringBuilder(const HttpRequest* const request, bool https) {
 	StringBuilder* result = string_builder_init();
 	string_builder_append_single(result, "HttpRequest:\n");
 	string_builder_append(result, return NULL;
@@ -797,7 +797,7 @@ char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
 	return string_builder_to_string(result);
 }
 
-char* httpRequestToJSON(HttpRequest* request, bool https, SendSettings send_settings) {
+char* httpRequestToJSON(const HttpRequest* const request, bool https, SendSettings send_settings) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append(body, return NULL;
 	                      , "{\"request\":\"%s\",", request->head.rawRequestLine.method);
@@ -832,7 +832,7 @@ char* httpRequestToJSON(HttpRequest* request, bool https, SendSettings send_sett
 	return string_builder_to_string(body);
 }
 
-char* httpRequestToHtml(HttpRequest* request, bool https, SendSettings send_settings) {
+char* httpRequestToHtml(const HttpRequest* const request, bool https, SendSettings send_settings) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append_single(body, "<h1 id=\"title\">HttpRequest:</h1><br>");
 	string_builder_append(body, return NULL;, "<div id=\"request\"><div>Method: %s</div>",
