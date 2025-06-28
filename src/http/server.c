@@ -19,20 +19,17 @@
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
 int isRequestSupported(HttpRequest* request) {
-	if(strcmp(request->head.requestLine.protocolVersion, "HTTP/1.1") != 0) {
+	if(request->head.requestLine.protocolVersion != HTTPProtocolVersion_1_1) {
 		return REQUEST_INVALID_HTTP_VERSION;
 	}
 
-	if(strcmp(request->head.requestLine.method, "GET") != 0 &&
-	   strcmp(request->head.requestLine.method, "POST") != 0 &&
-	   strcmp(request->head.requestLine.method, "HEAD") != 0 &&
-	   strcmp(request->head.requestLine.method, "OPTIONS") != 0) {
+	if(request->head.requestLine.method == HTTPRequestMethodInvalid) {
 		return REQUEST_METHOD_NOT_SUPPORTED;
 	}
 
-	if((strcmp(request->head.requestLine.method, "GET") == 0 ||
-	    strcmp(request->head.requestLine.method, "HEAD") == 0 ||
-	    strcmp(request->head.requestLine.method, "OPTIONS") == 0) &&
+	if((request->head.requestLine.method == HTTPRequestMethodGet ||
+	    request->head.requestLine.method == HTTPRequestMethodHead ||
+	    request->head.requestLine.method == HTTPRequestMethodOptions) &&
 	   strlen(request->body) != 0) {
 		LOG_MESSAGE(LogLevelDebug, "Non Empty body in GET / HEAD or OPTIONS: '%s'\n",
 		            request->body);
@@ -135,7 +132,7 @@ anyType(JobError*)
 	const int isSupported = isRequestSupported(httpRequest);
 
 	if(isSupported == REQUEST_SUPPORTED) {
-		if(strcmp(httpRequest->head.requestLine.method, "GET") == 0) {
+		if(httpRequest->head.requestLine.method == HTTPRequestMethodGet) {
 			// HTTP GET
 			if(strcmp(httpRequest->head.requestLine.URI, "/shutdown") == 0) {
 				printf("Shutdown requested!\n");
@@ -234,7 +231,7 @@ anyType(JobError*)
 					                   "Error in sending response\n");
 				}
 			}
-		} else if(strcmp(httpRequest->head.requestLine.method, "POST") == 0) {
+		} else if(httpRequest->head.requestLine.method == HTTPRequestMethodPost) {
 			// HTTP POST
 
 			int result = sendHTTPMessageToConnection(
@@ -245,7 +242,7 @@ anyType(JobError*)
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
-		} else if(strcmp(httpRequest->head.requestLine.method, "HEAD") == 0) {
+		} else if(httpRequest->head.requestLine.method == HTTPRequestMethodHead) {
 			// TODO(Totto): send actual Content-Length, experiment with e.g a large video file!
 			int result =
 			    sendHTTPMessageToConnection(descriptor, HTTP_STATUS_OK, NULL, NULL, NULL, 0,
@@ -254,7 +251,7 @@ anyType(JobError*)
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
-		} else if(strcmp(httpRequest->head.requestLine.method, "OPTIONS") == 0) {
+		} else if(httpRequest->head.requestLine.method == HTTPRequestMethodOptions) {
 			HttpHeaderField* allowedHeader = (HttpHeaderField*)malloc(sizeof(HttpHeaderField));
 
 			if(!allowedHeader) {

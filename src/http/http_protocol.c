@@ -3,10 +3,64 @@
 #include <ctype.h>
 #include <math.h>
 
+NODISCARD static HTTPRequestMethod getMethodFromString(char* method) {
+
+	if(strcmp(method, "GET") == 0) {
+		return HTTPRequestMethodGet;
+	}
+
+	if(strcmp(method, "POST") == 0) {
+		return HTTPRequestMethodPost;
+	}
+
+	if(strcmp(method, "HEAD") == 0) {
+		return HTTPRequestMethodHead;
+	}
+
+	if(strcmp(method, "OPTIONS") == 0) {
+		return HTTPRequestMethodOptions;
+	}
+
+	return HTTPRequestMethodInvalid;
+}
+
+NODISCARD static HTTPProtocolVersion getProtocolVersionFromString(char* protocolVersion) {
+
+	if(strcmp(protocolVersion, "HTTP/1.1") == 0) {
+		return HTTPProtocolVersion_1_1;
+	}
+
+	if(strcmp(protocolVersion, "HTTP/1.0") == 0) {
+		return HTTPProtocolVersion_1;
+	}
+
+	if(strcmp(protocolVersion, "HTTP/2") == 0) {
+		return HTTPProtocolVersion_2;
+	}
+
+	return HTTPProtocolVersionInvalid;
+}
+
+NODISCARD HttpRequestLine getRequestLineFromRawLine(HttpRawRequestLine line) {
+
+	HttpRequestLine result = { .URI = line.URI };
+
+	result.method = getMethodFromString(line.method);
+
+	result.protocolVersion = getProtocolVersionFromString(line.protocolVersion);
+
+	return result;
+}
+
+static void freeRawRequestLine(HttpRawRequestLine line) {
+	// frees all 3 fields, as they are one allocation, with isnmerted 0 bytes
+	free(line.method);
+}
+
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
 void freeHttpRequest(HttpRequest* request) {
-	freeIfNotNULL(request->head.requestLine.method);
+	freeRawRequestLine(request->head.rawRequestLine);
 	for(size_t i = 0; i < stbds_arrlenu(request->head.headerFields); ++i) {
 		// same elegant freeing but two at once :)
 		freeIfNotNULL(request->head.headerFields[i].key);
@@ -20,10 +74,11 @@ void freeHttpRequest(HttpRequest* request) {
 StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https) {
 	StringBuilder* result = string_builder_init();
 	string_builder_append_single(result, "HttpRequest:\n");
-	string_builder_append(result, return NULL;, "\tMethod: %s\n", request->head.requestLine.method);
-	string_builder_append(result, return NULL;, "\tURI: %s\n", request->head.requestLine.URI);
 	string_builder_append(result, return NULL;
-	                      , "\tProtocolVersion : %s\n", request->head.requestLine.protocolVersion);
+	                      , "\tMethod: %s\n", request->head.rawRequestLine.method);
+	string_builder_append(result, return NULL;, "\tURI: %s\n", request->head.rawRequestLine.URI);
+	string_builder_append(result, return NULL;, "\tProtocolVersion : %s\n",
+	                                          request->head.rawRequestLine.protocolVersion);
 
 	string_builder_append(result, return NULL;, "\tSecure : %s\n", https ? "true" : " false");
 
@@ -87,14 +142,16 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 			// it, since its abstracted away when using only the provided function
 			char* begin = index(all, ' ');
 			*begin = '\0';
-			request->head.requestLine.method = all;
+			request->head.rawRequestLine.method = all;
 			all = begin + 1;
 			begin = index(all, ' ');
 			*begin = '\0';
-			request->head.requestLine.URI = all;
+			request->head.rawRequestLine.URI = all;
 			all = begin + 1;
 			// is already null terminated!
-			request->head.requestLine.protocolVersion = all;
+			request->head.rawRequestLine.protocolVersion = all;
+
+			request->head.requestLine = getRequestLineFromRawLine(request->head.rawRequestLine);
 
 		} else {
 			if(strlen(all) == 0) {
@@ -743,10 +800,10 @@ char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
 char* httpRequestToJSON(HttpRequest* request, bool https, SendSettings send_settings) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append(body, return NULL;
-	                      , "{\"request\":\"%s\",", request->head.requestLine.method);
-	string_builder_append(body, return NULL;, "\"URI\": \"%s\",", request->head.requestLine.URI);
+	                      , "{\"request\":\"%s\",", request->head.rawRequestLine.method);
+	string_builder_append(body, return NULL;, "\"URI\": \"%s\",", request->head.rawRequestLine.URI);
 	string_builder_append(body, return NULL;
-	                      , "\"version\":\"%s\",", request->head.requestLine.protocolVersion);
+	                      , "\"version\":\"%s\",", request->head.rawRequestLine.protocolVersion);
 	string_builder_append(body, return NULL;, "\"secure\":%s,", https ? "true" : "false");
 	string_builder_append_single(body, "\"headers\":[");
 
@@ -779,10 +836,11 @@ char* httpRequestToHtml(HttpRequest* request, bool https, SendSettings send_sett
 	StringBuilder* body = string_builder_init();
 	string_builder_append_single(body, "<h1 id=\"title\">HttpRequest:</h1><br>");
 	string_builder_append(body, return NULL;, "<div id=\"request\"><div>Method: %s</div>",
-	                                        request->head.requestLine.method);
-	string_builder_append(body, return NULL;, "<div>URI: %s</div>", request->head.requestLine.URI);
+	                                        request->head.rawRequestLine.method);
+	string_builder_append(body, return NULL;
+	                      , "<div>URI: %s</div>", request->head.rawRequestLine.URI);
 	string_builder_append(body, return NULL;, "<div>ProtocolVersion : %s</div>",
-	                                        request->head.requestLine.protocolVersion);
+	                                        request->head.rawRequestLine.protocolVersion);
 	string_builder_append(body, return NULL;
 	                      ,
 	                      "<div>Secure : %s</div><button id=\"shutdown\"> Shutdown </button></div>",

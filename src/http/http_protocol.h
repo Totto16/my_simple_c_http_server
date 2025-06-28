@@ -85,11 +85,38 @@ typedef struct {
 	char* value;
 } HttpHeaderField;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPRequestMethodInvalid = 0,
+	HTTPRequestMethodGet,
+	HTTPRequestMethodPost,
+	HTTPRequestMethodHead,
+	HTTPRequestMethodOptions,
+} HTTPRequestMethod;
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPProtocolVersionInvalid = 0,
+	HTTPProtocolVersion_1,
+	HTTPProtocolVersion_1_1,
+	HTTPProtocolVersion_2,
+} HTTPProtocolVersion;
+
+typedef struct {
+	char* URI;
+	HTTPRequestMethod method;
+	HTTPProtocolVersion protocolVersion;
+} HttpRequestLine;
+
 typedef struct {
 	char* method;
 	char* URI;
 	char* protocolVersion;
-} HttpRequestLine;
+} HttpRawRequestLine;
 
 typedef struct {
 	char* protocolVersion;
@@ -100,6 +127,7 @@ typedef struct {
 typedef STBDS_ARRAY(HttpHeaderField) HttpHeaderFields;
 
 typedef struct {
+	HttpRawRequestLine rawRequestLine;
 	HttpRequestLine requestLine;
 	HttpHeaderFields headerFields;
 } HttpRequestHead;
@@ -125,6 +153,8 @@ to the spec exactly, some things are compliant, but not checked if 100% complian
 not the requirement of this task, it can parse all tested http requests in the right way and also
 construct the responses correctly
 */
+
+NODISCARD HttpRequestLine getRequestLineFromRawLine(HttpRawRequestLine line);
 
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
