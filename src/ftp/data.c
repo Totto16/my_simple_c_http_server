@@ -786,10 +786,6 @@ NODISCARD bool nts_internal_close_connection(DataController* data_controller,
 	ConnectionsToClose connections_to_close =
 	    nts_internal_data_connections_to_close(data_controller, connection);
 
-	if(connections_to_close == NULL) {
-		return false;
-	}
-
 	if(stbds_arrlenu(connections_to_close) > 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 		                   "ASSERT: maximal one connection should be closed, if we set a filter\n");

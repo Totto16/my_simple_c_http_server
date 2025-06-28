@@ -21,4 +21,3 @@ NODISCARD int sendHTTPMessageToConnection(const ConnectionDescriptor* descriptor
 
 // TODO: enforce styles e.g. camelcase or snake:_case
 //  factor our send message into struct, so that there arent 7 paramnaters
-//  use ds_arr everywhere (realloc)

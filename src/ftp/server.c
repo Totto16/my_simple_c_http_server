@@ -661,7 +661,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(errno != ENOENT) {
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 1");
 					return true;
 				}
 			} else {
@@ -702,13 +702,13 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				// Wait for data connection
 
 				Time start_time;
-				bool clock_result = get_monotonic_time(&start_time);
+				bool clock_result =  get_monotonic_time(&start_time);
 
 				if(!clock_result) {
 					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
 					            strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 2");
 					return true;
 				}
 
@@ -726,7 +726,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
 							SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-							                               "Internal error");
+							                               "Internal error 3");
 							return true;
 						}
 
@@ -740,7 +740,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						LOG_MESSAGE(LogLevelError | LogPrintLocation,
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-						                               "Internal error");
+						                               "Internal error 4");
 						return true;
 					}
 
@@ -783,7 +783,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(!resultingData) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 5");
 					return true;
 				}
 
@@ -794,7 +794,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(!success) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 6");
 					return true;
 				}
 
@@ -846,7 +846,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				}
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "Internal error");
+				                               "Internal error 7");
 
 				return true;
 			}
@@ -900,7 +900,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
 					            strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 8");
 					return true;
 				}
 
@@ -918,7 +918,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
 							SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-							                               "Internal error");
+							                               "Internal error 9");
 							return true;
 						}
 
@@ -932,7 +932,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						LOG_MESSAGE(LogLevelError | LogPrintLocation,
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-						                               "Internal error");
+						                               "Internal error 10");
 						return true;
 					}
 
@@ -973,7 +973,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(descriptor == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error: 11");
 					return true;
 				}
 
@@ -989,7 +989,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 12");
 					return true;
 				}
 
@@ -1013,7 +1013,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(!data_connection_close(argument->data_controller, data_connection)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 13");
 					return true;
 				}
 
@@ -1070,7 +1070,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				}
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "Internal error");
+				                               "Internal error 14");
 
 				return true;
 			}
@@ -1119,7 +1119,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
 					            strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 15");
 					return true;
 				}
 
@@ -1137,7 +1137,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
 							SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-							                               "Internal error");
+							                               "Internal error 16");
 							return true;
 						}
 
@@ -1151,7 +1151,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						LOG_MESSAGE(LogLevelError | LogPrintLocation,
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-						                               "Internal error");
+						                               "Internal  17");
 						return true;
 					}
 
@@ -1192,7 +1192,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(descriptor == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 17");
 					return true;
 				}
 
@@ -1209,7 +1209,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 18");
 					return true;
 				}
 
@@ -1233,7 +1233,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(!data_connection_close(argument->data_controller, data_connection)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 19");
 					return true;
 				}
 
