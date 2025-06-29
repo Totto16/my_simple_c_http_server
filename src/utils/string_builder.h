@@ -52,7 +52,7 @@ int string_builder_append_single(StringBuilder* stringBuilder, const char* notMa
  * ATTENTION: after this call the stringbuilder is destroyed! meaning the string you receive is a
  * single malloced string you have to take care of
  *
- * @deprecated use dedicated functions, and don't treat srting builder as string, as strlen for the
+ * @deprecated use dedicated functions, and don't treat string builder as string, as strlen for the
  * length is not effective!
  * @param stringBuilder
  * @return char*
@@ -63,7 +63,7 @@ NODISCARD char* string_builder_to_string_deprecated(StringBuilder* stringBuilder
  * @brief  the struct or implementation can change, this function has to adapt, not the user! after
  * that call the stringbuilder is reusable and can be freed, appended uppon etc.
  *
- * @deprecated use dedicated functions, and don't treat srting builder as string, as strlen for the
+ * @deprecated use dedicated functions, and don't treat string builder as string, as strlen for the
  * length is not effective!
  * @param stringBuilder
  * @return char*

@@ -131,7 +131,7 @@ void freeSizedBuffer(SizedBuffer buffer) {
 	free(buffer.data);
 }
 
-NODISCARD uint32_t get_random_bytes(void) {
+NODISCARD uint32_t get_random_byte(void) {
 #ifdef __APPLE__
 	srandom(time(NULL));
 	uint32_t random_bytes = random();
@@ -150,4 +150,13 @@ NODISCARD uint32_t get_random_bytes(void) {
 	}
 #endif
 	return random_bytes;
+}
+
+NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max) {
+
+	assert(min < max);
+
+	uint32_t value = get_random_byte();
+
+	return (value % (max - min)) + min;
 }

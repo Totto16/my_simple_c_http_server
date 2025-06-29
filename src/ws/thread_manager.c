@@ -309,7 +309,7 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 
 	if(mask) {
 
-		uint32_t mask_byte = get_random_bytes();
+		uint32_t mask_byte = get_random_byte();
 
 		*((uint32_t*)(resultingFrame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len)) =
 		    mask_byte;

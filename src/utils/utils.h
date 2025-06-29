@@ -148,4 +148,6 @@ void freeSizedBuffer(SizedBuffer buffer);
 		} \
 	} while(false)
 
-NODISCARD uint32_t get_random_bytes(void);
+NODISCARD uint32_t get_random_byte(void);
+
+NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max);

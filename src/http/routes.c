@@ -40,38 +40,173 @@ static HTTPResponseToSend static_executor_fn() {
 	return result;
 }
 
-// TODO: actually make this random, but for now it works also like that
-static void add_random_json_object(StringBuilder* stringBuilder) {
+static char json_get_random_char(void) {
 
-	string_builder_append_single(
-	    stringBuilder,
-	    "{\"key1\":1, \"key2thatisreallyLong\":[1,21,412,532,636,346,46,45,34,34,34,34,34,34,34] "
-	    "}");
+	char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-*$%.#";
+	uint32_t random_index = get_random_byte_in_range(0, (sizeof(charset) / sizeof(*charset)) - 1);
+
+	return charset[random_index];
+}
+
+static char* json_get_random_string(void) {
+	// TODO
+
+	uint32_t random_key_length = get_random_byte_in_range(
+	    6, 30); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+	char* key = malloc(random_key_length + 3);
+
+	key[0] = '"';
+	key[random_key_length + 1] = '"';
+	key[random_key_length + 2] = '\0';
+
+	for(uint32_t i = 1; i < random_key_length + 1; ++i) {
+		key[i] = json_get_random_char();
+	}
+
+	return key;
+}
+
+static char* json_get_random_boolean(void) {
+	uint32_t number = get_random_byte();
+
+	if(number % 2 == 0) {
+		return normalStringToMalloced("false");
+	}
+
+	return normalStringToMalloced("true");
+}
+
+static char* json_get_random_number(void) {
+
+	uint32_t number = get_random_byte();
+
+	StringBuilder* result = string_builder_init();
+
+	string_builder_append(result, return NULL;, "%u", number);
+
+	return string_builder_to_string_deprecated(result);
+}
+
+static char* json_get_null(void) {
+	return normalStringToMalloced("null");
+}
+
+static char* json_get_random_primitive_value(void) {
+	uint32_t random_type = get_random_byte_in_range(
+	    0, 4); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+	switch(random_type) {
+		case 0: return json_get_random_string();
+		case 1: return json_get_random_number();
+		case 2: return json_get_random_boolean();
+		case 3:
+		default: return json_get_null();
+	}
+}
+
+static char* json_get_random_key(void) {
+	return json_get_random_string();
+}
+
+static void add_random_object_key_and_value(StringBuilder* stringBuilder, bool pretty) {
+	char* key = json_get_random_key();
+
+	string_builder_append_string(stringBuilder, key);
+	if(pretty) {
+		string_builder_append_single(stringBuilder, " ");
+	}
+	string_builder_append_single(stringBuilder, ":");
+
+	char* value = json_get_random_primitive_value();
+
+	string_builder_append_string(stringBuilder, value);
+}
+
+static void add_random_json_object(StringBuilder* stringBuilder, bool pretty) {
+
+	uint32_t random_key_amount = get_random_byte_in_range(
+	    4, 20); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+	string_builder_append_single(stringBuilder, "{");
+	if(pretty) {
+		string_builder_append_single(stringBuilder, "\n");
+	}
+
+	for(size_t i = 0; i < random_key_amount; ++i) {
+		add_random_object_key_and_value(stringBuilder, pretty);
+
+		string_builder_append_single(stringBuilder, ",");
+		if(pretty) {
+			string_builder_append_single(stringBuilder, "\n");
+		}
+	}
+
+	add_random_object_key_and_value(stringBuilder, pretty);
+
+	if(pretty) {
+		string_builder_append_single(stringBuilder, "\n");
+	}
+	string_builder_append_single(stringBuilder, "}");
 
 	//
 }
 
-static HTTPResponseToSend huge_executor_fn() {
+static StringBuilder* get_random_json_string_builder(bool pretty) {
 
-	StringBuilder* huge_string_builder = string_builder_init();
+	StringBuilder* string_builder = string_builder_init();
 
-	string_builder_append_single(huge_string_builder, "[");
+	string_builder_append_single(string_builder, "[");
+
+	if(pretty) {
+		string_builder_append_single(string_builder, "\n");
+	}
 
 	// for compression tests, has to be at least  1 MB big, so that it can be tested accordingly
 	size_t minimumSize =
 	    1 << 20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	while(huge_string_builder->currentSize < minimumSize) {
-		add_random_json_object(huge_string_builder);
-		string_builder_append_single(huge_string_builder, ",");
+	while(string_builder->currentSize < minimumSize) {
+		if(pretty) {
+			string_builder_append_single(string_builder, "\n");
+		}
+
+		add_random_json_object(string_builder, pretty);
+		string_builder_append_single(string_builder, ",");
+
+		if(pretty) {
+			string_builder_append_single(string_builder, "\n");
+		}
 	}
 
-	add_random_json_object(huge_string_builder);
+	add_random_json_object(string_builder, pretty);
 
-	string_builder_append_single(huge_string_builder, "]");
+	if(pretty) {
+		string_builder_append_single(string_builder, "\n");
+	}
+
+	string_builder_append_single(string_builder, "]");
+
+	return string_builder;
+}
+
+static HTTPResponseToSend huge_executor_fn() {
+
+	StringBuilder* string_builder = get_random_json_string_builder(false);
 
 	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStringBuilder(huge_string_builder),
+		                          .body = httpResponseBodyFromStringBuilder(string_builder),
+		                          .MIMEType = MIME_TYPE_JSON,
+		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+	return result;
+}
+
+static HTTPResponseToSend huge_pretty_executor_fn() {
+
+	StringBuilder* string_builder = get_random_json_string_builder(true);
+
+	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+		                          .body = httpResponseBodyFromStringBuilder(string_builder),
 		                          .MIMEType = MIME_TYPE_JSON,
 		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 	return result;
@@ -177,6 +312,22 @@ HTTPRoutes get_default_routes(void) {
 			                   .data = { .normal = (HTTPRouteFn){
 			                                 .type = HTTPRouteFnTypeExecutor,
 			                                 .fn = { .executor = huge_executor_fn } } } } };
+
+		stbds_arrput(routes, json);
+	}
+
+	// TODO(Totto): support ? search paraamters and make huge use them
+	{
+
+		// huge/ pretty
+
+		HTTPRoute json = { .method = HTTPRequestRouteMethodGet,
+			               .path = "/huge/pretty",
+			               .data = (HTTPRouteData){
+			                   .type = HTTPRouteTypeNormal,
+			                   .data = { .normal = (HTTPRouteFn){
+			                                 .type = HTTPRouteFnTypeExecutor,
+			                                 .fn = { .executor = huge_pretty_executor_fn } } } } };
 
 		stbds_arrput(routes, json);
 	}
