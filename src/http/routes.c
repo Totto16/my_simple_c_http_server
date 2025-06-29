@@ -49,12 +49,10 @@ static char json_get_random_char(void) {
 }
 
 static char* json_get_random_string(void) {
-	// TODO
-
 	uint32_t random_key_length = get_random_byte_in_range(
 	    6, 30); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	char* key = malloc(random_key_length + 3);
+	char* key = malloc((size_t)random_key_length + 3);
 
 	key[0] = '"';
 	key[random_key_length + 1] = '"';
