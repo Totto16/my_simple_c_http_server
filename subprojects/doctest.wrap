@@ -1,0 +1,11 @@
+[wrap-file]
+directory = doctest-2.4.12
+source_url = https://github.com/doctest/doctest/archive/refs/tags/v2.4.12.tar.gz
+source_filename = doctest-2.4.12.tar.gz
+source_hash = 73381c7aa4dee704bd935609668cf41880ea7f19fa0504a200e13b74999c2d70
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/doctest_2.4.12-1/doctest-2.4.12.tar.gz
+wrapdb_version = 2.4.12-1
+diff_files = 5eb20178ba43d7b3fd6dbf97b4d2a0907b59a42a.diff
+
+[provide]
+dependency_names = doctest

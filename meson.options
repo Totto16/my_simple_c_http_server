@@ -12,3 +12,10 @@ option(
     choices: ['zstd', 'br', 'deflate', 'gzip'],
     description: 'specify compression features, that need to be present',
 )
+
+option(
+    'test',
+    type: 'boolean',
+    value: true,
+    description: 'also compile the tests',
+)

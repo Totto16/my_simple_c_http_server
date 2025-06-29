@@ -93,10 +93,25 @@ inc_dirs = []
 
 subdir('src')
 
-executable(
-    'server',
+http_server_lib = library(
+    'http_server',
     src_files,
     dependencies: deps,
     include_directories: inc_dirs,
     c_args: compile_flags,
 )
+
+http_server_dep = declare_dependency(
+    link_with: http_server_lib,
+    include_directories: inc_dirs,
+    compile_args: compile_flags,
+    dependencies: deps,
+    version: meson.project_version(),
+)
+
+executable('server', files('src/main.c'), dependencies: [http_server_dep])
+
+
+if get_option('test')
+    subdir('tests/unit')
+endif
