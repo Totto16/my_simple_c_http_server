@@ -40,6 +40,14 @@ if zlib_dep.found()
     compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE'
 endif
 
+brotli_dep = dependency('brotli', 'libbrotlienc', required: false)
+
+if brotli_dep.found()
+    deps += brotli_dep
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_BR'
+endif
+
+
 
 deps += dependency(
     'libutf8proc',

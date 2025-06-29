@@ -8,7 +8,7 @@
 #include <zlib.h>
 #endif
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
-#error "TODO"
+#include <brotli/encode.h>
 #endif
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
 #error "TODO"
@@ -103,17 +103,18 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 	while(true) {
 		int deflateResult = deflate(&zs, Z_FINISH);
 
+		resultBuffer.size += (chunk_size - zs.avail_out);
+
 		if(deflateResult == Z_STREAM_END) {
-			resultBuffer.size += (chunk_size - zs.avail_out);
 			break;
 		}
 
 		if(deflateResult == Z_OK || deflateResult == Z_BUF_ERROR) {
-			resultBuffer.size += (chunk_size - zs.avail_out);
 			void* new_chunk = realloc(resultBuffer.data, resultBuffer.size + chunk_size);
+			resultBuffer.data = new_chunk;
+
 			zs.avail_out = chunk_size;
 			zs.next_out = (Bytef*)new_chunk + resultBuffer.size;
-			resultBuffer.data = new_chunk;
 			continue;
 		}
 
@@ -147,6 +148,95 @@ static SizedBuffer compress_buffer_with_gzip(SizedBuffer buffer) {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
 static SizedBuffer compress_buffer_with_deflate(SizedBuffer buffer) {
 	return compress_buffer_with_zlib(buffer, false);
+}
+#endif
+
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
+
+#define BROTLI_QUALITY 11     // 0-11
+#define BROTLI_WINDOW_SIZE 15 // 10-24
+
+static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
+
+	BrotliEncoderState* state = BrotliEncoderCreateInstance(NULL, NULL, NULL);
+
+	if(!state) {
+		LOG_MESSAGE_SIMPLE(
+		    LogLevelError,
+		    "An error in brotli compression initiliaization occured: failed to initialize state");
+
+		return SIZED_BUFFER_ERROR;
+	}
+
+	if(!BrotliEncoderSetParameter(state, BROTLI_PARAM_QUALITY, BROTLI_QUALITY)) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "An error in brotli compression initiliaization occured: "
+		                                  "failed to set parameter quality");
+
+		return SIZED_BUFFER_ERROR;
+	};
+
+	if(!BrotliEncoderSetParameter(state, BROTLI_PARAM_LGWIN, BROTLI_WINDOW_SIZE)) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "An error in brotli compression initiliaization occured: "
+		                                  "failed to set parameter sliding window size");
+
+		return SIZED_BUFFER_ERROR;
+	}; // 0-11
+
+	size_t chunk_size = (1 << BROTLI_WINDOW_SIZE) - 16;
+
+	void* start_chunk = malloc(chunk_size);
+	if(!start_chunk) {
+		BrotliEncoderDestroyInstance(state);
+		return SIZED_BUFFER_ERROR;
+	}
+
+	SizedBuffer resultBuffer = { .data = start_chunk, .size = 0 };
+
+	size_t available_in = buffer.size;
+
+	const uint8_t* next_in = buffer.data;
+
+	size_t available_out = chunk_size;
+
+	uint8_t* next_out = resultBuffer.data;
+
+	while(true) {
+
+		BrotliEncoderOperation encoding_op =
+		    available_in == 0 ? BROTLI_OPERATION_FINISH : BROTLI_OPERATION_PROCESS;
+
+		size_t available_out_before = available_out;
+
+		BROTLI_BOOL result = BrotliEncoderCompressStream(state, encoding_op, &available_in,
+		                                                 &next_in, &available_out, &next_out, NULL);
+		if(result == BROTLI_FALSE) {
+			LOG_MESSAGE(LogLevelError, "An error in brotli compression processing occured: %s\n",
+			            zError(result));
+			freeSizedBuffer(resultBuffer);
+			BrotliEncoderDestroyInstance(state);
+
+			return SIZED_BUFFER_ERROR;
+		}
+
+		resultBuffer.size += (available_out_before - available_out);
+
+		if(available_out == 0) {
+			void* new_chunk = realloc(resultBuffer.data, resultBuffer.size + chunk_size);
+			resultBuffer.data = new_chunk;
+
+			available_out += chunk_size;
+			next_out = (uint8_t*)new_chunk + resultBuffer.size;
+		}
+
+		if(available_in == 0) {
+			break;
+		}
+
+		//
+	}
+
+	BrotliEncoderDestroyInstance(state);
+	return resultBuffer;
 }
 #endif
 
