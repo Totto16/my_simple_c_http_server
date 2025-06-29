@@ -18,11 +18,14 @@ else
     SUDO="sudo_wrapper"
 fi
 
-if [ -z "${CC:-}" ]; then
-    export CC="$GCC"
+if [ -n "${CC:-}" ]; then
+    "$SUDO" ln -s "$(which "$CC")" "/usr/bin/cc"
 fi
 
-"$SUDO" ln -s "$(which "$CC")" /usr/bin/cc
+if ! [ -f "/usr/bin/cc" ]; then
+    echo "cc not found, please provide it or provide \$CC" >&2
+    exit 1
+fi
 
 DPKG_ARCH="$(dpkg --print-architecture)"
 case "${DPKG_ARCH##*-}" in
