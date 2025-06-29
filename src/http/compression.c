@@ -64,7 +64,7 @@ bool is_compressions_supported(COMPRESSION_TYPE format) {
 
 NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool gzip) {
 
-	size_t chunk_size = 1 << Z_WINDOW_SIZE;
+	const size_t chunk_size = 1 << Z_WINDOW_SIZE;
 
 	void* start_chunk = malloc(chunk_size);
 	if(!start_chunk) {
@@ -182,7 +182,7 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 		return SIZED_BUFFER_ERROR;
 	}; // 0-11
 
-	size_t chunk_size = (1 << BROTLI_WINDOW_SIZE) - 16;
+	const size_t chunk_size = (1 << BROTLI_WINDOW_SIZE) - 16;
 
 	void* start_chunk = malloc(chunk_size);
 	if(!start_chunk) {
@@ -205,13 +205,14 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 		BrotliEncoderOperation encoding_op =
 		    available_in == 0 ? BROTLI_OPERATION_FINISH : BROTLI_OPERATION_PROCESS;
 
-		size_t available_out_before = available_out;
+		const size_t available_out_before = available_out;
 
 		BROTLI_BOOL result = BrotliEncoderCompressStream(state, encoding_op, &available_in,
 		                                                 &next_in, &available_out, &next_out, NULL);
-		if(result == BROTLI_FALSE) {
-			LOG_MESSAGE(LogLevelError, "An error in brotli compression processing occured: %s\n",
-			            zError(result));
+
+		if(!result) {
+			LOG_MESSAGE_SIMPLE(LogLevelError,
+			                   "An error in brotli compression processing occured\n");
 			freeSizedBuffer(resultBuffer);
 			BrotliEncoderDestroyInstance(state);
 
@@ -228,7 +229,7 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 			next_out = (uint8_t*)new_chunk + resultBuffer.size;
 		}
 
-		if(available_in == 0) {
+		if(BrotliEncoderIsFinished(state)) {
 			break;
 		}
 
