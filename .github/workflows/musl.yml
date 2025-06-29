@@ -10,7 +10,7 @@ jobs:
   build:
     name: ${{ matrix.config.name }}
     runs-on: ubuntu-24.04
-    container: alpine:3.21
+    container: alpine:3.22
 
     strategy:
       fail-fast: false
@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           apk update
-          apk add wget meson ca-certificates samurai git openssl-dev openssl pkgconf ${{ ( matrix.config.use-clang == true ) && 'clang19' || 'gcc musl-dev' }}
+          apk add wget meson ca-certificates samurai git openssl-dev openssl pkgconf zstd-dev zlib-dev brotli-dev ${{ ( matrix.config.use-clang == true ) && 'clang19' || 'gcc musl-dev' }}
           echo "CC=${{ matrix.config.use-clang == true && 'clang-19' || 'gcc' }}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
