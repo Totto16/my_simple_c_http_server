@@ -73,7 +73,7 @@ jobs:
               uses: egor-tensin/setup-gcc@v1
               with:
                   version: 14
-                  platform: x64
+                  platform: x64 # note, this isn't really correct
 
             - name: Setup Clang (MacOS)
               if: matrix.config.os == 'macos'

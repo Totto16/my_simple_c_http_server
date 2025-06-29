@@ -1,0 +1,67 @@
+name: Test CI
+
+on:
+    push:
+        branches: ["main"]
+    pull_request:
+    workflow_dispatch:
+
+jobs:
+    build:
+        name: Test - ${{ matrix.config.name }}
+        runs-on: ${{ matrix.config.os }}-${{ matrix.config.os-version }}
+
+        strategy:
+            fail-fast: false
+            matrix:
+                config:
+                    - name: x86_64
+                      os: ubuntu
+                      os-version: 24.04
+
+                    - name: arm64
+                      os: ubuntu
+                      os-version: 24.04-arm
+
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: "0"
+
+            - name: Setup GCC
+              uses: egor-tensin/setup-gcc@v1
+              with:
+                  version: 14
+                  platform: x64 # note, this isn't really correct
+
+            # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
+            - name: Setup meson
+              run: |
+                  pip install meson --break-system-packages
+
+            - name: Install dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev -y --no-install-recommends
+
+            - name: Install pypy2 and autobahn
+              run: |
+                  ./tests/autobahn/install_pypy2.sh
+                  ./tests/autobahn/install_autobahn.sh
+
+            - name: Configure
+              run: meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
+
+            - name: Build
+              run: meson compile -C build
+
+            - name: Test
+              run: |
+                  ./build/server http 8080 -l trace &
+                  pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
+                  wget http://localhost:8080/shutdown -O - -q
+
+            - uses: actions/upload-artifact@v4
+              with:
+                name: "autobahn test results"
+                path: reports/servers/**
