@@ -64,7 +64,7 @@ ln -sv '/opt/pypy/bin/pypy' /usr/local/bin/
 # smoke test
 pypy --version
 
-apt-mark auto '.*' >/dev/null
+"$SUDO" apt-mark auto '.*' >/dev/null
 # shellcheck disable=SC2086
 [ -z "$savedAptMark" ] || apt-mark manual $savedAptMark >/dev/null
 find /opt/pypy -type f -executable -exec ldd '{}' ';' |
