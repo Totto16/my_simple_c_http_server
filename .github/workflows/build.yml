@@ -19,6 +19,16 @@ jobs:
                     #   os: windows
                     #   os-version: 2022
 
+                    - name: Linux (GCC, Arm64)
+                      os: ubuntu
+                      os-version: 24.04-arm
+                      use-clang: false
+
+                    - name: Linux (Clang, Arm64)
+                      os: ubuntu
+                      os-version: 24.04-arm
+                      use-clang: true
+
                     - name: Linux (GCC)
                       os: ubuntu
                       os-version: 24.04
@@ -49,7 +59,6 @@ jobs:
               uses: TheMrMilchmann/setup-msvc-dev@v3
               with:
                   arch: x64
-
 
             - name: Setup Clang (Linux)
               if: matrix.config.os == 'ubuntu' && matrix.config.use-clang == true
