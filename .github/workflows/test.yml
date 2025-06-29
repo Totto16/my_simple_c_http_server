@@ -64,5 +64,5 @@ jobs:
 
             - uses: actions/upload-artifact@v4
               with:
-                name: "autobahn test results"
-                path: reports/servers/**
+                  name: autobahn test results - ${{ matrix.config.name }}
+                  path: reports/servers/**
