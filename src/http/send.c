@@ -217,6 +217,26 @@ int sendHTTPMessageToConnection(const ConnectionDescriptor* const descriptor,
 	return sendMessageToConnection(descriptor, toSend, send_settings);
 }
 
+static void httpResponseAdjustToRequestMethod(HTTPResponseToSend* responsePtr,
+                                              HTTPRequestMethod method) {
+
+	if(method == HTTPRequestMethodHead) {
+		responsePtr->MIMEType = NULL;
+		freeSizedBuffer(responsePtr->body.body);
+		responsePtr->body = httpResponseBodyEmpty();
+	}
+}
+
+NODISCARD int sendHTTPMessageToConnectionAdvanced(const ConnectionDescriptor* descriptor,
+                                                  HTTPResponseToSend toSend,
+                                                  SendSettings send_settings,
+                                                  HttpRequestHead request_head) {
+
+	httpResponseAdjustToRequestMethod(&toSend, request_head.requestLine.method);
+
+	return sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+}
+
 NODISCARD HTTPResponseBody httpResponseBodyFromStaticString(const char* static_string) {
 	char* mallocedString = normalStringToMalloced(static_string);
 	;

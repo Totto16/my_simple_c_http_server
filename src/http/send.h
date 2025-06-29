@@ -21,6 +21,11 @@ typedef struct {
 NODISCARD int sendHTTPMessageToConnection(const ConnectionDescriptor* descriptor,
                                           HTTPResponseToSend toSend, SendSettings send_settings);
 
+NODISCARD int sendHTTPMessageToConnectionAdvanced(const ConnectionDescriptor* descriptor,
+                                                  HTTPResponseToSend toSend,
+                                                  SendSettings send_settings,
+                                                  HttpRequestHead request_head);
+
 NODISCARD HTTPResponseBody httpResponseBodyFromStaticString(const char* static_string);
 
 NODISCARD HTTPResponseBody httpResponseBodyFromString(char* string);
@@ -30,5 +35,3 @@ NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder* stri
 NODISCARD HTTPResponseBody httpResponseBodyFromData(void* data, size_t size);
 
 NODISCARD HTTPResponseBody httpResponseBodyEmpty(void);
-
-void httpResponseAdjustToRequestMethod(HTTPResponseToSend* responsePtr, HTTPRequestMethod method);

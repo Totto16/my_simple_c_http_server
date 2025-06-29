@@ -238,17 +238,7 @@ NODISCARD int route_manager_execute_route(HTTPRouteFn route,
 		}
 	}
 
-	httpResponseAdjustToRequestMethod(&response, httpRequest->head.requestLine.method);
-	int result = sendHTTPMessageToConnection(descriptor, response, send_settings);
+	int result = sendHTTPMessageToConnectionAdvanced(descriptor, response, send_settings,httpRequest->head);
 
 	return result;
-}
-
-void httpResponseAdjustToRequestMethod(HTTPResponseToSend* responsePtr, HTTPRequestMethod method) {
-
-	if(method == HTTPRequestMethodHead) {
-		responsePtr->MIMEType = NULL;
-		freeSizedBuffer(responsePtr->body.body);
-		responsePtr->body = httpResponseBodyEmpty();
-	}
 }

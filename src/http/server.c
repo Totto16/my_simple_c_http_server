@@ -159,10 +159,8 @@ anyType(JobError*)
 						                          .MIMEType = MIME_TYPE_TEXT,
 						                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 
-					httpResponseAdjustToRequestMethod(&toSend,
-					                                  httpRequest->head.requestLine.method);
-
-					result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+					result = sendHTTPMessageToConnectionAdvanced(descriptor, toSend, send_settings,
+					                                             httpRequest->head);
 					break;
 				}
 				case HTTPRequestMethodOptions: {
@@ -229,10 +227,8 @@ anyType(JobError*)
 								                          .MIMEType = MIME_TYPE_TEXT,
 								                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 
-							httpResponseAdjustToRequestMethod(&toSend,
-							                                  httpRequest->head.requestLine.method);
-
-							result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+							result = sendHTTPMessageToConnectionAdvanced(
+							    descriptor, toSend, send_settings, httpRequest->head);
 
 							// just cancel the listener thread, then no new connection are accepted
 							// and the main thread cleans the pool and queue, all jobs are finished
@@ -331,9 +327,8 @@ anyType(JobError*)
 			                          .MIMEType = MIME_TYPE_TEXT,
 			                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 
-		httpResponseAdjustToRequestMethod(&toSend, httpRequest->head.requestLine.method);
-
-		int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+		int result = sendHTTPMessageToConnectionAdvanced(descriptor, toSend, send_settings,
+		                                                 httpRequest->head);
 
 		if(result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -366,9 +361,8 @@ anyType(JobError*)
 			.additionalHeaders = additionalHeaders
 		};
 
-		httpResponseAdjustToRequestMethod(&toSend, httpRequest->head.requestLine.method);
-
-		int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+		int result = sendHTTPMessageToConnectionAdvanced(descriptor, toSend, send_settings,
+		                                                 httpRequest->head);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -380,9 +374,8 @@ anyType(JobError*)
 			                          .MIMEType = MIME_TYPE_TEXT,
 			                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 
-		httpResponseAdjustToRequestMethod(&toSend, httpRequest->head.requestLine.method);
-
-		int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+		int result = sendHTTPMessageToConnectionAdvanced(descriptor, toSend, send_settings,
+		                                                 httpRequest->head);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -394,9 +387,8 @@ anyType(JobError*)
 			                          .MIMEType = MIME_TYPE_TEXT,
 			                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 
-		httpResponseAdjustToRequestMethod(&toSend, httpRequest->head.requestLine.method);
-
-		int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+		int result = sendHTTPMessageToConnectionAdvanced(descriptor, toSend, send_settings,
+		                                                 httpRequest->head);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
