@@ -112,6 +112,6 @@ http_server_dep = declare_dependency(
 executable('server', files('src/main.c'), dependencies: [http_server_dep])
 
 
-if get_option('test')
+if get_option('tests')
     subdir('tests/unit')
 endif

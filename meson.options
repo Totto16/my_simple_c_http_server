@@ -14,8 +14,8 @@ option(
 )
 
 option(
-    'test',
+    'tests',
     type: 'boolean',
-    value: true,
+    value: false,
     description: 'also compile the tests',
 )

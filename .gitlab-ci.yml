@@ -54,7 +54,7 @@ test:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 g++-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config wget bzip2 libzstd-dev zlib1g-dev libbrotli-dev git patch --no-install-recommends -y
+        - apt-get install gcc-14 g++-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config wget bzip2 libzstd-dev zlib1g-dev libbrotli-dev git patch gcovr --no-install-recommends -y
         - export CC="gcc-14"
         - export CXX="g++-14"
         # install meson
@@ -66,13 +66,25 @@ test:
         # instal openssl 3
         - apt-get install openssl libssl-dev --no-install-recommends -y
     script:
+        # run ws tests
         - meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
         - meson compile -C build
         - ./build/server http 8080 -l trace &
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
         - wget http://localhost:8080/shutdown -O - -q
-        - meson test -C build --verbose
+        # run unit tests
+        - meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
+        - meson compile -C test_build
+        - meson test -C test_build --verbose
+        - ninja coverage -C test_build
+
     artifacts:
         name: "autobahn test results"
         paths:
-            - reports/servers/**
+            - ./reports/servers/**
+            - ./test_build/meson-logs/coverage.xml
+            - ./test_build/meson-logs/coveragereport/**
+        reports:
+            coverage_report:
+                coverage_format: cobertura
+                path: /test_build/meson-logs/coverage.xml
