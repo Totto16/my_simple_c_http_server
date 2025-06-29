@@ -4,7 +4,24 @@ set -eux
 
 pypy -m pip install typing
 
-ln -s "$(which "$CC")" /usr/bin/cc
+# gitlab vs github CI
+
+sudo_wrapper() {
+    "$@"
+}
+
+# Set SUDO to "sudo" if it's available, else to an empty string
+if command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+else
+    SUDO="sudo_wrapper"
+fi
+
+if [ -z "$CC" ]; then
+    export CC="$GCC"
+fi
+
+"$SUDO" ln -s "$(which "$CC")" /usr/bin/cc
 
 DPKG_ARCH="$(dpkg --print-architecture)"
 case "${DPKG_ARCH##*-}" in
