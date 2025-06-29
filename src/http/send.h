@@ -7,6 +7,7 @@
 
 typedef struct {
 	SizedBuffer body;
+	bool sendBodyData;
 } HTTPResponseBody;
 
 typedef STBDS_ARRAY(HttpHeaderField) HttpHeaderFields;

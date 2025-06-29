@@ -185,6 +185,11 @@ NODISCARD static HttpResponse* constructHttpResponse(HTTPResponseToSend toSend,
 		return NULL;
 	}
 
+	if(!toSend.body.sendBodyData) {
+		freeSizedBuffer(response->body);
+		response->body = (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
 	// for that the body has to be malloced
 	// finally retuning the malloced httpResponse
 	return response;
@@ -217,29 +222,20 @@ int sendHTTPMessageToConnection(const ConnectionDescriptor* const descriptor,
 	return sendMessageToConnection(descriptor, toSend, send_settings);
 }
 
-static void httpResponseAdjustToRequestMethod(HTTPResponseToSend* responsePtr,
-                                              HTTPRequestMethod method) {
-
-	if(method == HTTPRequestMethodHead) {
-		responsePtr->MIMEType = NULL;
-		freeSizedBuffer(responsePtr->body.body);
-		responsePtr->body = httpResponseBodyEmpty();
-	}
-}
-
 NODISCARD int sendHTTPMessageToConnectionAdvanced(const ConnectionDescriptor* descriptor,
                                                   HTTPResponseToSend toSend,
                                                   SendSettings send_settings,
                                                   HttpRequestHead request_head) {
 
-	httpResponseAdjustToRequestMethod(&toSend, request_head.requestLine.method);
+	if(request_head.requestLine.method == HTTPRequestMethodHead) {
+		toSend.body.sendBodyData = false;
+	}
 
 	return sendHTTPMessageToConnection(descriptor, toSend, send_settings);
 }
 
 NODISCARD HTTPResponseBody httpResponseBodyFromStaticString(const char* static_string) {
 	char* mallocedString = normalStringToMalloced(static_string);
-	;
 
 	return httpResponseBodyFromString(mallocedString);
 }
@@ -256,9 +252,11 @@ NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder* stri
 }
 
 NODISCARD HTTPResponseBody httpResponseBodyFromData(void* data, size_t size) {
-	return (HTTPResponseBody){ .body = (SizedBuffer){ .data = data, .size = size } };
+	return (HTTPResponseBody){ .body = (SizedBuffer){ .data = data, .size = size },
+		                       .sendBodyData = true };
 }
 
 NODISCARD HTTPResponseBody httpResponseBodyEmpty(void) {
-	return (HTTPResponseBody){ .body = (SizedBuffer){ .data = NULL, .size = 0 } };
+	return (HTTPResponseBody){ .body = (SizedBuffer){ .data = NULL, .size = 0 },
+		                       .sendBodyData = true };
 }
