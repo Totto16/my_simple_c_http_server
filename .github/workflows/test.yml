@@ -48,6 +48,7 @@ jobs:
               run: |
                   ./tests/autobahn/install_pypy2.sh
                   ./tests/autobahn/install_autobahn.sh
+                  sudo apt-get install openssl libssl-dev --no-install-recommends -y
 
             - name: Configure
               run: meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
