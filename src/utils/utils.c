@@ -3,10 +3,11 @@
 #include "utils/utils.h"
 #include "utils/log.h"
 
+#include <errno.h>
 #include <math.h>
 #include <stdint.h>
-
-#include <errno.h>
+#include <sys/random.h>
+#include <time.h>
 
 // simple malloc Wrapper, using also memset to set everything to 0
 void* mallocWithMemset(const size_t size, const bool initializeWithZeros) {
@@ -128,4 +129,25 @@ NODISCARD float parseFloat(char* value) {
 
 void freeSizedBuffer(SizedBuffer buffer) {
 	free(buffer.data);
+}
+
+NODISCARD uint32_t get_random_bytes(void) {
+#ifdef __APPLE__
+	srandom(time(NULL));
+	uint32_t random_bytes = random();
+#else
+	uint32_t random_bytes = 0;
+	ssize_t result = getrandom((uint8_t*)(&random_bytes), sizeof(uint32_t), 0);
+	if(result != sizeof(uint32_t)) {
+		if(result < 0) {
+			LOG_MESSAGE(LogLevelWarn, "Get random failed: %s\n", strerror(errno));
+		}
+
+		unsigned int seed = time(NULL);
+
+		// use rand_r like normal rand:
+		random_bytes = rand_r(&seed);
+	}
+#endif
+	return random_bytes;
 }

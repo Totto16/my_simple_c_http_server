@@ -147,3 +147,5 @@ void freeSizedBuffer(SizedBuffer buffer);
 			stbds_arrfree(ARRAY); \
 		} \
 	} while(false)
+
+NODISCARD uint32_t get_random_bytes(void);
