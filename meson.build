@@ -47,6 +47,12 @@ if brotli_dep.found()
     compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_BR'
 endif
 
+zstd_dep = dependency('libzstd', required: false)
+
+if zstd_dep.found()
+    deps += zstd_dep
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD'
+endif
 
 
 deps += dependency(

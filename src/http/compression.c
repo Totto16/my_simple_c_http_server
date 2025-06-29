@@ -11,7 +11,7 @@
 #include <brotli/encode.h>
 #endif
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
-#error "TODO"
+#include <zstd.h>
 #endif
 
 bool is_compressions_supported(COMPRESSION_TYPE format) {
@@ -163,21 +163,21 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 	if(!state) {
 		LOG_MESSAGE_SIMPLE(
 		    LogLevelError,
-		    "An error in brotli compression initiliaization occured: failed to initialize state");
+		    "An error in brotli compression initiliaization occured: failed to initialize state\n");
 
 		return SIZED_BUFFER_ERROR;
 	}
 
 	if(!BrotliEncoderSetParameter(state, BROTLI_PARAM_QUALITY, BROTLI_QUALITY)) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "An error in brotli compression initiliaization occured: "
-		                                  "failed to set parameter quality");
+		                                  "failed to set parameter quality\n");
 
 		return SIZED_BUFFER_ERROR;
 	};
 
 	if(!BrotliEncoderSetParameter(state, BROTLI_PARAM_LGWIN, BROTLI_WINDOW_SIZE)) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "An error in brotli compression initiliaization occured: "
-		                                  "failed to set parameter sliding window size");
+		                                  "failed to set parameter sliding window size\n");
 
 		return SIZED_BUFFER_ERROR;
 	}; // 0-11
@@ -237,6 +237,84 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 	}
 
 	BrotliEncoderDestroyInstance(state);
+	return resultBuffer;
+}
+#endif
+
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
+
+#define ZSTD_COMPRESSION_LEVEL 10 // 1-22
+
+#define ZSTD_CHUNK_SIZE 15 // not a windows size, just the chunk size
+
+static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
+
+	ZSTD_CStream* stream = ZSTD_createCStream();
+
+	if(!stream) {
+		LOG_MESSAGE_SIMPLE(
+		    LogLevelError,
+		    "An error in zstd compression initiliaization occured: failed to initialize state\n");
+
+		return SIZED_BUFFER_ERROR;
+	}
+
+	const size_t initResult = ZSTD_initCStream(stream, ZSTD_COMPRESSION_LEVEL);
+	if(ZSTD_isError(initResult)) {
+		LOG_MESSAGE(LogLevelError, "An error in zstd compression initiliaization occured: %s\n",
+		            ZSTD_getErrorName(initResult));
+
+		ZSTD_freeCStream(stream);
+		return SIZED_BUFFER_ERROR;
+	}
+
+	ZSTD_inBuffer inputBuffer = { .src = buffer.data, .size = buffer.size, .pos = 0 };
+
+	const size_t chunk_size = (1 << ZSTD_CHUNK_SIZE);
+
+	void* start_chunk = malloc(chunk_size);
+	if(!start_chunk) {
+		ZSTD_freeCStream(stream);
+		return SIZED_BUFFER_ERROR;
+	}
+
+	SizedBuffer resultBuffer = { .data = start_chunk, .size = 0 };
+
+	ZSTD_outBuffer outBuffer = { .dst = resultBuffer.data, .size = chunk_size, .pos = 0 };
+
+	while(true) {
+		ZSTD_EndDirective operation =
+		    inputBuffer.pos != inputBuffer.size ? ZSTD_e_flush : ZSTD_e_end;
+
+		const size_t ret = ZSTD_compressStream2(stream, &outBuffer, &inputBuffer, operation);
+
+		if(ZSTD_isError(ret)) {
+			LOG_MESSAGE(LogLevelError, "An error in zstd compression processing occured: %s\n",
+			            ZSTD_getErrorName(initResult));
+
+			ZSTD_freeCStream(stream);
+			return SIZED_BUFFER_ERROR;
+		}
+
+		resultBuffer.size = outBuffer.pos;
+
+		if(outBuffer.size == outBuffer.pos) {
+			void* new_chunk = realloc(resultBuffer.data, resultBuffer.size + chunk_size);
+			resultBuffer.data = new_chunk;
+
+			outBuffer.size += chunk_size;
+		}
+
+		if(operation != ZSTD_e_end) {
+			continue;
+		}
+
+		if(inputBuffer.pos == inputBuffer.size) {
+			break;
+		}
+	}
+
+	ZSTD_freeCStream(stream);
 	return resultBuffer;
 }
 #endif
