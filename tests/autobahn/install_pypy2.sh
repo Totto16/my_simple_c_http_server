@@ -66,14 +66,14 @@ pypy --version
 
 "$SUDO" apt-mark auto '.*' >/dev/null
 # shellcheck disable=SC2086
-[ -z "$savedAptMark" ] || apt-mark manual $savedAptMark >/dev/null
+[ -z "$savedAptMark" ] || "$SUDO" apt-mark manual $savedAptMark >/dev/null
 find /opt/pypy -type f -executable -exec ldd '{}' ';' |
     awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' |
     sort -u |
     xargs -r dpkg-query --search |
     cut -d: -f1 |
     sort -u |
-    xargs -r apt-mark manual \
+    xargs -r "$SUDO" apt-mark manual \
     ;
 
 "$SUDO" apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
