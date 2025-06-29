@@ -365,6 +365,7 @@ NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, COMPRESSION_TYPE 
 #endif
 		};
 		default: {
+			UNUSED(buffer);
 			return SIZED_BUFFER_ERROR;
 		}
 	}
