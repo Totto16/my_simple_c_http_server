@@ -3,6 +3,7 @@
 
 #include "./send.h"
 #include "./server.h"
+#include "generic/helper.h"
 #include "generic/read.h"
 #include "generic/secure.h"
 #include "generic/signal_fd.h"
@@ -71,6 +72,13 @@ anyType(JobError*)
 		free(thread_name_buffer); \
 		free(argument); \
 	} while(false)
+
+	bool sig_result = setup_sigpipe_signal_handler();
+
+	if(!sig_result) {
+		FREE_AT_END();
+		return NULL;
+	}
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
 
