@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # from https://github.com/docker-library/pypy/blob/master/2.7/bookworm/Dockerfile
+# modified for ci runs, not docker images
 
 set -eux
 set -o pipefail
@@ -43,8 +44,19 @@ else
     SUDO="sudo_wrapper"
 fi
 
-savedAptMark="$(apt-mark showmanual)"
+
 "$SUDO" apt-get update
+
+# install needed things, install before saveing savedAptMark 
+"$SUDO" apt-get install -y --no-install-recommends \
+    wget \
+    ca-certificates \
+    bzip2
+
+savedAptMark="$(apt-mark showmanual)"
+
+"$SUDO" apt-get update
+
 # sometimes "pypy" itself is linked against libexpat1 / libncurses5, sometimes they're ".so" files in "/opt/pypy/lib_pypy"
 "$SUDO" apt-get install -y --no-install-recommends \
     libexpat1 \
@@ -68,14 +80,15 @@ pypy --version
 "$SUDO" apt-mark auto '.*' >/dev/null
 # shellcheck disable=SC2086
 [ -z "$savedAptMark" ] || "$SUDO" apt-mark manual $savedAptMark >/dev/null
-find /opt/pypy -type f -executable -exec ldd '{}' ';' |
-    awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' |
-    sort -u |
-    xargs -r dpkg-query --search |
-    cut -d: -f1 |
-    sort -u |
-    xargs -r "$SUDO" apt-mark manual \
-    ;
+
+set +o pipefail
+
+TO_MARK_MANUAL="$(find /opt/pypy -type f -executable -exec ldd '{}' ';' | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' | sort -u | xargs -r dpkg-query --search | cut -d: -f1 | sort -u)"
+
+set -o pipefail
+
+# shellcheck disable=SC2086
+"$SUDO" apt-mark manual $TO_MARK_MANUAL >/dev/null
 
 "$SUDO" apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
 
