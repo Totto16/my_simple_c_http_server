@@ -49,10 +49,10 @@ case "${DPKG_ARCH##*-}" in
 esac
 
 wget -O libssl-dev_1.1.1f.deb "$url" --progress=dot:giga
-dpkg -i libssl-dev_1.1.1f.deb
+"$SUDO" dpkg -i libssl-dev_1.1.1f.deb
 
 wget -O libssl-dev_1.1.1f-dev.deb "$dev_url" --progress=dot:giga
-dpkg -i libssl-dev_1.1.1f-dev.deb
+"$SUDO" dpkg -i libssl-dev_1.1.1f-dev.deb
 
 pypy -m pip install typing pyopenssl==21.0.0
 
