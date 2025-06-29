@@ -29,10 +29,23 @@ case "${DPKG_ARCH##*-}" in
     ;;
 esac
 
+# gitlab vs github CI
+
+sudo_wrapper() {
+    "$@"
+}
+
+# Set SUDO to "sudo" if it's available, else to an empty string
+if command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+else
+    SUDO="sudo_wrapper"
+fi
+
 savedAptMark="$(apt-mark showmanual)"
-apt-get update
+"$SUDO" apt-get update
 # sometimes "pypy" itself is linked against libexpat1 / libncurses5, sometimes they're ".so" files in "/opt/pypy/lib_pypy"
-apt-get install -y --no-install-recommends \
+"$SUDO" apt-get install -y --no-install-recommends \
     libexpat1 \
     libncurses6 \
     libncursesw6 \
@@ -52,7 +65,7 @@ ln -sv '/opt/pypy/bin/pypy' /usr/local/bin/
 pypy --version
 
 apt-mark auto '.*' >/dev/null
-[ -z "$savedAptMark" ] || apt-mark manual $savedAptMark >/dev/null
+[ -z "$savedAptMark" ] || apt-mark manual "$savedAptMark" >/dev/null
 find /opt/pypy -type f -executable -exec ldd '{}' ';' |
     awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' |
     sort -u |
@@ -62,7 +75,7 @@ find /opt/pypy -type f -executable -exec ldd '{}' ';' |
     xargs -r apt-mark manual \
     ;
 
-apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+"$SUDO" apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
 
 # smoke test again, to be sure
 pypy --version
