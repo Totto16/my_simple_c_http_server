@@ -4,3 +4,11 @@ option(
     value: 'auto',
     description: 'support secure connections (https / wss / ftps)',
 )
+
+option(
+    'compression_features',
+    type: 'array',
+    value: [],
+    choices: ['zstd', 'br', 'deflate', 'gzip'],
+    description: 'specify compression features, that need to be present',
+)

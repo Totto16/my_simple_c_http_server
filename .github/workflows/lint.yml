@@ -32,7 +32,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install ninja-build openssl libssl-dev -y --no-install-recommends
 
-          meson setup build -Dbuildtype=release -Dsecure=enabled
+          meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
 
       - uses: cpp-linter/cpp-linter-action@v2
         id: linter

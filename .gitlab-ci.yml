@@ -17,11 +17,11 @@ compile_clang:
         # install meson
         - pip install meson --break-system-packages
     script:
-        - meson setup build -Dbuildtype=release -Dsecure=enabled
+        - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
-        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled
+        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip
         - meson compile -C build_no_secure
 
 compile_gcc:
@@ -35,11 +35,11 @@ compile_gcc:
         # install meson
         - pip install meson --break-system-packages
     script:
-        - meson setup build -Dbuildtype=release -Dsecure=enabled
+        - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
-        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled
+        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip
         - meson compile -C build_no_secure
 
 test:
@@ -63,7 +63,7 @@ test:
         # instal openssl 3
         - apt-get install openssl libssl-dev --no-install-recommends -y
     script:
-        - meson setup build -Dbuildtype=debug -Dsecure=enabled
+        - meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
         - meson compile -C build
         - ./build/server http 8080 -l trace &
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"

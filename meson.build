@@ -32,7 +32,24 @@ else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
 endif
 
-zlib_dep = dependency('zlib', required: false)
+compression_features_dict = {
+    'zstd': false,
+    'br': false,
+    'deflate': false,
+    'gzip': false,
+}
+
+compression_features = get_option('compression_features')
+
+foreach compression_feature : compression_features
+    compression_features_dict = compression_features_dict + {
+        compression_feature: true,
+    }
+endforeach
+
+
+zlib_dep = dependency('zlib', required: compression_features_dict['zstd'] or compression_features_dict['deflate'
+])
 
 if zlib_dep.found()
     deps += zlib_dep
@@ -40,14 +57,18 @@ if zlib_dep.found()
     compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE'
 endif
 
-brotli_dep = dependency('brotli', 'libbrotlienc', required: false)
+brotli_dep = dependency(
+    'brotli',
+    'libbrotlienc',
+    required: compression_features_dict['br'],
+)
 
 if brotli_dep.found()
     deps += brotli_dep
     compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_BR'
 endif
 
-zstd_dep = dependency('libzstd', required: false)
+zstd_dep = dependency('libzstd', required: compression_features_dict['zstd'])
 
 if zstd_dep.found()
     deps += zstd_dep

@@ -102,7 +102,7 @@ jobs:
                   brew install openssl@3.0
 
             - name: Configure
-              run: meson setup build -Dbuildtype=release -Dsecure=enabled
+              run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
 
             - name: Build
               run: meson compile -C build
