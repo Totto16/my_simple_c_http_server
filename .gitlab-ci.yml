@@ -8,7 +8,7 @@ compile_clang:
     before_script:
         # install other dependencies
         - apt-get update
-        - apt-get install ninja-build wget lsb-release wget software-properties-common gnupg python3-pip pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev --no-install-recommends -y
+        - apt-get install ninja-build wget lsb-release wget software-properties-common gnupg python3-pip pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch --no-install-recommends -y
         # install clang
         - wget https://apt.llvm.org/llvm.sh
         - chmod +x llvm.sh
@@ -30,7 +30,7 @@ compile_gcc:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev --no-install-recommends -y
+        - apt-get install gcc-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch --no-install-recommends -y
         - export CC="gcc-14"
         # install meson
         - pip install meson --break-system-packages
