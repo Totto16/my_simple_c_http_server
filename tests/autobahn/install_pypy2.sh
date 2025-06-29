@@ -3,6 +3,7 @@
 # from https://github.com/docker-library/pypy/blob/master/2.7/bookworm/Dockerfile
 
 set -eux
+set -o pipefail
 
 export PATH="/opt/pypy/bin:$PATH"
 

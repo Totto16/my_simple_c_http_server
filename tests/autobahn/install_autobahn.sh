@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -eux
+set -o pipefail
 
 pypy -m pip install typing
 
@@ -17,7 +18,7 @@ else
     SUDO="sudo_wrapper"
 fi
 
-if [ -z "$CC" ]; then
+if [ -z "${CC:-}" ]; then
     export CC="$GCC"
 fi
 
