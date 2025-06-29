@@ -40,7 +40,7 @@ static HTTPResponseToSend static_executor_fn() {
 	return result;
 }
 
-// TODO: actually make this radnom, but for now it works also like that
+// TODO: actually make this random, but for now it works also like that
 static void add_random_json_object(StringBuilder* stringBuilder) {
 
 	string_builder_append_single(
@@ -58,7 +58,8 @@ static HTTPResponseToSend huge_executor_fn() {
 	string_builder_append_single(huge_string_builder, "[");
 
 	// for compression tests, has to be at least  1 MB big, so that it can be tested accordingly
-	size_t minimumSize = 1 << 20;
+	size_t minimumSize =
+	    1 << 20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	while(huge_string_builder->currentSize < minimumSize) {
 		add_random_json_object(huge_string_builder);
@@ -112,12 +113,13 @@ HTTPRoutes get_default_routes(void) {
 
 		// ws
 
-		HTTPRoute ws = { .method = HTTPRequestRouteMethodGet,
-			             .path = "/ws",
-			             .data = (HTTPRouteData){ .type = HTTPRouteTypeSpecial,
-			                                      .data = { .special = HTTPRouteSpecialDataWs } } };
+		HTTPRoute wsRoute = { .method = HTTPRequestRouteMethodGet,
+			                  .path = "/ws",
+			                  .data = (HTTPRouteData){
+			                      .type = HTTPRouteTypeSpecial,
+			                      .data = { .special = HTTPRouteSpecialDataWs } } };
 
-		stbds_arrput(routes, ws);
+		stbds_arrput(routes, wsRoute);
 	}
 
 	{
@@ -284,7 +286,7 @@ NODISCARD int route_manager_execute_route(HTTPRouteFn route,
 			break;
 		}
 		default: {
-			return -11;
+			return -11; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			break;
 		}
 	}

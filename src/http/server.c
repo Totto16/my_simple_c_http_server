@@ -305,7 +305,10 @@ anyType(JobError*)
 							break;
 						}
 						default: {
-							result = -10;
+							// TODO(Totto): refactor all these arbitrary -<int> error numbers into
+							// some error enum, e.g also -11
+							result =
+							    -10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 							break;
 						}
 					}
@@ -655,6 +658,11 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	WebSocketThreadManager* webSocketManager = initialize_thread_manager();
 
 	if(!webSocketManager) {
+		for(size_t i = 0; i < pool.workerThreadAmount; ++i) {
+			free_connection_context(contexts[i]);
+		}
+		free((void*)contexts);
+
 		return EXIT_FAILURE;
 	}
 
@@ -663,6 +671,15 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	RouteManager* routeManager = initialize_route_manager(default_routes);
 
 	if(!routeManager) {
+		for(size_t i = 0; i < pool.workerThreadAmount; ++i) {
+			free_connection_context(contexts[i]);
+		}
+		free((void*)contexts);
+
+		if(!free_thread_manager(webSocketManager)) {
+			return EXIT_FAILURE;
+		}
+
 		return EXIT_FAILURE;
 	}
 

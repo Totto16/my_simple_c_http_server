@@ -204,7 +204,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 // simple helper for getting the status Message for a special status code, all from the spec for
 // http 1.1 implemented (not in the spec e.g. 418)
 const char* getStatusMessage(HTTP_STATUS_CODES statusCode) {
-	const char* result = "NOT SUPPORTED STATUS CODE";
+	const char* result = "NOT SUPPORTED STATUS CODE"; // NOLINT(clang-analyzer-deadcode.DeadStores)
 	// according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 	switch(statusCode) {
 		case HTTP_STATUS_CONTINUE: result = "Continue"; break;
@@ -269,55 +269,55 @@ NODISCARD static HttpHeaderField* find_header_by_key(HttpHeaderFields array, con
 	return NULL;
 }
 
-static COMPRESSION_TYPE parse_compression_type(char* compression_name, bool* ok) {
+static COMPRESSION_TYPE parse_compression_type(char* compression_name, bool* ok_result) {
 	if(strcmp(compression_name, "gzip") == 0) {
-		*ok = true;
+		*ok_result = true;
 		return COMPRESSION_TYPE_GZIP;
 	}
 
 	if(strcmp(compression_name, "deflate") == 0) {
-		*ok = true;
+		*ok_result = true;
 		return COMPRESSION_TYPE_DEFLATE;
 	}
 
 	if(strcmp(compression_name, "br") == 0) {
-		*ok = true;
+		*ok_result = true;
 		return COMPRESSION_TYPE_BR;
 	}
 
 	if(strcmp(compression_name, "zstd") == 0) {
-		*ok = true;
+		*ok_result = true;
 		return COMPRESSION_TYPE_ZSTD;
 	}
 
 	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %s\n", compression_name);
 
-	*ok = false;
+	*ok_result = false;
 	return COMPRESSION_TYPE_NONE;
 }
 
-static CompressionValue parse_compression_value(char* compression_name, bool* ok) {
+static CompressionValue parse_compression_value(char* compression_name, bool* ok_result) {
 
 	if(strcmp(compression_name, "*") == 0) {
-		*ok = true;
+		*ok_result = true;
 		return (CompressionValue){ .type = CompressionValueType_ALL_ENCODINGS };
 	}
 
 	if(strcmp(compression_name, "identity") == 0) {
-		*ok = true;
+		*ok_result = true;
 		return (CompressionValue){ .type = CompressionValueType_NO_ENCODING };
 	}
 
 	CompressionValue result = { .type = CompressionValueType_NORMAL_ENCODING };
 
-	COMPRESSION_TYPE type = parse_compression_type(compression_name, ok);
+	COMPRESSION_TYPE type = parse_compression_type(compression_name, ok_result);
 
-	if(!(*ok)) {
+	if(!(*ok_result)) {
 		return result;
 	}
 
 	result.data.normal_compression = type;
-	*ok = true;
+	*ok_result = true;
 
 	return result;
 }
@@ -385,10 +385,10 @@ static CompressionSettings* getCompressionSettings(HttpRequest* httpRequest) {
 				}
 			}
 
-			bool ok = true;
-			CompressionValue comp_value = parse_compression_value(compression_name, &ok);
+			bool ok_result = true;
+			CompressionValue comp_value = parse_compression_value(compression_name, &ok_result);
 
-			if(ok) {
+			if(ok_result) {
 				entry.value = comp_value;
 
 				stbds_arrput(compressionSettings->entries, entry);
@@ -479,7 +479,9 @@ static int compare_function_entries(const anyType(CompressionEntry) _entry1,
 	// note weight is between 0.0 and 1.0
 
 	if(entry1->weight != entry2->weight) {
-		return (int)((entry1->weight - entry2->weight) * 10000.0f);
+		return (
+		    int)((entry1->weight - entry2->weight) *
+		         10000.0F); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	return 0;

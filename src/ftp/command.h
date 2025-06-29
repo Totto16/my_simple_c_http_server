@@ -81,10 +81,10 @@ typedef STBDS_ARRAY(FTPCommand*) FTPCommandArray;
 
 NODISCARD FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands);
 
-void freeFTPCommand(FTPCommand*);
+void freeFTPCommand(FTPCommand* cmd);
 
-void freeFTPCommandArray(FTPCommandArray);
+void freeFTPCommandArray(FTPCommandArray array);
 
-NODISCARD const char* get_command_name(const FTPCommand*);
+NODISCARD const char* get_command_name(const FTPCommand* command);
 
 NODISCARD FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg);

@@ -61,7 +61,9 @@ long parseLongSafely(const char* toParse, const char* description) {
 	// error
 	errno = 0;
 	// using strtol, string to long, since atoi doesn't report errors that well
-	long result = strtol(toParse, &endpointer, 10);
+	long result =
+	    strtol(toParse, &endpointer,
+	           10); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
 	if(*endpointer != '\0') {
@@ -117,9 +119,7 @@ NODISCARD float parseFloat(char* value) {
 	float result = strtof(value, &endpointer);
 
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
-	if(*endpointer != '\0') {
-		return NAN;
-	} else if(errno != 0) {
+	if(*endpointer != '\0' || errno != 0) {
 		return NAN;
 	}
 

@@ -17,7 +17,7 @@
 bool is_compressions_supported(COMPRESSION_TYPE format) {
 
 	switch(format) {
-		case COMPRESSION_TYPE_NONE: {
+		case COMPRESSION_TYPE_NONE: { // NOLINT(bugprone-branch-clone)
 			return true;
 		}
 		case COMPRESSION_TYPE_GZIP: {
@@ -73,15 +73,15 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 
 	SizedBuffer resultBuffer = { .data = start_chunk, .size = 0 };
 
-	z_stream zs = {};
-	zs.zalloc = Z_NULL;
-	zs.zfree = Z_NULL;
-	zs.opaque = Z_NULL;
+	z_stream zstream = {};
+	zstream.zalloc = Z_NULL;
+	zstream.zfree = Z_NULL;
+	zstream.opaque = Z_NULL;
 
-	zs.avail_in = buffer.size;
-	zs.next_in = (Bytef*)buffer.data;
-	zs.avail_out = chunk_size;
-	zs.next_out = (Bytef*)resultBuffer.data;
+	zstream.avail_in = buffer.size;
+	zstream.next_in = (Bytef*)buffer.data;
+	zstream.avail_out = chunk_size;
+	zstream.next_out = (Bytef*)resultBuffer.data;
 
 	int windowBits = Z_WINDOW_SIZE;
 
@@ -89,7 +89,7 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 		windowBits = windowBits | Z_GZIP_ENCODING;
 	}
 
-	int result = deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, windowBits,
+	int result = deflateInit2(&zstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, windowBits,
 	                          Z_MEMORY_USAGE_LEVEL, Z_DEFAULT_STRATEGY);
 
 	if(result != Z_OK) {
@@ -101,9 +101,9 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 	}
 
 	while(true) {
-		int deflateResult = deflate(&zs, Z_FINISH);
+		int deflateResult = deflate(&zstream, Z_FINISH);
 
-		resultBuffer.size += (chunk_size - zs.avail_out);
+		resultBuffer.size += (chunk_size - zstream.avail_out);
 
 		if(deflateResult == Z_STREAM_END) {
 			break;
@@ -113,8 +113,8 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 			void* new_chunk = realloc(resultBuffer.data, resultBuffer.size + chunk_size);
 			resultBuffer.data = new_chunk;
 
-			zs.avail_out = chunk_size;
-			zs.next_out = (Bytef*)new_chunk + resultBuffer.size;
+			zstream.avail_out = chunk_size;
+			zstream.next_out = (Bytef*)new_chunk + resultBuffer.size;
 			continue;
 		}
 
@@ -125,7 +125,7 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 		return SIZED_BUFFER_ERROR;
 	}
 
-	int deflateEndResult = deflateEnd(&zs);
+	int deflateEndResult = deflateEnd(&zstream);
 
 	if(deflateEndResult != Z_OK) {
 		LOG_MESSAGE(LogLevelError, "An error in gzip compression stream end occured: %s\n",
@@ -293,6 +293,7 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 			            ZSTD_getErrorName(initResult));
 
 			ZSTD_freeCStream(stream);
+			freeSizedBuffer(resultBuffer);
 			return SIZED_BUFFER_ERROR;
 		}
 

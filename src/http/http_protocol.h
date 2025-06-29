@@ -161,7 +161,7 @@ NODISCARD HttpRequestLine getRequestLineFromRawLine(HttpRawRequestLine line);
 void freeHttpRequest(HttpRequest* request);
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
 
-StringBuilder* httpRequestToStringBuilder(const HttpRequest* const request, bool https);
+StringBuilder* httpRequestToStringBuilder(const HttpRequest* request, bool https);
 
 // if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
 // strings, but keep in mind that you gave to use the given free method to free that properly,
@@ -228,8 +228,8 @@ void freeHttpResponse(HttpResponse* response);
 // really simple and dumb html boilerplate, this is used for demonstration purposes, and is static,
 // but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
 
-StringBuilder* httpRequestToJSON(const HttpRequest* const request, bool https,
+StringBuilder* httpRequestToJSON(const HttpRequest* request, bool https,
                                  SendSettings send_settings);
 
-StringBuilder* httpRequestToHtml(const HttpRequest* const request, bool https,
+StringBuilder* httpRequestToHtml(const HttpRequest* request, bool https,
                                  SendSettings send_settings);

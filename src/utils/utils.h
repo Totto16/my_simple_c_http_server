@@ -127,7 +127,7 @@ void* mallocWithMemset(size_t size, bool initializeWithZeros);
 void* reallocWithMemset(void* previousPtr, size_t oldSize, size_t newSize,
                         bool initializeWithZeros);
 
-NODISCARD char* copy_cstr(char*);
+NODISCARD char* copy_cstr(char* input);
 
 NODISCARD float parseFloat(char* value);
 

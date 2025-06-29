@@ -460,7 +460,7 @@ nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 		}
 	}
 
-	UNREACHABLE();
+	UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
 }
 
 NODISCARD static bool

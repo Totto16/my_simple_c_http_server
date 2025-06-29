@@ -10,9 +10,6 @@
 
 typedef struct RouteManagerImpl RouteManager;
 
-// TODO: support oute, that just returns a response, that are paramaters to
-// sendHTTPMessageToConnection, since thaht function needs to be refactored anyway!
-
 /**
  * @enum value
  */
@@ -88,14 +85,12 @@ typedef struct SelectedRouteImpl SelectedRoute;
 
 void free_selected_route(SelectedRoute* selected_route);
 
-NODISCARD SelectedRoute*
-route_manager_get_route_for_request(const RouteManager* const routerManager,
-                                    const HttpRequest* const request);
+NODISCARD SelectedRoute* route_manager_get_route_for_request(const RouteManager* routerManager,
+                                                             const HttpRequest* request);
 
-NODISCARD HTTPRouteData get_route_data(const SelectedRoute* const route);
+NODISCARD HTTPRouteData get_route_data(const SelectedRoute* route);
 
-NODISCARD int route_manager_execute_route(HTTPRouteFn route,
-                                          const ConnectionDescriptor* const descriptor,
+NODISCARD int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* descriptor,
                                           SendSettings send_settings,
-                                          const HttpRequest* const httpRequest,
-                                          const ConnectionContext* const context);
+                                          const HttpRequest* httpRequest,
+                                          const ConnectionContext* context);
