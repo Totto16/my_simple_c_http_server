@@ -7,21 +7,21 @@ set -eux
 export PATH="/opt/pypy/bin:$PATH"
 
 # Python 2.7.18
-PYPY_VERSION="7.3.17"
+PYPY_VERSION="7.3.19"
 
 DPKG_ARCH="$(dpkg --print-architecture)"
 case "${DPKG_ARCH##*-}" in
 'amd64')
-    url='https://downloads.python.org/pypy/pypy2.7-v7.3.17-linux64.tar.bz2'
-    sha256='9f3497f87b3372d17e447369e0016a4bec99a6b4d2a59aba774a25bfe4353474'
+    url='https://downloads.python.org/pypy/pypy2.7-v7.3.19-linux64.tar.bz2'
+    sha256='d38445508c2eaf14ebb380d9c1ded321c5ebeae31c7e66800173d83cb8ddf423'
     ;;
 'arm64')
-    url='https://downloads.python.org/pypy/pypy2.7-v7.3.17-aarch64.tar.bz2'
-    sha256='a8df5ce1650f4756933f8780870c91a0a40e7c9870d74629bf241392bcb5c2e3'
+    url='https://downloads.python.org/pypy/pypy2.7-v7.3.19-aarch64.tar.bz2'
+    sha256='fe89d4fd4af13f76dfe7315975003518cf176520e3ccec1544a88d174f50910e'
     ;;
 'i386')
-    url='https://downloads.python.org/pypy/pypy2.7-v7.3.17-linux32.tar.bz2'
-    sha256='a3aa0867cc837a34941047ece0fbb6ca190410fae6ad35fae4999d03bf178750'
+    url='https://downloads.python.org/pypy/pypy2.7-v7.3.19-linux32.tar.bz2'
+    sha256='cc52df02b6926bd8645c1651cd7f6637ce51c2f352d0fb3c6b9330d15194b409'
     ;;
 *)
     echo >&2 "error: current architecture ($DPKG_ARCH) does not have a corresponding PyPy $PYPY_VERSION binary release"
