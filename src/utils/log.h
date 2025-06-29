@@ -1,6 +1,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "utils/utils.h"
 #include <stdio.h>
 /**
@@ -42,8 +46,8 @@ bool log_should_use_color(void);
 bool has_flag(int flags, LogFlags needle);
 
 typedef struct {
-	int level;
-	int flags;
+	LogLevel level;
+	LogFlags flags;
 } LevelAndFlags;
 
 LevelAndFlags get_level_and_flags(int level_and_flags);
@@ -51,7 +55,7 @@ LevelAndFlags get_level_and_flags(int level_and_flags);
 #define LOG_MESSAGE(level_and_flags, msg, ...) \
 	do { \
 		LevelAndFlags destructured = get_level_and_flags(level_and_flags); \
-		int level = destructured.level; \
+		LogLevel level = destructured.level; \
 		int flags = destructured.flags; \
 		if(should_log(level)) { \
 			bool should_use_color = log_should_use_color(); \
@@ -90,3 +94,7 @@ void set_thread_name(const char* name);
 int parse_log_level(const char* level);
 
 const char* get_level_name(LogLevel level);
+
+#ifdef __cplusplus
+}
+#endif

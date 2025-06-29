@@ -2,6 +2,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 
 // needed h files
@@ -207,11 +211,13 @@ typedef struct {
 	COMPRESSION_TYPE compression_to_use;
 } SendSettings;
 
-RequestSettings* getRequestSettings(HttpRequest* httpRequest);
+NODISCARD CompressionSettings* getCompressionSettings(HttpHeaderFields headerFields);
+
+NODISCARD RequestSettings* getRequestSettings(HttpRequest* httpRequest);
 
 void freeRequestSettings(RequestSettings* requestSettings);
 
-SendSettings getSendSettings(RequestSettings* requestSettings);
+NODISCARD SendSettings getSendSettings(RequestSettings* requestSettings);
 
 typedef struct {
 	StringBuilder* headers;
@@ -233,3 +239,7 @@ StringBuilder* httpRequestToJSON(const HttpRequest* request, bool https,
 
 StringBuilder* httpRequestToHtml(const HttpRequest* request, bool https,
                                  SendSettings send_settings);
+
+#ifdef __cplusplus
+}
+#endif

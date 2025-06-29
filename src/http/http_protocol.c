@@ -270,11 +270,13 @@ NODISCARD static HttpHeaderField* find_header_by_key(HttpHeaderFields array, con
 }
 
 static COMPRESSION_TYPE parse_compression_type(char* compression_name, bool* ok_result) {
-	if(strcmp(compression_name, "gzip") == 0) {
+	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.3
+	if(strcmp(compression_name, "gzip") == 0 || strcmp(compression_name, "x-gzip") == 0) {
 		*ok_result = true;
 		return COMPRESSION_TYPE_GZIP;
 	}
 
+	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.2
 	if(strcmp(compression_name, "deflate") == 0) {
 		*ok_result = true;
 		return COMPRESSION_TYPE_DEFLATE;
@@ -290,6 +292,12 @@ static COMPRESSION_TYPE parse_compression_type(char* compression_name, bool* ok_
 		return COMPRESSION_TYPE_ZSTD;
 	}
 
+	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.1
+	if(strcmp(compression_name, "compress") == 0 || strcmp(compression_name, "x-compress") == 0) {
+		*ok_result = true;
+		return COMPRESSION_TYPE_COMPRESS;
+	}
+
 	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %s\n", compression_name);
 
 	*ok_result = false;
@@ -300,15 +308,15 @@ static CompressionValue parse_compression_value(char* compression_name, bool* ok
 
 	if(strcmp(compression_name, "*") == 0) {
 		*ok_result = true;
-		return (CompressionValue){ .type = CompressionValueType_ALL_ENCODINGS };
+		return (CompressionValue){ .type = CompressionValueType_ALL_ENCODINGS, .data = {} };
 	}
 
 	if(strcmp(compression_name, "identity") == 0) {
 		*ok_result = true;
-		return (CompressionValue){ .type = CompressionValueType_NO_ENCODING };
+		return (CompressionValue){ .type = CompressionValueType_NO_ENCODING, .data = {} };
 	}
 
-	CompressionValue result = { .type = CompressionValueType_NORMAL_ENCODING };
+	CompressionValue result = { .type = CompressionValueType_NORMAL_ENCODING, .data = {} };
 
 	COMPRESSION_TYPE type = parse_compression_type(compression_name, ok_result);
 
@@ -322,7 +330,7 @@ static CompressionValue parse_compression_value(char* compression_name, bool* ok
 	return result;
 }
 
-static CompressionSettings* getCompressionSettings(HttpRequest* httpRequest) {
+CompressionSettings* getCompressionSettings(HttpHeaderFields headerFields) {
 
 	CompressionSettings* compressionSettings =
 	    (CompressionSettings*)mallocWithMemset(sizeof(CompressionSettings), true);
@@ -335,8 +343,7 @@ static CompressionSettings* getCompressionSettings(HttpRequest* httpRequest) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
-	HttpHeaderField* acceptEncodingHeader =
-	    find_header_by_key(httpRequest->head.headerFields, "accept-encoding");
+	HttpHeaderField* acceptEncodingHeader = find_header_by_key(headerFields, "accept-encoding");
 
 	if(!acceptEncodingHeader) {
 		return compressionSettings;
@@ -375,7 +382,7 @@ static CompressionSettings* getCompressionSettings(HttpRequest* httpRequest) {
 				compression_weight = sub_index + 1;
 			}
 
-			CompressionEntry entry = { .weight = 1.0F };
+			CompressionEntry entry = { .value = {}, .weight = 1.0F };
 
 			if(compression_weight != NULL) {
 				float value = parseFloat(compression_weight);
@@ -383,6 +390,11 @@ static CompressionSettings* getCompressionSettings(HttpRequest* httpRequest) {
 				if(!isnan(value)) {
 					entry.weight = value;
 				}
+			}
+
+			// strip whitespace
+			while(isspace(*compression_name)) {
+				compression_name++;
 			}
 
 			bool ok_result = true;
@@ -431,7 +443,8 @@ RequestSettings* getRequestSettings(HttpRequest* httpRequest) {
 		return NULL;
 	}
 
-	CompressionSettings* compressionSettings = getCompressionSettings(httpRequest);
+	CompressionSettings* compressionSettings =
+	    getCompressionSettings(httpRequest->head.headerFields);
 
 	if(!compressionSettings) {
 		free(requestSettings);

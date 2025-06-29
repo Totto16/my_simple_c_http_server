@@ -13,6 +13,9 @@
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
 #include <zstd.h>
 #endif
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS
+#error "TODO"
+#endif
 
 bool is_compressions_supported(COMPRESSION_TYPE format) {
 
@@ -43,6 +46,13 @@ bool is_compressions_supported(COMPRESSION_TYPE format) {
 		}
 		case COMPRESSION_TYPE_ZSTD: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
+			return true;
+#else
+			return false;
+#endif
+		}
+		case COMPRESSION_TYPE_COMPRESS: {
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS
 			return true;
 #else
 			return false;
@@ -328,6 +338,7 @@ NODISCARD const char* get_string_for_compress_format(COMPRESSION_TYPE format) {
 		case COMPRESSION_TYPE_DEFLATE: return "deflate";
 		case COMPRESSION_TYPE_BR: return "br";
 		case COMPRESSION_TYPE_ZSTD: return "zstd";
+		case COMPRESSION_TYPE_COMPRESS: return "compress";
 		default: return "<unknown>";
 	}
 }
@@ -361,6 +372,13 @@ NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, COMPRESSION_TYPE 
 		case COMPRESSION_TYPE_ZSTD: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
 			return compress_buffer_with_zstd(buffer);
+#else
+			return SIZED_BUFFER_ERROR;
+#endif
+		};
+		case COMPRESSION_TYPE_COMPRESS: {
+#ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS
+			return compress_buffer_with_compress(buffer);
 #else
 			return SIZED_BUFFER_ERROR;
 #endif

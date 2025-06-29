@@ -8,16 +8,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if __STDC_VERSION__ >= 202000
-#define NODISCARD [[nodiscard]]
-
+#if _SIMPLE_SERVER_COMPILE_WITH_NARROWED_ENUMS
 #define C_23_NARROW_ENUM_TO(x) : x
 #else
+#define C_23_NARROW_ENUM_TO(x)
+#endif
 
+#if __STDC_VERSION__ >= 202000 || __cplusplus
+#define NODISCARD [[nodiscard]]
+#else
 // see e.g. https://www.gnu.org/software/gnulib/manual/html_node/Attributes.html
 #define NODISCARD __attribute__((__warn_unused_result__))
-
-#define C_23_NARROW_ENUM_TO(x)
 #endif
 
 #define UNUSED(v) ((void)(v))

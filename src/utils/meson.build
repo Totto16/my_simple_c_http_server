@@ -28,3 +28,10 @@ has_sys_sysinfo_header = cc.check_header('sys/sysinfo.h')
 if not has_sys_sysinfo_header
     compile_flags += '-D_DONT_HAVE_SYS_SYSINFO'
 endif
+
+stdc_version = cc.get_define('__STDC_VERSION__ ')
+stdc_version_int = stdc_version.replace('L', '').to_int()
+if stdc_version_int >= 202000
+    compile_flags += '-D_SIMPLE_SERVER_COMPILE_WITH_NARROWED_ENUMS'
+endif
+
