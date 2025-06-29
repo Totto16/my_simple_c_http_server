@@ -682,7 +682,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
 				ConnectionsToClose connections_to_close =
-				   data_connections_to_close(argument->data_controller);
+				    data_connections_to_close(argument->data_controller);
 
 				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
 					ConnectionDescriptor* connection_to_close = connections_to_close[i];
@@ -702,7 +702,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				// Wait for data connection
 
 				Time start_time;
-				bool clock_result =  get_monotonic_time(&start_time);
+				bool clock_result = get_monotonic_time(&start_time);
 
 				if(!clock_result) {
 					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
