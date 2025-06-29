@@ -40,6 +40,42 @@ static HTTPResponseToSend static_executor_fn() {
 	return result;
 }
 
+// TODO: actually make this radnom, but for now it works also like that
+static void add_random_json_object(StringBuilder* stringBuilder) {
+
+	string_builder_append_single(
+	    stringBuilder,
+	    "{\"key1\":1, \"key2thatisreallyLong\":[1,21,412,532,636,346,46,45,34,34,34,34,34,34,34] "
+	    "}");
+
+	//
+}
+
+static HTTPResponseToSend huge_executor_fn() {
+
+	StringBuilder* huge_string_builder = string_builder_init();
+
+	string_builder_append_single(huge_string_builder, "[");
+
+	// for compression tests, has to be at least  1 MB big, so that it can be tested accordingly
+	size_t minimumSize = 1 << 20;
+
+	while(huge_string_builder->currentSize < minimumSize) {
+		add_random_json_object(huge_string_builder);
+		string_builder_append_single(huge_string_builder, ",");
+	}
+
+	add_random_json_object(huge_string_builder);
+
+	string_builder_append_single(huge_string_builder, "]");
+
+	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+		                          .body = httpResponseBodyFromStringBuilder(huge_string_builder),
+		                          .MIMEType = MIME_TYPE_JSON,
+		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+	return result;
+}
+
 HTTPRoutes get_default_routes(void) {
 
 	HTTPRoutes routes = STBDS_ARRAY_EMPTY;
@@ -124,6 +160,21 @@ HTTPRoutes get_default_routes(void) {
 			                   .data = { .normal = (HTTPRouteFn){
 			                                 .type = HTTPRouteFnTypeExecutor,
 			                                 .fn = { .executor = static_executor_fn } } } } };
+
+		stbds_arrput(routes, json);
+	}
+
+	{
+
+		// huge
+
+		HTTPRoute json = { .method = HTTPRequestRouteMethodGet,
+			               .path = "/huge",
+			               .data = (HTTPRouteData){
+			                   .type = HTTPRouteTypeNormal,
+			                   .data = { .normal = (HTTPRouteFn){
+			                                 .type = HTTPRouteFnTypeExecutor,
+			                                 .fn = { .executor = huge_executor_fn } } } } };
 
 		stbds_arrput(routes, json);
 	}
@@ -238,7 +289,8 @@ NODISCARD int route_manager_execute_route(HTTPRouteFn route,
 		}
 	}
 
-	int result = sendHTTPMessageToConnectionAdvanced(descriptor, response, send_settings,httpRequest->head);
+	int result =
+	    sendHTTPMessageToConnectionAdvanced(descriptor, response, send_settings, httpRequest->head);
 
 	return result;
 }
