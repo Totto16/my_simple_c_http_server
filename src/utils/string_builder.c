@@ -95,8 +95,13 @@ char* string_builder_to_string_deprecated(StringBuilder* stringBuilder) {
 
 int string_builder_append_string_builder(StringBuilder* stringBuilder,
                                          StringBuilder* stringBuilder2) {
-	return __string_builder_append_string_impl(stringBuilder, stringBuilder2->data,
-	                                           stringBuilder2->currentSize);
+	int result = __string_builder_append_string_impl(stringBuilder, stringBuilder2->data,
+	                                                 stringBuilder2->currentSize);
+
+	stringBuilder2->data = NULL;
+	stringBuilder2->currentSize = 0;
+
+	return result;
 }
 
 char* string_builder_get_string_deprecated(StringBuilder* stringBuilder) {

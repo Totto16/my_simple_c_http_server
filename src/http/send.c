@@ -229,7 +229,10 @@ NODISCARD HTTPResponseBody httpResponseBodyFromString(char* string) {
 }
 
 NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder* stringBuilder) {
-	return httpResponseBodyFromData(stringBuilder->data, stringBuilder->currentSize);
+	HTTPResponseBody result =
+	    httpResponseBodyFromData(stringBuilder->data, stringBuilder->currentSize);
+	free(stringBuilder);
+	return result;
 }
 
 NODISCARD HTTPResponseBody httpResponseBodyFromData(void* data, size_t size) {
