@@ -380,7 +380,7 @@ static CompressionSettings* getCompressionSettings(HttpRequest* httpRequest) {
 			if(compression_weight != NULL) {
 				float value = parseFloat(compression_weight);
 
-				if(!isnanf(value)) {
+				if(!isnan(value)) {
 					entry.weight = value;
 				}
 			}
