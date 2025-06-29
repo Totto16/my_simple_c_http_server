@@ -14,6 +14,7 @@ compile_clang:
         - chmod +x llvm.sh
         - ./llvm.sh 20
         - export CC="clang-20"
+        - export CXX="clang++-20"
         # install meson
         - pip install meson --break-system-packages
     script:
@@ -30,8 +31,9 @@ compile_gcc:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch --no-install-recommends -y
+        - apt-get install gcc-14 g++-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch --no-install-recommends -y
         - export CC="gcc-14"
+        - export CXX="g++-14"
         # install meson
         - pip install meson --break-system-packages
     script:
@@ -52,8 +54,9 @@ test:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config wget bzip2 libzstd-dev zlib1g-dev libbrotli-dev --no-install-recommends -y
+        - apt-get install gcc-14 g++-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config wget bzip2 libzstd-dev zlib1g-dev libbrotli-dev git patch --no-install-recommends -y
         - export CC="gcc-14"
+        - export CXX="g++-14"
         # install meson
         - pip install meson --break-system-packages
         # install pypy2
@@ -68,6 +71,7 @@ test:
         - ./build/server http 8080 -l trace &
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
         - wget http://localhost:8080/shutdown -O - -q
+        - meson test -C build --verbose
     artifacts:
         name: "autobahn test results"
         paths:

@@ -61,6 +61,7 @@ jobs:
                   ./build/server http 8080 -l trace &
                   pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
                   wget http://localhost:8080/shutdown -O - -q
+                  meson test -C build --verbose
 
             - uses: actions/upload-artifact@v4
               with:
