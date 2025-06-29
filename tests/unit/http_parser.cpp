@@ -36,7 +36,7 @@ get_compression_setting_by_accept_encoding_header(const char* acceptEncodingValu
 		case CompressionValueType_ALL_ENCODINGS: return "'*'";
 		case CompressionValueType_NORMAL_ENCODING:
 			return compression_type_to_string(value.data.normal_compression);
-		default: assert("UNREACHABLE");
+		default: UNREACHABLE();
 	}
 }
 
