@@ -75,13 +75,12 @@ int string_builder_append_string_builder(StringBuilder* stringBuilder,
 		return -2;
 	}
 
-	SizedBuffer stringBuilder2Buffer = string_builder_get_sized_buffer(*stringBuilder2);
+	SizedBuffer stringBuilder2Buffer = string_builder_release_into_sized_buffer(stringBuilder2);
 
 	int result = string_builder_append_string_impl(stringBuilder, stringBuilder2Buffer.data,
 	                                               stringBuilder2Buffer.size);
 
-	free_string_builder(*stringBuilder2);
-	*stringBuilder2 = NULL;
+	freeSizedBuffer(stringBuilder2Buffer);
 
 	return result;
 }
@@ -96,25 +95,52 @@ NODISCARD char* string_builder_release_into_string(StringBuilder** stringBuilder
 		return NULL;
 	}
 
-	char* value = (*stringBuilder)->value;
+	// note, the stbds_array header is before this, so we need to duplicate the value only and free
+	// that array later
+	char* value = strdup((*stringBuilder)->value);
 
-	free(*stringBuilder);
+	free_string_builder(*stringBuilder);
 
 	*stringBuilder = NULL;
 
 	return value;
 }
 
-NODISCARD SizedBuffer string_builder_get_sized_buffer(StringBuilder* stringBuilder) {
+NODISCARD size_t string_builder_get_string_size(StringBuilder* stringBuilder) {
 
 	if(stringBuilder == NULL) {
-		return get_empty_sized_buffer();
+		return 0;
 	}
 
 	size_t current_size = stbds_arrlenu(stringBuilder->value);
 
 	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
-	return (SizedBuffer){ .data = stringBuilder->value, .size = current_string_size };
+	return current_string_size;
+}
+
+NODISCARD SizedBuffer string_builder_release_into_sized_buffer(StringBuilder** stringBuilder) {
+
+	if(stringBuilder == NULL) {
+		return get_empty_sized_buffer();
+	}
+
+	if(*stringBuilder == NULL) {
+		return get_empty_sized_buffer();
+	}
+
+	size_t current_size = stbds_arrlenu((*stringBuilder)->value);
+
+	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
+
+	// note, the stbds_array header is before this, so we need to duplicate the value only and free
+	// that array later
+	SizedBuffer result = { .data = strdup((*stringBuilder)->value), .size = current_string_size };
+
+	free_string_builder(*stringBuilder);
+
+	*stringBuilder = NULL;
+
+	return result;
 }
 
 // just free the stringbuilder and the associated string

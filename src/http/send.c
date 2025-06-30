@@ -5,7 +5,7 @@
 
 NODISCARD static int sendConcattedResponseToConnection(const ConnectionDescriptor* const descriptor,
                                                        HttpConcattedResponse* concattedResponse) {
-	int result = sendStringBuilderToConnection(descriptor, concattedResponse->headers);
+	int result = sendStringBuilderToConnection(descriptor, &concattedResponse->headers);
 	if(result < 0) {
 		return result;
 	}
@@ -244,11 +244,10 @@ NODISCARD HTTPResponseBody httpResponseBodyFromString(char* string) {
 	return httpResponseBodyFromData(string, strlen(string));
 }
 
-NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder* stringBuilder) {
-	SizedBuffer string_builder_buffer = string_builder_get_sized_buffer(stringBuilder);
+NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder** stringBuilder) {
+	SizedBuffer string_builder_buffer = string_builder_release_into_sized_buffer(stringBuilder);
 	HTTPResponseBody result =
 	    httpResponseBodyFromData(string_builder_buffer.data, string_builder_buffer.size);
-	free(stringBuilder);
 	return result;
 }
 

@@ -11,9 +11,11 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
                                                      const HttpRequest* const httpRequest,
                                                      const ConnectionContext* const context) {
 
+	StringBuilder* htmlStringBuilder =
+	    httpRequestToHtml(httpRequest, is_secure_context(context), send_settings);
+
 	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStringBuilder(httpRequestToHtml(
-		                              httpRequest, is_secure_context(context), send_settings)),
+		                          .body = httpResponseBodyFromStringBuilder(&htmlStringBuilder),
 		                          .MIMEType = MIME_TYPE_HTML,
 		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 	return result;
@@ -23,9 +25,11 @@ static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
                                                     const HttpRequest* const httpRequest,
                                                     const ConnectionContext* const context) {
 
+	StringBuilder* jsonStringBuilder =
+	    httpRequestToJSON(httpRequest, is_secure_context(context), send_settings);
+
 	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStringBuilder(httpRequestToJSON(
-		                              httpRequest, is_secure_context(context), send_settings)),
+		                          .body = httpResponseBodyFromStringBuilder(&jsonStringBuilder),
 		                          .MIMEType = MIME_TYPE_JSON,
 		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 	return result;
@@ -164,7 +168,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 	size_t minimumSize =
 	    1 << 20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	while(string_builder_get_sized_buffer(string_builder).size < minimumSize) {
+	while(string_builder_get_string_size(string_builder) < minimumSize) {
 		if(pretty) {
 			string_builder_append_single(string_builder, "\n");
 		}
@@ -193,7 +197,7 @@ static HTTPResponseToSend huge_executor_fn() {
 	StringBuilder* string_builder = get_random_json_string_builder(false);
 
 	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStringBuilder(string_builder),
+		                          .body = httpResponseBodyFromStringBuilder(&string_builder),
 		                          .MIMEType = MIME_TYPE_JSON,
 		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 	return result;
@@ -204,7 +208,7 @@ static HTTPResponseToSend huge_pretty_executor_fn() {
 	StringBuilder* string_builder = get_random_json_string_builder(true);
 
 	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStringBuilder(string_builder),
+		                          .body = httpResponseBodyFromStringBuilder(&string_builder),
 		                          .MIMEType = MIME_TYPE_JSON,
 		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 	return result;

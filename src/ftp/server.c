@@ -568,7 +568,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				string_builder_append(string_builder, return false;
 				                      , "%03d-Extensions supported:", FTP_RETURN_CODE_FEATURE_LIST);
-				int send_result = sendStringBuilderToConnection(descriptor, string_builder);
+				int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
 				if(send_result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending start feature response\n");
@@ -592,7 +592,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					string_builder_append(string_builder, return false;, " %s", feature.arguments);
 				}
 
-				int send_result = sendStringBuilderToConnection(descriptor, string_builder);
+				int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
 				if(send_result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending manual feature response\n");

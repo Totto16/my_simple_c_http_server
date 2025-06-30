@@ -39,7 +39,9 @@ int string_builder_append_single(StringBuilder* stringBuilder, const char* notMa
 
 NODISCARD char* string_builder_release_into_string(StringBuilder** stringBuilder);
 
-NODISCARD SizedBuffer string_builder_get_sized_buffer(StringBuilder* stringBuilder);
+NODISCARD size_t string_builder_get_string_size(StringBuilder* stringBuilder);
+
+NODISCARD SizedBuffer string_builder_release_into_sized_buffer(StringBuilder** stringBuilder);
 
 // free the stringbuilder
 void free_string_builder(StringBuilder* stringBuilder);

@@ -22,7 +22,7 @@ NODISCARD static int sendFTPMessageToConnectionMalloced( // NOLINT(misc-no-recur
 		string_builder_append(string_builder, return -3;, "%03d %s%s", status, body, separators);
 	}
 
-	int result = sendStringBuilderToConnection(descriptor, string_builder);
+	int result = sendStringBuilderToConnection(descriptor, &string_builder);
 
 	free(body);
 	return result;

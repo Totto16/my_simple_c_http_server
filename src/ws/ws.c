@@ -43,7 +43,7 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	stbds_arrput(additionalHeaders, connectionField);
 
 	HTTPResponseToSend toSend = { .status = HTTP_STATUS_UPGRADE_REQUIRED,
-		                          .body = httpResponseBodyFromStringBuilder(message),
+		                          .body = httpResponseBodyFromStringBuilder(&message),
 		                          .MIMEType = MIME_TYPE_TEXT,
 		                          .additionalHeaders = additionalHeaders };
 
@@ -68,7 +68,7 @@ NODISCARD static int sendFailedHandshakeMessage(const ConnectionDescriptor* cons
 	                      , "Error: The client handshake was invalid: %s", error_reason);
 
 	HTTPResponseToSend toSend = { .status = HTTP_STATUS_BAD_REQUEST,
-		                          .body = httpResponseBodyFromStringBuilder(message),
+		                          .body = httpResponseBodyFromStringBuilder(&message),
 		                          .MIMEType = MIME_TYPE_TEXT,
 		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
 

@@ -972,7 +972,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				return false;
 			}
 
-			int send_result = sendStringBuilderToConnection(descriptor, string_builder);
+			int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
 			if(send_result < 0) {
 				return false;
 			}

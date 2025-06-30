@@ -764,8 +764,5 @@ StringBuilder* httpRequestToHtml(const HttpRequest* const request, bool https,
 	            "window.addEventListener('DOMContentLoaded',requestShutdown);");
 
 	StringBuilder* htmlResult = htmlFromString(NULL, script, style, body);
-	free_string_builder(body);
-	free_string_builder(style);
-	free_string_builder(script);
 	return htmlResult;
 }
