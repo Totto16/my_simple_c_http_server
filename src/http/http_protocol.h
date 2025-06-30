@@ -2,12 +2,19 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 
 // needed h files
+#include "./compression.h"
 #include "utils/log.h"
+#include "utils/sized_buffer.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
+#include <stb/ds.h>
 
 // some Mime Type Definitons:
 
@@ -83,11 +90,38 @@ typedef struct {
 	char* value;
 } HttpHeaderField;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPRequestMethodInvalid = 0,
+	HTTPRequestMethodGet,
+	HTTPRequestMethodPost,
+	HTTPRequestMethodHead,
+	HTTPRequestMethodOptions,
+} HTTPRequestMethod;
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPProtocolVersionInvalid = 0,
+	HTTPProtocolVersion_1,
+	HTTPProtocolVersion_1_1,
+	HTTPProtocolVersion_2,
+} HTTPProtocolVersion;
+
+typedef struct {
+	char* URI;
+	HTTPRequestMethod method;
+	HTTPProtocolVersion protocolVersion;
+} HttpRequestLine;
+
 typedef struct {
 	char* method;
 	char* URI;
 	char* protocolVersion;
-} HttpRequestLine;
+} HttpRawRequestLine;
 
 typedef struct {
 	char* protocolVersion;
@@ -95,26 +129,26 @@ typedef struct {
 	char* statusMessage;
 } HttpResponseLine;
 
+typedef STBDS_ARRAY(HttpHeaderField) HttpHeaderFields;
+
 typedef struct {
+	HttpRawRequestLine rawRequestLine;
 	HttpRequestLine requestLine;
-	HttpHeaderField* headerFields;
-	size_t headerAmount;
+	HttpHeaderFields headerFields;
 } HttpRequestHead;
 
 typedef struct {
 	HttpResponseLine responseLine;
-	HttpHeaderField* headerFields;
-	size_t headerAmount;
+	HttpHeaderFields headerFields;
 } HttpResponseHead;
 
 typedef struct {
 	HttpRequestHead head;
 	char* body;
 } HttpRequest;
-
 typedef struct {
 	HttpResponseHead head;
-	char* body;
+	SizedBuffer body;
 } HttpResponse;
 
 /*
@@ -125,12 +159,14 @@ not the requirement of this task, it can parse all tested http requests in the r
 construct the responses correctly
 */
 
+NODISCARD HttpRequestLine getRequestLineFromRawLine(HttpRawRequestLine line);
+
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
 void freeHttpRequest(HttpRequest* request);
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
 
-StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https);
+StringBuilder* httpRequestToStringBuilder(const HttpRequest* request, bool https);
 
 // if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
 // strings, but keep in mind that you gave to use the given free method to free that properly,
@@ -139,20 +175,59 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
-const char* getStatusMessage(int statusCode);
+const char* getStatusMessage(HTTP_STATUS_CODES statusCode);
 
-// simple http Response constructor using string builder, headers can be NULL, when headerSize is
-// also null!
-HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
-                                               HttpHeaderField* additionalHeaders,
-                                               size_t headersSize, const char* MIMEType);
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	CompressionValueType_NO_ENCODING = 0,
+	CompressionValueType_ALL_ENCODINGS,
+	CompressionValueType_NORMAL_ENCODING,
+} CompressionValueType;
 
-// wrapper if no additionalHeaders are required
-HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType);
+typedef struct {
+	CompressionValueType type;
+	union {
+		COMPRESSION_TYPE normal_compression;
+	} data;
+} CompressionValue;
+
+typedef struct {
+	CompressionValue value;
+	float weight;
+} CompressionEntry;
+
+typedef STBDS_ARRAY(CompressionEntry) CompressionEntries;
+
+typedef struct {
+	CompressionEntries entries;
+} CompressionSettings;
+
+typedef struct {
+	CompressionSettings* compression_settings;
+} RequestSettings;
+
+typedef struct {
+	COMPRESSION_TYPE compression_to_use;
+} SendSettings;
+
+NODISCARD CompressionSettings* getCompressionSettings(HttpHeaderFields headerFields);
+
+NODISCARD RequestSettings* getRequestSettings(HttpRequest* httpRequest);
+
+void freeRequestSettings(RequestSettings* requestSettings);
+
+NODISCARD SendSettings getSendSettings(RequestSettings* requestSettings);
+
+typedef struct {
+	StringBuilder* headers;
+	SizedBuffer body;
+} HttpConcattedResponse;
 
 // makes a stringBuilder from the HttpResponse, just does the opposite of parsing A Request, but
 // with some slight modification
-StringBuilder* httpResponseToStringBuilder(HttpResponse* response);
+HttpConcattedResponse* httpResponseConcat(HttpResponse* response);
 
 // free the HttpResponse, just freeing everything necessary
 void freeHttpResponse(HttpResponse* response);
@@ -160,8 +235,12 @@ void freeHttpResponse(HttpResponse* response);
 // really simple and dumb html boilerplate, this is used for demonstration purposes, and is static,
 // but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
 
-char* htmlFromString(char* headContent, char* scriptContent, char* styleContent, char* bodyContent);
+StringBuilder* httpRequestToJSON(const HttpRequest* request, bool https,
+                                 SendSettings send_settings);
 
-char* httpRequestToJSON(HttpRequest* request, bool https);
+StringBuilder* httpRequestToHtml(const HttpRequest* request, bool https,
+                                 SendSettings send_settings);
 
-char* httpRequestToHtml(HttpRequest* request, bool https);
+#ifdef __cplusplus
+}
+#endif

@@ -1,0 +1,94 @@
+name: Test CI
+
+on:
+    push:
+        branches: ["main"]
+    pull_request:
+    workflow_dispatch:
+
+jobs:
+    build:
+        name: Test - ${{ matrix.config.name }}
+        runs-on: ${{ matrix.config.os }}-${{ matrix.config.os-version }}
+
+        strategy:
+            fail-fast: false
+            matrix:
+                config:
+                    - name: x86_64
+                      os: ubuntu
+                      os-version: 24.04
+
+                    - name: arm64
+                      os: ubuntu
+                      os-version: 24.04-arm
+
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: "0"
+
+            - name: Setup Clang
+              run: |
+                  wget https://apt.llvm.org/llvm.sh
+                  chmod +x llvm.sh
+                  sudo ./llvm.sh 20
+                  sudo apt-get install libc++-20* libc++abi*20* llvm-20 libclang-rt-20-dev -y --no-install-recommends
+                  echo "CC=clang-20" >> "$GITHUB_ENV"
+                  echo "CXX=clang++-20" >> "$GITHUB_ENV"
+
+            # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
+            - name: Setup meson
+              run: |
+                  pip install meson --break-system-packages
+
+            - name: Install dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 gcovr libgmp-dev -y --no-install-recommends
+
+            - name: Install pypy2 and autobahn
+              run: |
+                  export KEEP_AUTO_PACKAGES_INSTALLED="true" 
+                  ./tests/autobahn/install_pypy2.sh
+                  ./tests/autobahn/install_autobahn.sh
+                  sudo apt-get install openssl libssl-dev --no-install-recommends -y
+
+            - name: Configure
+              run: meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
+
+            - name: Build
+              run: meson compile -C build
+
+            - name: WS Tests
+              run: |
+                  ./build/server http 8080 -l trace &
+                  pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
+                  wget http://localhost:8080/shutdown -O - -q
+
+            - name: Unit Tests
+              run: |
+                  meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
+                  meson compile -C test_build
+                  meson test -C test_build --verbose
+                  ninja coverage -C test_build
+
+            - name: Create Coverage Report
+              uses: insightsengineering/coverage-action@v2
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  path: ./test_build/meson-logs/coverage.xml
+                  fail: false # TODO: enable after coverage is higher than 0.000001 % xD
+                  # Publish the rendered output as a PR comment
+                  publish: true
+                  coverage-summary-title: "Code Coverage Summary"
+                  togglable-report: true
+                  # TODO: use the diff feature of that later when we require test coverage on PR's to not go down
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: test results - ${{ matrix.config.name }}
+                  path: |
+                      ./reports/servers/**
+                      ./test_build/meson-logs/coverage.xml
+                      ./test_build/meson-logs/coveragereport/**

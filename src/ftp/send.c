@@ -17,12 +17,13 @@ NODISCARD static int sendFTPMessageToConnectionMalloced( // NOLINT(misc-no-recur
 	const char* const separators = "\r\n";
 
 	if(strlen(body) == 0) {
-		string_builder_append(string_builder, return -3;, "%03d%s", status, separators);
+		string_builder_append(string_builder, free(body); return -3;, "%03d%s", status, separators);
 	} else {
-		string_builder_append(string_builder, return -3;, "%03d %s%s", status, body, separators);
+		string_builder_append(string_builder, free(body); return -3;
+		                      , "%03d %s%s", status, body, separators);
 	}
 
-	int result = sendStringBuilderToConnection(descriptor, string_builder);
+	int result = sendStringBuilderToConnection(descriptor, &string_builder);
 
 	free(body);
 	return result;
@@ -34,15 +35,16 @@ int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, // NOLINT
 
 	if((FLAGS & CONNECTION_SEND_FLAGS_UN_MALLOCED) != 0) {
 		if(body) {
-			final_body = normalStringToMalloced(body);
+			final_body = strdup(body);
 		}
 	}
 
 	return sendFTPMessageToConnectionMalloced(descriptor, status, final_body);
 }
 
+// TODO(Totto): refactor ftp messages too, so that the return things ar epavcked into a structure
 int sendFTPMessageToConnectionSb(const ConnectionDescriptor* const descriptor,
                                  FTP_RETURN_CODE status, StringBuilder* body) {
-	return sendFTPMessageToConnection(descriptor, status, string_builder_to_string(body),
+	return sendFTPMessageToConnection(descriptor, status, string_builder_release_into_string(&body),
 	                                  CONNECTION_SEND_FLAGS_MALLOCED);
 }

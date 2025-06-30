@@ -352,16 +352,13 @@ NODISCARD static bool nts_internal_should_close_connection(DataConnection* conne
 	return false;
 }
 
-NODISCARD static ConnectionsToClose*
+NODISCARD static ConnectionsToClose
 nts_internal_data_connections_to_close(DataController* data_controller, DataConnection* filter) {
-	ConnectionsToClose* connections = (ConnectionsToClose*)malloc(sizeof(ConnectionsToClose));
+	ConnectionsToClose connections = STBDS_ARRAY_EMPTY;
 
 	if(!connections) {
 		goto cleanup;
 	}
-
-	connections->content = NULL;
-	connections->size = 0;
 
 	{
 
@@ -374,17 +371,6 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 			if(nts_internal_should_close_connection( // NOLINT(readability-implicit-bool-conversion)
 			       current_conn) &&
 			   (filter == NULL || current_conn == filter)) {
-
-				ARRAY_ADD_SLOT(ConnectionDescriptor*, new_descriptors, connections);
-
-				if(new_descriptors == NULL) {
-					FREE_ARRAY(connections);
-					free(connections);
-					connections = NULL;
-					goto cleanup;
-				}
-
-				connections->content = new_descriptors;
 
 				if(!current_conn->identifier.active) {
 					// dealloc port
@@ -409,7 +395,7 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 					}
 				}
 
-				new_descriptors[connections->size - 1] = current_conn->descriptor;
+				stbds_arrput(connections, current_conn->descriptor);
 			} else {
 
 				data_controller->connections[current_keep_index] = current_conn;
@@ -440,13 +426,13 @@ cleanup:
 	return connections;
 }
 
-ConnectionsToClose* data_connections_to_close(DataController* data_controller) {
+ConnectionsToClose data_connections_to_close(DataController* data_controller) {
 	int result = pthread_mutex_lock(&data_controller->mutex);
 	checkForThreadError(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
 	                    return NULL;);
 
-	ConnectionsToClose* connections = nts_internal_data_connections_to_close(data_controller, NULL);
+	ConnectionsToClose connections = nts_internal_data_connections_to_close(data_controller, NULL);
 
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
@@ -474,7 +460,7 @@ nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 		}
 	}
 
-	UNREACHABLE();
+	UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
 }
 
 NODISCARD static bool
@@ -797,27 +783,23 @@ cleanup:
 NODISCARD bool nts_internal_close_connection(DataController* data_controller,
                                              DataConnection* connection) {
 
-	ConnectionsToClose* connections_to_close =
+	ConnectionsToClose connections_to_close =
 	    nts_internal_data_connections_to_close(data_controller, connection);
 
-	if(connections_to_close == NULL) {
-		return false;
-	}
-
-	if(connections_to_close->size > 1) {
+	if(stbds_arrlenu(connections_to_close) > 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 		                   "ASSERT: maximal one connection should be closed, if we set a filter\n");
 
-		free(connections_to_close);
+		stbds_arrfree(connections_to_close);
 		return false;
 	}
 
-	for(size_t i = 0; i < connections_to_close->size; ++i) {
-		ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
+	for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+		ConnectionDescriptor* connection_to_close = connections_to_close[i];
 		close_connection_descriptor(connection_to_close);
 	}
 
-	free(connections_to_close);
+	stbds_arrfree(connections_to_close);
 	return true;
 }
 

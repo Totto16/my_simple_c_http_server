@@ -1,0 +1,43 @@
+diff --git a/src/examples/string/main.c b/src/examples/string/main.c
+index 9699d25..bf39d53 100644
+--- a/src/examples/string/main.c
++++ b/src/examples/string/main.c
+@@ -5,7 +5,7 @@
+ #include <string.h>
+ 
+ #include "../../log.h"
+-#include "../../string.h"
++#include "../../lzws_string.h"
+ 
+ // "0" means default buffer length.
+ #define BUFFER_LENGTH 0
+diff --git a/src/string.h b/src/lzws_string.h
+similarity index 100%
+rename from src/string.h
+rename to src/lzws_string.h
+diff --git a/src/string.c b/src/string.c
+index 15e8015..09fd06c 100644
+--- a/src/string.c
++++ b/src/string.c
+@@ -2,7 +2,7 @@
+ // Copyright (c) 2016 David Bryant, 2018+ other authors, all rights reserved (see AUTHORS).
+ // Distributed under the BSD Software License (see LICENSE).
+ 
+-#include "string.h"
++#include "lzws_string.h"
+ 
+ #include "buffer.h"
+ #include "compressor/main.h"
+diff --git a/src/tests/string_and_file.c b/src/tests/string_and_file.c
+index 48e4d71..2aaf47b 100644
+--- a/src/tests/string_and_file.c
++++ b/src/tests/string_and_file.c
+@@ -8,7 +8,7 @@
+ 
+ #include "../file.h"
+ #include "../log.h"
+-#include "../string.h"
++#include "../lzws_string.h"
+ 
+ // -- files --
+ 

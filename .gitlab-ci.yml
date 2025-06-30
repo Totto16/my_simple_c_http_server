@@ -8,20 +8,21 @@ compile_clang:
     before_script:
         # install other dependencies
         - apt-get update
-        - apt-get install ninja-build wget lsb-release wget software-properties-common gnupg python3-pip pkg-config openssl libssl-dev --no-install-recommends -y
+        - apt-get install ninja-build lsb-release wget software-properties-common gnupg python3-pip pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libgmp-dev --no-install-recommends -y
         # install clang
         - wget https://apt.llvm.org/llvm.sh
         - chmod +x llvm.sh
         - ./llvm.sh 20
         - export CC="clang-20"
+        - export CXX="clang++-20"
         # install meson
         - pip install meson --break-system-packages
     script:
-        - meson setup build -Dbuildtype=release -Dsecure=enabled
+        - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
-        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled
+        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build_no_secure
 
 compile_gcc:
@@ -30,16 +31,17 @@ compile_gcc:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev --no-install-recommends -y
+        - apt-get install gcc-14 g++-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libgmp-dev --no-install-recommends -y
         - export CC="gcc-14"
+        - export CXX="g++-14"
         # install meson
         - pip install meson --break-system-packages
     script:
-        - meson setup build -Dbuildtype=release -Dsecure=enabled
+        - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
-        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled
+        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build_no_secure
 
 test:
@@ -50,25 +52,45 @@ test:
         - compile_gcc
     dependencies: []
     before_script:
-        # install gcc + other dependencies
+        # install other dependencies
         - apt-get update
-        - apt-get install gcc-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config wget bzip2 --no-install-recommends -y
-        - export CC="gcc-14"
+        - apt-get install ninja-build lsb-release wget software-properties-common gnupg python3-pip pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libc-dev-bin libc6-dev bzip2 gcovr gpg libgmp-dev --no-install-recommends -y
+        # install clang
+        - wget https://apt.llvm.org/llvm.sh
+        - chmod +x llvm.sh
+        - ./llvm.sh 20
+        - apt-get install libc++-20* libc++abi*20* llvm-20 libclang-rt-20-dev -y --no-install-recommends
+        - export CC="clang-20"
+        - export CXX="clang++-20"
         # install meson
         - pip install meson --break-system-packages
         # install pypy2
+        - export KEEP_AUTO_PACKAGES_INSTALLED="true"
         - ./tests/autobahn/install_pypy2.sh
         # install autobahn testsuite
         - ./tests/autobahn/install_autobahn.sh
         # instal openssl 3
         - apt-get install openssl libssl-dev --no-install-recommends -y
     script:
-        - meson setup build -Dbuildtype=debug -Dsecure=enabled
+        # run ws tests
+        - meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build
         - ./build/server http 8080 -l trace &
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
-        - wget http://localhost:8080/shutdown -O -  -q
+        - wget http://localhost:8080/shutdown -O - -q
+        # run unit tests
+        - meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
+        - meson compile -C test_build
+        - meson test -C test_build --verbose
+        - ninja coverage -C test_build
+
     artifacts:
         name: "autobahn test results"
         paths:
-            - reports/servers/**
+            - ./reports/servers/**
+            - ./test_build/meson-logs/coverage.xml
+            - ./test_build/meson-logs/coveragereport/**
+        reports:
+            coverage_report:
+                coverage_format: cobertura
+                path: ./test_build/meson-logs/coverage.xml

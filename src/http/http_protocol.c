@@ -1,31 +1,88 @@
 
 #include "http_protocol.h"
+#include <ctype.h>
+#include <math.h>
+
+NODISCARD static HTTPRequestMethod getMethodFromString(char* method) {
+
+	if(strcmp(method, "GET") == 0) {
+		return HTTPRequestMethodGet;
+	}
+
+	if(strcmp(method, "POST") == 0) {
+		return HTTPRequestMethodPost;
+	}
+
+	if(strcmp(method, "HEAD") == 0) {
+		return HTTPRequestMethodHead;
+	}
+
+	if(strcmp(method, "OPTIONS") == 0) {
+		return HTTPRequestMethodOptions;
+	}
+
+	return HTTPRequestMethodInvalid;
+}
+
+NODISCARD static HTTPProtocolVersion getProtocolVersionFromString(char* protocolVersion) {
+
+	if(strcmp(protocolVersion, "HTTP/1.1") == 0) {
+		return HTTPProtocolVersion_1_1;
+	}
+
+	if(strcmp(protocolVersion, "HTTP/1.0") == 0) {
+		return HTTPProtocolVersion_1;
+	}
+
+	if(strcmp(protocolVersion, "HTTP/2") == 0) {
+		return HTTPProtocolVersion_2;
+	}
+
+	return HTTPProtocolVersionInvalid;
+}
+
+NODISCARD HttpRequestLine getRequestLineFromRawLine(HttpRawRequestLine line) {
+
+	HttpRequestLine result = { .URI = line.URI };
+
+	result.method = getMethodFromString(line.method);
+
+	result.protocolVersion = getProtocolVersionFromString(line.protocolVersion);
+
+	return result;
+}
+
+static void freeRawRequestLine(HttpRawRequestLine line) {
+	// frees all 3 fields, as they are one allocation, with isnmerted 0 bytes
+	free(line.method);
+}
 
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
 void freeHttpRequest(HttpRequest* request) {
-	freeIfNotNULL(request->head.requestLine.method);
-	for(size_t i = 0; i < request->head.headerAmount; ++i) {
+	freeRawRequestLine(request->head.rawRequestLine);
+	for(size_t i = 0; i < stbds_arrlenu(request->head.headerFields); ++i) {
 		// same elegant freeing but two at once :)
 		freeIfNotNULL(request->head.headerFields[i].key);
 	}
-	freeIfNotNULL(request->head.headerFields);
+	stbds_arrfree(request->head.headerFields);
 	freeIfNotNULL(request->body);
 	freeIfNotNULL(request);
 }
 
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
-StringBuilder* httpRequestToStringBuilder(HttpRequest* request, bool https) {
+StringBuilder* httpRequestToStringBuilder(const HttpRequest* const request, bool https) {
 	StringBuilder* result = string_builder_init();
 	string_builder_append_single(result, "HttpRequest:\n");
-	string_builder_append(result, return NULL;, "\tMethod: %s\n", request->head.requestLine.method);
-	string_builder_append(result, return NULL;, "\tURI: %s\n", request->head.requestLine.URI);
 	string_builder_append(result, return NULL;
-	                      , "\tProtocolVersion : %s\n", request->head.requestLine.protocolVersion);
+	                      , "\tMethod: %s\n", request->head.rawRequestLine.method);
+	string_builder_append(result, return NULL;, "\tURI: %s\n", request->head.rawRequestLine.URI);
+	string_builder_append(result, return NULL;, "\tProtocolVersion : %s\n",
+	                                          request->head.rawRequestLine.protocolVersion);
 
 	string_builder_append(result, return NULL;, "\tSecure : %s\n", https ? "true" : " false");
 
-	for(size_t i = 0; i < request->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(request->head.headerFields); ++i) {
 		// same elegant freeing but wo at once :)
 		string_builder_append(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
 		                                          request->head.headerFields[i].key,
@@ -52,6 +109,9 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	if(!request) {
 		return NULL;
 	}
+
+	STBDS_ARRAY_INIT(request->head.headerFields);
+
 	// iterating over each separated string, then determining if header or body or statusLine and
 	// then parsing that accordingly
 	do {
@@ -77,19 +137,21 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 		// other way of checking if at the beginning
 		if(currentlyAt == rawHttpRequest) {
 			// parsing the string and inserting"\0" bytes at the" " space byte, so the three part
-			// string can vbe used in three different fields, with the correct start address, this
+			// string can be used in three different fields, with the correct start address, this
 			// trick is used more often trough-out this implementation, you don't have to understand
 			// it, since its abstracted away when using only the provided function
 			char* begin = index(all, ' ');
 			*begin = '\0';
-			request->head.requestLine.method = all;
+			request->head.rawRequestLine.method = all;
 			all = begin + 1;
 			begin = index(all, ' ');
 			*begin = '\0';
-			request->head.requestLine.URI = all;
+			request->head.rawRequestLine.URI = all;
 			all = begin + 1;
 			// is already null terminated!
-			request->head.requestLine.protocolVersion = all;
+			request->head.rawRequestLine.protocolVersion = all;
+
+			request->head.requestLine = getRequestLineFromRawLine(request->head.rawRequestLine);
 
 		} else {
 			if(strlen(all) == 0) {
@@ -111,27 +173,6 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 				parsed = true;
 			} else {
 				// here headers are parsed, here":" is the delimiter
-				if(request->head.headerAmount == 0) {
-					request->head.headerFields =
-					    (HttpHeaderField*)mallocWithMemset(sizeof(HttpHeaderField), true);
-
-					if(!request->head.headerFields) {
-						LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
-						                   "Couldn't allocate memory!\n");
-						return NULL;
-					}
-				} else {
-					request->head.headerFields = (HttpHeaderField*)reallocWithMemset(
-					    request->head.headerFields,
-					    sizeof(HttpHeaderField) * request->head.headerAmount,
-					    sizeof(HttpHeaderField) * (request->head.headerAmount + 1), true);
-
-					if(!request->head.headerFields) {
-						LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
-						                   "Couldn't allocate memory!\n");
-						return NULL;
-					}
-				}
 
 				// using same trick, the header string is one with the right 0 bytes :)
 				char* begin = index(all, ':');
@@ -141,9 +182,12 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 					*begin = '\0';
 				}
 
-				request->head.headerFields[request->head.headerAmount].key = all;
-				request->head.headerFields[request->head.headerAmount].value = begin + 1;
-				++request->head.headerAmount;
+				size_t current_array_index = stbds_arrlenu(request->head.headerFields);
+
+				stbds_arrsetlen(request->head.headerFields, current_array_index + 1);
+
+				request->head.headerFields[current_array_index].key = all;
+				request->head.headerFields[current_array_index].value = begin + 1;
 			}
 		}
 
@@ -159,8 +203,8 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 
 // simple helper for getting the status Message for a special status code, all from the spec for
 // http 1.1 implemented (not in the spec e.g. 418)
-const char* getStatusMessage(int statusCode) {
-	const char* result = "NOT SUPPORTED STATUS CODE";
+const char* getStatusMessage(HTTP_STATUS_CODES statusCode) {
+	const char* result = "NOT SUPPORTED STATUS CODE"; // NOLINT(clang-analyzer-deadcode.DeadStores)
 	// according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 	switch(statusCode) {
 		case HTTP_STATUS_CONTINUE: result = "Continue"; break;
@@ -213,116 +257,331 @@ const char* getStatusMessage(int statusCode) {
 	return result;
 }
 
-// simple http Response constructor using string builder, headers can be NULL, when headerSize is
-// also null!
-HttpResponse* constructHttpResponseWithHeaders(int status, char* body,
-                                               HttpHeaderField* additionalHeaders,
-                                               size_t headersSize, const char* MIMEType) {
+NODISCARD static HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
 
-	HttpResponse* response = (HttpResponse*)mallocWithMemset(sizeof(HttpResponse), true);
+	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
+		HttpHeaderField* header = &(array[i]);
+		if(strcasecmp(header->key, key) == 0) {
+			return header;
+		}
+	}
 
-	if(!response) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+	return NULL;
+}
+
+static COMPRESSION_TYPE parse_compression_type(char* compression_name, bool* ok_result) {
+	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.3
+	if(strcmp(compression_name, "gzip") == 0 || strcmp(compression_name, "x-gzip") == 0) {
+		*ok_result = true;
+		return COMPRESSION_TYPE_GZIP;
+	}
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.2
+	if(strcmp(compression_name, "deflate") == 0) {
+		*ok_result = true;
+		return COMPRESSION_TYPE_DEFLATE;
+	}
+
+	if(strcmp(compression_name, "br") == 0) {
+		*ok_result = true;
+		return COMPRESSION_TYPE_BR;
+	}
+
+	if(strcmp(compression_name, "zstd") == 0) {
+		*ok_result = true;
+		return COMPRESSION_TYPE_ZSTD;
+	}
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.1
+	if(strcmp(compression_name, "compress") == 0 || strcmp(compression_name, "x-compress") == 0) {
+		*ok_result = true;
+		return COMPRESSION_TYPE_COMPRESS;
+	}
+
+	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %s\n", compression_name);
+
+	*ok_result = false;
+	return COMPRESSION_TYPE_NONE;
+}
+
+static CompressionValue parse_compression_value(char* compression_name, bool* ok_result) {
+
+	if(strcmp(compression_name, "*") == 0) {
+		*ok_result = true;
+		return (CompressionValue){ .type = CompressionValueType_ALL_ENCODINGS, .data = {} };
+	}
+
+	if(strcmp(compression_name, "identity") == 0) {
+		*ok_result = true;
+		return (CompressionValue){ .type = CompressionValueType_NO_ENCODING, .data = {} };
+	}
+
+	CompressionValue result = { .type = CompressionValueType_NORMAL_ENCODING, .data = {} };
+
+	COMPRESSION_TYPE type = parse_compression_type(compression_name, ok_result);
+
+	if(!(*ok_result)) {
+		return result;
+	}
+
+	result.data.normal_compression = type;
+	*ok_result = true;
+
+	return result;
+}
+
+NODISCARD static float parseCompressionQuality(char* compression_weight) {
+	// strip whitespace
+	while(isspace(*compression_weight)) {
+		compression_weight++;
+	}
+
+	if(strlen(compression_weight) < 2) {
+		// now q=
+		return NAN;
+	}
+
+	if(compression_weight[0] != 'q' && compression_weight[0] != 'Q') {
+		return NAN;
+	}
+	compression_weight++;
+
+	if(compression_weight[0] != '=') {
+		return NAN;
+	}
+	compression_weight++;
+
+	float value = parseFloat(compression_weight);
+
+	return value;
+}
+CompressionSettings* getCompressionSettings(HttpHeaderFields headerFields) {
+
+	CompressionSettings* compressionSettings =
+	    (CompressionSettings*)mallocWithMemset(sizeof(CompressionSettings), true);
+
+	if(!compressionSettings) {
 		return NULL;
 	}
 
-	// using the same trick as before, \0 in the malloced string :)
-	const char* protocolVersion = "HTTP/1.1";
-	size_t protocolLength = strlen(protocolVersion);
-	const char* statusMessage = getStatusMessage(status);
+	STBDS_ARRAY_INIT(compressionSettings->entries);
 
-	char* responseLineBuffer = NULL;
-	formatString(&responseLineBuffer, return NULL;
-	             , "%s%c%d%c%s", protocolVersion, '\0', status, '\0', statusMessage);
+	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
-	response->head.responseLine.protocolVersion = responseLineBuffer;
-	response->head.responseLine.statusCode = responseLineBuffer + protocolLength + 1;
-	response->head.responseLine.statusMessage =
-	    responseLineBuffer + protocolLength + strlen(responseLineBuffer + protocolLength + 1) + 2;
+	HttpHeaderField* acceptEncodingHeader = find_header_by_key(headerFields, "accept-encoding");
 
-	// now adding headers, adjust this value for more manual fields that are available in the array
-	// you have to asssign below
-	const size_t mimeTypeIndexOffset = MIMEType ? 1 : 0;
-	const size_t standard_header_length = mimeTypeIndexOffset + 2;
+	if(!acceptEncodingHeader) {
+		return compressionSettings;
+	}
 
-	for(size_t i = 0; i < standard_header_length + headersSize; ++i) {
-		if(response->head.headerAmount == 0) {
-			response->head.headerFields =
-			    (HttpHeaderField*)mallocWithMemset(sizeof(HttpHeaderField), true);
+	char* raw_value = acceptEncodingHeader->value;
 
-			if(!response->head.headerFields) {
-				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-				return NULL;
+	if(strlen(raw_value) == 0) {
+		return compressionSettings;
+	}
+
+	// copy the value, so that parsing is easier
+
+	char* value = strdup(raw_value);
+	char* original_value = value;
+
+	do {
+
+		char* index = strstr(value, ",");
+
+		if(index != NULL) {
+			*index = '\0';
+		}
+
+		// value points to the string to parse, that is null terminated
+
+		{
+
+			char* sub_index = strstr(value, ";");
+
+			char* compression_name = value;
+			char* compression_weight = NULL;
+
+			if(sub_index != NULL) {
+				*sub_index = '\0';
+				compression_weight = sub_index + 1;
 			}
 
-		} else {
-			response->head.headerFields = (HttpHeaderField*)reallocWithMemset(
-			    response->head.headerFields, sizeof(HttpHeaderField) * response->head.headerAmount,
-			    sizeof(HttpHeaderField) * (response->head.headerAmount + 1), true);
+			CompressionEntry entry = { .value = {}, .weight = 1.0F };
 
-			if(!response->head.headerFields) {
-				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-				return NULL;
+			if(compression_weight != NULL) {
+
+				float value = parseCompressionQuality(compression_weight);
+
+				if(!isnan(value)) {
+					entry.weight = value;
+				}
+			}
+
+			// strip whitespace
+			while(isspace(*compression_name)) {
+				compression_name++;
+			}
+
+			bool ok_result = true;
+			CompressionValue comp_value = parse_compression_value(compression_name, &ok_result);
+
+			if(ok_result) {
+				entry.value = comp_value;
+
+				stbds_arrput(compressionSettings->entries, entry);
+			} else {
+				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%s'\n", compression_name);
 			}
 		}
 
-		if(i >= standard_header_length) {
-			// ATTENTION; this things have to be ALL malloced
-			response->head.headerFields[response->head.headerAmount].key =
-			    additionalHeaders[i - standard_header_length].key;
-			response->head.headerFields[response->head.headerAmount].value =
-			    additionalHeaders[i - standard_header_length].value;
+		if(index == NULL) {
+			break;
 		}
-		++response->head.headerAmount;
-	}
 
-	// if additional Headers are specified free them now
-	if(headersSize > 0) {
-		free(additionalHeaders);
-	}
+		value = index + 1;
 
-	if(MIMEType) {
-		// add the standard ones, using %c with '\0' to use the trick, described above
-		char* contentTypeBuffer = NULL;
-		formatString(&contentTypeBuffer, return NULL;
-		             , "%s%c%s", "Content-Type", '\0',
-		             MIMEType == NULL ? DEFAULT_MIME_TYPE : MIMEType);
+		{
 
-		response->head.headerFields[0].key = contentTypeBuffer;
-		response->head.headerFields[0].value = contentTypeBuffer + strlen(contentTypeBuffer) + 1;
-	}
+			// strip whitespace
+			while(isspace(*value)) {
+				value++;
+			}
+		}
 
-	size_t bodyLength = body ? strlen(body) : 0;
+	} while(true);
 
-	char* contentLengthBuffer = NULL;
-	formatString(&contentLengthBuffer, return NULL;, "%s%c%ld", "Content-Length", '\0', bodyLength);
-
-	response->head.headerFields[mimeTypeIndexOffset].key = contentLengthBuffer;
-	response->head.headerFields[mimeTypeIndexOffset].value =
-	    contentLengthBuffer + strlen(contentLengthBuffer) + 1;
-
-	char* serverBuffer = NULL;
-	formatString(&serverBuffer, return NULL;
-	             , "%s%c%s", "Server", '\0', "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
-
-	response->head.headerFields[mimeTypeIndexOffset + 1].key = serverBuffer;
-	response->head.headerFields[mimeTypeIndexOffset + 1].value =
-	    serverBuffer + strlen(serverBuffer) + 1;
-
-	// for that the body has to be malloced
-	response->body = body;
-	// finally retuning the malloced httpResponse
-	return response;
+	free(original_value);
+	return compressionSettings;
 }
 
-// wrapper if no additionalHeaders are required
-HttpResponse* constructHttpResponse(int status, char* body, const char* MIMEType) {
-	return constructHttpResponseWithHeaders(status, body, NULL, 0, MIMEType);
+void freeCompressionSettings(CompressionSettings* compressionSettings) {
+	stbds_arrfree(compressionSettings->entries);
+	free(compressionSettings);
 }
 
-// makes a stringBuilder from the HttpResponse, just does the opposite of parsing A Request, but
-// with some slight modification
-StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
+RequestSettings* getRequestSettings(HttpRequest* httpRequest) {
+
+	RequestSettings* requestSettings =
+	    (RequestSettings*)mallocWithMemset(sizeof(RequestSettings), true);
+
+	if(!requestSettings) {
+		return NULL;
+	}
+
+	CompressionSettings* compressionSettings =
+	    getCompressionSettings(httpRequest->head.headerFields);
+
+	if(!compressionSettings) {
+		free(requestSettings);
+		return NULL;
+	}
+
+	requestSettings->compression_settings = compressionSettings;
+
+	return requestSettings;
+}
+
+void freeRequestSettings(RequestSettings* requestSettings) {
+
+	freeCompressionSettings(requestSettings->compression_settings);
+	free(requestSettings);
+}
+
+#define COMPRESSIONS_SIZE 4
+
+static COMPRESSION_TYPE get_best_compression_that_is_supported(void) {
+
+	// This are sorted by compression ratio, not by speed , but this may be inaccurate
+	COMPRESSION_TYPE supported_compressions[COMPRESSIONS_SIZE] = {
+		COMPRESSION_TYPE_BR,
+		COMPRESSION_TYPE_ZSTD,
+		COMPRESSION_TYPE_GZIP,
+		COMPRESSION_TYPE_DEFLATE,
+	};
+
+	for(size_t i = 0; i < COMPRESSIONS_SIZE; ++i) {
+		COMPRESSION_TYPE compression = supported_compressions[i];
+		if(is_compressions_supported(compression)) {
+			return compression;
+		}
+	}
+
+	return COMPRESSION_TYPE_NONE;
+}
+
+static int compare_function_entries(const anyType(CompressionEntry) _entry1,
+                                    const anyType(CompressionEntry) _entry2) {
+	const CompressionEntry* entry1 = (CompressionEntry*)_entry1;
+	const CompressionEntry* entry2 = (CompressionEntry*)_entry2;
+
+	// note weight is between 0.0 and 1.0
+
+	if(entry1->weight != entry2->weight) {
+		return (
+		    int)((entry1->weight - entry2->weight) *
+		         10000.0F); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	}
+
+	return 0;
+}
+
+SendSettings getSendSettings(RequestSettings* requestSettings) {
+
+	SendSettings result = { .compression_to_use = COMPRESSION_TYPE_NONE };
+
+	CompressionEntries entries = requestSettings->compression_settings->entries;
+
+	size_t entries_length = stbds_arrlenu(entries);
+
+	if(entries_length == 0) {
+		return result;
+	}
+
+	// this sorts the entries by weight, same weight means, we prefer the ones that come first
+	// in the string, as it is unspecified in the spec, on what to sort as 2. criterium
+	qsort(entries, entries_length, sizeof(CompressionEntry), compare_function_entries);
+
+	for(size_t i = 0; i < entries_length; ++i) {
+		CompressionEntry entry = entries[i];
+
+		switch(entry.value.type) {
+			case CompressionValueType_NO_ENCODING: {
+				result.compression_to_use = COMPRESSION_TYPE_NONE;
+				goto break_for;
+			}
+			case CompressionValueType_ALL_ENCODINGS: {
+				result.compression_to_use = get_best_compression_that_is_supported();
+				goto break_for;
+			}
+			case CompressionValueType_NORMAL_ENCODING: {
+				if(is_compressions_supported(entry.value.data.normal_compression)) {
+					result.compression_to_use = entry.value.data.normal_compression;
+					goto break_for;
+				}
+				break;
+			}
+			default: {
+				result.compression_to_use = COMPRESSION_TYPE_NONE;
+				goto break_for;
+			}
+		}
+	}
+break_for:
+
+	return result;
+}
+
+// makes a stringBuilder + a sized body from the HttpResponse, just does the opposite of parsing
+// a Request, but with some slight modification
+HttpConcattedResponse* httpResponseConcat(HttpResponse* response) {
+	HttpConcattedResponse* concattedResponse =
+	    (HttpConcattedResponse*)mallocWithMemset(sizeof(HttpConcattedResponse), true);
+
+	if(!concattedResponse) {
+		return NULL;
+	}
+
 	StringBuilder* result = string_builder_init();
 	const char* const separators = "\r\n";
 
@@ -331,7 +590,7 @@ StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
 	                      response->head.responseLine.statusCode,
 	                      response->head.responseLine.statusMessage, separators);
 
-	for(size_t i = 0; i < response->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(response->head.headerFields); ++i) {
 		// same elegant freeing but two at once :)
 		string_builder_append(result, return NULL;, "%s: %s%s", response->head.headerFields[i].key,
 		                                          response->head.headerFields[i].value, separators);
@@ -339,36 +598,35 @@ StringBuilder* httpResponseToStringBuilder(HttpResponse* response) {
 
 	string_builder_append_single(result, separators);
 
-	if(response->body) {
-		string_builder_append_single(result, response->body);
-	}
+	concattedResponse->headers = result;
+	concattedResponse->body = response->body;
 
-	return result;
+	return concattedResponse;
 }
 
 // free the HttpResponse, just freeing everything necessary
 void freeHttpResponse(HttpResponse* response) {
 	// elegantly freeing three at once :)
 	free(response->head.responseLine.protocolVersion);
-	for(size_t i = 0; i < response->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(response->head.headerFields); ++i) {
 		// same elegant freeing but two at once :)
 
 		free(response->head.headerFields[i].key);
 	}
-	free(response->head.headerFields);
+	stbds_arrfree(response->head.headerFields);
 
-	if(response->body) {
-		free(response->body);
-	}
+	freeSizedBuffer(response->body);
 
 	free(response);
 }
 
-// really simple and dumb html boilerplate, this is used for demonstration purposes, and is static,
-// but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
+// really simple and dumb html boilerplate, this is used for demonstration purposes, and is
+// static, but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
 
-char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
-                     char* bodyContent) {
+NODISCARD static StringBuilder*
+htmlFromString(StringBuilder* headContent, // NOLINT(bugprone-easily-swappable-parameters)
+               StringBuilder* scriptContent, StringBuilder* styleContent,
+               StringBuilder* bodyContent) {
 
 	StringBuilder* result = string_builder_init();
 
@@ -380,75 +638,104 @@ char* htmlFromString(char* headContent, char* scriptContent, char* styleContent,
 	string_builder_append_single(result, "<meta name=\"author\" content=\"Totto16\">");
 	string_builder_append_single(result, "<title>Page by Simple C Http Server</title>");
 	if(headContent != NULL) {
-		string_builder_append(result, return NULL;, "%s", headContent);
+		string_builder_append_string_builder(result, &headContent);
 	}
 	if(scriptContent != NULL) {
-		string_builder_append(result, return NULL;
-		                      , "<script type=\"text/javascript\">%s</script>", scriptContent);
+		string_builder_append_single(result, "<script type=\"text/javascript\">");
+
+		string_builder_append_string_builder(result, &scriptContent);
+		string_builder_append_single(result, "</script>");
 		string_builder_append_single(
 		    result,
 		    "<noscript> Diese Seite Benötigt Javascript um zu funktionieren :( </noscript>");
 	}
 	if(styleContent != NULL) {
-		string_builder_append(result, return NULL;
-		                      , "<style type=\"text/css\">%s</style>", styleContent);
+		string_builder_append_single(result, "<style type=\"text/css\">");
+		string_builder_append_string_builder(result, &styleContent);
+		string_builder_append_single(result, "</style>");
 	}
 	string_builder_append_single(result, "</head>");
 	string_builder_append_single(result, "<body>");
 	if(bodyContent != NULL) {
-		string_builder_append(result, return NULL;, "%s", bodyContent);
+		string_builder_append_string_builder(result, &bodyContent);
 	}
 	string_builder_append_single(result, "</body>");
 	string_builder_append_single(result, "</html>");
 
-	return string_builder_to_string(result);
+	return result;
 }
 
-char* httpRequestToJSON(HttpRequest* request, bool https) {
+StringBuilder* httpRequestToJSON(const HttpRequest* const request, bool https,
+                                 SendSettings send_settings) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append(body, return NULL;
-	                      , "{\"request\":\"%s\",", request->head.requestLine.method);
-	string_builder_append(body, return NULL;, "\"URI\": \"%s\",", request->head.requestLine.URI);
+	                      , "{\"request\":\"%s\",", request->head.rawRequestLine.method);
+	string_builder_append(body, return NULL;, "\"URI\": \"%s\",", request->head.rawRequestLine.URI);
 	string_builder_append(body, return NULL;
-	                      , "\"version\":\"%s\",", request->head.requestLine.protocolVersion);
+	                      , "\"version\":\"%s\",", request->head.rawRequestLine.protocolVersion);
 	string_builder_append(body, return NULL;, "\"secure\":%s,", https ? "true" : "false");
 	string_builder_append_single(body, "\"headers\":[");
-	for(size_t i = 0; i < request->head.headerAmount; ++i) {
+
+	const size_t headerAmount = stbds_arrlenu(request->head.headerFields);
+
+	for(size_t i = 0; i < headerAmount; ++i) {
 		// same elegant freeing but wo at once :)
 		string_builder_append(body, return NULL;, "{\"header\":\"%s\", \"key\":\"%s\"}",
 		                                        request->head.headerFields[i].key,
 		                                        request->head.headerFields[i].value);
-		if(i + 1 < request->head.headerAmount) {
+		if(i + 1 < headerAmount) {
 			string_builder_append_single(body, ", ");
 		} else {
 			string_builder_append_single(body, "],");
 		}
 	}
-	string_builder_append(body, return NULL;, "\"body\":\"%s\"}", request->body);
+	string_builder_append(body, return NULL;, "\"body\":\"%s\"", request->body);
 
-	return string_builder_to_string(body);
+	string_builder_append_single(body, ", \"settings\": {");
+
+	string_builder_append(body, return NULL;
+	                      , "\"send_settings\":{\"compression\" : \"%s\"} }",
+	                      get_string_for_compress_format(send_settings.compression_to_use));
+
+	string_builder_append_single(body, "}");
+	return body;
 }
 
-char* httpRequestToHtml(HttpRequest* request, bool https) {
+StringBuilder* httpRequestToHtml(const HttpRequest* const request, bool https,
+                                 SendSettings send_settings) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append_single(body, "<h1 id=\"title\">HttpRequest:</h1><br>");
 	string_builder_append(body, return NULL;, "<div id=\"request\"><div>Method: %s</div>",
-	                                        request->head.requestLine.method);
-	string_builder_append(body, return NULL;, "<div>URI: %s</div>", request->head.requestLine.URI);
+	                                        request->head.rawRequestLine.method);
+	string_builder_append(body, return NULL;
+	                      , "<div>URI: %s</div>", request->head.rawRequestLine.URI);
 	string_builder_append(body, return NULL;, "<div>ProtocolVersion : %s</div>",
-	                                        request->head.requestLine.protocolVersion);
+	                                        request->head.rawRequestLine.protocolVersion);
 	string_builder_append(body, return NULL;
 	                      ,
 	                      "<div>Secure : %s</div><button id=\"shutdown\"> Shutdown </button></div>",
 	                      https ? "true" : "false");
 	string_builder_append_single(body, "<div id=\"header\">");
-	for(size_t i = 0; i < request->head.headerAmount; ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(request->head.headerFields); ++i) {
 		// same elegant freeing but wo at once :)
 		string_builder_append(
 		    body, return NULL;
 		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>",
 		    request->head.headerFields[i].key, request->head.headerFields[i].value);
 	}
+
+	string_builder_append_single(body, "</div> <div id=\"settings\">");
+	string_builder_append_single(body, "<h1>Settings:</h1> <br>");
+	{
+		string_builder_append_single(body, "</div> <div id=\"send_settings\">");
+		string_builder_append_single(body, "<h2>Send Settings:</h2> <br>");
+		string_builder_append(body, return NULL;
+		                      , "<h3>Compression:</h3> %s",
+		                      get_string_for_compress_format(send_settings.compression_to_use));
+		string_builder_append_single(body, "</div>");
+	}
+	string_builder_append_single(body, "</div>");
+
 	string_builder_append_single(body, "</div> <div id=\"body\">");
 	string_builder_append(body, return NULL;, "<h1>Body:</h1> <br>%s", request->body);
 	string_builder_append_single(body, "</div>");
@@ -468,7 +755,14 @@ char* httpRequestToHtml(HttpRequest* request, bool https) {
 	           "#body {padding: 1%;text-align: center;border: solid 4px black;margin: 1%;}"
 	           "#shutdown {border: none;cursor: crosshair;opacity: .9;padding: 16px "
 	           "20px;background-color: #c7ff00;font-weight: 900;color: #000;}"
-	           "#title{text-align: center;}");
+	           "#title{text-align: center;}"
+	           "#settings {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
+	           "anywhere;text-align: center;word-wrap: anywhere;}"
+	           "#send_settings {display:flex; flex-direction: column;align-items: "
+	           "center;overflow-wrap: "
+	           "anywhere;text-align: center;word-wrap: anywhere;}"
+
+	);
 
 	// script
 	StringBuilder* script = string_builder_init();
@@ -495,11 +789,6 @@ char* httpRequestToHtml(HttpRequest* request, bool https) {
 	            "}"
 	            "window.addEventListener('DOMContentLoaded',requestShutdown);");
 
-	char* htmlResult =
-	    htmlFromString(NULL, string_builder_get_string(script), string_builder_get_string(style),
-	                   string_builder_get_string(body));
-	string_builder_free(body);
-	string_builder_free(style);
-	string_builder_free(script);
+	StringBuilder* htmlResult = htmlFromString(NULL, script, style, body);
 	return htmlResult;
 }

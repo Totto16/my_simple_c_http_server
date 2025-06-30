@@ -166,7 +166,7 @@ anyType(JobError*)
 		}
 
 		// rawFtpCommands gets freed in here
-		FTPCommandArray* ftpCommands = parseMultipleFTPCommands(rawFtpCommands);
+		FTPCommandArray ftpCommands = parseMultipleFTPCommands(rawFtpCommands);
 
 		// ftpCommands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
@@ -183,8 +183,8 @@ anyType(JobError*)
 			continue;
 		}
 
-		for(size_t i = 0; i < ftpCommands->size; ++i) {
-			FTPCommand* command = ftpCommands->content[i];
+		for(size_t i = 0; i < stbds_arrlenu(ftpCommands); ++i) {
+			FTPCommand* command = ftpCommands[i];
 			bool successfull = ftp_process_command(descriptor, server_addr, argument, command);
 			if(!successfull) {
 				quit = true;
@@ -568,7 +568,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				string_builder_append(string_builder, return false;
 				                      , "%03d-Extensions supported:", FTP_RETURN_CODE_FEATURE_LIST);
-				int send_result = sendStringBuilderToConnection(descriptor, string_builder);
+				int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
 				if(send_result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending start feature response\n");
@@ -592,7 +592,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					string_builder_append(string_builder, return false;, " %s", feature.arguments);
 				}
 
-				int send_result = sendStringBuilderToConnection(descriptor, string_builder);
+				int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
 				if(send_result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending manual feature response\n");
@@ -661,7 +661,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(errno != ENOENT) {
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 1");
 					return true;
 				}
 			} else {
@@ -681,20 +681,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose* connections_to_close =
+				ConnectionsToClose connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				if(connections_to_close == NULL) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "data_connections_to_close failed\n");
-				} else {
-					for(size_t i = 0; i < connections_to_close->size; ++i) {
-						ConnectionDescriptor* connection_to_close =
-						    connections_to_close->content[i];
-						close_connection_descriptor(connection_to_close);
-					}
-					free(connections_to_close);
+				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+					close_connection_descriptor(connection_to_close);
 				}
+				stbds_arrfree(connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -714,7 +708,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
 					            strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 2");
 					return true;
 				}
 
@@ -732,7 +726,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
 							SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-							                               "Internal error");
+							                               "Internal error 3");
 							return true;
 						}
 
@@ -746,7 +740,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						LOG_MESSAGE(LogLevelError | LogPrintLocation,
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-						                               "Internal error");
+						                               "Internal error 4");
 						return true;
 					}
 
@@ -789,7 +783,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(!resultingData) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 5");
 					return true;
 				}
 
@@ -800,7 +794,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(!success) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 6");
 					return true;
 				}
 
@@ -852,7 +846,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				}
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "Internal error");
+				                               "Internal error 7");
 
 				return true;
 			}
@@ -879,20 +873,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose* connections_to_close =
+				ConnectionsToClose connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				if(connections_to_close == NULL) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "data_connections_to_close failed\n");
-				} else {
-					for(size_t i = 0; i < connections_to_close->size; ++i) {
-						ConnectionDescriptor* connection_to_close =
-						    connections_to_close->content[i];
-						close_connection_descriptor(connection_to_close);
-					}
-					free(connections_to_close);
+				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+					close_connection_descriptor(connection_to_close);
 				}
+				stbds_arrfree(connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -912,7 +900,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
 					            strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 8");
 					return true;
 				}
 
@@ -930,7 +918,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
 							SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-							                               "Internal error");
+							                               "Internal error 9");
 							return true;
 						}
 
@@ -944,7 +932,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						LOG_MESSAGE(LogLevelError | LogPrintLocation,
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-						                               "Internal error");
+						                               "Internal error 10");
 						return true;
 					}
 
@@ -985,7 +973,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(descriptor == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error: 11");
 					return true;
 				}
 
@@ -1001,7 +989,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 12");
 					return true;
 				}
 
@@ -1025,7 +1013,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(!data_connection_close(argument->data_controller, data_connection)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 13");
 					return true;
 				}
 
@@ -1082,7 +1070,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				}
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-				                               "Internal error");
+				                               "Internal error 14");
 
 				return true;
 			}
@@ -1104,20 +1092,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose* connections_to_close =
+				ConnectionsToClose connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				if(connections_to_close == NULL) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "data_connections_to_close failed\n");
-				} else {
-					for(size_t i = 0; i < connections_to_close->size; ++i) {
-						ConnectionDescriptor* connection_to_close =
-						    connections_to_close->content[i];
-						close_connection_descriptor(connection_to_close);
-					}
-					free(connections_to_close);
+				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+					close_connection_descriptor(connection_to_close);
 				}
+				stbds_arrfree(connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -1137,7 +1119,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
 					            strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-					                               "Internal error");
+					                               "Internal error 15");
 					return true;
 				}
 
@@ -1155,7 +1137,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
 							SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-							                               "Internal error");
+							                               "Internal error 16");
 							return true;
 						}
 
@@ -1169,7 +1151,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						LOG_MESSAGE(LogLevelError | LogPrintLocation,
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
-						                               "Internal error");
+						                               "Internal  17");
 						return true;
 					}
 
@@ -1210,7 +1192,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(descriptor == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 17");
 					return true;
 				}
 
@@ -1227,7 +1209,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 18");
 					return true;
 				}
 
@@ -1251,7 +1233,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				if(!data_connection_close(argument->data_controller, data_connection)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
-					                               "Internal error");
+					                               "Internal error 19");
 					return true;
 				}
 
@@ -1581,21 +1563,14 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose* connections_to_close =
-
+				ConnectionsToClose connections_to_close =
 				    data_connections_to_close(argument.data_controller);
 
-				if(connections_to_close == NULL) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-					                   "data_connections_to_close failed\n");
-					continue;
-				}
-
-				for(size_t i = 0; i < connections_to_close->size; ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
+				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close = connections_to_close[i];
 					close_connection_descriptor(connection_to_close);
 				}
-				free(connections_to_close);
+				stbds_arrfree(connections_to_close);
 			}
 
 			continue;
@@ -1647,20 +1622,14 @@ anyType(ListenerError*) ftp_data_listener_thread_function(anyType(FTPDataThreadA
 		{
 			// empty the data connections and close the ones, that are no longer required or
 			// timed out
-			ConnectionsToClose* connections_to_close =
+			ConnectionsToClose connections_to_close =
 			    data_connections_to_close(argument.data_controller);
 
-			if(connections_to_close == NULL) {
-				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
-				                   "data_connections_to_close failed\n");
-				continue;
-			}
-
-			for(size_t i = 0; i < connections_to_close->size; ++i) {
-				ConnectionDescriptor* connection_to_close = connections_to_close->content[i];
+			for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
+				ConnectionDescriptor* connection_to_close = connections_to_close[i];
 				close_connection_descriptor(connection_to_close);
 			}
-			free(connections_to_close);
+			stbds_arrfree(connections_to_close);
 		}
 	}
 

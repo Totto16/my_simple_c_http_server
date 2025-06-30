@@ -11,6 +11,8 @@
 #define IDENT1 "\t"
 #define IDENT2 IDENT1 IDENT1
 
+// TODO(Totto): enforce styles e.g. CamelCase or snake:_case
+
 void printHttpServerUsage(bool isSubcommand) {
 	if(isSubcommand) {
 		printf("<port> [options]\n");
@@ -152,7 +154,7 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 
 			if(parsed_level < 0) {
 				fprintf(stderr, "Wrong option for the 'loglevel' option, unrecognized level: %s\n",
-				        arg);
+				        argv[processed_args + 1]);
 				printUsage(argv[0], USAGE_COMMAND_HTTP);
 				return EXIT_FAILURE;
 			}
@@ -264,7 +266,7 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 
 			if(parsed_level < 0) {
 				fprintf(stderr, "Wrong option for the 'loglevel' option, unrecognized level: %s\n",
-				        arg);
+				        argv[processed_args + 1]);
 				printUsage(argv[0], USAGE_COMMAND_FTP);
 				return EXIT_FAILURE;
 			}

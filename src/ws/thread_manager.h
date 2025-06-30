@@ -44,7 +44,7 @@ NODISCARD int ws_send_message_fragmented(WebSocketConnection* connection, WebSoc
 /**
  * NOT Thread safe
  */
-WebSocketThreadManager* initialize_thread_manager(void);
+NODISCARD WebSocketThreadManager* initialize_thread_manager(void);
 
 /**
  * Thread safe

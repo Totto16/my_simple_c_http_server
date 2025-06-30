@@ -19,6 +19,16 @@ jobs:
                     #   os: windows
                     #   os-version: 2022
 
+                    - name: Linux (GCC, Arm64)
+                      os: ubuntu
+                      os-version: 24.04-arm
+                      use-clang: false
+
+                    - name: Linux (Clang, Arm64)
+                      os: ubuntu
+                      os-version: 24.04-arm
+                      use-clang: true
+
                     - name: Linux (GCC)
                       os: ubuntu
                       os-version: 24.04
@@ -50,7 +60,6 @@ jobs:
               with:
                   arch: x64
 
-
             - name: Setup Clang (Linux)
               if: matrix.config.os == 'ubuntu' && matrix.config.use-clang == true
               run: |
@@ -58,13 +67,14 @@ jobs:
                   chmod +x llvm.sh
                   sudo ./llvm.sh 20
                   echo "CC=clang-20" >> "$GITHUB_ENV"
+                  echo "CXX=clang++-20" >> "$GITHUB_ENV"
 
             - name: Setup GCC (Linux)
               if: matrix.config.os == 'ubuntu' && matrix.config.use-clang == false
               uses: egor-tensin/setup-gcc@v1
               with:
                   version: 14
-                  platform: x64
+                  platform: x64 # note, this isn't really correct
 
             - name: Setup Clang (MacOS)
               if: matrix.config.os == 'macos'
@@ -82,6 +92,11 @@ jobs:
               run: |
                   brew update
                   brew install meson
+                  ## fix patch behaviour, by adding a replacement to the path
+                  sudo mkdir -pv /opt/fakebin
+                  echo -e '#!/bin/bash\nset -xe\ngit --work-tree . apply --ignore-whitespace -p1 "$5"' | sudo tee /opt/fakebin/patch
+                  sudo chmod +x /opt/fakebin/patch
+                  sudo echo "/opt/fakebin" >> $GITHUB_PATH
 
             # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
             - name: Setup meson
@@ -93,16 +108,16 @@ jobs:
               if: matrix.config.os == 'ubuntu'
               run: |
                   sudo apt-get update
-                  sudo apt-get install ninja-build openssl libssl-dev -y --no-install-recommends
+                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev libgmp-dev -y --no-install-recommends
 
             - name: Install dependencies (MacOS)
               if: matrix.config.os == 'macos'
               run: |
                   brew update
-                  brew install openssl@3.0
+                  brew install openssl@3.0 zstd zlib brotli git gmp
 
             - name: Configure
-              run: meson setup build -Dbuildtype=release -Dsecure=enabled
+              run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
 
             - name: Build
               run: meson compile -C build

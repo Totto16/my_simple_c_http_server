@@ -14,7 +14,6 @@
 #include <pthread.h>
 
 #include <stdlib.h>
-#include <sys/random.h>
 #include <time.h>
 #include <utf8proc.h>
 
@@ -309,23 +308,8 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 	}
 
 	if(mask) {
-#ifdef __APPLE__
-		srandom(time(NULL));
-		uint32_t mask_byte = random();
-#else
-		uint32_t mask_byte = 0;
-		ssize_t result = getrandom((uint8_t*)(&mask_byte), sizeof(uint32_t), 0);
-		if(result != sizeof(uint32_t)) {
-			if(result < 0) {
-				LOG_MESSAGE(LogLevelWarn, "Get random failed: %s\n", strerror(errno));
-			}
 
-			unsigned int seed = time(NULL);
-
-			// use rand_r like normal rand:
-			mask_byte = rand_r(&seed);
-		}
-#endif
+		uint32_t mask_byte = get_random_byte();
 
 		*((uint32_t*)(resultingFrame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len)) =
 		    mask_byte;
@@ -1464,7 +1448,7 @@ bool free_thread_manager(WebSocketThreadManager* manager) {
 	                    return false;);
 
 	if(manager->head != NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "All connections got removed correctly");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "All connections got removed correctly\n");
 		return false;
 	}
 

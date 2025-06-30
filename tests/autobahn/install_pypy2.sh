@@ -1,27 +1,29 @@
 #!/usr/bin/env bash
 
 # from https://github.com/docker-library/pypy/blob/master/2.7/bookworm/Dockerfile
+# modified for ci runs, not docker images
 
 set -eux
+set -o pipefail
 
 export PATH="/opt/pypy/bin:$PATH"
 
 # Python 2.7.18
-PYPY_VERSION="7.3.17"
+PYPY_VERSION="7.3.19"
 
 DPKG_ARCH="$(dpkg --print-architecture)"
 case "${DPKG_ARCH##*-}" in
 'amd64')
-    url='https://downloads.python.org/pypy/pypy2.7-v7.3.17-linux64.tar.bz2'
-    sha256='9f3497f87b3372d17e447369e0016a4bec99a6b4d2a59aba774a25bfe4353474'
+    url='https://downloads.python.org/pypy/pypy2.7-v7.3.19-linux64.tar.bz2'
+    sha256='d38445508c2eaf14ebb380d9c1ded321c5ebeae31c7e66800173d83cb8ddf423'
     ;;
 'arm64')
-    url='https://downloads.python.org/pypy/pypy2.7-v7.3.17-aarch64.tar.bz2'
-    sha256='a8df5ce1650f4756933f8780870c91a0a40e7c9870d74629bf241392bcb5c2e3'
+    url='https://downloads.python.org/pypy/pypy2.7-v7.3.19-aarch64.tar.bz2'
+    sha256='fe89d4fd4af13f76dfe7315975003518cf176520e3ccec1544a88d174f50910e'
     ;;
 'i386')
-    url='https://downloads.python.org/pypy/pypy2.7-v7.3.17-linux32.tar.bz2'
-    sha256='a3aa0867cc837a34941047ece0fbb6ca190410fae6ad35fae4999d03bf178750'
+    url='https://downloads.python.org/pypy/pypy2.7-v7.3.19-linux32.tar.bz2'
+    sha256='cc52df02b6926bd8645c1651cd7f6637ce51c2f352d0fb3c6b9330d15194b409'
     ;;
 *)
     echo >&2 "error: current architecture ($DPKG_ARCH) does not have a corresponding PyPy $PYPY_VERSION binary release"
@@ -29,10 +31,33 @@ case "${DPKG_ARCH##*-}" in
     ;;
 esac
 
+# gitlab vs github CI
+
+sudo_wrapper() {
+    "$@"
+}
+
+# Set SUDO to "sudo" if it's available, else to an empty string
+if command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+else
+    SUDO="sudo_wrapper"
+fi
+
+"$SUDO" apt-get update
+
+# install needed things, install before saveing savedAptMark
+"$SUDO" apt-get install -y --no-install-recommends \
+    wget \
+    ca-certificates \
+    bzip2
+
 savedAptMark="$(apt-mark showmanual)"
-apt-get update
+
+"$SUDO" apt-get update
+
 # sometimes "pypy" itself is linked against libexpat1 / libncurses5, sometimes they're ".so" files in "/opt/pypy/lib_pypy"
-apt-get install -y --no-install-recommends \
+"$SUDO" apt-get install -y --no-install-recommends \
     libexpat1 \
     libncurses6 \
     libncursesw6 \
@@ -51,19 +76,25 @@ ln -sv '/opt/pypy/bin/pypy' /usr/local/bin/
 # smoke test
 pypy --version
 
-apt-mark auto '.*' >/dev/null
-[ -z "$savedAptMark" ] || apt-mark manual $savedAptMark >/dev/null
-find /opt/pypy -type f -executable -exec ldd '{}' ';' |
-    awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' |
-    sort -u |
-    xargs -r dpkg-query --search |
-    cut -d: -f1 |
-    sort -u |
-    xargs -r apt-mark manual \
-    ;
+## this i shere, that non docker builds can keep the auto installed packages, e.g. the CI
+if [ -n "$KEEP_AUTO_PACKAGES_INSTALLED" ]; then
 
-apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+    "$SUDO" apt-mark auto '.*' >/dev/null
+    # shellcheck disable=SC2086
+    [ -z "$savedAptMark" ] || "$SUDO" apt-mark manual $savedAptMark >/dev/null
 
+    set +o pipefail
+
+    TO_MARK_MANUAL="$(find /opt/pypy -type f -executable -exec ldd '{}' ';' | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' | sort -u | xargs -r dpkg-query --search | cut -d: -f1 | sort -u)"
+
+    set -o pipefail
+
+    # shellcheck disable=SC2086
+    "$SUDO" apt-mark manual $TO_MARK_MANUAL >/dev/null
+
+    "$SUDO" apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+
+fi
 # smoke test again, to be sure
 pypy --version
 

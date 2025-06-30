@@ -33,7 +33,7 @@ static bool impl_get_time(Time* time, clockid_t clockid) {
 	int result = clock_gettime(clockid, &time->value);
 
 	if(result != 0) {
-		LOG_MESSAGE(LogLevelError, "Error in getting time for clock: %s", strerror(errno));
+		LOG_MESSAGE(LogLevelError, "Error in getting time for clock: %s\n", strerror(errno));
 		return false;
 	}
 

@@ -11,7 +11,7 @@ project(
         'werror': 'true',
         'b_ndebug': 'if-release',
     },
-    version: '3.2.1',
+    version: '3.3.0',
 )
 
 deps = []
@@ -32,6 +32,61 @@ else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
 endif
 
+compression_features_dict = {
+    'zstd': false,
+    'br': false,
+    'deflate': false,
+    'gzip': false,
+    'compress': false,
+}
+
+compression_features = get_option('compression_features')
+
+foreach compression_feature : compression_features
+    compression_features_dict = compression_features_dict + {
+        compression_feature: true,
+    }
+endforeach
+
+
+zlib_dep = dependency('zlib', required: compression_features_dict['gzip'] or compression_features_dict['deflate'
+])
+
+if zlib_dep.found()
+    deps += zlib_dep
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP'
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE'
+endif
+
+brotli_dep = dependency(
+    'brotli',
+    'libbrotlienc',
+    required: compression_features_dict['br'],
+)
+
+if brotli_dep.found()
+    deps += brotli_dep
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_BR'
+endif
+
+zstd_dep = dependency('libzstd', required: compression_features_dict['zstd'])
+
+if zstd_dep.found()
+    deps += zstd_dep
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD'
+endif
+
+lzws_dep = dependency(
+    'lzws',
+    required: compression_features_dict['compress'],
+)
+
+if lzws_dep.found()
+    deps += lzws_dep
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS'
+endif
+
+
 deps += dependency(
     'libutf8proc',
     allow_fallback: true,
@@ -49,10 +104,25 @@ inc_dirs = []
 
 subdir('src')
 
-executable(
-    'server',
+http_server_lib = library(
+    'http_server',
     src_files,
     dependencies: deps,
     include_directories: inc_dirs,
     c_args: compile_flags,
 )
+
+http_server_dep = declare_dependency(
+    link_with: http_server_lib,
+    include_directories: inc_dirs,
+    compile_args: compile_flags,
+    dependencies: deps,
+    version: meson.project_version(),
+)
+
+executable('server', files('src/main.c'), dependencies: [http_server_dep])
+
+
+if get_option('tests')
+    subdir('tests/unit')
+endif

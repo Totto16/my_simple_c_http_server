@@ -3,9 +3,11 @@
 #include "utils/utils.h"
 #include "utils/log.h"
 
-#include <stdint.h>
-
 #include <errno.h>
+#include <math.h>
+#include <stdint.h>
+#include <sys/random.h>
+#include <time.h>
 
 // simple malloc Wrapper, using also memset to set everything to 0
 void* mallocWithMemset(const size_t size, const bool initializeWithZeros) {
@@ -60,7 +62,9 @@ long parseLongSafely(const char* toParse, const char* description) {
 	// error
 	errno = 0;
 	// using strtol, string to long, since atoi doesn't report errors that well
-	long result = strtol(toParse, &endpointer, 10);
+	long result =
+	    strtol(toParse, &endpointer,
+	           10); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
 	if(*endpointer != '\0') {
@@ -108,4 +112,47 @@ char* copy_cstr(char* input) {
 	memcpy(result, input, length);
 
 	return result;
+}
+
+NODISCARD float parseFloat(char* value) {
+	char* endpointer = NULL;
+	errno = 0;
+	float result = strtof(value, &endpointer);
+
+	// it isn't a number, if either errno is set or if the endpointer is not a '\0
+	if(*endpointer != '\0' || errno != 0) {
+		return NAN;
+	}
+
+	return result;
+}
+
+NODISCARD uint32_t get_random_byte(void) {
+#ifdef __APPLE__
+	srandom(time(NULL));
+	uint32_t random_bytes = random();
+#else
+	uint32_t random_bytes = 0;
+	ssize_t result = getrandom((uint8_t*)(&random_bytes), sizeof(uint32_t), 0);
+	if(result != sizeof(uint32_t)) {
+		if(result < 0) {
+			LOG_MESSAGE(LogLevelWarn, "Get random failed: %s\n", strerror(errno));
+		}
+
+		unsigned int seed = time(NULL);
+
+		// use rand_r like normal rand:
+		random_bytes = rand_r(&seed);
+	}
+#endif
+	return random_bytes;
+}
+
+NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max) {
+
+	assert(min < max);
+
+	uint32_t value = get_random_byte();
+
+	return (value % (max - min)) + min;
 }

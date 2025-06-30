@@ -1,10 +1,31 @@
 #!/usr/bin/env bash
 
 set -eux
+set -o pipefail
 
 pypy -m pip install typing
 
-ln -s "$(which "$CC")" /usr/bin/cc
+# gitlab vs github CI
+
+sudo_wrapper() {
+    "$@"
+}
+
+# Set SUDO to "sudo" if it's available, else to an empty string
+if command -v sudo >/dev/null 2>&1; then
+    SUDO="sudo"
+else
+    SUDO="sudo_wrapper"
+fi
+
+if [ -n "${CC:-}" ] && ! [ -f "/usr/bin/cc" ]; then
+    "$SUDO" ln -s "$(which "$CC")" "/usr/bin/cc"
+fi
+
+if ! [ -f "/usr/bin/cc" ]; then
+    echo "cc not found, please provide it or provide \$CC" >&2
+    exit 1
+fi
 
 DPKG_ARCH="$(dpkg --print-architecture)"
 case "${DPKG_ARCH##*-}" in
@@ -28,10 +49,10 @@ case "${DPKG_ARCH##*-}" in
 esac
 
 wget -O libssl-dev_1.1.1f.deb "$url" --progress=dot:giga
-dpkg -i libssl-dev_1.1.1f.deb
+"$SUDO" dpkg -i libssl-dev_1.1.1f.deb
 
 wget -O libssl-dev_1.1.1f-dev.deb "$dev_url" --progress=dot:giga
-dpkg -i libssl-dev_1.1.1f-dev.deb
+"$SUDO" dpkg -i libssl-dev_1.1.1f-dev.deb
 
 pypy -m pip install typing pyopenssl==21.0.0
 

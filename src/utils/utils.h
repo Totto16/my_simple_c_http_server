@@ -8,16 +8,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if __STDC_VERSION__ >= 202000
-#define NODISCARD [[nodiscard]]
-
+#if _SIMPLE_SERVER_COMPILE_WITH_NARROWED_ENUMS
 #define C_23_NARROW_ENUM_TO(x) : x
 #else
+#define C_23_NARROW_ENUM_TO(x)
+#endif
 
+#if __STDC_VERSION__ >= 202000 || __cplusplus
+#define NODISCARD [[nodiscard]]
+#else
 // see e.g. https://www.gnu.org/software/gnulib/manual/html_node/Attributes.html
 #define NODISCARD __attribute__((__warn_unused_result__))
-
-#define C_23_NARROW_ENUM_TO(x)
 #endif
 
 #define UNUSED(v) ((void)(v))
@@ -127,24 +128,20 @@ void* mallocWithMemset(size_t size, bool initializeWithZeros);
 void* reallocWithMemset(void* previousPtr, size_t oldSize, size_t newSize,
                         bool initializeWithZeros);
 
-NODISCARD char* copy_cstr(char*);
+NODISCARD char* copy_cstr(char* input);
 
-#define ARRAY_STRUCT(NAME, TYPE) \
-	typedef struct { \
-		TYPE* content; /*NOLINT(bugprone-macro-parentheses)*/ \
-		size_t size; \
-	} NAME
+NODISCARD float parseFloat(char* value);
 
-#define ARRAY_ADD_SLOT(TYPE, RESULT_NAME, ARRAY) \
-	(ARRAY)->size++; \
-	TYPE* RESULT_NAME = /*NOLINT(bugprone-macro-parentheses)*/ (TYPE*)realloc( \
-	    (void*)(ARRAY)->content, (ARRAY)->size * sizeof(TYPE))
-
-#define FREE_ARRAY(ARRAY) \
+#define FREE_ARRAY_AND_ENTRIES(ARRAY) \
 	do { \
-		if((ARRAY)->content != NULL) { \
-			for(size_t array_idx = 0; array_idx < (ARRAY)->size; ++array_idx) { \
-				free((ARRAY)->content[array_idx]); \
+		if(ARRAY) { \
+			for(size_t array_idx = 0; array_idx < stbds_arrlenu(ARRAY); ++array_idx) { \
+				free((ARRAY)[array_idx]); \
 			} \
+			stbds_arrfree(ARRAY); \
 		} \
 	} while(false)
+
+NODISCARD uint32_t get_random_byte(void);
+
+NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max);
