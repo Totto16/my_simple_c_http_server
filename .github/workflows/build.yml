@@ -92,6 +92,11 @@ jobs:
               run: |
                   brew update
                   brew install meson
+                  ## fix patch behaviour, by adding a replacement to the path
+                  sudo mkdir -pv /opt/fakebin
+                  echo -e '#!/bin/bash\nset -xe\ngit --work-tree . apply --ignore-whitespace -p1 "$5"' | sudo tee /opt/fakebin/patch
+                  sudo chmod +x /opt/fakebin/patch
+                  sudo echo "/opt/fakebin" >> $GITHUB_PATH
 
             # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
             - name: Setup meson
