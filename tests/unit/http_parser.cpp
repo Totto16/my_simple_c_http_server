@@ -133,7 +133,13 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entries_length, 1);
 
-		// TODO(Totto):finish checks
+		CompressionEntry entry1 = compression_settings->entries[0];
+
+		CompressionEntry entry1Expected = {
+			.value = { .type = CompressionValueType_ALL_ENCODINGS, .data = {} }, .weight = 1.0F
+		};
+
+		REQUIRE_EQ(entry1, entry1Expected);
 	}
 
 	SUBCASE("complicated list with weights") {
@@ -146,7 +152,23 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entries_length, 2);
 
-		// TODO(Totto):finish checks
+		CompressionEntry entry1 = compression_settings->entries[0];
+
+		CompressionEntry entry1Expected = { .value = { .type = CompressionValueType_NORMAL_ENCODING,
+			                                           .data = { .normal_compression =
+			                                                         COMPRESSION_TYPE_COMPRESS } },
+			                                .weight = 0.5F };
+
+		REQUIRE_EQ(entry1, entry1Expected);
+
+		CompressionEntry entry2 = compression_settings->entries[1];
+
+		CompressionEntry entry2Expected = { .value = { .type = CompressionValueType_NORMAL_ENCODING,
+			                                           .data = { .normal_compression =
+			                                                         COMPRESSION_TYPE_GZIP } },
+			                                .weight = 1.0F };
+
+		REQUIRE_EQ(entry2, entry2Expected);
 	}
 
 	SUBCASE("complicated list with weights and 'identity'") {
@@ -160,6 +182,29 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entries_length, 3);
 
-		// TODO(Totto):finish checks
+		CompressionEntry entry1 = compression_settings->entries[0];
+
+		CompressionEntry entry1Expected = { .value = { .type = CompressionValueType_NORMAL_ENCODING,
+			                                           .data = { .normal_compression =
+			                                                         COMPRESSION_TYPE_GZIP } },
+			                                .weight = 1.0F };
+
+		REQUIRE_EQ(entry1, entry1Expected);
+
+		CompressionEntry entry2 = compression_settings->entries[1];
+
+		CompressionEntry entry2Expected = {
+			.value = { .type = CompressionValueType_NO_ENCODING, .data = {} }, .weight = 0.5F
+		};
+
+		REQUIRE_EQ(entry2, entry2Expected);
+
+		CompressionEntry entry3 = compression_settings->entries[2];
+
+		CompressionEntry entry3Expected = {
+			.value = { .type = CompressionValueType_ALL_ENCODINGS, .data = {} }, .weight = 0.0F
+		};
+
+		REQUIRE_EQ(entry3, entry3Expected);
 	}
 }

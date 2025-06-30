@@ -330,6 +330,31 @@ static CompressionValue parse_compression_value(char* compression_name, bool* ok
 	return result;
 }
 
+NODISCARD static float parseCompressionQuality(char* compression_weight) {
+	// strip whitespace
+	while(isspace(*compression_weight)) {
+		compression_weight++;
+	}
+
+	if(strlen(compression_weight) < 2) {
+		// now q=
+		return NAN;
+	}
+
+	if(compression_weight[0] != 'q' && compression_weight[0] != 'Q') {
+		return NAN;
+	}
+	compression_weight++;
+
+	if(compression_weight[0] != '=') {
+		return NAN;
+	}
+	compression_weight++;
+
+	float value = parseFloat(compression_weight);
+
+	return value;
+}
 CompressionSettings* getCompressionSettings(HttpHeaderFields headerFields) {
 
 	CompressionSettings* compressionSettings =
@@ -385,7 +410,8 @@ CompressionSettings* getCompressionSettings(HttpHeaderFields headerFields) {
 			CompressionEntry entry = { .value = {}, .weight = 1.0F };
 
 			if(compression_weight != NULL) {
-				float value = parseFloat(compression_weight);
+
+				float value = parseCompressionQuality(compression_weight);
 
 				if(!isnan(value)) {
 					entry.weight = value;
@@ -512,8 +538,8 @@ SendSettings getSendSettings(RequestSettings* requestSettings) {
 		return result;
 	}
 
-	// this sorts the entries by weight, same weight means, we prefer the ones that come first in
-	// the string, as it is unspecified in the spec, on what to sort as 2. criterium
+	// this sorts the entries by weight, same weight means, we prefer the ones that come first
+	// in the string, as it is unspecified in the spec, on what to sort as 2. criterium
 	qsort(entries, entries_length, sizeof(CompressionEntry), compare_function_entries);
 
 	for(size_t i = 0; i < entries_length; ++i) {
@@ -546,8 +572,8 @@ break_for:
 	return result;
 }
 
-// makes a stringBuilder + a sized body from the HttpResponse, just does the opposite of parsing a
-// Request, but with some slight modification
+// makes a stringBuilder + a sized body from the HttpResponse, just does the opposite of parsing
+// a Request, but with some slight modification
 HttpConcattedResponse* httpResponseConcat(HttpResponse* response) {
 	HttpConcattedResponse* concattedResponse =
 	    (HttpConcattedResponse*)mallocWithMemset(sizeof(HttpConcattedResponse), true);
@@ -594,8 +620,8 @@ void freeHttpResponse(HttpResponse* response) {
 	free(response);
 }
 
-// really simple and dumb html boilerplate, this is used for demonstration purposes, and is static,
-// but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
+// really simple and dumb html boilerplate, this is used for demonstration purposes, and is
+// static, but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
 
 NODISCARD static StringBuilder* htmlFromString(StringBuilder* headContent,
                                                StringBuilder* scriptContent,
@@ -718,23 +744,23 @@ StringBuilder* httpRequestToHtml(const HttpRequest* const request, bool https,
 
 	StringBuilder* style = string_builder_init();
 	string_builder_append_single(
-	    style,
-	    "body{background: linear-gradient( 90deg, rgb(255, 0, 0) 0%, rgb(255, 154, 0) 10%, "
-	    "rgb(208, 222, 33) 20%, rgb(79, 220, 74) 30%, rgb(63, 218, 216) 40%, rgb(47, 201, "
-	    "226) 50%, rgb(28, 127, 238) 60%, rgb(95, 21, 242) 70%, rgb(186, 12, 248) 80%, "
-	    "rgb(251, 7, 217) 90%, rgb(255, 0, 0) 100% );}"
-	    "#request {display: flex;justify-content: center;gap: 5%;color: #1400ff;text-align: "
-	    "center;align-items: center;}"
-	    "#header {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
-	    "anywhere;text-align: center;word-wrap: anywhere;}"
-	    "#body {padding: 1%;text-align: center;border: solid 4px black;margin: 1%;}"
-	    "#shutdown {border: none;cursor: crosshair;opacity: .9;padding: 16px "
-	    "20px;background-color: #c7ff00;font-weight: 900;color: #000;}"
-	    "#title{text-align: center;}"
-	    "#settings {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
-	    "anywhere;text-align: center;word-wrap: anywhere;}"
-	    "#send_settings {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
-	    "anywhere;text-align: center;word-wrap: anywhere;}"
+	    style, "body{background: linear-gradient( 90deg, rgb(255, 0, 0) 0%, rgb(255, 154, 0) 10%, "
+	           "rgb(208, 222, 33) 20%, rgb(79, 220, 74) 30%, rgb(63, 218, 216) 40%, rgb(47, 201, "
+	           "226) 50%, rgb(28, 127, 238) 60%, rgb(95, 21, 242) 70%, rgb(186, 12, 248) 80%, "
+	           "rgb(251, 7, 217) 90%, rgb(255, 0, 0) 100% );}"
+	           "#request {display: flex;justify-content: center;gap: 5%;color: #1400ff;text-align: "
+	           "center;align-items: center;}"
+	           "#header {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
+	           "anywhere;text-align: center;word-wrap: anywhere;}"
+	           "#body {padding: 1%;text-align: center;border: solid 4px black;margin: 1%;}"
+	           "#shutdown {border: none;cursor: crosshair;opacity: .9;padding: 16px "
+	           "20px;background-color: #c7ff00;font-weight: 900;color: #000;}"
+	           "#title{text-align: center;}"
+	           "#settings {display:flex; flex-direction: column;align-items: center;overflow-wrap: "
+	           "anywhere;text-align: center;word-wrap: anywhere;}"
+	           "#send_settings {display:flex; flex-direction: column;align-items: "
+	           "center;overflow-wrap: "
+	           "anywhere;text-align: center;word-wrap: anywhere;}"
 
 	);
 
