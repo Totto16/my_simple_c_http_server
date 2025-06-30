@@ -20,7 +20,6 @@ StringBuilder* string_builder_init() {
 	return result;
 }
 
-
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
 static int string_builder_append_string_impl(StringBuilder* stringBuilder, const char* string,
@@ -109,7 +108,7 @@ NODISCARD char* string_builder_release_into_string(StringBuilder** stringBuilder
 NODISCARD SizedBuffer string_builder_get_sized_buffer(StringBuilder* stringBuilder) {
 
 	if(stringBuilder == NULL) {
-		return (SizedBuffer){ .data = NULL, .size = 0 };
+		return get_empty_sized_buffer();
 	}
 
 	size_t current_size = stbds_arrlenu(stringBuilder->value);

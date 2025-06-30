@@ -63,7 +63,7 @@ bool is_compressions_supported(COMPRESSION_TYPE format) {
 	}
 }
 
-#define SIZED_BUFFER_ERROR (SizedBuffer){ .data = NULL, .size = 0 }
+#define SIZED_BUFFER_ERROR get_empty_sized_buffer()
 
 #if defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP) || \
     defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE)
@@ -390,9 +390,8 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 		return SIZED_BUFFER_ERROR;
 	}
 
-	SizedBuffer inputBuffer = { .data = buffer.data, .size = buffer.size };
-	SizedBuffer remaining_compressor_buffer = { .data = compressor_buffer.data,
-		                                        .size = compressor_buffer.size };
+	SizedBuffer inputBuffer = sized_buffer_get_exact_clone(buffer);
+	SizedBuffer remaining_compressor_buffer = sized_buffer_get_exact_clone(compressor_buffer);
 
 	while(true) {
 

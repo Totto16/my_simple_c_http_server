@@ -127,10 +127,6 @@ NODISCARD float parseFloat(char* value) {
 	return result;
 }
 
-void freeSizedBuffer(SizedBuffer buffer) {
-	free(buffer.data);
-}
-
 NODISCARD uint32_t get_random_byte(void) {
 #ifdef __APPLE__
 	srandom(time(NULL));

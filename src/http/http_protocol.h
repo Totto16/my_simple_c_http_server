@@ -11,6 +11,7 @@ extern "C" {
 // needed h files
 #include "./compression.h"
 #include "utils/log.h"
+#include "utils/sized_buffer.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
 #include <stb/ds.h>

@@ -187,7 +187,7 @@ NODISCARD static HttpResponse* constructHttpResponse(HTTPResponseToSend toSend,
 
 	if(!toSend.body.sendBodyData) {
 		freeSizedBuffer(response->body);
-		response->body = (SizedBuffer){ .data = NULL, .size = 0 };
+		response->body = get_empty_sized_buffer();
 	}
 
 	// for that the body has to be malloced
@@ -258,6 +258,5 @@ NODISCARD HTTPResponseBody httpResponseBodyFromData(void* data, size_t size) {
 }
 
 NODISCARD HTTPResponseBody httpResponseBodyEmpty(void) {
-	return (HTTPResponseBody){ .body = (SizedBuffer){ .data = NULL, .size = 0 },
-		                       .sendBodyData = true };
+	return (HTTPResponseBody){ .body = get_empty_sized_buffer(), .sendBodyData = true };
 }

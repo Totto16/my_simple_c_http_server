@@ -132,13 +132,6 @@ NODISCARD char* copy_cstr(char* input);
 
 NODISCARD float parseFloat(char* value);
 
-typedef struct {
-	void* data;
-	size_t size;
-} SizedBuffer;
-
-void freeSizedBuffer(SizedBuffer buffer);
-
 #define FREE_ARRAY_AND_ENTRIES(ARRAY) \
 	do { \
 		if(ARRAY) { \
