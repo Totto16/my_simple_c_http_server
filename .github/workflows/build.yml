@@ -112,7 +112,7 @@ jobs:
                   brew install openssl@3.0 zstd zlib brotli
 
             - name: Configure
-              run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
+              run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
 
             - name: Build
               run: meson compile -C build

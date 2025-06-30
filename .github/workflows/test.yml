@@ -55,7 +55,7 @@ jobs:
                   sudo apt-get install openssl libssl-dev --no-install-recommends -y
 
             - name: Configure
-              run: meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
+              run: meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
 
             - name: Build
               run: meson compile -C build
@@ -68,7 +68,7 @@ jobs:
 
             - name: Unit Tests
               run: |
-                  meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
+                  meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
                   meson compile -C test_build
                   meson test -C test_build --verbose
                   ninja coverage -C test_build

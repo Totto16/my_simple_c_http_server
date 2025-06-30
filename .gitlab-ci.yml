@@ -18,11 +18,11 @@ compile_clang:
         # install meson
         - pip install meson --break-system-packages
     script:
-        - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
+        - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
-        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip
+        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build_no_secure
 
 compile_gcc:
@@ -37,11 +37,11 @@ compile_gcc:
         # install meson
         - pip install meson --break-system-packages
     script:
-        - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
+        - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build
         - meson setup build_debug -Dbuildtype=debug
         - meson compile -C build_debug
-        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip
+        - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build_no_secure
 
 test:
@@ -73,13 +73,13 @@ test:
         - apt-get install openssl libssl-dev --no-install-recommends -y
     script:
         # run ws tests
-        - meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
+        - meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build
         - ./build/server http 8080 -l trace &
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
         - wget http://localhost:8080/shutdown -O - -q
         # run unit tests
-        - meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip
+        - meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C test_build
         - meson test -C test_build --verbose
         - ninja coverage -C test_build
