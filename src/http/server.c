@@ -61,7 +61,7 @@ ANY_TYPE(JobError*)
 
 	ConnectionContext* context = argument->contexts[workerInfo.workerIndex];
 	char* thread_name_buffer = NULL;
-	FORMAT_STRING(&thread_name_buffer, return JobError_StringFormat;
+	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
 	             , "connection handler %lu", workerInfo.workerIndex);
 	set_thread_name(thread_name_buffer);
 
@@ -89,7 +89,7 @@ ANY_TYPE(JobError*)
 		LOG_MESSAGE_SIMPLE(LogLevelError, "get_connection_descriptor failed\n");
 
 		FREE_AT_END();
-		return JobError_Desc;
+		return JOB_ERROR_DESC;
 	}
 
 	char* rawHttpRequest = readStringFromConnection(descriptor);
@@ -181,7 +181,7 @@ ANY_TYPE(JobError*)
 					    {
 						    stbds_arrfree(additionalHeaders);
 						    FREE_AT_END();
-						    return JobError_StringFormat;
+						    return JOB_ERROR_STRING_FORMAT;
 					    },
 					    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
@@ -245,7 +245,7 @@ ANY_TYPE(JobError*)
 							CHECK_FOR_ERROR(cancel_result,
 							              "While trying to cancel the listener Thread", {
 								              FREE_AT_END();
-								              return JobError_ThreadCancel;
+								              return JOB_ERROR_THREAD_CANCEL;
 							              });
 
 							break;
@@ -270,7 +270,7 @@ ANY_TYPE(JobError*)
 								freeHttpRequest(httpRequest);
 								FREE_AT_END();
 
-								return JobError_None;
+								return JOB_ERROR_NONE;
 							}
 
 							// the error was already sent, just close the descriptor and free the
@@ -296,7 +296,7 @@ ANY_TYPE(JobError*)
 								freeHttpRequest(httpRequest);
 								FREE_AT_END();
 
-								return JobError_None;
+								return JOB_ERROR_NONE;
 							}
 
 							// the error was already sent, just close the descriptor and free the
@@ -355,7 +355,7 @@ ANY_TYPE(JobError*)
 		    {
 			    stbds_arrfree(additionalHeaders);
 			    FREE_AT_END();
-			    return JobError_StringFormat;
+			    return JOB_ERROR_STRING_FORMAT;
 		    },
 		    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
@@ -413,11 +413,11 @@ cleanup:
 	int result = close_connection_descriptor_advanced(descriptor, context, SUPPORT_KEEPALIVE);
 	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", {
 		FREE_AT_END();
-		return JobError_Close;
+		return JOB_ERROR_CLOSE;
 	});
 	// and free the malloced argument
 	FREE_AT_END();
-	return JobError_None;
+	return JOB_ERROR_NONE;
 }
 
 #undef FREE_AT_END
@@ -482,7 +482,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 			close(poll_fds[1].fd);
 			int result = pthread_cancel(pthread_self());
 			CHECK_FOR_ERROR(result, "While trying to cancel the listener Thread on signal",
-			              return ListenerError_ThreadCancel;);
+			              return LISTENER_ERROR_THREAD_CANCEL;);
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
@@ -494,14 +494,14 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.socketFd, NULL, NULL);
 		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
-		              return ListenerError_Accept;);
+		              return LISTENER_ERROR_ACCEPT;);
 
 		HTTPConnectionArgument* connectionArgument =
 		    (HTTPConnectionArgument*)malloc(sizeof(HTTPConnectionArgument));
 
 		if(!connectionArgument) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-			return ListenerError_Malloc;
+			return LISTENER_ERROR_MALLOC;
 		}
 
 		// to have longer lifetime, that is needed here, since otherwise it would be "dead"
@@ -515,7 +515,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// ready to accept new connections
 		if(myqueue_push(argument.jobIds, pool_submit(argument.pool, http_socket_connection_handler,
 		                                             connectionArgument)) < 0) {
-			return ListenerError_QueuePush;
+			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 
 		// not waiting directly, but when the queue grows to fast, it is reduced, then the
@@ -533,7 +533,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 				JobError result = pool_await(jobId);
 
 				if(is_job_error(result)) {
-					if(result != JobError_None) {
+					if(result != JOB_ERROR_NONE) {
 						print_job_error(result);
 					}
 				} else if(result == PTHREAD_CANCELED) {
@@ -700,13 +700,13 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
-	ListenerError returnValue = ListenerError_None;
+	ListenerError returnValue = LISTENER_ERROR_NONE;
 	result = pthread_join(listenerThread, &returnValue);
 	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to wait for a Thread",
 	                    return EXIT_FAILURE;);
 
 	if(is_listener_error(returnValue)) {
-		if(returnValue != ListenerError_None) {
+		if(returnValue != LISTENER_ERROR_NONE) {
 			print_listener_error(returnValue);
 		}
 	} else if(returnValue != PTHREAD_CANCELED) {
@@ -726,7 +726,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 		JobError result = pool_await(jobId);
 
 		if(is_job_error(result)) {
-			if(result != JobError_None) {
+			if(result != JOB_ERROR_NONE) {
 				print_job_error(result);
 			}
 		} else if(result == PTHREAD_CANCELED) {

@@ -5,46 +5,46 @@
 
 // job errors
 
-typedef void* JobError;
+typedef ANY JobError;
 
-#define JobError_None ((JobError)0x02)
+#define JOB_ERROR_NONE ((JobError)0x02)
 
-#define JobError_Desc ((JobError)0x20)
-#define JobError_ThreadCancel ((JobError)0x21)
-#define JobError_Malloc ((JobError)0x22)
-#define JobError_Close ((JobError)0x23)
-#define JobError_StringFormat ((JobError)0x24)
-#define JobError_InvalidJob ((JobError)0x25)
-#define JobError_NoResult ((JobError)0x26)
-#define JobError_SemWait ((JobError)0x27)
-#define JobError_SemDest ((JobError)0x28)
-#define JobError_SigHandler ((JobError)0x29)
-#define JobError_GetSockName ((JobError)0x30)
+#define JOB_ERROR_DESC ((JobError)0x20)
+#define JOB_ERROR_THREAD_CANCEL ((JobError)0x21)
+#define JOB_ERROR_MALLOC ((JobError)0x22)
+#define JOB_ERROR_CLOSE ((JobError)0x23)
+#define JOB_ERROR_STRING_FORMAT ((JobError)0x24)
+#define JOB_ERROR_INVALID_JOB ((JobError)0x25)
+#define JOB_ERROR_NO_RESULT ((JobError)0x26)
+#define JOB_ERROR_SEM_WAIT ((JobError)0x27)
+#define JOB_ERROR_SEM_DEST ((JobError)0x28)
+#define JOB_ERROR_SIG_HANDLER ((JobError)0x29)
+#define JOB_ERROR_GET_SOCK_NAME ((JobError)0x30)
 
-#define JobError_START JobError_Desc
-#define JobError_END JobError_GetSockName
+#define JOB_ERROR_START JOB_ERROR_DESC
+#define JOB_ERROR_END JOB_ERROR_GET_SOCK_NAME
 
-bool is_job_error(JobError error);
+NODISCARD bool is_job_error(JobError error);
 
 void print_job_error(JobError error);
 
 // listeners errors
 
-typedef void* ListenerError;
+typedef ANY ListenerError;
 
-#define ListenerError_None ((ListenerError)0x02)
+#define LISTENER_ERROR_NONE ((ListenerError)0x02)
 
-#define ListenerError_Malloc ((ListenerError)0x80)
-#define ListenerError_ThreadCancel ((ListenerError)0x81)
-#define ListenerError_QueuePush ((ListenerError)0x82)
-#define ListenerError_Accept ((ListenerError)0x83)
-#define ListenerError_DataController ((ListenerError)0x84)
-#define ListenerError_ThreadAfterCancel ((ListenerError)0x85)
+#define LISTENER_ERROR_MALLOC ((ListenerError)0x80)
+#define LISTENER_ERROR_THREAD_CANCEL ((ListenerError)0x81)
+#define LISTENER_ERROR_QUEUE_PUSH ((ListenerError)0x82)
+#define LISTENER_ERROR_ACCEPT ((ListenerError)0x83)
+#define LISTENER_ERROR_DATA_CONTROLLER ((ListenerError)0x84)
+#define LISTENER_ERROR_THREAD_AFTER_CANCEL ((ListenerError)0x85)
 
-#define ListenerError_START ListenerError_Malloc
-#define ListenerError_END ListenerError_ThreadAfterCancel
+#define LISTENER_ERROR_START LISTENER_ERROR_MALLOC
+#define LISTENER_ERROR_END LISTENER_ERROR_THREAD_AFTER_CANCEL
 
-bool is_listener_error(ListenerError error);
+NODISCARD bool is_listener_error(ListenerError error);
 
 void print_listener_error(ListenerError error);
 
@@ -54,36 +54,36 @@ void print_listener_error(ListenerError error);
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	CreateError_None = 0,
-	CreateError_ThreadCreate,
-	CreateError_Malloc,
-	CreateError_SemInit,
-	CreateError_QueueInit
+	CreateErrorNone = 0,
+	CreateErrorThreadCreate,
+	CreateErrorMalloc,
+	CreateErrorSemInit,
+	CreateErrorQueueInit
 } CreateError;
 
 void print_create_error(CreateError error);
 
 // submit errors
 
-typedef void* SubmitError;
+typedef ANY SubmitError;
 
-#define SubmitError_None ((SubmitError)0x02)
+#define SUBMIT_ERROR_NONE ((SubmitError)0x02)
 
-#define SubmitError_Malloc ((SubmitError)0xA0)
-#define SubmitError_SemInit ((SubmitError)0xA1)
-#define SubmitError_SemPost ((SubmitError)0xA2)
-#define SubmitError_InvalidStartRoutine ((SubmitError)0xA3)
-#define SubmitError_QueuePush ((SubmitError)0xA4)
+#define SUBMIT_ERROR_MALLOC ((SubmitError)0xA0)
+#define SUBMIT_ERROR_SEM_INIT ((SubmitError)0xA1)
+#define SUBMIT_ERROR_SEM_POST ((SubmitError)0xA2)
+#define SUBMIT_ERROR_INVALID_START_ROUTINE ((SubmitError)0xA3)
+#define SUBMIT_ERROR_QUEUE_PUSH ((SubmitError)0xA4)
 
 void print_submit_error(SubmitError error);
 
 // worker errors
 
-typedef void* WorkerError;
+typedef ANY WorkerError;
 
-#define WorkerError_None ((WorkerError)0x02)
+#define WORKER_ERROR_NONE ((WorkerError)0x02)
 
-#define WorkerError_SemPost ((WorkerError)0xC0)
-#define WorkerError_SemWait ((WorkerError)0xC1)
+#define WORKER_ERROR_SEM_POST ((WorkerError)0xC0)
+#define WORKER_ERROR_SEM_WAIT ((WorkerError)0xC1)
 
 void print_worker_error(WorkerError error);

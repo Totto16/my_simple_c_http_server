@@ -86,7 +86,7 @@ ANY_TYPE(JobError*)
 
 	ConnectionContext* context = argument->contexts[workerInfo.workerIndex];
 	char* thread_name_buffer = NULL;
-	FORMAT_STRING(&thread_name_buffer, return JobError_StringFormat;
+	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
 	             , "connection handler %lu", workerInfo.workerIndex);
 	set_thread_name(thread_name_buffer);
 
@@ -100,7 +100,7 @@ ANY_TYPE(JobError*)
 
 	if(!signal_result) {
 		FREE_AT_END();
-		return JobError_SigHandler;
+		return JOB_ERROR_SIG_HANDLER;
 	}
 
 	struct sockaddr_in server_addr_raw;
@@ -113,14 +113,14 @@ ANY_TYPE(JobError*)
 		LOG_MESSAGE(LogLevelError | LogPrintLocation, "getsockname error: %s\n", strerror(errno));
 
 		FREE_AT_END();
-		return JobError_GetSockName;
+		return JOB_ERROR_GET_SOCK_NAME;
 	}
 
 	if(addr_len != sizeof(server_addr_raw)) {
 		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "getsockname has wrong addr_len\n");
 
 		FREE_AT_END();
-		return JobError_GetSockName;
+		return JOB_ERROR_GET_SOCK_NAME;
 	}
 
 	FTPAddrField server_addr = get_port_info_from_sockaddr(server_addr_raw).addr;
@@ -134,7 +134,7 @@ ANY_TYPE(JobError*)
 		LOG_MESSAGE_SIMPLE(LogLevelError, "get_connection_descriptor failed\n");
 
 		FREE_AT_END();
-		return JobError_Desc;
+		return JOB_ERROR_DESC;
 	}
 
 	int hello_result =
@@ -202,11 +202,11 @@ cleanup:
 	    close_connection_descriptor_advanced(descriptor, context, ALLOW_SSL_AUTO_CONTEXT_REUSE);
 	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", {
 		FREE_AT_END();
-		return JobError_Close;
+		return JOB_ERROR_CLOSE;
 	});
 	// and free the malloced argument
 	FREE_AT_END();
-	return JobError_None;
+	return JOB_ERROR_NONE;
 }
 
 #undef FREE_AT_END
@@ -1401,9 +1401,9 @@ ANY_TYPE(ListenerError*)
 			close(poll_fds[1].fd);
 			int result = pthread_cancel(pthread_self());
 			CHECK_FOR_ERROR(result, "While trying to cancel the listener Thread on signal",
-			              return ListenerError_ThreadCancel;);
+			              return LISTENER_ERROR_THREAD_CANCEL;);
 
-			return ListenerError_ThreadAfterCancel;
+			return LISTENER_ERROR_THREAD_AFTER_CANCEL;
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
@@ -1418,11 +1418,11 @@ ANY_TYPE(ListenerError*)
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.socketFd, (struct sockaddr*)&client_addr, &addr_len);
 		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
-		              return ListenerError_Accept;);
+		              return LISTENER_ERROR_ACCEPT;);
 
 		if(addr_len != sizeof(client_addr)) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Accept has wrong addr_len\n");
-			return ListenerError_Accept;
+			return LISTENER_ERROR_ACCEPT;
 		}
 
 		FTPControlConnectionArgument* connectionArgument =
@@ -1430,7 +1430,7 @@ ANY_TYPE(ListenerError*)
 
 		if(!connectionArgument) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-			return ListenerError_Malloc;
+			return LISTENER_ERROR_MALLOC;
 		}
 
 		FTPState* connection_ftp_state = alloc_default_state(argument.global_folder);
@@ -1438,7 +1438,7 @@ ANY_TYPE(ListenerError*)
 		if(!connection_ftp_state) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 			free(connectionArgument);
-			return ListenerError_Malloc;
+			return LISTENER_ERROR_MALLOC;
 		}
 
 		// to have longer lifetime, that is needed here, since otherwise it would be "dead"
@@ -1453,7 +1453,7 @@ ANY_TYPE(ListenerError*)
 		if(myqueue_push(argument.jobIds,
 		                pool_submit(argument.pool, ftp_control_socket_connection_handler,
 		                            connectionArgument)) < 0) {
-			return ListenerError_QueuePush;
+			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 
 		// not waiting directly, but when the queue grows to fast, it is reduced, then the
@@ -1471,7 +1471,7 @@ ANY_TYPE(ListenerError*)
 				JobError result = pool_await(jobId);
 
 				if(is_job_error(result)) {
-					if(result != JobError_None) {
+					if(result != JOB_ERROR_NONE) {
 						print_job_error(result);
 					}
 				} else if(result == PTHREAD_CANCELED) {
@@ -1505,7 +1505,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 
 	if(!success) {
 		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Failed to set port as available\n");
-		return ListenerError_DataController;
+		return LISTENER_ERROR_DATA_CONTROLLER;
 	}
 
 #define POLL_FD_AMOUNT 2
@@ -1549,9 +1549,9 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			close(poll_fds[POLL_SIG_ARR_INDEX].fd);
 			int result = pthread_cancel(pthread_self());
 			CHECK_FOR_ERROR(result, "While trying to cancel a data listener Thread on signal",
-			              return ListenerError_ThreadCancel;);
+			              return LISTENER_ERROR_THREAD_CANCEL;);
 
-			return ListenerError_ThreadAfterCancel;
+			return LISTENER_ERROR_THREAD_AFTER_CANCEL;
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
@@ -1582,11 +1582,11 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.fd, (struct sockaddr*)&client_addr, &addr_len);
 		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
-		              return ListenerError_Accept;);
+		              return LISTENER_ERROR_ACCEPT;);
 
 		if(addr_len != sizeof(client_addr)) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Accept has wrong addr_len\n");
-			return ListenerError_Accept;
+			return LISTENER_ERROR_ACCEPT;
 		}
 
 		LOG_MESSAGE_SIMPLE(LogLevelInfo, "Got a new passive data connection\n");
@@ -1597,7 +1597,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		if(data_connection == NULL) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 			                   "get_data_connection_for_data_thread_or_add_passive failed\n");
-			return ListenerError_DataController;
+			return LISTENER_ERROR_DATA_CONTROLLER;
 		}
 
 		// TODO(Totto): get correct context, in future if we use tls
@@ -1615,7 +1615,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		if(!success) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 			                   "data_controller_add_descriptor failed\n");
-			return ListenerError_DataController;
+			return LISTENER_ERROR_DATA_CONTROLLER;
 		}
 
 		// clean up old ones
@@ -1633,7 +1633,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		}
 	}
 
-	return ListenerError_None;
+	return LISTENER_ERROR_NONE;
 }
 
 ANY_TYPE(ListenerError*)
@@ -1651,7 +1651,7 @@ ANY_TYPE(ListenerError*)
 	if(local_port_status_arr == NULL) {
 		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 		                   "Failed to setup passive port array\n");
-		return ListenerError_DataController;
+		return LISTENER_ERROR_DATA_CONTROLLER;
 	}
 
 	for(size_t i = 0; i < argument.port_amount; ++i) {
@@ -1719,7 +1719,7 @@ ANY_TYPE(ListenerError*)
 	for(size_t i = 0; i < argument.port_amount; ++i) {
 		FTPPassivePortStatus port_status = local_port_status_arr[i];
 
-		ListenerError returnValue = ListenerError_None;
+		ListenerError returnValue = LISTENER_ERROR_NONE;
 		int result = pthread_join(port_status.thread_ref, &returnValue);
 		CHECK_FOR_THREAD_ERROR(result,
 		                    "An Error occurred while trying to wait for a port listening Thread",
@@ -1727,7 +1727,7 @@ ANY_TYPE(ListenerError*)
 		                    goto cont_outer2;;);
 
 		if(is_listener_error(returnValue)) {
-			if(returnValue != ListenerError_None) {
+			if(returnValue != LISTENER_ERROR_NONE) {
 				print_listener_error(returnValue);
 			}
 		} else if(returnValue != PTHREAD_CANCELED) {
@@ -1746,8 +1746,8 @@ ANY_TYPE(ListenerError*)
 	}
 
 	free(local_port_status_arr);
-	return is_error ? ListenerError_ThreadCancel // NOLINT(readability-implicit-bool-conversion)
-	                : ListenerError_None;
+	return is_error ? LISTENER_ERROR_THREAD_CANCEL // NOLINT(readability-implicit-bool-conversion)
+	                : LISTENER_ERROR_NONE;
 }
 
 int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* options) {
@@ -1912,13 +1912,13 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
-	ListenerError control_returnValue = ListenerError_None;
+	ListenerError control_returnValue = LISTENER_ERROR_NONE;
 	result1 = pthread_join(controlListenerThread, &control_returnValue);
 	CHECK_FOR_THREAD_ERROR(result1, "An Error occurred while trying to wait for a control Thread",
 	                    return EXIT_FAILURE;);
 
 	if(is_listener_error(control_returnValue)) {
-		if(control_returnValue != ListenerError_None) {
+		if(control_returnValue != LISTENER_ERROR_NONE) {
 			print_listener_error(control_returnValue);
 		}
 	} else if(control_returnValue != PTHREAD_CANCELED) {
@@ -1932,13 +1932,13 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 		            control_returnValue);
 	}
 
-	ListenerError data_returnValue = ListenerError_None;
+	ListenerError data_returnValue = LISTENER_ERROR_NONE;
 	result2 = pthread_join(dataOrchestratorThread, &data_returnValue);
 	CHECK_FOR_THREAD_ERROR(result2, "An Error occurred while trying to wait for a data Thread",
 	                    return EXIT_FAILURE;);
 
 	if(is_listener_error(data_returnValue)) {
-		if(data_returnValue != ListenerError_None) {
+		if(data_returnValue != LISTENER_ERROR_NONE) {
 			print_listener_error(data_returnValue);
 		}
 	} else if(data_returnValue != PTHREAD_CANCELED) {
@@ -1959,7 +1959,7 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 		JobError result = pool_await(jobId);
 
 		if(is_job_error(result)) {
-			if(result != JobError_None) {
+			if(result != JOB_ERROR_NONE) {
 				print_job_error(result);
 			}
 		} else if(result == PTHREAD_CANCELED) {
