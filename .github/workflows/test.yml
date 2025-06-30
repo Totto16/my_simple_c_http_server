@@ -45,7 +45,7 @@ jobs:
             - name: Install dependencies
               run: |
                   sudo apt-get update
-                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 gcovr -y --no-install-recommends
+                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 gcovr libgmp-dev -y --no-install-recommends
 
             - name: Install pypy2 and autobahn
               run: |
