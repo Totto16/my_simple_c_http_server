@@ -76,13 +76,13 @@ if zstd_dep.found()
     compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD'
 endif
 
-liblzw_dep = dependency(
-    'liblzw',
+lzws_dep = dependency(
+    'lzws',
     required: compression_features_dict['compress'],
 )
 
-if liblzw_dep.found()
-    deps += liblzw_dep
+if lzws_dep.found()
+    deps += lzws_dep
     compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS'
 endif
 

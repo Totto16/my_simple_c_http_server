@@ -1,0 +1,17 @@
+
+option(
+    'bignum_library',
+    type: 'combo',
+    value: 'gmp',
+    choices: ['gmp', 'tommath'],
+    description: 'specify the bignum_library to use',
+)
+
+
+option(
+    'compression_method',
+    type: 'combo',
+    value: 'linked-list',
+    choices: ['linked-list', 'sparse-array'],
+    description: 'specify the compression_method to use',
+)

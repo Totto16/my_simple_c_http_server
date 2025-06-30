@@ -1,0 +1,10 @@
+[wrap-file]
+directory = lzws-1.5.6
+source_url = https://github.com/andrew-aladev/lzws/archive/refs/tags/v1.5.6.tar.gz
+source_filename = v1.5.6.tar.gz
+source_hash = 0b12eec21231f4e631e98dab295254bc3f602c9b6f88368af2b99ebf9354139a
+patch_directory = lzws
+diff_files = lzws_string.diff
+
+[provide]
+lzws = lzws_dep
