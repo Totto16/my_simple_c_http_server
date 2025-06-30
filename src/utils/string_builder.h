@@ -10,10 +10,7 @@
 
 // simple String builder used in http_protocol, its super convenient, self implemented
 
-typedef struct {
-	char* data;
-	size_t currentSize;
-} StringBuilder;
+typedef struct StringBuilderImpl StringBuilder;
 
 NODISCARD StringBuilder* string_builder_init(void);
 

@@ -245,8 +245,9 @@ NODISCARD HTTPResponseBody httpResponseBodyFromString(char* string) {
 }
 
 NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder* stringBuilder) {
+	SizedBuffer string_builder_buffer = string_builder_get_sized_buffer(stringBuilder);
 	HTTPResponseBody result =
-	    httpResponseBodyFromData(stringBuilder->data, stringBuilder->currentSize);
+	    httpResponseBodyFromData(string_builder_buffer.data, string_builder_buffer.size);
 	free(stringBuilder);
 	return result;
 }

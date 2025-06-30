@@ -164,7 +164,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 	size_t minimumSize =
 	    1 << 20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	while(string_builder->currentSize < minimumSize) {
+	while(string_builder_get_sized_buffer(string_builder).size < minimumSize) {
 		if(pretty) {
 			string_builder_append_single(string_builder, "\n");
 		}

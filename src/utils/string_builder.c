@@ -4,6 +4,12 @@
 
 #include "utils/log.h"
 
+// TODO: use ds_array, so that not every appending needs to realloc!
+struct StringBuilderImpl {
+	char* data;
+	size_t currentSize;
+};
+
 StringBuilder* string_builder_init() {
 	StringBuilder* result = (StringBuilder*)malloc(sizeof(StringBuilder));
 	if(!result) {
