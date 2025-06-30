@@ -9,7 +9,7 @@ option(
     'compression_features',
     type: 'array',
     value: [],
-    choices: ['zstd', 'br', 'deflate', 'gzip'],
+    choices: ['zstd', 'br', 'deflate', 'gzip', 'compress'],
     description: 'specify compression features, that need to be present',
 )
 

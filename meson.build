@@ -37,6 +37,7 @@ compression_features_dict = {
     'br': false,
     'deflate': false,
     'gzip': false,
+    'compress': false,
 }
 
 compression_features = get_option('compression_features')
@@ -48,7 +49,7 @@ foreach compression_feature : compression_features
 endforeach
 
 
-zlib_dep = dependency('zlib', required: compression_features_dict['zstd'] or compression_features_dict['deflate'
+zlib_dep = dependency('zlib', required: compression_features_dict['gzip'] or compression_features_dict['deflate'
 ])
 
 if zlib_dep.found()
@@ -73,6 +74,16 @@ zstd_dep = dependency('libzstd', required: compression_features_dict['zstd'])
 if zstd_dep.found()
     deps += zstd_dep
     compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD'
+endif
+
+liblzw_dep = dependency(
+    'liblzw',
+    required: compression_features_dict['compress'],
+)
+
+if liblzw_dep.found()
+    deps += liblzw_dep
+    compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS'
 endif
 
 

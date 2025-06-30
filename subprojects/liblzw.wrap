@@ -1,0 +1,9 @@
+[wrap-file]
+directory = liblzw-0.3
+source_url = https://github.com/vapier/liblzw/releases/download/v0.3/liblzw-0.3.tar.xz
+source_filename = liblzw-0.3.tar.xz
+source_hash = a5d5acaeac40f299e521af400134b70f63a140f2cb28d3502eca67c790afd58a
+patch_directory=liblzw
+
+[provide]
+liblzw = liblzw_dep
