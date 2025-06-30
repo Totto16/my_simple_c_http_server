@@ -93,4 +93,4 @@ test:
         reports:
             coverage_report:
                 coverage_format: cobertura
-                path: /test_build/meson-logs/coverage.xml
+                path: ./test_build/meson-logs/coverage.xml
