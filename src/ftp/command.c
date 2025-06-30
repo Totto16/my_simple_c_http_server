@@ -173,7 +173,7 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 		return NULL;
 	}
 
-	FTPCommand* command = (FTPCommand*)mallocWithMemset(sizeof(FTPCommand), true);
+	FTPCommand* command = (FTPCommand*)malloc_with_memset(sizeof(FTPCommand), true);
 	if(!command) {
 		return NULL;
 	}

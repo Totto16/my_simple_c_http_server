@@ -32,7 +32,7 @@ static bool constructHeadersForRequest(HttpResponse* response, const char* MIMET
 
 		// add the standard ones, using %c with '\0' to use the trick, described above
 		char* contentTypeBuffer = NULL;
-		formatString(&contentTypeBuffer, return NULL;
+		FORMAT_STRING(&contentTypeBuffer, return NULL;
 		             , "%s%c%s", "Content-Type", '\0',
 		             MIMEType == NULL ? DEFAULT_MIME_TYPE : MIMEType);
 
@@ -49,7 +49,7 @@ static bool constructHeadersForRequest(HttpResponse* response, const char* MIMET
 		// CONTENT LENGTH
 
 		char* contentLengthBuffer = NULL;
-		formatString(&contentLengthBuffer, return NULL;
+		FORMAT_STRING(&contentLengthBuffer, return NULL;
 		             , "%s%c%ld", "Content-Length", '\0', response->body.size);
 
 		size_t current_array_index = stbds_arrlenu(response->head.headerFields);
@@ -65,7 +65,7 @@ static bool constructHeadersForRequest(HttpResponse* response, const char* MIMET
 		// Server
 
 		char* serverBuffer = NULL;
-		formatString(&serverBuffer, return NULL;
+		FORMAT_STRING(&serverBuffer, return NULL;
 		             , "%s%c%s", "Server", '\0',
 		             "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
@@ -85,7 +85,7 @@ static bool constructHeadersForRequest(HttpResponse* response, const char* MIMET
 		if(compression_format != COMPRESSION_TYPE_NONE) {
 			// add the standard ones, using %c with '\0' to use the trick, described above
 			char* contentEncodingBuffer = NULL;
-			formatString(&contentEncodingBuffer, return NULL;
+			FORMAT_STRING(&contentEncodingBuffer, return NULL;
 			             , "%s%c%s", "Content-Encoding", '\0',
 			             get_string_for_compress_format(compression_format));
 
@@ -129,7 +129,7 @@ static bool constructHeadersForRequest(HttpResponse* response, const char* MIMET
 NODISCARD static HttpResponse* constructHttpResponse(HTTPResponseToSend toSend,
                                                      SendSettings send_settings) {
 
-	HttpResponse* response = (HttpResponse*)mallocWithMemset(sizeof(HttpResponse), true);
+	HttpResponse* response = (HttpResponse*)malloc_with_memset(sizeof(HttpResponse), true);
 
 	if(!response) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
@@ -142,7 +142,7 @@ NODISCARD static HttpResponse* constructHttpResponse(HTTPResponseToSend toSend,
 	const char* statusMessage = getStatusMessage(toSend.status);
 
 	char* responseLineBuffer = NULL;
-	formatString(&responseLineBuffer, return NULL;
+	FORMAT_STRING(&responseLineBuffer, return NULL;
 	             , "%s%c%d%c%s", protocolVersion, '\0', toSend.status, '\0', statusMessage);
 
 	response->head.responseLine.protocolVersion = responseLineBuffer;

@@ -53,15 +53,15 @@ static void receiveSignal(int signalNumber) {
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-anyType(JobError*)
-    http_socket_connection_handler(anyType(HTTPConnectionArgument*) _arg, WorkerInfo workerInfo) {
+ANY_TYPE(JobError*)
+    http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInfo workerInfo) {
 
 	// attention arg is malloced!
 	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)_arg;
 
 	ConnectionContext* context = argument->contexts[workerInfo.workerIndex];
 	char* thread_name_buffer = NULL;
-	formatString(&thread_name_buffer, return JobError_StringFormat;
+	FORMAT_STRING(&thread_name_buffer, return JobError_StringFormat;
 	             , "connection handler %lu", workerInfo.workerIndex);
 	set_thread_name(thread_name_buffer);
 
@@ -176,7 +176,7 @@ anyType(JobError*)
 
 					char* allowedHeaderBuffer = NULL;
 					// all 405 have to have a Allow filed according to spec
-					formatString(
+					FORMAT_STRING(
 					    &allowedHeaderBuffer,
 					    {
 						    stbds_arrfree(additionalHeaders);
@@ -242,7 +242,7 @@ anyType(JobError*)
 							// and the main thread cleans the pool and queue, all jobs are finished
 							// so shutdown gracefully
 							int cancel_result = pthread_cancel(argument->listenerThread);
-							checkForError(cancel_result,
+							CHECK_FOR_ERROR(cancel_result,
 							              "While trying to cancel the listener Thread", {
 								              FREE_AT_END();
 								              return JobError_ThreadCancel;
@@ -350,7 +350,7 @@ anyType(JobError*)
 
 		char* allowedHeaderBuffer = NULL;
 		// all 405 have to have a Allow filed according to spec
-		formatString(
+		FORMAT_STRING(
 		    &allowedHeaderBuffer,
 		    {
 			    stbds_arrfree(additionalHeaders);
@@ -411,7 +411,7 @@ anyType(JobError*)
 cleanup:
 	// finally close the connection
 	int result = close_connection_descriptor_advanced(descriptor, context, SUPPORT_KEEPALIVE);
-	checkForError(result, "While trying to close the connection descriptor", {
+	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", {
 		FREE_AT_END();
 		return JobError_Close;
 	});
@@ -435,7 +435,7 @@ static int myqueue_size(myqueue* queue) {
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(ListenerError*) http_listener_thread_function(anyType(HTTPThreadArgument*) arg) {
+ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgument*) arg) {
 
 	set_thread_name("listener thread");
 
@@ -452,7 +452,7 @@ anyType(ListenerError*) http_listener_thread_function(anyType(HTTPThreadArgument
 
 	int sigFd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
-	checkForError(sigFd, "While trying to cancel the listener Thread on signal",
+	CHECK_FOR_ERROR(sigFd, "While trying to cancel the listener Thread on signal",
 	              exit(EXIT_FAILURE););
 
 	poll_fds[1].fd = sigFd;
@@ -481,7 +481,7 @@ anyType(ListenerError*) http_listener_thread_function(anyType(HTTPThreadArgument
 			// fix that somehow
 			close(poll_fds[1].fd);
 			int result = pthread_cancel(pthread_self());
-			checkForError(result, "While trying to cancel the listener Thread on signal",
+			CHECK_FOR_ERROR(result, "While trying to cancel the listener Thread on signal",
 			              return ListenerError_ThreadCancel;);
 		}
 
@@ -493,7 +493,7 @@ anyType(ListenerError*) http_listener_thread_function(anyType(HTTPThreadArgument
 
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.socketFd, NULL, NULL);
-		checkForError(connectionFd, "While Trying to accept a socket",
+		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
 		              return ListenerError_Accept;);
 
 		HTTPConnectionArgument* connectionArgument =
@@ -561,12 +561,12 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// the socket type is SOCK_STREAM, meaning it has reliable read and write capabilities,
 	// all other types are not that well suited for that example
 	int socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	checkForError(socketFd, "While Trying to create socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(socketFd, "While Trying to create socket", return EXIT_FAILURE;);
 
 	// set the reuse port option to the socket, so it can be reused
 	const int optval = 1;
 	int optionReturn = setsockopt(socketFd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
-	checkForError(optionReturn, "While Trying to set socket option 'SO_REUSEPORT'",
+	CHECK_FOR_ERROR(optionReturn, "While Trying to set socket option 'SO_REUSEPORT'",
 	              return EXIT_FAILURE;);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
@@ -574,7 +574,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
 	struct sockaddr_in* addr =
-	    (struct sockaddr_in*)mallocWithMemset(sizeof(struct sockaddr_in), true);
+	    (struct sockaddr_in*)malloc_with_memset(sizeof(struct sockaddr_in), true);
 
 	if(!addr) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
@@ -596,14 +596,14 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
 	// getting that is being root, or executing as root: sudo ...)
 	int result = bind(socketFd, (struct sockaddr*)addr, sizeof(*addr));
-	checkForError(result, "While trying to bind socket to port", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result, "While trying to bind socket to port", return EXIT_FAILURE;);
 
 	// SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
 	// the protocol discards these requests listen starts listening on that socket, meaning
 	// new connections can be accepted
 	result = listen(socketFd, HTTP_SOCKET_BACKLOG_SIZE);
-	checkForError(result, "While trying to listen on socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result, "While trying to listen on socket", return EXIT_FAILURE;);
 
 	const char* protocol_string =
 	    is_secure(options) ? "https" : "http"; // NOLINT(readability-implicit-bool-conversion)
@@ -695,14 +695,14 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 
 	// creating the thread
 	result = pthread_create(&listenerThread, NULL, http_listener_thread_function, &threadArgument);
-	checkForThreadError(result, "An Error occurred while trying to create a new Thread",
+	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to create a new Thread",
 	                    return EXIT_FAILURE;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
 	ListenerError returnValue = ListenerError_None;
 	result = pthread_join(listenerThread, &returnValue);
-	checkForThreadError(result, "An Error occurred while trying to wait for a Thread",
+	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to wait for a Thread",
 	                    return EXIT_FAILURE;);
 
 	if(is_listener_error(returnValue)) {
@@ -754,7 +754,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// essentially saying, also correctly closed sockets aren't available after a certain
 	// time, even if closed correctly!
 	result = close(socketFd);
-	checkForError(result, "While trying to close the socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result, "While trying to close the socket", return EXIT_FAILURE;);
 
 	// and freeing the malloced sockaddr_in, could be done (probably, since the receiver of
 	// this option has already got that argument and doesn't read data from that pointer

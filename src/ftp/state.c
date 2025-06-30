@@ -143,7 +143,7 @@ char* make_address_port_desc(FTPConnectAddr addr) {
 	    address & 0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	char* result = NULL;
-	formatString(&result, return NULL;
+	FORMAT_STRING(&result, return NULL;
 	             , "(%d,%d,%d,%d,%d,%d)", host1, host2, host3, host4, port1, port2);
 
 	return result;

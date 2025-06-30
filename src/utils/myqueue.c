@@ -4,7 +4,7 @@
 
 int myqueue_init(myqueue* q) {
 	int result = comp_sem_init(&(q->canAccess), 1, false);
-	checkForError(result, "Couldn't initialize the internal queue Semaphore", return -1;);
+	CHECK_FOR_ERROR(result, "Couldn't initialize the internal queue Semaphore", return -1;);
 
 	myqueue_head* q_head = &(q->head);
 	STAILQ_INIT(q_head);
@@ -15,13 +15,13 @@ int myqueue_init(myqueue* q) {
 int myqueue_destroy(myqueue* q) {
 	// to clean up, the mutex has to be destroyed
 	int result = comp_sem_destroy(&(q->canAccess));
-	checkForError(result, "Couldn't destroy the internal queue Semaphore", return -1;);
+	CHECK_FOR_ERROR(result, "Couldn't destroy the internal queue Semaphore", return -1;);
 	return 0;
 }
 
 bool myqueue_is_empty(myqueue* q) {
 	int result = comp_sem_wait(&(q->canAccess));
-	checkForError(result, "Couldn't wait for the internal queue Semaphore", return false;);
+	CHECK_FOR_ERROR(result, "Couldn't wait for the internal queue Semaphore", return false;);
 
 	myqueue_head* q_head = &(q->head);
 	bool empty = STAILQ_EMPTY(q_head);
@@ -31,7 +31,7 @@ bool myqueue_is_empty(myqueue* q) {
 
 	// now say that it can be accessed
 	result = comp_sem_post(&(q->canAccess));
-	checkForError(result, "Couldn't post the internal queue Semaphore", return false;);
+	CHECK_FOR_ERROR(result, "Couldn't post the internal queue Semaphore", return false;);
 	return empty;
 }
 
@@ -40,7 +40,7 @@ bool myqueue_is_empty(myqueue* q) {
 int myqueue_push(myqueue* q, void* value) {
 
 	int result = comp_sem_wait(&(q->canAccess));
-	checkForError(result, "Couldn't wait for the internal queue Semaphore", return -1;);
+	CHECK_FOR_ERROR(result, "Couldn't wait for the internal queue Semaphore", return -1;);
 
 	myqueue_head* q_head = &(q->head);
 	struct myqueue_entry* entry = (struct myqueue_entry*)malloc(sizeof(struct myqueue_entry));
@@ -51,7 +51,7 @@ int myqueue_push(myqueue* q, void* value) {
 
 	// now say that it can be accessed
 	result = comp_sem_post(&(q->canAccess));
-	checkForError(result, "Couldn't post the internal queue Semaphore", return -1;);
+	CHECK_FOR_ERROR(result, "Couldn't post the internal queue Semaphore", return -1;);
 
 	return 0;
 }
@@ -59,7 +59,7 @@ int myqueue_push(myqueue* q, void* value) {
 void* myqueue_pop(myqueue* q) {
 
 	int result = comp_sem_wait(&(q->canAccess));
-	checkForError(result, "Couldn't wait for the internal queue Semaphore", return NULL);
+	CHECK_FOR_ERROR(result, "Couldn't wait for the internal queue Semaphore", return NULL);
 
 	myqueue_head* q_head = &(q->head);
 	// would be a deadlock, due to also waiting on the semaphore
@@ -75,6 +75,6 @@ void* myqueue_pop(myqueue* q) {
 
 	// now say that it can be accessed
 	result = comp_sem_post(&(q->canAccess));
-	checkForError(result, "Couldn't post the internal queue Semaphore", return NULL;);
+	CHECK_FOR_ERROR(result, "Couldn't post the internal queue Semaphore", return NULL;);
 	return value;
 }

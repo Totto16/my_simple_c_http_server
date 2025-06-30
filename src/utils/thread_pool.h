@@ -19,7 +19,7 @@ typedef struct {
 	size_t workerIndex;
 } WorkerInfo;
 
-typedef anyType(JobResult*) (*job_function)(anyType(UserType*), WorkerInfo);
+typedef ANY_TYPE(JobResult*) (*job_function)(ANY_TYPE(UserType*), WorkerInfo);
 
 typedef struct {
 	pthread_t thread;
@@ -46,7 +46,7 @@ typedef struct {
 // callable from different threads.
 // it reads from the queue and then executes the job, and then marks it as complete (posting the job
 // semaphore)
-anyType(NULL) thread_pool_Worker_thread_function(anyType(_my_thread_pool_ThreadArgument*) arg);
+ANY_TYPE(NULL) thread_pool_Worker_thread_function(ANY_TYPE(_my_thread_pool_ThreadArgument*) arg);
 
 // creates a pool, the size denotes the size of the worker threads, if you don't know how to choose
 // this value, use pool_create_dynamic to have an adjusted value, to your running system, it
@@ -66,12 +66,12 @@ int pool_create_dynamic(thread_pool* pool);
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its NULL) so it is checked here and
 // printing a warning if its _THREAD_SHUTDOWN_JOB and returns NULL
-job_id* pool_submit(thread_pool* pool, job_function start_routine, anyType(USerType*) arg);
+job_id* pool_submit(thread_pool* pool, job_function start_routine, ANY_TYPE(USerType*) arg);
 
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its NULL) so it is checked here and
 // printing a warning if its _THREAD_SHUTDOWN_JOB
-[[nodiscard]] anyType(JobResult*) pool_await(job_id* jobDescription);
+[[nodiscard]] ANY_TYPE(JobResult*) pool_await(job_id* jobDescription);
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined
 // behaviour! this cn also block, until all jobs are finished

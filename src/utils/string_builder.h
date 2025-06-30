@@ -22,7 +22,7 @@ NODISCARD StringBuilder* string_builder_init(void);
 	{ \
 		if(stringBuilder != NULL) { \
 			char* __append_buf = NULL; \
-			formatString(&__append_buf, statement, format, __VA_ARGS__); \
+			FORMAT_STRING(&__append_buf, statement, format, __VA_ARGS__); \
 			string_builder_append_string(stringBuilder, __append_buf); \
 		} \
 	}

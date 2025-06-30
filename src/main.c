@@ -105,7 +105,7 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 	}
 
 	// parse the port
-	uint16_t port = parseU16Safely(argv[0], "<port>");
+	uint16_t port = parse_u16_safely(argv[0], "<port>");
 
 	bool secure = false;
 	const char* public_cert_file = "";
@@ -205,7 +205,7 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 	}
 
 	// parse the port
-	uint16_t control_port = parseU16Safely(argv[0], "<port>");
+	uint16_t control_port = parse_u16_safely(argv[0], "<port>");
 
 	bool secure = false;
 	const char* public_cert_file = "";

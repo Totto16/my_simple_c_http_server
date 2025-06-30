@@ -104,7 +104,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 	size_t separatorsLength = strlen(separators);
 	char* currentlyAt = rawHttpRequest;
 	bool parsed = false;
-	HttpRequest* request = (HttpRequest*)mallocWithMemset(sizeof(HttpRequest), true);
+	HttpRequest* request = (HttpRequest*)malloc_with_memset(sizeof(HttpRequest), true);
 
 	if(!request) {
 		return NULL;
@@ -125,7 +125,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 			freeHttpRequest(request);
 			return NULL;
 		}
-		char* all = (char*)mallocWithMemset(resultingIndex - currentlyAt + 1, true);
+		char* all = (char*)malloc_with_memset(resultingIndex - currentlyAt + 1, true);
 
 		if(!all) {
 			return NULL;
@@ -160,7 +160,7 @@ HttpRequest* parseHttpRequest(char* rawHttpRequest) {
 				free(all);
 				size_t bodyLength =
 				    strlen(rawHttpRequest) - ((resultingIndex - rawHttpRequest) + separatorsLength);
-				all = (char*)mallocWithMemset(bodyLength + 1, true);
+				all = (char*)malloc_with_memset(bodyLength + 1, true);
 
 				if(!all) {
 					LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
@@ -351,14 +351,14 @@ NODISCARD static float parseCompressionQuality(char* compression_weight) {
 	}
 	compression_weight++;
 
-	float value = parseFloat(compression_weight);
+	float value = parse_float(compression_weight);
 
 	return value;
 }
 CompressionSettings* getCompressionSettings(HttpHeaderFields headerFields) {
 
 	CompressionSettings* compressionSettings =
-	    (CompressionSettings*)mallocWithMemset(sizeof(CompressionSettings), true);
+	    (CompressionSettings*)malloc_with_memset(sizeof(CompressionSettings), true);
 
 	if(!compressionSettings) {
 		return NULL;
@@ -463,7 +463,7 @@ void freeCompressionSettings(CompressionSettings* compressionSettings) {
 RequestSettings* getRequestSettings(HttpRequest* httpRequest) {
 
 	RequestSettings* requestSettings =
-	    (RequestSettings*)mallocWithMemset(sizeof(RequestSettings), true);
+	    (RequestSettings*)malloc_with_memset(sizeof(RequestSettings), true);
 
 	if(!requestSettings) {
 		return NULL;
@@ -510,8 +510,8 @@ static COMPRESSION_TYPE get_best_compression_that_is_supported(void) {
 	return COMPRESSION_TYPE_NONE;
 }
 
-static int compare_function_entries(const anyType(CompressionEntry) _entry1,
-                                    const anyType(CompressionEntry) _entry2) {
+static int compare_function_entries(const ANY_TYPE(CompressionEntry) _entry1,
+                                    const ANY_TYPE(CompressionEntry) _entry2) {
 	const CompressionEntry* entry1 = (CompressionEntry*)_entry1;
 	const CompressionEntry* entry2 = (CompressionEntry*)_entry2;
 
@@ -576,7 +576,7 @@ break_for:
 // a Request, but with some slight modification
 HttpConcattedResponse* httpResponseConcat(HttpResponse* response) {
 	HttpConcattedResponse* concattedResponse =
-	    (HttpConcattedResponse*)mallocWithMemset(sizeof(HttpConcattedResponse), true);
+	    (HttpConcattedResponse*)malloc_with_memset(sizeof(HttpConcattedResponse), true);
 
 	if(!concattedResponse) {
 		return NULL;

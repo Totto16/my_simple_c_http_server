@@ -64,11 +64,11 @@ typedef struct {
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-anyType(JobError*)
-    http_socket_connection_handler(anyType(HTTPConnectionArgument*) arg, WorkerInfo workerInfo);
+ANY_TYPE(JobError*)
+    http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg, WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(NULL) http_listener_thread_function(anyType(HTTPThreadArgument*) arg);
+ANY_TYPE(NULL) http_listener_thread_function(ANY_TYPE(HTTPThreadArgument*) arg);
 
 int startHttpServer(uint16_t port, SecureOptions* options);

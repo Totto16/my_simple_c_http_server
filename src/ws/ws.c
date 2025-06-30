@@ -25,7 +25,7 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	HttpHeaderFields additionalHeaders = STBDS_ARRAY_EMPTY;
 
 	char* upgradeHeaderBuffer = NULL;
-	formatString(&upgradeHeaderBuffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
+	FORMAT_STRING(&upgradeHeaderBuffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
 
 	HttpHeaderField upgradeField = { .key = upgradeHeaderBuffer,
 		                             .value =
@@ -34,7 +34,7 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	stbds_arrput(additionalHeaders, upgradeField);
 
 	char* connectionHeaderBuffer = NULL;
-	formatString(&connectionHeaderBuffer, return false;, "%s%c%s", "Connection", '\0', "Upgrade");
+	FORMAT_STRING(&connectionHeaderBuffer, return false;, "%s%c%s", "Connection", '\0', "Upgrade");
 
 	HttpHeaderField connectionField = { .key = connectionHeaderBuffer,
 		                                .value = connectionHeaderBuffer +
@@ -103,7 +103,7 @@ static const char* const keyAcceptConstant = "258EAFA5-E914-47DA-95CA-C5AB0DC85B
 static char* generateKeyAnswer(const char* secKey) {
 
 	char* keyToHashBuffer = NULL;
-	formatString(&keyToHashBuffer, return NULL;, "%s%s", secKey, keyAcceptConstant);
+	FORMAT_STRING(&keyToHashBuffer, return NULL;, "%s%s", secKey, keyAcceptConstant);
 
 	uint8_t* sha1_hash = sha1(keyToHashBuffer);
 
@@ -208,7 +208,7 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	HttpHeaderFields additionalHeaders = STBDS_ARRAY_EMPTY;
 
 	char* upgradeHeaderBuffer = NULL;
-	formatString(&upgradeHeaderBuffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
+	FORMAT_STRING(&upgradeHeaderBuffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
 
 	HttpHeaderField upgradeField = { .key = upgradeHeaderBuffer,
 		                             .value =
@@ -217,7 +217,7 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	stbds_arrput(additionalHeaders, upgradeField);
 
 	char* connectionHeaderBuffer = NULL;
-	formatString(&connectionHeaderBuffer, return false;, "%s%c%s", "Connection", '\0', "Upgrade");
+	FORMAT_STRING(&connectionHeaderBuffer, return false;, "%s%c%s", "Connection", '\0', "Upgrade");
 
 	HttpHeaderField connectionField = { .key = connectionHeaderBuffer,
 		                                .value = connectionHeaderBuffer +
@@ -228,7 +228,7 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	char* keyAnswer = generateKeyAnswer(secKey);
 
 	char* secWebsocketAcceptHeaderBuffer = NULL;
-	formatString(&secWebsocketAcceptHeaderBuffer, return false;
+	FORMAT_STRING(&secWebsocketAcceptHeaderBuffer, return false;
 	             , "%s%c%s", "Sec-WebSocket-Accept", '\0', keyAnswer);
 
 	free(keyAnswer);

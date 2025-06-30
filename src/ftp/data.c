@@ -94,7 +94,7 @@ DataController* initialize_data_controller(size_t passive_port_amount) {
 	}
 
 	int result = pthread_mutex_init(&controller->mutex, NULL);
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to initialize the mutex for the data controller",
 	    free(controller);
 	    return NULL;);
@@ -123,7 +123,7 @@ DataController* initialize_data_controller(size_t passive_port_amount) {
 NODISCARD bool data_connection_set_port_as_available(DataController* data_controller, size_t index,
                                                      FTPPortField port) {
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	checkForThreadError(result,
+	CHECK_FOR_THREAD_ERROR(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
 	                    return false;);
 
@@ -144,7 +144,7 @@ NODISCARD bool data_connection_set_port_as_available(DataController* data_contro
 cleanup:
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
 	    return false;);
 
@@ -173,7 +173,7 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
                                                    size_t port_index) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	checkForThreadError(result,
+	CHECK_FOR_THREAD_ERROR(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
 	                    return NULL;);
 
@@ -248,7 +248,7 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 cleanup:
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
 	    return NULL;);
 
@@ -260,7 +260,7 @@ bool data_controller_add_descriptor(DataController* data_controller,
                                     ConnectionDescriptor* descriptor) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	checkForThreadError(result,
+	CHECK_FOR_THREAD_ERROR(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
 	                    return NULL;);
 
@@ -294,7 +294,7 @@ bool data_controller_add_descriptor(DataController* data_controller,
 					int pthread_res = pthread_kill(data_connection->associated_thread,
 					                               FTP_PASSIVE_DATA_CONNECTION_SIGNAL);
 
-					checkForThreadError(
+					CHECK_FOR_THREAD_ERROR(
 					    pthread_res,
 					    "An Error occurred while trying to send a signal to the data "
 					    "connections associated thread",
@@ -318,7 +318,7 @@ bool data_controller_add_descriptor(DataController* data_controller,
 
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
 	    return NULL;);
 
@@ -428,7 +428,7 @@ cleanup:
 
 ConnectionsToClose data_connections_to_close(DataController* data_controller) {
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	checkForThreadError(result,
+	CHECK_FOR_THREAD_ERROR(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
 	                    return NULL;);
 
@@ -436,7 +436,7 @@ ConnectionsToClose data_connections_to_close(DataController* data_controller) {
 
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
 	    return NULL;);
 
@@ -523,13 +523,13 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 
 #ifdef __linux
 	int sockFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
-	checkForError(sockFd, "While Trying to create a active connection", {
+	CHECK_FOR_ERROR(sockFd, "While Trying to create a active connection", {
 		free(active_conn_data);
 		return NULL;
 	});
 #else
 	int sockFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	checkForError(sockFd, "While Trying to create a active connection", return NULL;);
+	CHECK_FOR_ERROR(sockFd, "While Trying to create a active connection", return NULL;);
 
 	int fcntl_flags = fcntl(sockFd, F_GETFL, 0);
 	fcntl(sockFd, F_SETFL, fcntl_flags | O_NONBLOCK);
@@ -586,7 +586,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
                                               FTPDataSettings settings) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	checkForThreadError(result,
+	CHECK_FOR_THREAD_ERROR(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
 	                    return NULL;);
 
@@ -734,7 +734,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 cleanup:
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
 	    return NULL;);
 
@@ -746,7 +746,7 @@ data_connection_get_descriptor_to_send_to(DataController* data_controller,
                                           DataConnection* connection) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	checkForThreadError(result,
+	CHECK_FOR_THREAD_ERROR(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
 	                    return NULL;);
 
@@ -773,7 +773,7 @@ cleanup:
 
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
 	    return NULL;);
 
@@ -806,7 +806,7 @@ NODISCARD bool nts_internal_close_connection(DataController* data_controller,
 NODISCARD bool data_connection_close(DataController* data_controller, DataConnection* connection) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	checkForThreadError(result,
+	CHECK_FOR_THREAD_ERROR(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
 	                    return false;);
 
@@ -834,7 +834,7 @@ cleanup:
 
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
 	    return false;);
 
@@ -844,7 +844,7 @@ cleanup:
 FTPPortField get_available_port_for_passive_mode(DataController* data_controller) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	checkForThreadError(result,
+	CHECK_FOR_THREAD_ERROR(result,
 	                    "An Error occurred while trying to lock the mutex for the data_controller",
 	                    return false;);
 
@@ -869,7 +869,7 @@ FTPPortField get_available_port_for_passive_mode(DataController* data_controller
 
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the data_controller",
 	    return false;);
 

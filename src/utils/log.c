@@ -107,7 +107,7 @@ const char* get_thread_name(void) {
 	THREAD_ID_TYPE tid = get_thread_id();
 
 	char* name = NULL;
-	formatString(
+	FORMAT_STRING(
 	    &name,
 	    {
 		    const char* fallback_name = "<failed setting thread name>";
@@ -123,13 +123,13 @@ const char* get_thread_name(void) {
 
 void log_lock_mutex(void) {
 	int result = pthread_mutex_lock(&__global_log_entry.mutex);
-	checkForThreadError(result, "An Error occurred while trying to lock the mutex for the logger",
+	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to lock the mutex for the logger",
 	                    return;);
 }
 
 void log_unlock_mutex(void) {
 	int result = pthread_mutex_unlock(&__global_log_entry.mutex);
-	checkForThreadError(result, "An Error occurred while trying to unlock the mutex for the logger",
+	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to unlock the mutex for the logger",
 	                    return;);
 }
 
@@ -137,7 +137,7 @@ void initialize_logger(void) {
 	__global_log_entry.log_level = DEFAULT_LOG_LEVEL;
 
 	int result = pthread_mutex_init(&__global_log_entry.mutex, NULL);
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to initialize the mutex for the logger", return;);
 }
 

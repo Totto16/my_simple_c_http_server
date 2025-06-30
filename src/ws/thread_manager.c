@@ -413,11 +413,11 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
                                               WebSocketMessage message, bool mask,
                                               int64_t fragment_size) {
 
-	if(fragment_size == WS_FRAGMENTATION_OFF) {
+	if(fragment_size == WsFragmentationOff) {
 		return ws_send_message_internal_normal(connection, message, mask);
 	}
 
-	if(fragment_size == WS_FRAGMENTATION_AUTO || fragment_size <= 0) {
+	if(fragment_size == WsFragmentationAuto || fragment_size <= 0) {
 
 		int socket_fd = get_underlying_socket(connection->descriptor);
 
@@ -690,13 +690,13 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
 	return (Utf8DataResult){ .has_error = false, .data = { .result = utf8_data } };
 }
 
-anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
+ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) _arg) {
 
 	WebSocketListenerArg* argument = (WebSocketListenerArg*)_arg;
 
 	char* thread_name_buffer = NULL;
 	// TODO(Totto): better report error
-	formatString(&thread_name_buffer, return NULL;, "ws listener " PRI_THREADID, get_thread_id());
+	FORMAT_STRING(&thread_name_buffer, return NULL;, "ws listener " PRI_THREADID, get_thread_id());
 	set_thread_name(thread_name_buffer);
 
 #define FREE_AT_END() \
@@ -736,7 +736,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 			if(raw_message_result.has_error) {
 
 				char* errorMessage = NULL;
-				formatString(
+				FORMAT_STRING(
 				    &errorMessage,
 				    {
 					    FREE_AT_END();
@@ -845,7 +845,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 						if(utf8_result.has_error) {
 							char* errorMessage = NULL;
-							formatString(
+							FORMAT_STRING(
 							    &errorMessage,
 							    {
 								    FREE_AT_END();
@@ -937,9 +937,9 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 							char* errorMessage = NULL;
 							// TODO(Totto): better report error
-							formatString(&errorMessage, return NULL;
-							             , "Invalid utf8 payload in fragmented message: %s",
-							             utf8_result.data.error);
+							FORMAT_STRING(&errorMessage, return NULL;
+							              , "Invalid utf8 payload in fragmented message: %s",
+							              utf8_result.data.error);
 
 							CloseReason reason = { .code = CloseCode_InvalidFramePayloadData,
 								                   .message = errorMessage,
@@ -1013,7 +1013,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 						if(utf8_result.has_error) {
 							char* errorMessage = NULL;
-							formatString(
+							FORMAT_STRING(
 							    &errorMessage,
 							    {
 								    FREE_RAW_WS_MESSAGE();
@@ -1173,7 +1173,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 			current_message.data = NULL;
 			current_message.data_len = 0;
 
-			if(action == WebSocketAction_Close) {
+			if(action == WebSocketActionClose) {
 				CloseReason reason = { .code = CloseCode_NormalClosure,
 					                   .message = "ServerApplication requested shutdown",
 					                   .message_len = -1 };
@@ -1192,7 +1192,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 				return NULL;
 			}
 
-			if(action == WebSocketAction_Error) {
+			if(action == WebSocketActionError) {
 				CloseReason reason = { .code = CloseCode_ProtocolError,
 					                   .message = "ServerApplication callback has an error",
 					                   .message_len = -1 };
@@ -1223,7 +1223,7 @@ anyType(NULL) ws_listener_function(anyType(WebSocketListenerArg*) _arg) {
 
 int ws_send_message(WebSocketConnection* connection, WebSocketMessage message) {
 
-	return ws_send_message_internal(connection, message, false, WS_FRAGMENTATION_OFF);
+	return ws_send_message_internal(connection, message, false, WsFragmentationOff);
 }
 
 int ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
@@ -1242,7 +1242,7 @@ WebSocketThreadManager* initialize_thread_manager(void) {
 
 	int result = pthread_mutex_init(&manager->mutex, NULL);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result,
 	    "An Error occurred while trying to initialize the mutex for the WebSocketThreadManager",
 	    return NULL;);
@@ -1258,7 +1258,7 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 
 	int result = pthread_mutex_lock(&manager->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to lock the mutex for the WebSocketThreadManager",
 	    return NULL;);
 
@@ -1314,17 +1314,17 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 
 	result = pthread_create(&connection->thread_id, NULL, ws_listener_function, threadArgument);
 	// TODO(Totto): better report error
-	checkForThreadError(result, "An Error occurred while trying to create a new Thread",
-	                    return NULL;);
+	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to create a new Thread",
+	                       return NULL;);
 
 	result = pthread_detach(connection->thread_id);
-	checkForThreadError(result,
-	                    "An Error occurred while trying to detach the new WS connection Thread",
-	                    return NULL;);
+	CHECK_FOR_THREAD_ERROR(result,
+	                       "An Error occurred while trying to detach the new WS connection Thread",
+	                       return NULL;);
 
 	result = pthread_mutex_unlock(&manager->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the WebSocketThreadManager",
 	    return NULL;);
 
@@ -1360,7 +1360,7 @@ int thread_manager_remove_connection(WebSocketThreadManager* manager,
 
 	int result = pthread_mutex_lock(&manager->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to lock the mutex for the WebSocketThreadManager",
 	    return -2;);
 
@@ -1401,7 +1401,7 @@ int thread_manager_remove_connection(WebSocketThreadManager* manager,
 
 	result = pthread_mutex_unlock(&manager->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the WebSocketThreadManager",
 	    return false;);
 
@@ -1424,7 +1424,8 @@ bool thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
 
 		int result = pthread_cancel(connection->thread_id);
 		// TODO(Totto): better report error
-		checkForError(result, "While trying to cancel a WebSocketConnection Thread", return false;);
+		CHECK_FOR_ERROR(result, "While trying to cancel a WebSocketConnection Thread",
+		                return false;);
 
 		free_connection(connection, true);
 
@@ -1442,10 +1443,10 @@ bool free_thread_manager(WebSocketThreadManager* manager) {
 
 	int result = pthread_mutex_destroy(&manager->mutex);
 	// TODO(Totto): better report error
-	checkForThreadError(result,
-	                    "An Error occurred while trying to destroy the mutex in "
-	                    "cleaning up for the WebSocketThreadManager",
-	                    return false;);
+	CHECK_FOR_THREAD_ERROR(result,
+	                       "An Error occurred while trying to destroy the mutex in "
+	                       "cleaning up for the WebSocketThreadManager",
+	                       return false;);
 
 	if(manager->head != NULL) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "All connections got removed correctly\n");

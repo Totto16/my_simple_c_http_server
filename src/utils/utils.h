@@ -52,7 +52,7 @@
 #endif
 
 // simple error helper macro, with some more used "overloads"
-#define checkForError(toCheck, errorString, statement) \
+#define CHECK_FOR_ERROR(toCheck, errorString, statement) \
 	do { \
 		if((toCheck) == -1) { \
 			LOG_MESSAGE(LogLevelError | LogPrintLocation, "%s: %s\n", errorString, \
@@ -61,7 +61,7 @@
 		} \
 	} while(false)
 
-#define checkForThreadError(toCheck, errorString, statement) \
+#define CHECK_FOR_THREAD_ERROR(toCheck, errorString, statement) \
 	do { \
 		if((toCheck) != 0) { \
 			/*pthread function don't set errno, but return the error value \
@@ -72,22 +72,22 @@
 		} \
 	} while(false)
 
-#define checkResultForThreadError(errorString, statement) \
-	checkForThreadError(result, errorString, statement)
+#define CHECK_RESULT_FOR_THREAD_ERROR(errorString, statement) \
+	CHECK_FOR_THREAD_ERROR(result, errorString, statement)
 
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-long parseLongSafely(const char* toParse, const char* description);
+NODISCARD long parse_long_safely(const char* to_parse, const char* description);
 
-uint16_t parseU16Safely(const char* toParse, const char* description);
+NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* description);
 
 // a hacky but good and understandable way that is used with pthread functions
 // to annotate which type the really represent
-#define any void*
+#define ANY void*
 
-#define anyType(type) /* Type helper for readability */ any
+#define ANY_TYPE(type) /* Type helper for readability */ ANY
 
 // simple malloc Wrapper, using also memset to set everything to 0
-void* mallocWithMemset(size_t size, bool initializeWithZeros);
+NODISCARD void* malloc_with_memset(size_t size, bool initialize_with_zeros);
 
 // uses snprintf feature with passing NULL,0 as first two arguments to automatically determine the
 // required buffer size, for more read man page
@@ -95,7 +95,7 @@ void* mallocWithMemset(size_t size, bool initializeWithZeros);
 // magic, attention, use this function in the right way, you have to prepare a char* that is set to
 // null, then it works best! snprintf is safer then sprintf, since it guarantees some things, also
 // it has a failure indicator
-#define formatString(toStore, statement, format, ...) \
+#define FORMAT_STRING(toStore, statement, format, ...) \
 	{ \
 		char* internalBuffer = *toStore; \
 		if(internalBuffer != NULL) { \
@@ -125,12 +125,12 @@ void* mallocWithMemset(size_t size, bool initializeWithZeros);
 	}
 
 // simple realloc Wrapper, using also memset to set everything to 0
-void* reallocWithMemset(void* previousPtr, size_t oldSize, size_t newSize,
-                        bool initializeWithZeros);
+NODISCARD void* realloc_with_memset(void* previous_ptr, size_t old_size, size_t new_size,
+                                    bool initialize_with_zeros);
 
 NODISCARD char* copy_cstr(char* input);
 
-NODISCARD float parseFloat(char* value);
+NODISCARD float parse_float(char* value);
 
 #define FREE_ARRAY_AND_ENTRIES(ARRAY) \
 	do { \
