@@ -32,6 +32,7 @@ liblzws = library(
 
 lzws_dep = declare_dependency(
     link_with: liblzws,
+    dependencies: deps,
     include_directories: inc_dirs,
     version: meson.project_version(),
 )
