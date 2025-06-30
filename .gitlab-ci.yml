@@ -54,7 +54,7 @@ test:
     before_script:
         # install other dependencies
         - apt-get update
-        - apt-get install libc-dev-bin libc6-dev python3-pip ninja-build pkg-config wget bzip2 libzstd-dev zlib1g-dev libbrotli-dev git patch gcovr --no-install-recommends -y
+        - apt-get install libc-dev-bin libc6-dev python3-pip ninja-build pkg-config wget bzip2 libzstd-dev zlib1g-dev libbrotli-dev git patch gcovr lsb_release gpg --no-install-recommends -y
         # install clang
         - wget https://apt.llvm.org/llvm.sh
         - chmod +x llvm.sh
