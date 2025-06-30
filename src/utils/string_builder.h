@@ -14,11 +14,6 @@ typedef struct StringBuilderImpl StringBuilder;
 
 NODISCARD StringBuilder* string_builder_init(void);
 
-// helper function that turns a normal string into a malloced one, so the lifetime is extended and
-// he can be freed!
-
-NODISCARD char* normalStringToMalloced(const char* notMallocedString);
-
 // macro for appending, to used variable argument length conveniently, it uses the formatString
 // (snprintf) and string_builder_append_string method under the hood
 

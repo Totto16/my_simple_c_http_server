@@ -235,7 +235,7 @@ NODISCARD int sendHTTPMessageToConnectionAdvanced(const ConnectionDescriptor* de
 }
 
 NODISCARD HTTPResponseBody httpResponseBodyFromStaticString(const char* static_string) {
-	char* mallocedString = normalStringToMalloced(static_string);
+	char* mallocedString = strdup(static_string);
 
 	return httpResponseBodyFromString(mallocedString);
 }

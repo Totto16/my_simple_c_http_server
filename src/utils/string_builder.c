@@ -20,23 +20,6 @@ StringBuilder* string_builder_init() {
 	return result;
 }
 
-// helper function that turns a normal string into a malloced one, so the lifetime is extended and
-// he can be freed!
-
-char* normalStringToMalloced(const char* notMallocedString) {
-	size_t length = strlen(notMallocedString);
-	char* mallocedString = (char*)malloc(length + 1);
-
-	if(!mallocedString) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-		return NULL;
-	}
-
-	mallocedString[length] = '\0';
-
-	memcpy(mallocedString, notMallocedString, length);
-	return mallocedString;
-}
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there

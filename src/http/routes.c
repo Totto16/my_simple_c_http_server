@@ -69,10 +69,10 @@ static char* json_get_random_boolean(void) {
 	uint32_t number = get_random_byte();
 
 	if(number % 2 == 0) {
-		return normalStringToMalloced("false");
+		return strdup("false");
 	}
 
-	return normalStringToMalloced("true");
+	return strdup("true");
 }
 
 static char* json_get_random_number(void) {
@@ -87,7 +87,7 @@ static char* json_get_random_number(void) {
 }
 
 static char* json_get_null(void) {
-	return normalStringToMalloced("null");
+	return strdup("null");
 }
 
 static char* json_get_random_primitive_value(void) {

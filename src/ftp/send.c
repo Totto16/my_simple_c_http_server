@@ -34,7 +34,7 @@ int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, // NOLINT
 
 	if((FLAGS & CONNECTION_SEND_FLAGS_UN_MALLOCED) != 0) {
 		if(body) {
-			final_body = normalStringToMalloced(body);
+			final_body = strdup(body);
 		}
 	}
 
