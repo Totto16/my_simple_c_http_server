@@ -67,6 +67,7 @@ jobs:
                   chmod +x llvm.sh
                   sudo ./llvm.sh 20
                   echo "CC=clang-20" >> "$GITHUB_ENV"
+                  echo "CXX=clang++-20" >> "$GITHUB_ENV"
 
             - name: Setup GCC (Linux)
               if: matrix.config.os == 'ubuntu' && matrix.config.use-clang == false
