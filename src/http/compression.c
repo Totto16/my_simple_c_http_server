@@ -339,7 +339,20 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 #define COMPRESS_QUIET false
 #endif
 
-#define COMPRESS_BUFFER_LENGTH (1 << 13)
+#define COMPRESS_WINDOWS_SIZE 13
+
+NODISCARD static const char* get_lzws_error(int error) {
+	switch(error) {
+		case 0: return "no error";
+		case LZWS_COMPRESSOR_ALLOCATE_FAILED: return "allocate failed";
+		case LZWS_COMPRESSOR_INVALID_MAX_CODE_BIT_LENGTH: return "invalid max code bit";
+		case LZWS_COMPRESSOR_NEEDS_MORE_SOURCE: return "needs more source";
+		case LZWS_COMPRESSOR_NEEDS_MORE_DESTINATION: return "needs more destination";
+		case LZWS_COMPRESSOR_UNKNOWN_STATUS: return "unknown status";
+		case LZWS_COMPRESSOR_UNKNOWN_ERROR:
+		default: return "unknown error";
+	}
+}
 
 static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 	lzws_compressor_state_t* compressor_state_ptr = NULL;
@@ -355,63 +368,84 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 
 	lzws_result_t result = lzws_compressor_get_initial_state(&compressor_state_ptr, &options);
 	if(result != 0) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "An error in compress compression initiliaization "
-		                                  "occured: failed to initialize state\n");
+		LOG_MESSAGE(LogLevelError,
+		            "An error in compress compression initiliaization "
+		            "occured: failed to initialize state: %s\n",
+		            get_lzws_error(result));
 		return SIZED_BUFFER_ERROR;
 	}
 
-	lzws_byte_t* compressor_buffer = NULL;
-	size_t compressor_buffer_length = COMPRESS_BUFFER_LENGTH;
+	size_t chunk_size = 1 << COMPRESS_WINDOWS_SIZE;
 
-	result = lzws_create_destination_buffer_for_compressor(
-	    &compressor_buffer, &compressor_buffer_length, COMPRESS_QUIET);
+	SizedBuffer compressor_buffer = { .data = NULL, .size = chunk_size };
+
+	result = lzws_create_destination_buffer_for_compressor((lzws_byte_t**)&compressor_buffer.data,
+	                                                       &compressor_buffer.size, COMPRESS_QUIET);
 	if(result != 0) {
-		LOG_MESSAGE_SIMPLE(LogLevelError,
-		                   "An error in compress compression initiliaization "
-		                   "occured: create destination buffer for compressor failed\n");
+		LOG_MESSAGE(LogLevelError,
+		            "An error in compress compression initiliaization "
+		            "occured: create destination buffer for compressor failed: %s\n",
+		            get_lzws_error(result));
 		lzws_compressor_free_state(compressor_state_ptr);
 		return SIZED_BUFFER_ERROR;
 	}
 
 	SizedBuffer inputBuffer = { .data = buffer.data, .size = buffer.size };
-	lzws_byte_t* remaining_compressor_buffer = compressor_buffer;
-	size_t remaining_compressor_buffer_length = compressor_buffer_length;
+	SizedBuffer remaining_compressor_buffer = { .data = compressor_buffer.data,
+		                                        .size = compressor_buffer.size };
 
-	result =
-	    lzws_compress(compressor_state_ptr, (lzws_byte_t**)&inputBuffer.data, &inputBuffer.size,
-	                  &remaining_compressor_buffer, &remaining_compressor_buffer_length);
+	while(true) {
 
-	if(result != 0) {
-		LOG_MESSAGE_SIMPLE(LogLevelError,
-		                   "An error in compress compression processing occured: compress state\n");
-		free(compressor_buffer);
-		lzws_compressor_free_state(compressor_state_ptr);
-		return SIZED_BUFFER_ERROR;
+		result = lzws_compress(compressor_state_ptr, (lzws_byte_t**)&inputBuffer.data,
+		                       &inputBuffer.size, (lzws_byte_t**)&remaining_compressor_buffer.data,
+		                       &remaining_compressor_buffer.size);
+
+		if(result == LZWS_COMPRESSOR_NEEDS_MORE_DESTINATION) {
+			size_t current_size = compressor_buffer.size - remaining_compressor_buffer.size;
+
+			void* new_chunk = realloc(compressor_buffer.data, current_size + chunk_size);
+			compressor_buffer.data = new_chunk;
+			compressor_buffer.size = current_size + chunk_size;
+
+			remaining_compressor_buffer.data = (lzws_byte_t*)compressor_buffer.data + current_size;
+			remaining_compressor_buffer.size = chunk_size;
+
+			continue;
+		}
+
+		if(result != 0) {
+			LOG_MESSAGE(LogLevelError,
+			            "An error in compress compression processing occured: compress state: %s\n",
+			            get_lzws_error(result));
+			freeSizedBuffer(compressor_buffer);
+			lzws_compressor_free_state(compressor_state_ptr);
+			return SIZED_BUFFER_ERROR;
+		}
+
+		if(inputBuffer.size == 0) {
+			break;
+		}
 	}
 
-	result = lzws_compressor_finish(compressor_state_ptr, &remaining_compressor_buffer,
-	                                &remaining_compressor_buffer_length);
+	result = lzws_compressor_finish(compressor_state_ptr,
+	                                (lzws_byte_t**)&remaining_compressor_buffer.data,
+	                                &remaining_compressor_buffer.size);
 
 	if(result != 0) {
-		LOG_MESSAGE_SIMPLE(LogLevelError,
-		                   "An error in compress compression processing occured: finish state\n");
+		LOG_MESSAGE(LogLevelError,
+		            "An error in compress compression processing occured: finish state: %s\n",
+		            get_lzws_error(result));
 
-		free(compressor_buffer);
+		freeSizedBuffer(compressor_buffer);
 		lzws_compressor_free_state(compressor_state_ptr);
 		return SIZED_BUFFER_ERROR;
 	}
 
 	lzws_compressor_free_state(compressor_state_ptr);
 
-	LOG_MESSAGE(LogLevelError, "inputBuffer: %ld\n", inputBuffer.size);
-	LOG_MESSAGE(LogLevelError, "compressor_buffer: %ld\n",
-	            compressor_buffer_length - remaining_compressor_buffer_length);
-
-	// TODO: this is a onestate compression, check if this correct or not!
-
-	SizedBuffer resultBuffer = { .data = compressor_buffer,
-		                         .size = compressor_buffer_length -
-		                                 remaining_compressor_buffer_length };
+	SizedBuffer resultBuffer = { .data = compressor_buffer.data,
+		                         .size =
+		                             compressor_buffer.size - remaining_compressor_buffer.size };
 
 	return resultBuffer;
 
