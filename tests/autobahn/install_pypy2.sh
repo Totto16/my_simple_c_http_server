@@ -44,10 +44,9 @@ else
     SUDO="sudo_wrapper"
 fi
 
-
 "$SUDO" apt-get update
 
-# install needed things, install before saveing savedAptMark 
+# install needed things, install before saveing savedAptMark
 "$SUDO" apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
@@ -77,21 +76,25 @@ ln -sv '/opt/pypy/bin/pypy' /usr/local/bin/
 # smoke test
 pypy --version
 
-"$SUDO" apt-mark auto '.*' >/dev/null
-# shellcheck disable=SC2086
-[ -z "$savedAptMark" ] || "$SUDO" apt-mark manual $savedAptMark >/dev/null
+## this i shere, that non docker builds can keep the auto installed packages, e.g. the CI
+if [ -n "$KEEP_AUTO_PACKAGES_INSTALLED" ]; then
 
-set +o pipefail
+    "$SUDO" apt-mark auto '.*' >/dev/null
+    # shellcheck disable=SC2086
+    [ -z "$savedAptMark" ] || "$SUDO" apt-mark manual $savedAptMark >/dev/null
 
-TO_MARK_MANUAL="$(find /opt/pypy -type f -executable -exec ldd '{}' ';' | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' | sort -u | xargs -r dpkg-query --search | cut -d: -f1 | sort -u)"
+    set +o pipefail
 
-set -o pipefail
+    TO_MARK_MANUAL="$(find /opt/pypy -type f -executable -exec ldd '{}' ';' | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' | sort -u | xargs -r dpkg-query --search | cut -d: -f1 | sort -u)"
 
-# shellcheck disable=SC2086
-"$SUDO" apt-mark manual $TO_MARK_MANUAL >/dev/null
+    set -o pipefail
 
-"$SUDO" apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+    # shellcheck disable=SC2086
+    "$SUDO" apt-mark manual $TO_MARK_MANUAL >/dev/null
 
+    "$SUDO" apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+
+fi
 # smoke test again, to be sure
 pypy --version
 

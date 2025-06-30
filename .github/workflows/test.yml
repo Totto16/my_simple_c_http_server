@@ -49,6 +49,7 @@ jobs:
 
             - name: Install pypy2 and autobahn
               run: |
+                  export KEEP_AUTO_PACKAGES_INSTALLED="true" 
                   ./tests/autobahn/install_pypy2.sh
                   ./tests/autobahn/install_autobahn.sh
                   sudo apt-get install openssl libssl-dev --no-install-recommends -y

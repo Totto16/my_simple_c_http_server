@@ -65,6 +65,7 @@ test:
         # install meson
         - pip install meson --break-system-packages
         # install pypy2
+        - export KEEP_AUTO_PACKAGES_INSTALLED="true" 
         - ./tests/autobahn/install_pypy2.sh
         # install autobahn testsuite
         - ./tests/autobahn/install_autobahn.sh
