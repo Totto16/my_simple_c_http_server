@@ -623,10 +623,10 @@ void freeHttpResponse(HttpResponse* response) {
 // really simple and dumb html boilerplate, this is used for demonstration purposes, and is
 // static, but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
 
-NODISCARD static StringBuilder* htmlFromString(StringBuilder* headContent,
-                                               StringBuilder* scriptContent,
-                                               StringBuilder* styleContent,
-                                               StringBuilder* bodyContent) {
+NODISCARD static StringBuilder*
+htmlFromString(StringBuilder* headContent, // NOLINT(bugprone-easily-swappable-parameters)
+               StringBuilder* scriptContent, StringBuilder* styleContent,
+               StringBuilder* bodyContent) {
 
 	StringBuilder* result = string_builder_init();
 
