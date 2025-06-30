@@ -18,7 +18,7 @@ else
     SUDO="sudo_wrapper"
 fi
 
-if [ -n "${CC:-}" ]; then
+if [ -n "${CC:-}" ] && ! [ -f "/usr/bin/cc" ]; then
     "$SUDO" ln -s "$(which "$CC")" "/usr/bin/cc"
 fi
 
