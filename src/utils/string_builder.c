@@ -1,13 +1,12 @@
-
-
 #include "string_builder.h"
-
 #include "utils/log.h"
 
-// TODO: use ds_array, so that not every appending needs to realloc!
+#include <stb/ds.h>
+
+// this is just a dynamic array of chars, with the property, that the size is 1 more and at the end
+// we have a 0 byte
 struct StringBuilderImpl {
-	char* data;
-	size_t currentSize;
+	STBDS_ARRAY(char) value;
 };
 
 StringBuilder* string_builder_init() {
@@ -16,8 +15,7 @@ StringBuilder* string_builder_init() {
 		return NULL;
 	}
 
-	result->currentSize = 0;
-	result->data = NULL;
+	result->value = STBDS_ARRAY_EMPTY;
 
 	return result;
 }
@@ -42,44 +40,27 @@ char* normalStringToMalloced(const char* notMallocedString) {
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-static int string_builder_append_string_impl(StringBuilder* stringBuilder, char* string,
+static int string_builder_append_string_impl(StringBuilder* stringBuilder, const char* string,
                                              size_t size) {
-	// if te string builder is empty malloc the right size
-	if(stringBuilder->currentSize == 0) {
-		// +1, so one trailing 0 byte is there :)
-		stringBuilder->data = (char*)malloc(size + 1);
 
-		if(!stringBuilder->data) {
-			free(string);
-			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-			return -1;
-		}
-
-		stringBuilder->data[size] = '\0';
-
-		memcpy(stringBuilder->data, string, size);
-
-	} else {
-		// otherwise realloc, this realloc wrapper takes care of everything, then afterwards the
-		// memcpy copies everything in the right place, leaving a trailing null character at the
-		// end
-		char* new_data = (char*)realloc(stringBuilder->data, stringBuilder->currentSize + size + 1);
-
-		if(!new_data) {
-			free(string);
-			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-			return -1;
-		}
-
-		stringBuilder->data = new_data;
-
-		stringBuilder->data[stringBuilder->currentSize + size] = '\0';
-
-		memcpy(stringBuilder->data + stringBuilder->currentSize, string, size);
+	if(size == 0) {
+		return 0;
 	}
-	stringBuilder->currentSize += size; // trailing 0 byte is not included
-	// then free the input, since the bytes are already in the stringbuilder
-	free(string);
+
+	if(stringBuilder == NULL) {
+		return -1;
+	}
+
+	size_t current_size = stbds_arrlenu(stringBuilder->value);
+
+	// allocate 0 byte at the end, if needed
+	size_t new_size = current_size + size + (current_size == 0 ? 1 : 0);
+
+	stbds_arrsetlen(stringBuilder->value, new_size);
+
+	stringBuilder->value[new_size - 1] = '\0';
+
+	memcpy(stringBuilder->value + current_size - (current_size == 0 ? 0 : 1), string, size);
 
 	return 0;
 }
@@ -87,45 +68,79 @@ static int string_builder_append_string_impl(StringBuilder* stringBuilder, char*
 int string_builder_append_string(StringBuilder* stringBuilder, char* string) {
 	size_t length = strlen(string);
 
-	return string_builder_append_string_impl(stringBuilder, string, length);
+	int result = string_builder_append_string_impl(stringBuilder, string, length);
+
+	free(string);
+
+	return result;
 }
 
 // simple wrapper if just a constant string has to be appended
 int string_builder_append_single(StringBuilder* stringBuilder, const char* notMallocedString) {
-	char* mallocedString = normalStringToMalloced(notMallocedString);
-	if(!mallocedString) {
-		return -1;
-	}
-	return string_builder_append_string(stringBuilder, mallocedString);
-}
+	size_t length = strlen(notMallocedString);
 
-char* string_builder_to_string_deprecated(StringBuilder* stringBuilder) {
-	char* result = stringBuilder->data;
-	free(stringBuilder);
-	return result;
+	return string_builder_append_string_impl(stringBuilder, notMallocedString, length);
 }
 
 int string_builder_append_string_builder(StringBuilder* stringBuilder,
-                                         StringBuilder* stringBuilder2) {
-	int result = string_builder_append_string_impl(stringBuilder, stringBuilder2->data,
-	                                               stringBuilder2->currentSize);
+                                         StringBuilder** stringBuilder2) {
 
-	stringBuilder2->data = NULL;
-	stringBuilder2->currentSize = 0;
+	if(stringBuilder2 == NULL) {
+		return -1;
+	}
+
+	if(*stringBuilder2 == NULL) {
+		return -2;
+	}
+
+	SizedBuffer stringBuilder2Buffer = string_builder_get_sized_buffer(*stringBuilder2);
+
+	int result = string_builder_append_string_impl(stringBuilder, stringBuilder2Buffer.data,
+	                                               stringBuilder2Buffer.size);
+
+	free_string_builder(*stringBuilder2);
+	*stringBuilder2 = NULL;
 
 	return result;
 }
 
-char* string_builder_get_string_deprecated(StringBuilder* stringBuilder) {
-	return stringBuilder->data;
+NODISCARD char* string_builder_release_into_string(StringBuilder** stringBuilder) {
+
+	if(stringBuilder == NULL) {
+		return NULL;
+	}
+
+	if(*stringBuilder == NULL) {
+		return NULL;
+	}
+
+	char* value = (*stringBuilder)->value;
+
+	free(*stringBuilder);
+
+	*stringBuilder = NULL;
+
+	return value;
 }
 
 NODISCARD SizedBuffer string_builder_get_sized_buffer(StringBuilder* stringBuilder) {
-	return (SizedBuffer){ .data = stringBuilder->data, .size = stringBuilder->currentSize };
+
+	if(stringBuilder == NULL) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	size_t current_size = stbds_arrlenu(stringBuilder->value);
+
+	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
+	return (SizedBuffer){ .data = stringBuilder->value, .size = current_string_size };
 }
 
 // just free the stringbuilder and the associated string
 void free_string_builder(StringBuilder* stringBuilder) {
-	free(stringBuilder->data);
+	if(stringBuilder == NULL) {
+		return;
+	}
+
+	stbds_arrfree(stringBuilder->value);
 	free(stringBuilder);
 }

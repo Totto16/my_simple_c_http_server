@@ -612,12 +612,12 @@ NODISCARD static StringBuilder* htmlFromString(StringBuilder* headContent,
 	string_builder_append_single(result, "<meta name=\"author\" content=\"Totto16\">");
 	string_builder_append_single(result, "<title>Page by Simple C Http Server</title>");
 	if(headContent != NULL) {
-		string_builder_append_string_builder(result, headContent);
+		string_builder_append_string_builder(result, &headContent);
 	}
 	if(scriptContent != NULL) {
 		string_builder_append_single(result, "<script type=\"text/javascript\">");
 
-		string_builder_append_string_builder(result, scriptContent);
+		string_builder_append_string_builder(result, &scriptContent);
 		string_builder_append_single(result, "</script>");
 		string_builder_append_single(
 		    result,
@@ -625,13 +625,13 @@ NODISCARD static StringBuilder* htmlFromString(StringBuilder* headContent,
 	}
 	if(styleContent != NULL) {
 		string_builder_append_single(result, "<style type=\"text/css\">");
-		string_builder_append_string_builder(result, styleContent);
+		string_builder_append_string_builder(result, &styleContent);
 		string_builder_append_single(result, "</style>");
 	}
 	string_builder_append_single(result, "</head>");
 	string_builder_append_single(result, "<body>");
 	if(bodyContent != NULL) {
-		string_builder_append_string_builder(result, bodyContent);
+		string_builder_append_string_builder(result, &bodyContent);
 	}
 	string_builder_append_single(result, "</body>");
 	string_builder_append_single(result, "</html>");

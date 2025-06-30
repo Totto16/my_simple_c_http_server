@@ -44,6 +44,6 @@ int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, // NOLINT
 // TODO(Totto): refactor ftp messages too, so that the return things ar epavcked into a structure
 int sendFTPMessageToConnectionSb(const ConnectionDescriptor* const descriptor,
                                  FTP_RETURN_CODE status, StringBuilder* body) {
-	return sendFTPMessageToConnection(descriptor, status, string_builder_to_string_deprecated(body),
+	return sendFTPMessageToConnection(descriptor, status, string_builder_release_into_string(&body),
 	                                  CONNECTION_SEND_FLAGS_MALLOCED);
 }

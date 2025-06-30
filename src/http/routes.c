@@ -83,7 +83,7 @@ static char* json_get_random_number(void) {
 
 	string_builder_append(result, return NULL;, "%u", number);
 
-	return string_builder_to_string_deprecated(result);
+	return string_builder_release_into_string(&result);
 }
 
 static char* json_get_null(void) {
