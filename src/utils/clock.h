@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "./utils.h"
+
 typedef struct {
 	struct timespec value;
 } Time;
@@ -18,18 +20,18 @@ typedef struct {
 #define S_TO_US(x) ((x) * S_TO_US_RATE)
 #define S_TO_NS(x, TYPE) ((x) * ((TYPE)(S_TO_NS_RATE)))
 
-bool get_monotonic_time(Time* time);
+NODISCARD bool get_monotonic_time(Time* time);
 
-bool get_current_time(Time* time);
+NODISCARD bool get_current_time(Time* time);
 
-uint64_t get_time_in_seconds(Time time);
+NODISCARD uint64_t get_time_in_seconds(Time time);
 
-uint64_t get_time_in_milli_seconds(Time time);
+NODISCARD uint64_t get_time_in_milli_seconds(Time time);
 
-uint64_t get_time_in_nano_seconds(Time time);
+NODISCARD uint64_t get_time_in_nano_seconds(Time time);
 
-double get_time_in_seconds_exact(Time time);
+NODISCARD double get_time_in_seconds_exact(Time time);
 
-double get_time_in_milli_seconds_exact(Time time);
+NODISCARD double get_time_in_milli_seconds_exact(Time time);
 
-double time_diff_in_exact_seconds(Time time1, Time time2);
+NODISCARD double time_diff_in_exact_seconds(Time time1, Time time2);
