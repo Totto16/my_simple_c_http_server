@@ -109,7 +109,7 @@ jobs:
               if: matrix.config.os == 'macos'
               run: |
                   brew update
-                  brew install openssl@3.0 zstd zlib brotli
+                  brew install openssl@3.0 zstd zlib brotli git gmp
 
             - name: Configure
               run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
