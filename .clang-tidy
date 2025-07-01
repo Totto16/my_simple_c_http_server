@@ -3,6 +3,7 @@
 Checks: "clang-diagnostic-*,clang-analyzer-*,bugprone-*,misc-*,performance-*,readability-*,portability-*,modernize-*,cppcoreguidelines-*,google-*,llvm-*,cert-*,-llvm-header-guard,-modernize-use-nullptr,-misc-include-cleaner,-cert-err33-c,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,-cppcoreguidelines-macro-to-enum,-modernize-macro-to-enum,-readability-function-cognitive-complexity,-google-readability-function-size,-readability-function-size,-modernize-use-trailing-return-type"
 WarningsAsErrors: ""
 HeaderFilterRegex: "src/.*"
+ExcludeHeaderFilterRegex: src/thirdparty/.*|subprojects/.*
 FormatStyle: "file"
 CheckOptions:
     ## NAMING CONVENTION SECTION
