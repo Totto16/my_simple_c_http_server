@@ -21,7 +21,7 @@ void* malloc_with_memset(const size_t size, const bool initialize_with_zeros) {
 		void* second_result = memset(result, 0, size);
 		if(result != second_result) {
 			// this shouldn't occur, but "better be safe than sorry"
-			fprintf(stderr, "FATAL: Couldn't set the memory allocated to zeros!!\n");
+			LOG_MESSAGE_SIMPLE(LogLevelCritical, "Couldn't set the memory allocated to zeros!!\n");
 			// free not really necessary, but also not that wrong
 			free(result);
 			return NULL;
@@ -35,7 +35,7 @@ void* realloc_with_memset(void* previous_ptr, const size_t old_size, const size_
                           const bool initialize_with_zeros) {
 	void* result = realloc(previous_ptr, new_size);
 	if(result == NULL) {
-		fprintf(stderr, "ERROR: Couldn't reallocate memory!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Couldn't reallocate memory!\n");
 		return NULL;
 	}
 	if(initialize_with_zeros && // NOLINT(readability-implicit-bool-conversion)
@@ -44,7 +44,8 @@ void* realloc_with_memset(void* previous_ptr, const size_t old_size, const size_
 		void* second_result = memset(((char*)result) + old_size, 0, new_size - old_size);
 		if(((char*)result) + old_size != second_result) {
 			// this shouldn't occur, but "better be safe than sorry"
-			fprintf(stderr, "FATAL: Couldn't set the memory reallocated to zeros!!\n");
+			LOG_MESSAGE_SIMPLE(LogLevelCritical,
+			                   "Couldn't set the memory reallocated to zeros!!\n");
 			// free not really necessary, but also not that wrong
 			free(result);
 			return NULL;
@@ -69,8 +70,8 @@ long parse_long_safely(const char* to_parse, const char* description) {
 
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
 	if(*endpointer != '\0') {
-		fprintf(stderr, "ERROR: Couldn't parse the incorrect long %s for the argument %s!\n",
-		        to_parse, description);
+		LOG_MESSAGE(LogLevelError, "Couldn't parse the incorrect long %s for the argument %s!\n",
+		            to_parse, description);
 		exit(EXIT_FAILURE);
 	} else if(errno != 0) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't parse the incorrect long: %s\n", strerror(errno));
@@ -85,16 +86,17 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 	long result = parse_long_safely(to_parse, description);
 
 	if(result < 0) {
-		fprintf(stderr,
-		        "ERROR: Number not correct, '%ld' is negative, only positive numbers are allowed: "
-		        "%s!\n",
-		        result, description);
+		LOG_MESSAGE(LogLevelError,
+		            "Number not correct, '%ld' is negative, only positive numbers are allowed: "
+		            "%s!\n",
+		            result, description);
 		exit(EXIT_FAILURE);
 	}
 
 	if(result > UINT16_MAX) {
-		fprintf(stderr, "ERROR: Number not correct, '%ld' is too big for %s, the maximum is %d!\n",
-		        result, description, UINT16_MAX);
+		LOG_MESSAGE(LogLevelError,
+		            "Number not correct, '%ld' is too big for %s, the maximum is %d!\n", result,
+		            description, UINT16_MAX);
 		exit(EXIT_FAILURE);
 	}
 

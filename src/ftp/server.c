@@ -1335,9 +1335,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 // to not access that, since additional steps can be required, like  boundary checks!
 static int myqueue_size(Myqueue* queue) {
 	if(queue->size < 0) {
-		fprintf(stderr,
-		        "FATAL: internal size implementation error in the queue, value negative: %d!",
-		        queue->size);
+		LOG_MESSAGE(LogLevelCritical,
+		            "internal size implementation error in the queue, value negative: %d!",
+		            queue->size);
 	}
 	return queue->size;
 }

@@ -26,7 +26,7 @@ bool myqueue_is_empty(Myqueue* queue) {
 	MyqueueHead* q_head = &(queue->head);
 	bool empty = STAILQ_EMPTY(q_head);
 	if(empty != (queue->size == 0)) { // NOLINT(readability-implicit-bool-conversion)
-		fprintf(stderr, "FATAL: internal size implementation error in the queue!");
+		LOG_MESSAGE_SIMPLE(LogLevelCritical, "internal size implementation error in the queue!");
 	}
 
 	// now say that it can be accessed

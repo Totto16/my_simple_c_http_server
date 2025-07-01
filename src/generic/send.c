@@ -28,8 +28,8 @@ int send_data_to_connection(const ConnectionDescriptor* const descriptor, void* 
 
 		if(wrote_bytes == 0) {
 			/// shouldn't occur!
-			LOG_MESSAGE(LogLevelError,
-			            "FATAL: Write has an unsupported state: written %lu of %lu bytes\n",
+			LOG_MESSAGE(LogLevelCritical,
+			            "Write has an unsupported state: written %lu of %lu bytes\n",
 			            already_written, length);
 			return -2;
 		}

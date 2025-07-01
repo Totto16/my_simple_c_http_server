@@ -231,7 +231,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 					switch(route_data.data.special) {
 						case HTTPRouteSpecialDataShutdown: {
-							printf("Shutdown requested!\n");
+							LOG_MESSAGE_SIMPLE(LogLevelInfo, "Shutdown requested!\n");
 
 							HTTPResponseToSend to_send = {
 								.status = HttpStatusOk,
@@ -443,9 +443,9 @@ cleanup:
 // not access that, since additional steps can be required, like  boundary checks!
 static int myqueue_size(Myqueue* queue) {
 	if(queue->size < 0) {
-		fprintf(stderr,
-		        "FATAL: internal size implementation error in the queue, value negative: %d!",
-		        queue->size);
+		LOG_MESSAGE(LogLevelCritical,
+		            "internal size implementation error in the queue, value negative: %d!",
+		            queue->size);
 	}
 	return queue->size;
 }

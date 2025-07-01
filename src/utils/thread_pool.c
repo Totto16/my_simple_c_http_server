@@ -38,8 +38,9 @@ ANY_TYPE(NULL) thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_Thread
 		// that here is an assert, but it'S that important, so that I wrote it without assertions,
 		// since there is a way to  disable assertions!
 		if(myqueue_is_empty(jobs_queue)) {
-			fprintf(stderr, "Expected to have elements in the queue at this stage in internal "
-			                "thread pool implementation, but got nothing!\n");
+			LOG_MESSAGE_SIMPLE(LogLevelError,
+			                   "Expected to have elements in the queue at this stage in internal "
+			                   "thread pool implementation, but got nothing!\n");
 			// TODO(Totto): don't exit here
 			exit(EXIT_FAILURE);
 		}
@@ -251,7 +252,7 @@ ANY_TYPE(JobResult) pool_await(JobId* job_escription) {
 		return impl_pool_await(job_escription);
 	}
 
-	fprintf(stderr, "WARNING: invalid job_function passed to pool_submit!\n");
+	LOG_MESSAGE_SIMPLE(LogLevelError, "WARNING: invalid job_function passed to pool_submit!\n");
 	return JOB_ERROR_INVALID_JOB;
 }
 

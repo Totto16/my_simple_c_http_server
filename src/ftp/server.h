@@ -56,17 +56,18 @@ NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPAddrFiel
                                    FTPControlConnectionArgument*, const FTPCommand* command);
 
 NODISCARD ANY_TYPE(JobError*)
-ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg,
-                                      WorkerInfo workerInfo);
+    ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg,
+                                          WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
 NODISCARD ANY_TYPE(ListenerError*)
-ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg);
-
-NODISCARD ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThreadArgument*) arg);
+    ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg);
 
 NODISCARD ANY_TYPE(ListenerError*)
-ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
+    ftp_data_listener_thread_function(ANY_TYPE(FTPDataThreadArgument*) arg);
+
+NODISCARD ANY_TYPE(ListenerError*)
+    ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
 
 NODISCARD int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options);
