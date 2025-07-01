@@ -113,14 +113,14 @@ const char* get_thread_name(void) {
 	ThreadIdType tid = get_thread_id();
 
 	char* name = NULL;
-	FORMAT_STRING(
+	FORMAT_STRING_IMPL(
 	    &name,
 	    {
 		    const char* fallback_name = "<failed setting thread name>";
 		    g_global_value_log_thread_state.name = fallback_name;
 		    return fallback_name;
 	    },
-	    "TID " PRI_THREADID, tid);
+	    IMPL_STDERR_LOGGER, "TID " PRI_THREADID, tid);
 
 	g_global_value_log_thread_state.name = name;
 
@@ -129,14 +129,26 @@ const char* get_thread_name(void) {
 
 void log_lock_mutex(void) {
 	int result = pthread_mutex_lock(&g_global_value_log_entry.mutex);
-	CHECK_FOR_THREAD_ERROR(
-	    result, "An Error occurred while trying to lock the mutex for the logger", return;);
+
+	if(result != 0) {
+		/*pthread function don't set errno, but return the error value \
+		 * directly*/
+		fprintf(stderr, "An Error occurred while trying to lock the mutex for the logger: %s\n",
+		        strerror(result));
+		exit(EXIT_FAILURE);
+	}
 }
 
 void log_unlock_mutex(void) {
 	int result = pthread_mutex_unlock(&g_global_value_log_entry.mutex);
-	CHECK_FOR_THREAD_ERROR(
-	    result, "An Error occurred while trying to unlock the mutex for the logger", return;);
+
+	if(result != 0) {
+		/*pthread function don't set errno, but return the error value \
+		 * directly*/
+		fprintf(stderr, "An Error occurred while trying to unlock the mutex for the logger: %s\n",
+		        strerror(result));
+		exit(EXIT_FAILURE);
+	}
 }
 
 void initialize_logger(void) {

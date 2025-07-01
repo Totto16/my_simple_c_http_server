@@ -95,7 +95,7 @@ NODISCARD void* malloc_with_memset(size_t size, bool initialize_with_zeros);
 // magic, attention, use this function in the right way, you have to prepare a char* that is set to
 // null, then it works best! snprintf is safer then sprintf, since it guarantees some things, also
 // it has a failure indicator
-#define FORMAT_STRING(toStore, statement, format, ...) \
+#define FORMAT_STRING_IMPL(toStore, statement, logger_fn, format, ...) \
 	{ \
 		char* internalBuffer = *toStore; \
 		if(internalBuffer != NULL) { \
@@ -104,25 +104,31 @@ NODISCARD void* malloc_with_memset(size_t size, bool initialize_with_zeros);
 		int toWrite = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
 		internalBuffer = (char*)malloc(toWrite * sizeof(char)); \
 		if(!internalBuffer) { \
-			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n"); \
+			logger_fn("Couldn't allocate memory for %d bytes!\n", toWrite); \
 			statement \
 		} \
 		int written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \
 		if(written >= toWrite) { \
-			LOG_MESSAGE(LogLevelWarn | LogPrintLocation, \
-			            "Snprint did write more bytes then it had space in the buffer, available " \
-			            "space:'%d', actually written:'%d'!\n", \
-			            (toWrite) - 1, written); \
+			logger_fn("Snprint did write more bytes then it had space in the buffer, available " \
+			          "space:'%d', actually written:'%d'!\n", \
+			          (toWrite) - 1, written); \
 			free(internalBuffer); \
 			statement \
 		} \
 		*toStore = internalBuffer; \
 	} \
 	if(*toStore == NULL) { \
-		LOG_MESSAGE(LogLevelWarn | LogPrintLocation, \
-		            "snprintf Macro gone wrong: '%s' is pointing to NULL!\n", #toStore); \
+		logger_fn("snprintf Macro gone wrong: '%s' is pointing to NULL!\n", #toStore); \
 		statement \
 	}
+
+#define FORMAT_STRING(toStore, statement, format, ...) \
+	FORMAT_STRING_IMPL(toStore, statement, IMPL_LOGGER_DEFAULT, format, __VA_ARGS__)
+
+#define IMPL_LOGGER_DEFAULT(format, ...) \
+	LOG_MESSAGE(LogLevelWarn | LogPrintLocation, format, __VA_ARGS__)
+
+#define IMPL_STDERR_LOGGER(format, ...) fprintf(stderr, format, __VA_ARGS__)
 
 // simple realloc Wrapper, using also memset to set everything to 0
 NODISCARD void* realloc_with_memset(void* previous_ptr, size_t old_size, size_t new_size,
