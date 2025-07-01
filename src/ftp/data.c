@@ -123,9 +123,9 @@ DataController* initialize_data_controller(size_t passive_port_amount) {
 NODISCARD bool data_connection_set_port_as_available(DataController* data_controller, size_t index,
                                                      FTPPortField port) {
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	CHECK_FOR_THREAD_ERROR(result,
-	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return false;);
+	CHECK_FOR_THREAD_ERROR(
+	    result, "An Error occurred while trying to lock the mutex for the data_controller",
+	    return false;);
 
 	bool success = false;
 
@@ -173,9 +173,9 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
                                                    size_t port_index) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	CHECK_FOR_THREAD_ERROR(result,
-	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return NULL;);
+	CHECK_FOR_THREAD_ERROR(
+	    result, "An Error occurred while trying to lock the mutex for the data_controller",
+	    return NULL;);
 
 	DataConnection* connection = NULL;
 
@@ -260,9 +260,9 @@ bool data_controller_add_descriptor(DataController* data_controller,
                                     ConnectionDescriptor* descriptor) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	CHECK_FOR_THREAD_ERROR(result,
-	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return NULL;);
+	CHECK_FOR_THREAD_ERROR(
+	    result, "An Error occurred while trying to lock the mutex for the data_controller",
+	    return NULL;);
 
 	bool success = false;
 
@@ -428,9 +428,9 @@ cleanup:
 
 ConnectionsToClose data_connections_to_close(DataController* data_controller) {
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	CHECK_FOR_THREAD_ERROR(result,
-	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return NULL;);
+	CHECK_FOR_THREAD_ERROR(
+	    result, "An Error occurred while trying to lock the mutex for the data_controller",
+	    return NULL;);
 
 	ConnectionsToClose connections = nts_internal_data_connections_to_close(data_controller, NULL);
 
@@ -586,9 +586,9 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
                                               FTPDataSettings settings) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	CHECK_FOR_THREAD_ERROR(result,
-	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return NULL;);
+	CHECK_FOR_THREAD_ERROR(
+	    result, "An Error occurred while trying to lock the mutex for the data_controller",
+	    return NULL;);
 
 	DataConnection* connection = NULL;
 
@@ -746,9 +746,9 @@ data_connection_get_descriptor_to_send_to(DataController* data_controller,
                                           DataConnection* connection) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	CHECK_FOR_THREAD_ERROR(result,
-	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return NULL;);
+	CHECK_FOR_THREAD_ERROR(
+	    result, "An Error occurred while trying to lock the mutex for the data_controller",
+	    return NULL;);
 
 	ConnectionDescriptor* descriptor = NULL;
 
@@ -806,9 +806,9 @@ NODISCARD bool nts_internal_close_connection(DataController* data_controller,
 NODISCARD bool data_connection_close(DataController* data_controller, DataConnection* connection) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	CHECK_FOR_THREAD_ERROR(result,
-	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return false;);
+	CHECK_FOR_THREAD_ERROR(
+	    result, "An Error occurred while trying to lock the mutex for the data_controller",
+	    return false;);
 
 	bool success = true;
 
@@ -844,9 +844,9 @@ cleanup:
 FTPPortField get_available_port_for_passive_mode(DataController* data_controller) {
 
 	int result = pthread_mutex_lock(&data_controller->mutex);
-	CHECK_FOR_THREAD_ERROR(result,
-	                    "An Error occurred while trying to lock the mutex for the data_controller",
-	                    return false;);
+	CHECK_FOR_THREAD_ERROR(
+	    result, "An Error occurred while trying to lock the mutex for the data_controller",
+	    return false;);
 
 	FTPPortField resulting_port = 0;
 

@@ -55,17 +55,18 @@ typedef struct {
 NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPAddrField server_addr,
                                    FTPControlConnectionArgument*, const FTPCommand* command);
 
-ANY_TYPE(JobError*) ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg,
-                                                         WorkerInfo workerInfo);
+ANY_TYPE(JobError*)
+ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg,
+                                      WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
 ANY_TYPE(ListenerError*)
-    ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg);
+ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg);
 
 ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThreadArgument*) arg);
 
 ANY_TYPE(ListenerError*)
-    ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
+ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
 
 NODISCARD int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* options);

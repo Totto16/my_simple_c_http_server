@@ -18,7 +18,8 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 	    http_request_to_html(http_request, is_secure_context(context), send_settings);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = http_response_body_from_string_builder(&html_string_builder),
+		                          .body =
+		                              http_response_body_from_string_builder(&html_string_builder),
 		                          .mime_type = MIME_TYPE_HTML,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -35,7 +36,8 @@ static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
 	    http_request_to_json(http_request, is_secure_context(context), send_settings);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = http_response_body_from_string_builder(&json_string_builder),
+		                          .body =
+		                              http_response_body_from_string_builder(&json_string_builder),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -46,7 +48,8 @@ static HTTPResponseToSend static_executor_fn(ParsedURLPath path) {
 	UNUSED(path);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = http_response_body_from_static_string("{\"static\":true}"),
+		                          .body =
+		                              http_response_body_from_static_string("{\"static\":true}"),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -264,10 +267,10 @@ HTTPRoutes get_default_routes(void) {
 		// ws
 
 		HTTPRoute ws_route = { .method = HTTPRequestRouteMethodGet,
-			                  .path = "/ws",
-			                  .data = (HTTPRouteData){
-			                      .type = HTTPRouteTypeSpecial,
-			                      .data = { .special = HTTPRouteSpecialDataWs } } };
+			                   .path = "/ws",
+			                   .data = (HTTPRouteData){
+			                       .type = HTTPRouteTypeSpecial,
+			                       .data = { .special = HTTPRouteSpecialDataWs } } };
 
 		stbds_arrput(routes, ws_route);
 	}
@@ -277,10 +280,10 @@ HTTPRoutes get_default_routes(void) {
 		// ws fragmented
 
 		HTTPRoute ws_fragmented = { .method = HTTPRequestRouteMethodGet,
-			                       .path = "/ws/fragmented",
-			                       .data = (HTTPRouteData){
-			                           .type = HTTPRouteTypeSpecial,
-			                           .data = { .special = HTTPRouteSpecialDataWsFragmented } } };
+			                        .path = "/ws/fragmented",
+			                        .data = (HTTPRouteData){
+			                            .type = HTTPRouteTypeSpecial,
+			                            .data = { .special = HTTPRouteSpecialDataWsFragmented } } };
 
 		stbds_arrput(routes, ws_fragmented);
 	}
@@ -459,7 +462,7 @@ route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* const
 	}
 
 	int result = send_http_message_to_connection_advanced(descriptor, response, send_settings,
-	                                                 http_request->head);
+	                                                      http_request->head);
 
 	return result;
 }

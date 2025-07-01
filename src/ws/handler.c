@@ -29,7 +29,7 @@ WebSocketAction websocket_function(WebSocketConnection* connection, WebSocketMes
 }
 
 WebSocketAction websocket_function_fragmented(WebSocketConnection* connection,
-                                            WebSocketMessage message) {
+                                              WebSocketMessage message) {
 
 	if(message.is_text) {
 

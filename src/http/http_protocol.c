@@ -77,9 +77,9 @@ NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion proto
 NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(char* path) {
 
 	// TODO(Totto): implement correctly
-	
+
 	ParsedURLPath result = {};
-	
+
 	result.path = strdup(path);
 
 	result.search_path = (ParsedSearchPath){ .hash_map = STBDS_HASM_MAP_EMPTY };

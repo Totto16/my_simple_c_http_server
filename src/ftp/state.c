@@ -144,7 +144,7 @@ char* make_address_port_desc(FTPConnectAddr addr) {
 
 	char* result = NULL;
 	FORMAT_STRING(&result, return NULL;
-	             , "(%d,%d,%d,%d,%d,%d)", host1, host2, host3, host4, port1, port2);
+	              , "(%d,%d,%d,%d,%d,%d)", host1, host2, host3, host4, port1, port2);
 
 	return result;
 }

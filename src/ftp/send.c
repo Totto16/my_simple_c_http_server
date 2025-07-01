@@ -17,10 +17,11 @@ NODISCARD static int sendFTPMessageToConnectionMalloced( // NOLINT(misc-no-recur
 	const char* const separators = "\r\n";
 
 	if(strlen(body) == 0) {
-		STRING_BUILDER_APPENDF(string_builder, free(body); return -3;, "%03d%s", status, separators);
+		STRING_BUILDER_APPENDF(string_builder, free(body); return -3;
+		                       , "%03d%s", status, separators);
 	} else {
 		STRING_BUILDER_APPENDF(string_builder, free(body); return -3;
-		                      , "%03d %s%s", status, body, separators);
+		                       , "%03d %s%s", status, body, separators);
 	}
 
 	int result = send_string_builder_to_connection(descriptor, &string_builder);

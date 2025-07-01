@@ -46,7 +46,8 @@ typedef struct {
 // callable from different threads.
 // it reads from the queue and then executes the job, and then marks it as complete (posting the job
 // semaphore)
-NODISCARD ANY_TYPE(NULL) thread_pool_worker_thread_function(ANY_TYPE(MyThreadPoolThreadArgument*) arg);
+NODISCARD ANY_TYPE(NULL)
+    thread_pool_worker_thread_function(ANY_TYPE(MyThreadPoolThreadArgument*) arg);
 
 // creates a pool, the size denotes the size of the worker threads, if you don't know how to choose
 // this value, use pool_create_dynamic to have an adjusted value, to your running system, it

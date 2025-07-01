@@ -62,7 +62,8 @@ typedef struct {
 // it receives all the necessary information and also handles the html parsing and response
 
 NODISCARD ANY_TYPE(JobError*)
-    http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, WorkerInfo worker_info);
+    http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
+                                   WorkerInfo worker_info);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
