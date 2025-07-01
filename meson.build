@@ -24,7 +24,11 @@ deps += dependency('threads')
 
 secure_option = get_option('secure')
 
-openssl_dep = dependency('openssl', required: secure_option, version: '>=3.0')
+openssl_dep = dependency(
+    'openssl',
+    required: secure_option,
+    version: '>=3.0',
+)
 
 if openssl_dep.found()
     deps += openssl_dep
@@ -49,8 +53,11 @@ foreach compression_feature : compression_features
 endforeach
 
 
-zlib_dep = dependency('zlib', required: compression_features_dict['gzip'] or compression_features_dict['deflate'
-])
+zlib_dep = dependency(
+    'zlib',
+    required: compression_features_dict['gzip'] or compression_features_dict['deflate'
+],
+)
 
 if zlib_dep.found()
     deps += zlib_dep
@@ -69,7 +76,10 @@ if brotli_dep.found()
     compile_flags += '-D_SIMPLE_SERVER_COMPRESSION_SUPPORT_BR'
 endif
 
-zstd_dep = dependency('libzstd', required: compression_features_dict['zstd'])
+zstd_dep = dependency(
+    'libzstd',
+    required: compression_features_dict['zstd'],
+)
 
 if zstd_dep.found()
     deps += zstd_dep
@@ -90,14 +100,22 @@ endif
 deps += dependency(
     'libutf8proc',
     allow_fallback: true,
-    default_options: {'tests': 'disabled'},
+    default_options: {
+        'tests': 'disabled',
+    },
 )
 
-deps += dependency('cwalk', allow_fallback: true)
+deps += dependency(
+    'cwalk',
+    allow_fallback: true,
+)
 
 cc = meson.get_compiler('c')
 
-deps += cc.find_library('m', required: false)
+deps += cc.find_library(
+    'm',
+    required: false,
+)
 
 src_files = []
 inc_dirs = []
@@ -120,7 +138,11 @@ http_server_dep = declare_dependency(
     version: meson.project_version(),
 )
 
-executable('server', files('src/main.c'), dependencies: [http_server_dep])
+executable(
+    'server',
+    files('src/main.c'),
+    dependencies: [http_server_dep],
+)
 
 
 if get_option('tests')

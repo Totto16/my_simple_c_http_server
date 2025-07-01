@@ -9,14 +9,17 @@ test_inc_dirs = []
 test_deps += dependency(
     'doctest_patched',
     version: '>=2.4.12',
-    fallback: ['doctest','doctest_dep'],
+    fallback: ['doctest', 'doctest_dep'],
 )
 
 test_inc_dirs += include_directories('.')
 
 test_src += files('http_parser.cpp', 'main.cpp')
 
-add_languages('cpp', native: false)
+add_languages(
+    'cpp',
+    native: false,
+)
 
 
 tests = executable(
