@@ -85,7 +85,7 @@ static char* json_get_random_number(void) {
 
 	StringBuilder* result = string_builder_init();
 
-	string_builder_append(result, return NULL;, "%u", number);
+	STRING_BUILDER_APPENDF(result, return NULL;, "%u", number);
 
 	return string_builder_release_into_string(&result);
 }
@@ -111,45 +111,45 @@ static char* json_get_random_key(void) {
 	return json_get_random_string();
 }
 
-static void add_random_object_key_and_value(StringBuilder* stringBuilder, bool pretty) {
+static void add_random_object_key_and_value(StringBuilder* string_builder, bool pretty) {
 	char* key = json_get_random_key();
 
-	string_builder_append_string(stringBuilder, key);
+	string_builder_append_string(string_builder, key);
 	if(pretty) {
-		string_builder_append_single(stringBuilder, " ");
+		string_builder_append_single(string_builder, " ");
 	}
-	string_builder_append_single(stringBuilder, ":");
+	string_builder_append_single(string_builder, ":");
 
 	char* value = json_get_random_primitive_value();
 
-	string_builder_append_string(stringBuilder, value);
+	string_builder_append_string(string_builder, value);
 }
 
-static void add_random_json_object(StringBuilder* stringBuilder, bool pretty) {
+static void add_random_json_object(StringBuilder* string_builder, bool pretty) {
 
 	uint32_t random_key_amount = get_random_byte_in_range(
 	    4, 20); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	string_builder_append_single(stringBuilder, "{");
+	string_builder_append_single(string_builder, "{");
 	if(pretty) {
-		string_builder_append_single(stringBuilder, "\n");
+		string_builder_append_single(string_builder, "\n");
 	}
 
 	for(size_t i = 0; i < random_key_amount; ++i) {
-		add_random_object_key_and_value(stringBuilder, pretty);
+		add_random_object_key_and_value(string_builder, pretty);
 
-		string_builder_append_single(stringBuilder, ",");
+		string_builder_append_single(string_builder, ",");
 		if(pretty) {
-			string_builder_append_single(stringBuilder, "\n");
+			string_builder_append_single(string_builder, "\n");
 		}
 	}
 
-	add_random_object_key_and_value(stringBuilder, pretty);
+	add_random_object_key_and_value(string_builder, pretty);
 
 	if(pretty) {
-		string_builder_append_single(stringBuilder, "\n");
+		string_builder_append_single(string_builder, "\n");
 	}
-	string_builder_append_single(stringBuilder, "}");
+	string_builder_append_single(string_builder, "}");
 
 	//
 }

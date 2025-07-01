@@ -17,4 +17,4 @@ NODISCARD int sendSizedBufferToConnection(const ConnectionDescriptor* descriptor
 
 // just a wrapper to send a string buffer to a connection, it also frees the string buffer!
 NODISCARD int sendStringBuilderToConnection(const ConnectionDescriptor* descriptor,
-                                            StringBuilder** stringBuilder);
+                                            StringBuilder** string_builder);

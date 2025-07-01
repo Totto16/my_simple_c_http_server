@@ -10,7 +10,7 @@ typedef struct {
 	size_t size;
 } SizedBuffer;
 
-void freeSizedBuffer(SizedBuffer buffer);
+void free_sized_buffer(SizedBuffer buffer);
 
 NODISCARD SizedBuffer get_empty_sized_buffer(void);
 

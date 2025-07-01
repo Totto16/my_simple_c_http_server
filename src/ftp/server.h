@@ -15,8 +15,8 @@
 #define FTP_MAX_QUEUE_SIZE 100
 
 typedef struct {
-	thread_pool* pool;
-	myqueue* jobIds;
+	ThreadPool* pool;
+	Myqueue* jobIds;
 	ConnectionContext** contexts;
 	int socketFd;
 	const char* const global_folder;

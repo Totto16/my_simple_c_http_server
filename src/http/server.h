@@ -44,8 +44,8 @@ int isRequestSupported(HttpRequest* request);
 // structs for the listenerThread
 
 typedef struct {
-	thread_pool* pool;
-	myqueue* jobIds;
+	ThreadPool* pool;
+	Myqueue* jobIds;
 	ConnectionContext** contexts;
 	int socketFd;
 	WebSocketThreadManager* webSocketManager;
@@ -65,7 +65,7 @@ typedef struct {
 // it receives all the necessary information and also handles the html parsing and response
 
 ANY_TYPE(JobError*)
-    http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg, WorkerInfo workerInfo);
+http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg, WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument

@@ -55,11 +55,11 @@ NODISCARD int sendSizedBufferToConnection(const ConnectionDescriptor* const desc
 
 // just a warpper to send a string buffer to a connection, it also frees the string buffer!
 int sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
-                                  StringBuilder** stringBuilder) {
+                                  StringBuilder** string_builder) {
 
-	SizedBuffer stringBuffer = string_builder_release_into_sized_buffer(stringBuilder);
+	SizedBuffer stringBuffer = string_builder_release_into_sized_buffer(string_builder);
 
 	int result = sendSizedBufferToConnection(descriptor, stringBuffer);
-	freeSizedBuffer(stringBuffer);
+	free_sized_buffer(stringBuffer);
 	return result;
 }

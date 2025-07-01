@@ -78,16 +78,16 @@ static bool setup_relevant_signal_handlers(void) {
 // it receives all the necessary information and also handles the html parsing and response
 
 ANY_TYPE(JobError*)
-    ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) _arg,
-                                          WorkerInfo workerInfo) {
+ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) _arg,
+                                      WorkerInfo workerInfo) {
 
 	// attention arg is malloced!
 	FTPControlConnectionArgument* argument = (FTPControlConnectionArgument*)_arg;
 
-	ConnectionContext* context = argument->contexts[workerInfo.workerIndex];
+	ConnectionContext* context = argument->contexts[workerInfo.worker_index];
 	char* thread_name_buffer = NULL;
 	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
-	             , "connection handler %lu", workerInfo.workerIndex);
+	              , "connection handler %lu", workerInfo.worker_index);
 	set_thread_name(thread_name_buffer);
 
 #define FREE_AT_END() \
@@ -224,7 +224,7 @@ cleanup:
 #define SEND_RESPONSE_WITH_ERROR_CHECK_F(code, format, ...) \
 	do { \
 		StringBuilder* string_builder = string_builder_init(); \
-		string_builder_append(string_builder, return false;, format, __VA_ARGS__); \
+		STRING_BUILDER_APPENDF(string_builder, return false;, format, __VA_ARGS__); \
 		int result = sendFTPMessageToConnectionSb(descriptor, code, string_builder); \
 		if(result < 0) { \
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n"); \
@@ -566,8 +566,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return false;
 				}
 
-				string_builder_append(string_builder, return false;
-				                      , "%03d-Extensions supported:", FTP_RETURN_CODE_FEATURE_LIST);
+				STRING_BUILDER_APPENDF(string_builder, return false;, "%03d-Extensions supported:",
+				                                                    FTP_RETURN_CODE_FEATURE_LIST);
 				int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
 				if(send_result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
@@ -586,10 +586,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return false;
 				}
 
-				string_builder_append(string_builder, return false;, " %s", feature.name);
+				STRING_BUILDER_APPENDF(string_builder, return false;, " %s", feature.name);
 
 				if(feature.arguments != NULL) {
-					string_builder_append(string_builder, return false;, " %s", feature.arguments);
+					STRING_BUILDER_APPENDF(string_builder, return false;, " %s", feature.arguments);
 				}
 
 				int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
@@ -1333,7 +1333,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 // implemented specifically for the ftp Server, it just gets the internal value, but it's better
 // to not access that, since additional steps can be required, like  boundary checks!
-static int myqueue_size(myqueue* queue) {
+static int myqueue_size(Myqueue* queue) {
 	if(queue->size < 0) {
 		fprintf(stderr,
 		        "FATAL: internal size implementation error in the queue, value negative: %d!",
@@ -1354,7 +1354,7 @@ static void receiveSignal(int signalNumber) {
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
 ANY_TYPE(ListenerError*)
-    ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
+ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 
 	set_thread_name("control listener thread");
 
@@ -1372,7 +1372,7 @@ ANY_TYPE(ListenerError*)
 	int sigFd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	CHECK_FOR_ERROR(sigFd, "While trying to cancel the listener Thread on signal",
-	              exit(EXIT_FAILURE););
+	                exit(EXIT_FAILURE););
 
 	poll_fds[1].fd = sigFd;
 	poll_fds[1].events = POLLIN;
@@ -1401,7 +1401,7 @@ ANY_TYPE(ListenerError*)
 			close(poll_fds[1].fd);
 			int result = pthread_cancel(pthread_self());
 			CHECK_FOR_ERROR(result, "While trying to cancel the listener Thread on signal",
-			              return LISTENER_ERROR_THREAD_CANCEL;);
+			                return LISTENER_ERROR_THREAD_CANCEL;);
 
 			return LISTENER_ERROR_THREAD_AFTER_CANCEL;
 		}
@@ -1418,7 +1418,7 @@ ANY_TYPE(ListenerError*)
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.socketFd, (struct sockaddr*)&client_addr, &addr_len);
 		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
-		              return LISTENER_ERROR_ACCEPT;);
+		                return LISTENER_ERROR_ACCEPT;);
 
 		if(addr_len != sizeof(client_addr)) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Accept has wrong addr_len\n");
@@ -1466,7 +1466,7 @@ ANY_TYPE(ListenerError*)
 			int boundary = size / 2;
 			while(size > boundary) {
 
-				job_id* jobId = (job_id*)myqueue_pop(argument.jobIds);
+				JobId* jobId = (JobId*)myqueue_pop(argument.jobIds);
 
 				JobError result = pool_await(jobId);
 
@@ -1521,7 +1521,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 	int sigFd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	CHECK_FOR_ERROR(sigFd, "While trying to cancel a data listener Thread on signal",
-	              exit(EXIT_FAILURE););
+	                exit(EXIT_FAILURE););
 
 	poll_fds[POLL_SIG_ARR_INDEX].fd = sigFd;
 	poll_fds[POLL_SIG_ARR_INDEX].events = POLLIN;
@@ -1549,7 +1549,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			close(poll_fds[POLL_SIG_ARR_INDEX].fd);
 			int result = pthread_cancel(pthread_self());
 			CHECK_FOR_ERROR(result, "While trying to cancel a data listener Thread on signal",
-			              return LISTENER_ERROR_THREAD_CANCEL;);
+			                return LISTENER_ERROR_THREAD_CANCEL;);
 
 			return LISTENER_ERROR_THREAD_AFTER_CANCEL;
 		}
@@ -1582,7 +1582,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.fd, (struct sockaddr*)&client_addr, &addr_len);
 		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
-		              return LISTENER_ERROR_ACCEPT;);
+		                return LISTENER_ERROR_ACCEPT;);
 
 		if(addr_len != sizeof(client_addr)) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Accept has wrong addr_len\n");
@@ -1637,7 +1637,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 }
 
 ANY_TYPE(ListenerError*)
-    ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg) {
+ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg) {
 
 	set_thread_name("data orchestrator thread");
 
@@ -1667,8 +1667,8 @@ ANY_TYPE(ListenerError*)
 		const int optval = 1;
 		int optionReturn1 = setsockopt(sockFd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 		CHECK_FOR_ERROR(optionReturn1,
-		              "While Trying to set a port listening socket option 'SO_REUSEPORT'",
-		              goto cont_outer;);
+		                "While Trying to set a port listening socket option 'SO_REUSEPORT'",
+		                goto cont_outer;);
 
 		struct sockaddr_in* addr =
 		    (struct sockaddr_in*)malloc_with_memset(sizeof(struct sockaddr_in), true);
@@ -1688,11 +1688,11 @@ ANY_TYPE(ListenerError*)
 
 		int result1 = bind(sockFd, (struct sockaddr*)addr, sizeof(*addr));
 		CHECK_FOR_ERROR(result1, "While trying to bind a port listening socket to port",
-		              goto cont_outer;);
+		                goto cont_outer;);
 
 		result1 = listen(sockFd, FTP_SOCKET_BACKLOG_SIZE);
 		CHECK_FOR_ERROR(result1, "While trying to listen on a port listening socket",
-		              goto cont_outer;);
+		                goto cont_outer;);
 
 		FTPDataThreadArgument data_threadArgument = {
 			.data_controller = argument.data_controller,
@@ -1705,8 +1705,8 @@ ANY_TYPE(ListenerError*)
 		int result2 = pthread_create(&local_port_status_arr[i].thread_ref, NULL,
 		                             ftp_data_listener_thread_function, &data_threadArgument);
 		CHECK_FOR_THREAD_ERROR(result2,
-		                    "An Error occurred while trying to create a port listening Thread",
-		                    goto cont_outer;);
+		                       "An Error occurred while trying to create a port listening Thread",
+		                       goto cont_outer;);
 
 		// a simple trick to label for loops and continue in it
 	cont_outer:
@@ -1722,9 +1722,9 @@ ANY_TYPE(ListenerError*)
 		ListenerError returnValue = LISTENER_ERROR_NONE;
 		int result = pthread_join(port_status.thread_ref, &returnValue);
 		CHECK_FOR_THREAD_ERROR(result,
-		                    "An Error occurred while trying to wait for a port listening Thread",
-		                    is_error = true;
-		                    goto cont_outer2;;);
+		                       "An Error occurred while trying to wait for a port listening Thread",
+		                       is_error = true;
+		                       goto cont_outer2;;);
 
 		if(is_listener_error(returnValue)) {
 			if(returnValue != LISTENER_ERROR_NONE) {
@@ -1764,7 +1764,7 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 	int optionReturn1 =
 	    setsockopt(controlSocketFd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 	CHECK_FOR_ERROR(optionReturn1, "While Trying to set the control socket option 'SO_REUSEPORT'",
-	              return EXIT_FAILURE;);
+	                return EXIT_FAILURE;);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
 	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
@@ -1822,7 +1822,7 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 	// create pool and queue! then initializing both!
 	// the pool is created and destroyed outside of the listener, so the listener can be
 	// cancelled and then the main thread destroys everything accordingly
-	thread_pool control_pool;
+	ThreadPool control_pool;
 	int create_result1 = pool_create_dynamic(&control_pool);
 	if(create_result1 < 0) {
 		print_create_error(-create_result1);
@@ -1831,14 +1831,14 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 
 	// this is a internal synchronized queue! myqueue_init creates a semaphore that handles
 	// that
-	myqueue control_jobIds;
-	if(myqueue_init(&control_jobIds) < 0) {
+	Myqueue control_job_ids;
+	if(myqueue_init(&control_job_ids) < 0) {
 		return EXIT_FAILURE;
 	};
 
 	// this is an array of pointers
-	ConnectionContext** control_contexts =
-	    (ConnectionContext**)malloc(sizeof(ConnectionContext*) * control_pool.workerThreadAmount);
+	ConnectionContext** control_contexts = (ConnectionContext**)malloc(
+	    sizeof(ConnectionContext*) * control_pool.worker_threads_amount);
 
 	if(!control_contexts) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
@@ -1851,7 +1851,7 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 	        ? initialize_secure_options(false, "", "")
 	        : options;
 
-	for(size_t i = 0; i < control_pool.workerThreadAmount; ++i) {
+	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
 		control_contexts[i] = get_connection_context(final_options);
 	}
 
@@ -1862,7 +1862,7 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 	if(!data_controller) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 
-		for(size_t i = 0; i < control_pool.workerThreadAmount; ++i) {
+		for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
 			free_connection_context(control_contexts[i]);
 		}
 		free((void*)control_contexts);
@@ -1890,12 +1890,12 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 	int result2 = pthread_create(&dataOrchestratorThread, NULL,
 	                             ftp_data_orchestrator_thread_function, &data_threadArgument);
 	CHECK_FOR_THREAD_ERROR(result2,
-	                    "An Error occurred while trying to create a new data listener Thread",
-	                    return EXIT_FAILURE;);
+	                       "An Error occurred while trying to create a new data listener Thread",
+	                       return EXIT_FAILURE;);
 
 	pthread_t controlListenerThread = {};
 	FTPControlThreadArgument control_threadArgument = { .pool = &control_pool,
-		                                                .jobIds = &control_jobIds,
+		                                                .jobIds = &control_job_ids,
 		                                                .contexts = control_contexts,
 		                                                .socketFd = controlSocketFd,
 		                                                .global_folder = folder,
@@ -1907,15 +1907,15 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 	result1 = pthread_create(&controlListenerThread, NULL, ftp_control_listener_thread_function,
 	                         &control_threadArgument);
 	CHECK_FOR_THREAD_ERROR(result1,
-	                    "An Error occurred while trying to create a new control listener Thread",
-	                    return EXIT_FAILURE;);
+	                       "An Error occurred while trying to create a new control listener Thread",
+	                       return EXIT_FAILURE;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
 	ListenerError control_returnValue = LISTENER_ERROR_NONE;
 	result1 = pthread_join(controlListenerThread, &control_returnValue);
 	CHECK_FOR_THREAD_ERROR(result1, "An Error occurred while trying to wait for a control Thread",
-	                    return EXIT_FAILURE;);
+	                       return EXIT_FAILURE;);
 
 	if(is_listener_error(control_returnValue)) {
 		if(control_returnValue != LISTENER_ERROR_NONE) {
@@ -1935,7 +1935,7 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 	ListenerError data_returnValue = LISTENER_ERROR_NONE;
 	result2 = pthread_join(dataOrchestratorThread, &data_returnValue);
 	CHECK_FOR_THREAD_ERROR(result2, "An Error occurred while trying to wait for a data Thread",
-	                    return EXIT_FAILURE;);
+	                       return EXIT_FAILURE;);
 
 	if(is_listener_error(data_returnValue)) {
 		if(data_returnValue != LISTENER_ERROR_NONE) {
@@ -1953,8 +1953,8 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 
 	// since the listener doesn't wait on the jobs, the main thread has to do that work!
 	// the queue can be filled, which can lead to a problem!!
-	while(!myqueue_is_empty(&control_jobIds)) {
-		job_id* jobId = (job_id*)myqueue_pop(&control_jobIds);
+	while(!myqueue_is_empty(&control_job_ids)) {
+		JobId* jobId = (JobId*)myqueue_pop(&control_job_ids);
 
 		JobError result = pool_await(jobId);
 
@@ -1976,7 +1976,7 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 	}
 
 	// then the queue is destroyed
-	if(myqueue_destroy(&control_jobIds) < 0) {
+	if(myqueue_destroy(&control_job_ids) < 0) {
 		return EXIT_FAILURE;
 	}
 
@@ -1996,7 +1996,7 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 
 	free(ports);
 
-	for(size_t i = 0; i < control_pool.workerThreadAmount; ++i) {
+	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
 		free_connection_context(control_contexts[i]);
 	}
 

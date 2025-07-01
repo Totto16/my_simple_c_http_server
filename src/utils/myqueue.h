@@ -2,9 +2,6 @@
 #pragma once
 
 #include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #ifdef _USE_BSD_QUEUE
 #include "bsd/sys/queue.h"
@@ -15,36 +12,39 @@
 #include "generic/sem.h"
 
 // in here there are several utilities that are used across all .h and .c files
-#include "utils.h"
+#include "./utils.h"
 
 // taken from previous lecture, added the internal semaphore (not mutex, since they ar not
 // lock/unlockable from different threads (they can be with an attr, but thats not supported
 // everywhere) ), so that it is thread-safe
 // you don't have do to anything when callling the queue manipulation functions, they're
 // synchronized on themeself
-struct myqueue_entry {
+
+typedef struct MyqueueEntryImpl MyqueueEntry;
+
+struct MyqueueEntryImpl {
 	void* value;
-	STAILQ_ENTRY(myqueue_entry) entries;
+	STAILQ_ENTRY(MyqueueEntryImpl) entries;
 };
 
-STAILQ_HEAD(myqueue_head, myqueue_entry);
+typedef struct MyqueueHeadImpl MyqueueHead;
 
-typedef struct myqueue_head myqueue_head;
+STAILQ_HEAD(MyqueueHeadImpl, MyqueueEntryImpl);
 
 typedef struct {
-	myqueue_head head;
-	SEMAPHORE_TYPE canAccess;
+	MyqueueHead head;
+	SemaphoreType can_access;
 	int size;
-} myqueue;
+} Myqueue;
 
-[[nodiscard]] int myqueue_init(myqueue* queue);
+NODISCARD int myqueue_init(Myqueue* queue);
 
-[[nodiscard]] int myqueue_destroy(myqueue* queue);
+NODISCARD int myqueue_destroy(Myqueue* queue);
 
-bool myqueue_is_empty(myqueue* queue);
+NODISCARD bool myqueue_is_empty(Myqueue* queue);
 
 // not checked for error code of malloc :(
 // modified to use void * instead of int as stored value
-[[nodiscard]] int myqueue_push(myqueue* queue, void* value);
+NODISCARD int myqueue_push(Myqueue* queue, void* value);
 
-void* myqueue_pop(myqueue* queue);
+NODISCARD void* myqueue_pop(Myqueue* queue);

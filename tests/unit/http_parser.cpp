@@ -30,7 +30,7 @@ get_compression_setting_by_accept_encoding_header(const char* acceptEncodingValu
 	return get_string_for_compress_format(type);
 }
 
-[[nodiscard]] const char* get_representation_for_compression_value(CompressionValue value) {
+NODISCARD const char* get_representation_for_compression_value(CompressionValue value) {
 	switch(value.type) {
 		case CompressionValueType_NO_ENCODING: return "'identity'";
 		case CompressionValueType_ALL_ENCODINGS: return "'*'";
@@ -40,7 +40,7 @@ get_compression_setting_by_accept_encoding_header(const char* acceptEncodingValu
 	}
 }
 
-[[nodiscard]] bool operator==(const CompressionValue& lhs, const CompressionValue& rhs) {
+NODISCARD bool operator==(const CompressionValue& lhs, const CompressionValue& rhs) {
 
 	if(lhs.type != rhs.type) {
 		return false;
@@ -69,7 +69,7 @@ doctest::String toString(const CompressionEntry& value) {
 		                    static_cast<doctest::String::size_type>(string.size()) };
 }
 
-[[nodiscard]] bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs) {
+NODISCARD bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs) {
 
 	if(lhs.value != rhs.value) {
 		return false;

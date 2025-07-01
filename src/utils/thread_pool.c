@@ -9,9 +9,9 @@
 #include <sys/sysinfo.h>
 #endif
 
-struct job_id_impl {
-	SEMAPHORE_TYPE status;
-	job_function jobFunction;
+struct JobIdImpl {
+	SemaphoreType status;
+	JobFunction job_function;
 	ANY_TYPE(JobArgument) argument;
 	ANY_TYPE(JobResult) result;
 };
@@ -24,20 +24,20 @@ struct job_id_impl {
 ANY_TYPE(NULL) thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) arg) {
 	// casting it to the given element, (arg) is a malloced struct, so it has to be freed at the end
 	// of that function!
-	my_thread_pool_ThreadArgument argument = *((my_thread_pool_ThreadArgument*)arg);
+	MyThreadPoolThreadArgument argument = *((MyThreadPoolThreadArgument*)arg);
 	// extracting the queue for later use
-	myqueue* JobsQueue = &(argument.threadPool->jobqueue);
+	Myqueue* jobs_queue = &(argument.thread_pool->jobqueue);
 	// looping until receiving the shutdown signal, to know more about that, read pool_destroy
 	while(true) {
 
 		// block here until a job is available and can be worked uppon
-		int result = comp_sem_wait(&(argument.threadPool->jobsAvailable));
+		int result = comp_sem_wait(&(argument.thread_pool->jobs_available));
 		CHECK_FOR_ERROR(result, "Couldn't wait for the internal thread pool Semaphore",
 		                return WORKER_ERROR_SEM_WAIT;);
 
 		// that here is an assert, but it'S that important, so that I wrote it without assertions,
 		// since there is a way to  disable assertions!
-		if(myqueue_is_empty(JobsQueue)) {
+		if(myqueue_is_empty(jobs_queue)) {
 			fprintf(stderr, "Expected to have elements in the queue at this stage in internal "
 			                "thread pool implementation, but got nothing!\n");
 			// TODO(Totto): don't exit here
@@ -45,12 +45,12 @@ ANY_TYPE(NULL) thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_Thread
 		}
 
 		// getting the job from the queue, the queue is synchronized INTERNALLY!
-		job_id* currentJob = (job_id*)myqueue_pop(JobsQueue);
+		JobId* current_job = (JobId*)myqueue_pop(jobs_queue);
 
 		// when receiving shutdown signal, It breaks out of the while loop and finsishes
-		if(currentJob->jobFunction == THREAD_SHUTDOWN_JOB) {
+		if(current_job->job_function == THREAD_SHUTDOWN_JOB) {
 			// to be able to await for this job toot, it has to post the sempahore before leaving!
-			result = comp_sem_post(&(currentJob->status));
+			result = comp_sem_post(&(current_job->status));
 			CHECK_FOR_ERROR(result,
 			                "Couldn't post the internal thread pool Semaphore for a single job",
 			                return WORKER_ERROR_SEM_POST;);
@@ -59,14 +59,14 @@ ANY_TYPE(NULL) thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_Thread
 
 		// otherwise it just calls the function, and therefore executes it
 		ANY_TYPE(JobResult)
-		returnValue = currentJob->jobFunction(currentJob->argument, argument.workerInfo);
+		return_value = current_job->job_function(current_job->argument, argument.worker_info);
 		// atm a warning issued, when a functions returns something other than NULL, but thats
 		// only there, to show that it doesn't get returned, it wouldn't be that big of a deal to
 		// implement this, but it isn't needed and required
-		currentJob->result = returnValue;
+		current_job->result = return_value;
 
 		// finally cleaning up by posting the semaphore
-		result = comp_sem_post(&(currentJob->status));
+		result = comp_sem_post(&(current_job->status));
 		CHECK_FOR_ERROR(result, "Couldn't post the internal thread pool Semaphore for a single job",
 		                return WORKER_ERROR_SEM_POST;);
 	}
@@ -83,14 +83,14 @@ ANY_TYPE(NULL) thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_Thread
 // recommended, since then this pool is more efficient, on every system
 // pool is a address of an already declared, either malloced or on the stack (please ensure the
 // lifetime is sufficient) thread_pool
-int pool_create(thread_pool* pool, size_t size) {
+int pool_create(ThreadPool* pool, size_t size) {
 	// writing the values to the struct
-	pool->workerThreadAmount = size;
+	pool->worker_threads_amount = size;
 	// allocating the worker Threads array, they are freed in destroy!
-	pool->workerThreads = (my_thread_pool_ThreadInformation*)malloc_with_memset(
-	    sizeof(my_thread_pool_ThreadInformation) * size, true);
+	pool->worker_threads = (MyThreadPoolThreadInformation*)malloc_with_memset(
+	    sizeof(MyThreadPoolThreadInformation) * size, true);
 
-	if(!pool->workerThreads) {
+	if(!pool->worker_threads) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 		return CreateErrorMalloc;
 	}
@@ -102,10 +102,10 @@ int pool_create(thread_pool* pool, size_t size) {
 		return CreateErrorQueueInit;
 	}
 
-	// now initialize the thread jobsAvailable sempahore, it denotes how many jobs are in the queue,
-	// so that a worker thread can get one from the queue and work upon that job
-	// pshared i 0, since it'S shared between threads!
-	int result = comp_sem_init(&(pool->jobsAvailable), 0, true);
+	// now initialize the thread jobs_available sempahore, it denotes how many jobs are in the
+	// queue, so that a worker thread can get one from the queue and work upon that job pshared i 0,
+	// since it'S shared between threads!
+	int result = comp_sem_init(&(pool->jobs_available), 0, true);
 	CHECK_FOR_ERROR(result, "Couldn't initialize the internal thread pool Semaphore",
 	                return CreateErrorSemInit;);
 
@@ -113,21 +113,21 @@ int pool_create(thread_pool* pool, size_t size) {
 		// doing a malloc for every single one, so that it can be freed after the threads is
 		// finished, here a struct, that is allocated on the stack wouldn't have a lifetime that is
 		// suited for that use case, after the for loop it's "dead", unusable
-		my_thread_pool_ThreadArgument* threadArgument =
-		    (my_thread_pool_ThreadArgument*)malloc(sizeof(my_thread_pool_ThreadArgument));
+		MyThreadPoolThreadArgument* thread_argument =
+		    (MyThreadPoolThreadArgument*)malloc(sizeof(MyThreadPoolThreadArgument));
 
-		if(!threadArgument) {
+		if(!thread_argument) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 			return CreateErrorMalloc;
 		}
 
 		// initializing the struct with the necessary values
-		threadArgument->information = &(pool->workerThreads[i]);
-		threadArgument->workerInfo.workerIndex = i;
-		threadArgument->threadPool = pool;
+		thread_argument->information = &(pool->worker_threads[i]);
+		thread_argument->worker_info.worker_index = i;
+		thread_argument->thread_pool = pool;
 		// now launch the worker thread
-		result = pthread_create(&((pool->workerThreads[i]).thread), NULL,
-		                        thread_pool_worker_thread_function, threadArgument);
+		result = pthread_create(&((pool->worker_threads[i]).thread), NULL,
+		                        thread_pool_worker_thread_function, thread_argument);
 		CHECK_FOR_THREAD_ERROR(result,
 		                       "An Error occurred while trying to create a new Worker "
 		                       "Thread in the implementation of thread pool",
@@ -151,19 +151,19 @@ int get_active_cpu_core(void) {
 // this does the same as the pool_create method, but is recommended, since it calculates the worker
 // threads on the fly, so it's better suited for every system, and no hardcoded worker threads are
 // required!
-int pool_create_dynamic(thread_pool* pool) {
+int pool_create_dynamic(ThreadPool* pool) {
 	// can't fail according to man pages
-	int activeCPUCores = get_active_cpu_core();
+	int active_cpu_cores = get_active_cpu_core();
 	// + 1 since not all threads run all the time, so the extra one thread is used for compensating
 	// the idle time of a core
-	size_t workerThreadsAmount = (size_t)activeCPUCores + 1;
+	size_t worker_threads_amount = (size_t)active_cpu_cores + 1;
 	// the just calling pool create with that number
-	int result = pool_create(pool, workerThreadsAmount);
+	int result = pool_create(pool, worker_threads_amount);
 	if(result != CreateErrorNone) {
 		return -result;
 	}
 
-	return (int)workerThreadsAmount;
+	return (int)worker_threads_amount;
 }
 
 // submits a function with argument to the job queue, returns a job_id struct, that HAS to be used
@@ -173,43 +173,42 @@ int pool_create_dynamic(thread_pool* pool) {
 // otherwise the behaviour is undefined!
 // the function argument has to be malloced or on a stack with enough lifetime, the pointer to it
 // has to be valid until pool_await is called!
-static job_id* int_pool_submit(thread_pool* pool, job_function start_routine,
-                               ANY_TYPE(JobArg) arg) {
-	job_id* jobDescription = (job_id*)malloc(sizeof(job_id));
+static JobId* int_pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_TYPE(JobArg) arg) {
+	JobId* job_escription = (JobId*)malloc(sizeof(JobId));
 
-	if(!jobDescription) {
+	if(!job_escription) {
 		return SUBMIT_ERROR_MALLOC;
 	}
 
 	// initializing the struct
-	jobDescription->argument = arg;
-	jobDescription->jobFunction = start_routine;
-	jobDescription->result = JOB_ERROR_NO_RESULT;
+	job_escription->argument = arg;
+	job_escription->job_function = start_routine;
+	job_escription->result = JOB_ERROR_NO_RESULT;
 
 	// initializing with 0, it gets posted after the job was proccessed by a worker!!
 	// pshared i 0, since it'S shared between threads!
-	int result = comp_sem_init(&(jobDescription->status), 0, true);
+	int result = comp_sem_init(&(job_escription->status), 0, true);
 	CHECK_FOR_ERROR(result,
 	                "Couldn't initialize the internal thread pool Semaphore for a single job",
 	                return SUBMIT_ERROR_SEM_INIT;);
 	// then finally push the job to the queue, so it can worked upon
-	if(myqueue_push(&(pool->jobqueue), jobDescription) < 0) {
+	if(myqueue_push(&(pool->jobqueue), job_escription) < 0) {
 		return SUBMIT_ERROR_QUEUE_PUSH;
 	}
 	// after the push the semaphore gets posted, so a worker can get the job already, if available
-	result = comp_sem_post(&(pool->jobsAvailable));
+	result = comp_sem_post(&(pool->jobs_available));
 	CHECK_FOR_ERROR(result, "Couldn't post the internal thread pool Semaphore",
 	                return SUBMIT_ERROR_SEM_POST);
 
 	// finally return the job_id struct, it's malloced, so it has to be freed later! (that is done
 	// by the pool_await!)
-	return jobDescription;
+	return job_escription;
 }
 
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its an invalid function pointer) so it is
 // checked here and printing a warning if its _THREAD_SHUTDOWN_JOB and returns a SubmitError
-job_id* pool_submit(thread_pool* pool, job_function start_routine, ANY_TYPE(JobArg) arg) {
+JobId* pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_TYPE(JobArg) arg) {
 	if(start_routine != THREAD_SHUTDOWN_JOB) {
 		return int_pool_submit(pool, start_routine, arg);
 	}
@@ -225,21 +224,21 @@ job_id* pool_submit(thread_pool* pool, job_function start_routine, ANY_TYPE(JobA
 // otherwise undefined behaviour might occur!
 // after calling this function the content of the job_id is garbage, since it'S free, if you have a
 // copy, DON'T use it, it is undefined what happens when using this already freed chunk of memory
-static ANY_TYPE(JobResult) impl_pool_await(job_id* jobDescription) {
+static ANY_TYPE(JobResult) impl_pool_await(JobId* job_escription) {
 	// wait for the internal semaphore, that can block
-	int result = comp_sem_wait(&(jobDescription->status));
+	int result = comp_sem_wait(&(job_escription->status));
 	CHECK_FOR_ERROR(result, "Couldn't wait for the internal thread pool Semaphore for a single job",
 	                return JOB_ERROR_SEM_WAIT;);
 
 	// then finally destroy the semaphore, it isn't used anymore
-	result = comp_sem_destroy(&(jobDescription->status));
+	result = comp_sem_destroy(&(job_escription->status));
 	CHECK_FOR_ERROR(result, "Couldn't destroy the internal thread pool Semaphore",
 	                return JOB_ERROR_SEM_DEST;);
 
-	ANY_TYPE(JobResult) job_result = jobDescription->result;
+	ANY_TYPE(JobResult) job_result = job_escription->result;
 
 	// finally free the allocated job_id
-	free(jobDescription); // NOLINT(clang-analyzer-unix.Malloc)
+	free(job_escription); // NOLINT(clang-analyzer-unix.Malloc)
 
 	return job_result;
 }
@@ -247,9 +246,9 @@ static ANY_TYPE(JobResult) impl_pool_await(job_id* jobDescription) {
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its an invalid function pointer) so it is
 // checked here and printing a warning if its _THREAD_SHUTDOWN_JOB
-ANY_TYPE(JobResult) pool_await(job_id* jobDescription) {
-	if(jobDescription != (void*)THREAD_SHUTDOWN_JOB_INTERNAL) {
-		return impl_pool_await(jobDescription);
+ANY_TYPE(JobResult) pool_await(JobId* job_escription) {
+	if(job_escription != (void*)THREAD_SHUTDOWN_JOB_INTERNAL) {
+		return impl_pool_await(job_escription);
 	}
 
 	fprintf(stderr, "WARNING: invalid job_function passed to pool_submit!\n");
@@ -258,7 +257,7 @@ ANY_TYPE(JobResult) pool_await(job_id* jobDescription) {
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined
 // behaviour! this cn also block, until all jobs are finished
-int pool_destroy(thread_pool* pool) {
+int pool_destroy(ThreadPool* pool) {
 
 	// first set shutdown Flag to true for all, then afterwards check if they did, (or are waiting
 	// for the semaphore to increment)
@@ -267,15 +266,15 @@ int pool_destroy(thread_pool* pool) {
 	// pool destroy is as stated: each thread receives the shutdown job, if jobs get submitted after
 	// destroy, they DON'T get worked upon, and also it is shutdown after ALL remaining jobs
 	// are finished, so it's only well defined, if waited upon all jobs!
-	for(size_t i = 0; i < pool->workerThreadAmount; ++i) {
+	for(size_t i = 0; i < pool->worker_threads_amount; ++i) {
 		impl_pool_await(int_pool_submit(pool, THREAD_SHUTDOWN_JOB, NULL));
 	}
 
 	// then finally join all the worker threads, this is done after sending a shutdown signal, so
 	// that it is already executed before calling join, if not it just blocks a littel amount of
 	// time, nothing to bad can happen
-	for(size_t i = 0; i < pool->workerThreadAmount; ++i) {
-		int result = pthread_join(pool->workerThreads[i].thread, NULL);
+	for(size_t i = 0; i < pool->worker_threads_amount; ++i) {
+		int result = pthread_join(pool->worker_threads[i].thread, NULL);
 		CHECK_FOR_THREAD_ERROR(result,
 		                       "An Error occurred while trying to wait for a Worker "
 		                       "Thread in the implementation of thread pool",
@@ -283,7 +282,7 @@ int pool_destroy(thread_pool* pool) {
 	}
 
 	// free the struct allocated by pool_create
-	free(pool->workerThreads);
+	free(pool->worker_threads);
 
 	// destroy the queue!
 	if(myqueue_destroy(&(pool->jobqueue)) < 0) {
@@ -291,7 +290,7 @@ int pool_destroy(thread_pool* pool) {
 	}
 
 	// and the finally the semaphore, that is responsible for the jobs
-	int result = comp_sem_destroy(&(pool->jobsAvailable));
+	int result = comp_sem_destroy(&(pool->jobs_available));
 	CHECK_FOR_ERROR(result, "Couldn't destroy the internal thread pool Semaphore", return -1;);
 
 	return 0;

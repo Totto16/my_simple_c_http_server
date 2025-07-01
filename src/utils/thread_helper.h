@@ -4,16 +4,18 @@
 
 #include <unistd.h>
 
+#include "./utils.h"
+
 #ifdef __APPLE__
 
 #include <stdint.h>
 
-typedef uint64_t THREAD_ID_TYPE;
+typedef uint64_t ThreadIdType;
 #define PRI_THREADID "%llu"
 #else
 
-typedef pid_t THREAD_ID_TYPE;
+typedef pid_t ThreadIdType;
 #define PRI_THREADID "%d"
 #endif
 
-THREAD_ID_TYPE get_thread_id(void);
+NODISCARD ThreadIdType get_thread_id(void);

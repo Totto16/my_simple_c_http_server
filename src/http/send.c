@@ -169,7 +169,7 @@ NODISCARD static HttpResponse* constructHttpResponse(HTTPResponseToSend toSend,
 				response->body = toSend.body.body;
 			} else {
 				response->body = new_body;
-				freeSizedBuffer(toSend.body.body);
+				free_sized_buffer(toSend.body.body);
 			}
 		} else {
 			response->body = toSend.body.body;
@@ -186,7 +186,7 @@ NODISCARD static HttpResponse* constructHttpResponse(HTTPResponseToSend toSend,
 	}
 
 	if(!toSend.body.sendBodyData) {
-		freeSizedBuffer(response->body);
+		free_sized_buffer(response->body);
 		response->body = get_empty_sized_buffer();
 	}
 
@@ -244,8 +244,8 @@ NODISCARD HTTPResponseBody httpResponseBodyFromString(char* string) {
 	return httpResponseBodyFromData(string, strlen(string));
 }
 
-NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder** stringBuilder) {
-	SizedBuffer string_builder_buffer = string_builder_release_into_sized_buffer(stringBuilder);
+NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder** string_builder) {
+	SizedBuffer string_builder_buffer = string_builder_release_into_sized_buffer(string_builder);
 	HTTPResponseBody result =
 	    httpResponseBodyFromData(string_builder_buffer.data, string_builder_buffer.size);
 	return result;

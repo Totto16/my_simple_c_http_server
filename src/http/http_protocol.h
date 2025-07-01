@@ -225,7 +225,7 @@ typedef struct {
 	SizedBuffer body;
 } HttpConcattedResponse;
 
-// makes a stringBuilder from the HttpResponse, just does the opposite of parsing A Request, but
+// makes a string_builder from the HttpResponse, just does the opposite of parsing A Request, but
 // with some slight modification
 HttpConcattedResponse* httpResponseConcat(HttpResponse* response);
 

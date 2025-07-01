@@ -74,21 +74,21 @@ void freeHttpRequest(HttpRequest* request) {
 StringBuilder* httpRequestToStringBuilder(const HttpRequest* const request, bool https) {
 	StringBuilder* result = string_builder_init();
 	string_builder_append_single(result, "HttpRequest:\n");
-	string_builder_append(result, return NULL;
+	STRING_BUILDER_APPENDF(result, return NULL;
 	                      , "\tMethod: %s\n", request->head.rawRequestLine.method);
-	string_builder_append(result, return NULL;, "\tURI: %s\n", request->head.rawRequestLine.URI);
-	string_builder_append(result, return NULL;, "\tProtocolVersion : %s\n",
+	STRING_BUILDER_APPENDF(result, return NULL;, "\tURI: %s\n", request->head.rawRequestLine.URI);
+	STRING_BUILDER_APPENDF(result, return NULL;, "\tProtocolVersion : %s\n",
 	                                          request->head.rawRequestLine.protocolVersion);
 
-	string_builder_append(result, return NULL;, "\tSecure : %s\n", https ? "true" : " false");
+	STRING_BUILDER_APPENDF(result, return NULL;, "\tSecure : %s\n", https ? "true" : " false");
 
 	for(size_t i = 0; i < stbds_arrlenu(request->head.headerFields); ++i) {
 		// same elegant freeing but wo at once :)
-		string_builder_append(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
+		STRING_BUILDER_APPENDF(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
 		                                          request->head.headerFields[i].key,
 		                                          request->head.headerFields[i].value);
 	}
-	string_builder_append(result, return NULL;, "\tBody: %s\n", request->body);
+	STRING_BUILDER_APPENDF(result, return NULL;, "\tBody: %s\n", request->body);
 	return result;
 }
 
@@ -572,7 +572,7 @@ break_for:
 	return result;
 }
 
-// makes a stringBuilder + a sized body from the HttpResponse, just does the opposite of parsing
+// makes a string_builder + a sized body from the HttpResponse, just does the opposite of parsing
 // a Request, but with some slight modification
 HttpConcattedResponse* httpResponseConcat(HttpResponse* response) {
 	HttpConcattedResponse* concattedResponse =
@@ -585,14 +585,14 @@ HttpConcattedResponse* httpResponseConcat(HttpResponse* response) {
 	StringBuilder* result = string_builder_init();
 	const char* const separators = "\r\n";
 
-	string_builder_append(result, return NULL;
+	STRING_BUILDER_APPENDF(result, return NULL;
 	                      , "%s %s %s%s", response->head.responseLine.protocolVersion,
 	                      response->head.responseLine.statusCode,
 	                      response->head.responseLine.statusMessage, separators);
 
 	for(size_t i = 0; i < stbds_arrlenu(response->head.headerFields); ++i) {
 		// same elegant freeing but two at once :)
-		string_builder_append(result, return NULL;, "%s: %s%s", response->head.headerFields[i].key,
+		STRING_BUILDER_APPENDF(result, return NULL;, "%s: %s%s", response->head.headerFields[i].key,
 		                                          response->head.headerFields[i].value, separators);
 	}
 
@@ -615,7 +615,7 @@ void freeHttpResponse(HttpResponse* response) {
 	}
 	stbds_arrfree(response->head.headerFields);
 
-	freeSizedBuffer(response->body);
+	free_sized_buffer(response->body);
 
 	free(response);
 }
@@ -668,19 +668,19 @@ htmlFromString(StringBuilder* headContent, // NOLINT(bugprone-easily-swappable-p
 StringBuilder* httpRequestToJSON(const HttpRequest* const request, bool https,
                                  SendSettings send_settings) {
 	StringBuilder* body = string_builder_init();
-	string_builder_append(body, return NULL;
+	STRING_BUILDER_APPENDF(body, return NULL;
 	                      , "{\"request\":\"%s\",", request->head.rawRequestLine.method);
-	string_builder_append(body, return NULL;, "\"URI\": \"%s\",", request->head.rawRequestLine.URI);
-	string_builder_append(body, return NULL;
+	STRING_BUILDER_APPENDF(body, return NULL;, "\"URI\": \"%s\",", request->head.rawRequestLine.URI);
+	STRING_BUILDER_APPENDF(body, return NULL;
 	                      , "\"version\":\"%s\",", request->head.rawRequestLine.protocolVersion);
-	string_builder_append(body, return NULL;, "\"secure\":%s,", https ? "true" : "false");
+	STRING_BUILDER_APPENDF(body, return NULL;, "\"secure\":%s,", https ? "true" : "false");
 	string_builder_append_single(body, "\"headers\":[");
 
 	const size_t headerAmount = stbds_arrlenu(request->head.headerFields);
 
 	for(size_t i = 0; i < headerAmount; ++i) {
 		// same elegant freeing but wo at once :)
-		string_builder_append(body, return NULL;, "{\"header\":\"%s\", \"key\":\"%s\"}",
+		STRING_BUILDER_APPENDF(body, return NULL;, "{\"header\":\"%s\", \"key\":\"%s\"}",
 		                                        request->head.headerFields[i].key,
 		                                        request->head.headerFields[i].value);
 		if(i + 1 < headerAmount) {
@@ -689,11 +689,11 @@ StringBuilder* httpRequestToJSON(const HttpRequest* const request, bool https,
 			string_builder_append_single(body, "],");
 		}
 	}
-	string_builder_append(body, return NULL;, "\"body\":\"%s\"", request->body);
+	STRING_BUILDER_APPENDF(body, return NULL;, "\"body\":\"%s\"", request->body);
 
 	string_builder_append_single(body, ", \"settings\": {");
 
-	string_builder_append(body, return NULL;
+	STRING_BUILDER_APPENDF(body, return NULL;
 	                      , "\"send_settings\":{\"compression\" : \"%s\"} }",
 	                      get_string_for_compress_format(send_settings.compression_to_use));
 
@@ -705,20 +705,20 @@ StringBuilder* httpRequestToHtml(const HttpRequest* const request, bool https,
                                  SendSettings send_settings) {
 	StringBuilder* body = string_builder_init();
 	string_builder_append_single(body, "<h1 id=\"title\">HttpRequest:</h1><br>");
-	string_builder_append(body, return NULL;, "<div id=\"request\"><div>Method: %s</div>",
+	STRING_BUILDER_APPENDF(body, return NULL;, "<div id=\"request\"><div>Method: %s</div>",
 	                                        request->head.rawRequestLine.method);
-	string_builder_append(body, return NULL;
+	STRING_BUILDER_APPENDF(body, return NULL;
 	                      , "<div>URI: %s</div>", request->head.rawRequestLine.URI);
-	string_builder_append(body, return NULL;, "<div>ProtocolVersion : %s</div>",
+	STRING_BUILDER_APPENDF(body, return NULL;, "<div>ProtocolVersion : %s</div>",
 	                                        request->head.rawRequestLine.protocolVersion);
-	string_builder_append(body, return NULL;
+	STRING_BUILDER_APPENDF(body, return NULL;
 	                      ,
 	                      "<div>Secure : %s</div><button id=\"shutdown\"> Shutdown </button></div>",
 	                      https ? "true" : "false");
 	string_builder_append_single(body, "<div id=\"header\">");
 	for(size_t i = 0; i < stbds_arrlenu(request->head.headerFields); ++i) {
 		// same elegant freeing but wo at once :)
-		string_builder_append(
+		STRING_BUILDER_APPENDF(
 		    body, return NULL;
 		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>",
 		    request->head.headerFields[i].key, request->head.headerFields[i].value);
@@ -729,7 +729,7 @@ StringBuilder* httpRequestToHtml(const HttpRequest* const request, bool https,
 	{
 		string_builder_append_single(body, "</div> <div id=\"send_settings\">");
 		string_builder_append_single(body, "<h2>Send Settings:</h2> <br>");
-		string_builder_append(body, return NULL;
+		STRING_BUILDER_APPENDF(body, return NULL;
 		                      , "<h3>Compression:</h3> %s",
 		                      get_string_for_compress_format(send_settings.compression_to_use));
 		string_builder_append_single(body, "</div>");
@@ -737,7 +737,7 @@ StringBuilder* httpRequestToHtml(const HttpRequest* const request, bool https,
 	string_builder_append_single(body, "</div>");
 
 	string_builder_append_single(body, "</div> <div id=\"body\">");
-	string_builder_append(body, return NULL;, "<h1>Body:</h1> <br>%s", request->body);
+	STRING_BUILDER_APPENDF(body, return NULL;, "<h1>Body:</h1> <br>%s", request->body);
 	string_builder_append_single(body, "</div>");
 
 	// style

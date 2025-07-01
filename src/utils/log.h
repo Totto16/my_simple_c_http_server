@@ -6,7 +6,6 @@ extern "C" {
 #endif
 
 #include "utils/utils.h"
-#include <stdio.h>
 /**
  * @enum value
  */
@@ -29,21 +28,21 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 // only for internal use!!
 
-bool should_log(LogLevel level);
+NODISCARD bool should_log(LogLevel level);
 
-bool should_log_to_stderr(LogLevel level);
+NODISCARD bool should_log_to_stderr(LogLevel level);
 
-const char* get_level_name_internal(LogLevel level, bool color);
+NODISCARD const char* get_level_name_internal(LogLevel level, bool color);
 
-const char* get_thread_name(void);
+NODISCARD const char* get_thread_name(void);
 
 void log_lock_mutex(void);
 
 void log_unlock_mutex(void);
 
-bool log_should_use_color(void);
+NODISCARD bool log_should_use_color(void);
 
-bool has_flag(int flags, LogFlags needle);
+NODISCARD bool has_flag(int flags, LogFlags needle);
 
 typedef struct {
 	LogLevel level;
@@ -91,9 +90,9 @@ void set_log_level(LogLevel level);
 void set_thread_name(const char* name);
 
 // IS thread safe
-int parse_log_level(const char* level);
+NODISCARD int parse_log_level(const char* level);
 
-const char* get_level_name(LogLevel level);
+NODISCARD const char* get_level_name(LogLevel level);
 
 #ifdef __cplusplus
 }

@@ -31,7 +31,7 @@ NODISCARD HTTPResponseBody httpResponseBodyFromStaticString(const char* static_s
 
 NODISCARD HTTPResponseBody httpResponseBodyFromString(char* string);
 
-NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder** stringBuilder);
+NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder** string_builder);
 
 NODISCARD HTTPResponseBody httpResponseBodyFromData(void* data, size_t size);
 

@@ -106,7 +106,7 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 	if(result != Z_OK) {
 		LOG_MESSAGE(LogLevelError, "An error in gzip compression initiliaization occured: %s\n",
 		            zError(result));
-		freeSizedBuffer(resultBuffer);
+		free_sized_buffer(resultBuffer);
 
 		return SIZED_BUFFER_ERROR;
 	}
@@ -141,7 +141,7 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 	if(deflateEndResult != Z_OK) {
 		LOG_MESSAGE(LogLevelError, "An error in gzip compression stream end occured: %s\n",
 		            zError(deflateEndResult));
-		freeSizedBuffer(resultBuffer);
+		free_sized_buffer(resultBuffer);
 
 		return SIZED_BUFFER_ERROR;
 	}
@@ -224,7 +224,7 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 		if(!result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError,
 			                   "An error in brotli compression processing occured\n");
-			freeSizedBuffer(resultBuffer);
+			free_sized_buffer(resultBuffer);
 			BrotliEncoderDestroyInstance(state);
 
 			return SIZED_BUFFER_ERROR;
@@ -304,7 +304,7 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 			            ZSTD_getErrorName(initResult));
 
 			ZSTD_freeCStream(stream);
-			freeSizedBuffer(resultBuffer);
+			free_sized_buffer(resultBuffer);
 			return SIZED_BUFFER_ERROR;
 		}
 
@@ -416,7 +416,7 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 			LOG_MESSAGE(LogLevelError,
 			            "An error in compress compression processing occured: compress state: %s\n",
 			            get_lzws_error(result));
-			freeSizedBuffer(compressor_buffer);
+			free_sized_buffer(compressor_buffer);
 			lzws_compressor_free_state(compressor_state_ptr);
 			return SIZED_BUFFER_ERROR;
 		}
@@ -435,7 +435,7 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 		            "An error in compress compression processing occured: finish state: %s\n",
 		            get_lzws_error(result));
 
-		freeSizedBuffer(compressor_buffer);
+		free_sized_buffer(compressor_buffer);
 		lzws_compressor_free_state(compressor_state_ptr);
 		return SIZED_BUFFER_ERROR;
 	}

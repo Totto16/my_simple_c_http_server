@@ -780,7 +780,7 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 			modes[i][2] = perm.execute ? 'x' : '-'; // NOLINT(readability-implicit-bool-conversion)
 		}
 
-		string_builder_append(string_builder, return NULL;, "%c%.*s%.*s%.*s",
+		STRING_BUILDER_APPENDF(string_builder, return NULL;, "%c%.*s%.*s%.*s",
 		                                                  permissions.special_type, 3, modes[0], 3,
 		                                                  modes[1], 3, modes[2]);
 	}
@@ -811,7 +811,7 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 
 	date_str[result] = '\0';
 
-	string_builder_append(
+	STRING_BUILDER_APPENDF(
 	    string_builder,
 	    {
 		    free(date_str);
@@ -868,14 +868,14 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 
 		if(!is_dir) {
 			// has a size
-			string_builder_append(string_builder, return NULL;, "s%lu,", file->size);
+			STRING_BUILDER_APPENDF(string_builder, return NULL;, "s%lu,", file->size);
 		}
 
 		// last mod time in UNIX epoch seconds
-		string_builder_append(string_builder, return NULL;, "m%lu,", file->last_mod.tv_sec);
+		STRING_BUILDER_APPENDF(string_builder, return NULL;, "m%lu,", file->last_mod.tv_sec);
 
 		// unique identifier (dev.ino)
-		string_builder_append(string_builder, return NULL;, "i" DEV_FMT "." INO_FMT ",",
+		STRING_BUILDER_APPENDF(string_builder, return NULL;, "i" DEV_FMT "." INO_FMT ",",
 		                                                  file->identifier.dev,
 		                                                  file->identifier.ino);
 
@@ -896,7 +896,7 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 			}
 
 			// permissions, look nicer, many clients just display the string, NOT spec compliant
-			string_builder_append(string_builder, return NULL;, "up%c%.*s%.*s%.*s",
+			STRING_BUILDER_APPENDF(string_builder, return NULL;, "up%c%.*s%.*s%.*s",
 			                                                  permissions.special_type, 3, modes[0],
 			                                                  3, modes[1], 3, modes[2]);
 		} else {
@@ -904,14 +904,14 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 			uint32_t permission = (S_IRWXU | S_IRWXG | S_IRWXO) & file->mode;
 
 			// permissions, according to spec
-			string_builder_append(string_builder, return NULL;, "up%o,", permission);
+			STRING_BUILDER_APPENDF(string_builder, return NULL;, "up%o,", permission);
 		}
 	}
 
 	// 3. a tab (\011);
 	// 4. an abbreviated pathname; and
 	// 5. \015\012. (\r\n)
-	string_builder_append(string_builder, return NULL;, "\t%s\r\n", file->file_name);
+	STRING_BUILDER_APPENDF(string_builder, return NULL;, "\t%s\r\n", file->file_name);
 
 	return string_builder;
 }

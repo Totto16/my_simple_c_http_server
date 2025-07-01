@@ -6,8 +6,8 @@
 #include <string.h>
 
 int strcasecontains(const char* value, const char* needle) {
-	int value_len = strlen(value);
-	int needle_len = strlen(needle);
+	int value_len = (int)strlen(value);
+	int needle_len = (int)strlen(needle);
 
 	if(value_len < needle_len) {
 		return -1;

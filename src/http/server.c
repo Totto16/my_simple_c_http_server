@@ -54,15 +54,15 @@ static void receiveSignal(int signalNumber) {
 // it receives all the necessary information and also handles the html parsing and response
 
 ANY_TYPE(JobError*)
-    http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInfo workerInfo) {
+http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInfo workerInfo) {
 
 	// attention arg is malloced!
 	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)_arg;
 
-	ConnectionContext* context = argument->contexts[workerInfo.workerIndex];
+	ConnectionContext* context = argument->contexts[workerInfo.worker_index];
 	char* thread_name_buffer = NULL;
 	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
-	             , "connection handler %lu", workerInfo.workerIndex);
+	              , "connection handler %lu", workerInfo.worker_index);
 	set_thread_name(thread_name_buffer);
 
 	const RouteManager* routeManager = argument->routeManager;
@@ -243,10 +243,10 @@ ANY_TYPE(JobError*)
 							// so shutdown gracefully
 							int cancel_result = pthread_cancel(argument->listenerThread);
 							CHECK_FOR_ERROR(cancel_result,
-							              "While trying to cancel the listener Thread", {
-								              FREE_AT_END();
-								              return JOB_ERROR_THREAD_CANCEL;
-							              });
+							                "While trying to cancel the listener Thread", {
+								                FREE_AT_END();
+								                return JOB_ERROR_THREAD_CANCEL;
+							                });
 
 							break;
 						}
@@ -259,7 +259,7 @@ ANY_TYPE(JobError*)
 								// move the context so that we can use it in the long standing web
 								// socket thread
 								ConnectionContext* newContext = copy_connection_context(context);
-								argument->contexts[workerInfo.workerIndex] = newContext;
+								argument->contexts[workerInfo.worker_index] = newContext;
 
 								thread_manager_add_connection(argument->webSocketManager,
 								                              descriptor, context,
@@ -285,7 +285,7 @@ ANY_TYPE(JobError*)
 								// move the context so that we can use it in the long standing web
 								// socket thread
 								ConnectionContext* newContext = copy_connection_context(context);
-								argument->contexts[workerInfo.workerIndex] = newContext;
+								argument->contexts[workerInfo.worker_index] = newContext;
 
 								thread_manager_add_connection(argument->webSocketManager,
 								                              descriptor, context,
@@ -424,7 +424,7 @@ cleanup:
 
 // implemented specifically for the http Server, it just gets the internal value, but it's better to
 // not access that, since additional steps can be required, like  boundary checks!
-static int myqueue_size(myqueue* queue) {
+static int myqueue_size(Myqueue* queue) {
 	if(queue->size < 0) {
 		fprintf(stderr,
 		        "FATAL: internal size implementation error in the queue, value negative: %d!",
@@ -453,7 +453,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 	int sigFd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	CHECK_FOR_ERROR(sigFd, "While trying to cancel the listener Thread on signal",
-	              exit(EXIT_FAILURE););
+	                exit(EXIT_FAILURE););
 
 	poll_fds[1].fd = sigFd;
 	poll_fds[1].events = POLLIN;
@@ -482,7 +482,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 			close(poll_fds[1].fd);
 			int result = pthread_cancel(pthread_self());
 			CHECK_FOR_ERROR(result, "While trying to cancel the listener Thread on signal",
-			              return LISTENER_ERROR_THREAD_CANCEL;);
+			                return LISTENER_ERROR_THREAD_CANCEL;);
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
@@ -494,7 +494,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// would be better to set cancel state in the right places!!
 		int connectionFd = accept(argument.socketFd, NULL, NULL);
 		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
-		              return LISTENER_ERROR_ACCEPT;);
+		                return LISTENER_ERROR_ACCEPT;);
 
 		HTTPConnectionArgument* connectionArgument =
 		    (HTTPConnectionArgument*)malloc(sizeof(HTTPConnectionArgument));
@@ -528,7 +528,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 			int boundary = size / 2;
 			while(size > boundary) {
 
-				job_id* jobId = (job_id*)myqueue_pop(argument.jobIds);
+				JobId* jobId = (JobId*)myqueue_pop(argument.jobIds);
 
 				JobError result = pool_await(jobId);
 
@@ -567,7 +567,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	const int optval = 1;
 	int optionReturn = setsockopt(socketFd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 	CHECK_FOR_ERROR(optionReturn, "While Trying to set socket option 'SO_REUSEPORT'",
-	              return EXIT_FAILURE;);
+	                return EXIT_FAILURE;);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
 	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
@@ -628,7 +628,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// create pool and queue! then initializing both!
 	// the pool is created and destroyed outside of the listener, so the listener can be
 	// cancelled and then the main thread destroys everything accordingly
-	thread_pool pool;
+	ThreadPool pool;
 	int create_result = pool_create_dynamic(&pool);
 	if(create_result < 0) {
 		print_create_error(-create_result);
@@ -637,28 +637,28 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 
 	// this is a internal synchronized queue! myqueue_init creates a semaphore that handles
 	// that
-	myqueue jobIds;
+	Myqueue jobIds;
 	if(myqueue_init(&jobIds) < 0) {
 		return EXIT_FAILURE;
 	};
 
 	// this is an array of pointers
 	ConnectionContext** contexts =
-	    (ConnectionContext**)malloc(sizeof(ConnectionContext*) * pool.workerThreadAmount);
+	    (ConnectionContext**)malloc(sizeof(ConnectionContext*) * pool.worker_threads_amount);
 
 	if(!contexts) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
 	}
 
-	for(size_t i = 0; i < pool.workerThreadAmount; ++i) {
+	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 		contexts[i] = get_connection_context(options);
 	}
 
 	WebSocketThreadManager* webSocketManager = initialize_thread_manager();
 
 	if(!webSocketManager) {
-		for(size_t i = 0; i < pool.workerThreadAmount; ++i) {
+		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 			free_connection_context(contexts[i]);
 		}
 		free((void*)contexts);
@@ -671,7 +671,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	RouteManager* routeManager = initialize_route_manager(default_routes);
 
 	if(!routeManager) {
-		for(size_t i = 0; i < pool.workerThreadAmount; ++i) {
+		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 			free_connection_context(contexts[i]);
 		}
 		free((void*)contexts);
@@ -696,14 +696,14 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// creating the thread
 	result = pthread_create(&listenerThread, NULL, http_listener_thread_function, &threadArgument);
 	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to create a new Thread",
-	                    return EXIT_FAILURE;);
+	                       return EXIT_FAILURE;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
 	ListenerError returnValue = LISTENER_ERROR_NONE;
 	result = pthread_join(listenerThread, &returnValue);
 	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to wait for a Thread",
-	                    return EXIT_FAILURE;);
+	                       return EXIT_FAILURE;);
 
 	if(is_listener_error(returnValue)) {
 		if(returnValue != LISTENER_ERROR_NONE) {
@@ -721,7 +721,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// since the listener doesn't wait on the jobs, the main thread has to do that work!
 	// the queue can be filled, which can lead to a problem!!
 	while(!myqueue_is_empty(&jobIds)) {
-		job_id* jobId = (job_id*)myqueue_pop(&jobIds);
+		JobId* jobId = (JobId*)myqueue_pop(&jobIds);
 
 		JobError result = pool_await(jobId);
 
@@ -761,7 +761,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// anymore) sooner.
 	free(addr);
 
-	for(size_t i = 0; i < pool.workerThreadAmount; ++i) {
+	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 		free_connection_context(contexts[i]);
 	}
 

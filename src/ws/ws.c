@@ -64,7 +64,7 @@ NODISCARD static int sendFailedHandshakeMessage(const ConnectionDescriptor* cons
 
 	StringBuilder* message = string_builder_init();
 
-	string_builder_append(message, return false;
+	STRING_BUILDER_APPENDF(message, return false;
 	                      , "Error: The client handshake was invalid: %s", error_reason);
 
 	HTTPResponseToSend toSend = { .status = HTTP_STATUS_BAD_REQUEST,
