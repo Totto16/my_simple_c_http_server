@@ -75,12 +75,12 @@ int string_builder_append_string_builder(StringBuilder* string_builder,
 		return -2;
 	}
 
-	SizedBuffer string_builder2Buffer = string_builder_release_into_sized_buffer(string_builder2);
+	SizedBuffer string_builder_2_buffer = string_builder_release_into_sized_buffer(string_builder2);
 
-	int result = string_builder_append_string_impl(string_builder, string_builder2Buffer.data,
-	                                               string_builder2Buffer.size);
+	int result = string_builder_append_string_impl(string_builder, string_builder_2_buffer.data,
+	                                               string_builder_2_buffer.size);
 
-	free_sized_buffer(string_builder2Buffer);
+	free_sized_buffer(string_builder_2_buffer);
 
 	return result;
 }
