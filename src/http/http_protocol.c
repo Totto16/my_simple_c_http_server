@@ -56,7 +56,7 @@ NODISCARD char* get_http_url_path_string(ParsedURLPath path) {
 
 	StringBuilder* string_builder = string_builder_init();
 
-	string_builder_append_string(string_builder, path.path);
+	string_builder_append_single(string_builder, path.path);
 
 	// TODO(Totto): format search params
 
@@ -145,6 +145,7 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request, 
 	string_builder_append_single(result, "\n");
 
 	STRING_BUILDER_APPENDF(result, return NULL;, "\tPath: %s\n", path);
+	free(path);
 
 	string_builder_append_single(result, "\tProtocolVersion:");
 	string_builder_append_single(result, protocol_version);
@@ -752,6 +753,7 @@ StringBuilder* http_request_to_json(const HttpRequest* const request, bool https
 	string_builder_append_single(body, "\",");
 
 	STRING_BUILDER_APPENDF(body, return NULL;, "\"path\": \"%s\",", path);
+	free(path);
 
 	string_builder_append_single(body, "\"protocol_version\":\"");
 	string_builder_append_single(body, protocol_version);
@@ -801,6 +803,7 @@ StringBuilder* http_request_to_html(const HttpRequest* const request, bool https
 	string_builder_append_single(body, "</div>");
 
 	STRING_BUILDER_APPENDF(body, return NULL;, "<div>Path: %s</div>", path);
+	free(path);
 
 	string_builder_append_single(body, "<div>ProtocolVersion:");
 	string_builder_append_single(body, protocol_version);

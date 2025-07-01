@@ -679,7 +679,7 @@ int start_http_server(uint16_t port, SecureOptions* const options) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 			free_connection_context(contexts[i]);
 		}
-		free((void*)contexts);
+		stbds_arrfree(contexts);
 
 		return EXIT_FAILURE;
 	}
@@ -692,7 +692,7 @@ int start_http_server(uint16_t port, SecureOptions* const options) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 			free_connection_context(contexts[i]);
 		}
-		free((void*)contexts);
+		stbds_arrfree(contexts);
 
 		if(!free_thread_manager(web_socket_manager)) {
 			return EXIT_FAILURE;
@@ -794,7 +794,7 @@ int start_http_server(uint16_t port, SecureOptions* const options) {
 
 	free_route_manager(route_manager);
 
-	free((void*)contexts);
+	stbds_arrfree(contexts);
 
 	free_secure_options(options);
 
