@@ -7,7 +7,7 @@
 
 typedef struct {
 	SizedBuffer body;
-	bool sendBodyData;
+	bool send_body_data;
 } HTTPResponseBody;
 
 typedef STBDS_ARRAY(HttpHeaderField) HttpHeaderFields;
@@ -19,20 +19,20 @@ typedef struct {
 	HttpHeaderFields additional_headers;
 } HTTPResponseToSend;
 
-NODISCARD int sendHTTPMessageToConnection(const ConnectionDescriptor* descriptor,
+NODISCARD int send_http_message_to_connection(const ConnectionDescriptor* descriptor,
                                           HTTPResponseToSend to_send, SendSettings send_settings);
 
-NODISCARD int sendHTTPMessageToConnectionAdvanced(const ConnectionDescriptor* descriptor,
+NODISCARD int send_http_message_to_connection_advanced(const ConnectionDescriptor* descriptor,
                                                   HTTPResponseToSend to_send,
                                                   SendSettings send_settings,
                                                   HttpRequestHead request_head);
 
-NODISCARD HTTPResponseBody httpResponseBodyFromStaticString(const char* static_string);
+NODISCARD HTTPResponseBody http_response_body_from_static_string(const char* static_string);
 
-NODISCARD HTTPResponseBody httpResponseBodyFromString(char* string);
+NODISCARD HTTPResponseBody http_response_body_from_string(char* string);
 
-NODISCARD HTTPResponseBody httpResponseBodyFromStringBuilder(StringBuilder** string_builder);
+NODISCARD HTTPResponseBody http_response_body_from_string_builder(StringBuilder** string_builder);
 
-NODISCARD HTTPResponseBody httpResponseBodyFromData(void* data, size_t size);
+NODISCARD HTTPResponseBody http_response_body_from_data(void* data, size_t size);
 
-NODISCARD HTTPResponseBody httpResponseBodyEmpty(void);
+NODISCARD HTTPResponseBody http_response_body_empty(void);

@@ -81,22 +81,22 @@ typedef struct {
 
 typedef STBDS_ARRAY(HTTPRoute) HTTPRoutes;
 
-HTTPRoutes get_default_routes(void);
+NODISCARD HTTPRoutes get_default_routes(void);
 
 NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes);
 
-void free_route_manager(RouteManager* routeManager);
+void free_route_manager(RouteManager* route_manager);
 
 typedef struct SelectedRouteImpl SelectedRoute;
 
 void free_selected_route(SelectedRoute* selected_route);
 
-NODISCARD SelectedRoute* route_manager_get_route_for_request(const RouteManager* routerManager,
+NODISCARD SelectedRoute* route_manager_get_route_for_request(const RouteManager* route_manager,
                                                              const HttpRequest* request);
 
 NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* route);
 
 NODISCARD int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* descriptor,
                                           SendSettings send_settings,
-                                          const HttpRequest* httpRequest,
+                                          const HttpRequest* http_request,
                                           const ConnectionContext* context, ParsedURLPath path);

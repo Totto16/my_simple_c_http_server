@@ -43,11 +43,11 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	stbds_arrput(additional_headers, connectionField);
 
 	HTTPResponseToSend to_send = { .status = HttpStatusUpgradeRequired,
-		                           .body = httpResponseBodyFromStringBuilder(&message),
+		                           .body = http_response_body_from_string_builder(&message),
 		                           .mime_type = MIME_TYPE_TEXT,
 		                           .additional_headers = additional_headers };
 
-	int result = sendHTTPMessageToConnection(descriptor, to_send, send_settings);
+	int result = send_http_message_to_connection(descriptor, to_send, send_settings);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -68,13 +68,13 @@ NODISCARD static int sendFailedHandshakeMessage(const ConnectionDescriptor* cons
 	                       , "Error: The client handshake was invalid: %s", error_reason);
 
 	HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
-		                           .body = httpResponseBodyFromStringBuilder(&message),
+		                           .body = http_response_body_from_string_builder(&message),
 		                           .mime_type = MIME_TYPE_TEXT,
 		                           .additional_headers = STBDS_ARRAY_EMPTY };
 
 	free_string_builder(message);
 
-	int result = sendHTTPMessageToConnection(descriptor, to_send, send_settings);
+	int result = send_http_message_to_connection(descriptor, to_send, send_settings);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -240,9 +240,9 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	stbds_arrput(additional_headers, secWSAcceptField);
 
 	HTTPResponseToSend to_send = { .status = HttpStatusSwitchingProtocols,
-		                           .body = httpResponseBodyEmpty(),
+		                           .body = http_response_body_empty(),
 		                           .mime_type = NULL,
 		                           .additional_headers = additional_headers };
 
-	return sendHTTPMessageToConnection(descriptor, to_send, send_settings);
+	return send_http_message_to_connection(descriptor, to_send, send_settings);
 }

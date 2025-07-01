@@ -18,7 +18,7 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 	    http_request_to_html(http_request, is_secure_context(context), send_settings);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = httpResponseBodyFromStringBuilder(&htmlStringBuilder),
+		                          .body = http_response_body_from_string_builder(&htmlStringBuilder),
 		                          .mime_type = MIME_TYPE_HTML,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -35,7 +35,7 @@ static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
 	    http_request_to_json(http_request, is_secure_context(context), send_settings);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = httpResponseBodyFromStringBuilder(&jsonStringBuilder),
+		                          .body = http_response_body_from_string_builder(&jsonStringBuilder),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -46,7 +46,7 @@ static HTTPResponseToSend static_executor_fn(ParsedURLPath path) {
 	UNUSED(path);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = httpResponseBodyFromStaticString("{\"static\":true}"),
+		                          .body = http_response_body_from_static_string("{\"static\":true}"),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -207,7 +207,7 @@ static HTTPResponseToSend huge_executor_fn(ParsedURLPath path) {
 	StringBuilder* string_builder = get_random_json_string_builder(false);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = httpResponseBodyFromStringBuilder(&string_builder),
+		                          .body = http_response_body_from_string_builder(&string_builder),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -221,7 +221,7 @@ static HTTPResponseToSend huge_pretty_executor_fn(ParsedURLPath path) {
 	StringBuilder* string_builder = get_random_json_string_builder(true);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = httpResponseBodyFromStringBuilder(&string_builder),
+		                          .body = http_response_body_from_string_builder(&string_builder),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -351,22 +351,22 @@ HTTPRoutes get_default_routes(void) {
 }
 
 NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes) {
-	RouteManager* routeManager = malloc(sizeof(RouteManager));
+	RouteManager* route_manager = malloc(sizeof(RouteManager));
 
-	if(!routeManager) {
+	if(!route_manager) {
 		return NULL;
 	}
 
-	routeManager->routes = routes;
+	route_manager->routes = routes;
 
-	return routeManager;
+	return route_manager;
 }
 
-void free_route_manager(RouteManager* routeManager) {
+void free_route_manager(RouteManager* route_manager) {
 
-	stbds_arrfree(routeManager->routes);
+	stbds_arrfree(route_manager->routes);
 
-	free(routeManager);
+	free(route_manager);
 }
 
 NODISCARD static bool is_matching(HTTPRequestRouteMethod routeMethod, HTTPRequestMethod method) {
@@ -409,11 +409,11 @@ void free_selected_route(SelectedRoute* selected_route) {
 }
 
 NODISCARD SelectedRoute*
-route_manager_get_route_for_request(const RouteManager* const routerManager,
+route_manager_get_route_for_request(const RouteManager* const route_manager,
                                     const HttpRequest* const request) {
 
-	for(size_t i = 0; i < stbds_arrlenu(routerManager->routes); ++i) {
-		HTTPRoute route = routerManager->routes[i];
+	for(size_t i = 0; i < stbds_arrlenu(route_manager->routes); ++i) {
+		HTTPRoute route = route_manager->routes[i];
 
 		if(is_matching(route.method, request->head.request_line.method)) {
 
@@ -458,7 +458,7 @@ route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* const
 		}
 	}
 
-	int result = sendHTTPMessageToConnectionAdvanced(descriptor, response, send_settings,
+	int result = send_http_message_to_connection_advanced(descriptor, response, send_settings,
 	                                                 http_request->head);
 
 	return result;

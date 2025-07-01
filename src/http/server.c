@@ -65,7 +65,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 	              , "connection handler %lu", workerInfo.worker_index);
 	set_thread_name(thread_name_buffer);
 
-	const RouteManager* routeManager = argument->routeManager;
+	const RouteManager* route_manager = argument->route_manager;
 
 #define FREE_AT_END() \
 	do { \
@@ -97,13 +97,13 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 	if(!rawHttpRequest) {
 		HTTPResponseToSend to_send = {
 			.status = HttpStatusBadRequest,
-			.body = httpResponseBodyFromStaticString(
+			.body = http_response_body_from_static_string(
 			    "Request couldn't be read, a connection error occurred!"),
 			.mime_type = MIME_TYPE_TEXT,
 			.additional_headers = STBDS_ARRAY_EMPTY
 		};
 
-		int result = sendHTTPMessageToConnection(
+		int result = send_http_message_to_connection(
 		    descriptor, to_send, (SendSettings){ .compression_to_use = CompressionTypeNone });
 
 		if(result < 0) {
@@ -124,12 +124,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 	// there for more information
 	if(httpRequest == NULL) {
 		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
-			                           .body = httpResponseBodyFromStaticString(
+			                           .body = http_response_body_from_static_string(
 			                               "Request couldn't be parsed, it was malformed!"),
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = STBDS_ARRAY_EMPTY };
 
-		int result = sendHTTPMessageToConnection(
+		int result = send_http_message_to_connection(
 		    descriptor, to_send, (SendSettings){ .compression_to_use = CompressionTypeNone });
 
 		if(result < 0) {
@@ -152,7 +152,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 
 	if(isSupported == REQUEST_SUPPORTED) {
 		SelectedRoute* selectedRoute =
-		    route_manager_get_route_for_request(routeManager, httpRequest);
+		    route_manager_get_route_for_request(route_manager, httpRequest);
 
 		if(selectedRoute == NULL) {
 
@@ -164,12 +164,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 				case HTTPRequestMethodHead: {
 
 					HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
-						                           .body = httpResponseBodyFromStaticString(
+						                           .body = http_response_body_from_static_string(
 						                               "File not Found"),
 						                           .mime_type = MIME_TYPE_TEXT,
 						                           .additional_headers = STBDS_ARRAY_EMPTY };
 
-					result = sendHTTPMessageToConnectionAdvanced(descriptor, to_send, send_settings,
+					result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
 					                                             httpRequest->head);
 					break;
 				}
@@ -194,23 +194,23 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 					stbds_arrput(additional_headers, field);
 
 					HTTPResponseToSend to_send = { .status = HttpStatusOk,
-						                           .body = httpResponseBodyEmpty(),
+						                           .body = http_response_body_empty(),
 						                           .mime_type = NULL,
 						                           .additional_headers = additional_headers };
 
-					result = sendHTTPMessageToConnection(descriptor, to_send, send_settings);
+					result = send_http_message_to_connection(descriptor, to_send, send_settings);
 
 					break;
 				}
 				case HTTPRequestMethodInvalid:
 				default: {
 					HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
-						                           .body = httpResponseBodyFromStaticString(
+						                           .body = http_response_body_from_static_string(
 						                               "Internal Server Error 1"),
 						                           .mime_type = MIME_TYPE_TEXT,
 						                           .additional_headers = STBDS_ARRAY_EMPTY };
 
-					result = sendHTTPMessageToConnection(descriptor, to_send, send_settings);
+					result = send_http_message_to_connection(descriptor, to_send, send_settings);
 					break;
 				}
 			}
@@ -235,12 +235,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 
 							HTTPResponseToSend to_send = {
 								.status = HttpStatusOk,
-								.body = httpResponseBodyFromStaticString("Shutting Down"),
+								.body = http_response_body_from_static_string("Shutting Down"),
 								.mime_type = MIME_TYPE_TEXT,
 								.additional_headers = STBDS_ARRAY_EMPTY
 							};
 
-							result = sendHTTPMessageToConnectionAdvanced(
+							result = send_http_message_to_connection_advanced(
 							    descriptor, to_send, send_settings, httpRequest->head);
 
 							// just cancel the listener thread, then no new connection are accepted
@@ -339,12 +339,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 		}
 	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
 		HTTPResponseToSend to_send = { .status = HttpStatusHttpVersionNotSupported,
-			                           .body = httpResponseBodyFromStaticString(
+			                           .body = http_response_body_from_static_string(
 			                               "Only HTTP/1.1 is supported atm"),
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = STBDS_ARRAY_EMPTY };
 
-		int result = sendHTTPMessageToConnectionAdvanced(descriptor, to_send, send_settings,
+		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
 		                                                 httpRequest->head);
 
 		if(result) {
@@ -373,13 +373,13 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 
 		HTTPResponseToSend to_send = {
 			.status = HttpStatusMethodNotAllowed,
-			.body = httpResponseBodyFromStaticString(
+			.body = http_response_body_from_static_string(
 			    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests"),
 			.mime_type = MIME_TYPE_TEXT,
 			.additional_headers = additional_headers
 		};
 
-		int result = sendHTTPMessageToConnectionAdvanced(descriptor, to_send, send_settings,
+		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
 		                                                 httpRequest->head);
 
 		if(result < 0) {
@@ -387,12 +387,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 		}
 	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
 		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
-			                           .body = httpResponseBodyFromStaticString(
+			                           .body = http_response_body_from_static_string(
 			                               "A GET, HEAD or OPTIONS Request can't have a body"),
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = STBDS_ARRAY_EMPTY };
 
-		int result = sendHTTPMessageToConnectionAdvanced(descriptor, to_send, send_settings,
+		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
 		                                                 httpRequest->head);
 
 		if(result < 0) {
@@ -400,12 +400,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 		}
 	} else {
 		HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
-			                           .body = httpResponseBodyFromStaticString(
+			                           .body = http_response_body_from_static_string(
 			                               "Internal Server Error 2"),
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = STBDS_ARRAY_EMPTY };
 
-		int result = sendHTTPMessageToConnectionAdvanced(descriptor, to_send, send_settings,
+		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
 		                                                 httpRequest->head);
 
 		if(result < 0) {
@@ -516,7 +516,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		connectionArgument->connectionFd = connectionFd;
 		connectionArgument->listenerThread = pthread_self();
 		connectionArgument->webSocketManager = argument.webSocketManager;
-		connectionArgument->routeManager = argument.routeManager;
+		connectionArgument->route_manager = argument.route_manager;
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
@@ -675,9 +675,9 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 
 	HTTPRoutes default_routes = get_default_routes();
 
-	RouteManager* routeManager = initialize_route_manager(default_routes);
+	RouteManager* route_manager = initialize_route_manager(default_routes);
 
-	if(!routeManager) {
+	if(!route_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 			free_connection_context(contexts[i]);
 		}
@@ -698,7 +698,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 		                                  .contexts = contexts,
 		                                  .socketFd = socketFd,
 		                                  .webSocketManager = webSocketManager,
-		                                  .routeManager = routeManager };
+		                                  .route_manager = route_manager };
 
 	// creating the thread
 	result = pthread_create(&listenerThread, NULL, http_listener_thread_function, &threadArgument);
@@ -780,7 +780,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 		return EXIT_FAILURE;
 	}
 
-	free_route_manager(routeManager);
+	free_route_manager(route_manager);
 
 	free((void*)contexts);
 

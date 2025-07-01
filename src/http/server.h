@@ -49,7 +49,7 @@ typedef struct {
 	ConnectionContext** contexts;
 	int socketFd;
 	WebSocketThreadManager* webSocketManager;
-	const RouteManager* routeManager;
+	const RouteManager* route_manager;
 } HTTPThreadArgument;
 
 typedef struct {
@@ -57,7 +57,7 @@ typedef struct {
 	pthread_t listenerThread;
 	int connectionFd;
 	WebSocketThreadManager* webSocketManager;
-	const RouteManager* routeManager;
+	const RouteManager* route_manager;
 } HTTPConnectionArgument;
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
