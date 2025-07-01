@@ -2,7 +2,7 @@
 #include "./handler.h"
 #include "utils/log.h"
 
-WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMessage message) {
+WebSocketAction websocket_function(WebSocketConnection* connection, WebSocketMessage message) {
 
 	if(message.is_text) {
 
@@ -28,7 +28,7 @@ WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMess
 	return WebSocketActionContinue;
 }
 
-WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
+WebSocketAction websocket_function_fragmented(WebSocketConnection* connection,
                                             WebSocketMessage message) {
 
 	if(message.is_text) {

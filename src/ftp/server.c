@@ -1837,8 +1837,10 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 	};
 
 	// this is an array of pointers
-	ConnectionContext** control_contexts = (ConnectionContext**)malloc(
-	    sizeof(ConnectionContext*) * control_pool.worker_threads_amount);
+	STBDS_ARRAY(ConnectionContext*)
+	control_contexts = STBDS_ARRAY_EMPTY;
+
+	stbds_arrsetlen(control_contexts, control_pool.worker_threads_amount);
 
 	if(!control_contexts) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");

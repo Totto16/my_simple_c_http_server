@@ -19,13 +19,13 @@
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
-int isRequestSupported(HttpRequest* request) {
+RequestSupportStatus is_request_supported(HttpRequest* request) {
 	if(request->head.request_line.protocol_version != HTTPProtocolVersion1Dot1) {
-		return REQUEST_INVALID_HTTP_VERSION;
+		return RequestInvalidHttpVersion;
 	}
 
 	if(request->head.request_line.method == HTTPRequestMethodInvalid) {
-		return REQUEST_METHOD_NOT_SUPPORTED;
+		return RequestMethodNotSupported;
 	}
 
 	if((request->head.request_line.method == HTTPRequestMethodGet ||
@@ -34,19 +34,19 @@ int isRequestSupported(HttpRequest* request) {
 	   strlen(request->body) != 0) {
 		LOG_MESSAGE(LogLevelDebug, "Non Empty body in GET / HEAD or OPTIONS: '%s'\n",
 		            request->body);
-		return REQUEST_INVALID_NONEMPTY_BODY;
+		return RequestInvalidNonemptyBody;
 	}
 
-	return REQUEST_SUPPORTED;
+	return RequestSupported;
 }
 
 static volatile sig_atomic_t
-    signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    g_signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     0;
 
-// only setting the volatile sig_atomic_t signal_received' in here
-static void receiveSignal(int signalNumber) {
-	signal_received = signalNumber;
+// only setting the volatile sig_atomic_t g_signal_received' in here
+static void receive_signal(int signal_number) {
+	g_signal_received = signal_number;
 }
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
@@ -54,15 +54,15 @@ static void receiveSignal(int signalNumber) {
 // it receives all the necessary information and also handles the html parsing and response
 
 ANY_TYPE(JobError*)
-http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInfo workerInfo) {
+http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, WorkerInfo worker_info) {
 
 	// attention arg is malloced!
-	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)_arg;
+	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)arg_ign;
 
-	ConnectionContext* context = argument->contexts[workerInfo.worker_index];
+	ConnectionContext* context = argument->contexts[worker_info.worker_index];
 	char* thread_name_buffer = NULL;
 	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
-	              , "connection handler %lu", workerInfo.worker_index);
+	              , "connection handler %lu", worker_info.worker_index);
 	set_thread_name(thread_name_buffer);
 
 	const RouteManager* route_manager = argument->route_manager;
@@ -83,7 +83,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
 
 	ConnectionDescriptor* const descriptor =
-	    get_connection_descriptor(context, argument->connectionFd);
+	    get_connection_descriptor(context, argument->connection_fd);
 
 	if(descriptor == NULL) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "get_connection_descriptor failed\n");
@@ -92,9 +92,9 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 		return JOB_ERROR_DESC;
 	}
 
-	char* rawHttpRequest = read_string_from_connection(descriptor);
+	char* raw_http_request = read_string_from_connection(descriptor);
 
-	if(!rawHttpRequest) {
+	if(!raw_http_request) {
 		HTTPResponseToSend to_send = {
 			.status = HttpStatusBadRequest,
 			.body = http_response_body_from_static_string(
@@ -113,16 +113,16 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 		goto cleanup;
 	}
 
-	// rawHttpRequest gets freed in here
-	HttpRequest* httpRequest = parse_http_request(rawHttpRequest);
+	// raw_http_request gets freed in here
+	HttpRequest* http_request = parse_http_request(raw_http_request);
 
 	// To test this error codes you can use '-X POST' with curl or
 	// '--http2' (doesn't work, since http can only be HTTP/1.1, https can be HTTP 2 or QUIC
 	// alias HTTP 3)
 
-	// httpRequest can be null, then it wasn't parse-able, according to parseHttpRequest, see
+	// http_request can be null, then it wasn't parse-able, according to parseHttpRequest, see
 	// there for more information
-	if(httpRequest == NULL) {
+	if(http_request == NULL) {
 		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
 			                           .body = http_response_body_from_static_string(
 			                               "Request couldn't be parsed, it was malformed!"),
@@ -142,23 +142,23 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 	// if the request is supported then the "beautiful" website is sent, if the path is /shutdown
 	// a shutdown is issued
 
-	RequestSettings* request_settings = get_request_settings(httpRequest);
+	RequestSettings* request_settings = get_request_settings(http_request);
 
 	SendSettings send_settings = get_send_settings(request_settings);
 	free_request_settings(request_settings);
 	request_settings = NULL;
 
-	const int isSupported = isRequestSupported(httpRequest);
+	const RequestSupportStatus is_supported = is_request_supported(http_request);
 
-	if(isSupported == REQUEST_SUPPORTED) {
-		SelectedRoute* selectedRoute =
-		    route_manager_get_route_for_request(route_manager, httpRequest);
+	if(is_supported == RequestSupported) {
+		SelectedRoute* selected_route =
+		    route_manager_get_route_for_request(route_manager, http_request);
 
-		if(selectedRoute == NULL) {
+		if(selected_route == NULL) {
 
 			int result = 0;
 
-			switch(httpRequest->head.request_line.method) {
+			switch(http_request->head.request_line.method) {
 				case HTTPRequestMethodGet:
 				case HTTPRequestMethodPost:
 				case HTTPRequestMethodHead: {
@@ -169,8 +169,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 						                           .mime_type = MIME_TYPE_TEXT,
 						                           .additional_headers = STBDS_ARRAY_EMPTY };
 
-					result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
-					                                             httpRequest->head);
+					result = send_http_message_to_connection_advanced(
+					    descriptor, to_send, send_settings, http_request->head);
 					break;
 				}
 				case HTTPRequestMethodOptions: {
@@ -220,9 +220,9 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 			}
 		} else {
 
-			HTTPSelectedRoute selected_route = get_selected_route_data(selectedRoute);
+			HTTPSelectedRoute selected_route_data = get_selected_route_data(selected_route);
 
-			HTTPRouteData route_data = selected_route.data;
+			HTTPRouteData route_data = selected_route_data.data;
 
 			int result = 0;
 
@@ -241,12 +241,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 							};
 
 							result = send_http_message_to_connection_advanced(
-							    descriptor, to_send, send_settings, httpRequest->head);
+							    descriptor, to_send, send_settings, http_request->head);
 
 							// just cancel the listener thread, then no new connection are accepted
 							// and the main thread cleans the pool and queue, all jobs are finished
 							// so shutdown gracefully
-							int cancel_result = pthread_cancel(argument->listenerThread);
+							int cancel_result = pthread_cancel(argument->listener_thread);
 							CHECK_FOR_ERROR(cancel_result,
 							                "While trying to cancel the listener Thread", {
 								                FREE_AT_END();
@@ -257,22 +257,27 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 						}
 						case HTTPRouteSpecialDataWs: {
 
-							int wsRequestSuccessful =
-							    handleWSHandshake(httpRequest, descriptor, send_settings);
+							int ws_request_successful =
+							    handle_ws_handshake(http_request, descriptor, send_settings);
 
-							if(wsRequestSuccessful >= 0) {
+							if(ws_request_successful >= 0) {
 								// move the context so that we can use it in the long standing web
 								// socket thread
-								ConnectionContext* newContext = copy_connection_context(context);
-								argument->contexts[workerInfo.worker_index] = newContext;
+								ConnectionContext* new_context = copy_connection_context(context);
+								argument->contexts[worker_info.worker_index] = new_context;
 
-								thread_manager_add_connection(argument->webSocketManager,
-								                              descriptor, context,
-								                              websocketFunction);
+								if(!thread_manager_add_connection(argument->web_socket_manager,
+								                                  descriptor, context,
+								                                  websocket_function)) {
+									free_http_request(http_request);
+									FREE_AT_END();
+
+									return JOB_ERROR_CONNECTION_ADD;
+								}
 
 								// finally free everything necessary
 
-								free_http_request(httpRequest);
+								free_http_request(http_request);
 								FREE_AT_END();
 
 								return JOB_ERROR_NONE;
@@ -283,22 +288,27 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 							break;
 						}
 						case HTTPRouteSpecialDataWsFragmented: {
-							int wsRequestSuccessful =
-							    handleWSHandshake(httpRequest, descriptor, send_settings);
+							int ws_request_successful =
+							    handle_ws_handshake(http_request, descriptor, send_settings);
 
-							if(wsRequestSuccessful >= 0) {
+							if(ws_request_successful >= 0) {
 								// move the context so that we can use it in the long standing web
 								// socket thread
-								ConnectionContext* newContext = copy_connection_context(context);
-								argument->contexts[workerInfo.worker_index] = newContext;
+								ConnectionContext* new_context = copy_connection_context(context);
+								argument->contexts[worker_info.worker_index] = new_context;
 
-								thread_manager_add_connection(argument->webSocketManager,
-								                              descriptor, context,
-								                              websocketFunctionFragmented);
+								if(!thread_manager_add_connection(argument->web_socket_manager,
+								                                  descriptor, context,
+								                                  websocket_function_fragmented)) {
+									free_http_request(http_request);
+									FREE_AT_END();
+
+									return JOB_ERROR_CONNECTION_ADD;
+								}
 
 								// finally free everything necessary
 
-								free_http_request(httpRequest);
+								free_http_request(http_request);
 								FREE_AT_END();
 
 								return JOB_ERROR_NONE;
@@ -325,19 +335,19 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 				default: {
 
 					result = route_manager_execute_route(route_data.data.normal, descriptor,
-					                                     send_settings, httpRequest, context,
-					                                     selected_route.path);
+					                                     send_settings, http_request, context,
+					                                     selected_route_data.path);
 					break;
 				}
 			}
 
-			free_selected_route(selectedRoute);
+			free_selected_route(selected_route);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 			}
 		}
-	} else if(isSupported == REQUEST_INVALID_HTTP_VERSION) {
+	} else if(is_supported == RequestInvalidHttpVersion) {
 		HTTPResponseToSend to_send = { .status = HttpStatusHttpVersionNotSupported,
 			                           .body = http_response_body_from_static_string(
 			                               "Only HTTP/1.1 is supported atm"),
@@ -345,12 +355,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 			                           .additional_headers = STBDS_ARRAY_EMPTY };
 
 		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
-		                                                 httpRequest->head);
+		                                                      http_request->head);
 
 		if(result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
-	} else if(isSupported == REQUEST_METHOD_NOT_SUPPORTED) {
+	} else if(is_supported == RequestMethodNotSupported) {
 
 		HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
 
@@ -380,12 +390,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 		};
 
 		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
-		                                                 httpRequest->head);
+		                                                      http_request->head);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
-	} else if(isSupported == REQUEST_INVALID_NONEMPTY_BODY) {
+	} else if(is_supported == RequestInvalidNonemptyBody) {
 		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
 			                           .body = http_response_body_from_static_string(
 			                               "A GET, HEAD or OPTIONS Request can't have a body"),
@@ -393,7 +403,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 			                           .additional_headers = STBDS_ARRAY_EMPTY };
 
 		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
-		                                                 httpRequest->head);
+		                                                      http_request->head);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
@@ -406,14 +416,14 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 			                           .additional_headers = STBDS_ARRAY_EMPTY };
 
 		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
-		                                                 httpRequest->head);
+		                                                      http_request->head);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
 		}
 	}
 
-	free_http_request(httpRequest);
+	free_http_request(http_request);
 
 cleanup:
 	// finally close the connection
@@ -454,15 +464,15 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 	struct pollfd poll_fds[POLL_FD_AMOUNT] = {};
 	// initializing the structs for poll
-	poll_fds[0].fd = argument.socketFd;
+	poll_fds[0].fd = argument.socket_fd;
 	poll_fds[0].events = POLLIN;
 
-	int sigFd = get_signal_like_fd(SIGINT);
+	int sig_fd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
-	CHECK_FOR_ERROR(sigFd, "While trying to cancel the listener Thread on signal",
+	CHECK_FOR_ERROR(sig_fd, "While trying to cancel the listener Thread on signal",
 	                exit(EXIT_FAILURE););
 
-	poll_fds[1].fd = sigFd;
+	poll_fds[1].fd = sig_fd;
 	poll_fds[1].events = POLLIN;
 	// loop and accept incoming requests
 	while(true) {
@@ -471,7 +481,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 		// the function poll makes the heavy lifting, the timeout 5000 is completely
 		// arbitrary and should not be to short, but otherwise it doesn't matter that much,
-		// since it aborts on POLLIN from the socketFd or the signalFd
+		// since it aborts on POLLIN from the socket_fd or the signalFd
 		int status = 0;
 		while(status == 0) {
 			status = poll(
@@ -483,7 +493,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 			}
 		}
 
-		if(poll_fds[1].revents == POLLIN || signal_received != 0) {
+		if(poll_fds[1].revents == POLLIN || g_signal_received != 0) {
 			// TODO(Totto): This fd isn't closed, when pthread_cancel is called from somewhere else,
 			// fix that somehow
 			close(poll_fds[1].fd);
@@ -492,36 +502,36 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 			                return LISTENER_ERROR_THREAD_CANCEL;);
 		}
 
-		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
+		// the poll didn't see a POLLIN event in the argument.socket_fd fd, so the accept
 		// will fail, just redo the poll
 		if(poll_fds[0].revents != POLLIN) {
 			continue;
 		}
 
 		// would be better to set cancel state in the right places!!
-		int connectionFd = accept(argument.socketFd, NULL, NULL);
-		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
+		int connection_fd = accept(argument.socket_fd, NULL, NULL);
+		CHECK_FOR_ERROR(connection_fd, "While Trying to accept a socket",
 		                return LISTENER_ERROR_ACCEPT;);
 
-		HTTPConnectionArgument* connectionArgument =
+		HTTPConnectionArgument* connection_argument =
 		    (HTTPConnectionArgument*)malloc(sizeof(HTTPConnectionArgument));
 
-		if(!connectionArgument) {
+		if(!connection_argument) {
 			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 			return LISTENER_ERROR_MALLOC;
 		}
 
 		// to have longer lifetime, that is needed here, since otherwise it would be "dead"
-		connectionArgument->contexts = argument.contexts;
-		connectionArgument->connectionFd = connectionFd;
-		connectionArgument->listenerThread = pthread_self();
-		connectionArgument->webSocketManager = argument.webSocketManager;
-		connectionArgument->route_manager = argument.route_manager;
+		connection_argument->contexts = argument.contexts;
+		connection_argument->connection_fd = connection_fd;
+		connection_argument->listener_thread = pthread_self();
+		connection_argument->web_socket_manager = argument.web_socket_manager;
+		connection_argument->route_manager = argument.route_manager;
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(myqueue_push(argument.jobIds, pool_submit(argument.pool, http_socket_connection_handler,
-		                                             connectionArgument)) < 0) {
+		if(myqueue_push(argument.job_ids, pool_submit(argument.pool, http_socket_connection_handler,
+		                                              connection_argument)) < 0) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 
@@ -530,14 +540,14 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// so its super fast,but if not doing that, the queue would overflow, nothing in
 		// here is a cancellation point, so it's safe to cancel here, since only accept then
 		// really cancels
-		int size = myqueue_size(argument.jobIds);
+		int size = myqueue_size(argument.job_ids);
 		if(size > HTTP_MAX_QUEUE_SIZE) {
 			int boundary = size / 2;
 			while(size > boundary) {
 
-				JobId* jobId = (JobId*)myqueue_pop(argument.jobIds);
+				JobId* job_id = (JobId*)myqueue_pop(argument.job_ids);
 
-				JobError result = pool_await(jobId);
+				JobError result = pool_await(job_id);
 
 				if(is_job_error(result)) {
 					if(result != JOB_ERROR_NONE) {
@@ -561,19 +571,19 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 	}
 }
 
-int startHttpServer(uint16_t port, SecureOptions* const options) {
+int start_http_server(uint16_t port, SecureOptions* const options) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
 	// the socket type is SOCK_STREAM, meaning it has reliable read and write capabilities,
 	// all other types are not that well suited for that example
-	int socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	CHECK_FOR_ERROR(socketFd, "While Trying to create socket", return EXIT_FAILURE;);
+	int socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	CHECK_FOR_ERROR(socket_fd, "While Trying to create socket", return EXIT_FAILURE;);
 
 	// set the reuse port option to the socket, so it can be reused
 	const int optval = 1;
-	int optionReturn = setsockopt(socketFd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
-	CHECK_FOR_ERROR(optionReturn, "While Trying to set socket option 'SO_REUSEPORT'",
+	int option_return = setsockopt(socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
+	CHECK_FOR_ERROR(option_return, "While Trying to set socket option 'SO_REUSEPORT'",
 	                return EXIT_FAILURE;);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
@@ -602,14 +612,14 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// ports below 1024 are  privileged ports, meaning, that you require special permissions
 	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
 	// getting that is being root, or executing as root: sudo ...)
-	int result = bind(socketFd, (struct sockaddr*)addr, sizeof(*addr));
+	int result = bind(socket_fd, (struct sockaddr*)addr, sizeof(*addr));
 	CHECK_FOR_ERROR(result, "While trying to bind socket to port", return EXIT_FAILURE;);
 
 	// SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
 	// the protocol discards these requests listen starts listening on that socket, meaning
 	// new connections can be accepted
-	result = listen(socketFd, HTTP_SOCKET_BACKLOG_SIZE);
+	result = listen(socket_fd, HTTP_SOCKET_BACKLOG_SIZE);
 	CHECK_FOR_ERROR(result, "While trying to listen on socket", return EXIT_FAILURE;);
 
 	const char* protocol_string =
@@ -622,12 +632,12 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// just create a sigaction structure, then add the handler
 	struct sigaction action = {};
 
-	action.sa_handler = receiveSignal;
+	action.sa_handler = receive_signal;
 	// initialize the mask to be empty
-	int emptySetResult = sigemptyset(&action.sa_mask);
+	int empty_set_result = sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, SIGINT);
 	int result1 = sigaction(SIGINT, &action, NULL);
-	if(result1 < 0 || emptySetResult < 0) {
+	if(result1 < 0 || empty_set_result < 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't set signal interception: %s\n", strerror(errno));
 		return EXIT_FAILURE;
 	}
@@ -644,8 +654,8 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 
 	// this is a internal synchronized queue! myqueue_init creates a semaphore that handles
 	// that
-	Myqueue jobIds;
-	if(myqueue_init(&jobIds) < 0) {
+	Myqueue job_ids;
+	if(myqueue_init(&job_ids) < 0) {
 		return EXIT_FAILURE;
 	};
 
@@ -662,9 +672,9 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 		contexts[i] = get_connection_context(options);
 	}
 
-	WebSocketThreadManager* webSocketManager = initialize_thread_manager();
+	WebSocketThreadManager* web_socket_manager = initialize_thread_manager();
 
-	if(!webSocketManager) {
+	if(!web_socket_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 			free_connection_context(contexts[i]);
 		}
@@ -683,7 +693,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 		}
 		free((void*)contexts);
 
-		if(!free_thread_manager(webSocketManager)) {
+		if(!free_thread_manager(web_socket_manager)) {
 			return EXIT_FAILURE;
 		}
 
@@ -692,45 +702,46 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 
 	// initializing the thread Arguments for the single listener thread, it receives all
 	// necessary arguments
-	pthread_t listenerThread = {};
-	HTTPThreadArgument threadArgument = { .pool = &pool,
-		                                  .jobIds = &jobIds,
-		                                  .contexts = contexts,
-		                                  .socketFd = socketFd,
-		                                  .webSocketManager = webSocketManager,
-		                                  .route_manager = route_manager };
+	pthread_t listener_thread = {};
+	HTTPThreadArgument thread_argument = { .pool = &pool,
+		                                   .job_ids = &job_ids,
+		                                   .contexts = contexts,
+		                                   .socket_fd = socket_fd,
+		                                   .web_socket_manager = web_socket_manager,
+		                                   .route_manager = route_manager };
 
 	// creating the thread
-	result = pthread_create(&listenerThread, NULL, http_listener_thread_function, &threadArgument);
+	result =
+	    pthread_create(&listener_thread, NULL, http_listener_thread_function, &thread_argument);
 	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to create a new Thread",
 	                       return EXIT_FAILURE;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
-	ListenerError returnValue = LISTENER_ERROR_NONE;
-	result = pthread_join(listenerThread, &returnValue);
+	ListenerError return_value = LISTENER_ERROR_NONE;
+	result = pthread_join(listener_thread, &return_value);
 	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to wait for a Thread",
 	                       return EXIT_FAILURE;);
 
-	if(is_listener_error(returnValue)) {
-		if(returnValue != LISTENER_ERROR_NONE) {
-			print_listener_error(returnValue);
+	if(is_listener_error(return_value)) {
+		if(return_value != LISTENER_ERROR_NONE) {
+			print_listener_error(return_value);
 		}
-	} else if(returnValue != PTHREAD_CANCELED) {
+	} else if(return_value != PTHREAD_CANCELED) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "The listener thread wasn't cancelled properly!\n");
-	} else if(returnValue == PTHREAD_CANCELED) {
+	} else if(return_value == PTHREAD_CANCELED) {
 		LOG_MESSAGE_SIMPLE(LogLevelInfo, "The listener thread was cancelled properly!\n");
 	} else {
 		LOG_MESSAGE(LogLevelError, "The listener thread was terminated with wrong error: %p!\n",
-		            returnValue);
+		            return_value);
 	}
 
 	// since the listener doesn't wait on the jobs, the main thread has to do that work!
 	// the queue can be filled, which can lead to a problem!!
-	while(!myqueue_is_empty(&jobIds)) {
-		JobId* jobId = (JobId*)myqueue_pop(&jobIds);
+	while(!myqueue_is_empty(&job_ids)) {
+		JobId* job_id = (JobId*)myqueue_pop(&job_ids);
 
-		JobError result = pool_await(jobId);
+		JobError result = pool_await(job_id);
 
 		if(is_job_error(result)) {
 			if(result != JOB_ERROR_NONE) {
@@ -750,7 +761,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	}
 
 	// then the queue is destroyed
-	if(myqueue_destroy(&jobIds) < 0) {
+	if(myqueue_destroy(&job_ids) < 0) {
 		return EXIT_FAILURE;
 	}
 
@@ -760,7 +771,7 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 	// Care should be taken when using this flag as it makes TCP less reliable." So
 	// essentially saying, also correctly closed sockets aren't available after a certain
 	// time, even if closed correctly!
-	result = close(socketFd);
+	result = close(socket_fd);
 	CHECK_FOR_ERROR(result, "While trying to close the socket", return EXIT_FAILURE;);
 
 	// and freeing the malloced sockaddr_in, could be done (probably, since the receiver of
@@ -772,11 +783,11 @@ int startHttpServer(uint16_t port, SecureOptions* const options) {
 		free_connection_context(contexts[i]);
 	}
 
-	if(!thread_manager_remove_all_connections(webSocketManager)) {
+	if(!thread_manager_remove_all_connections(web_socket_manager)) {
 		return EXIT_FAILURE;
 	}
 
-	if(!free_thread_manager(webSocketManager)) {
+	if(!free_thread_manager(web_socket_manager)) {
 		return EXIT_FAILURE;
 	}
 

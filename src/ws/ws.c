@@ -131,8 +131,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 static const bool SEND_HTTP_UPGRADE_REQUIRED_STATUS_CODE = true;
 
-int handleWSHandshake(const HttpRequest* const httpRequest,
-                      const ConnectionDescriptor* const descriptor, SendSettings send_settings) {
+int handle_ws_handshake(const HttpRequest* const http_request,
+                        const ConnectionDescriptor* const descriptor, SendSettings send_settings) {
 
 	// check if it is a valid Websocket request
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-2 section 4.2.1.
@@ -141,8 +141,8 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	char* secKey = NULL;
 	bool fromBrowser = false;
 
-	for(size_t i = 0; i < stbds_arrlenu(httpRequest->head.header_fields); ++i) {
-		HttpHeaderField header = httpRequest->head.header_fields[i];
+	for(size_t i = 0; i < stbds_arrlenu(http_request->head.header_fields); ++i) {
+		HttpHeaderField header = http_request->head.header_fields[i];
 		if(strcasecmp(header.key, "host") == 0) {
 			foundList |= HANDSHAKE_HEADER_HEADER_HOST;
 		} else if(strcasecmp(header.key, "upgrade") == 0) {

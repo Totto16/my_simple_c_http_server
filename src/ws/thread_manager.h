@@ -49,7 +49,7 @@ NODISCARD WebSocketThreadManager* initialize_thread_manager(void);
 /**
  * Thread safe
  */
-WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
+NODISCARD WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
                                                    ConnectionDescriptor* descriptor,
                                                    ConnectionContext* context,
                                                    WebSocketFunction function);

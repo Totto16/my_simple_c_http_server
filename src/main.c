@@ -187,7 +187,7 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	return startHttpServer(port, options);
+	return start_http_server(port, options);
 }
 
 int subcommandFtp(const char* programName, int argc, const char* argv[]) {

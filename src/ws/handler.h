@@ -2,7 +2,7 @@
 
 #include "./thread_manager.h"
 
-WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMessage message);
+NODISCARD WebSocketAction websocket_function(WebSocketConnection* connection, WebSocketMessage message);
 
-WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
-                                            WebSocketMessage message);
+NODISCARD WebSocketAction websocket_function_fragmented(WebSocketConnection* connection,
+                                              WebSocketMessage message);

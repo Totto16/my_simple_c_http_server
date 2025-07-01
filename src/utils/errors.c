@@ -39,6 +39,8 @@ void print_job_error(JobError error) {
 		error_str = "SigHandler";
 	} else if(error == JOB_ERROR_GET_SOCK_NAME) {
 		error_str = "GetSockName";
+	} else if(error == JOB_ERROR_CONNECTION_ADD) {
+		error_str = "ConnectionAdd";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Job Error: %s\n", error_str);

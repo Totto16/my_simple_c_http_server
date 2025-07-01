@@ -14,11 +14,11 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 
 	UNUSED(path);
 
-	StringBuilder* htmlStringBuilder =
+	StringBuilder* html_string_builder =
 	    http_request_to_html(http_request, is_secure_context(context), send_settings);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = http_response_body_from_string_builder(&htmlStringBuilder),
+		                          .body = http_response_body_from_string_builder(&html_string_builder),
 		                          .mime_type = MIME_TYPE_HTML,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -31,11 +31,11 @@ static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
 
 	UNUSED(path);
 
-	StringBuilder* jsonStringBuilder =
+	StringBuilder* json_string_builder =
 	    http_request_to_json(http_request, is_secure_context(context), send_settings);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = http_response_body_from_string_builder(&jsonStringBuilder),
+		                          .body = http_response_body_from_string_builder(&json_string_builder),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
@@ -173,10 +173,10 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 	}
 
 	// for compression tests, has to be at least  1 MB big, so that it can be tested accordingly
-	size_t minimumSize =
+	size_t minimum_size =
 	    1 << 20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	while(string_builder_get_string_size(string_builder) < minimumSize) {
+	while(string_builder_get_string_size(string_builder) < minimum_size) {
 		if(pretty) {
 			string_builder_append_single(string_builder, "\n");
 		}
@@ -263,26 +263,26 @@ HTTPRoutes get_default_routes(void) {
 
 		// ws
 
-		HTTPRoute wsRoute = { .method = HTTPRequestRouteMethodGet,
+		HTTPRoute ws_route = { .method = HTTPRequestRouteMethodGet,
 			                  .path = "/ws",
 			                  .data = (HTTPRouteData){
 			                      .type = HTTPRouteTypeSpecial,
 			                      .data = { .special = HTTPRouteSpecialDataWs } } };
 
-		stbds_arrput(routes, wsRoute);
+		stbds_arrput(routes, ws_route);
 	}
 
 	{
 
 		// ws fragmented
 
-		HTTPRoute wsFragmented = { .method = HTTPRequestRouteMethodGet,
+		HTTPRoute ws_fragmented = { .method = HTTPRequestRouteMethodGet,
 			                       .path = "/ws/fragmented",
 			                       .data = (HTTPRouteData){
 			                           .type = HTTPRouteTypeSpecial,
 			                           .data = { .special = HTTPRouteSpecialDataWsFragmented } } };
 
-		stbds_arrput(routes, wsFragmented);
+		stbds_arrput(routes, ws_fragmented);
 	}
 
 	{
@@ -369,17 +369,17 @@ void free_route_manager(RouteManager* route_manager) {
 	free(route_manager);
 }
 
-NODISCARD static bool is_matching(HTTPRequestRouteMethod routeMethod, HTTPRequestMethod method) {
+NODISCARD static bool is_matching(HTTPRequestRouteMethod route_method, HTTPRequestMethod method) {
 
-	if(routeMethod == HTTPRequestRouteMethodGet && method == HTTPRequestMethodHead) {
+	if(route_method == HTTPRequestRouteMethodGet && method == HTTPRequestMethodHead) {
 		return true;
 	}
 
-	if(routeMethod == HTTPRequestRouteMethodGet && method == HTTPRequestMethodGet) {
+	if(route_method == HTTPRequestRouteMethodGet && method == HTTPRequestMethodGet) {
 		return true;
 	}
 
-	if(routeMethod == HTTPRequestRouteMethodPost && method == HTTPRequestMethodPost) {
+	if(route_method == HTTPRequestRouteMethodPost && method == HTTPRequestMethodPost) {
 		return true;
 	}
 

@@ -19,10 +19,11 @@ typedef ANY JobError;
 #define JOB_ERROR_SEM_WAIT ((JobError)0x27)
 #define JOB_ERROR_SEM_DEST ((JobError)0x28)
 #define JOB_ERROR_SIG_HANDLER ((JobError)0x29)
-#define JOB_ERROR_GET_SOCK_NAME ((JobError)0x30)
+#define JOB_ERROR_GET_SOCK_NAME ((JobError)0x2A)
+#define JOB_ERROR_CONNECTION_ADD ((JobError)0x2B)
 
 #define JOB_ERROR_START JOB_ERROR_DESC
-#define JOB_ERROR_END JOB_ERROR_GET_SOCK_NAME
+#define JOB_ERROR_END JOB_ERROR_CONNECTION_ADD
 
 NODISCARD bool is_job_error(JobError error);
 
