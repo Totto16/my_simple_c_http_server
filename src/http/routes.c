@@ -8,39 +8,47 @@ struct RouteManagerImpl {
 };
 
 static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
-                                                     const HttpRequest* const httpRequest,
-                                                     const ConnectionContext* const context) {
+                                                     const HttpRequest* const http_request,
+                                                     const ConnectionContext* const context,
+                                                     ParsedURLPath path) {
+
+	UNUSED(path);
 
 	StringBuilder* htmlStringBuilder =
-	    httpRequestToHtml(httpRequest, is_secure_context(context), send_settings);
+	    http_request_to_html(http_request, is_secure_context(context), send_settings);
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+	HTTPResponseToSend result = { .status = HttpStatusOk,
 		                          .body = httpResponseBodyFromStringBuilder(&htmlStringBuilder),
-		                          .MIMEType = MIME_TYPE_HTML,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+		                          .mime_type = MIME_TYPE_HTML,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
 static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
-                                                    const HttpRequest* const httpRequest,
-                                                    const ConnectionContext* const context) {
+                                                    const HttpRequest* const http_request,
+                                                    const ConnectionContext* const context,
+                                                    ParsedURLPath path) {
+
+	UNUSED(path);
 
 	StringBuilder* jsonStringBuilder =
-	    httpRequestToJSON(httpRequest, is_secure_context(context), send_settings);
+	    http_request_to_json(http_request, is_secure_context(context), send_settings);
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+	HTTPResponseToSend result = { .status = HttpStatusOk,
 		                          .body = httpResponseBodyFromStringBuilder(&jsonStringBuilder),
-		                          .MIMEType = MIME_TYPE_JSON,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+		                          .mime_type = MIME_TYPE_JSON,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
-static HTTPResponseToSend static_executor_fn() {
+static HTTPResponseToSend static_executor_fn(ParsedURLPath path) {
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+	UNUSED(path);
+
+	HTTPResponseToSend result = { .status = HttpStatusOk,
 		                          .body = httpResponseBodyFromStaticString("{\"static\":true}"),
-		                          .MIMEType = MIME_TYPE_JSON,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+		                          .mime_type = MIME_TYPE_JSON,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
@@ -192,25 +200,30 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 	return string_builder;
 }
 
-static HTTPResponseToSend huge_executor_fn() {
+static HTTPResponseToSend huge_executor_fn(ParsedURLPath path) {
+
+	UNUSED(path);
 
 	StringBuilder* string_builder = get_random_json_string_builder(false);
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+	HTTPResponseToSend result = { .status = HttpStatusOk,
 		                          .body = httpResponseBodyFromStringBuilder(&string_builder),
-		                          .MIMEType = MIME_TYPE_JSON,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+		                          .mime_type = MIME_TYPE_JSON,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
-static HTTPResponseToSend huge_pretty_executor_fn() {
+static HTTPResponseToSend huge_pretty_executor_fn(ParsedURLPath path) {
+
+	// TODO(Totto): get the search paramaters and use them to determine if we need pretty json
+	UNUSED(path);
 
 	StringBuilder* string_builder = get_random_json_string_builder(true);
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
+	HTTPResponseToSend result = { .status = HttpStatusOk,
 		                          .body = httpResponseBodyFromStringBuilder(&string_builder),
-		                          .MIMEType = MIME_TYPE_JSON,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+		                          .mime_type = MIME_TYPE_JSON,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
@@ -375,9 +388,10 @@ NODISCARD static bool is_matching(HTTPRequestRouteMethod routeMethod, HTTPReques
 
 struct SelectedRouteImpl {
 	HTTPRoute route;
+	ParsedURLPath path;
 };
 
-NODISCARD static SelectedRoute* selected_route_from_data(HTTPRoute route) {
+NODISCARD static SelectedRoute* selected_route_from_data(HTTPRoute route, ParsedURLPath path) {
 	SelectedRoute* selected_route = malloc(sizeof(SelectedRoute));
 
 	if(!selected_route) {
@@ -385,6 +399,7 @@ NODISCARD static SelectedRoute* selected_route_from_data(HTTPRoute route) {
 	}
 
 	selected_route->route = route;
+	selected_route->path = path;
 
 	return selected_route;
 }
@@ -400,14 +415,14 @@ route_manager_get_route_for_request(const RouteManager* const routerManager,
 	for(size_t i = 0; i < stbds_arrlenu(routerManager->routes); ++i) {
 		HTTPRoute route = routerManager->routes[i];
 
-		if(is_matching(route.method, request->head.requestLine.method)) {
+		if(is_matching(route.method, request->head.request_line.method)) {
 
 			if(route.path == NULL) {
-				return selected_route_from_data(route);
+				return selected_route_from_data(route, request->head.request_line.path);
 			}
 
-			if(strcmp(route.path, request->head.requestLine.URI) == 0) {
-				return selected_route_from_data(route);
+			if(strcmp(route.path, request->head.request_line.path.path) == 0) {
+				return selected_route_from_data(route, request->head.request_line.path);
 			}
 		}
 	}
@@ -415,27 +430,26 @@ route_manager_get_route_for_request(const RouteManager* const routerManager,
 	return NULL;
 }
 
-NODISCARD HTTPRouteData get_route_data(const SelectedRoute* const route) {
+NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const route) {
 
-	return route->route.data;
+	return (HTTPSelectedRoute){ .data = route->route.data, .path = route->path };
 }
 
-NODISCARD int route_manager_execute_route(HTTPRouteFn route,
-                                          const ConnectionDescriptor* const descriptor,
-                                          SendSettings send_settings,
-                                          const HttpRequest* const httpRequest,
-                                          const ConnectionContext* const context) {
+NODISCARD int
+route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* const descriptor,
+                            SendSettings send_settings, const HttpRequest* const http_request,
+                            const ConnectionContext* const context, ParsedURLPath path) {
 
 	HTTPResponseToSend response = {};
 
 	switch(route.type) {
 		case HTTPRouteFnTypeExecutor: {
-			response = route.fn.executor();
+			response = route.fn.executor(path);
 
 			break;
 		}
 		case HTTPRouteFnTypeExecutorExtended: {
-			response = route.fn.executor_extended(send_settings, httpRequest, context);
+			response = route.fn.executor_extended(send_settings, http_request, context, path);
 			break;
 		}
 		default: {
@@ -444,8 +458,8 @@ NODISCARD int route_manager_execute_route(HTTPRouteFn route,
 		}
 	}
 
-	int result =
-	    sendHTTPMessageToConnectionAdvanced(descriptor, response, send_settings, httpRequest->head);
+	int result = sendHTTPMessageToConnectionAdvanced(descriptor, response, send_settings,
+	                                                 http_request->head);
 
 	return result;
 }

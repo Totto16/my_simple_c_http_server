@@ -22,7 +22,7 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 	string_builder_append_single(message, "Error: The client handshake was invalid: This endpoint "
 	                                      "requires an upgrade to the WebSocket protocol");
 
-	HttpHeaderFields additionalHeaders = STBDS_ARRAY_EMPTY;
+	HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
 
 	char* upgradeHeaderBuffer = NULL;
 	FORMAT_STRING(&upgradeHeaderBuffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
@@ -31,7 +31,7 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 		                             .value =
 		                                 upgradeHeaderBuffer + strlen(upgradeHeaderBuffer) + 1 };
 
-	stbds_arrput(additionalHeaders, upgradeField);
+	stbds_arrput(additional_headers, upgradeField);
 
 	char* connectionHeaderBuffer = NULL;
 	FORMAT_STRING(&connectionHeaderBuffer, return false;, "%s%c%s", "Connection", '\0', "Upgrade");
@@ -40,14 +40,14 @@ sendFailedHandshakeMessageUpgradeRequired(const ConnectionDescriptor* const desc
 		                                .value = connectionHeaderBuffer +
 		                                         strlen(connectionHeaderBuffer) + 1 };
 
-	stbds_arrput(additionalHeaders, connectionField);
+	stbds_arrput(additional_headers, connectionField);
 
-	HTTPResponseToSend toSend = { .status = HTTP_STATUS_UPGRADE_REQUIRED,
-		                          .body = httpResponseBodyFromStringBuilder(&message),
-		                          .MIMEType = MIME_TYPE_TEXT,
-		                          .additionalHeaders = additionalHeaders };
+	HTTPResponseToSend to_send = { .status = HttpStatusUpgradeRequired,
+		                           .body = httpResponseBodyFromStringBuilder(&message),
+		                           .mime_type = MIME_TYPE_TEXT,
+		                           .additional_headers = additional_headers };
 
-	int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+	int result = sendHTTPMessageToConnection(descriptor, to_send, send_settings);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -65,16 +65,16 @@ NODISCARD static int sendFailedHandshakeMessage(const ConnectionDescriptor* cons
 	StringBuilder* message = string_builder_init();
 
 	STRING_BUILDER_APPENDF(message, return false;
-	                      , "Error: The client handshake was invalid: %s", error_reason);
+	                       , "Error: The client handshake was invalid: %s", error_reason);
 
-	HTTPResponseToSend toSend = { .status = HTTP_STATUS_BAD_REQUEST,
-		                          .body = httpResponseBodyFromStringBuilder(&message),
-		                          .MIMEType = MIME_TYPE_TEXT,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+	HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
+		                           .body = httpResponseBodyFromStringBuilder(&message),
+		                           .mime_type = MIME_TYPE_TEXT,
+		                           .additional_headers = STBDS_ARRAY_EMPTY };
 
 	free_string_builder(message);
 
-	int result = sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+	int result = sendHTTPMessageToConnection(descriptor, to_send, send_settings);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -141,8 +141,8 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 	char* secKey = NULL;
 	bool fromBrowser = false;
 
-	for(size_t i = 0; i < stbds_arrlenu(httpRequest->head.headerFields); ++i) {
-		HttpHeaderField header = httpRequest->head.headerFields[i];
+	for(size_t i = 0; i < stbds_arrlenu(httpRequest->head.header_fields); ++i) {
+		HttpHeaderField header = httpRequest->head.header_fields[i];
 		if(strcasecmp(header.key, "host") == 0) {
 			foundList |= HANDSHAKE_HEADER_HEADER_HOST;
 		} else if(strcasecmp(header.key, "upgrade") == 0) {
@@ -205,7 +205,7 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 
 	// send server handshake
 
-	HttpHeaderFields additionalHeaders = STBDS_ARRAY_EMPTY;
+	HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
 
 	char* upgradeHeaderBuffer = NULL;
 	FORMAT_STRING(&upgradeHeaderBuffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
@@ -214,7 +214,7 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 		                             .value =
 		                                 upgradeHeaderBuffer + strlen(upgradeHeaderBuffer) + 1 };
 
-	stbds_arrput(additionalHeaders, upgradeField);
+	stbds_arrput(additional_headers, upgradeField);
 
 	char* connectionHeaderBuffer = NULL;
 	FORMAT_STRING(&connectionHeaderBuffer, return false;, "%s%c%s", "Connection", '\0', "Upgrade");
@@ -223,13 +223,13 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 		                                .value = connectionHeaderBuffer +
 		                                         strlen(connectionHeaderBuffer) + 1 };
 
-	stbds_arrput(additionalHeaders, connectionField);
+	stbds_arrput(additional_headers, connectionField);
 
 	char* keyAnswer = generateKeyAnswer(secKey);
 
 	char* secWebsocketAcceptHeaderBuffer = NULL;
 	FORMAT_STRING(&secWebsocketAcceptHeaderBuffer, return false;
-	             , "%s%c%s", "Sec-WebSocket-Accept", '\0', keyAnswer);
+	              , "%s%c%s", "Sec-WebSocket-Accept", '\0', keyAnswer);
 
 	free(keyAnswer);
 
@@ -237,12 +237,12 @@ int handleWSHandshake(const HttpRequest* const httpRequest,
 		                                 .value = secWebsocketAcceptHeaderBuffer +
 		                                          strlen(secWebsocketAcceptHeaderBuffer) + 1 };
 
-	stbds_arrput(additionalHeaders, secWSAcceptField);
+	stbds_arrput(additional_headers, secWSAcceptField);
 
-	HTTPResponseToSend toSend = { .status = HTTP_STATUS_SWITCHING_PROTOCOLS,
-		                          .body = httpResponseBodyEmpty(),
-		                          .MIMEType = NULL,
-		                          .additionalHeaders = additionalHeaders };
+	HTTPResponseToSend to_send = { .status = HttpStatusSwitchingProtocols,
+		                           .body = httpResponseBodyEmpty(),
+		                           .mime_type = NULL,
+		                           .additional_headers = additional_headers };
 
-	return sendHTTPMessageToConnection(descriptor, toSend, send_settings);
+	return sendHTTPMessageToConnection(descriptor, to_send, send_settings);
 }

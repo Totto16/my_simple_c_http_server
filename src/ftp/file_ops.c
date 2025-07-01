@@ -781,8 +781,8 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 		}
 
 		STRING_BUILDER_APPENDF(string_builder, return NULL;, "%c%.*s%.*s%.*s",
-		                                                  permissions.special_type, 3, modes[0], 3,
-		                                                  modes[1], 3, modes[2]);
+		                                                   permissions.special_type, 3, modes[0], 3,
+		                                                   modes[1], 3, modes[2]);
 	}
 
 	size_t max_bytes =
@@ -876,8 +876,8 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 
 		// unique identifier (dev.ino)
 		STRING_BUILDER_APPENDF(string_builder, return NULL;, "i" DEV_FMT "." INO_FMT ",",
-		                                                  file->identifier.dev,
-		                                                  file->identifier.ino);
+		                                                   file->identifier.dev,
+		                                                   file->identifier.ino);
 
 		if(ELPF_PRETTY_PRINT_PERMISSIONS) {
 			FilePermissions permissions = permissions_from_mode(file->mode);
@@ -897,8 +897,8 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 
 			// permissions, look nicer, many clients just display the string, NOT spec compliant
 			STRING_BUILDER_APPENDF(string_builder, return NULL;, "up%c%.*s%.*s%.*s",
-			                                                  permissions.special_type, 3, modes[0],
-			                                                  3, modes[1], 3, modes[2]);
+			                                                   permissions.special_type, 3,
+			                                                   modes[0], 3, modes[1], 3, modes[2]);
 		} else {
 
 			uint32_t permission = (S_IRWXU | S_IRWXG | S_IRWXO) & file->mode;
@@ -987,20 +987,20 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 
 			size_t offset = progress->_impl.sent_count;
 
-			void* toSend = ((uint8_t*)raw_data.data) + offset;
+			void* to_send = ((uint8_t*)raw_data.data) + offset;
 
-			size_t sendLength = SEND_CHUNK_SIZE;
+			size_t send_length = SEND_CHUNK_SIZE;
 
-			if(offset + sendLength >= progress->_impl.total_count) {
-				sendLength = progress->_impl.total_count - offset;
+			if(offset + send_length >= progress->_impl.total_count) {
+				send_length = progress->_impl.total_count - offset;
 			}
 
-			int send_result = send_data_to_connection(descriptor, toSend, sendLength);
+			int send_result = send_data_to_connection(descriptor, to_send, send_length);
 			if(send_result < 0) {
 				return false;
 			}
 
-			progress->_impl.sent_count += sendLength;
+			progress->_impl.sent_count += send_length;
 
 			return true;
 			break;

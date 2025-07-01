@@ -18,41 +18,41 @@
 #include <compressor/main.h>
 #endif
 
-bool is_compressions_supported(COMPRESSION_TYPE format) {
+bool is_compressions_supported(CompressionType format) {
 
 	switch(format) {
-		case COMPRESSION_TYPE_NONE: { // NOLINT(bugprone-branch-clone)
+		case CompressionTypeNone: { // NOLINT(bugprone-branch-clone)
 			return true;
 		}
-		case COMPRESSION_TYPE_GZIP: {
+		case CompressionTypeGzip: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP
 			return true;
 #else
 			return false;
 #endif
 		}
-		case COMPRESSION_TYPE_DEFLATE: {
+		case CompressionTypeDeflate: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
 			return true;
 #else
 			return false;
 #endif
 		}
-		case COMPRESSION_TYPE_BR: {
+		case CompressionTypeBr: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
 			return true;
 #else
 			return false;
 #endif
 		}
-		case COMPRESSION_TYPE_ZSTD: {
+		case CompressionTypeZstd: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
 			return true;
 #else
 			return false;
 #endif
 		}
-		case COMPRESSION_TYPE_COMPRESS: {
+		case CompressionTypeCompress: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS
 			return true;
 #else
@@ -452,24 +452,24 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 }
 #endif
 
-NODISCARD const char* get_string_for_compress_format(COMPRESSION_TYPE format) {
+NODISCARD const char* get_string_for_compress_format(CompressionType format) {
 
 	switch(format) {
-		case COMPRESSION_TYPE_NONE: return "none";
-		case COMPRESSION_TYPE_GZIP: return "gzip";
-		case COMPRESSION_TYPE_DEFLATE: return "deflate";
-		case COMPRESSION_TYPE_BR: return "br";
-		case COMPRESSION_TYPE_ZSTD: return "zstd";
-		case COMPRESSION_TYPE_COMPRESS: return "compress";
+		case CompressionTypeNone: return "none";
+		case CompressionTypeGzip: return "gzip";
+		case CompressionTypeDeflate: return "deflate";
+		case CompressionTypeBr: return "br";
+		case CompressionTypeZstd: return "zstd";
+		case CompressionTypeCompress: return "compress";
 		default: return "<unknown>";
 	}
 }
 
-NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, COMPRESSION_TYPE format) {
+NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, CompressionType format) {
 
 	switch(format) {
-		case COMPRESSION_TYPE_NONE: return SIZED_BUFFER_ERROR; ;
-		case COMPRESSION_TYPE_GZIP: {
+		case CompressionTypeNone: return SIZED_BUFFER_ERROR; ;
+		case CompressionTypeGzip: {
 
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP
 			return compress_buffer_with_gzip(buffer);
@@ -477,28 +477,28 @@ NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, COMPRESSION_TYPE 
 			return SIZED_BUFFER_ERROR;
 #endif
 		};
-		case COMPRESSION_TYPE_DEFLATE: {
+		case CompressionTypeDeflate: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
 			return compress_buffer_with_deflate(buffer);
 #else
 			return SIZED_BUFFER_ERROR;
 #endif
 		};
-		case COMPRESSION_TYPE_BR: {
+		case CompressionTypeBr: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
 			return compress_buffer_with_br(buffer);
 #else
 			return SIZED_BUFFER_ERROR;
 #endif
 		};
-		case COMPRESSION_TYPE_ZSTD: {
+		case CompressionTypeZstd: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
 			return compress_buffer_with_zstd(buffer);
 #else
 			return SIZED_BUFFER_ERROR;
 #endif
 		};
-		case COMPRESSION_TYPE_COMPRESS: {
+		case CompressionTypeCompress: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS
 			return compress_buffer_with_compress(buffer);
 #else

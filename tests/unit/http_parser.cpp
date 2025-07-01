@@ -21,7 +21,7 @@ get_compression_setting_by_accept_encoding_header(const char* acceptEncodingValu
 
 	stbds_arrput(http_header_fields, accept_encoding);
 
-	CompressionSettings* compression_settings = getCompressionSettings(http_header_fields);
+	CompressionSettings* compression_settings = get_compression_settings(http_header_fields);
 
 	return compression_settings;
 }

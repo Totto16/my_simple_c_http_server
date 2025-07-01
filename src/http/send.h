@@ -13,17 +13,17 @@ typedef struct {
 typedef STBDS_ARRAY(HttpHeaderField) HttpHeaderFields;
 
 typedef struct {
-	HTTP_STATUS_CODES status;
+	HttpStatusCode status;
 	HTTPResponseBody body;
-	const char* MIMEType;
-	HttpHeaderFields additionalHeaders;
+	const char* mime_type;
+	HttpHeaderFields additional_headers;
 } HTTPResponseToSend;
 
 NODISCARD int sendHTTPMessageToConnection(const ConnectionDescriptor* descriptor,
-                                          HTTPResponseToSend toSend, SendSettings send_settings);
+                                          HTTPResponseToSend to_send, SendSettings send_settings);
 
 NODISCARD int sendHTTPMessageToConnectionAdvanced(const ConnectionDescriptor* descriptor,
-                                                  HTTPResponseToSend toSend,
+                                                  HTTPResponseToSend to_send,
                                                   SendSettings send_settings,
                                                   HttpRequestHead request_head);
 

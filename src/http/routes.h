@@ -18,11 +18,12 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRouteFnTypeExecutorExtended
 } HTTPRouteFnType;
 
-typedef HTTPResponseToSend (*HTTPRouteFnExecutor)();
+typedef HTTPResponseToSend (*HTTPRouteFnExecutor)(ParsedURLPath path);
 
 typedef HTTPResponseToSend (*HTTPRouteFnExecutorExtended)(SendSettings send_settings,
-                                                          const HttpRequest* const httpRequest,
-                                                          const ConnectionContext* const context);
+                                                          const HttpRequest* const http_request,
+                                                          const ConnectionContext* const context,
+                                                          ParsedURLPath path);
 
 // TODO(Totto): add support for file routes, that e.g. just resolve to a file and retrieve the
 // mime-type from it and send it, for e.g. static file serving
@@ -59,6 +60,11 @@ typedef struct {
 	} data;
 } HTTPRouteData;
 
+typedef struct {
+	HTTPRouteData data;
+	ParsedURLPath path;
+} HTTPSelectedRoute;
+
 /**
  * @enum value
  */
@@ -88,9 +94,9 @@ void free_selected_route(SelectedRoute* selected_route);
 NODISCARD SelectedRoute* route_manager_get_route_for_request(const RouteManager* routerManager,
                                                              const HttpRequest* request);
 
-NODISCARD HTTPRouteData get_route_data(const SelectedRoute* route);
+NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* route);
 
 NODISCARD int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* descriptor,
                                           SendSettings send_settings,
                                           const HttpRequest* httpRequest,
-                                          const ConnectionContext* context);
+                                          const ConnectionContext* context, ParsedURLPath path);
