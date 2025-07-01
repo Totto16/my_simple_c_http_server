@@ -384,6 +384,8 @@ CREDITS
     Tobias Mansfield-Williams
 */
 
+// NOLINTBEGIN(readability-identifier-length,readability-identifier-naming)
+
 #ifdef STBDS_UNIT_TESTS
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -1850,6 +1852,8 @@ void stbds_unit_tests(void)
 #endif
 }
 #endif
+
+// NOLINTEND(readability-identifier-length,readability-identifier-naming)
 
 
 /*
