@@ -108,7 +108,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) _a
 
 	// would be better to set cancel state in the right places!!
 	int socknameResult =
-	    getsockname(argument->connectionFd, (struct sockaddr*)&server_addr_raw, &addr_len);
+	    getsockname(argument->connection_fd, (struct sockaddr*)&server_addr_raw, &addr_len);
 	if(socknameResult != 0) {
 		LOG_MESSAGE(LogLevelError | LogPrintLocation, "getsockname error: %s\n", strerror(errno));
 
@@ -128,7 +128,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) _a
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
 
 	ConnectionDescriptor* const descriptor =
-	    get_connection_descriptor(context, argument->connectionFd);
+	    get_connection_descriptor(context, argument->connection_fd);
 
 	if(descriptor == NULL) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "get_connection_descriptor failed\n");
@@ -166,7 +166,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) _a
 		}
 
 		// rawFtpCommands gets freed in here
-		FTPCommandArray ftpCommands = parseMultipleFTPCommands(rawFtpCommands);
+		FTPCommandArray ftpCommands = parse_multiple_ftp_commands(rawFtpCommands);
 
 		// ftpCommands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
@@ -192,7 +192,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) _a
 			}
 		}
 
-		freeFTPCommandArray(ftpCommands);
+		free_ftp_command_array(ftpCommands);
 	}
 
 cleanup:
@@ -1366,7 +1366,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 
 	struct pollfd poll_fds[POLL_FD_AMOUNT] = {};
 	// initializing the structs for poll
-	poll_fds[0].fd = argument.socketFd;
+	poll_fds[0].fd = argument.socket_fd;
 	poll_fds[0].events = POLLIN;
 
 	int sigFd = get_signal_like_fd(SIGINT);
@@ -1383,7 +1383,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 
 		// the function poll makes the heavy lifting, the timeout 5000 is completely
 		// arbitrary and should not be to short, but otherwise it doesn't matter that much,
-		// since it aborts on POLLIN from the socketFd or the signalFd
+		// since it aborts on POLLIN from the socket_fd or the signalFd
 		int status = 0;
 		while(status == 0) {
 			status = poll(
@@ -1406,7 +1406,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 			return LISTENER_ERROR_THREAD_AFTER_CANCEL;
 		}
 
-		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
+		// the poll didn't see a POLLIN event in the argument.socket_fd fd, so the accept
 		// will fail, just redo the poll
 		if(poll_fds[0].revents != POLLIN) {
 			continue;
@@ -1416,8 +1416,8 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		socklen_t addr_len = sizeof(client_addr);
 
 		// would be better to set cancel state in the right places!!
-		int connectionFd = accept(argument.socketFd, (struct sockaddr*)&client_addr, &addr_len);
-		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
+		int connection_fd = accept(argument.socket_fd, (struct sockaddr*)&client_addr, &addr_len);
+		CHECK_FOR_ERROR(connection_fd, "While Trying to accept a socket",
 		                return LISTENER_ERROR_ACCEPT;);
 
 		if(addr_len != sizeof(client_addr)) {
@@ -1443,14 +1443,14 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 
 		// to have longer lifetime, that is needed here, since otherwise it would be "dead"
 		connectionArgument->contexts = argument.contexts;
-		connectionArgument->connectionFd = connectionFd;
-		connectionArgument->listenerThread = pthread_self();
+		connectionArgument->connection_fd = connection_fd;
+		connectionArgument->listener_thread = pthread_self();
 		connectionArgument->state = connection_ftp_state;
 		connectionArgument->addr = client_addr;
 		connectionArgument->data_controller = argument.data_controller;
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(myqueue_push(argument.jobIds,
+		if(myqueue_push(argument.job_ids,
 		                pool_submit(argument.pool, ftp_control_socket_connection_handler,
 		                            connectionArgument)) < 0) {
 			return LISTENER_ERROR_QUEUE_PUSH;
@@ -1461,12 +1461,12 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		// so its super fast,but if not doing that, the queue would overflow, nothing in
 		// here is a cancellation point, so it's safe to cancel here, since only accept then
 		// really cancels
-		int size = myqueue_size(argument.jobIds);
+		int size = myqueue_size(argument.job_ids);
 		if(size > FTP_MAX_QUEUE_SIZE) {
 			int boundary = size / 2;
 			while(size > boundary) {
 
-				JobId* jobId = (JobId*)myqueue_pop(argument.jobIds);
+				JobId* jobId = (JobId*)myqueue_pop(argument.job_ids);
 
 				JobError result = pool_await(jobId);
 
@@ -1532,7 +1532,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 
 		// the function poll makes the heavy lifting, the timeout 5000 is completely
 		// arbitrary and should not be to short, but otherwise it doesn't matter that much,
-		// since it aborts on POLLIN from the socketFd or the signalFd
+		// since it aborts on POLLIN from the socket_fd or the signalFd
 		int status = 0;
 		while(status == 0) {
 			status = poll(poll_fds, POLL_FD_AMOUNT, POLL_INTERVALL);
@@ -1554,7 +1554,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			return LISTENER_ERROR_THREAD_AFTER_CANCEL;
 		}
 
-		// the poll didn't see a POLLIN event in the argument.socketFd fd, so the accept
+		// the poll didn't see a POLLIN event in the argument.socket_fd fd, so the accept
 		// will fail, just redo the poll
 		if(poll_fds[POLL_SOCKET_ARR_INDEX].revents != POLLIN) {
 
@@ -1580,8 +1580,8 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		socklen_t addr_len = sizeof(client_addr);
 
 		// would be better to set cancel state in the right places!!
-		int connectionFd = accept(argument.fd, (struct sockaddr*)&client_addr, &addr_len);
-		CHECK_FOR_ERROR(connectionFd, "While Trying to accept a socket",
+		int connection_fd = accept(argument.fd, (struct sockaddr*)&client_addr, &addr_len);
+		CHECK_FOR_ERROR(connection_fd, "While Trying to accept a socket",
 		                return LISTENER_ERROR_ACCEPT;);
 
 		if(addr_len != sizeof(client_addr)) {
@@ -1607,7 +1607,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 
 		ConnectionContext* context = get_connection_context(options);
 
-		ConnectionDescriptor* const descriptor = get_connection_descriptor(context, connectionFd);
+		ConnectionDescriptor* const descriptor = get_connection_descriptor(context, connection_fd);
 
 		bool success =
 		    data_controller_add_descriptor(argument.data_controller, data_connection, descriptor);
@@ -1750,7 +1750,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 	                : LISTENER_ERROR_NONE;
 }
 
-int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* options) {
+int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -1897,9 +1897,9 @@ int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* optio
 
 	pthread_t controlListenerThread = {};
 	FTPControlThreadArgument control_threadArgument = { .pool = &control_pool,
-		                                                .jobIds = &control_job_ids,
+		                                                .job_ids = &control_job_ids,
 		                                                .contexts = control_contexts,
-		                                                .socketFd = controlSocketFd,
+		                                                .socket_fd = controlSocketFd,
 		                                                .global_folder = folder,
 		                                                .data_controller = data_controller
 

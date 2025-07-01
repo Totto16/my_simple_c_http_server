@@ -79,11 +79,11 @@ typedef struct {
 
 typedef STBDS_ARRAY(FTPCommand*) FTPCommandArray;
 
-NODISCARD FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands);
+NODISCARD FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands);
 
-void freeFTPCommand(FTPCommand* cmd);
+void free_ftp_command(FTPCommand* cmd);
 
-void freeFTPCommandArray(FTPCommandArray array);
+void free_ftp_command_array(FTPCommandArray array);
 
 NODISCARD const char* get_command_name(const FTPCommand* command);
 

@@ -438,11 +438,11 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 	return NULL;
 }
 
-FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands) {
+FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 
 #define FREE_AT_END() \
 	do { \
-		free(rawFtpCommands); \
+		free(raw_ftp_commands); \
 	} while(false)
 
 	FTPCommandArray array = STBDS_ARRAY_EMPTY;
@@ -450,8 +450,8 @@ FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands) {
 	const char* const separators = "\r\n";
 	size_t separatorsLength = strlen(separators);
 
-	size_t size_to_proccess = strlen(rawFtpCommands);
-	char* currentlyAt = rawFtpCommands;
+	size_t size_to_proccess = strlen(raw_ftp_commands);
+	char* currentlyAt = raw_ftp_commands;
 
 	if(size_to_proccess == 0) {
 		return array;
@@ -462,7 +462,7 @@ FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands) {
 		char* resultingIndex = strstr(currentlyAt, separators);
 		// no"\r\n" could be found, so a parse Error occurred, a NULL signals that
 		if(resultingIndex == NULL) {
-			freeFTPCommandArray(array);
+			free_ftp_command_array(array);
 			FREE_AT_END();
 			return NULL;
 		}
@@ -475,7 +475,7 @@ FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands) {
 		FTPCommand* command = parseSingleFTPCommand(currentlyAt);
 
 		if(!command) {
-			freeFTPCommandArray(array);
+			free_ftp_command_array(array);
 			FREE_AT_END();
 			return NULL;
 		}
@@ -488,7 +488,7 @@ FTPCommandArray parseMultipleFTPCommands(char* rawFtpCommands) {
 	}
 
 	if(size_to_proccess != 0) {
-		freeFTPCommandArray(array);
+		free_ftp_command_array(array);
 		FREE_AT_END();
 		return NULL;
 	}
@@ -558,7 +558,7 @@ void freeFTPCommand(FTPCommand* cmd) {
 	}
 }
 
-void freeFTPCommandArray(FTPCommandArray array) {
+void free_ftp_command_array(FTPCommandArray array) {
 	if(array == NULL) {
 		return;
 	}

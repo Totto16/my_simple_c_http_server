@@ -660,8 +660,9 @@ int start_http_server(uint16_t port, SecureOptions* const options) {
 	};
 
 	// this is an array of pointers
-	ConnectionContext** contexts =
-	    (ConnectionContext**)malloc(sizeof(ConnectionContext*) * pool.worker_threads_amount);
+	STBDS_ARRAY(ConnectionContext*) contexts = STBDS_ARRAY_EMPTY;
+
+	stbds_arrsetlen(contexts, pool.worker_threads_amount);
 
 	if(!contexts) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");

@@ -16,17 +16,17 @@
 
 typedef struct {
 	ThreadPool* pool;
-	Myqueue* jobIds;
-	ConnectionContext** contexts;
-	int socketFd;
+	Myqueue* job_ids;
+	STBDS_ARRAY(ConnectionContext*) contexts;
+	int socket_fd;
 	const char* const global_folder;
 	DataController* data_controller;
 } FTPControlThreadArgument;
 
 typedef struct {
-	ConnectionContext** contexts;
-	pthread_t listenerThread;
-	int connectionFd;
+	STBDS_ARRAY(ConnectionContext*) contexts;
+	pthread_t listener_thread;
+	int connection_fd;
 	FTPState* state;
 	RawNetworkAddress addr;
 	DataController* data_controller;
@@ -55,18 +55,18 @@ typedef struct {
 NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPAddrField server_addr,
                                    FTPControlConnectionArgument*, const FTPCommand* command);
 
-ANY_TYPE(JobError*)
+NODISCARD ANY_TYPE(JobError*)
 ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg,
                                       WorkerInfo workerInfo);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-ANY_TYPE(ListenerError*)
+NODISCARD ANY_TYPE(ListenerError*)
 ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg);
 
-ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThreadArgument*) arg);
+NODISCARD ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThreadArgument*) arg);
 
-ANY_TYPE(ListenerError*)
+NODISCARD ANY_TYPE(ListenerError*)
 ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
 
-NODISCARD int startFtpServer(FTPPortField control_port, char* folder, SecureOptions* options);
+NODISCARD int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options);
