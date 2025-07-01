@@ -972,7 +972,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				return false;
 			}
 
-			int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
+			int send_result = send_string_builder_to_connection(descriptor, &string_builder);
 			if(send_result < 0) {
 				return false;
 			}
@@ -995,7 +995,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				sendLength = progress->_impl.total_count - offset;
 			}
 
-			int send_result = sendDataToConnection(descriptor, toSend, sendLength);
+			int send_result = send_data_to_connection(descriptor, toSend, sendLength);
 			if(send_result < 0) {
 				return false;
 			}

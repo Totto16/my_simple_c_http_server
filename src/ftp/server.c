@@ -149,7 +149,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) _a
 
 	while(!quit) {
 
-		char* rawFtpCommands = readStringFromConnection(descriptor);
+		char* rawFtpCommands = read_string_from_connection(descriptor);
 
 		if(!rawFtpCommands) {
 			int result =
@@ -568,7 +568,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				STRING_BUILDER_APPENDF(string_builder, return false;, "%03d-Extensions supported:",
 				                                                    FTP_RETURN_CODE_FEATURE_LIST);
-				int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
+				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
 				if(send_result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending start feature response\n");
@@ -592,7 +592,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					STRING_BUILDER_APPENDF(string_builder, return false;, " %s", feature.arguments);
 				}
 
-				int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
+				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
 				if(send_result < 0) {
 					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
 					                   "Error in sending manual feature response\n");
@@ -779,7 +779,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    data_connection_get_descriptor_to_send_to(argument->data_controller,
 				                                              data_connection);
 
-				char* resultingData = readStringFromConnection(data_conn_descriptor);
+				char* resultingData = read_string_from_connection(data_conn_descriptor);
 
 				if(!resultingData) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,

@@ -5,38 +5,38 @@
 
 #include <errno.h>
 
-int sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toSend,
-                         size_t length) {
+int send_data_to_connection(const ConnectionDescriptor* const descriptor, void* to_send,
+                            size_t length) {
 
-	size_t remainingLength = length;
+	size_t remaining_length = length;
 
-	size_t alreadyWritten = 0;
+	size_t already_written = 0;
 	// write bytes until all are written
 	while(true) {
-		ssize_t wroteBytes =
-		    write_to_descriptor(descriptor, ((uint8_t*)toSend) + alreadyWritten, remainingLength);
+		ssize_t wrote_bytes = write_to_descriptor(descriptor, ((uint8_t*)to_send) + already_written,
+		                                          remaining_length);
 
-		if(wroteBytes == -1) {
+		if(wrote_bytes == -1) {
 			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));
 			return -errno;
 		}
 
-		if(wroteBytes == (ssize_t)remainingLength) {
+		if(wrote_bytes == (ssize_t)remaining_length) {
 			// the message was sent in one time
 			break;
 		}
 
-		if(wroteBytes == 0) {
+		if(wrote_bytes == 0) {
 			/// shouldn't occur!
 			LOG_MESSAGE(LogLevelError,
 			            "FATAL: Write has an unsupported state: written %lu of %lu bytes\n",
-			            alreadyWritten, length);
+			            already_written, length);
 			return -2;
 		}
 
 		// otherwise repeat until that happened
-		remainingLength -= wroteBytes;
-		alreadyWritten += wroteBytes;
+		remaining_length -= wrote_bytes;
+		already_written += wrote_bytes;
 	}
 
 	return 0;
@@ -44,22 +44,22 @@ int sendDataToConnection(const ConnectionDescriptor* const descriptor, void* toS
 
 // sends a string to the connection, makes all write calls under the hood, deals with arbitrary
 // large null terminated strings!
-int sendStringToConnection(const ConnectionDescriptor* const descriptor, char* toSend) {
-	return sendDataToConnection(descriptor, toSend, strlen(toSend));
+int send_string_to_connection(const ConnectionDescriptor* const descriptor, char* to_send) {
+	return send_data_to_connection(descriptor, to_send, strlen(to_send));
 }
 
-NODISCARD int sendSizedBufferToConnection(const ConnectionDescriptor* const descriptor,
-                                          SizedBuffer buffer) {
-	return sendDataToConnection(descriptor, buffer.data, buffer.size);
+NODISCARD int send_sized_buffer_to_connection(const ConnectionDescriptor* const descriptor,
+                                              SizedBuffer buffer) {
+	return send_data_to_connection(descriptor, buffer.data, buffer.size);
 }
 
 // just a warpper to send a string buffer to a connection, it also frees the string buffer!
-int sendStringBuilderToConnection(const ConnectionDescriptor* const descriptor,
-                                  StringBuilder** string_builder) {
+int send_string_builder_to_connection(const ConnectionDescriptor* const descriptor,
+                                      StringBuilder** string_builder) {
 
-	SizedBuffer stringBuffer = string_builder_release_into_sized_buffer(string_builder);
+	SizedBuffer string_buffer = string_builder_release_into_sized_buffer(string_builder);
 
-	int result = sendSizedBufferToConnection(descriptor, stringBuffer);
-	free_sized_buffer(stringBuffer);
+	int result = send_sized_buffer_to_connection(descriptor, string_buffer);
+	free_sized_buffer(string_buffer);
 	return result;
 }

@@ -14,7 +14,7 @@ struct SecureDataImpl {
 };
 
 struct ConnectionContextImpl {
-	SECURE_OPTIONS_TYPE type;
+	SecureOptionsType type;
 	union {
 		struct {
 			SSL* ssl_structure;
@@ -24,7 +24,7 @@ struct ConnectionContextImpl {
 };
 
 struct ConnectionDescriptorImpl {
-	SECURE_OPTIONS_TYPE type;
+	SecureOptionsType type;
 	union {
 		SSL* ssl_structure;
 		int fd;
@@ -33,7 +33,7 @@ struct ConnectionDescriptorImpl {
 
 bool is_secure(const SecureOptions* const options) {
 	return options->type == // NOLINT(readability-implicit-bool-conversion)
-	       SECURE_OPTIONS_TYPE_SECURE;
+	       SecureOptionsTypeSecure;
 }
 
 #ifndef _SIMPLE_SERVER_SECURE_DISABLED
@@ -134,7 +134,7 @@ SecureOptions* initialize_secure_options(bool secure, const char* const public_c
 	}
 
 	if(!secure) {
-		options->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
+		options->type = SecureOptionsTypeNotSecure;
 		return options;
 	}
 
@@ -144,7 +144,7 @@ SecureOptions* initialize_secure_options(bool secure, const char* const public_c
 	UNREACHABLE();
 #else
 
-	options->type = SECURE_OPTIONS_TYPE_SECURE;
+	options->type = SecureOptionsTypeSecure;
 
 	SecureData* data = initialize_secure_data(public_cert_file, private_cert_file);
 
@@ -177,7 +177,7 @@ void free_secure_options(SecureOptions* const options) {
 
 bool is_secure_context(const ConnectionContext* const context) {
 	return context->type == // NOLINT(readability-implicit-bool-conversion)
-	       SECURE_OPTIONS_TYPE_SECURE;
+	       SecureOptionsTypeSecure;
 }
 
 #ifndef _SIMPLE_SERVER_SECURE_DISABLED
@@ -205,7 +205,7 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 	}
 
 	if(!is_secure(options)) {
-		context->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
+		context->type = SecureOptionsTypeNotSecure;
 		return context;
 	}
 
@@ -214,7 +214,7 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 	UNREACHABLE();
 #else
 
-	context->type = SECURE_OPTIONS_TYPE_SECURE;
+	context->type = SecureOptionsTypeSecure;
 
 	SecureData* data = options->data.data;
 
@@ -242,7 +242,7 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 	}
 
 	if(!is_secure_context(old_context)) {
-		context->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
+		context->type = SecureOptionsTypeNotSecure;
 		return context;
 	}
 
@@ -251,7 +251,7 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 	UNREACHABLE();
 #else
 
-	context->type = SECURE_OPTIONS_TYPE_SECURE;
+	context->type = SecureOptionsTypeSecure;
 
 	const SecureOptions* const options = old_context->data.data.options;
 
@@ -290,7 +290,7 @@ void free_connection_context(ConnectionContext* context) {
 
 static bool is_secure_descriptor(const ConnectionDescriptor* const descriptor) {
 	return descriptor->type == // NOLINT(readability-implicit-bool-conversion)
-	       SECURE_OPTIONS_TYPE_SECURE;
+	       SecureOptionsTypeSecure;
 }
 
 ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const context,
@@ -304,7 +304,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	}
 
 	if(!is_secure_context(context)) {
-		descriptor->type = SECURE_OPTIONS_TYPE_NOT_SECURE;
+		descriptor->type = SecureOptionsTypeNotSecure;
 		descriptor->data.fd = native_fd;
 		return descriptor;
 	}
@@ -314,7 +314,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 	UNREACHABLE();
 #else
 
-	descriptor->type = SECURE_OPTIONS_TYPE_SECURE;
+	descriptor->type = SecureOptionsTypeSecure;
 
 	SSL* ssl_structure = context->data.data.ssl_structure;
 

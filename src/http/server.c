@@ -92,7 +92,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) _arg, WorkerInf
 		return JOB_ERROR_DESC;
 	}
 
-	char* rawHttpRequest = readStringFromConnection(descriptor);
+	char* rawHttpRequest = read_string_from_connection(descriptor);
 
 	if(!rawHttpRequest) {
 		HTTPResponseToSend toSend = { .status = HTTP_STATUS_BAD_REQUEST,

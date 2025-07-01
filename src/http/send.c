@@ -5,13 +5,13 @@
 
 NODISCARD static int sendConcattedResponseToConnection(const ConnectionDescriptor* const descriptor,
                                                        HttpConcattedResponse* concattedResponse) {
-	int result = sendStringBuilderToConnection(descriptor, &concattedResponse->headers);
+	int result = send_string_builder_to_connection(descriptor, &concattedResponse->headers);
 	if(result < 0) {
 		return result;
 	}
 
 	if(concattedResponse->body.data) {
-		result = sendSizedBufferToConnection(descriptor, concattedResponse->body);
+		result = send_sized_buffer_to_connection(descriptor, concattedResponse->body);
 	}
 
 	free(concattedResponse);

@@ -157,7 +157,7 @@ NODISCARD static bool is_control_op_code(WS_OPCODE opCode) {
 NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection* connection) {
 
 	uint8_t* header_bytes =
-	    (uint8_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
+	    (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
 	if(!header_bytes) {
 		return (WebSocketRawMessageResult){ .has_error = true,
 			                                .data = { .error = "couldn't read header bytes (2)" } };
@@ -177,7 +177,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 
 	if(payload_len == EXTENDED_PAYLOAD_MAGIC_NUMBER1) {
 		uint16_t* payload_len_result =
-		    (uint16_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_1_SIZE);
+		    (uint16_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_1_SIZE);
 		if(!payload_len_result) {
 			return (WebSocketRawMessageResult){
 				.has_error = true,
@@ -189,7 +189,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		free(payload_len_result);
 	} else if(payload_len == EXTENDED_PAYLOAD_MAGIC_NUMBER2) {
 		uint64_t* payload_len_result =
-		    (uint64_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_2_SIZE);
+		    (uint64_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_2_SIZE);
 		if(!payload_len_result) {
 			return (WebSocketRawMessageResult){
 				.has_error = true,
@@ -204,7 +204,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	uint8_t* mask_byte = NULL;
 
 	if(raw_header.mask) {
-		mask_byte = (uint8_t*)readExactBytes(connection->descriptor, RAW_MESSAGE_MASK_BYTE_SIZE);
+		mask_byte = (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_MASK_BYTE_SIZE);
 		if(!mask_byte) {
 			return (WebSocketRawMessageResult){
 				.has_error = true, .data = { .error = "couldn't read mask bytes (4)" }
@@ -216,7 +216,7 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 
 	if(payload_len != 0) {
 
-		payload = readExactBytes(connection->descriptor, payload_len);
+		payload = read_exact_bytes(connection->descriptor, payload_len);
 		if(!payload) {
 			return (WebSocketRawMessageResult){
 				.has_error = true, .data = { .error = "couldn't read payload bytes" }
@@ -341,7 +341,7 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 		}
 	}
 
-	int result = sendDataToConnection(connection->descriptor, resultingFrame, size);
+	int result = send_data_to_connection(connection->descriptor, resultingFrame, size);
 
 	free(resultingFrame);
 

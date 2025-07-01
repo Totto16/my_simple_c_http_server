@@ -24,11 +24,11 @@ int get_signal_like_fd(int signal) {
 	kevent(kqueue_id, &sigevent, 1, NULL, 0, NULL);
 	return kqueue_id;
 #else
-	sigset_t mySigset;
-	sigemptyset(&mySigset);
-	sigaddset(&mySigset, signal);
+	sigset_t my_sigset;
+	sigemptyset(&my_sigset);
+	sigaddset(&my_sigset, signal);
 
 	// see https://man7.org/linux/man-pages/man2/signalfd.2.html
-	return signalfd(-1, &mySigset, 0);
+	return signalfd(-1, &my_sigset, 0);
 #endif
 }

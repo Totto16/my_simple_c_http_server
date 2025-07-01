@@ -17,10 +17,12 @@ typedef sem_t SemaphoreType;
 #include <stdbool.h>
 #include <stdint.h>
 
-int comp_sem_init(SemaphoreType* sem, uint32_t value, bool shared);
+#include "utils/utils.h"
 
-int comp_sem_wait(SemaphoreType* sem);
+NODISCARD int comp_sem_init(SemaphoreType* sem, uint32_t value, bool shared);
 
-int comp_sem_post(SemaphoreType* sem);
+NODISCARD int comp_sem_wait(SemaphoreType* sem);
 
-int comp_sem_destroy(SemaphoreType* sem);
+NODISCARD int comp_sem_post(SemaphoreType* sem);
+
+NODISCARD int comp_sem_destroy(SemaphoreType* sem);
