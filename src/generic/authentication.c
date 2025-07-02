@@ -49,9 +49,36 @@ NODISCARD AuthenticationProviders* initialize_authentication_providers(void) {
 	return auth_providers;
 }
 
-NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void);
+#define TODO_HASH_SETTINGS 20
 
-NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void);
+NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void) {
+
+	AuthenticationProvider* auth_provider = malloc(sizeof(AuthenticationProvider));
+
+	if(!auth_provider) {
+		return NULL;
+	}
+
+	auth_provider->type = AuthenticationProviderTypeSimple;
+	auth_provider->data.simple =
+	    (SimpleAuthenticationProviderData){ .entries = STBDS_ARRAY_EMPTY,
+		                                    .settings = { .todo = TODO_HASH_SETTINGS } };
+
+	return auth_provider;
+}
+
+NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void) {
+	AuthenticationProvider* auth_provider = malloc(sizeof(AuthenticationProvider));
+
+	if(!auth_provider) {
+		return NULL;
+	}
+
+	auth_provider->type = AuthenticationProviderTypeSystem;
+	auth_provider->data.system = (SystemAuthenticationProviderData){ .todo = 1 };
+
+	return auth_provider;
+}
 
 NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_providers,
                                            AuthenticationProvider* provider) {
@@ -134,4 +161,78 @@ void free_authentication_providers(AuthenticationProviders* auth_providers) {
 	stbds_arrfree(auth_providers->providers);
 
 	free(auth_providers);
+}
+
+static AuthenticationFindResult
+authentication_provider_simple_find_user_with_password(const AuthenticationProvider* auth_provider,
+                                                       char* username, char* password) {
+
+	UNUSED(auth_provider);
+
+	UNUSED(username);
+	UNUSED(password);
+
+	return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
+		                               .data = { .error = { .error_message = "TODO" } } };
+}
+
+static AuthenticationFindResult authentication_provider_system_find_user_with_password(
+    const AuthenticationProvider* auth_provider,
+    char* username, // NOLINT(bugprone-easily-swappable-parameters)
+    char* password) {
+
+	UNUSED(auth_provider);
+
+	// TODO(Totto): https://stackoverflow.com/questions/64184960/pam-authenticate-a-user-in-c
+	//  and https://github.com/linux-pam/linux-pam/blob/master/examples/check_user.c
+
+	UNUSED(username);
+	UNUSED(password);
+
+	return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
+		                               .data = { .error = { .error_message = "TODO" } } };
+}
+
+NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
+    const AuthenticationProviders* auth_providers,
+    char* username, // NOLINT(bugprone-easily-swappable-parameters)
+    char* password) {
+
+	AuthenticationFindResult last_result = (AuthenticationFindResult){
+		.validity = AuthenticationValidityError,
+		.data = { .error = { .error_message = "no single provider registered" } }
+	};
+
+	for(size_t i = 0; stbds_arrlenu(auth_providers->providers); ++i) {
+		AuthenticationProvider* provider = auth_providers->providers[i];
+
+		AuthenticationFindResult result;
+
+		switch(provider->type) {
+			case AuthenticationProviderTypeSimple: {
+				result = authentication_provider_simple_find_user_with_password(provider, username,
+				                                                                password);
+				break;
+			}
+			case AuthenticationProviderTypeSystem: {
+				result = authentication_provider_system_find_user_with_password(provider, username,
+				                                                                password);
+				break;
+			}
+			default:
+				result = (AuthenticationFindResult){
+					.validity = AuthenticationValidityError,
+					.data = { .error = { .error_message = "unrecognized provider type" } }
+				};
+				break;
+		}
+
+		last_result = result;
+
+		if(last_result.validity == AuthenticationValidityOk) {
+			break;
+		}
+	}
+
+	return last_result;
 }

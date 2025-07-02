@@ -24,7 +24,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
                                           HttpHeaderFields additional_headers,
                                           CompressionType compression_format) {
 
-	STBDS_ARRAY_INIT(response->head.header_fields);
+	response->head.header_fields = STBDS_ARRAY_EMPTY;
 
 	// add standard fields
 

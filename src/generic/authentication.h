@@ -3,7 +3,6 @@
 #pragma once
 
 #include "./hash.h"
-#include "utils/sized_buffer.h"
 #include "utils/utils.h"
 
 #include <stb/ds.h>
@@ -30,3 +29,28 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
     HashSaltResultType hash_salted_password, char* role);
 
 void free_authentication_providers(AuthenticationProviders* auth_providers);
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	AuthenticationValidityNoSuchUser = 0,
+	AuthenticationValidityWrongPassword,
+	AuthenticationValidityOk,
+	AuthenticationValidityError,
+} AuthenticationValidity;
+
+typedef struct {
+	AuthenticationValidity validity;
+	union {
+		struct {
+			char* role;
+		} ok;
+		struct {
+			const char* error_message;
+		} error;
+	} data;
+} AuthenticationFindResult;
+
+NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
+    const AuthenticationProviders* auth_providers, char* username, char* password);

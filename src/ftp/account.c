@@ -1,5 +1,6 @@
 
 #include "./account.h"
+#include "utils/log.h"
 
 #include <stdlib.h>
 
@@ -32,18 +33,34 @@ void free_account_data(AccountInfo* account) {
 	}
 }
 
-UserValidity
-account_verify(const AuthenticationProviders* auth_providers,
-               const char* const username, // NOLINT(bugprone-easily-swappable-parameters)
-               const char* const passwd) {
+UserValidity account_verify(const AuthenticationProviders* auth_providers,
+                            char* username, // NOLINT(bugprone-easily-swappable-parameters)
+                            char* password) {
 
-	UNUSED(auth_providers);
+	const AuthenticationFindResult result =
+	    authentication_providers_find_user_with_password(auth_providers, username, password);
 
-	// TODO(Totto): https://stackoverflow.com/questions/64184960/pam-authenticate-a-user-in-c
-	//  and https://github.com/linux-pam/linux-pam/blob/master/examples/check_user.c
+	switch(result.validity) {
+		case AuthenticationValidityError: {
+			LOG_MESSAGE(LogLevelError,
+			            "An error occured, while trying to find a user with password: %s\n",
+			            result.data.error.error_message);
+			return UserValidityInternalError;
+		}
+		case AuthenticationValidityNoSuchUser: {
+			return UserValidityNoSuchUser;
+		}
+		case AuthenticationValidityWrongPassword: {
+			return UserValidityWrongPassword;
+		}
+		case AuthenticationValidityOk: {
+			return UserValidityOk;
+		}
+		default: {
+			LOG_MESSAGE_SIMPLE(LogLevelError, "An error occured, while trying to find a user with "
+			                                  "password, unexpected return type enum value\n");
 
-	UNUSED(username);
-	UNUSED(passwd);
-
-	return UserValidityInternalError;
+			return UserValidityInternalError;
+		}
+	}
 }

@@ -9,8 +9,6 @@
 
 #define STBDS_ARRAY_EMPTY NULL
 
-#define STBDS_ARRAY_INIT(value) value = STBDS_ARRAY_EMPTY
-
 #define STBDS_HASM_MAP_TYPE(KeyType, ValueType, TypeName) \
 	typedef struct { \
 		KeyType key; \

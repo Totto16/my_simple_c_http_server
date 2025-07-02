@@ -181,7 +181,7 @@ HttpRequest* parse_http_request(char* raw_http_request) {
 		return NULL;
 	}
 
-	STBDS_ARRAY_INIT(request->head.header_fields);
+	request->head.header_fields = STBDS_ARRAY_EMPTY;
 
 	// iterating over each separated string, then determining if header or body or statusLine and
 	// then parsing that accordingly
@@ -437,7 +437,7 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 		return NULL;
 	}
 
-	STBDS_ARRAY_INIT(compression_settings->entries);
+	compression_settings->entries = STBDS_ARRAY_EMPTY;
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
