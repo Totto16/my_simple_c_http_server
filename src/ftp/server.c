@@ -314,7 +314,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			char* passwd = command->data.string;
 
-			UserValidity user_validity = account_verify(username, passwd);
+			UserValidity user_validity = account_verify(argument->auth_providers, username, passwd);
 
 			switch(user_validity) {
 				case UserValidityOk: {
@@ -1433,11 +1433,14 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 
 		// to have longer lifetime, that is needed here, since otherwise it would be "dead"
 		connection_argument->contexts = argument.contexts;
-		connection_argument->connection_fd = connection_fd;
 		connection_argument->listener_thread = pthread_self();
+		connection_argument->connection_fd = connection_fd;
 		connection_argument->state = connection_ftp_state;
 		connection_argument->addr = client_addr;
 		connection_argument->data_controller = argument.data_controller;
+		connection_argument->data_orchestrator = argument.data_orchestrator;
+		connection_argument->auth_providers = argument.auth_providers;
+
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
 		if(myqueue_push(argument.job_ids,
@@ -1741,7 +1744,8 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 	                : LISTENER_ERROR_NONE;
 }
 
-int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options) {
+int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options,
+                     AuthenticationProviders* const auth_providers) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -1889,13 +1893,15 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	                       return EXIT_FAILURE;);
 
 	pthread_t control_listener_thread = {};
-	FTPControlThreadArgument control_thread_argument = { .pool = &control_pool,
-		                                                 .job_ids = &control_job_ids,
-		                                                 .contexts = control_contexts,
-		                                                 .socket_fd = control_socket_fd,
-		                                                 .global_folder = folder,
-		                                                 .data_controller = data_controller
-
+	FTPControlThreadArgument control_thread_argument = {
+		.pool = &control_pool,
+		.job_ids = &control_job_ids,
+		.contexts = control_contexts,
+		.socket_fd = control_socket_fd,
+		.global_folder = folder,
+		.data_controller = data_controller,
+		.data_orchestrator = data_orchestrator_thread,
+		.auth_providers = auth_providers,
 	};
 
 	// creating the control thread
@@ -1996,6 +2002,8 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	}
 
 	free(folder);
+
+	free_authentication_providers(auth_providers);
 
 	return EXIT_SUCCESS;
 }

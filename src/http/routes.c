@@ -5,6 +5,7 @@
 
 struct RouteManagerImpl {
 	HTTPRoutes routes;
+	const AuthenticationProviders* auth_providers;
 };
 
 static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
@@ -353,7 +354,8 @@ HTTPRoutes get_default_routes(void) {
 	return routes;
 }
 
-NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes) {
+NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes,
+                                                 const AuthenticationProviders* auth_providers) {
 	RouteManager* route_manager = malloc(sizeof(RouteManager));
 
 	if(!route_manager) {
@@ -361,6 +363,7 @@ NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes) {
 	}
 
 	route_manager->routes = routes;
+	route_manager->auth_providers = auth_providers;
 
 	return route_manager;
 }

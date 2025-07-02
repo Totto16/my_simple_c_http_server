@@ -10,6 +10,7 @@
 // all headers that are needed, so modular dependencies can be solved easily and also some "topics"
 // stay in the same file
 #include "./routes.h"
+#include "generic/authentication.h"
 #include "generic/secure.h"
 #include "http/http_protocol.h"
 #include "utils/thread_pool.h"
@@ -47,6 +48,7 @@ typedef struct {
 	int socket_fd;
 	WebSocketThreadManager* web_socket_manager;
 	const RouteManager* route_manager;
+
 } HTTPThreadArgument;
 
 typedef struct {
@@ -69,4 +71,5 @@ NODISCARD ANY_TYPE(JobError*)
 // trough the argument
 NODISCARD ANY_TYPE(NULL) http_listener_thread_function(ANY_TYPE(HTTPThreadArgument*) arg);
 
-NODISCARD int start_http_server(uint16_t port, SecureOptions* options);
+NODISCARD int start_http_server(uint16_t port, SecureOptions* options,
+                                AuthenticationProviders* auth_providers);

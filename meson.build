@@ -36,6 +36,13 @@ else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
 endif
 
+# TODO: 
+warning('todo')
+## use sha1 of openssl
+## find library for bcrypt instead of openssl!
+# libcrypt
+
+
 compression_features_dict = {
     'zstd': false,
     'br': false,

@@ -4,8 +4,10 @@
 
 #include "./http_protocol.h"
 #include "./send.h"
+#include "generic/authentication.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
+
 #include <stb/ds.h>
 
 typedef struct RouteManagerImpl RouteManager;
@@ -83,7 +85,8 @@ typedef STBDS_ARRAY(HTTPRoute) HTTPRoutes;
 
 NODISCARD HTTPRoutes get_default_routes(void);
 
-NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes);
+NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes,
+                                                 const AuthenticationProviders* auth_providers);
 
 void free_route_manager(RouteManager* route_manager);
 

@@ -1,4 +1,5 @@
 #include "ftp/server.h"
+#include "generic/authentication.h"
 #include "generic/secure.h"
 #include "http/server.h"
 #include "utils/log.h"
@@ -76,7 +77,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	}
 }
 
-static bool is_help_string(const char* str) {
+NODISCARD static bool is_help_string(const char* str) {
 	if(strcmp(str, "--help") == 0) {
 		return true;
 	}
@@ -92,7 +93,61 @@ static bool is_help_string(const char* str) {
 	return false;
 }
 
-static int subcommand_http(const char* program_name, int argc, const char* argv[]) {
+typedef struct {
+	char* username;
+	char* password;
+	char* role;
+} SimpleUserEntry;
+
+NODISCARD static AuthenticationProviders* initialize_default_authentication_providers(void) {
+
+	AuthenticationProviders* auth_providers = initialize_authentication_providers();
+
+	if(!auth_providers) {
+		return NULL;
+	}
+
+	AuthenticationProvider* simple_auth_provider = initialize_simple_authentication_provider();
+
+	if(!simple_auth_provider) {
+		free_authentication_providers(auth_providers);
+		return NULL;
+	}
+
+	SimpleUserEntry entries[] = { { .username = "admin", .password = "admin", .role = "admin" } };
+
+	for(size_t i = 0; i < sizeof(entries) / sizeof(*entries); ++i) {
+
+		SimpleUserEntry entry = entries[i];
+
+		if(!add_user_to_simple_authentication_provider_data_password_raw(
+		       simple_auth_provider, entry.username, entry.password, entry.role)) {
+			free_authentication_providers(auth_providers);
+			return NULL;
+		}
+	}
+
+	if(!add_authentication_provider(auth_providers, simple_auth_provider)) {
+		free_authentication_providers(auth_providers);
+		return NULL;
+	}
+
+	AuthenticationProvider* system_auth_provider = initialize_system_authentication_provider();
+
+	if(!system_auth_provider) {
+		free_authentication_providers(auth_providers);
+		return NULL;
+	}
+
+	if(!add_authentication_provider(auth_providers, system_auth_provider)) {
+		free_authentication_providers(auth_providers);
+		return NULL;
+	}
+
+	return auth_providers;
+}
+
+NODISCARD static int subcommand_http(const char* program_name, int argc, const char* argv[]) {
 
 	if(argc < 1) {
 		fprintf(stderr, "missing <port>\n");
@@ -189,10 +244,17 @@ static int subcommand_http(const char* program_name, int argc, const char* argv[
 		return EXIT_FAILURE;
 	}
 
-	return start_http_server(port, options);
+	AuthenticationProviders* auth_providers = initialize_default_authentication_providers();
+
+	if(auth_providers == NULL) {
+		fprintf(stderr, "Couldn't initialize authentication providers\n");
+		return EXIT_FAILURE;
+	}
+
+	return start_http_server(port, options, auth_providers);
 }
 
-static int subcommand_ftp(const char* program_name, int argc, const char* argv[]) {
+NODISCARD static int subcommand_ftp(const char* program_name, int argc, const char* argv[]) {
 
 	if(argc < 1) {
 		fprintf(stderr, "missing <port>\n");
@@ -327,7 +389,14 @@ static int subcommand_ftp(const char* program_name, int argc, const char* argv[]
 		return EXIT_FAILURE;
 	}
 
-	return start_ftp_server(control_port, folder, options);
+	AuthenticationProviders* auth_providers = initialize_default_authentication_providers();
+
+	if(auth_providers == NULL) {
+		fprintf(stderr, "Couldn't initialize authentication providers\n");
+		return EXIT_FAILURE;
+	}
+
+	return start_ftp_server(control_port, folder, options, auth_providers);
 }
 
 int main(int argc, const char* argv[]) {
