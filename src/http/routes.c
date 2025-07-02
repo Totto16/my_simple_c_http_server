@@ -528,6 +528,8 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(char* value) {
 		memcpy(decoded_data, decoded.data, decoded.size);
 		decoded_data[decoded.size] = '\0';
 
+		free_sized_buffer(decoded);
+
 		char* username = decoded_data;
 		char* password = NULL;
 
@@ -609,6 +611,7 @@ NODISCARD HttpAuthStatus handle_http_authorization_impl(
 		case HttpAuthHeaderValueTypeBasic: {
 			username = strdup(result.data.basic.username);
 			password = password == NULL ? NULL : strdup(result.data.basic.password);
+			free(result.data.basic.username);
 			break;
 		}
 		case HttpAuthHeaderValueTypeError:
@@ -623,6 +626,9 @@ NODISCARD HttpAuthStatus handle_http_authorization_impl(
 
 	AuthenticationFindResult find_result =
 	    authentication_providers_find_user_with_password(auth_providers, username, password);
+
+	free(username);
+	free(password);
 
 	switch(find_result.validity) {
 		case AuthenticationValidityNoSuchUser: {
@@ -736,7 +742,7 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 					                                auth_user);
 				}
 				case HttpAuthStatusTypeAuthorized: {
-					auth_user = malloc(sizeof(AuthUser));
+					auth_user = malloc(sizeof(AuthUserWithContext));
 
 					if(!auth_user) {
 						HTTPResponseToSend to_send = {
@@ -835,12 +841,17 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const r
 		                        .auth_user = route->auth_user };
 }
 
-NODISCARD int route_manager_execute_route(HTTPRouteFn route,
-                                          const ConnectionDescriptor* const descriptor,
-                                          SendSettings send_settings,
-                                          const HttpRequest* const http_request,
-                                          const ConnectionContext* const context,
-                                          ParsedURLPath path, AuthUserWithContext* auth_user) {
+static void free_auth_user(AuthUserWithContext* user) {
+	free(user->user.username);
+	free(user->user.role);
+	free(user);
+}
+
+NODISCARD
+int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* const descriptor,
+                                SendSettings send_settings, const HttpRequest* const http_request,
+                                const ConnectionContext* const context, ParsedURLPath path,
+                                AuthUserWithContext* auth_user) {
 
 	HTTPResponseToSend response = {};
 
@@ -874,6 +885,10 @@ NODISCARD int route_manager_execute_route(HTTPRouteFn route,
 			return -11; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			break;
 		}
+	}
+
+	if(auth_user != NULL) {
+		free_auth_user(auth_user);
 	}
 
 	int result = send_http_message_to_connection_advanced(descriptor, response, send_settings,

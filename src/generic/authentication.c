@@ -87,8 +87,9 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 		return false;
 	}
 
-	stbds_arrput(auth_providers->providers,
-	             provider); // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
+	stbds_arrput(
+	    auth_providers->providers, // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
+	    provider);
 	return true;
 }
 
@@ -203,7 +204,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		.data = { .error = { .error_message = "no single provider registered" } }
 	};
 
-	for(size_t i = 0; stbds_arrlenu(auth_providers->providers); ++i) {
+	for(size_t i = 0; i < stbds_arrlenu(auth_providers->providers); ++i) {
 		AuthenticationProvider* provider = auth_providers->providers[i];
 
 		AuthenticationFindResult result;
