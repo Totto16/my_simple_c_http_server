@@ -6,8 +6,6 @@
 
 #include "./c_types.hpp"
 
-#include <expected>
-
 namespace {
 
 [[nodiscard]] consteval std::uint8_t single_hex_number(char input, bool* success) {
@@ -51,27 +49,64 @@ namespace {
 
 constexpr const size_t sha1_buffer_size = 20;
 
-using Sha1BufferType = std::array<std::uint8_t, sha1_buffer_size>;
+struct Sha1BufferType {
+  public:
+	using ValueType = std::uint8_t;
+	using UnderlyingType = std::array<ValueType, sha1_buffer_size>;
 
-[[nodiscard]] consteval Sha1BufferType
-get_expected_sha1_from_string(const char* input, std::size_t size, bool* success) {
+  private:
+	UnderlyingType m_value;
+	bool m_is_error;
 
-	Sha1BufferType result = {};
+  public:
+	constexpr Sha1BufferType(UnderlyingType&& value)
+	    : m_value{ std::move(value) }, m_is_error{ false } {}
+
+	constexpr Sha1BufferType(bool is_error) : m_value{}, m_is_error{ is_error } {}
+
+	constexpr ValueType& operator[](UnderlyingType::size_type n) noexcept { return m_value[n]; }
+
+	[[nodiscard]] constexpr bool is_error() const { return m_is_error; }
+
+	constexpr void set_error(bool error) { m_is_error = error; }
+
+	[[nodiscard]] constexpr SizedBuffer get_sized_buffer() const {
+		SizedBuffer sized_buffer = { .data = (void*)&this->m_value, .size = sha1_buffer_size };
+		return sized_buffer;
+	}
+
+	friend std::ostream& operator<<(std::ostream& os, const Sha1BufferType& buffer);
+
+	[[nodiscard]] bool operator==(const SizedBuffer& lhs) const {
+
+		SizedBuffer rhs_sized_buffer = this->get_sized_buffer();
+
+		return lhs == rhs_sized_buffer;
+	}
+};
+
+std::ostream& operator<<(std::ostream& os, const Sha1BufferType& buffer) {
+	SizedBuffer sized_buffer = buffer.get_sized_buffer();
+	os << sized_buffer;
+	return os;
+}
+
+[[nodiscard]] consteval Sha1BufferType get_expected_sha1_from_string(const char* input,
+                                                                     std::size_t size) {
+
+	Sha1BufferType result = { false };
 
 	if(size == 0) {
-		*success = false;
 		return result;
 	}
 
 	if(size % 2 != 0) {
-		*success = false;
 		return result;
 	}
 
 	size_t buffer_size = size / 2;
 
 	if(buffer_size != sha1_buffer_size) {
-		*success = false;
 		return result;
 	}
 
@@ -79,66 +114,51 @@ get_expected_sha1_from_string(const char* input, std::size_t size, bool* success
 		bool success_sub = true;
 		std::uint8_t value = single_hex_value(input + (i * 2), &success_sub);
 		if(!success_sub) {
-			*success = false;
 			return result;
 		}
 		result[i] = value;
 	}
 
-	*success = true;
+	result.set_error(false);
 	return result;
 }
 
 [[nodiscard]] consteval Sha1BufferType operator""_sha1(const char* input, std::size_t size) {
-	bool success = true;
-	const auto result = get_expected_sha1_from_string(input, size, &success);
+	const auto result = get_expected_sha1_from_string(input, size);
 
-	if(!success) {
+	if(result.is_error()) {
 		assert(false && "ERROR in consteval");
 	}
 
 	return result;
 }
 
-[[nodiscard]] SizedBuffer
-get_sized_buffer_from_sha1_return_type(const Sha1BufferType& return_type) {
-	SizedBuffer sized_buffer = { .data = (void*)&return_type, .size = sha1_buffer_size };
-	return sized_buffer;
-}
-
-std::ostream& operator<<(std::ostream& os, const Sha1BufferType& sha1_buffer) {
-	SizedBuffer buffer = get_sized_buffer_from_sha1_return_type(sha1_buffer);
-	os << buffer;
-	return os;
-}
-
 } // namespace
-
-doctest::String toString(const Sha1BufferType& buffer) {
-	std::stringstream str{};
-	str << buffer;
-	std::string string = str.str();
-	return doctest::String{ string.c_str(),
-		                    static_cast<doctest::String::size_type>(string.size()) };
-}
-
-NODISCARD bool operator==(const SizedBuffer& lhs, const Sha1BufferType& rhs) {
-
-	SizedBuffer rhs_sized_buffer = get_sized_buffer_from_sha1_return_type(rhs);
-
-	return lhs == rhs_sized_buffer;
-}
 
 TEST_CASE("testing sha1 generation with openssl") {
 
 	std::string sha1_provider = get_sha1_provider();
 	REQUIRE_EQ(sha1_provider, "openssl (EVP)");
 
+	SUBCASE("empty string") {
+
+		constexpr const char* input_string = "";
+
+		constexpr const auto expected_output = "DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"_sha1;
+
+		const SizedBuffer result = get_sha1_from_string(input_string);
+
+		REQUIRE_NE(result.data, nullptr);
+		REQUIRE_NE(result.size, 0);
+
+		REQUIRE_EQ(result, expected_output);
+	}
+
 	SUBCASE("simple string") {
 
 		constexpr const char* input_string = "hello world";
 
-		constexpr const auto expected_output = "22596363B3DE40B06F981FB85D82312E8C0ED511"_sha1;
+		constexpr const auto expected_output = "2AAE6C35C94FCFB415DBE95F408B9CE91EE846ED"_sha1;
 
 		const SizedBuffer result = get_sha1_from_string(input_string);
 
