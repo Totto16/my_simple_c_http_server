@@ -308,51 +308,48 @@ TEST_CASE("testing the parsing of the http request") {
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
-			const ParsedSearchPathHashMap* hash_map = path.search_path.hash_map;
+			const ParsedSearchPath search_path = path.search_path;
 
-			REQUIRE_EQ(stbds_shlenu(hash_map), 3);
+			REQUIRE_EQ(stbds_shlenu(search_path.hash_map), 3);
 
 			{
 
-				int param1_index = stbds_shgeti(hash_map, "param1");
+				ParsedSearchPathEntry* entry = find_search_key(search_path, "param1");
 
-				REQUIRE_GE(param1_index, 0);
+				REQUIRE_NE(entry, nullptr);
 
-				ParsedSearchPathHashMap entry1 = hash_map[param1_index];
+				REQUIRE_EQ(std::string{ entry->key }, "param1");
 
-				REQUIRE_EQ(std::string{ entry1.key }, "param1");
-
-				REQUIRE_EQ(std::string{ entry1.value }, "hello");
+				REQUIRE_EQ(std::string{ entry->value }, "hello");
 			}
 
 			{
 
-				int param2_index = stbds_shgeti(hash_map, "param2");
+				ParsedSearchPathEntry* entry = find_search_key(search_path, "param2");
 
-				REQUIRE_GE(param2_index, 0);
+				REQUIRE_NE(entry, nullptr);
 
-				ParsedSearchPathHashMap entry2 = hash_map[param2_index];
+				REQUIRE_EQ(std::string{ entry->key }, "param2");
 
-				REQUIRE_EQ(std::string{ entry2.key }, "param2");
-
-				REQUIRE_EQ(std::string{ entry2.value }, "");
+				REQUIRE_EQ(std::string{ entry->value }, "");
 			}
 
 			{
-				int param3_index = stbds_shgeti(hash_map, "param3");
+				ParsedSearchPathEntry* entry = find_search_key(search_path, "param3");
 
-				REQUIRE_GE(param3_index, 0);
+				REQUIRE_NE(entry, nullptr);
 
-				ParsedSearchPathHashMap entry3 = hash_map[param3_index];
+				REQUIRE_EQ(std::string{ entry->key }, "param3");
 
-				REQUIRE_EQ(std::string{ entry3.key }, "param3");
-
-				REQUIRE_EQ(std::string{ entry3.value }, "");
+				REQUIRE_EQ(std::string{ entry->value }, "");
 			}
 
-			int param4_index = stbds_shgeti(hash_map, "param4");
+			{
 
-			REQUIRE_EQ(param4_index, -1);
+				ParsedSearchPathEntry* entry = find_search_key(search_path, "param4");
+
+				REQUIRE_EQ(entry, nullptr);
+			}
 		}
 	}
 }

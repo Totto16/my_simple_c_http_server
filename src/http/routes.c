@@ -206,23 +206,11 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path) {
 
-	UNUSED(path);
+	ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, "pretty");
 
-	StringBuilder* string_builder = get_random_json_string_builder(false);
+	bool pretty = pretty_key != NULL;
 
-	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = http_response_body_from_string_builder(&string_builder),
-		                          .mime_type = MIME_TYPE_JSON,
-		                          .additional_headers = STBDS_ARRAY_EMPTY };
-	return result;
-}
-
-static HTTPResponseToSend huge_pretty_executor_fn(ParsedURLPath path) {
-
-	// TODO(Totto): get the search paramaters and use them to determine if we need pretty json
-	UNUSED(path);
-
-	StringBuilder* string_builder = get_random_json_string_builder(true);
+	StringBuilder* string_builder = get_random_json_string_builder(pretty);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
 		                          .body = http_response_body_from_string_builder(&string_builder),
@@ -335,22 +323,6 @@ HTTPRoutes get_default_routes(void) {
 		stbds_arrput(routes, json);
 	}
 
-	// TODO(Totto): support ? search paraamters and make huge use them
-	{
-
-		// huge/ pretty
-
-		HTTPRoute json = { .method = HTTPRequestRouteMethodGet,
-			               .path = "/huge/pretty",
-			               .data = (HTTPRouteData){
-			                   .type = HTTPRouteTypeNormal,
-			                   .data = { .normal = (HTTPRouteFn){
-			                                 .type = HTTPRouteFnTypeExecutor,
-			                                 .fn = { .executor = huge_pretty_executor_fn } } } } };
-
-		stbds_arrput(routes, json);
-	}
-
 	return routes;
 }
 
@@ -399,6 +371,8 @@ struct SelectedRouteImpl {
 
 NODISCARD static SelectedRoute* selected_route_from_data(HTTPRoute route, ParsedURLPath path) {
 	SelectedRoute* selected_route = malloc(sizeof(SelectedRoute));
+
+	// TODO: auth
 
 	if(!selected_route) {
 		return NULL;

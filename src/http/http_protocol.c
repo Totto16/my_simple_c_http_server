@@ -66,7 +66,7 @@ NODISCARD char* get_http_url_path_string(ParsedURLPath path) {
 	}
 
 	for(size_t i = 0; i < search_path_length; ++i) {
-		ParsedSearchPathHashMap entry = path.search_path.hash_map[i];
+		ParsedSearchPathEntry entry = path.search_path.hash_map[i];
 
 		string_builder_append_single(string_builder, entry.key);
 
@@ -181,7 +181,7 @@ static void free_parsed_url_path(ParsedURLPath path) {
 	free(path.path);
 
 	for(size_t i = 0; i < stbds_shlenu(path.search_path.hash_map); ++i) {
-		ParsedSearchPathHashMap entry = path.search_path.hash_map[i];
+		ParsedSearchPathEntry entry = path.search_path.hash_map[i];
 
 		free(entry.key);
 		free(entry.value);
@@ -363,6 +363,23 @@ HttpRequest* parse_http_request(char* raw_http_request) {
 	// at the end free the input raw_http_request string
 	free(raw_http_request);
 	return request;
+}
+
+NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key) {
+
+	if(path.hash_map == STBDS_ARRAY_EMPTY) {
+		// note: if hash_map is NULL stbds_shgeti allocates a new value, that is nevere populated to
+		// the original ParsedSearchPath value, as this is a struct copy!
+		return NULL;
+	}
+
+	int index = stbds_shgeti(path.hash_map, key);
+
+	if(index < 0) {
+		return NULL;
+	}
+
+	return &path.hash_map[index];
 }
 
 // simple helper for getting the status Message for a special status code, all from the spec for

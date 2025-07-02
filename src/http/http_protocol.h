@@ -109,10 +109,10 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPProtocolVersion2,
 } HTTPProtocolVersion;
 
-STBDS_HASM_MAP_TYPE(char*, char*, ParsedSearchPathHashMap);
+STBDS_HASM_MAP_TYPE(char*, char*, ParsedSearchPathEntry);
 
 typedef struct {
-	STBDS_HASM_MAP(ParsedSearchPathHashMap) hash_map;
+	STBDS_HASM_MAP(ParsedSearchPathEntry) hash_map;
 } ParsedSearchPath;
 
 // RFC: https://datatracker.ietf.org/doc/html/rfc1738
@@ -179,6 +179,8 @@ NODISCARD StringBuilder* http_request_to_string_builder(const HttpRequest* reque
 // strings, but keep in mind that you gave to use the given free method to free that properly,
 // internally some string"magic" happens
 NODISCARD HttpRequest* parse_http_request(char* raw_http_request);
+
+NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
