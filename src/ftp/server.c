@@ -245,7 +245,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 	FTPState* state = argument->state;
 
 	switch(command->type) {
-		case FTP_COMMAND_USER: {
+		case FtpCommandUser: {
 
 			// see https://datatracker.ietf.org/doc/html/rfc1635
 			if(strcasecmp(ANON_USERNAME, command->data.string) == 0) {
@@ -291,7 +291,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
-		case FTP_COMMAND_PASS: {
+		case FtpCommandPass: {
 
 			if(state->account->state == ACCOUNT_STATE_OK &&
 			   strcasecmp(ANON_USERNAME, state->account->data.ok_data.username) == 0) {
@@ -383,7 +383,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		// permission model: everybody that is logged in can use PWD
-		case FTP_COMMAND_PWD: {
+		case FtpCommandPwd: {
 
 			if(state->account->state != ACCOUNT_STATE_OK) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
@@ -409,7 +409,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		// permission model: everybody that is logged in can use CWD
-		case FTP_COMMAND_CWD: {
+		case FtpCommandCwd: {
 
 			if(state->account->state != ACCOUNT_STATE_OK) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
@@ -462,7 +462,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		// permission model: everybody that is logged in can use CWD
-		case FTP_COMMAND_CDUP: {
+		case FtpCommandCdup: {
 
 			if(state->account->state != ACCOUNT_STATE_OK) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
@@ -514,7 +514,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
-		case FTP_COMMAND_PASV: {
+		case FtpCommandPasv: {
 
 			FTPPortField reserved_port =
 			    get_available_port_for_passive_mode(argument->data_controller);
@@ -547,7 +547,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
-		case FTP_COMMAND_FEAT: {
+		case FtpCommandFeat: {
 
 			if(state->supported_features->size == 0) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FEATURE_LIST,
@@ -605,7 +605,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
-		case FTP_COMMAND_PORT: {
+		case FtpCommandPort: {
 
 			state->data_settings->mode = FTP_DATA_MODE_ACTIVE;
 			state->data_settings->addr = *command->data.port_info;
@@ -617,7 +617,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			// TODO(Totto): deduplicate LIST / RETR / STORand file commands
 		// permission model: you have to be logged in and have WRITE Permissions
-		case FTP_COMMAND_STOR: {
+		case FtpCommandStor: {
 
 			if(state->account->state != ACCOUNT_STATE_OK) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
@@ -806,7 +806,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 			// permission model: everybody that is logged in can use RETR
-		case FTP_COMMAND_RETR: {
+		case FtpCommandRetr: {
 
 			if(state->account->state != ACCOUNT_STATE_OK) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
@@ -1025,7 +1025,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		// permission model: everybody that is logged in can use LIST
-		case FTP_COMMAND_LIST: {
+		case FtpCommandList: {
 
 			if(state->account->state != ACCOUNT_STATE_OK) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
@@ -1244,7 +1244,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
-		case FTP_COMMAND_TYPE: {
+		case FtpCommandType: {
 
 			FTPCommandTypeInformation* type_info = command->data.type_info;
 			if(!type_info->is_normal) {
@@ -1287,7 +1287,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
-		case FTP_COMMAND_AUTH: {
+		case FtpCommandAuth: {
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
 			SEND_RESPONSE_WITH_ERROR_CHECK(
 			    FTP_RETURN_CODE_COMMAND_NOT_IMPLEMENTED,
@@ -1303,7 +1303,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 #endif
 		}
 
-		case FTP_COMMAND_SYST:
+		case FtpCommandSyst:
 
 		{
 			// se e.g: https://cr.yp.to/ftp/syst.html
@@ -1313,7 +1313,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
-		case FTP_COMMAND_NOOP:
+		case FtpCommandNoop:
 
 		{
 			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_CMD_OK, "");

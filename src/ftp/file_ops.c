@@ -920,10 +920,10 @@ NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
                                           FileSendFormat format) {
 
 	switch(format) {
-		case FILE_SEND_FORMAT_LS: {
+		case FileSendFormatLs: {
 			return format_file_line_in_ls_format(file, sizes);
 		}
-		case FILE_SEND_FORMAT_EPLF: {
+		case FileSendFormatEplf: {
 			return format_file_line_in_eplf_format(file);
 		}
 		default: return NULL;

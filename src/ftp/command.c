@@ -180,76 +180,76 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 
 	// see https://datatracker.ietf.org/doc/html/rfc959 5.3.1
 	if(strcasecmp("CDUP", commandStr) == 0) {
-		command->type = FTP_COMMAND_CDUP;
+		command->type = FtpCommandCdup;
 		return command;
 	}
 
 	if(strcasecmp("QUIT", commandStr) == 0) {
-		command->type = FTP_COMMAND_QUIT;
+		command->type = FtpCommandQuit;
 		return command;
 	}
 
 	if(strcasecmp("REIN", commandStr) == 0) {
-		command->type = FTP_COMMAND_REIN;
+		command->type = FtpCommandRein;
 		return command;
 	}
 
 	if(strcasecmp("PASV", commandStr) == 0) {
-		command->type = FTP_COMMAND_PASV;
+		command->type = FtpCommandPasv;
 		return command;
 	}
 
 	if(strcasecmp("STOU", commandStr) == 0) {
-		command->type = FTP_COMMAND_STOU;
+		command->type = FtpCommandStou;
 		return command;
 	}
 
 	if(strcasecmp("ABOR", commandStr) == 0) {
-		command->type = FTP_COMMAND_ABOR;
+		command->type = FtpCommandAbor;
 		return command;
 	}
 
 	if(strcasecmp("PWD", commandStr) == 0) {
-		command->type = FTP_COMMAND_PWD;
+		command->type = FtpCommandPwd;
 		return command;
 	}
 
 	if(strcasecmp("LIST", commandStr) == 0) {
-		command->type = FTP_COMMAND_LIST;
+		command->type = FtpCommandList;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
 	}
 
 	if(strcasecmp("NLST", commandStr) == 0) {
-		command->type = FTP_COMMAND_NLST;
+		command->type = FtpCommandNlst;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
 	}
 
 	if(strcasecmp("SYST", commandStr) == 0) {
-		command->type = FTP_COMMAND_SYST;
+		command->type = FtpCommandSyst;
 		return command;
 	}
 
 	if(strcasecmp("STAT", commandStr) == 0) {
-		command->type = FTP_COMMAND_STAT;
+		command->type = FtpCommandStat;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
 	}
 
 	if(strcasecmp("HELP", commandStr) == 0) {
-		command->type = FTP_COMMAND_HELP;
+		command->type = FtpCommandHelp;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
 	}
 
 	if(strcasecmp("NOOP", commandStr) == 0) {
-		command->type = FTP_COMMAND_NOOP;
+		command->type = FtpCommandNoop;
 		return command;
 	}
 
 	if(strcasecmp("FEAT", commandStr) == 0) {
-		command->type = FTP_COMMAND_FEAT;
+		command->type = FtpCommandFeat;
 		return command;
 	}
 
@@ -266,145 +266,145 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 	char* argumentStr = resultingIndex + 1;
 
 	if(strcasecmp("USER", commandStr) == 0) {
-		command->type = FTP_COMMAND_USER;
+		command->type = FtpCommandUser;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("PASS", commandStr) == 0) {
-		command->type = FTP_COMMAND_PASS;
+		command->type = FtpCommandPass;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("ACCT", commandStr) == 0) {
-		command->type = FTP_COMMAND_ACCT;
+		command->type = FtpCommandAcct;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("CWD", commandStr) == 0) {
-		command->type = FTP_COMMAND_CWD;
+		command->type = FtpCommandCwd;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("SMNT", commandStr) == 0) {
-		command->type = FTP_COMMAND_SMNT;
+		command->type = FtpCommandSmnt;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("RETR", commandStr) == 0) {
-		command->type = FTP_COMMAND_RETR;
+		command->type = FtpCommandRetr;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("STOR", commandStr) == 0) {
-		command->type = FTP_COMMAND_STOR;
+		command->type = FtpCommandStor;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("APPE", commandStr) == 0) {
-		command->type = FTP_COMMAND_APPE;
+		command->type = FtpCommandAppe;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("RNFR", commandStr) == 0) {
-		command->type = FTP_COMMAND_RNFR;
+		command->type = FtpCommandRnfr;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("RNTO", commandStr) == 0) {
-		command->type = FTP_COMMAND_RNTO;
+		command->type = FtpCommandRnto;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("DELE", commandStr) == 0) {
-		command->type = FTP_COMMAND_DELE;
+		command->type = FtpCommandDele;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("RMD", commandStr) == 0) {
-		command->type = FTP_COMMAND_RMD;
+		command->type = FtpCommandRmd;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("MKD", commandStr) == 0) {
-		command->type = FTP_COMMAND_MKD;
+		command->type = FtpCommandMkd;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("LIST", commandStr) == 0) {
-		command->type = FTP_COMMAND_LIST;
+		command->type = FtpCommandList;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("NLST", commandStr) == 0) {
-		command->type = FTP_COMMAND_NLST;
+		command->type = FtpCommandNlst;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("SITE", commandStr) == 0) {
-		command->type = FTP_COMMAND_SITE;
+		command->type = FtpCommandSite;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("STAT", commandStr) == 0) {
-		command->type = FTP_COMMAND_STAT;
+		command->type = FtpCommandStat;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("HELP", commandStr) == 0) {
-		command->type = FTP_COMMAND_HELP;
+		command->type = FtpCommandHelp;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("AUTH", commandStr) == 0) {
-		command->type = FTP_COMMAND_AUTH;
+		command->type = FtpCommandAuth;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("ADAT", commandStr) == 0) {
-		command->type = FTP_COMMAND_ADAT;
+		command->type = FtpCommandAdat;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("MIC", commandStr) == 0) {
-		command->type = FTP_COMMAND_MIC;
+		command->type = FtpCommandMic;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("CONF", commandStr) == 0) {
-		command->type = FTP_COMMAND_CONF;
+		command->type = FtpCommandConf;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("ENC", commandStr) == 0) {
-		command->type = FTP_COMMAND_ENC;
+		command->type = FtpCommandEnc;
 		MAKE_STRING_ARG(argumentStr);
 		return command;
 	}
 
 	if(strcasecmp("TYPE", commandStr) == 0) {
-		command->type = FTP_COMMAND_TYPE;
+		command->type = FtpCommandType;
 		FTPCommandTypeInformation* type_info = parse_ftp_command_type_info(argumentStr);
 		if(type_info == NULL) {
 			free(command);
@@ -415,7 +415,7 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 	}
 
 	if(strcasecmp("PORT", commandStr) == 0) {
-		command->type = FTP_COMMAND_PORT;
+		command->type = FtpCommandPort;
 		FTPPortInformation* port_info = parse_ftp_command_port_info(argumentStr);
 		if(port_info == NULL) {
 			free(command);
@@ -502,58 +502,58 @@ FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 void freeFTPCommand(FTPCommand* cmd) {
 	switch(cmd->type) {
 		// special things
-		case FTP_COMMAND_TYPE: {
+		case FtpCommandType: {
 			free(cmd->data.type_info);
 			break;
 		}
-		case FTP_COMMAND_PORT: {
+		case FtpCommandPort: {
 			free(cmd->data.port_info);
 			break;
 		}
 		// string arguments
-		case FTP_COMMAND_USER:
-		case FTP_COMMAND_PASS:
-		case FTP_COMMAND_ACCT:
-		case FTP_COMMAND_CWD:
-		case FTP_COMMAND_SMNT:
-		case FTP_COMMAND_RETR:
-		case FTP_COMMAND_STOR:
-		case FTP_COMMAND_APPE:
-		case FTP_COMMAND_RNFR:
-		case FTP_COMMAND_RNTO:
-		case FTP_COMMAND_DELE:
-		case FTP_COMMAND_RMD:
-		case FTP_COMMAND_MKD:
-		case FTP_COMMAND_SITE:
-		case FTP_COMMAND_AUTH:
-		case FTP_COMMAND_ADAT:
-		case FTP_COMMAND_MIC:
-		case FTP_COMMAND_CONF:
-		case FTP_COMMAND_ENC: {
+		case FtpCommandUser:
+		case FtpCommandPass:
+		case FtpCommandAcct:
+		case FtpCommandCwd:
+		case FtpCommandSmnt:
+		case FtpCommandRetr:
+		case FtpCommandStor:
+		case FtpCommandAppe:
+		case FtpCommandRnfr:
+		case FtpCommandRnto:
+		case FtpCommandDele:
+		case FtpCommandRmd:
+		case FtpCommandMkd:
+		case FtpCommandSite:
+		case FtpCommandAuth:
+		case FtpCommandAdat:
+		case FtpCommandMic:
+		case FtpCommandConf:
+		case FtpCommandEnc: {
 			free(cmd->data.string);
 			break;
 		}
 		// optional string arguments
-		case FTP_COMMAND_LIST:
-		case FTP_COMMAND_NLST:
-		case FTP_COMMAND_STAT:
-		case FTP_COMMAND_HELP: {
+		case FtpCommandList:
+		case FtpCommandNlst:
+		case FtpCommandStat:
+		case FtpCommandHelp: {
 			if(cmd->data.string) {
 				free(cmd->data.string);
 			}
 			break;
 		}
 		// no arguments
-		case FTP_COMMAND_CDUP:
-		case FTP_COMMAND_REIN:
-		case FTP_COMMAND_PASV:
-		case FTP_COMMAND_STOU:
-		case FTP_COMMAND_ABOR:
-		case FTP_COMMAND_PWD:
-		case FTP_COMMAND_SYST:
-		case FTP_COMMAND_NOOP:
-		case FTP_COMMAND_FEAT:
-		case FTP_COMMAND_QUIT:
+		case FtpCommandCdup:
+		case FtpCommandRein:
+		case FtpCommandPasv:
+		case FtpCommandStou:
+		case FtpCommandAbor:
+		case FtpCommandPwd:
+		case FtpCommandSyst:
+		case FtpCommandNoop:
+		case FtpCommandFeat:
+		case FtpCommandQuit:
 		default: break;
 	}
 }
@@ -572,41 +572,41 @@ void free_ftp_command_array(FTPCommandArray array) {
 
 const char* get_command_name(const FTPCommand* const command) {
 	switch(command->type) {
-		case FTP_COMMAND_TYPE: return "TYPE";
-		case FTP_COMMAND_PORT: return "PORT";
-		case FTP_COMMAND_USER: return "USER";
-		case FTP_COMMAND_PASS: return "PASS";
-		case FTP_COMMAND_ACCT: return "ACCT";
-		case FTP_COMMAND_CWD: return "CWD";
-		case FTP_COMMAND_SMNT: return "SMNT";
-		case FTP_COMMAND_RETR: return "RETR";
-		case FTP_COMMAND_STOR: return "STOR";
-		case FTP_COMMAND_APPE: return "APPE";
-		case FTP_COMMAND_RNFR: return "RNFR";
-		case FTP_COMMAND_RNTO: return "RNTO";
-		case FTP_COMMAND_DELE: return "DELE";
-		case FTP_COMMAND_RMD: return "RMD";
-		case FTP_COMMAND_MKD: return "MKD";
-		case FTP_COMMAND_SITE: return "SITE";
-		case FTP_COMMAND_AUTH: return "AUTH";
-		case FTP_COMMAND_ADAT: return "ADAT";
-		case FTP_COMMAND_MIC: return "MIC";
-		case FTP_COMMAND_CONF: return "CONF";
-		case FTP_COMMAND_ENC: return "ENC";
-		case FTP_COMMAND_LIST: return "LIST";
-		case FTP_COMMAND_NLST: return "NLST";
-		case FTP_COMMAND_STAT: return "STAT";
-		case FTP_COMMAND_HELP: return "HELP";
-		case FTP_COMMAND_CDUP: return "CDUP";
-		case FTP_COMMAND_REIN: return "REIN";
-		case FTP_COMMAND_PASV: return "PASV";
-		case FTP_COMMAND_STOU: return "STOU";
-		case FTP_COMMAND_ABOR: return "ABOR";
-		case FTP_COMMAND_PWD: return "PWD";
-		case FTP_COMMAND_SYST: return "SYST";
-		case FTP_COMMAND_NOOP: return "NOOP";
-		case FTP_COMMAND_FEAT: return "FEAT";
-		case FTP_COMMAND_QUIT: return "QUIT";
+		case FtpCommandType: return "TYPE";
+		case FtpCommandPort: return "PORT";
+		case FtpCommandUser: return "USER";
+		case FtpCommandPass: return "PASS";
+		case FtpCommandAcct: return "ACCT";
+		case FtpCommandCwd: return "CWD";
+		case FtpCommandSmnt: return "SMNT";
+		case FtpCommandRetr: return "RETR";
+		case FtpCommandStor: return "STOR";
+		case FtpCommandAppe: return "APPE";
+		case FtpCommandRnfr: return "RNFR";
+		case FtpCommandRnto: return "RNTO";
+		case FtpCommandDele: return "DELE";
+		case FtpCommandRmd: return "RMD";
+		case FtpCommandMkd: return "MKD";
+		case FtpCommandSite: return "SITE";
+		case FtpCommandAuth: return "AUTH";
+		case FtpCommandAdat: return "ADAT";
+		case FtpCommandMic: return "MIC";
+		case FtpCommandConf: return "CONF";
+		case FtpCommandEnc: return "ENC";
+		case FtpCommandList: return "LIST";
+		case FtpCommandNlst: return "NLST";
+		case FtpCommandStat: return "STAT";
+		case FtpCommandHelp: return "HELP";
+		case FtpCommandCdup: return "CDUP";
+		case FtpCommandRein: return "REIN";
+		case FtpCommandPasv: return "PASV";
+		case FtpCommandStou: return "STOU";
+		case FtpCommandAbor: return "ABOR";
+		case FtpCommandPwd: return "PWD";
+		case FtpCommandSyst: return "SYST";
+		case FtpCommandNoop: return "NOOP";
+		case FtpCommandFeat: return "FEAT";
+		case FtpCommandQuit: return "QUIT";
 		default: return "<UNKNOWN COMMAND>";
 	}
 }

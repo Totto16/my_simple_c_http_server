@@ -12,52 +12,52 @@
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	FTP_COMMAND_USER = 0,
-	FTP_COMMAND_PASS,
-	FTP_COMMAND_ACCT,
-	FTP_COMMAND_CWD,
-	FTP_COMMAND_CDUP,
-	FTP_COMMAND_SMNT,
-	FTP_COMMAND_QUIT,
-	FTP_COMMAND_REIN,
-	FTP_COMMAND_PORT,
-	FTP_COMMAND_PASV,
-	FTP_COMMAND_TYPE,
-	FTP_COMMAND_STRU,
-	FTP_COMMAND_MODE,
-	FTP_COMMAND_RETR,
-	FTP_COMMAND_STOR,
-	FTP_COMMAND_STOU,
-	FTP_COMMAND_APPE,
-	FTP_COMMAND_ALLO,
-	FTP_COMMAND_REST,
-	FTP_COMMAND_RNFR,
-	FTP_COMMAND_RNTO,
-	FTP_COMMAND_ABOR,
-	FTP_COMMAND_DELE,
-	FTP_COMMAND_RMD,
-	FTP_COMMAND_MKD,
-	FTP_COMMAND_PWD,
-	FTP_COMMAND_LIST,
-	FTP_COMMAND_NLST,
-	FTP_COMMAND_SITE,
-	FTP_COMMAND_SYST,
-	FTP_COMMAND_STAT,
-	FTP_COMMAND_HELP,
-	FTP_COMMAND_NOOP,
+	FtpCommandUser = 0,
+	FtpCommandPass,
+	FtpCommandAcct,
+	FtpCommandCwd,
+	FtpCommandCdup,
+	FtpCommandSmnt,
+	FtpCommandQuit,
+	FtpCommandRein,
+	FtpCommandPort,
+	FtpCommandPasv,
+	FtpCommandType,
+	FtpCommandStru,
+	FtpCommandMode,
+	FtpCommandRetr,
+	FtpCommandStor,
+	FtpCommandStou,
+	FtpCommandAppe,
+	FtpCommandAllo,
+	FtpCommandRest,
+	FtpCommandRnfr,
+	FtpCommandRnto,
+	FtpCommandAbor,
+	FtpCommandDele,
+	FtpCommandRmd,
+	FtpCommandMkd,
+	FtpCommandPwd,
+	FtpCommandList,
+	FtpCommandNlst,
+	FtpCommandSite,
+	FtpCommandSyst,
+	FtpCommandStat,
+	FtpCommandHelp,
+	FtpCommandNoop,
 	// see https://datatracker.ietf.org/doc/html/rfc2228
 	// and https://datatracker.ietf.org/doc/html/rfc4217
-	FTP_COMMAND_AUTH,
-	FTP_COMMAND_ADAT,
-	FTP_COMMAND_PROT,
-	FTP_COMMAND_PBSZ,
-	FTP_COMMAND_MIC,
-	FTP_COMMAND_CONF,
-	FTP_COMMAND_ENC,
+	FtpCommandAuth,
+	FtpCommandAdat,
+	FtpCommandProt,
+	FtpCommandPbsz,
+	FtpCommandMic,
+	FtpCommandConf,
+	FtpCommandEnc,
 	// see: https://datatracker.ietf.org/doc/html/rfc2389
-	FTP_COMMAND_FEAT,
-	FTP_COMMAND_OPTS
-} FTP_COMMAND_ENUM;
+	FtpCommandFeat,
+	FtpCommandOpts
+} FtpCommandEnum;
 
 typedef struct {
 	bool is_normal;
@@ -68,7 +68,7 @@ typedef struct {
 } FTPCommandTypeInformation;
 
 typedef struct {
-	FTP_COMMAND_ENUM type;
+	FtpCommandEnum type;
 	union {
 		char* string;
 		FTPCommandTypeInformation* type_info;

@@ -40,7 +40,7 @@ CustomFTPOptions* alloc_default_options() {
 		return NULL;
 	}
 
-	options->send_format = FILE_SEND_FORMAT_EPLF;
+	options->send_format = FileSendFormatEplf;
 
 	return options;
 }

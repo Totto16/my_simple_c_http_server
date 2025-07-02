@@ -100,8 +100,8 @@ typedef struct {
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	FILE_SEND_FORMAT_LS = 0,
-	FILE_SEND_FORMAT_EPLF,
+	FileSendFormatLs = 0,
+	FileSendFormatEplf,
 } FileSendFormat;
 
 typedef struct {
