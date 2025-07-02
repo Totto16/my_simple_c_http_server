@@ -7,14 +7,11 @@
 // opaque type
 typedef struct SendDataImpl SendData;
 
-typedef struct {
-	size_t total_count;
-	size_t sent_count;
-	// TODO(Totto): support records, so  that we can keep track of the records we sent!
-} SendProgressImplData;
+typedef size_t SendProgressDataOpaque[2];
+
 typedef struct {
 	bool finished;
-	SendProgressImplData _impl;
+	SendProgressDataOpaque opaque_struct_do_not_use;
 } SendProgress;
 
 /**
@@ -43,7 +40,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* path, FileSe
 NODISCARD SendData* get_data_to_send_for_retr(char* path);
 
 NODISCARD bool send_data_to_send(const SendData* data, ConnectionDescriptor* descriptor,
-                                 SendMode send_mode, SendProgress* progress);
+                                 SendMode send_mode, SendProgress* progress_opaque);
 
 void free_send_data(SendData* data);
 
