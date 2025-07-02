@@ -2,14 +2,6 @@
 
 #include "./authentication.h"
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	AuthenticationProviderTypeSimple = 0,
-	AuthenticationProviderTypeSystem,
-} AuthenticationProviderType;
-
 typedef struct {
 	char* username;
 	HashSaltResultType hash_salted_password;
@@ -36,6 +28,14 @@ struct AuthenticationProviderImpl {
 struct AuthenticationProvidersImpl {
 	STBDS_ARRAY(AuthenticationProvider*) providers;
 };
+
+NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType type) {
+	switch(type) {
+		case AuthenticationProviderTypeSimple: return "simple authentication provider";
+		case AuthenticationProviderTypeSystem: return "system authentication provider";
+		default: return "<unknown>";
+	}
+}
 
 NODISCARD AuthenticationProviders* initialize_authentication_providers(void) {
 	AuthenticationProviders* auth_providers = malloc(sizeof(AuthenticationProviders));

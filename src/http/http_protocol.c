@@ -346,12 +346,9 @@ HttpRequest* parse_http_request(char* raw_http_request) {
 					*begin = '\0';
 				}
 
-				size_t current_array_index = stbds_arrlenu(request->head.header_fields);
+				HttpHeaderField field = { .key = all, .value = begin + 1 };
 
-				stbds_arrsetlen(request->head.header_fields, current_array_index + 1);
-
-				request->head.header_fields[current_array_index].key = all;
-				request->head.header_fields[current_array_index].value = begin + 1;
+				stbds_arrput(request->head.header_fields, field);
 			}
 		}
 
@@ -434,7 +431,7 @@ const char* get_status_message(HttpStatusCode status_code) {
 	return result;
 }
 
-NODISCARD static HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
 
 	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
 		HttpHeaderField* header = &(array[i]);

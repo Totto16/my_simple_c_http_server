@@ -11,6 +11,16 @@ typedef struct AuthenticationProvidersImpl AuthenticationProviders;
 
 typedef struct AuthenticationProviderImpl AuthenticationProvider;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	AuthenticationProviderTypeSimple = 0,
+	AuthenticationProviderTypeSystem,
+} AuthenticationProviderType;
+
+NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType type);
+
 NODISCARD AuthenticationProviders* initialize_authentication_providers(void);
 
 NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_providers,
@@ -41,11 +51,19 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } AuthenticationValidity;
 
 typedef struct {
+	char* username;
+	char* role;
+} AuthUser;
+
+typedef struct {
+	AuthUser user;
+	AuthenticationProviderType provider_type;
+} AuthUserWithContext;
+
+typedef struct {
 	AuthenticationValidity validity;
 	union {
-		struct {
-			char* role;
-		} ok;
+		AuthUserWithContext ok;
 		struct {
 			const char* error_message;
 		} error;

@@ -186,6 +186,8 @@ NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const ch
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);
 
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key);
+
 /**
  * @enum value
  */

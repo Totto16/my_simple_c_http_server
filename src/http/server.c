@@ -229,8 +229,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			switch(route_data.type) {
 				case HTTPRouteTypeSpecial: {
 
-					switch(route_data.data.special) {
-						case HTTPRouteSpecialDataShutdown: {
+					switch(route_data.data.special.type) {
+						case HTTPRouteSpecialDataTypeShutdown: {
 							LOG_MESSAGE_SIMPLE(LogLevelInfo, "Shutdown requested!\n");
 
 							HTTPResponseToSend to_send = {
@@ -255,10 +255,15 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 							break;
 						}
-						case HTTPRouteSpecialDataWs: {
+						case HTTPRouteSpecialDataTypeWs: {
 
 							int ws_request_successful =
 							    handle_ws_handshake(http_request, descriptor, send_settings);
+
+							WebSocketFunction websocket_function_to_use =
+							    route_data.data.special.data.ws.fragmented
+							        ? websocket_function_fragmented
+							        : websocket_function;
 
 							if(ws_request_successful >= 0) {
 								// move the context so that we can use it in the long standing web
@@ -268,7 +273,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 								if(!thread_manager_add_connection(argument->web_socket_manager,
 								                                  descriptor, context,
-								                                  websocket_function)) {
+								                                  websocket_function_to_use)) {
 									free_http_request(http_request);
 									FREE_AT_END();
 
@@ -285,38 +290,6 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 							// the error was already sent, just close the descriptor and free the
 							// http request, this is done at the end of this big if else statements
-							break;
-						}
-						case HTTPRouteSpecialDataWsFragmented: {
-							int ws_request_successful =
-							    handle_ws_handshake(http_request, descriptor, send_settings);
-
-							if(ws_request_successful >= 0) {
-								// move the context so that we can use it in the long standing web
-								// socket thread
-								ConnectionContext* new_context = copy_connection_context(context);
-								argument->contexts[worker_info.worker_index] = new_context;
-
-								if(!thread_manager_add_connection(argument->web_socket_manager,
-								                                  descriptor, context,
-								                                  websocket_function_fragmented)) {
-									free_http_request(http_request);
-									FREE_AT_END();
-
-									return JOB_ERROR_CONNECTION_ADD;
-								}
-
-								// finally free everything necessary
-
-								free_http_request(http_request);
-								FREE_AT_END();
-
-								return JOB_ERROR_NONE;
-							}
-
-							// the error was already sent, just close the descriptor and free the
-							// http request, this is done at the end of this big if else statements
-
 							break;
 						}
 						default: {
@@ -331,12 +304,28 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 					break;
 				}
 
-				case HTTPRouteTypeNormal:
-				default: {
+				case HTTPRouteTypeNormal: {
 
-					result = route_manager_execute_route(route_data.data.normal, descriptor,
-					                                     send_settings, http_request, context,
-					                                     selected_route_data.path);
+					result = route_manager_execute_route(
+					    route_data.data.normal, descriptor, send_settings, http_request, context,
+					    selected_route_data.path, selected_route_data.auth_user);
+
+					break;
+				}
+				case HTTPRouteTypeInternal: {
+					result = send_http_message_to_connection_advanced(
+					    descriptor, route_data.data.internal.send, send_settings,
+					    http_request->head);
+					break;
+				}
+				default: {
+					HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+						                           .body = http_response_body_from_static_string(
+						                               "Internal error: Implementation error"),
+						                           .mime_type = MIME_TYPE_TEXT,
+						                           .additional_headers = STBDS_ARRAY_EMPTY };
+					result = send_http_message_to_connection_advanced(
+					    descriptor, to_send, send_settings, http_request->head);
 					break;
 				}
 			}
