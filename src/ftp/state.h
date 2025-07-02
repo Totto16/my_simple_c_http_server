@@ -11,9 +11,9 @@
 typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	FtpTransmissionTypeNone = 0,
 	//
-	FtpTransmissionTypeAscii = 0x1,      // ASCII
-	FtpTransmissionTypeEbcdic = 0x2,     // EBCDIC
-	FtpTransmissionTypeImage = 0x4,      // Image
+	FtpTransmissionTypeAscii = 0x1,     // ASCII
+	FtpTransmissionTypeEbcdic = 0x2,    // EBCDIC
+	FtpTransmissionTypeImage = 0x4,     // Image
 	FtpTransmissionTypeLocalByte = 0x8, // Local Byte
 	// FLAGS
 	FtpTransmissionTypeFlagNp = 0x10,  // Non-print

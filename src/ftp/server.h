@@ -53,7 +53,8 @@ typedef struct {
 } FTPPassivePortStatus;
 
 NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPAddrField server_addr,
-                                   FTPControlConnectionArgument* argument, const FTPCommand* command);
+                                   FTPControlConnectionArgument* argument,
+                                   const FTPCommand* command);
 
 NODISCARD ANY_TYPE(JobError*)
     ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg_ign,
