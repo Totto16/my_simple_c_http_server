@@ -180,7 +180,4 @@ NODISCARD SendMode get_current_send_mode(FTPState* state) {
 			return SendModeUnsupported;
 		}
 	}
-
-	UNREACHABLE();
-	return SendModeUnsupported;
 }

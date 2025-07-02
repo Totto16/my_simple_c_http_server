@@ -53,11 +53,11 @@ typedef struct {
 } FTPPassivePortStatus;
 
 NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPAddrField server_addr,
-                                   FTPControlConnectionArgument*, const FTPCommand* command);
+                                   FTPControlConnectionArgument* argument, const FTPCommand* command);
 
 NODISCARD ANY_TYPE(JobError*)
-    ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg,
-                                          WorkerInfo workerInfo);
+    ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg_ign,
+                                          WorkerInfo worker_info);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument

@@ -249,9 +249,9 @@ NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* con
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	SEND_TYPE_FILE = 0,
-	SEND_TYPE_MULTIPLE_FILES,
-	SEND_TYPE_RAW_DATA,
+	SendTypeFile = 0,
+	SendTypeMultipleFiles,
+	SendTypeRawData,
 } SendType;
 
 typedef struct {
@@ -326,15 +326,15 @@ NODISCARD SendProgress setup_send_progress(const SendData* const data, SendMode 
 	size_t original_data_count = 0;
 
 	switch(data->type) {
-		case SEND_TYPE_FILE: {
+		case SendTypeFile: {
 			original_data_count = 1;
 			break;
 		}
-		case SEND_TYPE_MULTIPLE_FILES: {
+		case SendTypeMultipleFiles: {
 			original_data_count = data->data.multiple_files->count;
 			break;
 		}
-		case SEND_TYPE_RAW_DATA: {
+		case SendTypeRawData: {
 			original_data_count = data->data.data.size;
 			break;
 		}
@@ -675,7 +675,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 	// src/engine/directorylistingparser.h:4
 
 	if(is_folder) {
-		data->type = SEND_TYPE_MULTIPLE_FILES;
+		data->type = SendTypeMultipleFiles;
 		MultipleFiles* files = get_files_in_folder(path, format);
 		if(files == NULL) {
 			free(data);
@@ -683,7 +683,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 		}
 		data->data.multiple_files = files;
 	} else {
-		data->type = SEND_TYPE_FILE;
+		data->type = SendTypeFile;
 		SingleFile* file = get_metadata_for_single_file(path, format);
 
 		if(file == NULL) {
@@ -769,7 +769,7 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 
 	RawData raw_data = { .data = file_data, .size = file_size };
 
-	data->type = SEND_TYPE_RAW_DATA;
+	data->type = SendTypeRawData;
 	data->data.data = raw_data;
 
 	return data;
@@ -980,12 +980,12 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 	}
 
 	switch(data->type) {
-		case SEND_TYPE_FILE: {
+		case SendTypeFile: {
 			// TODO(Totto): implement
 			return false;
 			break;
 		}
-		case SEND_TYPE_MULTIPLE_FILES: {
+		case SendTypeMultipleFiles: {
 			FileWithMetadata* value = data->data.multiple_files->files[progress->impl.sent_count];
 
 			StringBuilder* string_builder = format_file_line(
@@ -1005,7 +1005,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 			break;
 		}
 
-		case SEND_TYPE_RAW_DATA: {
+		case SendTypeRawData: {
 			RawData raw_data = data->data.data;
 
 			size_t offset = progress->impl.sent_count;
@@ -1072,7 +1072,7 @@ NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
 	return DirChangeResultOk;
 }
 
-NODISCARD bool write_to_file(char* path, void* data, size_t dataSize) {
+NODISCARD bool write_to_file(char* path, void* data, size_t data_size) {
 
 	FILE* file = fopen(path, "wb");
 
@@ -1083,9 +1083,9 @@ NODISCARD bool write_to_file(char* path, void* data, size_t dataSize) {
 		return false;
 	}
 
-	size_t fwrite_result = fwrite(data, 1, dataSize, file);
+	size_t fwrite_result = fwrite(data, 1, data_size, file);
 
-	if(fwrite_result != dataSize) {
+	if(fwrite_result != data_size) {
 		LOG_MESSAGE(LogLevelError, "Couldn't write the correct amount of bytes to file '%s': %s\n",
 		            path, strerror(errno));
 

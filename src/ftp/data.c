@@ -460,8 +460,6 @@ nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 			return (ConnectionTypeIdentifier){ .active = false, .data = { .port = 0 } };
 		}
 	}
-
-	UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
 }
 
 NODISCARD static bool

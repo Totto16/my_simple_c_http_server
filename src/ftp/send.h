@@ -11,14 +11,13 @@
  * @enum MASK / FLAGS
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	CONNECTION_SEND_FLAGS_MALLOCED = 0b01,
-	CONNECTION_SEND_FLAGS_UN_MALLOCED = 0b10
+	ConnectionSendFlagsMalloced = 0b01,
+	ConnectionSendFlagsUnMalloced = 0b10
+} ConnectionSendFlags;
 
-} CONNECTION_SEND_FLAGS;
+NODISCARD int send_ftp_message_to_connection(const ConnectionDescriptor* descriptor,
+                                         FtpReturnCode status, char* body,
+                                         ConnectionSendFlags flags);
 
-NODISCARD int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor,
-                                         FTP_RETURN_CODE status, char* body,
-                                         CONNECTION_SEND_FLAGS FLAGS);
-
-NODISCARD int sendFTPMessageToConnectionSb(const ConnectionDescriptor* descriptor,
-                                           FTP_RETURN_CODE status, StringBuilder* body);
+NODISCARD int send_ftp_message_to_connection_sb(const ConnectionDescriptor* descriptor,
+                                           FtpReturnCode status, StringBuilder* body);

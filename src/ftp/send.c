@@ -3,14 +3,14 @@
 #include "./send.h"
 #include "generic/send.h"
 
-NODISCARD static int sendFTPMessageToConnectionMalloced( // NOLINT(misc-no-recursion)
-    const ConnectionDescriptor* const descriptor, FTP_RETURN_CODE status, char* body) {
+NODISCARD static int send_ftp_message_to_connection_malloced( // NOLINT(misc-no-recursion)
+    const ConnectionDescriptor* const descriptor, FtpReturnCode status, char* body) {
 
-	if(status > INTERNAL_FTP_RETURN_CODE_MAXIMUM || status < INTERNAL_FTP_RETURN_CODE_MINIMUM) {
-		return sendFTPMessageToConnection(
-		    descriptor, FTP_RETURN_CODE_SYNTAX_ERROR,
+	if(status > InternalFtpReturnCodeMaximum || status < InternalFtpReturnCodeMinimum) {
+		return send_ftp_message_to_connection(
+		    descriptor, FtpReturnCodeSyntaxError,
 		    "Internal Error while processing command: sending hardcoded invalid status",
-		    CONNECTION_SEND_FLAGS_UN_MALLOCED);
+		    ConnectionSendFlagsUnMalloced);
 	}
 
 	StringBuilder* string_builder = string_builder_init();
@@ -30,22 +30,23 @@ NODISCARD static int sendFTPMessageToConnectionMalloced( // NOLINT(misc-no-recur
 	return result;
 }
 
-int sendFTPMessageToConnection(const ConnectionDescriptor* descriptor, // NOLINT(misc-no-recursion)
-                               FTP_RETURN_CODE status, char* body, CONNECTION_SEND_FLAGS FLAGS) {
+int send_ftp_message_to_connection( // NOLINT(misc-no-recursion)
+    const ConnectionDescriptor* descriptor, FtpReturnCode status, char* body,
+    ConnectionSendFlags flags) {
 	char* final_body = body;
 
-	if((FLAGS & CONNECTION_SEND_FLAGS_UN_MALLOCED) != 0) {
+	if((flags & ConnectionSendFlagsUnMalloced) != 0) {
 		if(body) {
 			final_body = strdup(body);
 		}
 	}
 
-	return sendFTPMessageToConnectionMalloced(descriptor, status, final_body);
+	return send_ftp_message_to_connection_malloced(descriptor, status, final_body);
 }
 
 // TODO(Totto): refactor ftp messages too, so that the return things ar epavcked into a structure
-int sendFTPMessageToConnectionSb(const ConnectionDescriptor* const descriptor,
-                                 FTP_RETURN_CODE status, StringBuilder* body) {
-	return sendFTPMessageToConnection(descriptor, status, string_builder_release_into_string(&body),
-	                                  CONNECTION_SEND_FLAGS_MALLOCED);
+int send_ftp_message_to_connection_sb(const ConnectionDescriptor* const descriptor,
+                                      FtpReturnCode status, StringBuilder* body) {
+	return send_ftp_message_to_connection(
+	    descriptor, status, string_builder_release_into_string(&body), ConnectionSendFlagsMalloced);
 }

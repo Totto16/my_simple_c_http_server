@@ -65,8 +65,6 @@ FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg) {
 				return NULL;
 			}
 		}
-
-		UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
 	}
 
 	// TODO(Totto): also parse other flags and longer strings
