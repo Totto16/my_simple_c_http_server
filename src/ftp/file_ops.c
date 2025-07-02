@@ -126,7 +126,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 
 	if(!file) {
 		if(result) {
-			*result = DIR_CHANGE_RESULT_ERROR;
+			*result = DirChangeResultError;
 		}
 
 		return NULL;
@@ -137,7 +137,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 	// the normalization had not enough bytes in the file buffer
 	if(buffer_size_result >= buffer_size) {
 		if(result) {
-			*result = DIR_CHANGE_RESULT_ERROR;
+			*result = DirChangeResultError;
 		}
 
 		return NULL;
@@ -152,7 +152,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 	// invariant check 1
 	if((global_folder[g_length - 1] == '/') || (file[f_length - 1] == '/')) {
 		if(result) {
-			*result = DIR_CHANGE_RESULT_ERROR;
+			*result = DirChangeResultError;
 		} else {
 			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated: %s\n",
 			            file);
@@ -164,7 +164,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 	// invariant check 2
 	if(strstr(file, global_folder) != file) {
 		if(result) {
-			*result = DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL;
+			*result = DirChangeResultErrorPathTraversal;
 		} else {
 			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated: %s\n",
 			            file);
@@ -175,7 +175,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 
 	// everything is fine, after the invariants are
 	if(result) {
-		*result = DIR_CHANGE_RESULT_OK;
+		*result = DirChangeResultOk;
 	}
 	return file;
 }
@@ -324,16 +324,16 @@ NODISCARD SendProgress setup_send_progress(const SendData* const data, SendMode 
 	size_t actual_count = 0;
 
 	switch(send_mode) {
-		case SEND_MODE_STREAM_BINARY_FILE: {
+		case SendModeStreamBinaryFile: {
 			actual_count = original_data_count;
 			break;
 		}
-		case SEND_MODE_STREAM_BINARY_RECORD: {
+		case SendModeStreamBinaryRecord: {
 			// TODO(Totto): calculate this based on record metadata etc
 			break;
 		}
 
-		case SEND_MODE_UNSUPPORTED:
+		case SendModeUnsupported:
 		default: break;
 	}
 
@@ -945,14 +945,14 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 	}
 
 	switch(send_mode) {
-		case SEND_MODE_STREAM_BINARY_FILE: {
+		case SendModeStreamBinaryFile: {
 			break;
 		}
-		case SEND_MODE_STREAM_BINARY_RECORD: {
+		case SendModeStreamBinaryRecord: {
 			return false;
 		}
 
-		case SEND_MODE_UNSUPPORTED:
+		case SendModeUnsupported:
 		default: return false;
 	}
 
@@ -1022,31 +1022,31 @@ void free_send_data(SendData* data) {
 
 NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
 
-	DirChangeResult dir_result = DIR_CHANGE_RESULT_OK;
+	DirChangeResult dir_result = DirChangeResultOk;
 	char* new_dir = internal_resolve_path_in_cwd(state, file, &dir_result);
 
 	if(!new_dir) {
-		if(dir_result == DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL) {
+		if(dir_result == DirChangeResultErrorPathTraversal) {
 			// change nothing, leave as is
-			return DIR_CHANGE_RESULT_OK;
+			return DirChangeResultOk;
 		}
 
-		return DIR_CHANGE_RESULT_NO_SUCH_DIR;
+		return DirChangeResultNoSuchDir;
 	}
 
 	// invariant check 1
 	if(new_dir[strlen(new_dir) - 1] == '/') {
-		return DIR_CHANGE_RESULT_ERROR;
+		return DirChangeResultError;
 	}
 
 	// invariant check 2
 	if(strstr(new_dir, state->global_folder) != new_dir) {
-		return DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL;
+		return DirChangeResultErrorPathTraversal;
 	}
 
 	state->current_working_directory = new_dir;
 
-	return DIR_CHANGE_RESULT_OK;
+	return DirChangeResultOk;
 }
 
 NODISCARD bool write_to_file(char* path, void* data, size_t dataSize) {

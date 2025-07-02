@@ -25,7 +25,7 @@ FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg) {
 	}
 
 	info->is_normal = true;
-	info->data.type = FTP_TRANSMISSION_TYPE_NONE;
+	info->data.type = FtpTransmissionTypeNone;
 
 	// return <type-code>
 	// <type-code> ::= A [<sp> <form-code>]
@@ -47,17 +47,17 @@ FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg) {
 		switch(arg[0]) {
 			case 'A': {
 				info->is_normal = true;
-				info->data.type = FTP_TRANSMISSION_TYPE_ASCII;
+				info->data.type = FtpTransmissionTypeAscii;
 				return info;
 			}
 			case 'E': {
 				info->is_normal = true;
-				info->data.type = FTP_TRANSMISSION_TYPE_EBCDIC;
+				info->data.type = FtpTransmissionTypeEbcdic;
 				return info;
 			}
 			case 'I': {
 				info->is_normal = true;
-				info->data.type = FTP_TRANSMISSION_TYPE_IMAGE;
+				info->data.type = FtpTransmissionTypeImage;
 				return info;
 			}
 			default: {
@@ -76,7 +76,7 @@ FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg) {
 
 #define MAX_PORT_ARG 6
 
-bool parseU8Into(char* input, uint8_t* result_addr) {
+NODISCARD static bool parse_u8_into(char* input, uint8_t* result_addr) {
 
 	if(strlen(input) > 3) {
 		return false;
@@ -116,35 +116,35 @@ FTPPortInformation* parse_ftp_command_port_info(char* arg) {
 	// <port-number> ::= <number>,<number>
 	// <number> ::= any decimal integer 1 through 255
 
-	char* currentlyAt = arg;
+	char* currently_at = arg;
 
 	uint8_t result[MAX_PORT_ARG];
 
 	for(int i = 0; i < MAX_PORT_ARG; ++i) {
-		char* resultingIndex = strstr(currentlyAt, ",");
+		char* resulting_index = strstr(currently_at, ",");
 
 		if(i == MAX_PORT_ARG - 1) {
-			if(resultingIndex != NULL) {
+			if(resulting_index != NULL) {
 				free(info);
 				return NULL;
 			}
 		} else {
-			if(resultingIndex == NULL) {
+			if(resulting_index == NULL) {
 				free(info);
 				return NULL;
 			}
 
-			*resultingIndex = '\0';
+			*resulting_index = '\0';
 		}
 
-		bool success = parseU8Into(currentlyAt, result + i);
+		bool success = parse_u8_into(currently_at, result + i);
 
 		if(!success) {
 			free(info);
 			return NULL;
 		}
 
-		currentlyAt = resultingIndex + 1;
+		currently_at = resulting_index + 1;
 	}
 
 	uint32_t addr = result[0];
@@ -165,9 +165,9 @@ FTPPortInformation* parse_ftp_command_port_info(char* arg) {
 	return info;
 }
 
-FTPCommand* parseSingleFTPCommand(char* commandStr) {
+NODISCARD static FTPCommand* parse_single_ftp_command(char* command_str) {
 
-	size_t length = strlen(commandStr);
+	size_t length = strlen(command_str);
 
 	if(length < 3) {
 		return NULL;
@@ -179,233 +179,233 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 	}
 
 	// see https://datatracker.ietf.org/doc/html/rfc959 5.3.1
-	if(strcasecmp("CDUP", commandStr) == 0) {
+	if(strcasecmp("CDUP", command_str) == 0) {
 		command->type = FtpCommandCdup;
 		return command;
 	}
 
-	if(strcasecmp("QUIT", commandStr) == 0) {
+	if(strcasecmp("QUIT", command_str) == 0) {
 		command->type = FtpCommandQuit;
 		return command;
 	}
 
-	if(strcasecmp("REIN", commandStr) == 0) {
+	if(strcasecmp("REIN", command_str) == 0) {
 		command->type = FtpCommandRein;
 		return command;
 	}
 
-	if(strcasecmp("PASV", commandStr) == 0) {
+	if(strcasecmp("PASV", command_str) == 0) {
 		command->type = FtpCommandPasv;
 		return command;
 	}
 
-	if(strcasecmp("STOU", commandStr) == 0) {
+	if(strcasecmp("STOU", command_str) == 0) {
 		command->type = FtpCommandStou;
 		return command;
 	}
 
-	if(strcasecmp("ABOR", commandStr) == 0) {
+	if(strcasecmp("ABOR", command_str) == 0) {
 		command->type = FtpCommandAbor;
 		return command;
 	}
 
-	if(strcasecmp("PWD", commandStr) == 0) {
+	if(strcasecmp("PWD", command_str) == 0) {
 		command->type = FtpCommandPwd;
 		return command;
 	}
 
-	if(strcasecmp("LIST", commandStr) == 0) {
+	if(strcasecmp("LIST", command_str) == 0) {
 		command->type = FtpCommandList;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
 	}
 
-	if(strcasecmp("NLST", commandStr) == 0) {
+	if(strcasecmp("NLST", command_str) == 0) {
 		command->type = FtpCommandNlst;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
 	}
 
-	if(strcasecmp("SYST", commandStr) == 0) {
+	if(strcasecmp("SYST", command_str) == 0) {
 		command->type = FtpCommandSyst;
 		return command;
 	}
 
-	if(strcasecmp("STAT", commandStr) == 0) {
+	if(strcasecmp("STAT", command_str) == 0) {
 		command->type = FtpCommandStat;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
 	}
 
-	if(strcasecmp("HELP", commandStr) == 0) {
+	if(strcasecmp("HELP", command_str) == 0) {
 		command->type = FtpCommandHelp;
 		command->data.string = NULL; // signifies, that this has an optional argument
 		return command;
 	}
 
-	if(strcasecmp("NOOP", commandStr) == 0) {
+	if(strcasecmp("NOOP", command_str) == 0) {
 		command->type = FtpCommandNoop;
 		return command;
 	}
 
-	if(strcasecmp("FEAT", commandStr) == 0) {
+	if(strcasecmp("FEAT", command_str) == 0) {
 		command->type = FtpCommandFeat;
 		return command;
 	}
 
-	char* resultingIndex = strstr(commandStr, " ");
+	char* resulting_index = strstr(command_str, " ");
 
-	if(resultingIndex == NULL) {
+	if(resulting_index == NULL) {
 		free(command);
 		return NULL;
 	}
 
 	// overwrite the " " by a 0 terminator, so that it can be treated as normal string
-	*resultingIndex = '\0';
+	*resulting_index = '\0';
 
-	char* argumentStr = resultingIndex + 1;
+	char* argument_str = resulting_index + 1;
 
-	if(strcasecmp("USER", commandStr) == 0) {
+	if(strcasecmp("USER", command_str) == 0) {
 		command->type = FtpCommandUser;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("PASS", commandStr) == 0) {
+	if(strcasecmp("PASS", command_str) == 0) {
 		command->type = FtpCommandPass;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("ACCT", commandStr) == 0) {
+	if(strcasecmp("ACCT", command_str) == 0) {
 		command->type = FtpCommandAcct;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("CWD", commandStr) == 0) {
+	if(strcasecmp("CWD", command_str) == 0) {
 		command->type = FtpCommandCwd;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("SMNT", commandStr) == 0) {
+	if(strcasecmp("SMNT", command_str) == 0) {
 		command->type = FtpCommandSmnt;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("RETR", commandStr) == 0) {
+	if(strcasecmp("RETR", command_str) == 0) {
 		command->type = FtpCommandRetr;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("STOR", commandStr) == 0) {
+	if(strcasecmp("STOR", command_str) == 0) {
 		command->type = FtpCommandStor;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("APPE", commandStr) == 0) {
+	if(strcasecmp("APPE", command_str) == 0) {
 		command->type = FtpCommandAppe;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("RNFR", commandStr) == 0) {
+	if(strcasecmp("RNFR", command_str) == 0) {
 		command->type = FtpCommandRnfr;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("RNTO", commandStr) == 0) {
+	if(strcasecmp("RNTO", command_str) == 0) {
 		command->type = FtpCommandRnto;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("DELE", commandStr) == 0) {
+	if(strcasecmp("DELE", command_str) == 0) {
 		command->type = FtpCommandDele;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("RMD", commandStr) == 0) {
+	if(strcasecmp("RMD", command_str) == 0) {
 		command->type = FtpCommandRmd;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("MKD", commandStr) == 0) {
+	if(strcasecmp("MKD", command_str) == 0) {
 		command->type = FtpCommandMkd;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("LIST", commandStr) == 0) {
+	if(strcasecmp("LIST", command_str) == 0) {
 		command->type = FtpCommandList;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("NLST", commandStr) == 0) {
+	if(strcasecmp("NLST", command_str) == 0) {
 		command->type = FtpCommandNlst;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("SITE", commandStr) == 0) {
+	if(strcasecmp("SITE", command_str) == 0) {
 		command->type = FtpCommandSite;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("STAT", commandStr) == 0) {
+	if(strcasecmp("STAT", command_str) == 0) {
 		command->type = FtpCommandStat;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("HELP", commandStr) == 0) {
+	if(strcasecmp("HELP", command_str) == 0) {
 		command->type = FtpCommandHelp;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("AUTH", commandStr) == 0) {
+	if(strcasecmp("AUTH", command_str) == 0) {
 		command->type = FtpCommandAuth;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("ADAT", commandStr) == 0) {
+	if(strcasecmp("ADAT", command_str) == 0) {
 		command->type = FtpCommandAdat;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("MIC", commandStr) == 0) {
+	if(strcasecmp("MIC", command_str) == 0) {
 		command->type = FtpCommandMic;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("CONF", commandStr) == 0) {
+	if(strcasecmp("CONF", command_str) == 0) {
 		command->type = FtpCommandConf;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("ENC", commandStr) == 0) {
+	if(strcasecmp("ENC", command_str) == 0) {
 		command->type = FtpCommandEnc;
-		MAKE_STRING_ARG(argumentStr);
+		MAKE_STRING_ARG(argument_str);
 		return command;
 	}
 
-	if(strcasecmp("TYPE", commandStr) == 0) {
+	if(strcasecmp("TYPE", command_str) == 0) {
 		command->type = FtpCommandType;
-		FTPCommandTypeInformation* type_info = parse_ftp_command_type_info(argumentStr);
+		FTPCommandTypeInformation* type_info = parse_ftp_command_type_info(argument_str);
 		if(type_info == NULL) {
 			free(command);
 			return NULL;
@@ -414,9 +414,9 @@ FTPCommand* parseSingleFTPCommand(char* commandStr) {
 		return command;
 	}
 
-	if(strcasecmp("PORT", commandStr) == 0) {
+	if(strcasecmp("PORT", command_str) == 0) {
 		command->type = FtpCommandPort;
-		FTPPortInformation* port_info = parse_ftp_command_port_info(argumentStr);
+		FTPPortInformation* port_info = parse_ftp_command_port_info(argument_str);
 		if(port_info == NULL) {
 			free(command);
 			return NULL;
@@ -448,10 +448,10 @@ FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 	FTPCommandArray array = STBDS_ARRAY_EMPTY;
 
 	const char* const separators = "\r\n";
-	size_t separatorsLength = strlen(separators);
+	size_t separators_length = strlen(separators);
 
 	size_t size_to_proccess = strlen(raw_ftp_commands);
-	char* currentlyAt = raw_ftp_commands;
+	char* currently_at = raw_ftp_commands;
 
 	if(size_to_proccess == 0) {
 		return array;
@@ -459,20 +459,20 @@ FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 
 	while(size_to_proccess > 0) {
 
-		char* resultingIndex = strstr(currentlyAt, separators);
+		char* resulting_index = strstr(currently_at, separators);
 		// no"\r\n" could be found, so a parse Error occurred, a NULL signals that
-		if(resultingIndex == NULL) {
+		if(resulting_index == NULL) {
 			free_ftp_command_array(array);
 			FREE_AT_END();
 			return NULL;
 		}
 
-		size_t length = resultingIndex - currentlyAt;
+		size_t length = resulting_index - currently_at;
 
 		// overwrite this, so that this is the end of ths string
-		*resultingIndex = '\0';
+		*resulting_index = '\0';
 
-		FTPCommand* command = parseSingleFTPCommand(currentlyAt);
+		FTPCommand* command = parse_single_ftp_command(currently_at);
 
 		if(!command) {
 			free_ftp_command_array(array);
@@ -480,11 +480,11 @@ FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 			return NULL;
 		}
 
-		stbds_arrput(array, command);
+		stbds_arrput(array, command); // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
 
-		size_t actualLength = length + separatorsLength;
-		size_to_proccess -= actualLength;
-		currentlyAt += actualLength;
+		size_t actual_length = length + separators_length;
+		size_to_proccess -= actual_length;
+		currently_at += actual_length;
 	}
 
 	if(size_to_proccess != 0) {
@@ -499,7 +499,7 @@ FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 
 #undef FREE_AT_END
 
-void freeFTPCommand(FTPCommand* cmd) {
+void free_ftp_command(FTPCommand* cmd) {
 	switch(cmd->type) {
 		// special things
 		case FtpCommandType: {
@@ -564,7 +564,7 @@ void free_ftp_command_array(FTPCommandArray array) {
 	}
 
 	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
-		freeFTPCommand(array[i]);
+		free_ftp_command(array[i]);
 	}
 
 	stbds_arrfree(array);

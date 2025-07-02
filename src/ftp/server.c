@@ -251,7 +251,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			if(strcasecmp(ANON_USERNAME, command->data.string) == 0) {
 				free_account_data(state->account);
 
-				state->account->state = ACCOUNT_STATE_OK;
+				state->account->state = AccountStateOk;
 
 				char* malloced_username = copy_cstr(command->data.string);
 
@@ -261,7 +261,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				AccountOkData ok_data = { .permissions = ACCOUNT_PERMISSIONS_READ,
+				AccountOkData ok_data = { .permissions = AccountPermissionsRead,
 					                      .username = malloced_username };
 
 				state->account->data.ok_data = ok_data;
@@ -274,7 +274,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			free_account_data(state->account);
 
-			state->account->state = ACCOUNT_STATE_ONLY_USER;
+			state->account->state = AccountStateOnlyUser;
 
 			char* malloced_username = copy_cstr(command->data.string);
 
@@ -293,7 +293,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 		case FtpCommandPass: {
 
-			if(state->account->state == ACCOUNT_STATE_OK &&
+			if(state->account->state == AccountStateOk &&
 			   strcasecmp(ANON_USERNAME, state->account->data.ok_data.username) == 0) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_USER_LOGGED_IN,
 				                               "Already logged in as anon!");
@@ -302,10 +302,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			}
 
 			// TODO(Totto): allow user changing
-			if(state->account->state != ACCOUNT_STATE_ONLY_USER) {
+			if(state->account->state != AccountStateOnlyUser) {
 				free_account_data(state->account);
 
-				state->account->state = ACCOUNT_STATE_EMPTY;
+				state->account->state = AccountStateEmpty;
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_BAD_SEQUENCE, "No user specified!");
 
@@ -316,14 +316,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			char* passwd = command->data.string;
 
-			USER_VALIDITY user_validity = account_verify(username, passwd);
+			UserValidity user_validity = account_verify(username, passwd);
 
 			switch(user_validity) {
-				case USER_VALIDITY_OK: {
+				case UserValidityOk: {
 
 					free_account_data(state->account);
 
-					state->account->state = ACCOUNT_STATE_OK;
+					state->account->state = AccountStateOk;
 
 					char* malloced_username = copy_cstr(username);
 
@@ -334,7 +334,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						return true;
 					}
 
-					AccountOkData ok_data = { .permissions = ACCOUNT_PERMISSIONS_READ_WRITE,
+					AccountOkData ok_data = { .permissions = AccountPermissionsReadWrite,
 						                      .username = malloced_username };
 
 					state->account->data.ok_data = ok_data;
@@ -344,32 +344,32 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					return true;
 				}
-				case USER_VALIDITY_NO_SUCH_USER: {
+				case UserValidityNoSuchUser: {
 
 					free_account_data(state->account);
 
-					state->account->state = ACCOUNT_STATE_EMPTY;
+					state->account->state = AccountStateEmpty;
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
 					                               "No such user found!");
 
 					return true;
 				}
-				case USER_VALIDITY_WRONG_PASSWORD: {
+				case UserValidityWrongPassword: {
 					free_account_data(state->account);
 
-					state->account->state = ACCOUNT_STATE_EMPTY;
+					state->account->state = AccountStateEmpty;
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
 					                               "Wrong password!");
 
 					return true;
 				}
-				case USER_VALIDITY_INTERNAL_ERROR:
+				case UserValidityInternalError:
 				default: {
 					free_account_data(state->account);
 
-					state->account->state = ACCOUNT_STATE_EMPTY;
+					state->account->state = AccountStateEmpty;
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
 					                               "Internal Error!");
@@ -385,7 +385,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		// permission model: everybody that is logged in can use PWD
 		case FtpCommandPwd: {
 
-			if(state->account->state != ACCOUNT_STATE_OK) {
+			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
 				                               "Not logged in: can't access files!");
 
@@ -411,7 +411,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		// permission model: everybody that is logged in can use CWD
 		case FtpCommandCwd: {
 
-			if(state->account->state != ACCOUNT_STATE_OK) {
+			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
 				                               "Not logged in: can't access files!");
 
@@ -423,21 +423,21 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			DirChangeResult result = change_dirname_to(state, argument);
 
 			switch(result) {
-				case DIR_CHANGE_RESULT_OK: {
+				case DirChangeResultOk: {
 					break;
 				}
-				case DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL: {
+				case DirChangeResultErrorPathTraversal: {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN_FATAL,
 					                               "Path traversal detected, aborting!");
 					return true;
 				}
-				case DIR_CHANGE_RESULT_NO_SUCH_DIR: {
+				case DirChangeResultNoSuchDir: {
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN_FATAL,
 					                               "No such directory!");
 					return true;
 				}
-				case DIR_CHANGE_RESULT_ERROR:
+				case DirChangeResultError:
 				default: {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN_FATAL,
 					                               "An unknown error occurred!");
@@ -464,7 +464,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		// permission model: everybody that is logged in can use CWD
 		case FtpCommandCdup: {
 
-			if(state->account->state != ACCOUNT_STATE_OK) {
+			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
 				                               "Not logged in: can't access files!");
 
@@ -476,21 +476,21 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			DirChangeResult result = change_dirname_to(state, argument);
 
 			switch(result) {
-				case DIR_CHANGE_RESULT_OK: {
+				case DirChangeResultOk: {
 					break;
 				}
-				case DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL: {
+				case DirChangeResultErrorPathTraversal: {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN_FATAL,
 					                               "Path traversal detected, aborting!");
 					return true;
 				}
-				case DIR_CHANGE_RESULT_NO_SUCH_DIR: {
+				case DirChangeResultNoSuchDir: {
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN_FATAL,
 					                               "No such directory!");
 					return true;
 				}
-				case DIR_CHANGE_RESULT_ERROR:
+				case DirChangeResultError:
 				default: {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN_FATAL,
 					                               "An unknown error occurred!");
@@ -539,7 +539,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			SEND_RESPONSE_WITH_ERROR_CHECK_F(FTP_RETURN_CODE_ENTERING_PASSIVE_MODE,
 			                                 "Entering Passive Mode %s.", port_desc);
 
-			state->data_settings->mode = FTP_DATA_MODE_PASSIVE;
+			state->data_settings->mode = FtpDataModePassive;
 			state->data_settings->addr = data_addr;
 
 			free(port_desc);
@@ -607,7 +607,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 		case FtpCommandPort: {
 
-			state->data_settings->mode = FTP_DATA_MODE_ACTIVE;
+			state->data_settings->mode = FtpDataModeActive;
 			state->data_settings->addr = *command->data.port_info;
 
 			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_CMD_OK, "Entering active mode");
@@ -619,21 +619,21 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		// permission model: you have to be logged in and have WRITE Permissions
 		case FtpCommandStor: {
 
-			if(state->account->state != ACCOUNT_STATE_OK) {
+			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
 				                               "Not logged in: can't upload files!");
 
 				return true;
 			}
 
-			/* if((state->account->data.ok_data.permissions & ACCOUNT_PERMISSIONS_WRITE) == 0) {
+			/* if((state->account->data.ok_data.permissions & AccountPermissionsWrite) == 0) {
 			    SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NED_ACCT_FOR_STORE,
 			                                   "No write permissions with this user!");
 
 			    return true;
 			} */
 
-			if(state->data_settings->mode == FTP_DATA_MODE_NONE) {
+			if(state->data_settings->mode == FtpDataModeNone) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(
 				    FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
 				    "No data conenction mode specified, specify either PASSIVE or ACTIVE");
@@ -808,14 +808,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			// permission model: everybody that is logged in can use RETR
 		case FtpCommandRetr: {
 
-			if(state->account->state != ACCOUNT_STATE_OK) {
+			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
 				                               "Not logged in: can't access files!");
 
 				return true;
 			}
 
-			if(state->data_settings->mode == FTP_DATA_MODE_NONE) {
+			if(state->data_settings->mode == FtpDataModeNone) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(
 				    FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
 				    "No data conenction mode specified, specify either PASSIVE or ACTIVE");
@@ -979,7 +979,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				SendMode send_mode = get_current_send_mode(state);
 
-				if(send_mode == SEND_MODE_UNSUPPORTED) {
+				if(send_mode == SendModeUnsupported) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
 					                               "Unsupported send mode");
 					return true;
@@ -1027,14 +1027,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		// permission model: everybody that is logged in can use LIST
 		case FtpCommandList: {
 
-			if(state->account->state != ACCOUNT_STATE_OK) {
+			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_NOT_LOGGED_IN,
 				                               "Not logged in: can't access files!");
 
 				return true;
 			}
 
-			if(state->data_settings->mode == FTP_DATA_MODE_NONE) {
+			if(state->data_settings->mode == FtpDataModeNone) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(
 				    FTP_RETURN_CODE_FILE_ACTION_NOT_TAKEN,
 				    "No data conenction mode specified, specify either PASSIVE or ACTIVE");
@@ -1198,7 +1198,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				SendMode send_mode = get_current_send_mode(state);
 
-				if(send_mode == SEND_MODE_UNSUPPORTED) {
+				if(send_mode == SendModeUnsupported) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_FILE_ACTION_ABORTED,
 					                               "Unsupported send mode");
 					return true;
@@ -1253,25 +1253,25 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			switch(type_info->data.type & FTP_TRANSMISSION_TYPE_MASK_BASE) {
-				case FTP_TRANSMISSION_TYPE_ASCII: {
+			switch(type_info->data.type & FtpTransmissionTypeMaskBase) {
+				case FtpTransmissionTypeAscii: {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR,
 					                               "ASCII type not supported atm!");
 
 					return false;
-					// state->current_type = FTP_TRANSMISSION_TYPE_ASCII;
+					// state->current_type = FtpTransmissionTypeAscii;
 					// break;
 				}
-				case FTP_TRANSMISSION_TYPE_EBCDIC: {
+				case FtpTransmissionTypeEbcdic: {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYNTAX_ERROR,
 					                               "EBCDIC type not supported atm!");
 
 					return false;
-					// state->current_type = FTP_TRANSMISSION_TYPE_EBCDIC;
+					// state->current_type = FtpTransmissionTypeEbcdic;
 					// break;
 				}
-				case FTP_TRANSMISSION_TYPE_IMAGE: {
-					state->current_type = FTP_TRANSMISSION_TYPE_IMAGE;
+				case FtpTransmissionTypeImage: {
+					state->current_type = FtpTransmissionTypeImage;
 					SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_CMD_OK, "Set Type To Binary!");
 					return true;
 				}

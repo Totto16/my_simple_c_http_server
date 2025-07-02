@@ -21,10 +21,10 @@ typedef struct {
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	DIR_CHANGE_RESULT_OK = 0,
-	DIR_CHANGE_RESULT_NO_SUCH_DIR,
-	DIR_CHANGE_RESULT_ERROR,
-	DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL,
+	DirChangeResultOk = 0,
+	DirChangeResultNoSuchDir,
+	DirChangeResultError,
+	DirChangeResultErrorPathTraversal,
 } DirChangeResult;
 
 NODISCARD char* get_dir_name_relative_to_ftp_root(const FTPState* state, const char* file,
@@ -48,4 +48,4 @@ NODISCARD bool send_data_to_send(const SendData* data, ConnectionDescriptor* des
 void free_send_data(SendData* data);
 
 // NOTE: this overwrites files
-NODISCARD bool write_to_file(char* path, void* data, size_t dataSize);
+NODISCARD bool write_to_file(char* path, void* data, size_t data_size);

@@ -62,7 +62,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 typedef struct {
 	bool is_normal;
 	union {
-		FTP_TRANSMISSION_TYPE type;
+		FtpTransmissionType type;
 		uint8_t num;
 	} data;
 } FTPCommandTypeInformation;

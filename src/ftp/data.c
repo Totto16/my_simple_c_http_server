@@ -33,18 +33,18 @@ struct DataControllerImpl {
  * @note this could be a mask / flag, but it also works like this
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	DATA_CONNECTION_STATE_EMPTY = 0,
-	DATA_CONNECTION_STATE_HAS_DESCRIPTOR,
-	DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL,
-	DATA_CONNECTION_STATE_HAS_BOTH
+	DataConnectionStateEmpty = 0,
+	DataConnectionStateHasDescriptor,
+	DataConnectionStateHasAssociatedControl,
+	DataConnectionStateHasBoth
 } DataConnectionState;
 
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	DATA_CONNECTION_CONTROL_STATE_MISSING = 0,
-	DATA_CONNECTION_CONTROL_STATE_RETRIEVED,
-	DATA_CONNECTION_CONTROL_STATE_SENDING,
-	DATA_CONNECTION_CONTROL_STATE_SHOULD_CLOSE,
-	DATA_CONNECTION_CONTROL_STATE_ERROR
+	DataConnectionControlStateMissing = 0,
+	DataConnectionControlStateRetrieved,
+	DataConnectionControlStateSending,
+	DataConnectionControlStateShouldClose,
+	DataConnectionControlStateError
 } DataConnectionControlState;
 
 typedef struct {
@@ -56,12 +56,12 @@ typedef struct {
 } ConnectionTypeIdentifier;
 
 typedef struct {
-	int sockFd;
+	int sock_fd;
 	struct sockaddr_in* connect_addr;
 } ActiveResumeDataImpl;
 
 typedef struct {
-	int sockFd;
+	int sock_fd;
 } ActiveConnectedDataImpl;
 
 typedef struct {
@@ -214,9 +214,9 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 
 			connection->identifier.active = false;
 			connection->identifier.data.port = port_metadata->port;
-			connection->state = DATA_CONNECTION_STATE_EMPTY;
+			connection->state = DataConnectionStateEmpty;
 			connection->descriptor = NULL;
-			connection->control_state = DATA_CONNECTION_CONTROL_STATE_MISSING;
+			connection->control_state = DataConnectionControlStateMissing;
 			connection->associated_thread = 0;
 			if(!nts_internal_set_last_change_to_now(connection)) {
 				free(connection);
@@ -272,8 +272,8 @@ bool data_controller_add_descriptor(DataController* data_controller,
 	{
 
 		switch(data_connection->state) {
-			case DATA_CONNECTION_STATE_EMPTY:
-			case DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL: {
+			case DataConnectionStateEmpty:
+			case DataConnectionStateHasAssociatedControl: {
 				data_connection->descriptor = descriptor;
 				if(!nts_internal_set_last_change_to_now(data_connection)) {
 					success = false;
@@ -282,9 +282,9 @@ bool data_controller_add_descriptor(DataController* data_controller,
 
 				success = true;
 				data_connection->state =
-				    data_connection->state == DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL
-				        ? DATA_CONNECTION_STATE_HAS_BOTH
-				        : DATA_CONNECTION_STATE_HAS_DESCRIPTOR;
+				    data_connection->state == DataConnectionStateHasAssociatedControl
+				        ? DataConnectionStateHasBoth
+				        : DataConnectionStateHasDescriptor;
 
 				// TODO(Totto): maybe use this instead of signals:
 				// https://linux.die.net/man/2/eventfd2
@@ -307,8 +307,8 @@ bool data_controller_add_descriptor(DataController* data_controller,
 				success = false;
 				break;
 			}
-			case DATA_CONNECTION_STATE_HAS_DESCRIPTOR:
-			case DATA_CONNECTION_STATE_HAS_BOTH:
+			case DataConnectionStateHasDescriptor:
+			case DataConnectionStateHasBoth:
 			default: {
 				success = false;
 				break;
@@ -327,7 +327,7 @@ bool data_controller_add_descriptor(DataController* data_controller,
 
 NODISCARD static bool nts_internal_should_close_connection(DataConnection* connection) {
 
-	if(connection->state != DATA_CONNECTION_STATE_HAS_BOTH) {
+	if(connection->state != DataConnectionStateHasBoth) {
 
 		// Check timeout
 
@@ -344,8 +344,8 @@ NODISCARD static bool nts_internal_should_close_connection(DataConnection* conne
 		return (diff_time >= DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S_D);
 	}
 
-	if(connection->control_state == DATA_CONNECTION_CONTROL_STATE_SHOULD_CLOSE ||
-	   connection->control_state == DATA_CONNECTION_CONTROL_STATE_ERROR) {
+	if(connection->control_state == DataConnectionControlStateShouldClose ||
+	   connection->control_state == DataConnectionControlStateError) {
 		return true;
 	}
 
@@ -395,7 +395,8 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 					}
 				}
 
-				stbds_arrput(connections, current_conn->descriptor);
+				stbds_arrput( // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
+				    connections, current_conn->descriptor);
 			} else {
 
 				data_controller->connections[current_keep_index] = current_conn;
@@ -447,14 +448,14 @@ NODISCARD static ConnectionTypeIdentifier
 nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 
 	switch(settings.mode) {
-		case FTP_DATA_MODE_ACTIVE: {
+		case FtpDataModeActive: {
 			return (ConnectionTypeIdentifier){ .active = true, .data = { .addr = settings.addr } };
 		}
-		case FTP_DATA_MODE_PASSIVE: {
+		case FtpDataModePassive: {
 			return (ConnectionTypeIdentifier){ .active = false,
 				                               .data = { .port = settings.addr.port } };
 		}
-		case FTP_DATA_MODE_NONE:
+		case FtpDataModeNone:
 		default: {
 			return (ConnectionTypeIdentifier){ .active = false, .data = { .port = 0 } };
 		}
@@ -472,7 +473,7 @@ nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* active_
 
 	ActiveResumeDataImpl* resume_data = &active_conn_data->data.resume_data;
 
-	int result = connect(resume_data->sockFd, (struct sockaddr*)resume_data->connect_addr,
+	int result = connect(resume_data->sock_fd, (struct sockaddr*)resume_data->connect_addr,
 	                     sizeof(*resume_data->connect_addr));
 
 	if(result == 0) {
@@ -505,7 +506,7 @@ connected:
 
 	active_conn_data->connected = true;
 
-	active_conn_data->data.conn_data.sockFd = resume_data->sockFd;
+	active_conn_data->data.conn_data.sock_fd = resume_data->sock_fd;
 	free(resume_data->connect_addr);
 
 	return true;
@@ -522,17 +523,17 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 	}
 
 #ifdef __linux
-	int sockFd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
-	CHECK_FOR_ERROR(sockFd, "While Trying to create a active connection", {
+	int sock_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
+	CHECK_FOR_ERROR(sock_fd, "While Trying to create a active connection", {
 		free(active_conn_data);
 		return NULL;
 	});
 #else
-	int sockFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	CHECK_FOR_ERROR(sockFd, "While Trying to create a active connection", return NULL;);
+	int sock_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	CHECK_FOR_ERROR(sock_fd, "While Trying to create a active connection", return NULL;);
 
-	int fcntl_flags = fcntl(sockFd, F_GETFL, 0);
-	fcntl(sockFd, F_SETFL, fcntl_flags | O_NONBLOCK);
+	int fcntl_flags = fcntl(sock_fd, F_GETFL, 0);
+	fcntl(sock_fd, F_SETFL, fcntl_flags | O_NONBLOCK);
 #endif
 
 	struct sockaddr_in* connect_addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
@@ -546,7 +547,7 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 
 	active_conn_data->connected = false;
 
-	active_conn_data->data.resume_data.sockFd = sockFd;
+	active_conn_data->data.resume_data.sock_fd = sock_fd;
 	active_conn_data->data.resume_data.connect_addr = connect_addr;
 
 	if(!nts_internal_try_if_active_connection_is_connected(active_conn_data)) {
@@ -609,27 +610,27 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 				switch(connection->state) {
 
-					case DATA_CONNECTION_STATE_EMPTY: {
-						connection->state = DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL;
+					case DataConnectionStateEmpty: {
+						connection->state = DataConnectionStateHasAssociatedControl;
 						// an error here means not the world end
-						bool _ignore = nts_internal_set_last_change_to_now(connection);
-						UNUSED(_ignore);
+						bool ignore = nts_internal_set_last_change_to_now(connection);
+						UNUSED(ignore);
 						connection->associated_thread = pthread_self();
 						connection = NULL;
 						break;
 					}
-					case DATA_CONNECTION_STATE_HAS_DESCRIPTOR: {
-						connection->state = DATA_CONNECTION_STATE_HAS_BOTH;
-						connection->control_state = DATA_CONNECTION_CONTROL_STATE_RETRIEVED;
+					case DataConnectionStateHasDescriptor: {
+						connection->state = DataConnectionStateHasBoth;
+						connection->control_state = DataConnectionControlStateRetrieved;
 						connection->associated_thread = pthread_self();
 						break;
 					}
-					case DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL: {
+					case DataConnectionStateHasAssociatedControl: {
 						connection = NULL;
 						break;
 					}
-					case DATA_CONNECTION_STATE_HAS_BOTH: {
-						connection->control_state = DATA_CONNECTION_CONTROL_STATE_RETRIEVED;
+					case DataConnectionStateHasBoth: {
+						connection->control_state = DataConnectionControlStateRetrieved;
 						connection->associated_thread = pthread_self();
 						break;
 					}
@@ -646,10 +647,10 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 					if(current_conn->active_data->connected) {
 						connection = current_conn;
-						connection->state = DATA_CONNECTION_STATE_HAS_BOTH;
-						connection->control_state = DATA_CONNECTION_CONTROL_STATE_RETRIEVED;
-						bool _ignore = nts_internal_set_last_change_to_now(connection);
-						UNUSED(_ignore);
+						connection->state = DataConnectionStateHasBoth;
+						connection->control_state = DataConnectionControlStateRetrieved;
+						bool ignore = nts_internal_set_last_change_to_now(connection);
+						UNUSED(ignore);
 						// TODO(Totto): where do we get eventual ssl conetxts here?
 						const SecureOptions* const options =
 						    initialize_secure_options(false, "", "");
@@ -657,7 +658,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 						ConnectionContext* context = get_connection_context(options);
 
 						ConnectionDescriptor* const descriptor = get_connection_descriptor(
-						    context, connection->active_data->data.conn_data.sockFd);
+						    context, connection->active_data->data.conn_data.sock_fd);
 
 						connection->descriptor = descriptor;
 						// TODO(Totto): free appropriately
@@ -680,9 +681,9 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 			}
 
 			new_connection->identifier = identifier;
-			new_connection->state = DATA_CONNECTION_STATE_HAS_ASSOCIATED_CONTROL;
+			new_connection->state = DataConnectionStateHasAssociatedControl;
 			new_connection->descriptor = NULL;
-			new_connection->control_state = DATA_CONNECTION_CONTROL_STATE_MISSING;
+			new_connection->control_state = DataConnectionControlStateMissing;
 			new_connection->associated_thread = pthread_self();
 			if(!nts_internal_set_last_change_to_now(new_connection)) {
 				free(new_connection);
@@ -721,10 +722,10 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 				if(new_connection->active_data->connected) {
 					connection = new_connection;
-					connection->state = DATA_CONNECTION_STATE_HAS_BOTH;
-					connection->control_state = DATA_CONNECTION_CONTROL_STATE_RETRIEVED;
-					bool _ignore = nts_internal_set_last_change_to_now(connection);
-					UNUSED(_ignore);
+					connection->state = DataConnectionStateHasBoth;
+					connection->control_state = DataConnectionControlStateRetrieved;
+					bool ignore = nts_internal_set_last_change_to_now(connection);
+					UNUSED(ignore);
 					goto cleanup;
 				}
 			}
@@ -754,20 +755,20 @@ data_connection_get_descriptor_to_send_to(DataController* data_controller,
 
 	{
 
-		if(connection->state != DATA_CONNECTION_STATE_HAS_BOTH) {
+		if(connection->state != DataConnectionStateHasBoth) {
 			descriptor = NULL;
-			connection->control_state = DATA_CONNECTION_CONTROL_STATE_ERROR;
+			connection->control_state = DataConnectionControlStateError;
 			goto cleanup;
 		}
 
-		if(connection->control_state != DATA_CONNECTION_CONTROL_STATE_RETRIEVED) {
+		if(connection->control_state != DataConnectionControlStateRetrieved) {
 			descriptor = NULL;
-			connection->control_state = DATA_CONNECTION_CONTROL_STATE_ERROR;
+			connection->control_state = DataConnectionControlStateError;
 			goto cleanup;
 		}
 
 		descriptor = connection->descriptor;
-		connection->control_state = DATA_CONNECTION_CONTROL_STATE_SENDING;
+		connection->control_state = DataConnectionControlStateSending;
 	}
 cleanup:
 
@@ -814,19 +815,19 @@ NODISCARD bool data_connection_close(DataController* data_controller, DataConnec
 
 	{
 
-		if(connection->state != DATA_CONNECTION_STATE_HAS_BOTH) {
+		if(connection->state != DataConnectionStateHasBoth) {
 			success = false;
-			connection->control_state = DATA_CONNECTION_CONTROL_STATE_ERROR;
+			connection->control_state = DataConnectionControlStateError;
 			goto cleanup;
 		}
 
-		if(connection->control_state != DATA_CONNECTION_CONTROL_STATE_SENDING) {
+		if(connection->control_state != DataConnectionControlStateSending) {
 			success = false;
-			connection->control_state = DATA_CONNECTION_CONTROL_STATE_ERROR;
+			connection->control_state = DataConnectionControlStateError;
 			goto cleanup;
 		}
 
-		connection->control_state = DATA_CONNECTION_CONTROL_STATE_SHOULD_CLOSE;
+		connection->control_state = DataConnectionControlStateShouldClose;
 
 		success = nts_internal_close_connection(data_controller, connection);
 	}
