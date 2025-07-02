@@ -230,3 +230,24 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 }
 
 #endif
+
+NODISCARD const char* get_sha1_provider(void) {
+#ifdef _SIMPLE_SERVER_USE_OPENSSL_FOR_HASHING
+#ifdef _SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS
+
+	return "openssl (Deprecated)";
+#else
+	return "openssl (EVP)";
+#endif
+#else
+	return "thirdparty";
+#endif
+}
+
+NODISCARD const char* get_base64_provider(void) {
+#ifdef _SIMPLE_SERVER_USE_OPENSSL_FOR_HASHING
+	return "openssl";
+#else
+	return "thirdparty";
+#endif
+}

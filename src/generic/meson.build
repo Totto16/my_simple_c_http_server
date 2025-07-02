@@ -1,4 +1,4 @@
-src_files += files('authentication.c', 'authentication.h', 'helper.c', 'helper.h', 'read.c', 'read.h', 'secure.c', 'secure.h', 'sem.c', 'sem.h','hash.c', 'hash.h', 'send.c', 'send.c', 'signal_fd.c'
+src_files += files('authentication.c', 'authentication.h', 'hash.c', 'hash.h', 'helper.c', 'helper.h', 'read.c', 'read.h', 'secure.c', 'secure.h', 'sem.c', 'sem.h', 'send.c', 'send.c', 'signal_fd.c'
 , 'signal_fd.h')
 
 
