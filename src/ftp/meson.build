@@ -13,7 +13,7 @@ has___sighandler_t_type = cc.compiles(
 #include <signal.h>
 
 int f(__sighandler_t h);
-''',
+'''
 )
 if not has___sighandler_t_type
     compile_flags += '-D_NO_SIGNAL_HANDLER_TYPED_DEFINED'

@@ -4,5 +4,6 @@
 #include "generic/secure.h"
 #include "http/http_protocol.h"
 
-NODISCARD int handleWSHandshake(const HttpRequest* httpRequest,
-                                const ConnectionDescriptor* descriptor, SendSettings send_settings);
+NODISCARD int handle_ws_handshake(const HttpRequest* http_request,
+                                  const ConnectionDescriptor* descriptor,
+                                  SendSettings send_settings);

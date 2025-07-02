@@ -10,29 +10,29 @@ AccountInfo* alloc_default_account(void) {
 		return NULL;
 	}
 
-	account->state = ACCOUNT_STATE_EMPTY;
+	account->state = AccountStateEmpty;
 
 	return account;
 }
 
 void free_account_data(AccountInfo* account) {
 	switch(account->state) {
-		case ACCOUNT_STATE_OK: {
+		case AccountStateOk: {
 			free(account->data.ok_data.username);
 			break;
 		}
-		case ACCOUNT_STATE_ONLY_USER: {
+		case AccountStateOnlyUser: {
 			free(account->data.temp_data.username);
 			break;
 		}
-		case ACCOUNT_STATE_EMPTY:
+		case AccountStateEmpty:
 		default: {
 			break;
 		}
 	}
 }
 
-USER_VALIDITY
+UserValidity
 account_verify(const char* const username, // NOLINT(bugprone-easily-swappable-parameters)
                const char* const passwd) {
 
@@ -42,5 +42,5 @@ account_verify(const char* const username, // NOLINT(bugprone-easily-swappable-p
 	UNUSED(username);
 	UNUSED(passwd);
 
-	return USER_VALIDITY_INTERNAL_ERROR;
+	return UserValidityInternalError;
 }

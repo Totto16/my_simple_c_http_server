@@ -10,18 +10,18 @@
 #include <time.h>
 
 // simple malloc Wrapper, using also memset to set everything to 0
-void* mallocWithMemset(const size_t size, const bool initializeWithZeros) {
+void* malloc_with_memset(const size_t size, const bool initialize_with_zeros) {
 	void* result = malloc(size);
 	if(result == NULL) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
 		return NULL;
 	}
-	if(initializeWithZeros) {
+	if(initialize_with_zeros) {
 		// yes this could be done by calloc, but if you don't need that, its overhead!
-		void* secondResult = memset(result, 0, size);
-		if(result != secondResult) {
+		void* second_result = memset(result, 0, size);
+		if(result != second_result) {
 			// this shouldn't occur, but "better be safe than sorry"
-			fprintf(stderr, "FATAL: Couldn't set the memory allocated to zeros!!\n");
+			LOG_MESSAGE_SIMPLE(LogLevelCritical, "Couldn't set the memory allocated to zeros!!\n");
 			// free not really necessary, but also not that wrong
 			free(result);
 			return NULL;
@@ -31,19 +31,21 @@ void* mallocWithMemset(const size_t size, const bool initializeWithZeros) {
 }
 
 // simple realloc Wrapper, using also memset to set everything to 0
-void* reallocWithMemset(void* previousPtr, const size_t oldSize, const size_t newSize,
-                        const bool initializeWithZeros) {
-	void* result = realloc(previousPtr, newSize);
+void* realloc_with_memset(void* previous_ptr, const size_t old_size, const size_t new_size,
+                          const bool initialize_with_zeros) {
+	void* result = realloc(previous_ptr, new_size);
 	if(result == NULL) {
-		fprintf(stderr, "ERROR: Couldn't reallocate memory!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Couldn't reallocate memory!\n");
 		return NULL;
 	}
-	if(initializeWithZeros && newSize > oldSize) { // NOLINT(readability-implicit-bool-conversion)
+	if(initialize_with_zeros && // NOLINT(readability-implicit-bool-conversion)
+	   new_size > old_size) {
 		// yes this could be done by calloc, but if you don't need that, its overhead!
-		void* secondResult = memset(((char*)result) + oldSize, 0, newSize - oldSize);
-		if(((char*)result) + oldSize != secondResult) {
+		void* second_result = memset(((char*)result) + old_size, 0, new_size - old_size);
+		if(((char*)result) + old_size != second_result) {
 			// this shouldn't occur, but "better be safe than sorry"
-			fprintf(stderr, "FATAL: Couldn't set the memory reallocated to zeros!!\n");
+			LOG_MESSAGE_SIMPLE(LogLevelCritical,
+			                   "Couldn't set the memory reallocated to zeros!!\n");
 			// free not really necessary, but also not that wrong
 			free(result);
 			return NULL;
@@ -53,7 +55,7 @@ void* reallocWithMemset(void* previousPtr, const size_t oldSize, const size_t ne
 }
 
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-long parseLongSafely(const char* toParse, const char* description) {
+long parse_long_safely(const char* to_parse, const char* description) {
 	// this is just allocated, so that strtol can write an address into it,
 	// therefore it doesn't need to be initialized
 	char* endpointer = NULL;
@@ -63,13 +65,13 @@ long parseLongSafely(const char* toParse, const char* description) {
 	errno = 0;
 	// using strtol, string to long, since atoi doesn't report errors that well
 	long result =
-	    strtol(toParse, &endpointer,
+	    strtol(to_parse, &endpointer,
 	           10); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
 	if(*endpointer != '\0') {
-		fprintf(stderr, "ERROR: Couldn't parse the incorrect long %s for the argument %s!\n",
-		        toParse, description);
+		LOG_MESSAGE(LogLevelError, "Couldn't parse the incorrect long %s for the argument %s!\n",
+		            to_parse, description);
 		exit(EXIT_FAILURE);
 	} else if(errno != 0) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't parse the incorrect long: %s\n", strerror(errno));
@@ -79,21 +81,22 @@ long parseLongSafely(const char* toParse, const char* description) {
 	return result;
 }
 
-uint16_t parseU16Safely(const char* toParse, const char* description) {
+NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* description) {
 
-	long result = parseLongSafely(toParse, description);
+	long result = parse_long_safely(to_parse, description);
 
 	if(result < 0) {
-		fprintf(stderr,
-		        "ERROR: Number not correct, '%ld' is negative, only positive numbers are allowed: "
-		        "%s!\n",
-		        result, description);
+		LOG_MESSAGE(LogLevelError,
+		            "Number not correct, '%ld' is negative, only positive numbers are allowed: "
+		            "%s!\n",
+		            result, description);
 		exit(EXIT_FAILURE);
 	}
 
 	if(result > UINT16_MAX) {
-		fprintf(stderr, "ERROR: Number not correct, '%ld' is too big for %s, the maximum is %d!\n",
-		        result, description, UINT16_MAX);
+		LOG_MESSAGE(LogLevelError,
+		            "Number not correct, '%ld' is too big for %s, the maximum is %d!\n", result,
+		            description, UINT16_MAX);
 		exit(EXIT_FAILURE);
 	}
 
@@ -114,7 +117,7 @@ char* copy_cstr(char* input) {
 	return result;
 }
 
-NODISCARD float parseFloat(char* value) {
+NODISCARD float parse_float(char* value) {
 	char* endpointer = NULL;
 	errno = 0;
 	float result = strtof(value, &endpointer);

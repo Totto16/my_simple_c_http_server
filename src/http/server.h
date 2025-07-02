@@ -1,8 +1,5 @@
 #pragma once
 
-// Note -D_POSIX_C_SOURCE -D_BSD_SOURCE are needed feature flags ONLY for ZID-DPL, on
-// other more modern Systems these might throw a warning, but they're needed for older Systems!
-
 #include <netinet/ip.h>
 #include <poll.h>
 #include <stdbool.h>
@@ -31,44 +28,45 @@
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	REQUEST_SUPPORTED = 0,
-	REQUEST_INVALID_HTTP_VERSION,
-	REQUEST_METHOD_NOT_SUPPORTED,
-	REQUEST_INVALID_NONEMPTY_BODY,
-} REQUEST_SUPPORT_STATUS;
+	RequestSupported = 0,
+	RequestInvalidHttpVersion,
+	RequestMethodNotSupported,
+	RequestInvalidNonemptyBody,
+} RequestSupportStatus;
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
-int isRequestSupported(HttpRequest* request);
+NODISCARD RequestSupportStatus is_request_supported(HttpRequest* request);
 
 // structs for the listenerThread
 
 typedef struct {
-	thread_pool* pool;
-	myqueue* jobIds;
-	ConnectionContext** contexts;
-	int socketFd;
-	WebSocketThreadManager* webSocketManager;
-	const RouteManager* routeManager;
+	ThreadPool* pool;
+	Myqueue* job_ids;
+	STBDS_ARRAY(ConnectionContext*) contexts;
+	int socket_fd;
+	WebSocketThreadManager* web_socket_manager;
+	const RouteManager* route_manager;
 } HTTPThreadArgument;
 
 typedef struct {
-	ConnectionContext** contexts;
-	pthread_t listenerThread;
-	int connectionFd;
-	WebSocketThreadManager* webSocketManager;
-	const RouteManager* routeManager;
+	STBDS_ARRAY(ConnectionContext*) contexts;
+	pthread_t listener_thread;
+	int connection_fd;
+	WebSocketThreadManager* web_socket_manager;
+	const RouteManager* route_manager;
 } HTTPConnectionArgument;
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-anyType(JobError*)
-    http_socket_connection_handler(anyType(HTTPConnectionArgument*) arg, WorkerInfo workerInfo);
+NODISCARD ANY_TYPE(JobError*)
+    http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
+                                   WorkerInfo worker_info);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-anyType(NULL) http_listener_thread_function(anyType(HTTPThreadArgument*) arg);
+NODISCARD ANY_TYPE(NULL) http_listener_thread_function(ANY_TYPE(HTTPThreadArgument*) arg);
 
-int startHttpServer(uint16_t port, SecureOptions* options);
+NODISCARD int start_http_server(uint16_t port, SecureOptions* options);

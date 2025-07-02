@@ -9,18 +9,20 @@
 #endif
 
 #ifdef __APPLE__
-typedef dispatch_semaphore_t SEMAPHORE_TYPE;
+typedef dispatch_semaphore_t SemaphoreType;
 #else
-typedef sem_t SEMAPHORE_TYPE;
+typedef sem_t SemaphoreType;
 #endif
 
 #include <stdbool.h>
 #include <stdint.h>
 
-int comp_sem_init(SEMAPHORE_TYPE* sem, uint32_t value, bool shared);
+#include "utils/utils.h"
 
-int comp_sem_wait(SEMAPHORE_TYPE* sem);
+NODISCARD int comp_sem_init(SemaphoreType* sem, uint32_t value, bool shared);
 
-int comp_sem_post(SEMAPHORE_TYPE* sem);
+NODISCARD int comp_sem_wait(SemaphoreType* sem);
 
-int comp_sem_destroy(SEMAPHORE_TYPE* sem);
+NODISCARD int comp_sem_post(SemaphoreType* sem);
+
+NODISCARD int comp_sem_destroy(SemaphoreType* sem);

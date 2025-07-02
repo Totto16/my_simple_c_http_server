@@ -2,4 +2,6 @@
 
 #pragma once
 
-int get_signal_like_fd(int signal);
+#include "utils/utils.h"
+
+NODISCARD int get_signal_like_fd(int signal);

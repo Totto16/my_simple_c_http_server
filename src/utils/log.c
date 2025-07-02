@@ -1,5 +1,5 @@
 
-#define _GNU_SOURCE
+#define _GNU_SOURCE // NOLINT(readability-identifier-naming,bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
 #include <pthread.h>
 #undef _GNU_SOURCE
 
@@ -16,7 +16,10 @@ typedef struct {
 	pthread_mutex_t mutex;
 } GlobalLogState;
 
-static GlobalLogState __global_log_entry = { .log_level = DEFAULT_LOG_LEVEL };
+static GlobalLogState
+    g_global_value_log_entry = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+	    .log_level = DEFAULT_LOG_LEVEL
+    };
 
 // thread state
 
@@ -24,14 +27,17 @@ typedef struct {
 	const char* name;
 } ThreadState;
 
-static _Thread_local ThreadState __log_thread_state = { .name = NULL };
+static _Thread_local ThreadState
+    g_global_value_log_thread_state = { // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+	    .name = NULL
+    };
 
 bool should_log(LogLevel level) {
-	if(__global_log_entry.log_level == LogLevelOff) {
+	if(g_global_value_log_entry.log_level == LogLevelOff) {
 		return false;
 	}
 
-	return __global_log_entry.log_level <= level;
+	return g_global_value_log_entry.log_level <= level;
 }
 
 bool should_log_to_stderr(LogLevel level) {
@@ -39,7 +45,7 @@ bool should_log_to_stderr(LogLevel level) {
 }
 
 bool log_should_use_color(void) {
-	return isatty(STDIN_FILENO);
+	return isatty(STDIN_FILENO) != 0;
 }
 
 bool has_flag(int flags, LogFlags needle) {
@@ -100,67 +106,81 @@ const char* get_level_name_internal(LogLevel level, bool color) {
 
 const char* get_thread_name(void) {
 
-	if(__log_thread_state.name) {
-		return __log_thread_state.name;
+	if(g_global_value_log_thread_state.name) {
+		return g_global_value_log_thread_state.name;
 	}
 
-	THREAD_ID_TYPE tid = get_thread_id();
+	ThreadIdType tid = get_thread_id();
 
 	char* name = NULL;
-	formatString(
+	FORMAT_STRING_IMPL(
 	    &name,
 	    {
 		    const char* fallback_name = "<failed setting thread name>";
-		    __log_thread_state.name = fallback_name;
+		    g_global_value_log_thread_state.name = fallback_name;
 		    return fallback_name;
 	    },
-	    "TID " PRI_THREADID, tid);
+	    IMPL_STDERR_LOGGER, "TID " PRI_THREADID, tid);
 
-	__log_thread_state.name = name;
+	g_global_value_log_thread_state.name = name;
 
-	return __log_thread_state.name;
+	return g_global_value_log_thread_state.name;
 }
 
 void log_lock_mutex(void) {
-	int result = pthread_mutex_lock(&__global_log_entry.mutex);
-	checkForThreadError(result, "An Error occurred while trying to lock the mutex for the logger",
-	                    return;);
+	int result = pthread_mutex_lock(&g_global_value_log_entry.mutex);
+
+	if(result != 0) {
+		/*pthread function don't set errno, but return the error value \
+		 * directly*/
+		fprintf(stderr, "An Error occurred while trying to lock the mutex for the logger: %s\n",
+		        strerror(result));
+		exit(EXIT_FAILURE);
+	}
 }
 
 void log_unlock_mutex(void) {
-	int result = pthread_mutex_unlock(&__global_log_entry.mutex);
-	checkForThreadError(result, "An Error occurred while trying to unlock the mutex for the logger",
-	                    return;);
+	int result = pthread_mutex_unlock(&g_global_value_log_entry.mutex);
+
+	if(result != 0) {
+		/*pthread function don't set errno, but return the error value \
+		 * directly*/
+		fprintf(stderr, "An Error occurred while trying to unlock the mutex for the logger: %s\n",
+		        strerror(result));
+		exit(EXIT_FAILURE);
+	}
 }
 
 void initialize_logger(void) {
-	__global_log_entry.log_level = DEFAULT_LOG_LEVEL;
+	g_global_value_log_entry.log_level = DEFAULT_LOG_LEVEL;
 
-	int result = pthread_mutex_init(&__global_log_entry.mutex, NULL);
-	checkForThreadError(
+	int result = pthread_mutex_init(&g_global_value_log_entry.mutex, NULL);
+	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to initialize the mutex for the logger", return;);
 }
 
 void set_log_level(LogLevel level) {
-	__global_log_entry.log_level = level;
+	g_global_value_log_entry.log_level = level;
 }
 
 // taken from my work in oopetris
 // inspired by SDL_SYS_SetupThread also uses that code for most platforms
 void set_platform_thread_name(const char* name) {
 
+#define NAME_BUF_MAX_SIZE 16
+
 #if defined(__APPLE__) || defined(__MACOSX__)
 	if(pthread_setname_np(name) == ERANGE) {
-		char namebuf[16] = {}; /* Limited to 16 chars (with 0 byte) */
-		memcpy(namebuf, name, 15);
-		namebuf[15] = '\0';
+		char namebuf[NAME_BUF_MAX_SIZE] = {}; /* Limited to 16 chars (with 0 byte) */
+		memcpy(namebuf, name, NAME_BUF_MAX_SIZE - 1);
+		namebuf[NAME_BUF_MAX_SIZE - 1] = '\0';
 		pthread_setname_np(namebuf);
 	}
 #elif defined(__linux__) || defined(__ANDROID__)
 	if(pthread_setname_np(pthread_self(), name) == ERANGE) {
-		char namebuf[16] = {}; /* Limited to 16 chars (with 0 byte) */
-		memcpy(namebuf, name, 15);
-		namebuf[15] = '\0';
+		char namebuf[NAME_BUF_MAX_SIZE] = {}; /* Limited to 16 chars (with 0 byte) */
+		memcpy(namebuf, name, NAME_BUF_MAX_SIZE - 1);
+		namebuf[NAME_BUF_MAX_SIZE - 1] = '\0';
 		pthread_setname_np(pthread_self(), namebuf);
 	}
 #elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
@@ -173,7 +193,7 @@ void set_platform_thread_name(const char* name) {
 }
 
 void set_thread_name(const char* name) {
-	__log_thread_state.name = name;
+	g_global_value_log_thread_state.name = name;
 	set_platform_thread_name(name);
 }
 
@@ -181,17 +201,23 @@ int parse_log_level(const char* level) {
 
 	if(strcmp(level, "trace") == 0) {
 		return LogLevelTrace;
-	} else if(strcmp(level, "debug") == 0) {
+	}
+	if(strcmp(level, "debug") == 0) {
 		return LogLevelDebug;
-	} else if(strcmp(level, "info") == 0) {
+	}
+	if(strcmp(level, "info") == 0) {
 		return LogLevelInfo;
-	} else if(strcmp(level, "warn") == 0) {
+	}
+	if(strcmp(level, "warn") == 0) {
 		return LogLevelWarn;
-	} else if(strcmp(level, "error") == 0) {
+	}
+	if(strcmp(level, "error") == 0) {
 		return LogLevelError;
-	} else if(strcmp(level, "critical") == 0) {
+	}
+	if(strcmp(level, "critical") == 0) {
 		return LogLevelCritical;
-	} else if(strcmp(level, "off") == 0) {
+	}
+	if(strcmp(level, "off") == 0) {
 		return LogLevelOff;
 	}
 

@@ -18,9 +18,9 @@ typedef struct {
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	WebSocketAction_Continue = 0,
-	WebSocketAction_Error,
-	WebSocketAction_Close
+	WebSocketActionContinue = 0,
+	WebSocketActionError,
+	WebSocketActionClose
 } WebSocketAction;
 
 typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,
@@ -30,8 +30,8 @@ typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	WS_FRAGMENTATION_OFF,
-	WS_FRAGMENTATION_AUTO,
+	WsFragmentationOff,
+	WsFragmentationAuto,
 } FragmentOption;
 
 #define WS_MINIMUM_FRAGMENT_SIZE 16
@@ -49,10 +49,10 @@ NODISCARD WebSocketThreadManager* initialize_thread_manager(void);
 /**
  * Thread safe
  */
-WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
-                                                   ConnectionDescriptor* descriptor,
-                                                   ConnectionContext* context,
-                                                   WebSocketFunction function);
+NODISCARD WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
+                                                             ConnectionDescriptor* descriptor,
+                                                             ConnectionContext* context,
+                                                             WebSocketFunction function);
 
 /**
  * Thread safe

@@ -11,10 +11,8 @@
 #define IDENT1 "\t"
 #define IDENT2 IDENT1 IDENT1
 
-// TODO(Totto): enforce styles e.g. CamelCase or snake:_case
-
-void printHttpServerUsage(bool isSubcommand) {
-	if(isSubcommand) {
+static void print_http_server_usage(bool is_subcommand) {
+	if(is_subcommand) {
 		printf("<port> [options]\n");
 	} else {
 		printf(IDENT1 "http <port> [options]\n");
@@ -27,8 +25,8 @@ void printHttpServerUsage(bool isSubcommand) {
 	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
 }
 
-void printFtpServerUsage(bool isSubcommand) {
-	if(isSubcommand) {
+static void print_ftp_server_usage(bool is_subcommand) {
+	if(is_subcommand) {
 		printf("<port> [options]\n");
 	} else {
 		printf(IDENT1 "ftp <port> [options]\n");
@@ -48,64 +46,68 @@ void printFtpServerUsage(bool isSubcommand) {
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	USAGE_COMMAND_ALL = 0,
-	USAGE_COMMAND_HTTP,
-	USAGE_COMMAND_FTP,
-} USAGE_COMMAND;
+	UsageCommandAll = 0,
+	UsageCommandHttp,
+	UsageCommandFtp,
+} UsageCommand;
 
 // prints the usage, if argc is not the right amount!
-void printUsage(const char* programName, USAGE_COMMAND usage_command) {
+static void print_usage(const char* program_name, UsageCommand usage_command) {
 	switch(usage_command) {
-		case USAGE_COMMAND_HTTP: {
-			printf("usage: %s http ", programName);
-			printHttpServerUsage(true);
+		case UsageCommandHttp: {
+			printf("usage: %s http ", program_name);
+			print_http_server_usage(true);
 			break;
 		}
 
-		case USAGE_COMMAND_FTP: {
-			printf("usage: %s ftp ", programName);
-			printFtpServerUsage(true);
+		case UsageCommandFtp: {
+			printf("usage: %s ftp ", program_name);
+			print_ftp_server_usage(true);
 			break;
 		}
-		case USAGE_COMMAND_ALL:
+		case UsageCommandAll:
 		default: {
-			printf("usage: %s <command>\n", programName);
+			printf("usage: %s <command>\n", program_name);
 			printf("commands: http, ftp\n");
-			printHttpServerUsage(false);
-			printFtpServerUsage(false);
+			print_http_server_usage(false);
+			print_ftp_server_usage(false);
 			break;
 		}
 	}
 }
 
-bool isHelpString(const char* str) {
+static bool is_help_string(const char* str) {
 	if(strcmp(str, "--help") == 0) {
 		return true;
-	} else if(strcmp(str, "-h") == 0) {
+	}
+
+	if(strcmp(str, "-h") == 0) {
 		return true;
-	} else if(strcmp(str, "-?") == 0) {
+	}
+
+	if(strcmp(str, "-?") == 0) {
 		return true;
 	}
 
 	return false;
 }
 
-int subcommandHttp(const char* programName, int argc, const char* argv[]) {
+static int subcommand_http(const char* program_name, int argc, const char* argv[]) {
 
 	if(argc < 1) {
 		fprintf(stderr, "missing <port>\n");
-		printUsage(programName, USAGE_COMMAND_HTTP);
+		print_usage(program_name, UsageCommandHttp);
 		return EXIT_FAILURE;
 	}
 
-	if(isHelpString(argv[0])) {
+	if(is_help_string(argv[0])) {
 		printf("'http' command help menu:\n");
-		printUsage(programName, USAGE_COMMAND_HTTP);
+		print_usage(program_name, UsageCommandHttp);
 		return EXIT_SUCCESS;
 	}
 
 	// parse the port
-	uint16_t port = parseU16Safely(argv[0], "<port>");
+	uint16_t port = parse_u16_safely(argv[0], "<port>");
 
 	bool secure = false;
 	const char* public_cert_file = "";
@@ -129,13 +131,13 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 		if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--secure") == 0)) {
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
 			fprintf(stderr, "Server was build without support for 'secure'\n");
-			printUsage(argv[0], USAGE_COMMAND_HTTP);
+			print_usage(argv[0], UsageCommandHttp);
 			return EXIT_FAILURE;
 #else
 			secure = true;
 			if(processed_args + 3 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'secure' option\n");
-				printUsage(argv[0], USAGE_COMMAND_HTTP);
+				print_usage(argv[0], UsageCommandHttp);
 				return EXIT_FAILURE;
 			}
 
@@ -146,7 +148,7 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
 			if(processed_args + 2 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
-				printUsage(argv[0], USAGE_COMMAND_HTTP);
+				print_usage(argv[0], UsageCommandHttp);
 				return EXIT_FAILURE;
 			}
 
@@ -155,7 +157,7 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 			if(parsed_level < 0) {
 				fprintf(stderr, "Wrong option for the 'loglevel' option, unrecognized level: %s\n",
 				        argv[processed_args + 1]);
-				printUsage(argv[0], USAGE_COMMAND_HTTP);
+				print_usage(argv[0], UsageCommandHttp);
 				return EXIT_FAILURE;
 			}
 
@@ -164,7 +166,7 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 			processed_args += 2;
 		} else {
 			fprintf(stderr, "Unrecognized option: %s\n", arg);
-			printUsage(argv[0], USAGE_COMMAND_HTTP);
+			print_usage(argv[0], UsageCommandHttp);
 			return EXIT_FAILURE;
 		}
 	}
@@ -187,25 +189,25 @@ int subcommandHttp(const char* programName, int argc, const char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	return startHttpServer(port, options);
+	return start_http_server(port, options);
 }
 
-int subcommandFtp(const char* programName, int argc, const char* argv[]) {
+static int subcommand_ftp(const char* program_name, int argc, const char* argv[]) {
 
 	if(argc < 1) {
 		fprintf(stderr, "missing <port>\n");
-		printUsage(programName, USAGE_COMMAND_FTP);
+		print_usage(program_name, UsageCommandFtp);
 		return EXIT_FAILURE;
 	}
 
-	if(isHelpString(argv[0])) {
+	if(is_help_string(argv[0])) {
 		printf("'ftp' command help menu:\n");
-		printUsage(programName, USAGE_COMMAND_FTP);
+		print_usage(program_name, UsageCommandFtp);
 		return EXIT_SUCCESS;
 	}
 
 	// parse the port
-	uint16_t control_port = parseU16Safely(argv[0], "<port>");
+	uint16_t control_port = parse_u16_safely(argv[0], "<port>");
 
 	bool secure = false;
 	const char* public_cert_file = "";
@@ -231,13 +233,13 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 		if((strcmp(arg, "-s") == 0) || (strcmp(arg, "--secure") == 0)) {
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
 			fprintf(stderr, "Server was build without support for 'secure'\n");
-			printUsage(argv[0], USAGE_COMMAND_FTP);
+			print_usage(argv[0], UsageCommandFtp);
 			return EXIT_FAILURE;
 #else
 			secure = true;
 			if(processed_args + 3 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'secure' option\n");
-				printUsage(argv[0], USAGE_COMMAND_HTTP);
+				print_usage(argv[0], UsageCommandHttp);
 				return EXIT_FAILURE;
 			}
 
@@ -248,7 +250,7 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 		} else if((strcmp(arg, "-f") == 0) || (strcmp(arg, "--folder") == 0)) {
 			if(processed_args + 2 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'folder' option\n");
-				printUsage(argv[0], USAGE_COMMAND_FTP);
+				print_usage(argv[0], UsageCommandFtp);
 				return EXIT_FAILURE;
 			}
 
@@ -258,7 +260,7 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 		} else if((strcmp(arg, "-l") == 0) || (strcmp(arg, "--loglevel") == 0)) {
 			if(processed_args + 2 > argc) {
 				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
-				printUsage(argv[0], USAGE_COMMAND_FTP);
+				print_usage(argv[0], UsageCommandFtp);
 				return EXIT_FAILURE;
 			}
 
@@ -267,7 +269,7 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 			if(parsed_level < 0) {
 				fprintf(stderr, "Wrong option for the 'loglevel' option, unrecognized level: %s\n",
 				        argv[processed_args + 1]);
-				printUsage(argv[0], USAGE_COMMAND_FTP);
+				print_usage(argv[0], UsageCommandFtp);
 				return EXIT_FAILURE;
 			}
 
@@ -276,7 +278,7 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 			processed_args += 2;
 		} else {
 			fprintf(stderr, "Unrecognized option: %s\n", arg);
-			printUsage(argv[0], USAGE_COMMAND_FTP);
+			print_usage(argv[0], UsageCommandFtp);
 			return EXIT_FAILURE;
 		}
 	}
@@ -325,7 +327,7 @@ int subcommandFtp(const char* programName, int argc, const char* argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	return startFtpServer(control_port, folder, options);
+	return start_ftp_server(control_port, folder, options);
 }
 
 int main(int argc, const char* argv[]) {
@@ -333,23 +335,27 @@ int main(int argc, const char* argv[]) {
 	// checking if there are enough arguments
 	if(argc < 2) {
 		fprintf(stderr, "No command specified\n");
-		printUsage(argv[0], USAGE_COMMAND_ALL);
+		print_usage(argv[0], UsageCommandAll);
 		return EXIT_FAILURE;
 	}
 
 	const char* command = argv[1];
 
 	if(strcmp(command, "http") == 0) {
-		return subcommandHttp(argv[0], argc - 2, argv + 2);
-	} else if(strcmp(command, "ftp") == 0) {
-		return subcommandFtp(argv[0], argc - 2, argv + 2);
-	} else if(isHelpString(command)) {
-		printf("General help menu:\n");
-		printUsage(argv[0], USAGE_COMMAND_ALL);
-		return EXIT_SUCCESS;
-	} else {
-		fprintf(stderr, "Invalid command '%s'\n", command);
-		printUsage(argv[0], USAGE_COMMAND_ALL);
-		return EXIT_FAILURE;
+		return subcommand_http(argv[0], argc - 2, argv + 2);
 	}
+
+	if(strcmp(command, "ftp") == 0) {
+		return subcommand_ftp(argv[0], argc - 2, argv + 2);
+	}
+
+	if(is_help_string(command)) {
+		printf("General help menu:\n");
+		print_usage(argv[0], UsageCommandAll);
+		return EXIT_SUCCESS;
+	}
+
+	fprintf(stderr, "Invalid command '%s'\n", command);
+	print_usage(argv[0], UsageCommandAll);
+	return EXIT_FAILURE;
 }

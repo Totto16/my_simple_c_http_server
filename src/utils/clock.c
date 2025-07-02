@@ -2,7 +2,6 @@
 
 #include "./clock.h"
 #include "utils/log.h"
-#include "utils/utils.h"
 
 #include <errno.h>
 #include <string.h>

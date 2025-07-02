@@ -13,7 +13,7 @@ FTPDataSettings* alloc_default_data_settings() {
 		return NULL;
 	}
 
-	data_settings->mode = FTP_DATA_MODE_NONE;
+	data_settings->mode = FtpDataModeNone;
 	// ignore: data_settings->addr;
 
 	return data_settings;
@@ -40,7 +40,7 @@ CustomFTPOptions* alloc_default_options() {
 		return NULL;
 	}
 
-	options->send_format = FILE_SEND_FORMAT_EPLF;
+	options->send_format = FileSendFormatEplf;
 
 	return options;
 }
@@ -110,10 +110,10 @@ FTPState* alloc_default_state(const char* global_folder) {
 
 	state->global_folder = global_folder;
 	state->current_type =
-	    FTP_TRANSMISSION_TYPE_ASCII | // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
-	    FTP_TRANSMISSION_TYPE_FLAG_NP;
-	state->mode = FTP_MODE_STREAM;
-	state->structure = FTP_STRUCTURE_FILE;
+	    FtpTransmissionTypeAscii | // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+	    FtpTransmissionTypeFlagNp;
+	state->mode = FtpModeStream;
+	state->structure = FtpStructureFile;
 
 	return state;
 }
@@ -143,8 +143,8 @@ char* make_address_port_desc(FTPConnectAddr addr) {
 	    address & 0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	char* result = NULL;
-	formatString(&result, return NULL;
-	             , "(%d,%d,%d,%d,%d,%d)", host1, host2, host3, host4, port1, port2);
+	FORMAT_STRING(&result, return NULL;
+	              , "(%d,%d,%d,%d,%d,%d)", host1, host2, host3, host4, port1, port2);
 
 	return result;
 }
@@ -160,27 +160,24 @@ NODISCARD SendMode get_current_send_mode(FTPState* state) {
 
 	// NOTE: state->current_type is a value with flags, so == and != doesn#t work always
 
-	if(state->current_type != FTP_TRANSMISSION_TYPE_IMAGE) {
-		return SEND_MODE_UNSUPPORTED;
+	if(state->current_type != FtpTransmissionTypeImage) {
+		return SendModeUnsupported;
 	}
 
-	if(state->mode != FTP_MODE_STREAM) {
-		return SEND_MODE_UNSUPPORTED;
+	if(state->mode != FtpModeStream) {
+		return SendModeUnsupported;
 	}
 
 	switch(state->structure) {
-		case FTP_STRUCTURE_FILE: {
-			return SEND_MODE_STREAM_BINARY_FILE;
+		case FtpStructureFile: {
+			return SendModeStreamBinaryFile;
 		}
-		case FTP_STRUCTURE_RECORD: {
-			return SEND_MODE_STREAM_BINARY_RECORD;
+		case FtpStructureRecord: {
+			return SendModeStreamBinaryRecord;
 		}
-		case FTP_STRUCTURE_PAGE:
+		case FtpStructurePage:
 		default: {
-			return SEND_MODE_UNSUPPORTED;
+			return SendModeUnsupported;
 		}
 	}
-
-	UNREACHABLE();
-	return SEND_MODE_UNSUPPORTED;
 }

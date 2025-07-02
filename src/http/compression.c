@@ -18,41 +18,41 @@
 #include <compressor/main.h>
 #endif
 
-bool is_compressions_supported(COMPRESSION_TYPE format) {
+bool is_compressions_supported(CompressionType format) {
 
 	switch(format) {
-		case COMPRESSION_TYPE_NONE: { // NOLINT(bugprone-branch-clone)
+		case CompressionTypeNone: { // NOLINT(bugprone-branch-clone)
 			return true;
 		}
-		case COMPRESSION_TYPE_GZIP: {
+		case CompressionTypeGzip: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP
 			return true;
 #else
 			return false;
 #endif
 		}
-		case COMPRESSION_TYPE_DEFLATE: {
+		case CompressionTypeDeflate: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
 			return true;
 #else
 			return false;
 #endif
 		}
-		case COMPRESSION_TYPE_BR: {
+		case CompressionTypeBr: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
 			return true;
 #else
 			return false;
 #endif
 		}
-		case COMPRESSION_TYPE_ZSTD: {
+		case CompressionTypeZstd: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
 			return true;
 #else
 			return false;
 #endif
 		}
-		case COMPRESSION_TYPE_COMPRESS: {
+		case CompressionTypeCompress: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS
 			return true;
 #else
@@ -82,7 +82,7 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 		return SIZED_BUFFER_ERROR;
 	}
 
-	SizedBuffer resultBuffer = { .data = start_chunk, .size = 0 };
+	SizedBuffer result_buffer = { .data = start_chunk, .size = 0 };
 
 	z_stream zstream = {};
 	zstream.zalloc = Z_NULL;
@@ -92,61 +92,61 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 	zstream.avail_in = buffer.size;
 	zstream.next_in = (Bytef*)buffer.data;
 	zstream.avail_out = chunk_size;
-	zstream.next_out = (Bytef*)resultBuffer.data;
+	zstream.next_out = (Bytef*)result_buffer.data;
 
-	int windowBits = Z_WINDOW_SIZE;
+	int window_bits = Z_WINDOW_SIZE;
 
 	if(gzip) {
-		windowBits = windowBits | Z_GZIP_ENCODING;
+		window_bits = window_bits | Z_GZIP_ENCODING;
 	}
 
-	int result = deflateInit2(&zstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, windowBits,
+	int result = deflateInit2(&zstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits,
 	                          Z_MEMORY_USAGE_LEVEL, Z_DEFAULT_STRATEGY);
 
 	if(result != Z_OK) {
 		LOG_MESSAGE(LogLevelError, "An error in gzip compression initiliaization occured: %s\n",
 		            zError(result));
-		freeSizedBuffer(resultBuffer);
+		free_sized_buffer(result_buffer);
 
 		return SIZED_BUFFER_ERROR;
 	}
 
 	while(true) {
-		int deflateResult = deflate(&zstream, Z_FINISH);
+		int deflate_result = deflate(&zstream, Z_FINISH);
 
-		resultBuffer.size += (chunk_size - zstream.avail_out);
+		result_buffer.size += (chunk_size - zstream.avail_out);
 
-		if(deflateResult == Z_STREAM_END) {
+		if(deflate_result == Z_STREAM_END) {
 			break;
 		}
 
-		if(deflateResult == Z_OK || deflateResult == Z_BUF_ERROR) {
-			void* new_chunk = realloc(resultBuffer.data, resultBuffer.size + chunk_size);
-			resultBuffer.data = new_chunk;
+		if(deflate_result == Z_OK || deflate_result == Z_BUF_ERROR) {
+			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
+			result_buffer.data = new_chunk;
 
 			zstream.avail_out = chunk_size;
-			zstream.next_out = (Bytef*)new_chunk + resultBuffer.size;
+			zstream.next_out = (Bytef*)new_chunk + result_buffer.size;
 			continue;
 		}
 
 		LOG_MESSAGE(LogLevelError, "An error in gzip compression processing occured: %s\n",
-		            zError(deflateResult));
-		free(resultBuffer.data);
+		            zError(deflate_result));
+		free(result_buffer.data);
 
 		return SIZED_BUFFER_ERROR;
 	}
 
-	int deflateEndResult = deflateEnd(&zstream);
+	int deflate_end_result = deflateEnd(&zstream);
 
-	if(deflateEndResult != Z_OK) {
+	if(deflate_end_result != Z_OK) {
 		LOG_MESSAGE(LogLevelError, "An error in gzip compression stream end occured: %s\n",
-		            zError(deflateEndResult));
-		freeSizedBuffer(resultBuffer);
+		            zError(deflate_end_result));
+		free_sized_buffer(result_buffer);
 
 		return SIZED_BUFFER_ERROR;
 	}
 
-	return resultBuffer;
+	return result_buffer;
 }
 #endif
 
@@ -201,7 +201,7 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 		return SIZED_BUFFER_ERROR;
 	}
 
-	SizedBuffer resultBuffer = { .data = start_chunk, .size = 0 };
+	SizedBuffer result_buffer = { .data = start_chunk, .size = 0 };
 
 	size_t available_in = buffer.size;
 
@@ -209,7 +209,7 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 
 	size_t available_out = chunk_size;
 
-	uint8_t* next_out = resultBuffer.data;
+	uint8_t* next_out = result_buffer.data;
 
 	while(true) {
 
@@ -224,20 +224,20 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 		if(!result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError,
 			                   "An error in brotli compression processing occured\n");
-			freeSizedBuffer(resultBuffer);
+			free_sized_buffer(result_buffer);
 			BrotliEncoderDestroyInstance(state);
 
 			return SIZED_BUFFER_ERROR;
 		}
 
-		resultBuffer.size += (available_out_before - available_out);
+		result_buffer.size += (available_out_before - available_out);
 
 		if(available_out == 0) {
-			void* new_chunk = realloc(resultBuffer.data, resultBuffer.size + chunk_size);
-			resultBuffer.data = new_chunk;
+			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
+			result_buffer.data = new_chunk;
 
 			available_out += chunk_size;
-			next_out = (uint8_t*)new_chunk + resultBuffer.size;
+			next_out = (uint8_t*)new_chunk + result_buffer.size;
 		}
 
 		if(BrotliEncoderIsFinished(state)) {
@@ -248,7 +248,7 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 	}
 
 	BrotliEncoderDestroyInstance(state);
-	return resultBuffer;
+	return result_buffer;
 }
 #endif
 
@@ -270,16 +270,16 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 		return SIZED_BUFFER_ERROR;
 	}
 
-	const size_t initResult = ZSTD_initCStream(stream, ZSTD_COMPRESSION_LEVEL);
-	if(ZSTD_isError(initResult)) {
+	const size_t init_result = ZSTD_initCStream(stream, ZSTD_COMPRESSION_LEVEL);
+	if(ZSTD_isError(init_result)) {
 		LOG_MESSAGE(LogLevelError, "An error in zstd compression initiliaization occured: %s\n",
-		            ZSTD_getErrorName(initResult));
+		            ZSTD_getErrorName(init_result));
 
 		ZSTD_freeCStream(stream);
 		return SIZED_BUFFER_ERROR;
 	}
 
-	ZSTD_inBuffer inputBuffer = { .src = buffer.data, .size = buffer.size, .pos = 0 };
+	ZSTD_inBuffer input_buffer = { .src = buffer.data, .size = buffer.size, .pos = 0 };
 
 	const size_t chunk_size = (1 << ZSTD_CHUNK_SIZE);
 
@@ -289,45 +289,45 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 		return SIZED_BUFFER_ERROR;
 	}
 
-	SizedBuffer resultBuffer = { .data = start_chunk, .size = 0 };
+	SizedBuffer result_buffer = { .data = start_chunk, .size = 0 };
 
-	ZSTD_outBuffer outBuffer = { .dst = resultBuffer.data, .size = chunk_size, .pos = 0 };
+	ZSTD_outBuffer out_buffer = { .dst = result_buffer.data, .size = chunk_size, .pos = 0 };
 
 	while(true) {
 		ZSTD_EndDirective operation =
-		    inputBuffer.pos != inputBuffer.size ? ZSTD_e_flush : ZSTD_e_end;
+		    input_buffer.pos != input_buffer.size ? ZSTD_e_flush : ZSTD_e_end;
 
-		const size_t ret = ZSTD_compressStream2(stream, &outBuffer, &inputBuffer, operation);
+		const size_t ret = ZSTD_compressStream2(stream, &out_buffer, &input_buffer, operation);
 
 		if(ZSTD_isError(ret)) {
 			LOG_MESSAGE(LogLevelError, "An error in zstd compression processing occured: %s\n",
-			            ZSTD_getErrorName(initResult));
+			            ZSTD_getErrorName(init_result));
 
 			ZSTD_freeCStream(stream);
-			freeSizedBuffer(resultBuffer);
+			free_sized_buffer(result_buffer);
 			return SIZED_BUFFER_ERROR;
 		}
 
-		resultBuffer.size = outBuffer.pos;
+		result_buffer.size = out_buffer.pos;
 
-		if(outBuffer.size == outBuffer.pos) {
-			void* new_chunk = realloc(resultBuffer.data, resultBuffer.size + chunk_size);
-			resultBuffer.data = new_chunk;
+		if(out_buffer.size == out_buffer.pos) {
+			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
+			result_buffer.data = new_chunk;
 
-			outBuffer.size += chunk_size;
+			out_buffer.size += chunk_size;
 		}
 
 		if(operation != ZSTD_e_end) {
 			continue;
 		}
 
-		if(inputBuffer.pos == inputBuffer.size) {
+		if(input_buffer.pos == input_buffer.size) {
 			break;
 		}
 	}
 
 	ZSTD_freeCStream(stream);
-	return resultBuffer;
+	return result_buffer;
 }
 #endif
 
@@ -390,13 +390,13 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 		return SIZED_BUFFER_ERROR;
 	}
 
-	SizedBuffer inputBuffer = sized_buffer_get_exact_clone(buffer);
+	SizedBuffer input_buffer = sized_buffer_get_exact_clone(buffer);
 	SizedBuffer remaining_compressor_buffer = sized_buffer_get_exact_clone(compressor_buffer);
 
 	while(true) {
 
-		result = lzws_compress(compressor_state_ptr, (lzws_byte_t**)&inputBuffer.data,
-		                       &inputBuffer.size, (lzws_byte_t**)&remaining_compressor_buffer.data,
+		result = lzws_compress(compressor_state_ptr, (lzws_byte_t**)&input_buffer.data,
+		                       &input_buffer.size, (lzws_byte_t**)&remaining_compressor_buffer.data,
 		                       &remaining_compressor_buffer.size);
 
 		if(result == LZWS_COMPRESSOR_NEEDS_MORE_DESTINATION) {
@@ -416,12 +416,12 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 			LOG_MESSAGE(LogLevelError,
 			            "An error in compress compression processing occured: compress state: %s\n",
 			            get_lzws_error(result));
-			freeSizedBuffer(compressor_buffer);
+			free_sized_buffer(compressor_buffer);
 			lzws_compressor_free_state(compressor_state_ptr);
 			return SIZED_BUFFER_ERROR;
 		}
 
-		if(inputBuffer.size == 0) {
+		if(input_buffer.size == 0) {
 			break;
 		}
 	}
@@ -435,41 +435,41 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 		            "An error in compress compression processing occured: finish state: %s\n",
 		            get_lzws_error(result));
 
-		freeSizedBuffer(compressor_buffer);
+		free_sized_buffer(compressor_buffer);
 		lzws_compressor_free_state(compressor_state_ptr);
 		return SIZED_BUFFER_ERROR;
 	}
 
 	lzws_compressor_free_state(compressor_state_ptr);
 
-	SizedBuffer resultBuffer = { .data = compressor_buffer.data,
-		                         .size =
-		                             compressor_buffer.size - remaining_compressor_buffer.size };
+	SizedBuffer result_buffer = { .data = compressor_buffer.data,
+		                          .size =
+		                              compressor_buffer.size - remaining_compressor_buffer.size };
 
-	return resultBuffer;
+	return result_buffer;
 
 	//
 }
 #endif
 
-NODISCARD const char* get_string_for_compress_format(COMPRESSION_TYPE format) {
+NODISCARD const char* get_string_for_compress_format(CompressionType format) {
 
 	switch(format) {
-		case COMPRESSION_TYPE_NONE: return "none";
-		case COMPRESSION_TYPE_GZIP: return "gzip";
-		case COMPRESSION_TYPE_DEFLATE: return "deflate";
-		case COMPRESSION_TYPE_BR: return "br";
-		case COMPRESSION_TYPE_ZSTD: return "zstd";
-		case COMPRESSION_TYPE_COMPRESS: return "compress";
+		case CompressionTypeNone: return "none";
+		case CompressionTypeGzip: return "gzip";
+		case CompressionTypeDeflate: return "deflate";
+		case CompressionTypeBr: return "br";
+		case CompressionTypeZstd: return "zstd";
+		case CompressionTypeCompress: return "compress";
 		default: return "<unknown>";
 	}
 }
 
-NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, COMPRESSION_TYPE format) {
+NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, CompressionType format) {
 
 	switch(format) {
-		case COMPRESSION_TYPE_NONE: return SIZED_BUFFER_ERROR; ;
-		case COMPRESSION_TYPE_GZIP: {
+		case CompressionTypeNone: return SIZED_BUFFER_ERROR; ;
+		case CompressionTypeGzip: {
 
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP
 			return compress_buffer_with_gzip(buffer);
@@ -477,28 +477,28 @@ NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, COMPRESSION_TYPE 
 			return SIZED_BUFFER_ERROR;
 #endif
 		};
-		case COMPRESSION_TYPE_DEFLATE: {
+		case CompressionTypeDeflate: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
 			return compress_buffer_with_deflate(buffer);
 #else
 			return SIZED_BUFFER_ERROR;
 #endif
 		};
-		case COMPRESSION_TYPE_BR: {
+		case CompressionTypeBr: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
 			return compress_buffer_with_br(buffer);
 #else
 			return SIZED_BUFFER_ERROR;
 #endif
 		};
-		case COMPRESSION_TYPE_ZSTD: {
+		case CompressionTypeZstd: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
 			return compress_buffer_with_zstd(buffer);
 #else
 			return SIZED_BUFFER_ERROR;
 #endif
 		};
-		case COMPRESSION_TYPE_COMPRESS: {
+		case CompressionTypeCompress: {
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS
 			return compress_buffer_with_compress(buffer);
 #else

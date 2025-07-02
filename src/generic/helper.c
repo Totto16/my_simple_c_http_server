@@ -13,10 +13,10 @@ bool setup_sigpipe_signal_handler(void) {
 
 	action.sa_handler = SIG_IGN;
 	// initialize the mask to be empty
-	int emptySetResult = sigemptyset(&action.sa_mask);
+	int empty_set_result = sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, SIGPIPE);
 	int result1 = sigaction(SIGPIPE, &action, NULL);
-	if(result1 < 0 || emptySetResult < 0) {
+	if(result1 < 0 || empty_set_result < 0) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't set signal interception: %s\n", strerror(errno));
 		return false;
 	}

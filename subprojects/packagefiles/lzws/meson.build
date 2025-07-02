@@ -3,7 +3,10 @@ project(
     'c',
     version: '1.5.6',
     meson_version: '>= 1.3.0',
-    default_options: {'c_std': ['gnu17', 'gnu11', 'c11'], 'werror': 'false'},
+    default_options: {
+        'c_std': ['gnu17', 'gnu11', 'c11'],
+        'werror': 'false',
+    },
 )
 
 

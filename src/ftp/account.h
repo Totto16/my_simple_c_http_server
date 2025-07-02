@@ -8,28 +8,28 @@
  * @enum MASK / FLAGS
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	ACCOUNT_PERMISSIONS_NONE = 0x00,
-	ACCOUNT_PERMISSIONS_READ = 0x01,
-	ACCOUNT_PERMISSIONS_WRITE = 0x02,
-	ACCOUNT_PERMISSIONS_READ_WRITE = ACCOUNT_PERMISSIONS_READ | ACCOUNT_PERMISSIONS_WRITE
-} ACCOUNT_PERMISSIONS;
+	AccountPermissionsNone = 0x00,
+	AccountPermissionsRead = 0x01,
+	AccountPermissionsWrite = 0x02,
+	AccountPermissionsReadWrite = AccountPermissionsRead | AccountPermissionsWrite
+} AccountPermissions;
 
 /**
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	ACCOUNT_STATE_EMPTY = 0,
-	ACCOUNT_STATE_ONLY_USER,
-	ACCOUNT_STATE_OK,
-} ACCOUNT_STATE;
+	AccountStateEmpty = 0,
+	AccountStateOnlyUser,
+	AccountStateOk,
+} AccountState;
 
 typedef struct {
-	ACCOUNT_PERMISSIONS permissions;
+	AccountPermissions permissions;
 	char* username;
 } AccountOkData;
 
 typedef struct {
-	ACCOUNT_STATE state;
+	AccountState state;
 	union {
 		AccountOkData ok_data;
 		struct {
@@ -38,18 +38,18 @@ typedef struct {
 	} data;
 } AccountInfo;
 
-AccountInfo* alloc_default_account(void);
+NODISCARD AccountInfo* alloc_default_account(void);
 
-void free_account_data(AccountInfo*);
+void free_account_data(AccountInfo* account);
 
 /**
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	USER_VALIDITY_NO_SUCH_USER = 0,
-	USER_VALIDITY_WRONG_PASSWORD,
-	USER_VALIDITY_OK,
-	USER_VALIDITY_INTERNAL_ERROR,
-} USER_VALIDITY;
+	UserValidityNoSuchUser = 0,
+	UserValidityWrongPassword,
+	UserValidityOk,
+	UserValidityInternalError,
+} UserValidity;
 
-NODISCARD USER_VALIDITY account_verify(const char* username, const char* passwd);
+NODISCARD UserValidity account_verify(const char* username, const char* passwd);

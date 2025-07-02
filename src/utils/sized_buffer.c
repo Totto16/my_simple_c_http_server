@@ -1,7 +1,7 @@
 
 #include "./sized_buffer.h"
 
-void freeSizedBuffer(SizedBuffer buffer) {
+void free_sized_buffer(SizedBuffer buffer) {
 	free(buffer.data);
 }
 

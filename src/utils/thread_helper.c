@@ -1,6 +1,6 @@
 
 
-#define _GNU_SOURCE
+#define _GNU_SOURCE // NOLINT(readability-identifier-naming,bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
 #include <unistd.h>
 #undef _GNU_SOURCE
 
@@ -10,7 +10,7 @@
 
 #include "thread_helper.h"
 
-THREAD_ID_TYPE get_thread_id(void) {
+ThreadIdType get_thread_id(void) {
 
 #ifdef __APPLE__
 	// See https://elliotth.blogspot.com/2012/04/gettid-on-mac-os.html

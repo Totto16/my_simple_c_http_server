@@ -2,7 +2,7 @@
 #include "./handler.h"
 #include "utils/log.h"
 
-WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMessage message) {
+WebSocketAction websocket_function(WebSocketConnection* connection, WebSocketMessage message) {
 
 	if(message.is_text) {
 
@@ -22,14 +22,14 @@ WebSocketAction websocketFunction(WebSocketConnection* connection, WebSocketMess
 	int result = ws_send_message(connection, message);
 
 	if(result) {
-		return WebSocketAction_Error;
+		return WebSocketActionError;
 	}
 
-	return WebSocketAction_Continue;
+	return WebSocketActionContinue;
 }
 
-WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
-                                            WebSocketMessage message) {
+WebSocketAction websocket_function_fragmented(WebSocketConnection* connection,
+                                              WebSocketMessage message) {
 
 	if(message.is_text) {
 
@@ -46,11 +46,11 @@ WebSocketAction websocketFunctionFragmented(WebSocketConnection* connection,
 	}
 
 	// for autobahn tests, just echoing the things
-	int result = ws_send_message_fragmented(connection, message, WS_FRAGMENTATION_AUTO);
+	int result = ws_send_message_fragmented(connection, message, WsFragmentationAuto);
 
 	if(result < 0) {
-		return WebSocketAction_Error;
+		return WebSocketActionError;
 	}
 
-	return WebSocketAction_Continue;
+	return WebSocketActionContinue;
 }

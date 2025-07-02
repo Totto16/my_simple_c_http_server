@@ -15,19 +15,19 @@ extern "C" {
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	COMPRESSION_TYPE_NONE = 0,
-	COMPRESSION_TYPE_GZIP,
-	COMPRESSION_TYPE_DEFLATE,
-	COMPRESSION_TYPE_BR,
-	COMPRESSION_TYPE_ZSTD,
-	COMPRESSION_TYPE_COMPRESS
-} COMPRESSION_TYPE;
+	CompressionTypeNone = 0,
+	CompressionTypeGzip,
+	CompressionTypeDeflate,
+	CompressionTypeBr,
+	CompressionTypeZstd,
+	CompressionTypeCompress
+} CompressionType;
 
-NODISCARD bool is_compressions_supported(COMPRESSION_TYPE format);
+NODISCARD bool is_compressions_supported(CompressionType format);
 
-NODISCARD const char* get_string_for_compress_format(COMPRESSION_TYPE format);
+NODISCARD const char* get_string_for_compress_format(CompressionType format);
 
-NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, COMPRESSION_TYPE format);
+NODISCARD SizedBuffer compress_buffer_with(SizedBuffer buffer, CompressionType format);
 
 #ifdef __cplusplus
 }

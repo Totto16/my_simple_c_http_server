@@ -12,6 +12,18 @@
 #include <time.h>
 #include <unistd.h>
 
+// this is a way by hdining the real struct dataementation withour using opaque pointers
+typedef struct {
+	size_t total_count;
+	size_t sent_count;
+	// TODO(Totto): support records, so  that we can keep track of the records we sent!
+} SendProgressData;
+
+struct SendProgressImpl {
+	bool finished;
+	SendProgressData data;
+};
+
 // TODO(Totto): use more cwk_* functions from cwalk, see https://likle.github.io/cwalk/reference/
 
 // note: global_folder <-> current_working_directory invariants:
@@ -126,7 +138,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 
 	if(!file) {
 		if(result) {
-			*result = DIR_CHANGE_RESULT_ERROR;
+			*result = DirChangeResultError;
 		}
 
 		return NULL;
@@ -137,7 +149,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 	// the normalization had not enough bytes in the file buffer
 	if(buffer_size_result >= buffer_size) {
 		if(result) {
-			*result = DIR_CHANGE_RESULT_ERROR;
+			*result = DirChangeResultError;
 		}
 
 		return NULL;
@@ -152,7 +164,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 	// invariant check 1
 	if((global_folder[g_length - 1] == '/') || (file[f_length - 1] == '/')) {
 		if(result) {
-			*result = DIR_CHANGE_RESULT_ERROR;
+			*result = DirChangeResultError;
 		} else {
 			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated: %s\n",
 			            file);
@@ -164,7 +176,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 	// invariant check 2
 	if(strstr(file, global_folder) != file) {
 		if(result) {
-			*result = DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL;
+			*result = DirChangeResultErrorPathTraversal;
 		} else {
 			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated: %s\n",
 			            file);
@@ -175,7 +187,7 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 
 	// everything is fine, after the invariants are
 	if(result) {
-		*result = DIR_CHANGE_RESULT_OK;
+		*result = DirChangeResultOk;
 	}
 	return file;
 }
@@ -230,9 +242,9 @@ NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* con
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	SEND_TYPE_FILE = 0,
-	SEND_TYPE_MULTIPLE_FILES,
-	SEND_TYPE_RAW_DATA,
+	SendTypeFile = 0,
+	SendTypeMultipleFiles,
+	SendTypeRawData,
 } SendType;
 
 typedef struct {
@@ -299,22 +311,29 @@ struct SendDataImpl {
 	} data;
 };
 
-NODISCARD SendProgress setup_send_progress(const SendData* const data, SendMode send_mode) {
+NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode send_mode) {
 
-	SendProgress result = { .finished = false, ._impl = { .total_count = 0, .sent_count = 0 } };
+	SendProgress* progress = malloc(sizeof(SendProgress));
+
+	if(!progress) {
+		return NULL;
+	}
+
+	progress->finished = false;
+	progress->data = (SendProgressData){ .total_count = 0, .sent_count = 0 };
 
 	size_t original_data_count = 0;
 
 	switch(data->type) {
-		case SEND_TYPE_FILE: {
+		case SendTypeFile: {
 			original_data_count = 1;
 			break;
 		}
-		case SEND_TYPE_MULTIPLE_FILES: {
+		case SendTypeMultipleFiles: {
 			original_data_count = data->data.multiple_files->count;
 			break;
 		}
-		case SEND_TYPE_RAW_DATA: {
+		case SendTypeRawData: {
 			original_data_count = data->data.data.size;
 			break;
 		}
@@ -324,22 +343,30 @@ NODISCARD SendProgress setup_send_progress(const SendData* const data, SendMode 
 	size_t actual_count = 0;
 
 	switch(send_mode) {
-		case SEND_MODE_STREAM_BINARY_FILE: {
+		case SendModeStreamBinaryFile: {
 			actual_count = original_data_count;
 			break;
 		}
-		case SEND_MODE_STREAM_BINARY_RECORD: {
+		case SendModeStreamBinaryRecord: {
 			// TODO(Totto): calculate this based on record metadata etc
 			break;
 		}
 
-		case SEND_MODE_UNSUPPORTED:
+		case SendModeUnsupported:
 		default: break;
 	}
 
-	result._impl.total_count = actual_count;
+	progress->data.total_count = actual_count;
 
-	return result;
+	return progress;
+}
+
+NODISCARD bool send_progress_is_finished(SendProgress* progress) {
+	return progress->finished;
+}
+
+void free_send_progress(SendProgress* progress) {
+	free(progress);
 }
 
 NODISCARD char get_type_from_mode(mode_t mode) {
@@ -654,7 +681,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 	// src/engine/directorylistingparser.h:4
 
 	if(is_folder) {
-		data->type = SEND_TYPE_MULTIPLE_FILES;
+		data->type = SendTypeMultipleFiles;
 		MultipleFiles* files = get_files_in_folder(path, format);
 		if(files == NULL) {
 			free(data);
@@ -662,7 +689,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 		}
 		data->data.multiple_files = files;
 	} else {
-		data->type = SEND_TYPE_FILE;
+		data->type = SendTypeFile;
 		SingleFile* file = get_metadata_for_single_file(path, format);
 
 		if(file == NULL) {
@@ -748,7 +775,7 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 
 	RawData raw_data = { .data = file_data, .size = file_size };
 
-	data->type = SEND_TYPE_RAW_DATA;
+	data->type = SendTypeRawData;
 	data->data.data = raw_data;
 
 	return data;
@@ -780,9 +807,9 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 			modes[i][2] = perm.execute ? 'x' : '-'; // NOLINT(readability-implicit-bool-conversion)
 		}
 
-		string_builder_append(string_builder, return NULL;, "%c%.*s%.*s%.*s",
-		                                                  permissions.special_type, 3, modes[0], 3,
-		                                                  modes[1], 3, modes[2]);
+		STRING_BUILDER_APPENDF(string_builder, return NULL;, "%c%.*s%.*s%.*s",
+		                                                   permissions.special_type, 3, modes[0], 3,
+		                                                   modes[1], 3, modes[2]);
 	}
 
 	size_t max_bytes =
@@ -811,7 +838,7 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 
 	date_str[result] = '\0';
 
-	string_builder_append(
+	STRING_BUILDER_APPENDF(
 	    string_builder,
 	    {
 		    free(date_str);
@@ -868,16 +895,16 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 
 		if(!is_dir) {
 			// has a size
-			string_builder_append(string_builder, return NULL;, "s%lu,", file->size);
+			STRING_BUILDER_APPENDF(string_builder, return NULL;, "s%lu,", file->size);
 		}
 
 		// last mod time in UNIX epoch seconds
-		string_builder_append(string_builder, return NULL;, "m%lu,", file->last_mod.tv_sec);
+		STRING_BUILDER_APPENDF(string_builder, return NULL;, "m%lu,", file->last_mod.tv_sec);
 
 		// unique identifier (dev.ino)
-		string_builder_append(string_builder, return NULL;, "i" DEV_FMT "." INO_FMT ",",
-		                                                  file->identifier.dev,
-		                                                  file->identifier.ino);
+		STRING_BUILDER_APPENDF(string_builder, return NULL;, "i" DEV_FMT "." INO_FMT ",",
+		                                                   file->identifier.dev,
+		                                                   file->identifier.ino);
 
 		if(ELPF_PRETTY_PRINT_PERMISSIONS) {
 			FilePermissions permissions = permissions_from_mode(file->mode);
@@ -896,22 +923,22 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 			}
 
 			// permissions, look nicer, many clients just display the string, NOT spec compliant
-			string_builder_append(string_builder, return NULL;, "up%c%.*s%.*s%.*s",
-			                                                  permissions.special_type, 3, modes[0],
-			                                                  3, modes[1], 3, modes[2]);
+			STRING_BUILDER_APPENDF(string_builder, return NULL;, "up%c%.*s%.*s%.*s",
+			                                                   permissions.special_type, 3,
+			                                                   modes[0], 3, modes[1], 3, modes[2]);
 		} else {
 
 			uint32_t permission = (S_IRWXU | S_IRWXG | S_IRWXO) & file->mode;
 
 			// permissions, according to spec
-			string_builder_append(string_builder, return NULL;, "up%o,", permission);
+			STRING_BUILDER_APPENDF(string_builder, return NULL;, "up%o,", permission);
 		}
 	}
 
 	// 3. a tab (\011);
 	// 4. an abbreviated pathname; and
 	// 5. \015\012. (\r\n)
-	string_builder_append(string_builder, return NULL;, "\t%s\r\n", file->file_name);
+	STRING_BUILDER_APPENDF(string_builder, return NULL;, "\t%s\r\n", file->file_name);
 
 	return string_builder;
 }
@@ -920,10 +947,10 @@ NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
                                           FileSendFormat format) {
 
 	switch(format) {
-		case FILE_SEND_FORMAT_LS: {
+		case FileSendFormatLs: {
 			return format_file_line_in_ls_format(file, sizes);
 		}
-		case FILE_SEND_FORMAT_EPLF: {
+		case FileSendFormatEplf: {
 			return format_file_line_in_eplf_format(file);
 		}
 		default: return NULL;
@@ -939,31 +966,31 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		return true;
 	}
 
-	if(progress->_impl.sent_count >= progress->_impl.total_count) {
+	if(progress->data.sent_count >= progress->data.total_count) {
 		progress->finished = true;
 		return true;
 	}
 
 	switch(send_mode) {
-		case SEND_MODE_STREAM_BINARY_FILE: {
+		case SendModeStreamBinaryFile: {
 			break;
 		}
-		case SEND_MODE_STREAM_BINARY_RECORD: {
+		case SendModeStreamBinaryRecord: {
 			return false;
 		}
 
-		case SEND_MODE_UNSUPPORTED:
+		case SendModeUnsupported:
 		default: return false;
 	}
 
 	switch(data->type) {
-		case SEND_TYPE_FILE: {
-			// TODO(Totto): implement
+		case SendTypeFile: {
+			// TODO(Totto): dataement
 			return false;
 			break;
 		}
-		case SEND_TYPE_MULTIPLE_FILES: {
-			FileWithMetadata* value = data->data.multiple_files->files[progress->_impl.sent_count];
+		case SendTypeMultipleFiles: {
+			FileWithMetadata* value = data->data.multiple_files->files[progress->data.sent_count];
 
 			StringBuilder* string_builder = format_file_line(
 			    value, data->data.multiple_files->sizes, data->data.multiple_files->format);
@@ -972,35 +999,35 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				return false;
 			}
 
-			int send_result = sendStringBuilderToConnection(descriptor, &string_builder);
+			int send_result = send_string_builder_to_connection(descriptor, &string_builder);
 			if(send_result < 0) {
 				return false;
 			}
 
-			progress->_impl.sent_count++;
+			progress->data.sent_count++;
 
 			break;
 		}
 
-		case SEND_TYPE_RAW_DATA: {
+		case SendTypeRawData: {
 			RawData raw_data = data->data.data;
 
-			size_t offset = progress->_impl.sent_count;
+			size_t offset = progress->data.sent_count;
 
-			void* toSend = ((uint8_t*)raw_data.data) + offset;
+			void* to_send = ((uint8_t*)raw_data.data) + offset;
 
-			size_t sendLength = SEND_CHUNK_SIZE;
+			size_t send_length = SEND_CHUNK_SIZE;
 
-			if(offset + sendLength >= progress->_impl.total_count) {
-				sendLength = progress->_impl.total_count - offset;
+			if(offset + send_length >= progress->data.total_count) {
+				send_length = progress->data.total_count - offset;
 			}
 
-			int send_result = sendDataToConnection(descriptor, toSend, sendLength);
+			int send_result = send_data_to_connection(descriptor, to_send, send_length);
 			if(send_result < 0) {
 				return false;
 			}
 
-			progress->_impl.sent_count += sendLength;
+			progress->data.sent_count += send_length;
 
 			return true;
 			break;
@@ -1008,7 +1035,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		default: break;
 	}
 
-	if(progress->_impl.sent_count >= progress->_impl.total_count) {
+	if(progress->data.sent_count >= progress->data.total_count) {
 		progress->finished = true;
 	}
 
@@ -1016,40 +1043,40 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 }
 
 void free_send_data(SendData* data) {
-	// TODO(Totto): implement
+	// TODO(Totto): dataement
 	UNUSED(data);
 }
 
 NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
 
-	DirChangeResult dir_result = DIR_CHANGE_RESULT_OK;
+	DirChangeResult dir_result = DirChangeResultOk;
 	char* new_dir = internal_resolve_path_in_cwd(state, file, &dir_result);
 
 	if(!new_dir) {
-		if(dir_result == DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL) {
+		if(dir_result == DirChangeResultErrorPathTraversal) {
 			// change nothing, leave as is
-			return DIR_CHANGE_RESULT_OK;
+			return DirChangeResultOk;
 		}
 
-		return DIR_CHANGE_RESULT_NO_SUCH_DIR;
+		return DirChangeResultNoSuchDir;
 	}
 
 	// invariant check 1
 	if(new_dir[strlen(new_dir) - 1] == '/') {
-		return DIR_CHANGE_RESULT_ERROR;
+		return DirChangeResultError;
 	}
 
 	// invariant check 2
 	if(strstr(new_dir, state->global_folder) != new_dir) {
-		return DIR_CHANGE_RESULT_ERROR_PATH_TRAVERSAL;
+		return DirChangeResultErrorPathTraversal;
 	}
 
 	state->current_working_directory = new_dir;
 
-	return DIR_CHANGE_RESULT_OK;
+	return DirChangeResultOk;
 }
 
-NODISCARD bool write_to_file(char* path, void* data, size_t dataSize) {
+NODISCARD bool write_to_file(char* path, void* data, size_t data_size) {
 
 	FILE* file = fopen(path, "wb");
 
@@ -1060,9 +1087,9 @@ NODISCARD bool write_to_file(char* path, void* data, size_t dataSize) {
 		return false;
 	}
 
-	size_t fwrite_result = fwrite(data, 1, dataSize, file);
+	size_t fwrite_result = fwrite(data, 1, data_size, file);
 
-	if(fwrite_result != dataSize) {
+	if(fwrite_result != data_size) {
 		LOG_MESSAGE(LogLevelError, "Couldn't write the correct amount of bytes to file '%s': %s\n",
 		            path, strerror(errno));
 

@@ -8,39 +8,50 @@ struct RouteManagerImpl {
 };
 
 static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
-                                                     const HttpRequest* const httpRequest,
-                                                     const ConnectionContext* const context) {
+                                                     const HttpRequest* const http_request,
+                                                     const ConnectionContext* const context,
+                                                     ParsedURLPath path) {
 
-	StringBuilder* htmlStringBuilder =
-	    httpRequestToHtml(httpRequest, is_secure_context(context), send_settings);
+	UNUSED(path);
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStringBuilder(&htmlStringBuilder),
-		                          .MIMEType = MIME_TYPE_HTML,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+	StringBuilder* html_string_builder =
+	    http_request_to_html(http_request, is_secure_context(context), send_settings);
+
+	HTTPResponseToSend result = { .status = HttpStatusOk,
+		                          .body =
+		                              http_response_body_from_string_builder(&html_string_builder),
+		                          .mime_type = MIME_TYPE_HTML,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
 static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
-                                                    const HttpRequest* const httpRequest,
-                                                    const ConnectionContext* const context) {
+                                                    const HttpRequest* const http_request,
+                                                    const ConnectionContext* const context,
+                                                    ParsedURLPath path) {
 
-	StringBuilder* jsonStringBuilder =
-	    httpRequestToJSON(httpRequest, is_secure_context(context), send_settings);
+	UNUSED(path);
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStringBuilder(&jsonStringBuilder),
-		                          .MIMEType = MIME_TYPE_JSON,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+	StringBuilder* json_string_builder =
+	    http_request_to_json(http_request, is_secure_context(context), send_settings);
+
+	HTTPResponseToSend result = { .status = HttpStatusOk,
+		                          .body =
+		                              http_response_body_from_string_builder(&json_string_builder),
+		                          .mime_type = MIME_TYPE_JSON,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
-static HTTPResponseToSend static_executor_fn() {
+static HTTPResponseToSend static_executor_fn(ParsedURLPath path) {
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStaticString("{\"static\":true}"),
-		                          .MIMEType = MIME_TYPE_JSON,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+	UNUSED(path);
+
+	HTTPResponseToSend result = { .status = HttpStatusOk,
+		                          .body =
+		                              http_response_body_from_static_string("{\"static\":true}"),
+		                          .mime_type = MIME_TYPE_JSON,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
@@ -85,7 +96,7 @@ static char* json_get_random_number(void) {
 
 	StringBuilder* result = string_builder_init();
 
-	string_builder_append(result, return NULL;, "%u", number);
+	STRING_BUILDER_APPENDF(result, return NULL;, "%u", number);
 
 	return string_builder_release_into_string(&result);
 }
@@ -111,45 +122,45 @@ static char* json_get_random_key(void) {
 	return json_get_random_string();
 }
 
-static void add_random_object_key_and_value(StringBuilder* stringBuilder, bool pretty) {
+static void add_random_object_key_and_value(StringBuilder* string_builder, bool pretty) {
 	char* key = json_get_random_key();
 
-	string_builder_append_string(stringBuilder, key);
+	string_builder_append_string(string_builder, key);
 	if(pretty) {
-		string_builder_append_single(stringBuilder, " ");
+		string_builder_append_single(string_builder, " ");
 	}
-	string_builder_append_single(stringBuilder, ":");
+	string_builder_append_single(string_builder, ":");
 
 	char* value = json_get_random_primitive_value();
 
-	string_builder_append_string(stringBuilder, value);
+	string_builder_append_string(string_builder, value);
 }
 
-static void add_random_json_object(StringBuilder* stringBuilder, bool pretty) {
+static void add_random_json_object(StringBuilder* string_builder, bool pretty) {
 
 	uint32_t random_key_amount = get_random_byte_in_range(
 	    4, 20); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	string_builder_append_single(stringBuilder, "{");
+	string_builder_append_single(string_builder, "{");
 	if(pretty) {
-		string_builder_append_single(stringBuilder, "\n");
+		string_builder_append_single(string_builder, "\n");
 	}
 
 	for(size_t i = 0; i < random_key_amount; ++i) {
-		add_random_object_key_and_value(stringBuilder, pretty);
+		add_random_object_key_and_value(string_builder, pretty);
 
-		string_builder_append_single(stringBuilder, ",");
+		string_builder_append_single(string_builder, ",");
 		if(pretty) {
-			string_builder_append_single(stringBuilder, "\n");
+			string_builder_append_single(string_builder, "\n");
 		}
 	}
 
-	add_random_object_key_and_value(stringBuilder, pretty);
+	add_random_object_key_and_value(string_builder, pretty);
 
 	if(pretty) {
-		string_builder_append_single(stringBuilder, "\n");
+		string_builder_append_single(string_builder, "\n");
 	}
-	string_builder_append_single(stringBuilder, "}");
+	string_builder_append_single(string_builder, "}");
 
 	//
 }
@@ -165,10 +176,10 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 	}
 
 	// for compression tests, has to be at least  1 MB big, so that it can be tested accordingly
-	size_t minimumSize =
+	size_t minimum_size =
 	    1 << 20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	while(string_builder_get_string_size(string_builder) < minimumSize) {
+	while(string_builder_get_string_size(string_builder) < minimum_size) {
 		if(pretty) {
 			string_builder_append_single(string_builder, "\n");
 		}
@@ -192,25 +203,30 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 	return string_builder;
 }
 
-static HTTPResponseToSend huge_executor_fn() {
+static HTTPResponseToSend huge_executor_fn(ParsedURLPath path) {
+
+	UNUSED(path);
 
 	StringBuilder* string_builder = get_random_json_string_builder(false);
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStringBuilder(&string_builder),
-		                          .MIMEType = MIME_TYPE_JSON,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+	HTTPResponseToSend result = { .status = HttpStatusOk,
+		                          .body = http_response_body_from_string_builder(&string_builder),
+		                          .mime_type = MIME_TYPE_JSON,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
-static HTTPResponseToSend huge_pretty_executor_fn() {
+static HTTPResponseToSend huge_pretty_executor_fn(ParsedURLPath path) {
+
+	// TODO(Totto): get the search paramaters and use them to determine if we need pretty json
+	UNUSED(path);
 
 	StringBuilder* string_builder = get_random_json_string_builder(true);
 
-	HTTPResponseToSend result = { .status = HTTP_STATUS_OK,
-		                          .body = httpResponseBodyFromStringBuilder(&string_builder),
-		                          .MIMEType = MIME_TYPE_JSON,
-		                          .additionalHeaders = STBDS_ARRAY_EMPTY };
+	HTTPResponseToSend result = { .status = HttpStatusOk,
+		                          .body = http_response_body_from_string_builder(&string_builder),
+		                          .mime_type = MIME_TYPE_JSON,
+		                          .additional_headers = STBDS_ARRAY_EMPTY };
 	return result;
 }
 
@@ -250,26 +266,26 @@ HTTPRoutes get_default_routes(void) {
 
 		// ws
 
-		HTTPRoute wsRoute = { .method = HTTPRequestRouteMethodGet,
-			                  .path = "/ws",
-			                  .data = (HTTPRouteData){
-			                      .type = HTTPRouteTypeSpecial,
-			                      .data = { .special = HTTPRouteSpecialDataWs } } };
+		HTTPRoute ws_route = { .method = HTTPRequestRouteMethodGet,
+			                   .path = "/ws",
+			                   .data = (HTTPRouteData){
+			                       .type = HTTPRouteTypeSpecial,
+			                       .data = { .special = HTTPRouteSpecialDataWs } } };
 
-		stbds_arrput(routes, wsRoute);
+		stbds_arrput(routes, ws_route);
 	}
 
 	{
 
 		// ws fragmented
 
-		HTTPRoute wsFragmented = { .method = HTTPRequestRouteMethodGet,
-			                       .path = "/ws/fragmented",
-			                       .data = (HTTPRouteData){
-			                           .type = HTTPRouteTypeSpecial,
-			                           .data = { .special = HTTPRouteSpecialDataWsFragmented } } };
+		HTTPRoute ws_fragmented = { .method = HTTPRequestRouteMethodGet,
+			                        .path = "/ws/fragmented",
+			                        .data = (HTTPRouteData){
+			                            .type = HTTPRouteTypeSpecial,
+			                            .data = { .special = HTTPRouteSpecialDataWsFragmented } } };
 
-		stbds_arrput(routes, wsFragmented);
+		stbds_arrput(routes, ws_fragmented);
 	}
 
 	{
@@ -338,35 +354,35 @@ HTTPRoutes get_default_routes(void) {
 }
 
 NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes) {
-	RouteManager* routeManager = malloc(sizeof(RouteManager));
+	RouteManager* route_manager = malloc(sizeof(RouteManager));
 
-	if(!routeManager) {
+	if(!route_manager) {
 		return NULL;
 	}
 
-	routeManager->routes = routes;
+	route_manager->routes = routes;
 
-	return routeManager;
+	return route_manager;
 }
 
-void free_route_manager(RouteManager* routeManager) {
+void free_route_manager(RouteManager* route_manager) {
 
-	stbds_arrfree(routeManager->routes);
+	stbds_arrfree(route_manager->routes);
 
-	free(routeManager);
+	free(route_manager);
 }
 
-NODISCARD static bool is_matching(HTTPRequestRouteMethod routeMethod, HTTPRequestMethod method) {
+NODISCARD static bool is_matching(HTTPRequestRouteMethod route_method, HTTPRequestMethod method) {
 
-	if(routeMethod == HTTPRequestRouteMethodGet && method == HTTPRequestMethodHead) {
+	if(route_method == HTTPRequestRouteMethodGet && method == HTTPRequestMethodHead) {
 		return true;
 	}
 
-	if(routeMethod == HTTPRequestRouteMethodGet && method == HTTPRequestMethodGet) {
+	if(route_method == HTTPRequestRouteMethodGet && method == HTTPRequestMethodGet) {
 		return true;
 	}
 
-	if(routeMethod == HTTPRequestRouteMethodPost && method == HTTPRequestMethodPost) {
+	if(route_method == HTTPRequestRouteMethodPost && method == HTTPRequestMethodPost) {
 		return true;
 	}
 
@@ -375,9 +391,10 @@ NODISCARD static bool is_matching(HTTPRequestRouteMethod routeMethod, HTTPReques
 
 struct SelectedRouteImpl {
 	HTTPRoute route;
+	ParsedURLPath path;
 };
 
-NODISCARD static SelectedRoute* selected_route_from_data(HTTPRoute route) {
+NODISCARD static SelectedRoute* selected_route_from_data(HTTPRoute route, ParsedURLPath path) {
 	SelectedRoute* selected_route = malloc(sizeof(SelectedRoute));
 
 	if(!selected_route) {
@@ -385,6 +402,7 @@ NODISCARD static SelectedRoute* selected_route_from_data(HTTPRoute route) {
 	}
 
 	selected_route->route = route;
+	selected_route->path = path;
 
 	return selected_route;
 }
@@ -394,20 +412,20 @@ void free_selected_route(SelectedRoute* selected_route) {
 }
 
 NODISCARD SelectedRoute*
-route_manager_get_route_for_request(const RouteManager* const routerManager,
+route_manager_get_route_for_request(const RouteManager* const route_manager,
                                     const HttpRequest* const request) {
 
-	for(size_t i = 0; i < stbds_arrlenu(routerManager->routes); ++i) {
-		HTTPRoute route = routerManager->routes[i];
+	for(size_t i = 0; i < stbds_arrlenu(route_manager->routes); ++i) {
+		HTTPRoute route = route_manager->routes[i];
 
-		if(is_matching(route.method, request->head.requestLine.method)) {
+		if(is_matching(route.method, request->head.request_line.method)) {
 
 			if(route.path == NULL) {
-				return selected_route_from_data(route);
+				return selected_route_from_data(route, request->head.request_line.path);
 			}
 
-			if(strcmp(route.path, request->head.requestLine.URI) == 0) {
-				return selected_route_from_data(route);
+			if(strcmp(route.path, request->head.request_line.path.path) == 0) {
+				return selected_route_from_data(route, request->head.request_line.path);
 			}
 		}
 	}
@@ -415,27 +433,26 @@ route_manager_get_route_for_request(const RouteManager* const routerManager,
 	return NULL;
 }
 
-NODISCARD HTTPRouteData get_route_data(const SelectedRoute* const route) {
+NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const route) {
 
-	return route->route.data;
+	return (HTTPSelectedRoute){ .data = route->route.data, .path = route->path };
 }
 
-NODISCARD int route_manager_execute_route(HTTPRouteFn route,
-                                          const ConnectionDescriptor* const descriptor,
-                                          SendSettings send_settings,
-                                          const HttpRequest* const httpRequest,
-                                          const ConnectionContext* const context) {
+NODISCARD int
+route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* const descriptor,
+                            SendSettings send_settings, const HttpRequest* const http_request,
+                            const ConnectionContext* const context, ParsedURLPath path) {
 
 	HTTPResponseToSend response = {};
 
 	switch(route.type) {
 		case HTTPRouteFnTypeExecutor: {
-			response = route.fn.executor();
+			response = route.fn.executor(path);
 
 			break;
 		}
 		case HTTPRouteFnTypeExecutorExtended: {
-			response = route.fn.executor_extended(send_settings, httpRequest, context);
+			response = route.fn.executor_extended(send_settings, http_request, context, path);
 			break;
 		}
 		default: {
@@ -444,8 +461,8 @@ NODISCARD int route_manager_execute_route(HTTPRouteFn route,
 		}
 	}
 
-	int result =
-	    sendHTTPMessageToConnectionAdvanced(descriptor, response, send_settings, httpRequest->head);
+	int result = send_http_message_to_connection_advanced(descriptor, response, send_settings,
+	                                                      http_request->head);
 
 	return result;
 }
