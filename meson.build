@@ -32,13 +32,27 @@ openssl_dep = dependency(
 
 if openssl_dep.found()
     deps += openssl_dep
+    compile_flags += '-D_SIMPLE_SERVER_USE_OPENSSL_FOR_HASHING'
+
+    cc = meson.get_compiler('c')
+
+    has_newer_sha_functions = cc.check_header(
+        'openssl/evp.h',
+        dependencies: [openssl_dep],
+    )
+    if not has_newer_sha_functions
+        compile_flags += '-D_SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS'
+    endif
+
+
+    '-D_SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS'
+
 else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
 endif
 
-# TODO: 
+# TODO:
 warning('todo')
-## use sha1 of openssl
 ## find library for bcrypt instead of openssl!
 # libcrypt
 

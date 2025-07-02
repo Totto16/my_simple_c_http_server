@@ -1,6 +1,7 @@
 
 
 #include "ws.h"
+#include "generic/hash.h"
 #include "generic/send.h"
 #include "http/http_protocol.h"
 #include "http/send.h"
@@ -8,7 +9,6 @@
 #include "utils/string_builder.h"
 #include "utils/string_helper.h"
 
-#include <b64/b64.h>
 #include <strings.h>
 
 NODISCARD static int
@@ -87,15 +87,14 @@ NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* c
 #define EXPECTED_WS_HEADER_SEC_KEY_LENGTH 16
 
 NODISCARD static bool is_valid_sec_key(const char* key) {
-	size_t size = 0;
-	unsigned char* b64_result = b64_decode_ex(key, strlen(key), &size);
-	if(!b64_result) {
-		free(b64_result);
+	SizedBuffer b64_result =
+	    base64_decode_buffer((SizedBuffer){ .data = (void*)key, .size = strlen(key) });
+	if(!b64_result.data) {
 		return false;
 	}
 
-	free(b64_result);
-	return size == // NOLINT(readability-implicit-bool-conversion)
+	free_sized_buffer(b64_result);
+	return b64_result.size == // NOLINT(readability-implicit-bool-conversion)
 	       EXPECTED_WS_HEADER_SEC_KEY_LENGTH;
 }
 
@@ -106,11 +105,11 @@ static char* generate_key_answer(const char* sec_key) {
 	char* key_to_hash_buffer = NULL;
 	FORMAT_STRING(&key_to_hash_buffer, return NULL;, "%s%s", sec_key, key_accept_constant);
 
-	uint8_t* sha1_hash = sha1(key_to_hash_buffer);
+	SizedBuffer sha1_hash = get_sha1_from_string(key_to_hash_buffer);
 
-	char* result = b64_encode(sha1_hash, SHA1_LEN);
+	char* result = base64_encode_buffer(sha1_hash);
 
-	free(sha1_hash);
+	free_sized_buffer(sha1_hash);
 	free(key_to_hash_buffer);
 
 	return result;
