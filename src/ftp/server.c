@@ -1306,7 +1306,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandSyst:
 
 		{
-			// se e.g: https://cr.yp.to/ftp/syst.html
+			// see e.g: https://cr.yp.to/ftp/syst.html
 			SEND_RESPONSE_WITH_ERROR_CHECK(FTP_RETURN_CODE_SYSTEM_NAME,
 			                               "UNIX Type: L8 Version: Linux");
 

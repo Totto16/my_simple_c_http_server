@@ -572,41 +572,48 @@ void free_ftp_command_array(FTPCommandArray array) {
 
 const char* get_command_name(const FTPCommand* const command) {
 	switch(command->type) {
-		case FtpCommandType: return "TYPE";
-		case FtpCommandPort: return "PORT";
 		case FtpCommandUser: return "USER";
 		case FtpCommandPass: return "PASS";
 		case FtpCommandAcct: return "ACCT";
 		case FtpCommandCwd: return "CWD";
+		case FtpCommandCdup: return "CDUP";
 		case FtpCommandSmnt: return "SMNT";
+		case FtpCommandQuit: return "QUIT";
+		case FtpCommandRein: return "REIN";
+		case FtpCommandPort: return "PORT";
+		case FtpCommandPasv: return "PASV";
+		case FtpCommandType: return "TYPE";
+		case FtpCommandStru: return "STRU";
+		case FtpCommandMode: return "MODE";
 		case FtpCommandRetr: return "RETR";
 		case FtpCommandStor: return "STOR";
+		case FtpCommandStou: return "STOU";
 		case FtpCommandAppe: return "APPE";
+		case FtpCommandAllo: return "ALLO";
+		case FtpCommandRest: return "REST";
 		case FtpCommandRnfr: return "RNFR";
 		case FtpCommandRnto: return "RNTO";
+		case FtpCommandAbor: return "ABOR";
 		case FtpCommandDele: return "DELE";
 		case FtpCommandRmd: return "RMD";
 		case FtpCommandMkd: return "MKD";
+		case FtpCommandPwd: return "PWD";
+		case FtpCommandList: return "LIST";
+		case FtpCommandNlst: return "NLST";
 		case FtpCommandSite: return "SITE";
+		case FtpCommandSyst: return "SYST";
+		case FtpCommandStat: return "STAT";
+		case FtpCommandHelp: return "HELP";
+		case FtpCommandNoop: return "NOOP";
 		case FtpCommandAuth: return "AUTH";
 		case FtpCommandAdat: return "ADAT";
+		case FtpCommandProt: return "PROT";
+		case FtpCommandPbsz: return "PBSZ";
 		case FtpCommandMic: return "MIC";
 		case FtpCommandConf: return "CONF";
 		case FtpCommandEnc: return "ENC";
-		case FtpCommandList: return "LIST";
-		case FtpCommandNlst: return "NLST";
-		case FtpCommandStat: return "STAT";
-		case FtpCommandHelp: return "HELP";
-		case FtpCommandCdup: return "CDUP";
-		case FtpCommandRein: return "REIN";
-		case FtpCommandPasv: return "PASV";
-		case FtpCommandStou: return "STOU";
-		case FtpCommandAbor: return "ABOR";
-		case FtpCommandPwd: return "PWD";
-		case FtpCommandSyst: return "SYST";
-		case FtpCommandNoop: return "NOOP";
 		case FtpCommandFeat: return "FEAT";
-		case FtpCommandQuit: return "QUIT";
+		case FtpCommandOpts: return "OPTS";
 		default: return "<UNKNOWN COMMAND>";
 	}
 }
