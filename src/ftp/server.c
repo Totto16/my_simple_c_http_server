@@ -984,12 +984,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				// this is used, so that we can check in between single sends (e.g. in a list),
 				// if the user send us a ABORT COMMAND
-				SendProgress send_progress = setup_send_progress(data_to_send, send_mode);
+				SendProgress* send_progress = setup_send_progress(data_to_send, send_mode);
 
-				while(!send_progress.finished) {
+				while(!send_progress_is_finished(send_progress)) {
 
 					if(!send_data_to_send(data_to_send, data_conn_descriptor, send_mode,
-					                      &send_progress)) {
+					                      send_progress)) {
 						free_send_data(data_to_send);
 
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
@@ -999,6 +999,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				}
 
 				free_send_data(data_to_send);
+				free_send_progress(send_progress);
 
 				if(!data_connection_close(argument->data_controller, data_connection)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
@@ -1204,12 +1205,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				// this is used, so that we can check in between single sends (e.g. in a list),
 				// if the user send us a ABORT COMMAND
-				SendProgress send_progress = setup_send_progress(data_to_send, send_mode);
+				SendProgress* send_progress = setup_send_progress(data_to_send, send_mode);
 
-				while(!send_progress.finished) {
+				while(!send_progress_is_finished(send_progress)) {
 
 					if(!send_data_to_send(data_to_send, data_conn_descriptor, send_mode,
-					                      &send_progress)) {
+					                      send_progress)) {
 						free_send_data(data_to_send);
 
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
@@ -1219,6 +1220,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				}
 
 				free_send_data(data_to_send);
+				free_send_progress(send_progress);
 
 				if(!data_connection_close(argument->data_controller, data_connection)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,

@@ -12,24 +12,17 @@
 #include <time.h>
 #include <unistd.h>
 
-// this is a way by hdining the real struct implementation withour using opaque pointers
+// this is a way by hdining the real struct dataementation withour using opaque pointers
 typedef struct {
 	size_t total_count;
 	size_t sent_count;
 	// TODO(Totto): support records, so  that we can keep track of the records we sent!
 } SendProgressData;
 
-static_assert(sizeof(SendProgressData) == sizeof(SendProgressDataOpaque));
-
-typedef struct {
+struct SendProgressImpl {
 	bool finished;
-	SendProgressData impl;
-} SendProgressPrivate;
-
-static_assert(sizeof(SendProgressPrivate) == sizeof(SendProgress));
-static_assert(offsetof(SendProgressPrivate, finished) == offsetof(SendProgress, finished));
-static_assert(offsetof(SendProgressPrivate, impl) ==
-              offsetof(SendProgress, opaque_struct_do_not_use));
+	SendProgressData data;
+};
 
 // TODO(Totto): use more cwk_* functions from cwalk, see https://likle.github.io/cwalk/reference/
 
@@ -318,10 +311,16 @@ struct SendDataImpl {
 	} data;
 };
 
-NODISCARD SendProgress setup_send_progress(const SendData* const data, SendMode send_mode) {
+NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode send_mode) {
 
-	SendProgressPrivate result = { .finished = false,
-		                           .impl = { .total_count = 0, .sent_count = 0 } };
+	SendProgress* progress = malloc(sizeof(SendProgress));
+
+	if(!progress) {
+		return NULL;
+	}
+
+	progress->finished = false;
+	progress->data = (SendProgressData){ .total_count = 0, .sent_count = 0 };
 
 	size_t original_data_count = 0;
 
@@ -357,10 +356,17 @@ NODISCARD SendProgress setup_send_progress(const SendData* const data, SendMode 
 		default: break;
 	}
 
-	result.impl.total_count = actual_count;
+	progress->data.total_count = actual_count;
 
-	// TODO(Totto): check if this works like this
-	return (*(SendProgress*)(&result));
+	return progress;
+}
+
+NODISCARD bool send_progress_is_finished(SendProgress* progress) {
+	return progress->finished;
+}
+
+void free_send_progress(SendProgress* progress) {
+	free(progress);
 }
 
 NODISCARD char get_type_from_mode(mode_t mode) {
@@ -954,15 +960,13 @@ NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
 #define SEND_CHUNK_SIZE 0xFF
 
 NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescriptor* descriptor,
-                                 SendMode send_mode, SendProgress* progress_opaque) {
-
-	SendProgressPrivate* progress = (SendProgressPrivate*)progress_opaque;
+                                 SendMode send_mode, SendProgress* progress) {
 
 	if(progress->finished) {
 		return true;
 	}
 
-	if(progress->impl.sent_count >= progress->impl.total_count) {
+	if(progress->data.sent_count >= progress->data.total_count) {
 		progress->finished = true;
 		return true;
 	}
@@ -981,12 +985,12 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 
 	switch(data->type) {
 		case SendTypeFile: {
-			// TODO(Totto): implement
+			// TODO(Totto): dataement
 			return false;
 			break;
 		}
 		case SendTypeMultipleFiles: {
-			FileWithMetadata* value = data->data.multiple_files->files[progress->impl.sent_count];
+			FileWithMetadata* value = data->data.multiple_files->files[progress->data.sent_count];
 
 			StringBuilder* string_builder = format_file_line(
 			    value, data->data.multiple_files->sizes, data->data.multiple_files->format);
@@ -1000,7 +1004,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				return false;
 			}
 
-			progress->impl.sent_count++;
+			progress->data.sent_count++;
 
 			break;
 		}
@@ -1008,14 +1012,14 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		case SendTypeRawData: {
 			RawData raw_data = data->data.data;
 
-			size_t offset = progress->impl.sent_count;
+			size_t offset = progress->data.sent_count;
 
 			void* to_send = ((uint8_t*)raw_data.data) + offset;
 
 			size_t send_length = SEND_CHUNK_SIZE;
 
-			if(offset + send_length >= progress->impl.total_count) {
-				send_length = progress->impl.total_count - offset;
+			if(offset + send_length >= progress->data.total_count) {
+				send_length = progress->data.total_count - offset;
 			}
 
 			int send_result = send_data_to_connection(descriptor, to_send, send_length);
@@ -1023,7 +1027,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				return false;
 			}
 
-			progress->impl.sent_count += send_length;
+			progress->data.sent_count += send_length;
 
 			return true;
 			break;
@@ -1031,7 +1035,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		default: break;
 	}
 
-	if(progress->impl.sent_count >= progress->impl.total_count) {
+	if(progress->data.sent_count >= progress->data.total_count) {
 		progress->finished = true;
 	}
 
@@ -1039,7 +1043,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 }
 
 void free_send_data(SendData* data) {
-	// TODO(Totto): implement
+	// TODO(Totto): dataement
 	UNUSED(data);
 }
 
