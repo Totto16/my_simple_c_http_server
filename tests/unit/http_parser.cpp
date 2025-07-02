@@ -6,6 +6,7 @@
 #include <http/compression.h>
 #include <http/http_protocol.h>
 
+#include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -225,5 +226,133 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 		};
 
 		REQUIRE_EQ(entry3, entry3Expected);
+	}
+}
+
+namespace {
+
+struct ParsedURLWrapper {
+  private:
+	HttpRequest* m_request;
+
+  public:
+	ParsedURLWrapper(HttpRequest* request) : m_request{ request } {}
+
+	~ParsedURLWrapper() {
+		free_http_request(m_request);
+		m_request = nullptr;
+	}
+
+	[[nodiscard]] const ParsedURLPath& path() const { return m_request->head.request_line.path; }
+};
+
+std::unique_ptr<ParsedURLWrapper> parse_http_request_path(const char* value) {
+	std::string final_request = "GET ";
+	final_request += value;
+	final_request += " HTTP/1.1\r\n\r\n";
+
+	HttpRequest* request = parse_http_request(strdup(final_request.c_str()));
+
+	if(request == nullptr) {
+		return nullptr;
+	}
+
+	return std::make_unique<ParsedURLWrapper>(request);
+}
+
+} // namespace
+
+TEST_CASE("testing the parsing of the http request") {
+
+	SUBCASE("test url path parsing") {
+
+		SUBCASE("simple url") {
+
+			auto pared_path = parse_http_request_path("/");
+
+			REQUIRE_NE(pared_path, nullptr);
+
+			const auto& path = pared_path->path();
+
+			const auto path_comp = std::string{ path.path };
+
+			REQUIRE_EQ(path_comp, "/");
+
+			REQUIRE_EQ(stbds_shlenu(path.search_path.hash_map), 0);
+		}
+
+		SUBCASE("real path url") {
+
+			auto pared_path = parse_http_request_path("/test/hello");
+
+			REQUIRE_NE(pared_path, nullptr);
+
+			const auto& path = pared_path->path();
+
+			const auto path_comp = std::string{ path.path };
+
+			REQUIRE_EQ(path_comp, "/test/hello");
+
+			REQUIRE_EQ(stbds_shlenu(path.search_path.hash_map), 0);
+		}
+
+		SUBCASE("path url with search parameters") {
+
+			auto pared_path = parse_http_request_path("/test/hello?param1=hello&param2&param3=");
+
+			REQUIRE_NE(pared_path, nullptr);
+
+			const auto& path = pared_path->path();
+
+			const auto path_comp = std::string{ path.path };
+
+			REQUIRE_EQ(path_comp, "/test/hello");
+
+			const ParsedSearchPathHashMap* hash_map = path.search_path.hash_map;
+
+			REQUIRE_EQ(stbds_shlenu(hash_map), 3);
+
+			{
+
+				int param1_index = stbds_shgeti(hash_map, "param1");
+
+				REQUIRE_GE(param1_index, 0);
+
+				ParsedSearchPathHashMap entry1 = hash_map[param1_index];
+
+				REQUIRE_EQ(std::string{ entry1.key }, "param1");
+
+				REQUIRE_EQ(std::string{ entry1.value }, "hello");
+			}
+
+			{
+
+				int param2_index = stbds_shgeti(hash_map, "param2");
+
+				REQUIRE_GE(param2_index, 0);
+
+				ParsedSearchPathHashMap entry2 = hash_map[param2_index];
+
+				REQUIRE_EQ(std::string{ entry2.key }, "param2");
+
+				REQUIRE_EQ(std::string{ entry2.value }, "");
+			}
+
+			{
+				int param3_index = stbds_shgeti(hash_map, "param3");
+
+				REQUIRE_GE(param3_index, 0);
+
+				ParsedSearchPathHashMap entry3 = hash_map[param3_index];
+
+				REQUIRE_EQ(std::string{ entry3.key }, "param3");
+
+				REQUIRE_EQ(std::string{ entry3.value }, "");
+			}
+
+			int param4_index = stbds_shgeti(hash_map, "param4");
+
+			REQUIRE_EQ(param4_index, -1);
+		}
 	}
 }

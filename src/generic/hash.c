@@ -14,6 +14,10 @@ NODISCARD HashSaltResultType hash_salt_string(HashSaltSettings settings, char* s
 NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, char* string,
                                                      HashSaltResultType hash_salted_string) {
 
+// https://github.com/rg3/libbcrypt/blob/future/bcrypt.h
+// https://stackoverflow.com/questions/10273414/library-for-passwords-salt-hash-in-c
+
+
 	UNUSED(settings);
 	UNUSED(string);
 	UNUSED(hash_salted_string);
@@ -23,6 +27,8 @@ NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, 
 }
 
 #ifdef _SIMPLE_SERVER_USE_OPENSSL_FOR_HASHING
+
+// see: https://docs.openssl.org/3.5/man3/
 
 #ifdef _SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS
 
