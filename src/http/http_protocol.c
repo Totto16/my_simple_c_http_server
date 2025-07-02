@@ -410,7 +410,7 @@ NODISCARD static float parse_compression_quality(char* compression_weight) {
 	}
 
 	if(strlen(compression_weight) < 2) {
-		// now q=
+		// no q=
 		return NAN;
 	}
 
@@ -431,7 +431,7 @@ NODISCARD static float parse_compression_quality(char* compression_weight) {
 CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 
 	CompressionSettings* compression_settings =
-	    (CompressionSettings*)malloc_with_memset(sizeof(CompressionSettings), true);
+	    (CompressionSettings*)malloc(sizeof(CompressionSettings));
 
 	if(!compression_settings) {
 		return NULL;

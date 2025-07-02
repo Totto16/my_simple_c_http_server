@@ -80,6 +80,25 @@ NODISCARD bool operator==(const CompressionEntry& lhs, const CompressionEntry& r
 
 TEST_CASE("testing parsing of the Accept-Encoding header") {
 
+	REQUIRE(is_compressions_supported(CompressionTypeGzip));
+	REQUIRE(is_compressions_supported(CompressionTypeDeflate));
+	REQUIRE(is_compressions_supported(CompressionTypeBr));
+	REQUIRE(is_compressions_supported(CompressionTypeZstd));
+	REQUIRE(is_compressions_supported(CompressionTypeCompress));
+
+	SUBCASE("no Accept-Encoding header") {
+
+		HttpHeaderFields http_header_fields = STBDS_ARRAY_EMPTY;
+
+		CompressionSettings* compression_settings = get_compression_settings(http_header_fields);
+
+		REQUIRE_NE(compression_settings, nullptr);
+
+		size_t entries_length = stbds_arrlenu(compression_settings->entries);
+
+		REQUIRE_EQ(entries_length, 0);
+	}
+
 	SUBCASE("standard simple list") {
 
 		CompressionSettings* compression_settings =
@@ -144,7 +163,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("complicated list with weights") {
 		CompressionSettings* compression_settings =
-		    get_compression_setting_by_accept_encoding_header(" compress;q=0.5, gzip;q=1.0");
+		    get_compression_setting_by_accept_encoding_header(" deflate;q=0.5, br;q=1.0");
 
 		REQUIRE_NE(compression_settings, nullptr);
 
@@ -156,7 +175,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
-			                                                         CompressionTypeCompress } },
+			                                                         CompressionTypeDeflate } },
 			                                .weight = 0.5F };
 
 		REQUIRE_EQ(entry1, entry1Expected);
@@ -165,7 +184,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionEntry entry2Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
-			                                                         CompressionTypeGzip } },
+			                                                         CompressionTypeBr } },
 			                                .weight = 1.0F };
 
 		REQUIRE_EQ(entry2, entry2Expected);
@@ -174,7 +193,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 	SUBCASE("complicated list with weights and 'identity'") {
 		CompressionSettings* compression_settings =
 		    get_compression_setting_by_accept_encoding_header(
-		        " gzip;q=1.0, identity; q=0.5, *;q=0");
+		        " zstd;q=1.0, identity; q=0.5, *;q=0");
 
 		REQUIRE_NE(compression_settings, nullptr);
 
@@ -186,7 +205,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
-			                                                         CompressionTypeGzip } },
+			                                                         CompressionTypeZstd } },
 			                                .weight = 1.0F };
 
 		REQUIRE_EQ(entry1, entry1Expected);
