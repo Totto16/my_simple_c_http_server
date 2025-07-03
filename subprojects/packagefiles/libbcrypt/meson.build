@@ -1,5 +1,5 @@
 project(
-    'bcrypt',
+    'libbcrypt',
     'c',
     version: '1.0.0',
     meson_version: '>= 1.5.0',
@@ -63,16 +63,16 @@ int test(void){
 )
 
 libbcrypt = library(
-    'bcrypt',
+    'libbcrypt',
     src_files,
     c_args: compile_args + private_args,
     include_directories: inc_dirs,
 )
 
-bcrypt_dep = declare_dependency(
+libbcrypt_dep = declare_dependency(
     link_with: libbcrypt,
     include_directories: inc_dirs,
     version: meson.project_version(),
 )
 
-meson.override_dependency('bcrypt', bcrypt_dep)
+meson.override_dependency('libbcrypt', libbcrypt_dep)
