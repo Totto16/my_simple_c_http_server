@@ -110,38 +110,40 @@ NODISCARD static AuthenticationProviders* initialize_default_authentication_prov
 	AuthenticationProvider* simple_auth_provider = initialize_simple_authentication_provider();
 
 	if(!simple_auth_provider) {
-		free_authentication_providers(auth_providers);
-		return NULL;
-	}
+		LOG_MESSAGE_SIMPLE(LogLevelWarn, "Failed to initialize the simple auth provider\n")
+	} else {
 
-	SimpleUserEntry entries[] = { { .username = "admin", .password = "admin", .role = "admin" } };
+		SimpleUserEntry entries[] = {
+			{ .username = "admin", .password = "admin", .role = "admin" }
+		};
 
-	for(size_t i = 0; i < sizeof(entries) / sizeof(*entries); ++i) {
+		for(size_t i = 0; i < sizeof(entries) / sizeof(*entries); ++i) {
 
-		SimpleUserEntry entry = entries[i];
+			SimpleUserEntry entry = entries[i];
 
-		if(!add_user_to_simple_authentication_provider_data_password_raw(
-		       simple_auth_provider, entry.username, entry.password, entry.role)) {
+			if(!add_user_to_simple_authentication_provider_data_password_raw(
+			       simple_auth_provider, entry.username, entry.password, entry.role)) {
+				free_authentication_providers(auth_providers);
+				free_authentication_provider(simple_auth_provider);
+				return NULL;
+			}
+		}
+
+		if(!add_authentication_provider(auth_providers, simple_auth_provider)) {
 			free_authentication_providers(auth_providers);
 			return NULL;
 		}
 	}
 
-	if(!add_authentication_provider(auth_providers, simple_auth_provider)) {
-		free_authentication_providers(auth_providers);
-		return NULL;
-	}
-
 	AuthenticationProvider* system_auth_provider = initialize_system_authentication_provider();
 
 	if(!system_auth_provider) {
-		free_authentication_providers(auth_providers);
-		return NULL;
-	}
-
-	if(!add_authentication_provider(auth_providers, system_auth_provider)) {
-		free_authentication_providers(auth_providers);
-		return NULL;
+		LOG_MESSAGE_SIMPLE(LogLevelWarn, "Failed to initialize the simple auth provider\n")
+	} else {
+		if(!add_authentication_provider(auth_providers, system_auth_provider)) {
+			free_authentication_providers(auth_providers);
+			return NULL;
+		}
 	}
 
 	return auth_providers;
@@ -248,6 +250,7 @@ NODISCARD static int subcommand_http(const char* program_name, int argc, const c
 
 	if(auth_providers == NULL) {
 		fprintf(stderr, "Couldn't initialize authentication providers\n");
+		free_secure_options(options);
 		return EXIT_FAILURE;
 	}
 

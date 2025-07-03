@@ -9,16 +9,23 @@ extern "C" {
 #include "utils/sized_buffer.h"
 #include "utils/utils.h"
 
+typedef struct HashSaltResultTypeImpl HashSaltResultType;
+
 typedef struct {
-	size_t todo; // use openssl or libcrypt
+	uint8_t work_factor; // between 4 and 31, defaults to  (12)
+	bool use_sha512;     // default true
 } HashSaltSettings;
 
-typedef SizedBuffer HashSaltResultType;
+#ifdef _SIMPLE_SERVER_USE_BCRYPT
 
-NODISCARD HashSaltResultType hash_salt_string(HashSaltSettings settings, char* string);
+NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* string);
 
 NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, char* string,
-                                                     HashSaltResultType hash_salted_string);
+                                                     HashSaltResultType* hash_salted_string);
+
+void free_hash_salted_result(HashSaltResultType* hash_salted_string);
+
+#endif
 
 NODISCARD SizedBuffer get_sha1_from_string(const char* string);
 

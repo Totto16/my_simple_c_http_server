@@ -44,16 +44,20 @@ if openssl_dep.found()
     if not has_newer_sha_functions
         compile_flags += '-D_SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS'
     endif
-
-
 else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
 endif
 
-# TODO:
-warning('todo')
-## find library for bcrypt instead of openssl!
-# libcrypt
+
+bcrypt_dep = dependency(
+    'bcrypt',
+    required: true,
+)
+
+if bcrypt_dep.found()
+    deps += bcrypt_dep
+    compile_flags += '-D_SIMPLE_SERVER_USE_BCRYPT'
+endif
 
 
 compression_features_dict = {

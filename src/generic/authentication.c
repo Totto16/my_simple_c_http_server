@@ -2,9 +2,13 @@
 
 #include "./authentication.h"
 
+#ifdef _SIMPLE_SERVER_USE_BCRYPT
+#include <bcrypt.h>
+#endif
+
 typedef struct {
 	char* username;
-	HashSaltResultType hash_salted_password;
+	HashSaltResultType* hash_salted_password;
 	char* role;
 } SimpleAccountEntry;
 
@@ -14,7 +18,7 @@ typedef struct {
 } SimpleAuthenticationProviderData;
 
 typedef struct {
-	int todo;
+	int todo; // TODO
 } SystemAuthenticationProviderData;
 
 struct AuthenticationProviderImpl {
@@ -53,6 +57,10 @@ NODISCARD AuthenticationProviders* initialize_authentication_providers(void) {
 
 NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void) {
 
+#ifndef _SIMPLE_SERVER_USE_BCRYPT
+	return NULL;
+#else
+
 	AuthenticationProvider* auth_provider = malloc(sizeof(AuthenticationProvider));
 
 	if(!auth_provider) {
@@ -62,9 +70,11 @@ NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void
 	auth_provider->type = AuthenticationProviderTypeSimple;
 	auth_provider->data.simple =
 	    (SimpleAuthenticationProviderData){ .entries = STBDS_ARRAY_EMPTY,
-		                                    .settings = { .todo = TODO_HASH_SETTINGS } };
+		                                    .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
+		                                                  .use_sha512 = true } };
 
 	return auth_provider;
+#endif
 }
 
 NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void) {
@@ -97,21 +107,30 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
     AuthenticationProvider* simple_authentication_provider, char* username, char* password,
     char* role) {
 
+#ifndef _SIMPLE_SERVER_USE_BCRYPT
+	UNUSED(simple_authentication_provider);
+	UNUSED(username);
+	UNUSED(password);
+	UNUSED(role);
+	return false;
+#else
+
 	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
 		return false;
 	}
 
 	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
 
-	SizedBuffer hash_salted_password = hash_salt_string(data->settings, password);
+	HashSaltResultType* hash_salted_password = hash_salt_string(data->settings, password);
 
 	return add_user_to_simple_authentication_provider_data_password_hash_salted(
 	    simple_authentication_provider, username, hash_salted_password, role);
+#endif
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
     AuthenticationProvider* simple_authentication_provider, char* username,
-    SizedBuffer hash_salted_password, char* role) {
+    HashSaltResultType* hash_salted_password, char* role) {
 
 	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
 		return false;
@@ -128,6 +147,12 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 }
 
 static void free_simple_authentication_provider(SimpleAuthenticationProviderData data) {
+	for(size_t i = 0; i < stbds_arrlenu(data.entries); ++i) {
+		SimpleAccountEntry entry = data.entries[i];
+
+		free_hash_salted_result(entry.hash_salted_password);
+	}
+
 	stbds_arrfree(data.entries);
 }
 
@@ -136,8 +161,7 @@ static void free_system_authentication_provider(SystemAuthenticationProviderData
 	// TODO
 }
 
-static void free_authentication_provider(AuthenticationProvider* auth_provider) {
-
+void free_authentication_provider(AuthenticationProvider* auth_provider) {
 	switch(auth_provider->type) {
 		case AuthenticationProviderTypeSimple: {
 			free_simple_authentication_provider(auth_provider->data.simple);

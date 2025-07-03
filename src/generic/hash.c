@@ -3,27 +3,120 @@
 #include "./hash.h"
 #include "utils/log.h"
 
-NODISCARD HashSaltResultType hash_salt_string(HashSaltSettings settings, char* string) {
+#ifdef _SIMPLE_SERVER_USE_BCRYPT
+#include <bcrypt.h>
+#endif
 
-	UNUSED(settings);
-	UNUSED(string);
-	// TODO
-	return get_empty_sized_buffer();
+#ifdef _SIMPLE_SERVER_USE_BCRYPT
+
+struct HashSaltResultTypeImpl {
+	char hash[BCRYPT_HASHSIZE];
+};
+
+NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* string) {
+
+	char* password_to_use = string;
+
+	if(settings.use_sha512) {
+
+		char result_digest[BCRYPT_512BITS_BASE64_SIZE] = {};
+
+		int res = bcrypt_sha512(string, result_digest);
+
+		if(res != 0) {
+			return NULL;
+		}
+
+		char* new_char = malloc(BCRYPT_512BITS_BASE64_SIZE + 1);
+
+		if(!new_char) {
+			return NULL;
+		}
+
+		new_char[BCRYPT_512BITS_BASE64_SIZE] = '\0';
+
+		memcpy(new_char, result_digest, BCRYPT_512BITS_BASE64_SIZE);
+
+		password_to_use = new_char;
+	}
+
+	char result_salt[BCRYPT_HASHSIZE] = {};
+
+	int res = bcrypt_gensalt(settings.work_factor, result_salt);
+
+	if(res != 0) {
+		return NULL;
+	}
+
+	char result_hash[BCRYPT_HASHSIZE] = {};
+
+	res = bcrypt_hashpw(password_to_use, result_salt, result_hash);
+
+	if(settings.use_sha512) {
+		free(password_to_use);
+	}
+
+	if(res != 0) {
+		return NULL;
+	}
+
+	HashSaltResultType* result_type = malloc(sizeof(HashSaltResultType));
+
+	if(!result_type) {
+		return NULL;
+	}
+
+	memcpy(&result_type->hash, &result_hash, BCRYPT_HASHSIZE);
+
+	return result_type;
 }
 
 NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, char* string,
-                                                     HashSaltResultType hash_salted_string) {
+                                                     HashSaltResultType* hash_salted_string) {
 
-	// https://github.com/rg3/libbcrypt/blob/future/bcrypt.h
-	// https://stackoverflow.com/questions/10273414/library-for-passwords-salt-hash-in-c
+	char* password_to_use = string;
 
-	UNUSED(settings);
-	UNUSED(string);
-	UNUSED(hash_salted_string);
+	if(settings.use_sha512) {
 
-	// TODO
-	return false;
+		char input_digest[BCRYPT_512BITS_BASE64_SIZE] = {};
+
+		int res = bcrypt_sha512(string, input_digest);
+
+		if(res != 0) {
+			return NULL;
+		}
+
+		char* new_char = malloc(BCRYPT_512BITS_BASE64_SIZE + 1);
+
+		if(!new_char) {
+			return NULL;
+		}
+
+		new_char[BCRYPT_512BITS_BASE64_SIZE] = '\0';
+
+		memcpy(new_char, input_digest, BCRYPT_512BITS_BASE64_SIZE);
+
+		password_to_use = new_char;
+	}
+
+	int res = bcrypt_checkpw(password_to_use, hash_salted_string->hash);
+
+	if(settings.use_sha512) {
+		free(password_to_use);
+	}
+
+	if(res != -1) {
+		return false;
+	}
+
+	return res == 0;
 }
+
+void free_hash_salted_result(HashSaltResultType* hash_salted_string) {
+	free(hash_salted_string);
+}
+
+#endif
 
 #ifdef _SIMPLE_SERVER_USE_OPENSSL_FOR_HASHING
 
