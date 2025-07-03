@@ -20,7 +20,7 @@ typedef struct {
 } SimpleAuthenticationProviderData;
 
 typedef struct {
-	int todo; // TODO
+	int todo; // TODO(Totto): implement
 } SystemAuthenticationProviderData;
 
 struct AuthenticationProviderImpl {
@@ -99,15 +99,15 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 		return false;
 	}
 
-	stbds_arrput(
-	    auth_providers->providers, // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
-	    provider);
+	stbds_arrput( // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
+	    auth_providers->providers, provider);
 	return true;
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
-    AuthenticationProvider* simple_authentication_provider, char* username, char* password,
-    char* role) {
+    AuthenticationProvider* simple_authentication_provider,
+    char* username, // NOLINT(bugprone-easily-swappable-parameters)
+    char* password, char* role) {
 
 #ifndef _SIMPLE_SERVER_USE_BCRYPT
 	UNUSED(simple_authentication_provider);
@@ -170,7 +170,7 @@ static void free_simple_authentication_provider(SimpleAuthenticationProviderData
 
 static void free_system_authentication_provider(SystemAuthenticationProviderData data) {
 	UNUSED(data);
-	// TODO
+	// TODO(Totto): implement
 }
 
 void free_authentication_provider(AuthenticationProvider* auth_provider) {
@@ -220,9 +220,10 @@ find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username)
 	return &data->entries[index];
 }
 
-NODISCARD static AuthenticationFindResult
-authentication_provider_simple_find_user_with_password(AuthenticationProvider* auth_provider,
-                                                       char* username, char* password) {
+NODISCARD static AuthenticationFindResult authentication_provider_simple_find_user_with_password(
+    AuthenticationProvider* auth_provider,
+    char* username, // NOLINT(bugprone-easily-swappable-parameters)
+    char* password) {
 
 	if(auth_provider->type != AuthenticationProviderTypeSimple) {
 
@@ -264,8 +265,8 @@ authentication_provider_simple_find_user_with_password(AuthenticationProvider* a
 
 NODISCARD static AuthenticationFindResult authentication_provider_system_find_user_with_password(
     const AuthenticationProvider* auth_provider,
-    char* username, // NOLINT(bugprone-easily-swappable-parameters)
-    char* password) {
+    const char* username, // NOLINT(bugprone-easily-swappable-parameters)
+    const char* password) {
 
 	UNUSED(auth_provider);
 
@@ -285,8 +286,10 @@ NODISCARD int get_result_value_for_auth_result(AuthenticationFindResult auth) {
 		case AuthenticationValidityNoSuchUser: return 1;
 		case AuthenticationValidityWrongPassword: return 2;
 		case AuthenticationValidityOk: return 3;
-		case AuthenticationValidityError: return 0;
-		default: return 0;
+		case AuthenticationValidityError:
+		default: {
+			return 0;
+		}
 	}
 }
 
@@ -333,7 +336,9 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 				break;
 		}
 
-		if(result.validity == AuthenticationValidityOk) {
+		// note: the clang analyzer is incoreect here, we return a item, that is malloced, but we
+		// free it everywhere, we use this function!
+		if(result.validity == AuthenticationValidityOk) { // NOLINT(clang-analyzer-unix.Malloc)
 			stbds_arrfree(results);
 			return result;
 		}

@@ -507,7 +507,7 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(char* value) {
 	// TODO(Totto): support more auth-schemes
 
 	// see: https://www.iana.org/assignments/http-authschemes/http-authschemes.xhtml
-	if(strcasecmp(auth_scheme, "Basic")) {
+	if(strcasecmp(auth_scheme, "Basic") == 0) {
 		// see https://datatracker.ietf.org/doc/html/rfc7617
 
 		char* value = auth_scheme + 1;
@@ -610,7 +610,9 @@ NODISCARD HttpAuthStatus handle_http_authorization_impl(
 			                     .data = { .error = { .error_message = "Header parse error" } } };
 	}
 
-	char* username = NULL;
+	// note: this potential meory leak is not one, as it is just returned and than later freed by
+	// the cosnuming functions
+	char* username = NULL; // NOLINT(clang-analyzer-unix.Malloc)
 	char* password = NULL;
 
 	switch(result.type) {
@@ -826,7 +828,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 		}
 	}
 
-	return selected_route_from_data(route.data, request->head.request_line.path, auth_user);
+	return selected_route_from_data( // NOLINT(clang-analyzer-unix.Malloc)
+	    route.data, request->head.request_line.path, auth_user);
 }
 
 NODISCARD SelectedRoute*

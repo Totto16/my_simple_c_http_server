@@ -45,6 +45,9 @@ NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* 
 	int res = bcrypt_gensalt(settings.work_factor, result_salt);
 
 	if(res != 0) {
+		if(settings.use_sha512) {
+			free(password_to_use);
+		}
 		return NULL;
 	}
 
@@ -197,6 +200,7 @@ SizedBuffer get_sha1_from_string(const char* string) {
 	result = EVP_DigestFinal_ex(evp_context, sha1_result, &hash_len);
 
 	if(result != 1) {
+		free(sha1_result);
 		EVP_MD_CTX_free(evp_context);
 		return get_empty_sized_buffer();
 	}
@@ -240,7 +244,7 @@ SizedBuffer get_sha1_from_string(const char* string) {
 
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
-#include <openssl/evp.h>
+#include <openssl/evp.h> //NOLINT(readability-duplicate-include)
 
 NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 
@@ -271,7 +275,6 @@ NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 
 #define B64_CHUNCK_SIZE 512
 
-// TODO: this leaks memory somewhere!
 NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 	if(input_buffer.size == 0) {
 
@@ -380,7 +383,7 @@ void openssl_cleanup_crypto_thread_state(void) {
 	EVP_cleanup();
 	CRYPTO_cleanup_all_ex_data();
 	ERR_free_strings();
-	CONF_modules_unload(true);
+	CONF_modules_unload(1);
 
 	OPENSSL_cleanup();
 }

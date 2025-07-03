@@ -262,7 +262,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 							    handle_ws_handshake(http_request, descriptor, send_settings);
 
 							WebSocketFunction websocket_function_to_use =
-							    route_data.data.special.data.ws.fragmented
+							    route_data // NOLINT(readability-implicit-bool-conversion)
+							            .data.special.data.ws.fragmented
 							        ? websocket_function_fragmented
 							        : websocket_function;
 

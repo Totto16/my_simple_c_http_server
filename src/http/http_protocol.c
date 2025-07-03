@@ -162,9 +162,8 @@ NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 }
 
 NODISCARD static HttpRequestLine
-get_request_line_from_raw(const char* method,
-                          const char* path, // NOLINT(bugprone-easily-swappable-parameters)
-                          const char* protocol_version) {
+get_request_line_from_raw(const char* method, // NOLINT(bugprone-easily-swappable-parameters)
+                          const char* path, const char* protocol_version) {
 
 	HttpRequestLine result = {};
 
