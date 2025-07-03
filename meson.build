@@ -48,10 +48,10 @@ else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
 endif
 
-
 bcrypt_dep = dependency(
     'bcrypt',
-    required: true,
+    required: false,
+    allow_fallback: true,
 )
 
 if bcrypt_dep.found()

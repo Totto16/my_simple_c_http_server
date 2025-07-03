@@ -7,13 +7,13 @@
 #endif
 
 typedef struct {
-	char* username;
+	char* key;
 	HashSaltResultType* hash_salted_password;
 	char* role;
 } SimpleAccountEntry;
 
 typedef struct {
-	STBDS_ARRAY(SimpleAccountEntry) entries;
+	STBDS_HASH_MAP(SimpleAccountEntry) entries;
 	HashSaltSettings settings;
 } SimpleAuthenticationProviderData;
 
@@ -69,7 +69,7 @@ NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void
 
 	auth_provider->type = AuthenticationProviderTypeSimple;
 	auth_provider->data.simple =
-	    (SimpleAuthenticationProviderData){ .entries = STBDS_ARRAY_EMPTY,
+	    (SimpleAuthenticationProviderData){ .entries = STBDS_HASH_MAP_EMPTY,
 		                                    .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
 		                                                  .use_sha512 = true } };
 
@@ -138,22 +138,32 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 
 	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
 
-	SimpleAccountEntry entry = { .username = username,
+	SimpleAccountEntry entry = { .key = strdup(username),
 		                         .hash_salted_password = hash_salted_password,
-		                         .role = role };
+		                         .role = strdup(role) };
 
-	stbds_arrput(data->entries, entry);
+	stbds_shputs(data->entries, entry);
 	return true;
 }
 
 static void free_simple_authentication_provider(SimpleAuthenticationProviderData data) {
-	for(size_t i = 0; i < stbds_arrlenu(data.entries); ++i) {
+
+#ifndef _SIMPLE_SERVER_USE_BCRYPT
+	UNUSED(data);
+#else
+	size_t hm_length = stbds_shlenu(data.entries);
+
+	for(size_t i = 0; i < hm_length; ++i) {
 		SimpleAccountEntry entry = data.entries[i];
 
 		free_hash_salted_result(entry.hash_salted_password);
+		free(entry.key);
+		free(entry.role);
 	}
 
-	stbds_arrfree(data.entries);
+	stbds_shfree(data.entries);
+
+#endif
 }
 
 static void free_system_authentication_provider(SystemAuthenticationProviderData data) {
@@ -188,20 +198,69 @@ void free_authentication_providers(AuthenticationProviders* auth_providers) {
 	free(auth_providers);
 }
 
-static AuthenticationFindResult
-authentication_provider_simple_find_user_with_password(const AuthenticationProvider* auth_provider,
+#ifdef _SIMPLE_SERVER_USE_BCRYPT
+
+NODISCARD static SimpleAccountEntry*
+find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username) {
+
+	if(data->entries == STBDS_HASH_MAP_EMPTY) {
+		// note: if hash_map is NULL stbds_shgeti allocates a new value, that is never populated to
+		// the original SimpleAccountEntry value, as this is a struct copy!
+		return NULL;
+	}
+
+	int index = stbds_shgeti(data->entries, username);
+
+	if(index < 0) {
+		return NULL;
+	}
+
+	return &data->entries[index];
+}
+
+NODISCARD static AuthenticationFindResult
+authentication_provider_simple_find_user_with_password(AuthenticationProvider* auth_provider,
                                                        char* username, char* password) {
 
-	UNUSED(auth_provider);
+	if(auth_provider->type != AuthenticationProviderTypeSimple) {
 
-	UNUSED(username);
-	UNUSED(password);
+		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
+			                               .data = { .error = { .error_message =
+			                                                        "Implementation error" } } };
+	}
+
+	SimpleAuthenticationProviderData* data = &auth_provider->data.simple;
+
+	SimpleAccountEntry* entry = find_user_by_name_simple(data, username);
+
+	if(!entry) {
+		return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
+			                               .data = {} };
+	}
+
+	bool is_valid_pw = is_string_equal_to_hash_salted_string(data->settings, password,
+	                                                         entry->hash_salted_password);
+
+	if(!is_valid_pw) {
+		return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
+			                               .data = {} };
+	}
+
+	// TODO(Totto): maybe don't allocate this?
+	AuthUser user = { .username = strdup(entry->key), .role = strdup(entry->role) };
+
+	return (AuthenticationFindResult){
+		.validity = AuthenticationValidityOk,
+		.data = { .ok = { .provider_type = AuthenticationProviderTypeSimple, .user = user } }
+	};
 
 	return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
 		                               .data = { .error = { .error_message = "TODO" } } };
 }
 
-static AuthenticationFindResult authentication_provider_system_find_user_with_password(
+#endif
+
+NODISCARD static AuthenticationFindResult authentication_provider_system_find_user_with_password(
     const AuthenticationProvider* auth_provider,
     char* username, // NOLINT(bugprone-easily-swappable-parameters)
     char* password) {
@@ -235,8 +294,16 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 
 		switch(provider->type) {
 			case AuthenticationProviderTypeSimple: {
+#ifndef _SIMPLE_SERVER_USE_BCRYPT
+				result = (AuthenticationFindResult){
+					.validity = AuthenticationValidityError,
+					.data = { .error = { .error_message = "not compiled with support for provider "
+					                                      "type simple" } }
+				};
+#else
 				result = authentication_provider_simple_find_user_with_password(provider, username,
 				                                                                password);
+#endif
 				break;
 			}
 			case AuthenticationProviderTypeSystem: {

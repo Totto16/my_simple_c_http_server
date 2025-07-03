@@ -109,10 +109,10 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPProtocolVersion2,
 } HTTPProtocolVersion;
 
-STBDS_HASM_MAP_TYPE(char*, char*, ParsedSearchPathEntry);
+STBDS_HASH_MAP_TYPE(char*, char*, ParsedSearchPathEntry);
 
 typedef struct {
-	STBDS_HASM_MAP(ParsedSearchPathEntry) hash_map;
+	STBDS_HASH_MAP(ParsedSearchPathEntry) hash_map;
 } ParsedSearchPath;
 
 // RFC: https://datatracker.ietf.org/doc/html/rfc1738

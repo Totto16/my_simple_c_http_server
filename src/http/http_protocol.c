@@ -110,7 +110,7 @@ NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 
 	char* search_path = strchr(path, '?');
 
-	ParsedURLPath result = { .search_path = { .hash_map = STBDS_HASM_MAP_EMPTY } };
+	ParsedURLPath result = { .search_path = { .hash_map = STBDS_HASH_MAP_EMPTY } };
 
 	if(search_path == NULL) {
 		result.path = strdup(path);
@@ -364,8 +364,8 @@ HttpRequest* parse_http_request(char* raw_http_request) {
 
 NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key) {
 
-	if(path.hash_map == STBDS_ARRAY_EMPTY) {
-		// note: if hash_map is NULL stbds_shgeti allocates a new value, that is nevere populated to
+	if(path.hash_map == STBDS_HASH_MAP_EMPTY) {
+		// note: if hash_map is NULL stbds_shgeti allocates a new value, that is never populated to
 		// the original ParsedSearchPath value, as this is a struct copy!
 		return NULL;
 	}
