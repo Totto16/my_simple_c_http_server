@@ -610,7 +610,7 @@ NODISCARD HttpAuthStatus handle_http_authorization_impl(
 	switch(result.type) {
 		case HttpAuthHeaderValueTypeBasic: {
 			username = strdup(result.data.basic.username);
-			password = password == NULL ? NULL : strdup(result.data.basic.password);
+			password = result.data.basic.password == NULL ? NULL : strdup(result.data.basic.password);
 			free(result.data.basic.username);
 			break;
 		}
