@@ -695,6 +695,124 @@ NODISCARD HttpAuthStatus handle_http_authorization(const AuthenticationProviders
 // NOTE: auth usage example: curl "http://test1:test2@localhost:8080/auth" ->
 // {"header":"Authorization", "key":"Basic dGVzdDE6dGVzdDI="}
 
+NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const route_manager,
+                                                      const HttpRequest* const request,
+                                                      HTTPRoute route) {
+
+	AuthUserWithContext* auth_user = NULL;
+
+	if(route.auth.type != HTTPAuthorizationTypeNone) {
+		HttpAuthStatus auth_status =
+		    handle_http_authorization(route_manager->auth_providers, request, route.auth);
+
+		switch(auth_status.type) {
+			case HttpAuthStatusTypeUnauthorized: {
+
+				HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
+
+				char* www_authenticate_buffer = NULL;
+				// all 401 have to have a WWW-Authenticate filed according to spec
+				FORMAT_STRING(
+				    &www_authenticate_buffer,
+				    {
+					    stbds_arrfree(additional_headers);
+					    return NULL;
+				    },
+				    "WWW-Authenticate%cBasic realm=\"%s\", charset=\"UTF-8\"", '\0', AUTH_REALM);
+
+				HttpHeaderField www_authenticate_field = {
+					.key = www_authenticate_buffer,
+					.value = www_authenticate_buffer + strlen(www_authenticate_buffer) + 1
+				};
+
+				stbds_arrput(additional_headers, www_authenticate_field);
+
+				HTTPResponseToSend to_send = { .status = HttpStatusUnauthorized,
+					                           .body = http_response_body_empty(),
+					                           .mime_type = MIME_TYPE_TEXT,
+					                           .additional_headers = additional_headers };
+
+				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
+					                         .data = { .internal = { .send = to_send } } };
+				return selected_route_from_data(route_data, request->head.request_line.path,
+				                                auth_user);
+			}
+			case HttpAuthStatusTypeAuthorized: {
+				auth_user = malloc(sizeof(AuthUserWithContext));
+
+				if(!auth_user) {
+					HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+						                           .body = http_response_body_from_static_string(
+						                               "Internal error: OOM"),
+						                           .mime_type = MIME_TYPE_TEXT,
+						                           .additional_headers = STBDS_ARRAY_EMPTY };
+
+					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
+						                         .data = { .internal = { .send = to_send } } };
+					return selected_route_from_data(route_data, request->head.request_line.path,
+					                                auth_user);
+				}
+
+				auth_user->user = auth_status.data.authorized.user;
+				auth_user->provider_type = auth_status.data.authorized.provider_type;
+				break;
+			}
+			case HttpAuthStatusTypeAuthorizationError: {
+				LOG_MESSAGE(LogLevelError,
+				            "An error occured while tyring to process authentication status: %s\n",
+				            auth_status.data.auth_error.error);
+
+				HTTPResponseToSend to_send = {
+					.status = HttpStatusInternalServerError,
+					.body = http_response_body_from_static_string(
+					    "Internal implementation error in authorization process, type 0"),
+					.mime_type = MIME_TYPE_TEXT,
+					.additional_headers = STBDS_ARRAY_EMPTY
+				};
+
+				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
+					                         .data = { .internal = { .send = to_send } } };
+				return selected_route_from_data(route_data, request->head.request_line.path,
+				                                auth_user);
+			}
+			case HttpAuthStatusTypeError: {
+				LOG_MESSAGE(LogLevelError,
+				            "An error occured while tyring to process authentication status: %s\n",
+				            auth_status.data.error.error_message);
+
+				HTTPResponseToSend to_send = {
+					.status = HttpStatusInternalServerError,
+					.body = http_response_body_from_static_string(
+					    "Internal implementation error in authorization process, type 1"),
+					.mime_type = MIME_TYPE_TEXT,
+					.additional_headers = STBDS_ARRAY_EMPTY
+				};
+
+				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
+					                         .data = { .internal = { .send = to_send } } };
+				return selected_route_from_data(route_data, request->head.request_line.path,
+				                                auth_user);
+			}
+			default: {
+				HTTPResponseToSend to_send = {
+					.status = HttpStatusInternalServerError,
+					.body = http_response_body_from_static_string(
+					    "Internal implementation error in authorization process, type 2"),
+					.mime_type = MIME_TYPE_TEXT,
+					.additional_headers = STBDS_ARRAY_EMPTY
+				};
+
+				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
+					                         .data = { .internal = { .send = to_send } } };
+				return selected_route_from_data(route_data, request->head.request_line.path,
+				                                auth_user);
+			}
+		}
+	}
+
+	return selected_route_from_data(route.data, request->head.request_line.path, auth_user);
+}
+
 NODISCARD SelectedRoute*
 route_manager_get_route_for_request(const RouteManager* const route_manager,
                                     const HttpRequest* const request) {
@@ -702,131 +820,14 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 	for(size_t i = 0; i < stbds_arrlenu(route_manager->routes); ++i) {
 		HTTPRoute route = route_manager->routes[i];
 
-		AuthUserWithContext* auth_user = NULL;
-
-		if(route.auth.type != HTTPAuthorizationTypeNone) {
-			HttpAuthStatus auth_status =
-			    handle_http_authorization(route_manager->auth_providers, request, route.auth);
-
-			switch(auth_status.type) {
-				case HttpAuthStatusTypeUnauthorized: {
-
-					HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
-
-					char* www_authenticate_buffer = NULL;
-					// all 401 have to have a WWW-Authenticate filed according to spec
-					FORMAT_STRING(
-					    &www_authenticate_buffer,
-					    {
-						    stbds_arrfree(additional_headers);
-						    return NULL;
-					    },
-					    "WWW-Authenticate%cBasic realm=\"%s\", charset=\"UTF-8\"", '\0',
-					    AUTH_REALM);
-
-					HttpHeaderField www_authenticate_field = {
-						.key = www_authenticate_buffer,
-						.value = www_authenticate_buffer + strlen(www_authenticate_buffer) + 1
-					};
-
-					stbds_arrput(additional_headers, www_authenticate_field);
-
-					HTTPResponseToSend to_send = { .status = HttpStatusUnauthorized,
-						                           .body = http_response_body_empty(),
-						                           .mime_type = MIME_TYPE_TEXT,
-						                           .additional_headers = additional_headers };
-
-					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-						                         .data = { .internal = { .send = to_send } } };
-					return selected_route_from_data(route_data, request->head.request_line.path,
-					                                auth_user);
-				}
-				case HttpAuthStatusTypeAuthorized: {
-					auth_user = malloc(sizeof(AuthUserWithContext));
-
-					if(!auth_user) {
-						HTTPResponseToSend to_send = {
-							.status = HttpStatusInternalServerError,
-							.body = http_response_body_from_static_string("Internal error: OOM"),
-							.mime_type = MIME_TYPE_TEXT,
-							.additional_headers = STBDS_ARRAY_EMPTY
-						};
-
-						HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-							                         .data = { .internal = { .send = to_send } } };
-						return selected_route_from_data(route_data, request->head.request_line.path,
-						                                auth_user);
-					}
-
-					auth_user->user = auth_status.data.authorized.user;
-					auth_user->provider_type = auth_status.data.authorized.provider_type;
-					break;
-				}
-				case HttpAuthStatusTypeAuthorizationError: {
-					LOG_MESSAGE(
-					    LogLevelError,
-					    "An error occured while tyring to process authentication status: %s\n",
-					    auth_status.data.auth_error.error);
-
-					HTTPResponseToSend to_send = {
-						.status = HttpStatusInternalServerError,
-						.body = http_response_body_from_static_string(
-						    "Internal implementation error in authorization process, type 0"),
-						.mime_type = MIME_TYPE_TEXT,
-						.additional_headers = STBDS_ARRAY_EMPTY
-					};
-
-					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-						                         .data = { .internal = { .send = to_send } } };
-					return selected_route_from_data(route_data, request->head.request_line.path,
-					                                auth_user);
-				}
-				case HttpAuthStatusTypeError: {
-					LOG_MESSAGE(
-					    LogLevelError,
-					    "An error occured while tyring to process authentication status: %s\n",
-					    auth_status.data.error.error_message);
-
-					HTTPResponseToSend to_send = {
-						.status = HttpStatusInternalServerError,
-						.body = http_response_body_from_static_string(
-						    "Internal implementation error in authorization process, type 1"),
-						.mime_type = MIME_TYPE_TEXT,
-						.additional_headers = STBDS_ARRAY_EMPTY
-					};
-
-					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-						                         .data = { .internal = { .send = to_send } } };
-					return selected_route_from_data(route_data, request->head.request_line.path,
-					                                auth_user);
-				}
-				default: {
-					HTTPResponseToSend to_send = {
-						.status = HttpStatusInternalServerError,
-						.body = http_response_body_from_static_string(
-						    "Internal implementation error in authorization process, type 2"),
-						.mime_type = MIME_TYPE_TEXT,
-						.additional_headers = STBDS_ARRAY_EMPTY
-					};
-
-					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-						                         .data = { .internal = { .send = to_send } } };
-					return selected_route_from_data(route_data, request->head.request_line.path,
-					                                auth_user);
-				}
-			}
-		}
-
 		if(is_matching(route.method, request->head.request_line.method)) {
 
 			if(route.path == NULL) {
-				return selected_route_from_data(route.data, request->head.request_line.path,
-				                                auth_user);
+				return process_matched_route(route_manager, request, route);
 			}
 
 			if(strcmp(route.path, request->head.request_line.path.path) == 0) {
-				return selected_route_from_data(route.data, request->head.request_line.path,
-				                                auth_user);
+				return process_matched_route(route_manager, request, route);
 			}
 		}
 	}
