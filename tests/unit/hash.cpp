@@ -512,7 +512,7 @@ TEST_CASE("testing password hashing with bcrypt") {
 				REQUIRE_FALSE(matches2);
 			}
 
-			{
+			if(hash_salt_supports_feature_sha512()) {
 
 				HashSaltSettings wrong_seettings = { .work_factor = test_case.settings.work_factor,
 					                                 .use_sha512 = !test_case.settings.use_sha512 };

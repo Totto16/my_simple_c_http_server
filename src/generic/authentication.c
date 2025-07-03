@@ -82,10 +82,11 @@ NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void
 	}
 
 	auth_provider->type = AuthenticationProviderTypeSimple;
-	auth_provider->data.simple =
-	    (SimpleAuthenticationProviderData){ .entries = STBDS_HASH_MAP_EMPTY,
-		                                    .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
-		                                                  .use_sha512 = true } };
+	auth_provider->data.simple = (SimpleAuthenticationProviderData){
+		.entries = STBDS_HASH_MAP_EMPTY,
+		.settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
+		              .use_sha512 = hash_salt_supports_feature_sha512() }
+	};
 
 	return auth_provider;
 #endif

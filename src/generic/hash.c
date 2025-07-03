@@ -97,6 +97,15 @@ static int bcrypt_checkpw(const char* passwd, const char hash[BCRYPT_HASHSIZE]) 
 #if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT) || \
     defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH)
 
+NODISCARD bool hash_salt_supports_feature_sha512(void) {
+#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
+	return true;
+#else
+	// TODO(Totto): use thirdparty sha512 lib to support that!
+	return false;
+#endif
+}
+
 struct HashSaltResultTypeImpl {
 	char hash[BCRYPT_HASHSIZE];
 };

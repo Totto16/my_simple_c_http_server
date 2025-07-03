@@ -40,6 +40,8 @@ NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, 
 
 void free_hash_salted_result(HashSaltResultType* hash_salted_string);
 
+NODISCARD bool hash_salt_supports_feature_sha512(void);
+
 #endif
 
 NODISCARD SizedBuffer get_sha1_from_string(const char* string);
