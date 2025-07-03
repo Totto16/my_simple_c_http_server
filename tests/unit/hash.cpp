@@ -8,6 +8,8 @@
 
 #include <vector>
 
+#include <cstdint>
+
 namespace {
 
 [[nodiscard]] consteval std::uint8_t single_hex_number(char input, bool* success) {
