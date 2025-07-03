@@ -19,3 +19,20 @@ option(
     value: false,
     description: 'also compile the tests',
 )
+
+option(
+    'bcrypt_lib',
+    type: 'combo',
+    value: 'auto',
+    choices: ['auto', 'bcrypt', 'libbcrypt', 'crypt_blowfish'],
+    description: 'specify the bcrypt library to use',
+)
+
+
+option(
+    'other_features',
+    type: 'array',
+    value: [],
+    choices: ['bcrypt'],
+    description: 'specify other needed features',
+)

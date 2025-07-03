@@ -36,7 +36,7 @@ jobs:
           fetch-depth: '0'
   
       - name: Configure
-        run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
+        run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt
 
       - name: Build
         run: meson compile -C build
