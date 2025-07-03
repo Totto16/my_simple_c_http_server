@@ -442,3 +442,96 @@ TEST_CASE("testing base64 encoding with openssl") {
 		}
 	}
 }
+
+#ifdef _SIMPLE_SERVER_USE_BCRYPT
+
+#include <bcrypt.h>
+
+namespace {
+struct TestCaseBaseBcrypt {
+	doctest::String name;
+	std::string password;
+	HashSaltSettings settings;
+};
+
+} // namespace
+
+TEST_CASE("testing password hashing with bcrypt") {
+
+	std::vector<TestCaseBaseBcrypt> test_cases = {
+		{ .name = "normal password (bcrypt)",
+		  .password = "password123",
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = false } },
+		{ .name = "normal password (sha512)",
+		  .password = "hello world",
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = true } },
+		{ .name = "long password (bcrypt)",
+		  .password = "hello world this is a really long password",
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = false } },
+		{ .name = "long password (sha512)",
+		  .password = "hello world this is a really long password",
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = true } },
+		{ .name = "utf8 password (bcrypt)",
+		  .password = R"(😎😎😎😎😎😎🌍Hello test long string)",
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = false } },
+		{ .name = "utf8 password (sha512)",
+		  .password = R"(😎😎😎😎😎😎🌍Hello test long string)",
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = true } },
+	};
+
+	for(const auto& test_case : test_cases) {
+
+		SUBCASE(test_case.name) {
+
+			char* password_temp = strdup(test_case.password.c_str());
+
+			HashSaltResultType* result = hash_salt_string(test_case.settings, password_temp);
+
+			free(password_temp);
+
+			REQUIRE_NE(result, nullptr);
+
+			{
+				char* temp = strdup(test_case.password.c_str());
+
+				bool matches =
+				    is_string_equal_to_hash_salted_string(test_case.settings, temp, result);
+
+				free(temp);
+
+				REQUIRE(matches);
+			}
+
+			{
+				std::string not_my_password = "not my password";
+				char* temp = strdup(not_my_password.c_str());
+
+				bool matches2 =
+				    is_string_equal_to_hash_salted_string(test_case.settings, temp, result);
+
+				free(temp);
+
+				REQUIRE_FALSE(matches2);
+			}
+
+			{
+
+				HashSaltSettings wrong_seettings = { .work_factor = test_case.settings.work_factor,
+					                                 .use_sha512 = !test_case.settings.use_sha512 };
+
+				char* temp = strdup(test_case.password.c_str());
+
+				bool matches3 =
+				    is_string_equal_to_hash_salted_string(wrong_seettings, temp, result);
+
+				free(temp);
+
+				REQUIRE_FALSE(matches3);
+			}
+
+			free_hash_salted_result(result);
+		}
+	}
+}
+
+#endif
