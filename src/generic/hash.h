@@ -16,7 +16,19 @@ typedef struct {
 	bool use_sha512;     // default true
 } HashSaltSettings;
 
-#ifdef _SIMPLE_SERVER_USE_BCRYPT
+#ifdef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
+
+#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
+#include <bcrypt.h>
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_BCRYPT)
+#error "bcrypt"
+#define BCRYPT_DEFAULT_WORK_FACTOR TODO
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH)
+#error "crypt_blowfish"
+#define BCRYPT_DEFAULT_WORK_FACTOR TODO
+#else
+#error "Unrecognized bcrypt lib"
+#endif
 
 NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* string);
 

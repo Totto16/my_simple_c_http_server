@@ -2,8 +2,18 @@
 
 #include "./authentication.h"
 
-#ifdef _SIMPLE_SERVER_USE_BCRYPT
+#ifdef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
+
+#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
 #include <bcrypt.h>
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_BCRYPT)
+#error "bcrypt"
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH)
+#error "crypt_blowfish"
+#else
+#error "Unrecognized bcrypt lib"
+#endif
+
 #endif
 
 #include "utils/log.h"
@@ -59,7 +69,7 @@ NODISCARD AuthenticationProviders* initialize_authentication_providers(void) {
 
 NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void) {
 
-#ifndef _SIMPLE_SERVER_USE_BCRYPT
+#ifndef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
 	return NULL;
 #else
 
@@ -109,7 +119,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
     char* username, // NOLINT(bugprone-easily-swappable-parameters)
     char* password, char* role) {
 
-#ifndef _SIMPLE_SERVER_USE_BCRYPT
+#ifndef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
 	UNUSED(simple_authentication_provider);
 	UNUSED(username);
 	UNUSED(password);
@@ -150,7 +160,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 
 static void free_simple_authentication_provider(SimpleAuthenticationProviderData data) {
 
-#ifndef _SIMPLE_SERVER_USE_BCRYPT
+#ifndef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
 	UNUSED(data);
 #else
 	size_t hm_length = stbds_shlenu(data.entries);
@@ -200,7 +210,7 @@ void free_authentication_providers(AuthenticationProviders* auth_providers) {
 	free(auth_providers);
 }
 
-#ifdef _SIMPLE_SERVER_USE_BCRYPT
+#ifdef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
 
 NODISCARD static SimpleAccountEntry*
 find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username) {
@@ -311,7 +321,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 
 		switch(provider->type) {
 			case AuthenticationProviderTypeSimple: {
-#ifndef _SIMPLE_SERVER_USE_BCRYPT
+#ifndef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
 				result = (AuthenticationFindResult){
 					.validity = AuthenticationValidityError,
 					.data = { .error = { .error_message = "not compiled with support for provider "

@@ -3,11 +3,23 @@
 #include "./hash.h"
 #include "utils/log.h"
 
-#ifdef _SIMPLE_SERVER_USE_BCRYPT
+#ifdef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
+
+#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
 #include <bcrypt.h>
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_BCRYPT)
+#error "bcrypt"
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH)
+#error "crypt_blowfish"
+#else
+#error "Unrecognized bcrypt lib"
 #endif
 
-#ifdef _SIMPLE_SERVER_USE_BCRYPT
+#endif
+
+#ifdef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
+
+#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
 
 struct HashSaltResultTypeImpl {
 	char hash[BCRYPT_HASHSIZE];
@@ -118,6 +130,14 @@ NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, 
 void free_hash_salted_result(HashSaltResultType* hash_salted_string) {
 	free(hash_salted_string);
 }
+
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_BCRYPT)
+#error "bcrypt"
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH)
+#error "crypt_blowfish"
+#else
+#error "Unrecognized bcrypt lib"
+#endif
 
 #endif
 
