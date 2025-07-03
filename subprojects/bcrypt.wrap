@@ -1,9 +1,0 @@
-[wrap-git]
-url = https://github.com/rg3/libbcrypt.git
-# future branch
-revision = 120abf91e342ccf54236810d84f43ae726ed5e19
-depth = 1
-patch_directory = bcrypt
-
-[provide]
-bcrypt = bcrypt_dep
