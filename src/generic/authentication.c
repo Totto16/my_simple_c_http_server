@@ -6,6 +6,8 @@
 #include <bcrypt.h>
 #endif
 
+#include "utils/log.h"
+
 typedef struct {
 	char* key;
 	HashSaltResultType* hash_salted_password;
@@ -277,15 +279,27 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 		                               .data = { .error = { .error_message = "TODO" } } };
 }
 
+NODISCARD int get_result_value_for_auth_result(AuthenticationFindResult auth) {
+
+	switch(auth.validity) {
+		case AuthenticationValidityNoSuchUser: return 1;
+		case AuthenticationValidityWrongPassword: return 2;
+		case AuthenticationValidityOk: return 3;
+		case AuthenticationValidityError: return 0;
+		default: return 0;
+	}
+}
+
+NODISCARD int compare_auth_results(AuthenticationFindResult auth1, AuthenticationFindResult auth2) {
+	return get_result_value_for_auth_result(auth1) - get_result_value_for_auth_result(auth2);
+}
+
 NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
     const AuthenticationProviders* auth_providers,
     char* username, // NOLINT(bugprone-easily-swappable-parameters)
     char* password) {
 
-	AuthenticationFindResult last_result = (AuthenticationFindResult){
-		.validity = AuthenticationValidityError,
-		.data = { .error = { .error_message = "no single provider registered" } }
-	};
+	STBDS_ARRAY(AuthenticationFindResult) results = STBDS_ARRAY_EMPTY;
 
 	for(size_t i = 0; i < stbds_arrlenu(auth_providers->providers); ++i) {
 		AuthenticationProvider* provider = auth_providers->providers[i];
@@ -319,12 +333,36 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 				break;
 		}
 
-		last_result = result;
+		if(result.validity == AuthenticationValidityOk) {
+			stbds_arrfree(results);
+			return result;
+		}
 
-		if(last_result.validity == AuthenticationValidityOk) {
-			break;
+		if(result.validity == AuthenticationValidityError) {
+			LOG_MESSAGE(LogLevelTrace, "Error in account find user, provider %s: %s\n",
+			            get_name_for_auth_provider_type(provider->type),
+			            result.data.error.error_message);
+		}
+
+		stbds_arrput(results, result);
+	}
+
+	size_t results_length = stbds_arrlenu(results);
+
+	AuthenticationFindResult best_result = (AuthenticationFindResult){
+		.validity = AuthenticationValidityError,
+		.data = { .error = { .error_message = "no single provider registered" } }
+	};
+
+	for(size_t i = 0; i < results_length; ++i) {
+		AuthenticationFindResult current_result = results[i];
+
+		if(compare_auth_results(best_result, current_result) <= 0) {
+			best_result = current_result;
 		}
 	}
 
-	return last_result;
+	stbds_arrfree(results);
+
+	return best_result;
 }
