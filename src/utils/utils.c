@@ -159,3 +159,25 @@ NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max) {
 
 	return (value % (max - min)) + min;
 }
+
+NODISCARD int get_random_bytes(size_t size, uint8_t* out_bytes) {
+
+	if(size == 0) {
+		return -1;
+	}
+
+	if(out_bytes == NULL) {
+		return -2;
+	}
+
+	for(size_t i = 0; i < size;) {
+		uint32_t random_byte = get_random_byte();
+		uint8_t* random_byte_ptr = (uint8_t*)&random_byte;
+
+		for(size_t j = 0; j < 4 && i < size; ++i, ++j) {
+			out_bytes[i] = random_byte_ptr[j];
+		}
+	}
+
+	return 0;
+}

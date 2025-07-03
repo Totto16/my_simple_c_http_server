@@ -24,7 +24,7 @@ option(
     'bcrypt_lib',
     type: 'combo',
     value: 'auto',
-    choices: ['auto', 'bcrypt', 'libbcrypt', 'crypt_blowfish'],
+    choices: ['auto', 'bcrypt', 'libbcrypt', 'crypt_blowfish', 'crypt'],
     description: 'specify the bcrypt library to use',
 )
 

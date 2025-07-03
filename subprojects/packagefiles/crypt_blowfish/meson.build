@@ -14,7 +14,6 @@ src_files = []
 inc_dirs = include_directories('.')
 
 private_args = [
-    '-fvisibility=hidden',
     '-Wall',
     '-Wbad-function-cast',
     '-Wcast-align',
@@ -29,12 +28,12 @@ private_args = [
 ]
 
 src_files += files('crypt.h', 'crypt_blowfish.c'
-, 'crypt_blowfish.h', 'crypt_gensalt.c', 'crypt_gensalt.h', 'ow-crypt.h', 'wrapper.c')
+, 'crypt_blowfish.h', 'crypt_gensalt.c', 'crypt_gensalt.h', 'ow-crypt.h', 'wrapper.c', 'x86.S')
 
 
 
 libcrypt_blowfish = library(
-    'libbcrypt',
+    'crypt_blowfish',
     src_files,
     c_args: compile_args + private_args,
     include_directories: inc_dirs,

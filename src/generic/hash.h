@@ -24,7 +24,10 @@ typedef struct {
 #error "bcrypt"
 #define BCRYPT_DEFAULT_WORK_FACTOR TODO
 #elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH)
-#error "crypt_blowfish"
+#include <ow-crypt.h>
+#define BCRYPT_DEFAULT_WORK_FACTOR 12
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT)
+#error "crypt"
 #define BCRYPT_DEFAULT_WORK_FACTOR TODO
 #else
 #error "Unrecognized bcrypt lib"

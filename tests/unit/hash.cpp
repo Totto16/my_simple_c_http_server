@@ -445,8 +445,6 @@ TEST_CASE("testing base64 encoding with openssl") {
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
 
-#include <bcrypt.h>
-
 namespace {
 struct TestCaseBaseBcrypt {
 	doctest::String name;

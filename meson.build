@@ -101,10 +101,22 @@ elif bcrypt_lib_to_use == 'crypt_blowfish'
         deps += crypt_blowfish_dep
         actual_bcrypt_lib_to_use = 'crypt_blowfish'
     endif
+elif bcrypt_lib_to_use == 'crypt'
+
+    crypt_dep = dependency(
+        'crypt',
+        required: other_features_dict['bcrypt'],
+        allow_fallback: true,
+    )
+
+    if crypt_dep.found()
+        deps += crypt_dep
+        actual_bcrypt_lib_to_use = 'crypt'
+    endif
 
 elif bcrypt_lib_to_use == 'auto'
 
-    bcrypt_check_order = ['libbcrypt', 'crypt_blowfish', 'bcrypt']
+    bcrypt_check_order = ['libbcrypt', 'crypt_blowfish', 'bcrypt', 'crypt']
 
     foreach bcrypt_value : bcrypt_check_order
         auto_bcrypt_dep = dependency(

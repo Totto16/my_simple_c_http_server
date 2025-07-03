@@ -9,7 +9,9 @@
 #elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_BCRYPT)
 #error "bcrypt"
 #elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH)
-#error "crypt_blowfish"
+#include <ow-crypt.h>
+#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT)
+#error "crypt"
 #else
 #error "Unrecognized bcrypt lib"
 #endif
