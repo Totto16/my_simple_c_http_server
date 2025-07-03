@@ -251,6 +251,11 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request, 
 // internally some string"magic" happens
 HttpRequest* parse_http_request(char* raw_http_request) {
 
+	if(strlen(raw_http_request) == 0) {
+		free(raw_http_request);
+		return NULL;
+	}
+
 	// considered using strtok, but that doesn't recognize the delimiter between the status and
 	// body! so now using own way of doing that!
 
