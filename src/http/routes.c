@@ -449,9 +449,15 @@ NODISCARD static SelectedRoute* selected_route_from_data(HTTPRouteData route_dat
 	return selected_route;
 }
 
+static void free_auth_user(AuthUserWithContext* user) {
+	free(user->user.username);
+	free(user->user.role);
+	free(user);
+}
+
 void free_selected_route(SelectedRoute* selected_route) {
 	if(selected_route->auth_user) {
-		free(selected_route->auth_user);
+		free_auth_user(selected_route->auth_user);
 	}
 	free(selected_route);
 }
@@ -852,12 +858,6 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const r
 		                        .auth_user = route->auth_user };
 }
 
-static void free_auth_user(AuthUserWithContext* user) {
-	free(user->user.username);
-	free(user->user.role);
-	free(user);
-}
-
 NODISCARD
 int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* const descriptor,
                                 SendSettings send_settings, const HttpRequest* const http_request,
@@ -896,10 +896,6 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 			return -11; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			break;
 		}
-	}
-
-	if(auth_user != NULL) {
-		free_auth_user(auth_user);
 	}
 
 	int result = send_http_message_to_connection_advanced(descriptor, response, send_settings,
