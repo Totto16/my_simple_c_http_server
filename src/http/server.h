@@ -48,7 +48,7 @@ typedef struct {
 	int socket_fd;
 	WebSocketThreadManager* web_socket_manager;
 	const RouteManager* route_manager;
-
+	LifecycleFunctions fns;
 } HTTPThreadArgument;
 
 typedef struct {

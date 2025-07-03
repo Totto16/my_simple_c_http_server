@@ -266,3 +266,30 @@ NODISCARD const char* get_base64_provider(void) {
 	return "thirdparty";
 #endif
 }
+
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+
+#include <openssl/conf.h>
+#include <openssl/crypto.h>
+#include <openssl/err.h>
+
+void openssl_initialize_crypto_thread_state(void) {
+	uint64_t options = 0;
+
+	int res = OPENSSL_init_crypto(options, NULL);
+
+	if(res != 1) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "Failed to setup OPENSSL crypto thread state\n");
+	}
+}
+
+void openssl_cleanup_crypto_thread_state(void) {
+	EVP_cleanup();
+	CRYPTO_cleanup_all_ex_data();
+	ERR_free_strings();
+	CONF_modules_unload(true);
+
+	OPENSSL_cleanup();
+}
+
+#endif

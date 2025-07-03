@@ -33,6 +33,7 @@ openssl_dep = dependency(
 if openssl_dep.found()
     deps += openssl_dep
     compile_flags += '-D_SIMPLE_SERVER_USE_OPENSSL_FOR_HASHING'
+    compile_flags += '-D_SIMPLE_SERVER_USE_OPENSSL'
 
     cc = meson.get_compiler('c')
 
@@ -44,8 +45,6 @@ if openssl_dep.found()
         compile_flags += '-D_SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS'
     endif
 
-
-    '-D_SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS'
 
 else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'

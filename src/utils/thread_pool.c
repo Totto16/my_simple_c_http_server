@@ -1,6 +1,7 @@
 
 #include "thread_pool.h"
 #include "errors.h"
+#include "generic/hash.h"
 #include "utils/log.h"
 
 #ifdef _DONT_HAVE_SYS_SYSINFO
@@ -9,6 +10,11 @@
 #include <sys/sysinfo.h>
 #endif
 
+#define THREAD_SHUTDOWN_JOB_INTERNAL 0x02
+
+// defining the Shutdown Macro
+#define THREAD_SHUTDOWN_JOB ((JobFunction)THREAD_SHUTDOWN_JOB_INTERNAL)
+
 struct JobIdImpl {
 	SemaphoreType status;
 	JobFunction job_function;
@@ -16,17 +22,37 @@ struct JobIdImpl {
 	ANY_TYPE(JobResult) result;
 };
 
+void thread_pool_worker_thread_startup_function(void) {
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+	openssl_initialize_crypto_thread_state();
+#endif
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running startup function for thread\n");
+}
+
+void thread_pool_worker_thread_shutdown_function(void) {
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+	openssl_cleanup_crypto_thread_state();
+#endif
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running shutdown function for thread\n");
+}
+
 // this function is used internally as worker thread Function, therefore the rather cryptic name
 // it handles all the submitted jobs, it wait for them with a semaphore, that is thread safe, and
 // callable from different threads.
 // it reads from the queue and then executes the job, and then marks it as complete (posting the job
 // semaphore)
-ANY_TYPE(NULL) thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) arg) {
+ANY_TYPE(NULL)
+thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) arg) {
 	// casting it to the given element, (arg) is a malloced struct, so it has to be freed at the end
 	// of that function!
 	MyThreadPoolThreadArgument argument = *((MyThreadPoolThreadArgument*)arg);
 	// extracting the queue for later use
 	Myqueue* jobs_queue = &(argument.thread_pool->jobqueue);
+
+	RUN_LIFECYCLE_FN(argument.thread_pool->fns.startup_fn);
+
 	// looping until receiving the shutdown signal, to know more about that, read pool_destroy
 	while(true) {
 
@@ -50,7 +76,9 @@ ANY_TYPE(NULL) thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_Thread
 
 		// when receiving shutdown signal, It breaks out of the while loop and finsishes
 		if(current_job->job_function == THREAD_SHUTDOWN_JOB) {
-			// to be able to await for this job toot, it has to post the sempahore before leaving!
+			RUN_LIFECYCLE_FN(argument.thread_pool->fns.shutdown_fn);
+
+			// to be able to await for this job too, it has to post the sempahore before leaving!
 			result = comp_sem_post(&(current_job->status));
 			CHECK_FOR_ERROR(result,
 			                "Couldn't post the internal thread pool Semaphore for a single job",
@@ -90,6 +118,9 @@ int pool_create(ThreadPool* pool, size_t size) {
 	// allocating the worker Threads array, they are freed in destroy!
 	pool->worker_threads = (MyThreadPoolThreadInformation*)malloc_with_memset(
 	    sizeof(MyThreadPoolThreadInformation) * size, true);
+
+	pool->fns = (LifecycleFunctions){ .startup_fn = thread_pool_worker_thread_startup_function,
+		                              .shutdown_fn = thread_pool_worker_thread_shutdown_function };
 
 	if(!pool->worker_threads) {
 		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");

@@ -1944,12 +1944,12 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 			print_listener_error(data_return_value);
 		}
 	} else if(data_return_value != PTHREAD_CANCELED) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "The data listener thread wasn't cancelled properly!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "The ftp data listener thread wasn't cancelled properly!\n");
 	} else if(data_return_value == PTHREAD_CANCELED) {
-		LOG_MESSAGE_SIMPLE(LogLevelInfo, "The data listener thread was cancelled properly!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelInfo, "The ftp data listener thread was cancelled properly!\n");
 	} else {
 		LOG_MESSAGE(LogLevelError,
-		            "The data listener thread was terminated with wrong error: %p!\n",
+		            "The ftp data listener thread was terminated with wrong error: %p!\n",
 		            data_return_value);
 	}
 

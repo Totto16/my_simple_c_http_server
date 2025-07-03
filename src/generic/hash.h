@@ -30,6 +30,14 @@ NODISCARD const char* get_sha1_provider(void);
 
 NODISCARD const char* get_base64_provider(void);
 
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+
+void openssl_initialize_crypto_thread_state(void);
+
+void openssl_cleanup_crypto_thread_state(void);
+
+#endif
+
 #ifdef __cplusplus
 }
 #endif

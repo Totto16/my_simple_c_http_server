@@ -15,6 +15,10 @@
 #include "ws/thread_manager.h"
 #include "ws/ws.h"
 
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+#include <openssl/crypto.h>
+#endif
+
 #define SUPPORT_KEEPALIVE false
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
@@ -442,6 +446,8 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 	HTTPThreadArgument argument = *((HTTPThreadArgument*)arg);
 
+	RUN_LIFECYCLE_FN(argument.fns.startup_fn);
+
 #define POLL_FD_AMOUNT 2
 
 	struct pollfd poll_fds[POLL_FD_AMOUNT] = {};
@@ -479,9 +485,11 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 			// TODO(Totto): This fd isn't closed, when pthread_cancel is called from somewhere else,
 			// fix that somehow
 			close(poll_fds[1].fd);
+			RUN_LIFECYCLE_FN(argument.fns.shutdown_fn);
 			int result = pthread_cancel(pthread_self());
 			CHECK_FOR_ERROR(result, "While trying to cancel the listener Thread on signal",
 			                return LISTENER_ERROR_THREAD_CANCEL;);
+			return LISTENER_ERROR_THREAD_AFTER_CANCEL;
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socket_fd fd, so the accept
@@ -551,6 +559,8 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// otherwise if it would cancel other functions it would be baaaad, but only accept
 		// is here a cancel point!
 	}
+
+	RUN_LIFECYCLE_FN(argument.fns.shutdown_fn);
 }
 
 int start_http_server(uint16_t port, SecureOptions* const options,
@@ -693,7 +703,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		                                   .contexts = contexts,
 		                                   .socket_fd = socket_fd,
 		                                   .web_socket_manager = web_socket_manager,
-		                                   .route_manager = route_manager };
+		                                   .route_manager = route_manager,
+		                                   .fns = { .startup_fn = NULL, .shutdown_fn = NULL } };
 
 	// creating the thread
 	result =
@@ -713,11 +724,12 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 			print_listener_error(return_value);
 		}
 	} else if(return_value != PTHREAD_CANCELED) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "The listener thread wasn't cancelled properly!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "The http listener thread wasn't cancelled properly!\n");
 	} else if(return_value == PTHREAD_CANCELED) {
-		LOG_MESSAGE_SIMPLE(LogLevelInfo, "The listener thread was cancelled properly!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelInfo, "The http listener thread was cancelled properly!\n");
 	} else {
-		LOG_MESSAGE(LogLevelError, "The listener thread was terminated with wrong error: %p!\n",
+		LOG_MESSAGE(LogLevelError,
+		            "The http listener thread was terminated with wrong error: %p!\n",
 		            return_value);
 	}
 
