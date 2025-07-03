@@ -90,6 +90,9 @@ void set_log_level(LogLevel level);
 void set_thread_name(const char* name);
 
 // IS thread safe
+void unset_thread_name(void);
+
+// IS thread safe
 NODISCARD int parse_log_level(const char* level);
 
 NODISCARD const char* get_level_name(LogLevel level);

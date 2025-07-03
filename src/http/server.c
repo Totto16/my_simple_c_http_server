@@ -15,6 +15,10 @@
 #include "ws/thread_manager.h"
 #include "ws/ws.h"
 
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+#include <openssl/crypto.h>
+#endif
+
 #define SUPPORT_KEEPALIVE false
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
@@ -69,6 +73,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 #define FREE_AT_END() \
 	do { \
+		unset_thread_name(); \
 		free(thread_name_buffer); \
 		free(argument); \
 	} while(false)
@@ -187,11 +192,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 					    },
 					    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
-					HttpHeaderField field = { .key = allowed_header_buffer,
-						                      .value = allowed_header_buffer +
-						                               strlen(allowed_header_buffer) + 1 };
-
-					stbds_arrput(additional_headers, field);
+					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
 
 					HTTPResponseToSend to_send = { .status = HttpStatusOk,
 						                           .body = http_response_body_empty(),
@@ -229,8 +230,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			switch(route_data.type) {
 				case HTTPRouteTypeSpecial: {
 
-					switch(route_data.data.special) {
-						case HTTPRouteSpecialDataShutdown: {
+					switch(route_data.data.special.type) {
+						case HTTPRouteSpecialDataTypeShutdown: {
 							LOG_MESSAGE_SIMPLE(LogLevelInfo, "Shutdown requested!\n");
 
 							HTTPResponseToSend to_send = {
@@ -255,10 +256,16 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 							break;
 						}
-						case HTTPRouteSpecialDataWs: {
+						case HTTPRouteSpecialDataTypeWs: {
 
 							int ws_request_successful =
 							    handle_ws_handshake(http_request, descriptor, send_settings);
+
+							WebSocketFunction websocket_function_to_use =
+							    route_data // NOLINT(readability-implicit-bool-conversion)
+							            .data.special.data.ws.fragmented
+							        ? websocket_function_fragmented
+							        : websocket_function;
 
 							if(ws_request_successful >= 0) {
 								// move the context so that we can use it in the long standing web
@@ -268,7 +275,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 								if(!thread_manager_add_connection(argument->web_socket_manager,
 								                                  descriptor, context,
-								                                  websocket_function)) {
+								                                  websocket_function_to_use)) {
 									free_http_request(http_request);
 									FREE_AT_END();
 
@@ -285,38 +292,6 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 							// the error was already sent, just close the descriptor and free the
 							// http request, this is done at the end of this big if else statements
-							break;
-						}
-						case HTTPRouteSpecialDataWsFragmented: {
-							int ws_request_successful =
-							    handle_ws_handshake(http_request, descriptor, send_settings);
-
-							if(ws_request_successful >= 0) {
-								// move the context so that we can use it in the long standing web
-								// socket thread
-								ConnectionContext* new_context = copy_connection_context(context);
-								argument->contexts[worker_info.worker_index] = new_context;
-
-								if(!thread_manager_add_connection(argument->web_socket_manager,
-								                                  descriptor, context,
-								                                  websocket_function_fragmented)) {
-									free_http_request(http_request);
-									FREE_AT_END();
-
-									return JOB_ERROR_CONNECTION_ADD;
-								}
-
-								// finally free everything necessary
-
-								free_http_request(http_request);
-								FREE_AT_END();
-
-								return JOB_ERROR_NONE;
-							}
-
-							// the error was already sent, just close the descriptor and free the
-							// http request, this is done at the end of this big if else statements
-
 							break;
 						}
 						default: {
@@ -331,12 +306,28 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 					break;
 				}
 
-				case HTTPRouteTypeNormal:
-				default: {
+				case HTTPRouteTypeNormal: {
 
-					result = route_manager_execute_route(route_data.data.normal, descriptor,
-					                                     send_settings, http_request, context,
-					                                     selected_route_data.path);
+					result = route_manager_execute_route(
+					    route_data.data.normal, descriptor, send_settings, http_request, context,
+					    selected_route_data.path, selected_route_data.auth_user);
+
+					break;
+				}
+				case HTTPRouteTypeInternal: {
+					result = send_http_message_to_connection_advanced(
+					    descriptor, route_data.data.internal.send, send_settings,
+					    http_request->head);
+					break;
+				}
+				default: {
+					HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+						                           .body = http_response_body_from_static_string(
+						                               "Internal error: Implementation error"),
+						                           .mime_type = MIME_TYPE_TEXT,
+						                           .additional_headers = STBDS_ARRAY_EMPTY };
+					result = send_http_message_to_connection_advanced(
+					    descriptor, to_send, send_settings, http_request->head);
 					break;
 				}
 			}
@@ -375,11 +366,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		    },
 		    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
-		HttpHeaderField field = { .key = allowed_header_buffer,
-			                      .value =
-			                          allowed_header_buffer + strlen(allowed_header_buffer) + 1 };
-
-		stbds_arrput(additional_headers, field);
+		add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
 
 		HTTPResponseToSend to_send = {
 			.status = HttpStatusMethodNotAllowed,
@@ -460,6 +447,8 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 	HTTPThreadArgument argument = *((HTTPThreadArgument*)arg);
 
+	RUN_LIFECYCLE_FN(argument.fns.startup_fn);
+
 #define POLL_FD_AMOUNT 2
 
 	struct pollfd poll_fds[POLL_FD_AMOUNT] = {};
@@ -497,9 +486,11 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 			// TODO(Totto): This fd isn't closed, when pthread_cancel is called from somewhere else,
 			// fix that somehow
 			close(poll_fds[1].fd);
+			RUN_LIFECYCLE_FN(argument.fns.shutdown_fn);
 			int result = pthread_cancel(pthread_self());
 			CHECK_FOR_ERROR(result, "While trying to cancel the listener Thread on signal",
 			                return LISTENER_ERROR_THREAD_CANCEL;);
+			return LISTENER_ERROR_THREAD_AFTER_CANCEL;
 		}
 
 		// the poll didn't see a POLLIN event in the argument.socket_fd fd, so the accept
@@ -569,9 +560,12 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// otherwise if it would cancel other functions it would be baaaad, but only accept
 		// is here a cancel point!
 	}
+
+	RUN_LIFECYCLE_FN(argument.fns.shutdown_fn);
 }
 
-int start_http_server(uint16_t port, SecureOptions* const options) {
+int start_http_server(uint16_t port, SecureOptions* const options,
+                      AuthenticationProviders* const auth_providers) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -687,7 +681,7 @@ int start_http_server(uint16_t port, SecureOptions* const options) {
 
 	HTTPRoutes default_routes = get_default_routes();
 
-	RouteManager* route_manager = initialize_route_manager(default_routes);
+	RouteManager* route_manager = initialize_route_manager(default_routes, auth_providers);
 
 	if(!route_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
@@ -710,7 +704,8 @@ int start_http_server(uint16_t port, SecureOptions* const options) {
 		                                   .contexts = contexts,
 		                                   .socket_fd = socket_fd,
 		                                   .web_socket_manager = web_socket_manager,
-		                                   .route_manager = route_manager };
+		                                   .route_manager = route_manager,
+		                                   .fns = { .startup_fn = NULL, .shutdown_fn = NULL } };
 
 	// creating the thread
 	result =
@@ -730,11 +725,12 @@ int start_http_server(uint16_t port, SecureOptions* const options) {
 			print_listener_error(return_value);
 		}
 	} else if(return_value != PTHREAD_CANCELED) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "The listener thread wasn't cancelled properly!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelError, "The http listener thread wasn't cancelled properly!\n");
 	} else if(return_value == PTHREAD_CANCELED) {
-		LOG_MESSAGE_SIMPLE(LogLevelInfo, "The listener thread was cancelled properly!\n");
+		LOG_MESSAGE_SIMPLE(LogLevelInfo, "The http listener thread was cancelled properly!\n");
 	} else {
-		LOG_MESSAGE(LogLevelError, "The listener thread was terminated with wrong error: %p!\n",
+		LOG_MESSAGE(LogLevelError,
+		            "The http listener thread was terminated with wrong error: %p!\n",
 		            return_value);
 	}
 
@@ -798,6 +794,8 @@ int start_http_server(uint16_t port, SecureOptions* const options) {
 	stbds_arrfree(contexts);
 
 	free_secure_options(options);
+
+	free_authentication_providers(auth_providers);
 
 	return EXIT_SUCCESS;
 }

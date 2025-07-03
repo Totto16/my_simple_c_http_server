@@ -109,10 +109,10 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPProtocolVersion2,
 } HTTPProtocolVersion;
 
-STBDS_HASM_MAP_TYPE(char*, char*, ParsedSearchPathHashMap);
+STBDS_HASH_MAP_TYPE(char*, char*, ParsedSearchPathEntry);
 
 typedef struct {
-	STBDS_HASM_MAP(ParsedSearchPathHashMap) hash_map;
+	STBDS_HASH_MAP(ParsedSearchPathEntry) hash_map;
 } ParsedSearchPath;
 
 // RFC: https://datatracker.ietf.org/doc/html/rfc1738
@@ -180,9 +180,13 @@ NODISCARD StringBuilder* http_request_to_string_builder(const HttpRequest* reque
 // internally some string"magic" happens
 NODISCARD HttpRequest* parse_http_request(char* raw_http_request);
 
+NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
+
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);
+
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key);
 
 /**
  * @enum value
@@ -221,6 +225,8 @@ typedef struct {
 
 NODISCARD CompressionSettings* get_compression_settings(HttpHeaderFields header_fields);
 
+void free_compression_settings(CompressionSettings* compression_settings);
+
 NODISCARD RequestSettings* get_request_settings(HttpRequest* http_request);
 
 void free_request_settings(RequestSettings* request_settings);
@@ -235,6 +241,10 @@ typedef struct {
 // makes a string_builder from the HttpResponse, just does the opposite of parsing A Request, but
 // with some slight modification
 NODISCARD HttpConcattedResponse* http_response_concat(HttpResponse* response);
+
+void free_http_header_fields(HttpHeaderFields* header_fields);
+
+void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str);
 
 // free the HttpResponse, just freeing everything necessary
 void free_http_response(HttpResponse* response);

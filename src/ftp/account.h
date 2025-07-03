@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "generic/authentication.h"
 #include "utils/utils.h"
 
 /**
@@ -52,4 +53,5 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	UserValidityInternalError,
 } UserValidity;
 
-NODISCARD UserValidity account_verify(const char* username, const char* passwd);
+NODISCARD UserValidity account_verify(const AuthenticationProviders* auth_providers, char* username,
+                                      char* password);

@@ -7,6 +7,7 @@
 #include "./command.h"
 #include "./data.h"
 
+#include "generic/authentication.h"
 #include "generic/secure.h"
 #include "utils/thread_pool.h"
 
@@ -21,6 +22,8 @@ typedef struct {
 	int socket_fd;
 	const char* const global_folder;
 	DataController* data_controller;
+	pthread_t data_orchestrator;
+	const AuthenticationProviders* auth_providers;
 } FTPControlThreadArgument;
 
 typedef struct {
@@ -31,6 +34,7 @@ typedef struct {
 	RawNetworkAddress addr;
 	DataController* data_controller;
 	pthread_t data_orchestrator;
+	const AuthenticationProviders* auth_providers;
 } FTPControlConnectionArgument;
 
 typedef struct {
@@ -71,4 +75,5 @@ NODISCARD ANY_TYPE(ListenerError*)
 NODISCARD ANY_TYPE(ListenerError*)
     ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
 
-NODISCARD int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options);
+NODISCARD int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options,
+                               AuthenticationProviders* auth_providers);

@@ -6,22 +6,38 @@
 #include <http/compression.h>
 #include <http/http_protocol.h>
 
+#include <memory>
 #include <ostream>
 #include <sstream>
 #include <string>
 
 namespace {
+using CompressionSettingsCppPtr =
+    std::unique_ptr<CompressionSettings, void (*)(CompressionSettings*)>;
 
-NODISCARD CompressionSettings*
+[[nodiscard]] CompressionSettingsCppPtr
+get_compression_settings_cpp(HttpHeaderFields http_header_fields) {
+
+	CompressionSettings* compression_settings = get_compression_settings(http_header_fields);
+
+	return { compression_settings, free_compression_settings };
+}
+
+[[nodiscard]] CompressionSettingsCppPtr
 get_compression_setting_by_accept_encoding_header(const char* accept_encoding_value) {
 	HttpHeaderFields http_header_fields = STBDS_ARRAY_EMPTY;
 
-	HttpHeaderField accept_encoding = { .key = strdup("Accept-Encoding"),
-		                                .value = strdup(accept_encoding_value) };
+	char* accept_encoding_buffer = NULL;
+	FORMAT_STRING_IMPL(&accept_encoding_buffer, throw std::runtime_error("OOM");
+	                   , IMPL_STDERR_LOGGER, "%s%c%s", "Accept-Encoding", '\0',
+	                   accept_encoding_value);
 
-	stbds_arrput(http_header_fields, accept_encoding);
+	add_http_header_field_by_double_str(&http_header_fields, accept_encoding_buffer);
 
-	CompressionSettings* compression_settings = get_compression_settings(http_header_fields);
+	CompressionSettingsCppPtr compression_settings =
+	    get_compression_settings_cpp(http_header_fields);
+
+	free_http_header_fields(&http_header_fields);
 
 	return compression_settings;
 }
@@ -30,7 +46,7 @@ get_compression_setting_by_accept_encoding_header(const char* accept_encoding_va
 	return get_string_for_compress_format(type);
 }
 
-NODISCARD const char* get_representation_for_compression_value(CompressionValue value) {
+[[nodiscard]] const char* get_representation_for_compression_value(CompressionValue value) {
 	switch(value.type) {
 		case CompressionValueTypeNoEncoding: return "'identity'";
 		case CompressionValueTypeAllEncodings: return "'*'";
@@ -40,7 +56,7 @@ NODISCARD const char* get_representation_for_compression_value(CompressionValue 
 	}
 }
 
-NODISCARD bool operator==(const CompressionValue& lhs, const CompressionValue& rhs) {
+[[nodiscard]] bool operator==(const CompressionValue& lhs, const CompressionValue& rhs) {
 
 	if(lhs.type != rhs.type) {
 		return false;
@@ -69,7 +85,7 @@ doctest::String toString(const CompressionEntry& value) {
 		                    static_cast<doctest::String::size_type>(string.size()) };
 }
 
-NODISCARD bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs) {
+[[nodiscard]] bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs) {
 
 	if(lhs.value != rhs.value) {
 		return false;
@@ -90,7 +106,8 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		HttpHeaderFields http_header_fields = STBDS_ARRAY_EMPTY;
 
-		CompressionSettings* compression_settings = get_compression_settings(http_header_fields);
+		CompressionSettingsCppPtr compression_settings =
+		    get_compression_settings_cpp(http_header_fields);
 
 		REQUIRE_NE(compression_settings, nullptr);
 
@@ -101,7 +118,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("standard simple list") {
 
-		CompressionSettings* compression_settings =
+		CompressionSettingsCppPtr compression_settings =
 		    get_compression_setting_by_accept_encoding_header(" compress, gzip");
 
 		REQUIRE_NE(compression_settings, nullptr);
@@ -131,7 +148,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("empty value") {
 
-		CompressionSettings* compression_settings =
+		CompressionSettingsCppPtr compression_settings =
 		    get_compression_setting_by_accept_encoding_header("");
 
 		REQUIRE_NE(compression_settings, nullptr);
@@ -143,7 +160,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("'*' value") {
 
-		CompressionSettings* compression_settings =
+		CompressionSettingsCppPtr compression_settings =
 		    get_compression_setting_by_accept_encoding_header(" *");
 
 		REQUIRE_NE(compression_settings, nullptr);
@@ -162,7 +179,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 	}
 
 	SUBCASE("complicated list with weights") {
-		CompressionSettings* compression_settings =
+		CompressionSettingsCppPtr compression_settings =
 		    get_compression_setting_by_accept_encoding_header(" deflate;q=0.5, br;q=1.0");
 
 		REQUIRE_NE(compression_settings, nullptr);
@@ -191,7 +208,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 	}
 
 	SUBCASE("complicated list with weights and 'identity'") {
-		CompressionSettings* compression_settings =
+		CompressionSettingsCppPtr compression_settings =
 		    get_compression_setting_by_accept_encoding_header(
 		        " zstd;q=1.0, identity; q=0.5, *;q=0");
 
@@ -225,5 +242,130 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 		};
 
 		REQUIRE_EQ(entry3, entry3Expected);
+	}
+}
+
+namespace {
+
+struct ParsedURLWrapper {
+  private:
+	HttpRequest* m_request;
+
+  public:
+	ParsedURLWrapper(HttpRequest* request) : m_request{ request } {}
+
+	~ParsedURLWrapper() {
+		free_http_request(m_request);
+		m_request = nullptr;
+	}
+
+	[[nodiscard]] const ParsedURLPath& path() const { return m_request->head.request_line.path; }
+};
+
+std::unique_ptr<ParsedURLWrapper> parse_http_request_path(const char* value) {
+	std::string final_request = "GET ";
+	final_request += value;
+	final_request += " HTTP/1.1\r\n\r\n";
+
+	HttpRequest* request = parse_http_request(strdup(final_request.c_str()));
+
+	if(request == nullptr) {
+		return nullptr;
+	}
+
+	return std::make_unique<ParsedURLWrapper>(request);
+}
+
+} // namespace
+
+TEST_CASE("testing the parsing of the http request") {
+
+	SUBCASE("test url path parsing") {
+
+		SUBCASE("simple url") {
+
+			auto pared_path = parse_http_request_path("/");
+
+			REQUIRE_NE(pared_path, nullptr);
+
+			const auto& path = pared_path->path();
+
+			const auto path_comp = std::string{ path.path };
+
+			REQUIRE_EQ(path_comp, "/");
+
+			REQUIRE_EQ(stbds_shlenu(path.search_path.hash_map), 0);
+		}
+
+		SUBCASE("real path url") {
+
+			auto pared_path = parse_http_request_path("/test/hello");
+
+			REQUIRE_NE(pared_path, nullptr);
+
+			const auto& path = pared_path->path();
+
+			const auto path_comp = std::string{ path.path };
+
+			REQUIRE_EQ(path_comp, "/test/hello");
+
+			REQUIRE_EQ(stbds_shlenu(path.search_path.hash_map), 0);
+		}
+
+		SUBCASE("path url with search parameters") {
+
+			auto pared_path = parse_http_request_path("/test/hello?param1=hello&param2&param3=");
+
+			REQUIRE_NE(pared_path, nullptr);
+
+			const auto& path = pared_path->path();
+
+			const auto path_comp = std::string{ path.path };
+
+			REQUIRE_EQ(path_comp, "/test/hello");
+
+			const ParsedSearchPath search_path = path.search_path;
+
+			REQUIRE_EQ(stbds_shlenu(search_path.hash_map), 3);
+
+			{
+
+				ParsedSearchPathEntry* entry = find_search_key(search_path, "param1");
+
+				REQUIRE_NE(entry, nullptr);
+
+				REQUIRE_EQ(std::string{ entry->key }, "param1");
+
+				REQUIRE_EQ(std::string{ entry->value }, "hello");
+			}
+
+			{
+
+				ParsedSearchPathEntry* entry = find_search_key(search_path, "param2");
+
+				REQUIRE_NE(entry, nullptr);
+
+				REQUIRE_EQ(std::string{ entry->key }, "param2");
+
+				REQUIRE_EQ(std::string{ entry->value }, "");
+			}
+
+			{
+				ParsedSearchPathEntry* entry = find_search_key(search_path, "param3");
+
+				REQUIRE_NE(entry, nullptr);
+
+				REQUIRE_EQ(std::string{ entry->key }, "param3");
+
+				REQUIRE_EQ(std::string{ entry->value }, "");
+			}
+
+			{
+
+				ParsedSearchPathEntry* entry = find_search_key(search_path, "param4");
+
+				REQUIRE_EQ(entry, nullptr);
+			}
+		}
 	}
 }

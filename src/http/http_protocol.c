@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <math.h>
 
-NODISCARD static HTTPRequestMethod get_http_method_from_string(char* method) {
+NODISCARD static HTTPRequestMethod get_http_method_from_string(const char* method) {
 
 	if(strcmp(method, "GET") == 0) {
 		return HTTPRequestMethodGet;
@@ -24,7 +24,8 @@ NODISCARD static HTTPRequestMethod get_http_method_from_string(char* method) {
 	return HTTPRequestMethodInvalid;
 }
 
-NODISCARD static HTTPProtocolVersion get_protocol_version_from_string(char* protocol_version) {
+NODISCARD static HTTPProtocolVersion
+get_protocol_version_from_string(const char* protocol_version) {
 
 	if(strcmp(protocol_version, "HTTP/1.0") == 0) {
 		return HTTPProtocolVersion1;
@@ -58,7 +59,27 @@ NODISCARD char* get_http_url_path_string(ParsedURLPath path) {
 
 	string_builder_append_single(string_builder, path.path);
 
-	// TODO(Totto): format search params
+	size_t search_path_length = stbds_shlenu(path.search_path.hash_map);
+
+	if(search_path_length != 0) {
+		string_builder_append_single(string_builder, "?");
+	}
+
+	for(size_t i = 0; i < search_path_length; ++i) {
+		ParsedSearchPathEntry entry = path.search_path.hash_map[i];
+
+		string_builder_append_single(string_builder, entry.key);
+
+		if(strlen(entry.value) != 0) {
+			string_builder_append_single(string_builder, "=");
+
+			string_builder_append_single(string_builder, entry.value);
+		}
+
+		if(i != search_path_length - 1) {
+			string_builder_append_single(string_builder, "&");
+		}
+	}
 
 	return string_builder_release_into_string(&string_builder);
 }
@@ -74,22 +95,75 @@ NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion proto
 	}
 }
 
-NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(char* path) {
+/**
+ * @brief Get the parsed url path from raw object, it modifies the string inline and creates copies
+ * for the result
+ *
+ * @param path
+ * @return NODISCARD
+ */
+NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 
-	// TODO(Totto): implement correctly
+	if(strlen(path) == 0) {
+		path = "/";
+	}
 
-	ParsedURLPath result = {};
+	char* search_path = strchr(path, '?');
+
+	ParsedURLPath result = { .search_path = { .hash_map = STBDS_HASH_MAP_EMPTY } };
+
+	if(search_path == NULL) {
+		result.path = strdup(path);
+
+		return result;
+	}
+
+	*search_path = '\0';
 
 	result.path = strdup(path);
 
-	result.search_path = (ParsedSearchPath){ .hash_map = STBDS_HASM_MAP_EMPTY };
+	char* search_params = search_path + 1;
+
+	if(strlen(search_params) == 0) {
+		return result;
+	}
+
+	while(true) {
+
+		char* next_argument = strchr(search_params, '&');
+
+		if(next_argument != NULL) {
+			*next_argument = '\0';
+		}
+
+		char* key = search_params;
+
+		char* value_ptr = strchr(search_params, '=');
+
+		if(value_ptr != NULL) {
+			*value_ptr = '\0';
+		}
+
+		const char* value = value_ptr == NULL ? "" : value_ptr + 1;
+
+		char* key_dup = strdup(key);
+		char* value_dup = strdup(value);
+
+		stbds_shput(result.search_path.hash_map, key_dup, value_dup);
+
+		if(next_argument == NULL) {
+			break;
+		}
+
+		search_params = next_argument + 1;
+	}
 
 	return result;
 }
 
 NODISCARD static HttpRequestLine
-get_request_line_from_raw(char* method, char* path, // NOLINT(bugprone-easily-swappable-parameters)
-                          char* protocol_version) {
+get_request_line_from_raw(const char* method, // NOLINT(bugprone-easily-swappable-parameters)
+                          const char* path, const char* protocol_version) {
 
 	HttpRequestLine result = {};
 
@@ -104,7 +178,15 @@ get_request_line_from_raw(char* method, char* path, // NOLINT(bugprone-easily-sw
 
 static void free_parsed_url_path(ParsedURLPath path) {
 	free(path.path);
-	stbds_hmfree(path.search_path.hash_map);
+
+	for(size_t i = 0; i < stbds_shlenu(path.search_path.hash_map); ++i) {
+		ParsedSearchPathEntry entry = path.search_path.hash_map[i];
+
+		free(entry.key);
+		free(entry.value);
+	}
+
+	stbds_shfree(path.search_path.hash_map);
 }
 
 static void free_http_request_line(HttpRequestLine line) {
@@ -168,6 +250,11 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request, 
 // internally some string"magic" happens
 HttpRequest* parse_http_request(char* raw_http_request) {
 
+	if(strlen(raw_http_request) == 0) {
+		free(raw_http_request);
+		return NULL;
+	}
+
 	// considered using strtok, but that doesn't recognize the delimiter between the status and
 	// body! so now using own way of doing that!
 
@@ -181,7 +268,7 @@ HttpRequest* parse_http_request(char* raw_http_request) {
 		return NULL;
 	}
 
-	STBDS_ARRAY_INIT(request->head.header_fields);
+	request->head.header_fields = STBDS_ARRAY_EMPTY;
 
 	// iterating over each separated string, then determining if header or body or statusLine and
 	// then parsing that accordingly
@@ -215,11 +302,15 @@ HttpRequest* parse_http_request(char* raw_http_request) {
 			// string can be used in three different fields, with the correct start address, this
 			// trick is used more often trough-out this implementation, you don't have to understand
 			// it, since its abstracted away when using only the provided function
-			char* begin = index(all, ' ');
+			char* begin = strchr(all, ' ');
+			if(begin == NULL) {
+				// missing " " after the path
+				return NULL;
+			}
 			*begin = '\0';
 			method = all;
 			all = begin + 1;
-			begin = index(all, ' ');
+			begin = strchr(all, ' ');
 			*begin = '\0';
 			path = all;
 			all = begin + 1;
@@ -252,19 +343,16 @@ HttpRequest* parse_http_request(char* raw_http_request) {
 				// here headers are parsed, here":" is the delimiter
 
 				// using same trick, the header string is one with the right 0 bytes :)
-				char* begin = index(all, ':');
+				char* begin = strchr(all, ':');
 				*begin = '\0';
 				if(*(begin + 1) == ' ') {
 					++begin;
 					*begin = '\0';
 				}
 
-				size_t current_array_index = stbds_arrlenu(request->head.header_fields);
+				HttpHeaderField field = { .key = all, .value = begin + 1 };
 
-				stbds_arrsetlen(request->head.header_fields, current_array_index + 1);
-
-				request->head.header_fields[current_array_index].key = all;
-				request->head.header_fields[current_array_index].value = begin + 1;
+				stbds_arrput(request->head.header_fields, field);
 			}
 		}
 
@@ -276,6 +364,23 @@ HttpRequest* parse_http_request(char* raw_http_request) {
 	// at the end free the input raw_http_request string
 	free(raw_http_request);
 	return request;
+}
+
+NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key) {
+
+	if(path.hash_map == STBDS_HASH_MAP_EMPTY) {
+		// note: if hash_map is NULL stbds_shgeti allocates a new value, that is never populated to
+		// the original ParsedSearchPath value, as this is a struct copy!
+		return NULL;
+	}
+
+	int index = stbds_shgeti(path.hash_map, key);
+
+	if(index < 0) {
+		return NULL;
+	}
+
+	return &path.hash_map[index];
 }
 
 // simple helper for getting the status Message for a special status code, all from the spec for
@@ -330,7 +435,7 @@ const char* get_status_message(HttpStatusCode status_code) {
 	return result;
 }
 
-NODISCARD static HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
 
 	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
 		HttpHeaderField* header = &(array[i]);
@@ -437,7 +542,7 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 		return NULL;
 	}
 
-	STBDS_ARRAY_INIT(compression_settings->entries);
+	compression_settings->entries = STBDS_ARRAY_EMPTY;
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
@@ -528,7 +633,7 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 	return compression_settings;
 }
 
-static void free_compression_settings(CompressionSettings* compression_settings) {
+void free_compression_settings(CompressionSettings* compression_settings) {
 	stbds_arrfree(compression_settings->entries);
 	free(compression_settings);
 }
@@ -678,16 +783,31 @@ HttpConcattedResponse* http_response_concat(HttpResponse* response) {
 	return concatted_response;
 }
 
+void free_http_header_fields(HttpHeaderFields* header_fields) {
+	for(size_t i = 0; i < stbds_arrlenu(*header_fields); ++i) {
+		// same elegant freeing but two at once :)
+
+		free((*header_fields)[i].key);
+	}
+	stbds_arrfree(*header_fields);
+	*header_fields = STBDS_ARRAY_EMPTY;
+}
+
+void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str) {
+
+	char* first_str = double_str;
+	char* second_str = double_str + strlen(double_str) + 1;
+
+	HttpHeaderField field = { .key = first_str, .value = second_str };
+
+	stbds_arrput(*header_fields, field);
+}
+
 // free the HttpResponse, just freeing everything necessary
 void free_http_response(HttpResponse* response) {
 	// elegantly freeing three at once :)
 	free(response->head.response_line.protocol_version);
-	for(size_t i = 0; i < stbds_arrlenu(response->head.header_fields); ++i) {
-		// same elegant freeing but two at once :)
-
-		free(response->head.header_fields[i].key);
-	}
-	stbds_arrfree(response->head.header_fields);
+	free_http_header_fields(&response->head.header_fields);
 
 	free_sized_buffer(response->body);
 
@@ -706,6 +826,8 @@ html_from_string(StringBuilder* head_content, // NOLINT(bugprone-easily-swappabl
 
 	string_builder_append_single(result, "<!DOCTYPE html><html>");
 	string_builder_append_single(result, "<head>");
+	string_builder_append_single(result,
+	                             "<link rel=\"icon\" href=\"data:image/png;base64,iVBORw0KGgo=\">");
 	string_builder_append_single(result, "<meta charset=\"UTF-8\">");
 	string_builder_append_single(
 	    result, "<meta name=\"description\" content=\"HTML generated by simple C Http Server\">");

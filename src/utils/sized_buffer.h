@@ -1,6 +1,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 
 #include "./utils.h"
@@ -22,3 +26,7 @@ NODISCARD SizedBuffer get_empty_sized_buffer(void);
  * @return SizedBuffer
  */
 NODISCARD SizedBuffer sized_buffer_get_exact_clone(SizedBuffer buffer);
+
+#ifdef __cplusplus
+}
+#endif

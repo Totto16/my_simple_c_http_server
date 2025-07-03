@@ -32,6 +32,8 @@ char* read_string_from_connection(const ConnectionDescriptor* const descriptor) 
 		}
 
 		if(read_bytes == 0) {
+			*(message_buffer + (INITIAL_MESSAGE_BUF_SIZE * buffers_used) + read_bytes) = '\0';
+
 			// client disconnected, so done
 			LOG_MESSAGE_SIMPLE(LogLevelTrace, "client disconnected\n");
 			break;

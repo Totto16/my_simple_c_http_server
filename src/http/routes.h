@@ -4,8 +4,10 @@
 
 #include "./http_protocol.h"
 #include "./send.h"
+#include "generic/authentication.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
+
 #include <stb/ds.h>
 
 typedef struct RouteManagerImpl RouteManager;
@@ -15,10 +17,13 @@ typedef struct RouteManagerImpl RouteManager;
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRouteFnTypeExecutor = 0,
-	HTTPRouteFnTypeExecutorExtended
+	HTTPRouteFnTypeExecutorExtended,
+	HTTPRouteFnTypeExecutorAuth
 } HTTPRouteFnType;
 
 typedef HTTPResponseToSend (*HTTPRouteFnExecutor)(ParsedURLPath path);
+
+typedef HTTPResponseToSend (*HTTPRouteFnExecutorAuth)(ParsedURLPath path, AuthUserWithContext user);
 
 typedef HTTPResponseToSend (*HTTPRouteFnExecutorExtended)(SendSettings send_settings,
                                                           const HttpRequest* const http_request,
@@ -32,6 +37,7 @@ typedef struct {
 	union {
 		HTTPRouteFnExecutor executor;
 		HTTPRouteFnExecutorExtended executor_extended;
+		HTTPRouteFnExecutorAuth executor_auth;
 	} fn;
 } HTTPRouteFn;
 
@@ -40,22 +46,60 @@ typedef struct {
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRouteTypeNormal = 0,
-	HTTPRouteTypeSpecial
+	HTTPRouteTypeSpecial,
+	HTTPRouteTypeInternal
 } HTTPRouteType;
 
 /**
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HTTPRouteSpecialDataShutdown = 0,
-	HTTPRouteSpecialDataWs,
-	HTTPRouteSpecialDataWsFragmented,
+	HTTPRouteSpecialDataTypeShutdown = 0,
+	HTTPRouteSpecialDataTypeWs,
+} HTTPRouteSpecialDataType;
+
+typedef struct {
+	HTTPRouteSpecialDataType type;
+	union {
+		struct {
+			bool fragmented;
+		} ws;
+	} data;
 } HTTPRouteSpecialData;
+
+typedef struct {
+	HTTPResponseToSend send;
+} HTTPRouteInternal;
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPAuthorizationTypeNone = 0,
+	HTTPAuthorizationTypeSimple,
+	HTTPAuthorizationTypeComplicated,
+} HTTPAuthorizationType;
+
+typedef
+
+    struct {
+	int todo; // TODO(Totto): support mapping roles and or users to if the request is
+	          // possible or not, via a callback function, that gets the user and returns
+	          // true or false!
+} HTTPAuthorizationComplicatedData;
+
+typedef struct {
+	HTTPAuthorizationType type;
+	union {
+		HTTPAuthorizationComplicatedData complicated;
+	} data;
+} HTTPAuthorization;
 
 typedef struct {
 	HTTPRouteType type;
 	union {
 		HTTPRouteSpecialData special;
+		HTTPRouteInternal internal;
 		HTTPRouteFn normal;
 	} data;
 } HTTPRouteData;
@@ -63,6 +107,7 @@ typedef struct {
 typedef struct {
 	HTTPRouteData data;
 	ParsedURLPath path;
+	AuthUserWithContext* auth_user;
 } HTTPSelectedRoute;
 
 /**
@@ -77,13 +122,15 @@ typedef struct {
 	HTTPRequestRouteMethod method;
 	char* path;
 	HTTPRouteData data;
+	HTTPAuthorization auth;
 } HTTPRoute;
 
 typedef STBDS_ARRAY(HTTPRoute) HTTPRoutes;
 
 NODISCARD HTTPRoutes get_default_routes(void);
 
-NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes);
+NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes,
+                                                 const AuthenticationProviders* auth_providers);
 
 void free_route_manager(RouteManager* route_manager);
 
@@ -99,4 +146,5 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* route);
 NODISCARD int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* descriptor,
                                           SendSettings send_settings,
                                           const HttpRequest* http_request,
-                                          const ConnectionContext* context, ParsedURLPath path);
+                                          const ConnectionContext* context, ParsedURLPath path,
+                                          AuthUserWithContext* auth_user);

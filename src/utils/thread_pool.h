@@ -8,11 +8,6 @@
 #include "myqueue.h"
 #include "utils.h"
 
-#define THREAD_SHUTDOWN_JOB_INTERNAL 0x02
-
-// defining the Shutdown Macro
-#define THREAD_SHUTDOWN_JOB ((JobFunction)THREAD_SHUTDOWN_JOB_INTERNAL)
-
 // defining the type defs
 
 typedef struct {
@@ -23,13 +18,30 @@ typedef ANY_TYPE(JobResult*) (*JobFunction)(ANY_TYPE(UserType*), WorkerInfo);
 
 typedef struct {
 	pthread_t thread;
-	// used to have more information, therefore a struct, it doesn'T take more memory, so its fine
+	// used to have more information, therefore a struct, it doesn't take more memory, so its fine
 } MyThreadPoolThreadInformation;
+
+typedef void (*ShutdownFunction)(void);
+
+typedef void (*StartupFunction)(void);
+
+#define RUN_LIFECYCLE_FN(fn) \
+	do { \
+		if((fn) != NULL) { \
+			fn(); \
+		} \
+	} while(false)
+
+typedef struct {
+	StartupFunction startup_fn;
+	ShutdownFunction shutdown_fn;
+} LifecycleFunctions;
 
 typedef struct {
 	size_t worker_threads_amount;
 	Myqueue jobqueue;
 	MyThreadPoolThreadInformation* worker_threads;
+	LifecycleFunctions fns;
 	SemaphoreType jobs_available;
 } ThreadPool;
 
