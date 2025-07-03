@@ -104,25 +104,33 @@ const char* get_level_name_internal(LogLevel level, bool color) {
 	}
 }
 
+#define ADDITIONAL_TID_SIZE \
+	4 + 11 // 4 for "TID " and 11 for a bit of additional buffer so thart the static message can be
+	       // fitted
+
+#define THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE THREAD_ID_FORMATTED_MAX_SIZE + ADDITIONAL_TID_SIZE
+
+static _Thread_local char
+    g_thread_local_name_storage_fallback // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+        [THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE] = "<Unknown TID / name value>";
+
 const char* get_thread_name(void) {
 
 	if(g_global_value_log_thread_state.name) {
 		return g_global_value_log_thread_state.name;
 	}
 
+	char* casted_static_buffer = (char*)g_thread_local_name_storage_fallback;
+
+	g_global_value_log_thread_state.name = casted_static_buffer;
+
 	ThreadIdType tid = get_thread_id();
 
-	char* name = NULL;
-	FORMAT_STRING_IMPL(
-	    &name,
-	    {
-		    const char* fallback_name = "<failed setting thread name>";
-		    g_global_value_log_thread_state.name = fallback_name;
-		    return fallback_name;
-	    },
-	    IMPL_STDERR_LOGGER, "TID " PRI_THREADID, tid);
-
-	g_global_value_log_thread_state.name = name;
+	int written = snprintf(casted_static_buffer, THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE,
+	                       "TID " PRI_THREADID, tid);
+	if(written >= THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE) {
+		return g_global_value_log_thread_state.name;
+	}
 
 	return g_global_value_log_thread_state.name;
 }
@@ -195,6 +203,10 @@ void set_platform_thread_name(const char* name) {
 void set_thread_name(const char* name) {
 	g_global_value_log_thread_state.name = name;
 	set_platform_thread_name(name);
+}
+
+void unset_thread_name(void) {
+	g_global_value_log_thread_state.name = NULL;
 }
 
 int parse_log_level(const char* level) {
