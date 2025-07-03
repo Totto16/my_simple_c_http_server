@@ -92,6 +92,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 
 #define FREE_AT_END() \
 	do { \
+		unset_thread_name(); \
 		free(thread_name_buffer); \
 		free(argument); \
 	} while(false)

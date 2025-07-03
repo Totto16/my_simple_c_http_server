@@ -69,6 +69,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 #define FREE_AT_END() \
 	do { \
+		unset_thread_name(); \
 		free(thread_name_buffer); \
 		free(argument); \
 	} while(false)

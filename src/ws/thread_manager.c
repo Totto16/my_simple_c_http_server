@@ -658,6 +658,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 #define FREE_AT_END() \
 	do { \
+		unset_thread_name(); \
 		free(thread_name_buffer); \
 		free(argument); \
 	} while(false)
