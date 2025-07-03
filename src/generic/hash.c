@@ -14,9 +14,8 @@ NODISCARD HashSaltResultType hash_salt_string(HashSaltSettings settings, char* s
 NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, char* string,
                                                      HashSaltResultType hash_salted_string) {
 
-// https://github.com/rg3/libbcrypt/blob/future/bcrypt.h
-// https://stackoverflow.com/questions/10273414/library-for-passwords-salt-hash-in-c
-
+	// https://github.com/rg3/libbcrypt/blob/future/bcrypt.h
+	// https://stackoverflow.com/questions/10273414/library-for-passwords-salt-hash-in-c
 
 	UNUSED(settings);
 	UNUSED(string);
@@ -179,6 +178,7 @@ NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 
 #define B64_CHUNCK_SIZE 512
 
+// TODO: this leaks memory somewhere!
 NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 	BIO* mem_input = NULL;
 	BIO* b64_filter = NULL;
@@ -197,6 +197,7 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 		int result = BIO_read_ex(mem_input, output_buffer_current, B64_CHUNCK_SIZE, &read_size);
 
 		if(result != 1) {
+			BIO_free_all(b64_filter);
 			BIO_free_all(mem_input);
 			free_sized_buffer(output_buffer);
 			return get_empty_sized_buffer();
@@ -216,6 +217,7 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 		break;
 	}
 
+	BIO_free_all(b64_filter);
 	BIO_free_all(mem_input);
 	return output_buffer;
 }

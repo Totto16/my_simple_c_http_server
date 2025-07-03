@@ -135,10 +135,16 @@ std::ostream& operator<<(std::ostream& os, const Sha1BufferType& buffer) {
 	return result;
 }
 
-struct TestCase {
+struct TestCaseSha1 {
 	doctest::String name;
 	std::string input;
 	Sha1BufferType result;
+};
+
+struct TestCaseBase64 {
+	doctest::String name;
+	std::string raw;
+	std::string base64;
 };
 
 } // namespace
@@ -146,9 +152,9 @@ struct TestCase {
 TEST_CASE("testing sha1 generation with openssl") {
 
 	std::string sha1_provider = get_sha1_provider();
-	// REQUIRE_EQ(sha1_provider, "openssl (EVP)");
+	REQUIRE_EQ(sha1_provider, "openssl (EVP)");
 
-	std::vector<TestCase> test_cases = {
+	std::vector<TestCaseSha1> test_cases = {
 		{ .name = "empty string",
 		  .input = "",
 		  .result = "DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"_sha1 },
@@ -343,7 +349,7 @@ TEST_CASE("testing sha1 generation with openssl") {
 
 	};
 
-	for(const TestCase& test_case : test_cases) {
+	for(const auto& test_case : test_cases) {
 
 		SUBCASE(test_case.name) {
 
@@ -353,6 +359,71 @@ TEST_CASE("testing sha1 generation with openssl") {
 			REQUIRE_NE(result.size, 0);
 
 			REQUIRE_EQ(result, test_case.result);
+		}
+	}
+}
+
+namespace {
+std::vector<TestCaseBase64> base64_test_cases = {
+	{ .name = "empty string", .raw = "", .base64 = "" },
+	{ .name = "simple string", .raw = "hello world", .base64 = "aGVsbG8gd29ybGQ=" },
+	{ .name = "longer string",
+	  .raw = R"(😎😎😎😎😎😎🌍Hello test long string)",
+	  .base64 = "8J+YjvCfmI7wn5iO8J+YjvCfmI7wn5iO8J+MjUhlbGxvIHRlc3QgbG9uZyBzdHJpbmc=" }
+
+};
+
+[[nodiscard]] SizedBuffer buffer_from_string(const std::string& inp) {
+	return { .data = (void*)inp.c_str(), .size = inp.size() };
+}
+
+} // namespace
+
+TEST_CASE("testing base64 decoding with openssl") {
+
+	std::string base64_provider = get_base64_provider();
+	REQUIRE_EQ(base64_provider, "openssl");
+
+	for(const auto& test_case : base64_test_cases) {
+
+		SUBCASE(test_case.name) {
+
+			SizedBuffer input = buffer_from_string(test_case.base64);
+
+			const SizedBuffer result = base64_decode_buffer(input);
+
+			REQUIRE_NE(result.data, nullptr);
+			REQUIRE_NE(result.size, 0);
+
+			SizedBuffer expected_result = buffer_from_string(test_case.raw);
+
+			REQUIRE_EQ(result, expected_result);
+		}
+	}
+}
+
+TEST_CASE("testing base64 encoding with openssl") {
+
+	std::string base64_provider = get_base64_provider();
+	REQUIRE_EQ(base64_provider, "openssl");
+
+	for(const auto& test_case : base64_test_cases) {
+
+		SUBCASE(test_case.name) {
+
+			SizedBuffer input = buffer_from_string(test_case.raw);
+
+			const char* result = base64_encode_buffer(input);
+
+			REQUIRE_NE(result, nullptr);
+
+			std::string result_str{ result };
+
+			REQUIRE_NE(result_str.size(), 0);
+
+			const std::string& expected_result = test_case.base64;
+
+			REQUIRE_EQ(result, expected_result);
 		}
 	}
 }
