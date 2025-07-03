@@ -2,7 +2,7 @@ project(
     'bcrypt',
     'c',
     version: '1.0.0',
-    meson_version: '>= 1.3.0',
+    meson_version: '>= 1.5.0',
     default_options: {
         'c_std': ['gnu23', 'gnu2x', 'gnu17', 'gnu11'],
         'werror': 'false',
@@ -10,6 +10,9 @@ project(
     },
 )
 
+if host_machine.system() == 'darwin'
+    error('MacOS not supported')
+endif
 
 compile_args = []
 src_files = []
@@ -42,6 +45,22 @@ src_files += files(
 )
 
 subdir('crypt_blowfish')
+
+cc = meson.get_compiler('c')
+
+cc.compiles(
+    '''
+#include <unistd.h>
+
+int test(void){
+    return getentropy(NULL, 0);
+}
+''',
+    args: compile_args + private_args,
+    include_directories: inc_dirs,
+    name: 'supports getentropy()',
+    required: true,
+)
 
 libbcrypt = library(
     'bcrypt',
