@@ -180,6 +180,15 @@ NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 
 // TODO: this leaks memory somewhere!
 NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
+	if(input_buffer.size == 0) {
+
+		char* empty_str = malloc(1);
+
+		empty_str[0] = '\0';
+
+		return (SizedBuffer){ .data = empty_str, .size = 0 };
+	}
+
 	BIO* mem_input = NULL;
 	BIO* b64_filter = NULL;
 
@@ -197,7 +206,6 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 		int result = BIO_read_ex(mem_input, output_buffer_current, B64_CHUNCK_SIZE, &read_size);
 
 		if(result != 1) {
-			BIO_free_all(b64_filter);
 			BIO_free_all(mem_input);
 			free_sized_buffer(output_buffer);
 			return get_empty_sized_buffer();
@@ -217,7 +225,6 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 		break;
 	}
 
-	BIO_free_all(b64_filter);
 	BIO_free_all(mem_input);
 	return output_buffer;
 }

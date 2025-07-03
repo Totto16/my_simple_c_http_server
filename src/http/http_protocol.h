@@ -225,6 +225,8 @@ typedef struct {
 
 NODISCARD CompressionSettings* get_compression_settings(HttpHeaderFields header_fields);
 
+void free_compression_settings(CompressionSettings* compression_settings);
+
 NODISCARD RequestSettings* get_request_settings(HttpRequest* http_request);
 
 void free_request_settings(RequestSettings* request_settings);
@@ -239,6 +241,10 @@ typedef struct {
 // makes a string_builder from the HttpResponse, just does the opposite of parsing A Request, but
 // with some slight modification
 NODISCARD HttpConcattedResponse* http_response_concat(HttpResponse* response);
+
+void free_http_header_fields(HttpHeaderFields* header_fields);
+
+void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str);
 
 // free the HttpResponse, just freeing everything necessary
 void free_http_response(HttpResponse* response);

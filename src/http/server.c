@@ -187,11 +187,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 					    },
 					    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
-					HttpHeaderField field = { .key = allowed_header_buffer,
-						                      .value = allowed_header_buffer +
-						                               strlen(allowed_header_buffer) + 1 };
-
-					stbds_arrput(additional_headers, field);
+					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
 
 					HTTPResponseToSend to_send = { .status = HttpStatusOk,
 						                           .body = http_response_body_empty(),
@@ -364,11 +360,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		    },
 		    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
 
-		HttpHeaderField field = { .key = allowed_header_buffer,
-			                      .value =
-			                          allowed_header_buffer + strlen(allowed_header_buffer) + 1 };
-
-		stbds_arrput(additional_headers, field);
+		add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
 
 		HTTPResponseToSend to_send = {
 			.status = HttpStatusMethodNotAllowed,

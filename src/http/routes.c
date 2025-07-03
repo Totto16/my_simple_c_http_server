@@ -720,12 +720,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				    },
 				    "WWW-Authenticate%cBasic realm=\"%s\", charset=\"UTF-8\"", '\0', AUTH_REALM);
 
-				HttpHeaderField www_authenticate_field = {
-					.key = www_authenticate_buffer,
-					.value = www_authenticate_buffer + strlen(www_authenticate_buffer) + 1
-				};
-
-				stbds_arrput(additional_headers, www_authenticate_field);
+				add_http_header_field_by_double_str(&additional_headers, www_authenticate_buffer);
 
 				HTTPResponseToSend to_send = { .status = HttpStatusUnauthorized,
 					                           .body = http_response_body_empty(),

@@ -27,21 +27,13 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 	char* upgrade_header_buffer = NULL;
 	FORMAT_STRING(&upgrade_header_buffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
 
-	HttpHeaderField upgrade_field = { .key = upgrade_header_buffer,
-		                              .value = upgrade_header_buffer +
-		                                       strlen(upgrade_header_buffer) + 1 };
-
-	stbds_arrput(additional_headers, upgrade_field);
+	add_http_header_field_by_double_str(&additional_headers, upgrade_header_buffer);
 
 	char* connection_header_buffer = NULL;
 	FORMAT_STRING(&connection_header_buffer, return false;
 	              , "%s%c%s", "Connection", '\0', "Upgrade");
 
-	HttpHeaderField connection_field = { .key = connection_header_buffer,
-		                                 .value = connection_header_buffer +
-		                                          strlen(connection_header_buffer) + 1 };
-
-	stbds_arrput(additional_headers, connection_field);
+	add_http_header_field_by_double_str(&additional_headers, connection_header_buffer);
 
 	HTTPResponseToSend to_send = { .status = HttpStatusUpgradeRequired,
 		                           .body = http_response_body_from_string_builder(&message),
@@ -211,21 +203,13 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 	char* upgrade_header_buffer = NULL;
 	FORMAT_STRING(&upgrade_header_buffer, return false;, "%s%c%s", "Upgrade", '\0', "WebSocket");
 
-	HttpHeaderField upgrade_field = { .key = upgrade_header_buffer,
-		                              .value = upgrade_header_buffer +
-		                                       strlen(upgrade_header_buffer) + 1 };
-
-	stbds_arrput(additional_headers, upgrade_field);
+	add_http_header_field_by_double_str(&additional_headers, upgrade_header_buffer);
 
 	char* connection_header_buffer = NULL;
 	FORMAT_STRING(&connection_header_buffer, return false;
 	              , "%s%c%s", "Connection", '\0', "Upgrade");
 
-	HttpHeaderField connection_field = { .key = connection_header_buffer,
-		                                 .value = connection_header_buffer +
-		                                          strlen(connection_header_buffer) + 1 };
-
-	stbds_arrput(additional_headers, connection_field);
+	add_http_header_field_by_double_str(&additional_headers, connection_header_buffer);
 
 	char* key_answer = generate_key_answer(sec_key);
 
@@ -235,12 +219,7 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 
 	free(key_answer);
 
-	HttpHeaderField sec_ws_accept_field = {
-		.key = sec_websocket_accept_header_buffer,
-		.value = sec_websocket_accept_header_buffer + strlen(sec_websocket_accept_header_buffer) + 1
-	};
-
-	stbds_arrput(additional_headers, sec_ws_accept_field);
+	add_http_header_field_by_double_str(&additional_headers, sec_websocket_accept_header_buffer);
 
 	HTTPResponseToSend to_send = { .status = HttpStatusSwitchingProtocols,
 		                           .body = http_response_body_empty(),

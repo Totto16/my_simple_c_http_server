@@ -359,6 +359,8 @@ TEST_CASE("testing sha1 generation with openssl") {
 			REQUIRE_NE(result.size, 0);
 
 			REQUIRE_EQ(result, test_case.result);
+
+			free_sized_buffer(result);
 		}
 	}
 }
@@ -393,11 +395,18 @@ TEST_CASE("testing base64 decoding with openssl") {
 			const SizedBuffer result = base64_decode_buffer(input);
 
 			REQUIRE_NE(result.data, nullptr);
-			REQUIRE_NE(result.size, 0);
+
+			if(input.size != 0) {
+				REQUIRE_NE(result.size, 0);
+			} else {
+				REQUIRE_EQ(result.size, 0);
+			}
 
 			SizedBuffer expected_result = buffer_from_string(test_case.raw);
 
 			REQUIRE_EQ(result, expected_result);
+
+			free_sized_buffer(result);
 		}
 	}
 }
@@ -413,17 +422,23 @@ TEST_CASE("testing base64 encoding with openssl") {
 
 			SizedBuffer input = buffer_from_string(test_case.raw);
 
-			const char* result = base64_encode_buffer(input);
+			char* result = base64_encode_buffer(input);
 
 			REQUIRE_NE(result, nullptr);
 
 			std::string result_str{ result };
 
-			REQUIRE_NE(result_str.size(), 0);
+			if(input.size != 0) {
+				REQUIRE_NE(result_str.size(), 0);
+			} else {
+				REQUIRE_EQ(result_str.size(), 0);
+			}
 
 			const std::string& expected_result = test_case.base64;
 
 			REQUIRE_EQ(result, expected_result);
+
+			free(result);
 		}
 	}
 }

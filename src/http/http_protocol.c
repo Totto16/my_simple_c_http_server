@@ -629,7 +629,7 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 	return compression_settings;
 }
 
-static void free_compression_settings(CompressionSettings* compression_settings) {
+void free_compression_settings(CompressionSettings* compression_settings) {
 	stbds_arrfree(compression_settings->entries);
 	free(compression_settings);
 }
@@ -779,16 +779,31 @@ HttpConcattedResponse* http_response_concat(HttpResponse* response) {
 	return concatted_response;
 }
 
+void free_http_header_fields(HttpHeaderFields* header_fields) {
+	for(size_t i = 0; i < stbds_arrlenu(*header_fields); ++i) {
+		// same elegant freeing but two at once :)
+
+		free((*header_fields)[i].key);
+	}
+	stbds_arrfree(*header_fields);
+	*header_fields = STBDS_ARRAY_EMPTY;
+}
+
+void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str) {
+
+	char* first_str = double_str;
+	char* second_str = double_str + strlen(double_str) + 1;
+
+	HttpHeaderField field = { .key = first_str, .value = second_str };
+
+	stbds_arrput(*header_fields, field);
+}
+
 // free the HttpResponse, just freeing everything necessary
 void free_http_response(HttpResponse* response) {
 	// elegantly freeing three at once :)
 	free(response->head.response_line.protocol_version);
-	for(size_t i = 0; i < stbds_arrlenu(response->head.header_fields); ++i) {
-		// same elegant freeing but two at once :)
-
-		free(response->head.header_fields[i].key);
-	}
-	stbds_arrfree(response->head.header_fields);
+	free_http_header_fields(&response->head.header_fields);
 
 	free_sized_buffer(response->body);
 

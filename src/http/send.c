@@ -37,11 +37,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		              , "%s%c%s", "Content-Type", '\0',
 		              mime_type == NULL ? DEFAULT_MIME_TYPE : mime_type);
 
-		HttpHeaderField content_type_field = { .key = content_type_buffer,
-			                                   .value = content_type_buffer +
-			                                            strlen(content_type_buffer) + 1 };
-
-		stbds_arrput(response->head.header_fields, content_type_field);
+		add_http_header_field_by_double_str(&response->head.header_fields, content_type_buffer);
 	}
 
 	{
@@ -51,11 +47,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		FORMAT_STRING(&content_length_buffer, return NULL;
 		              , "%s%c%ld", "Content-Length", '\0', response->body.size);
 
-		HttpHeaderField content_length_field = { .key = content_length_buffer,
-			                                     .value = content_length_buffer +
-			                                              strlen(content_length_buffer) + 1 };
-
-		stbds_arrput(response->head.header_fields, content_length_field);
+		add_http_header_field_by_double_str(&response->head.header_fields, content_length_buffer);
 	}
 
 	{
@@ -66,10 +58,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		              , "%s%c%s", "Server", '\0',
 		              "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
-		HttpHeaderField server_field = { .key = server_buffer,
-			                             .value = server_buffer + strlen(server_buffer) + 1 };
-
-		stbds_arrput(response->head.header_fields, server_field);
+		add_http_header_field_by_double_str(&response->head.header_fields, server_buffer);
 	}
 
 	{
@@ -83,12 +72,8 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 			              , "%s%c%s", "Content-Encoding", '\0',
 			              get_string_for_compress_format(compression_format));
 
-			HttpHeaderField content_encoding_field = {
-				.key = content_encoding_buffer,
-				.value = content_encoding_buffer + strlen(content_encoding_buffer) + 1
-			};
-
-			stbds_arrput(response->head.header_fields, content_encoding_field);
+			add_http_header_field_by_double_str(&response->head.header_fields,
+			                                    content_encoding_buffer);
 		}
 	}
 
