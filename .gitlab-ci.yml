@@ -72,10 +72,16 @@ test:
         # instal openssl 3
         - apt-get install openssl libssl-dev --no-install-recommends -y
     script:
-        # run ws tests
+        # setup ws tests
         - meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
         - meson compile -C build
+        # setup wait-on-sh script
+        - wget -q https://raw.githubusercontent.com/vishnubob/wait-for-it/refs/heads/master/wait-for-it.sh
+        - chmod +x ./wait-for-it.sh
+        # start and wait for the connection to be up
         - ./build/server http 8080 -l trace &
+        - ./wait-for-it.sh localhost:8080 -s --timeout=120
+        # run ws tests
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
         - wget http://localhost:8080/shutdown -O - -q
         # run unit tests

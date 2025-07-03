@@ -62,7 +62,10 @@ jobs:
 
             - name: WS Tests
               run: |
+                  wget -q https://raw.githubusercontent.com/vishnubob/wait-for-it/refs/heads/master/wait-for-it.sh
+                  chmod +x ./wait-for-it.sh
                   ./build/server http 8080 -l trace &
+                  ./wait-for-it.sh localhost:8080 -s --timeout=120
                   pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
                   wget http://localhost:8080/shutdown -O - -q
 
