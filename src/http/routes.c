@@ -610,7 +610,8 @@ NODISCARD HttpAuthStatus handle_http_authorization_impl(
 	switch(result.type) {
 		case HttpAuthHeaderValueTypeBasic: {
 			username = strdup(result.data.basic.username);
-			password = result.data.basic.password == NULL ? NULL : strdup(result.data.basic.password);
+			password =
+			    result.data.basic.password == NULL ? NULL : strdup(result.data.basic.password);
 			free(result.data.basic.username);
 			break;
 		}
@@ -721,6 +722,20 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				    "WWW-Authenticate%cBasic realm=\"%s\", charset=\"UTF-8\"", '\0', AUTH_REALM);
 
 				add_http_header_field_by_double_str(&additional_headers, www_authenticate_buffer);
+
+#ifndef NDEBUG
+				char* x_special_reason_buffer = NULL;
+				FORMAT_STRING(
+				    &x_special_reason_buffer,
+				    {
+					    stbds_arrfree(additional_headers);
+					    return NULL;
+				    },
+				    "X-Special-Reason%c%s", '\0', auth_status.data.unauthorized.reason);
+
+				add_http_header_field_by_double_str(&additional_headers, x_special_reason_buffer);
+
+#endif
 
 				HTTPResponseToSend to_send = { .status = HttpStatusUnauthorized,
 					                           .body = http_response_body_empty(),
