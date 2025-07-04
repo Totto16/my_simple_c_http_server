@@ -1,0 +1,27 @@
+diff --git a/bcrypt.c b/bcrypt.c
+index 3fc29eb..75196a9 100644
+--- a/bcrypt.c
++++ b/bcrypt.c
+@@ -58,6 +58,22 @@ static int timing_safe_strcmp(const char *str1, const char *str2)
+ 	return ret;
+ }
+ 
++#if defined(__APPLE__) || defined(__MACOSX__)
++
++static int getentropy(void* buffer, size_t length) {
++	if(length > 256) {
++		return -1;
++	}
++
++	if(SecRandomCopyBytes(kSecRandomDefault, length, buffer) != 0) {
++		return -1;
++	}
++
++	return 0;
++}
++
++#endif
++
+ BCRYPT_API int bcrypt_gensalt(int factor, char salt[BCRYPT_HASHSIZE])
+ {
+ 	int ret;
