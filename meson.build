@@ -55,97 +55,22 @@ other_features_dict = {
 other_features = get_option('other_features')
 
 foreach other_feature : other_features
-    other_features_dict = other_features_dict + {
+    other_features_dict = (other_features_dict + {
         other_feature: true,
     }
+)
 endforeach
 
-bcrypt_lib_to_use = get_option('bcrypt_lib')
 
-actual_bcrypt_lib_to_use = ''
+libbcrypt_dep = dependency(
+    'libbcrypt',
+    required: other_features_dict['bcrypt'],
+    allow_fallback: true,
+)
 
-if bcrypt_lib_to_use == 'bcrypt'
-
-    bcrypt_dep = dependency(
-        'bcrypt',
-        required: other_features_dict['bcrypt'],
-        allow_fallback: true,
-    )
-
-    if bcrypt_dep.found()
-        deps += bcrypt_dep
-        actual_bcrypt_lib_to_use = 'bcrypt'
-    endif
-
-elif bcrypt_lib_to_use == 'libbcrypt'
-
-    libbcrypt_dep = dependency(
-        'libbcrypt',
-        required: other_features_dict['bcrypt'],
-        allow_fallback: true,
-    )
-
-    if libbcrypt_dep.found()
-        deps += libbcrypt_dep
-        actual_bcrypt_lib_to_use = 'libbcrypt'
-    endif
-elif bcrypt_lib_to_use == 'crypt_blowfish'
-
-    crypt_blowfish_dep = dependency(
-        'crypt_blowfish',
-        required: other_features_dict['bcrypt'],
-        allow_fallback: true,
-    )
-
-    if crypt_blowfish_dep.found()
-        deps += crypt_blowfish_dep
-        actual_bcrypt_lib_to_use = 'crypt_blowfish'
-    endif
-elif bcrypt_lib_to_use == 'crypt'
-
-    crypt_dep = dependency(
-        'crypt',
-        required: other_features_dict['bcrypt'],
-        allow_fallback: true,
-    )
-
-    if crypt_dep.found()
-        deps += crypt_dep
-        actual_bcrypt_lib_to_use = 'crypt'
-    endif
-
-elif bcrypt_lib_to_use == 'auto'
-
-    bcrypt_check_order = ['libbcrypt', 'crypt_blowfish', 'bcrypt', 'crypt']
-
-    foreach bcrypt_value : bcrypt_check_order
-        auto_bcrypt_dep = dependency(
-            bcrypt_value,
-            required: false,
-            allow_fallback: true,
-        )
-
-        if auto_bcrypt_dep.found()
-            deps += auto_bcrypt_dep
-            actual_bcrypt_lib_to_use = bcrypt_value
-            break
-        endif
-
-    endforeach
-
-    if actual_bcrypt_lib_to_use == '' and other_features_dict['bcrypt']
-        error('need at least one bcrypt library, but failed to get one')
-    endif
-
-else
-    error('Unsupported value for \'bcrypt_lib\': ' + bcrypt_lib_to_use)
-endif
-
-message('Using bcrypt lib: \'' + actual_bcrypt_lib_to_use + '\'')
-
-if actual_bcrypt_lib_to_use != ''
-    compile_flags += '-D_SIMPLE_SERVER_HAVE_BCRYPT_LIB'
-    compile_flags += ('-D_SIMPLE_SERVER_USE_BCRYPT_LIB_' + actual_bcrypt_lib_to_use.to_upper())
+if libbcrypt_dep.found()
+    deps += libbcrypt_dep
+    compile_flags += '-D_SIMPLE_SERVER_HAVE_BCRYPT'
 endif
 
 compression_features_dict = {
@@ -159,16 +84,16 @@ compression_features_dict = {
 compression_features = get_option('compression_features')
 
 foreach compression_feature : compression_features
-    compression_features_dict = compression_features_dict + {
+    compression_features_dict = (compression_features_dict + {
         compression_feature: true,
     }
+)
 endforeach
 
 
 zlib_dep = dependency(
     'zlib',
-    required: compression_features_dict['gzip'] or compression_features_dict['deflate'
-],
+    required: compression_features_dict['gzip'] or compression_features_dict['deflate'],
 )
 
 if zlib_dep.found()
