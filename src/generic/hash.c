@@ -3,108 +3,12 @@
 #include "./hash.h"
 #include "utils/log.h"
 
-#ifdef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
-
-#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
+#ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 #include <bcrypt.h>
-#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_BCRYPT)
-#error "bcrypt"
-#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH)
-#include <ow-crypt.h>
-#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT)
-#error "crypt"
-#else
-#error "Unrecognized bcrypt lib"
 #endif
 
-#endif
 
-#ifdef _SIMPLE_SERVER_HAVE_BCRYPT_LIB
-
-#ifdef _SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH
-
-// compat functions for libbcrypt
-
-#define BCRYPT_COMPAT_RANDBYTES (16)
-#define BCRYPT_HASHSIZE (64)
-
-static int bcrypt_gensalt(int factor, char salt[BCRYPT_HASHSIZE]) {
-	int ret;
-	char input[BCRYPT_COMPAT_RANDBYTES];
-	int workf;
-	char* aux;
-
-	/* Get random bytes. */
-	ret = get_random_bytes(sizeof(input), (uint8_t*)&input);
-	if(ret != 0) return 1;
-
-	/* Generate salt. */
-	workf = (factor < 4 || factor > 31) ? BCRYPT_DEFAULT_WORK_FACTOR : factor;
-	aux = crypt_gensalt_rn("$2a$", workf, input, BCRYPT_COMPAT_RANDBYTES, salt, BCRYPT_HASHSIZE);
-	return (aux == NULL) ? 2 : 0;
-}
-
-/*
- * This is a best effort implementation. Nothing prevents a compiler from
- * optimizing this function and making it vulnerable to timing attacks, but
- * this method is commonly used in crypto libraries like NaCl.
- *
- * Return value is zero if both strings are equal and nonzero otherwise.
- */
-static int timing_safe_strcmp(const char* str1, const char* str2) {
-	const unsigned char* a;
-	const unsigned char* b;
-	int ret;
-	int i;
-
-	int len1 = strlen(str1);
-	int len2 = strlen(str2);
-
-	/* In our context both strings should always have the same length
-	 * because they will be hashed passwords. */
-	if(len1 != len2) return 1;
-
-	/* Force unsigned for bitwise operations. */
-	a = (const unsigned char*)str1;
-	b = (const unsigned char*)str2;
-
-	ret = 0;
-	for(i = 0; i < len1; ++i)
-		ret |= (a[i] ^ b[i]);
-
-	return ret;
-}
-
-static int bcrypt_hashpw(const char* passwd, const char salt[BCRYPT_HASHSIZE],
-                         char hash[BCRYPT_HASHSIZE]) {
-	char* aux;
-	aux = crypt_rn(passwd, salt, hash, BCRYPT_HASHSIZE);
-	return (aux == NULL) ? 1 : 0;
-}
-
-static int bcrypt_checkpw(const char* passwd, const char hash[BCRYPT_HASHSIZE]) {
-	int ret;
-	char outhash[BCRYPT_HASHSIZE];
-
-	ret = bcrypt_hashpw(passwd, hash, outhash);
-	if(ret != 0) return -1;
-
-	return timing_safe_strcmp(hash, outhash);
-}
-
-#endif
-
-#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT) || \
-    defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT_BLOWFISH)
-
-NODISCARD bool hash_salt_supports_feature_sha512(void) {
-#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
-	return true;
-#else
-	// TODO(Totto): use thirdparty sha512 lib to support that!
-	return false;
-#endif
-}
+#ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
 struct HashSaltResultTypeImpl {
 	char hash[BCRYPT_HASHSIZE];
@@ -114,7 +18,6 @@ NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* 
 
 	char* password_to_use = string;
 
-#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
 	if(settings.use_sha512) {
 
 		char result_digest[BCRYPT_512BITS_BASE64_SIZE] = {};
@@ -137,18 +40,15 @@ NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* 
 
 		password_to_use = new_char;
 	}
-#endif
 
 	char result_salt[BCRYPT_HASHSIZE] = {};
 
 	int res = bcrypt_gensalt(settings.work_factor, result_salt);
 
 	if(res != 0) {
-#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
 		if(settings.use_sha512) {
 			free(password_to_use);
 		}
-#endif
 		return NULL;
 	}
 
@@ -156,11 +56,9 @@ NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* 
 
 	res = bcrypt_hashpw(password_to_use, result_salt, result_hash);
 
-#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
 	if(settings.use_sha512) {
 		free(password_to_use);
 	}
-#endif
 
 	if(res != 0) {
 		return NULL;
@@ -182,7 +80,6 @@ NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, 
 
 	char* password_to_use = string;
 
-#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
 	if(settings.use_sha512) {
 
 		char input_digest[BCRYPT_512BITS_BASE64_SIZE] = {};
@@ -205,17 +102,12 @@ NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, 
 
 		password_to_use = new_char;
 	}
-#else
-	UNUSED(settings);
-#endif
 
 	int res = bcrypt_checkpw(password_to_use, hash_salted_string->hash);
 
-#if defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_LIBBCRYPT)
 	if(settings.use_sha512) {
 		free(password_to_use);
 	}
-#endif
 
 	if(res < 0) {
 		return false;
@@ -227,14 +119,6 @@ NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, 
 void free_hash_salted_result(HashSaltResultType* hash_salted_string) {
 	free(hash_salted_string);
 }
-
-#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_BCRYPT)
-#error "bcrypt"
-#elif defined(_SIMPLE_SERVER_USE_BCRYPT_LIB_CRYPT)
-#error "crypt"
-#else
-#error "Unrecognized bcrypt lib"
-#endif
 
 #endif
 
