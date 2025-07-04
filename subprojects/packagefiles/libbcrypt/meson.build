@@ -13,6 +13,7 @@ project(
 compile_args = []
 src_files = []
 inc_dirs = include_directories('.')
+deps = []
 
 private_args = [
     '-fvisibility=hidden',
@@ -42,16 +43,23 @@ src_files += files(
 
 subdir('crypt_blowfish')
 
+if host_machine.system() == 'darwin'
+    deps += dependency('Security')
+endif
+
+
 libbcrypt = library(
     'libbcrypt',
     src_files,
     c_args: compile_args + private_args,
+    dependencies: deps,
     include_directories: inc_dirs,
 )
 
 libbcrypt_dep = declare_dependency(
     link_with: libbcrypt,
     include_directories: inc_dirs,
+    dependencies: deps,
     version: meson.project_version(),
 )
 
