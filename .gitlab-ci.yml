@@ -54,7 +54,7 @@ test:
     before_script:
         # install other dependencies
         - apt-get update
-        - apt-get install ninja-build lsb-release wget software-properties-common gnupg python3-pip pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libc-dev-bin libc6-dev bzip2 gcovr gpg libgmp-dev --no-install-recommends -y
+        - apt-get install gcc-14 g++-14 libc-dev-bin libc6-dev ninja-build lsb-release wget software-properties-common gnupg python3-pip pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libc-dev-bin libc6-dev bzip2 gcovr gpg libgmp-dev --no-install-recommends -y
         # install clang
         - wget https://apt.llvm.org/llvm.sh
         - chmod +x llvm.sh

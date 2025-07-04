@@ -8,6 +8,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <cstdint>
 
 #include <utils/sized_buffer.h>
 
