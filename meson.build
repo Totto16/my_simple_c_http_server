@@ -48,17 +48,16 @@ else
     compile_flags += '-D_SIMPLE_SERVER_SECURE_DISABLED'
 endif
 
-other_features_dict = {
-    'bcrypt': false,
-}
+other_features_dict = {'bcrypt': false, 'pam': false}
 
 other_features = get_option('other_features')
 
 foreach other_feature : other_features
-    other_features_dict = (other_features_dict + {
-        other_feature: true,
-    }
-)
+    other_features_dict = (
+        other_features_dict + {
+            other_feature: true,
+        }
+    )
 endforeach
 
 
@@ -73,6 +72,26 @@ if libbcrypt_dep.found()
     compile_flags += '-D_SIMPLE_SERVER_HAVE_BCRYPT'
 endif
 
+pam_dep = dependency(
+    'pam',
+    required: other_features_dict['pam'],
+    allow_fallback: true,
+)
+
+if pam_dep.found()
+    pam_misc_dep = dependency(
+        'pam_misc',
+        required: other_features_dict['pam'],
+        allow_fallback: true,
+    )
+    if pam_misc_dep.found()
+        deps += [pam_dep, pam_misc_dep]
+        compile_flags += '-D_SIMPLE_SERVER_HAVE_PAM'
+    endif
+
+endif
+
+
 compression_features_dict = {
     'zstd': false,
     'br': false,
@@ -84,16 +103,18 @@ compression_features_dict = {
 compression_features = get_option('compression_features')
 
 foreach compression_feature : compression_features
-    compression_features_dict = (compression_features_dict + {
-        compression_feature: true,
-    }
-)
+    compression_features_dict = (
+        compression_features_dict + {
+            compression_feature: true,
+        }
+    )
 endforeach
 
 
 zlib_dep = dependency(
     'zlib',
-    required: compression_features_dict['gzip'] or compression_features_dict['deflate'],
+    required: compression_features_dict['gzip']
+    or compression_features_dict['deflate'],
 )
 
 if zlib_dep.found()

@@ -21,6 +21,17 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType type);
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	UserRoleNone = 0,
+	UserRoleAdmin,
+	UserRoleUser,
+} UserRole;
+
+NODISCARD const char* get_name_for_user_role(UserRole role);
+
 NODISCARD AuthenticationProviders* initialize_authentication_providers(void);
 
 NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_providers,
@@ -34,11 +45,11 @@ NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
     AuthenticationProvider* simple_authentication_provider, char* username, char* password,
-    char* role);
+    UserRole role);
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
     AuthenticationProvider* simple_authentication_provider, char* username,
-    HashSaltResultType* hash_salted_password, char* role);
+    HashSaltResultType* hash_salted_password, UserRole role);
 
 void free_authentication_providers(AuthenticationProviders* auth_providers);
 
@@ -54,7 +65,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 typedef struct {
 	char* username;
-	char* role;
+	UserRole role;
 } AuthUser;
 
 typedef struct {

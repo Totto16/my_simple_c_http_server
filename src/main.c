@@ -96,7 +96,7 @@ NODISCARD static bool is_help_string(const char* str) {
 typedef struct {
 	char* username;
 	char* password;
-	char* role;
+	UserRole role;
 } SimpleUserEntry;
 
 NODISCARD static AuthenticationProviders* initialize_default_authentication_providers(void) {
@@ -114,7 +114,7 @@ NODISCARD static AuthenticationProviders* initialize_default_authentication_prov
 	} else {
 
 		SimpleUserEntry entries[] = {
-			{ .username = "admin", .password = "admin", .role = "admin" }
+			{ .username = "admin", .password = "admin", .role = UserRoleAdmin }
 		};
 
 		for(size_t i = 0; i < sizeof(entries) / sizeof(*entries); ++i) {
