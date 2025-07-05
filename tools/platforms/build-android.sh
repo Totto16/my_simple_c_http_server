@@ -258,7 +258,9 @@ for INDEX in "${ARCH_KEYS_INDEX[@]}"; do
 
     export LINK_FLAGS="'-fPIE','-L$SYS_ROOT/usr/lib'"
 
-    cat <<EOF >"$BASE_TOOLCHAIN_PATH/crossbuild-android-$ARM_TARGET_ARCH.ini"
+    CROSSBUILD_FILE="$BASE_TOOLCHAIN_PATH/platforms/crossbuild-android-$ARM_TARGET_ARCH.ini"
+
+    cat <<EOF >"$CROSSBUILD_FILE"
 [host_machine]
 system = 'android'
 cpu_family = '$MESON_CPU_FAMILY'
@@ -308,10 +310,10 @@ EOF
             "--wipe" \
             "--includedir=$INC_PATH" \
             "--libdir=$SYS_ROOT/usr/lib/$ARM_NAME_TRIPLE/$SDK_VERSION" \
-            --cross-file "$BASE_TOOLCHAIN_PATH/crossbuild-android-$ARM_TARGET_ARCH.ini" \
+            --cross-file "$CROSSBUILD_FILE" \
             "-Dbuildtype=$BUILDTYPE" \
             -Dsecure=enabled \
-            -Dcompression_features=zstd,br,deflate,gzip,compress \
+            -Dcompression_features=zstd,br,deflate,gzip \
             -Dother_features=bcrypt \
             --fatal-meson-warnings
 
