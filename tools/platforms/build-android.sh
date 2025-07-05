@@ -285,7 +285,7 @@ pkg-config = 'pkg-config'
 llvm-config = '$LLVM_CONFIG'
 
 [built-in options]
-c_std = 'gnu11'
+c_std = 'gnu23'
 cpp_std = 'c++23'
 c_args = [$COMPILE_FLAGS]
 cpp_args = [$COMPILE_FLAGS]
