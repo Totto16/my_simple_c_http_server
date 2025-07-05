@@ -256,7 +256,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 #endif
 
-#if defined(__linux__)
+#if defined(__linux__) && (!defined(__ANDROID__))
 
 #include <pwd.h>
 #include <sys/types.h>
