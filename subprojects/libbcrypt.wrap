@@ -5,7 +5,7 @@ url = https://github.com/rg3/libbcrypt.git
 revision = 120abf91e342ccf54236810d84f43ae726ed5e19
 depth = 1
 patch_directory = libbcrypt
-diff_files = libbcrypt_macos.diff
+diff_files = libbcrypt_macos.diff, libbcrypt_android.diff
 
 [provide]
 libbcrypt = libbcrypt_dep
