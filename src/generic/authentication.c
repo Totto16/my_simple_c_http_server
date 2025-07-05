@@ -262,6 +262,8 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 #include <sys/types.h>
 #include <unistd.h>
 
+#define INITIAL_SIZE_FOR_LINUX_FUNCS 0xFF
+
 NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid_t* group_id) {
 
 	struct passwd result = {};
@@ -270,10 +272,10 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid
 
 	SizedBuffer buffer = { .data = NULL, .size = 0 };
 
-	int initial_size = sysconf(_SC_GETPW_R_SIZE_MAX);
+	long initial_size = sysconf(_SC_GETPW_R_SIZE_MAX);
 
 	if(initial_size < 0) {
-		initial_size = 0xFF;
+		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
 	}
 
 	buffer.data = malloc(initial_size);
@@ -327,10 +329,10 @@ NODISCARD static char* get_group_name(gid_t group_id) {
 
 	SizedBuffer buffer = { .data = NULL, .size = 0 };
 
-	int initial_size = sysconf(_SC_GETGR_R_SIZE_MAX);
+	long initial_size = sysconf(_SC_GETGR_R_SIZE_MAX);
 
 	if(initial_size < 0) {
-		initial_size = 0xFF;
+		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
 	}
 
 	buffer.data = malloc(initial_size);
@@ -453,11 +455,14 @@ NODISCARD static int pam_conversation_for_password(int num_msg, const struct pam
 
 	PamAppdata* appdata = (PamAppdata*)appdata_ptr;
 
-	// TODO: readability-braces-around-statements
-	if(num_msg <= 0) return PAM_CONV_ERR;
+	if(num_msg <= 0) {
+		return PAM_CONV_ERR;
+	}
 
 	struct pam_response* reply = (struct pam_response*)calloc(num_msg, sizeof(struct pam_response));
-	if(!reply) return PAM_CONV_ERR;
+	if(!reply) {
+		return PAM_CONV_ERR;
+	}
 
 	for(int i = 0; i < num_msg; ++i) {
 		const struct pam_message* msg = msgs[i];
@@ -478,6 +483,8 @@ NODISCARD static int pam_conversation_for_password(int num_msg, const struct pam
 				break;
 			}
 			default: {
+				free(reply);
+				*resp = NULL;
 				return PAM_CONV_ERR;
 			}
 		}
