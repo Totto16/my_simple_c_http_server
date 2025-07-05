@@ -1,0 +1,63 @@
+diff --git a/bcrypt.c b/bcrypt.c
+index 3fc29eb..f992e42 100644
+--- a/bcrypt.c
++++ b/bcrypt.c
+@@ -58,6 +58,58 @@ static int timing_safe_strcmp(const char *str1, const char *str2)
+ 	return ret;
+ }
+ 
++
++#if defined(__ANDROID__)
++
++#include <sys/random.h>
++
++static int getentropy(void* buffer, size_t length) {
++	if(length > 256) {
++		return -1;
++	}
++
++#if __ANDROID_API__ >= 31
++	return getentropy(buffer, length);
++#elif __ANDROID_API__ >= 28
++	int res = getrandom(buffer, length, 0);
++	if(res != length) {
++		return -1;
++	}
++	return 0;
++#else
++	int fd = open("/dev/urandom", O_RDONLY);
++	if(fd < 0) {
++		return -1;
++	}
++	int res = read(fd, buffer, length);
++	if(res < 0) {
++		return -1
++	}
++	close(fd);
++	return 0;
++#endif
++}
++
++#endif
++
++#if defined(__APPLE__) || defined(__MACOSX__)
++
++#include <Security/Security.h>
++
++static int getentropy(void* buffer, size_t length) {
++	if(length > 256) {
++		return -1;
++	}
++
++	if(SecRandomCopyBytes(kSecRandomDefault, length, buffer) != 0) {
++		return -1;
++	}
++
++	return 0;
++}
++
++#endif
++
+ BCRYPT_API int bcrypt_gensalt(int factor, char salt[BCRYPT_HASHSIZE])
+ {
+ 	int ret;
