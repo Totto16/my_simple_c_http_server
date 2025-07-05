@@ -228,7 +228,7 @@ static HTTPResponseToSend auth_executor_fn(ParsedURLPath path, AuthUserWithConte
 	string_builder_append_single(string_builder, "{\"username\": \"");
 	string_builder_append_single(string_builder, user.user.username);
 	string_builder_append_single(string_builder, "\", \"role\": \"");
-	string_builder_append_single(string_builder, user.user.role);
+	string_builder_append_single(string_builder, get_name_for_user_role(user.user.role));
 	string_builder_append_single(string_builder, "\", \"provider\": \"");
 	string_builder_append_single(string_builder,
 	                             get_name_for_auth_provider_type(user.provider_type));
@@ -451,7 +451,6 @@ NODISCARD static SelectedRoute* selected_route_from_data(HTTPRouteData route_dat
 
 static void free_auth_user(AuthUserWithContext* user) {
 	free(user->user.username);
-	free(user->user.role);
 	free(user);
 }
 

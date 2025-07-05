@@ -11,7 +11,7 @@
 typedef struct {
 	char* key;
 	HashSaltResultType* hash_salted_password;
-	char* role;
+	UserRole role;
 } SimpleAccountEntry;
 
 typedef struct {
@@ -19,15 +19,10 @@ typedef struct {
 	HashSaltSettings settings;
 } SimpleAuthenticationProviderData;
 
-typedef struct {
-	int todo; // TODO(Totto): implement
-} SystemAuthenticationProviderData;
-
 struct AuthenticationProviderImpl {
 	AuthenticationProviderType type;
 	union {
 		SimpleAuthenticationProviderData simple;
-		SystemAuthenticationProviderData system;
 	} data;
 };
 
@@ -39,6 +34,15 @@ NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType
 	switch(type) {
 		case AuthenticationProviderTypeSimple: return "simple authentication provider";
 		case AuthenticationProviderTypeSystem: return "system authentication provider";
+		default: return "<unknown>";
+	}
+}
+
+NODISCARD const char* get_name_for_user_role(UserRole role) {
+	switch(role) {
+		case UserRoleNone: return "None";
+		case UserRoleAdmin: return "Admin";
+		case UserRoleUser: return "User";
 		default: return "<unknown>";
 	}
 }
@@ -87,7 +91,6 @@ NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void
 	}
 
 	auth_provider->type = AuthenticationProviderTypeSystem;
-	auth_provider->data.system = (SystemAuthenticationProviderData){ .todo = 1 };
 
 	return auth_provider;
 }
@@ -107,7 +110,7 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
     AuthenticationProvider* simple_authentication_provider,
     char* username, // NOLINT(bugprone-easily-swappable-parameters)
-    char* password, char* role) {
+    char* password, UserRole role) {
 
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 	UNUSED(simple_authentication_provider);
@@ -132,7 +135,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
     AuthenticationProvider* simple_authentication_provider, char* username,
-    HashSaltResultType* hash_salted_password, char* role) {
+    HashSaltResultType* hash_salted_password, UserRole role) {
 
 	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
 		return false;
@@ -142,7 +145,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 
 	SimpleAccountEntry entry = { .key = strdup(username),
 		                         .hash_salted_password = hash_salted_password,
-		                         .role = strdup(role) };
+		                         .role = role };
 
 	stbds_shputs(data->entries, entry);
 	return true;
@@ -160,17 +163,11 @@ static void free_simple_authentication_provider(SimpleAuthenticationProviderData
 
 		free_hash_salted_result(entry.hash_salted_password);
 		free(entry.key);
-		free(entry.role);
 	}
 
 	stbds_shfree(data.entries);
 
 #endif
-}
-
-static void free_system_authentication_provider(SystemAuthenticationProviderData data) {
-	UNUSED(data);
-	// TODO(Totto): implement
 }
 
 void free_authentication_provider(AuthenticationProvider* auth_provider) {
@@ -181,7 +178,6 @@ void free_authentication_provider(AuthenticationProvider* auth_provider) {
 			break;
 		}
 		case AuthenticationProviderTypeSystem: {
-			free_system_authentication_provider(auth_provider->data.system);
 			free(auth_provider);
 			break;
 		}
@@ -250,15 +246,360 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 	}
 
 	// TODO(Totto): maybe don't allocate this?
-	AuthUser user = { .username = strdup(entry->key), .role = strdup(entry->role) };
+	AuthUser user = { .username = strdup(entry->key), .role = entry->role };
 
 	return (AuthenticationFindResult){
 		.validity = AuthenticationValidityOk,
 		.data = { .ok = { .provider_type = AuthenticationProviderTypeSimple, .user = user } }
 	};
+}
 
-	return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
-		                               .data = { .error = { .error_message = "TODO" } } };
+#endif
+
+#if defined(__linux__)
+
+#include <pwd.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+NODISCARD static int check_for_user_linux(const char* username, gid_t* group_id) {
+
+	struct passwd result = {};
+
+	struct passwd* result_ptr = NULL;
+
+	SizedBuffer buffer = { .data = NULL, .size = 0 };
+
+	int initial_size = sysconf(_SC_GETPW_R_SIZE_MAX);
+
+	if(initial_size < 0) {
+		initial_size = 0xFF;
+	}
+
+	buffer.data = malloc(initial_size);
+
+	if(!buffer.data) {
+		return -1;
+	}
+
+	buffer.size = initial_size;
+
+	while(true) {
+
+		int res = getpwnam_r(username, &result, buffer.data, buffer.size, &result_ptr);
+
+		if(res == 0) {
+			free_sized_buffer(buffer);
+			if(result_ptr == NULL) {
+				return 0;
+			}
+
+			*group_id = result_ptr->pw_gid;
+			return 1;
+		}
+
+		if(res == ERANGE) {
+			buffer.size = buffer.size * 2;
+			void* new_data = realloc(buffer.data, buffer.size);
+			if(!new_data) {
+				free(buffer.data); // not calling free_sized_buffer, as the size is invalid, and if
+				                   // we in the future might use free_sized with own memory
+				                   // allocator, it could go wrong
+				return -1;
+			}
+
+			buffer.data = new_data;
+			continue;
+		}
+
+		free_sized_buffer(buffer);
+		return -1;
+	}
+}
+
+#include <grp.h>
+
+NODISCARD static char* get_group_name(gid_t group_id) {
+
+	struct group result = {};
+
+	struct group* result_ptr = NULL;
+
+	SizedBuffer buffer = { .data = NULL, .size = 0 };
+
+	int initial_size = sysconf(_SC_GETGR_R_SIZE_MAX);
+
+	if(initial_size < 0) {
+		initial_size = 0xFF;
+	}
+
+	buffer.data = malloc(initial_size);
+
+	if(!buffer.data) {
+		return NULL;
+	}
+
+	buffer.size = initial_size;
+
+	while(true) {
+
+		int res = getgrgid_r(group_id, &result, buffer.data, buffer.size, &result_ptr);
+
+		if(res == 0) {
+			free_sized_buffer(buffer);
+			if(result_ptr == NULL) {
+				return NULL;
+			}
+
+			char* group_name = strdup(result_ptr->gr_name);
+			free_sized_buffer(buffer);
+			return group_name;
+		}
+
+		if(res == ERANGE) {
+			buffer.size = buffer.size * 2;
+			void* new_data = realloc(buffer.data, buffer.size);
+			if(!new_data) {
+				free(buffer.data); // not calling free_sized_buffer, as the size is invalid, and if
+				                   // we in the future might use free_sized with own memory
+				                   // allocator, it could go wrong
+				return NULL;
+			}
+
+			buffer.data = new_data;
+			continue;
+		}
+
+		free_sized_buffer(buffer);
+		return NULL;
+	}
+}
+
+NODISCARD static UserRole get_role_for_linux_user(const char* username, gid_t group_id) {
+
+	int ngroups = 0;
+
+	int res = getgrouplist(username, group_id, NULL, &ngroups);
+
+	if(res != -1) {
+		return UserRoleNone;
+	}
+
+	gid_t* group_ids = malloc(sizeof(gid_t) * ngroups);
+
+	res = getgrouplist(username, ngroups, group_ids, &ngroups);
+
+	if(res < 0) {
+		free(group_ids);
+		return UserRoleNone;
+	}
+
+	// map group names to roles, just using some common names like root to map to common roles, e.g.
+	// admin etc
+	UserRole role = UserRoleNone;
+
+	for(int i = 0; i < ngroups; i++) {
+		char* name = get_group_name(group_ids[i]);
+		if(name == NULL) {
+			continue;
+		}
+
+		if(strcmp(name, "root") == 0) {
+			free(name);
+			role = UserRoleAdmin;
+			break;
+		}
+
+		if(strcmp(name, "sudo") == 0) {
+			free(name);
+			role = UserRoleAdmin;
+			break;
+		}
+
+		if(strcmp(name, "wheel") == 0) {
+			free(name);
+			role = UserRoleAdmin;
+			break;
+		}
+
+		if(strcmp(name, username) == 0) {
+			free(name);
+			role = UserRoleUser;
+			continue;
+		}
+
+		free(name);
+	}
+
+	free(group_ids);
+	return role;
+}
+
+#include <security/pam_appl.h>
+#include <security/pam_misc.h>
+
+typedef struct {
+	const char* password;
+} PamAppdata;
+
+// based on
+// https://github.com/linux-pam/linux-pam/blob/e3b66a60e4209e019cf6a45f521858cec2dbefa1/libpam_misc/misc_conv.c#L280
+NODISCARD static int pam_conversation_for_password(int num_msg, const struct pam_message** msgs,
+                                                   struct pam_response** resp,
+                                                   ANY_TYPE(PamAppdata) appdata_ptr) {
+
+	PamAppdata* appdata = (PamAppdata*)appdata_ptr;
+
+	// TODO: readability-braces-around-statements
+	if(num_msg <= 0) return PAM_CONV_ERR;
+
+	struct pam_response* reply = (struct pam_response*)calloc(num_msg, sizeof(struct pam_response));
+	if(!reply) return PAM_CONV_ERR;
+
+	for(int i = 0; i < num_msg; ++i) {
+		const struct pam_message* msg = msgs[i];
+
+		LOG_MESSAGE(LogLevelError, "MEssage from pam: %d %s\n", msg->msg_style, msg->msg);
+
+		switch(msg->msg_style) {
+			case PAM_PROMPT_ECHO_OFF:
+			case PAM_PROMPT_ECHO_ON: {
+				reply[i].resp = strdup(appdata->password);
+				reply[i].resp_retcode = 0;
+				break;
+			}
+			case PAM_ERROR_MSG:
+			case PAM_TEXT_INFO:
+			case PAM_RADIO_TYPE:
+			case PAM_BINARY_PROMPT: {
+				reply[i].resp = NULL;
+				reply[i].resp_retcode = 0;
+				break;
+			}
+			default: {
+				return PAM_CONV_ERR;
+			}
+		}
+	}
+
+	*resp = reply;
+	return PAM_SUCCESS;
+}
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	PamUserResponseError = 0,
+	PamUserResponseOk,
+	PamUserResponseNoSuchUser,
+} PamUserResponse;
+
+// see https://stackoverflow.com/questions/64184960/pam-authenticate-a-user-in-c
+// and https://github.com/linux-pam/linux-pam/blob/master/examples/check_user.c
+NODISCARD static PamUserResponse
+pam_is_user_password_combo_ok(const char* username, // NOLINT(bugprone-easily-swappable-parameters)
+                              const char* password) {
+
+	pam_handle_t* pamh = NULL;
+
+	PamAppdata app__data = { .password = password };
+
+	struct pam_conv conv = { .conv = pam_conversation_for_password, .appdata_ptr = &app__data };
+
+	int res = pam_start("check_user", username, &conv, &pamh);
+
+	if(res != PAM_SUCCESS) {
+
+		LOG_MESSAGE(LogLevelError, "pam_start failed: %s\n", pam_strerror(pamh, res));
+		return PamUserResponseError;
+	}
+
+	res = pam_authenticate(pamh, 0);
+
+	PamUserResponse response = PamUserResponseError;
+
+	switch(res) {
+		case PAM_SUCCESS: {
+			response = PamUserResponseOk;
+			break;
+		}
+		case PAM_USER_UNKNOWN: {
+			response = PamUserResponseNoSuchUser;
+			break;
+		}
+		case PAM_AUTH_ERR:
+		case PAM_ABORT:
+		case PAM_CRED_INSUFFICIENT:
+		case PAM_AUTHINFO_UNAVAIL:
+		case PAM_MAXTRIES:
+		default: {
+			response = PamUserResponseError;
+			break;
+		}
+	}
+
+	int pam_end_res = pam_end(pamh, res);
+
+	if(pam_end_res != PAM_SUCCESS) {
+		return PamUserResponseError;
+	}
+
+	return response;
+}
+
+NODISCARD static AuthenticationFindResult
+authentication_provider_system_find_user_with_password_linux(
+    const char* username, // NOLINT(bugprone-easily-swappable-parameters)
+    const char* password) {
+
+#ifndef _SIMPLE_SERVER_HAVE_PAM
+	return (AuthenticationFindResult){
+		.validity = AuthenticationValidityError,
+		.data = { .error = { .error_message = "not compiled with pam, not possible to do" } }
+	};
+#else
+
+	gid_t group_id = 0;
+
+	int does_user_exist = check_for_user_linux(username, &group_id);
+
+	if(does_user_exist < 0) {
+		return (AuthenticationFindResult){
+			.validity = AuthenticationValidityError,
+			.data = { .error = { .error_message = "couldn'T fetch user information" } }
+		};
+	}
+
+	if(!does_user_exist) {
+		return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
+			                               .data = {} };
+	}
+
+	int password_matches = pam_is_user_password_combo_ok(username, password);
+
+	if(password_matches < 0) {
+		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
+			                               .data = { .error = { .error_message =
+			                                                        "pam checking failed" } } };
+	}
+
+	if(!password_matches) {
+		return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
+			                               .data = {} };
+	}
+
+	UserRole role = get_role_for_linux_user(username, group_id);
+
+	// TODO(Totto): maybe don't allocate this?
+	AuthUser user = { .username = strdup(username), .role = role };
+
+	return (AuthenticationFindResult){
+		.validity = AuthenticationValidityOk,
+		.data = { .ok = { .provider_type = AuthenticationProviderTypeSystem, .user = user } }
+	};
+
+#endif
 }
 
 #endif
@@ -268,16 +609,24 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
     const char* username, // NOLINT(bugprone-easily-swappable-parameters)
     const char* password) {
 
-	UNUSED(auth_provider);
+	if(auth_provider->type != AuthenticationProviderTypeSystem) {
 
-	// TODO(Totto): https://stackoverflow.com/questions/64184960/pam-authenticate-a-user-in-c
-	//  and https://github.com/linux-pam/linux-pam/blob/master/examples/check_user.c
+		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
+			                               .data = { .error = { .error_message =
+			                                                        "Implementation error" } } };
+	}
 
+#if defined(__linux__)
+	return authentication_provider_system_find_user_with_password_linux(username, password);
+#else
 	UNUSED(username);
 	UNUSED(password);
+	return (AuthenticationFindResult){
+		.validity = AuthenticationValidityError,
+		.data = { .error = { .error_message = "not implementzed for this OS" } }
+	};
 
-	return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
-		                               .data = { .error = { .error_message = "TODO" } } };
+#endif
 }
 
 NODISCARD int get_result_value_for_auth_result(AuthenticationFindResult auth) {
@@ -336,8 +685,8 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 				break;
 		}
 
-		// note: the clang analyzer is incoreect here, we return a item, that is malloced, but we
-		// free it everywhere, we use this function!
+		// note: the clang analyzer is incoreect here, we return a item, that is malloced, but
+		// we free it everywhere, we use this function!
 		if(result.validity == AuthenticationValidityOk) { // NOLINT(clang-analyzer-unix.Malloc)
 			stbds_arrfree(results);
 			return result;
