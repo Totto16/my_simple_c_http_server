@@ -117,7 +117,7 @@ jobs:
                   brew install openssl@3.0 zstd zlib brotli git gmp bcrypt
 
             - name: Configure
-              run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=${{( matrix.config.os  == 'macos') && 'bcrypt,' || 'bcrypt,pam' }} --fatal-meson-warnings
+              run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=${{( matrix.config.os  == 'macos') && 'bcrypt' || 'bcrypt,pam' }} --fatal-meson-warnings
 
             - name: Build
               run: meson compile -C build
