@@ -346,8 +346,8 @@ NODISCARD static char* get_group_name(gid_t group_id) {
 		int res = getgrgid_r(group_id, &result, buffer.data, buffer.size, &result_ptr);
 
 		if(res == 0) {
-			free_sized_buffer(buffer);
 			if(result_ptr == NULL) {
+				free_sized_buffer(buffer);
 				return NULL;
 			}
 
@@ -458,8 +458,6 @@ NODISCARD static int pam_conversation_for_password(int num_msg, const struct pam
 
 	for(int i = 0; i < num_msg; ++i) {
 		const struct pam_message* msg = msgs[i];
-
-		LOG_MESSAGE(LogLevelError, "MEssage from pam: %d %s\n", msg->msg_style, msg->msg);
 
 		switch(msg->msg_style) {
 			case PAM_PROMPT_ECHO_OFF:
