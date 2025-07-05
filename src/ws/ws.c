@@ -315,7 +315,7 @@ NODISCARD static bool append_ws_extension_as_string(StringBuilder* string_builde
 	switch(extension.type) {
 		case WSExtensionTypePerMessageDeflate: {
 
-			string_builder_append_single(string_builder, "permessage-deflate");
+			string_builder_append_single(string_builder, "permessage-deflate;");
 
 			WsDeflateOptions options = extension.data.deflate;
 
