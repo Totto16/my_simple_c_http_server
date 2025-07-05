@@ -261,11 +261,9 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 							int ws_request_successful =
 							    handle_ws_handshake(http_request, descriptor, send_settings);
 
-							WebSocketFunction websocket_function_to_use =
-							    route_data // NOLINT(readability-implicit-bool-conversion)
-							            .data.special.data.ws.fragmented
-							        ? websocket_function_fragmented
-							        : websocket_function;
+							WsConnectionArgs websocket_args = get_ws_args_from_http_request(
+							    route_data.data.special.data.ws.fragmented,
+							    selected_route_data.path);
 
 							if(ws_request_successful >= 0) {
 								// move the context so that we can use it in the long standing web
@@ -273,9 +271,9 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								ConnectionContext* new_context = copy_connection_context(context);
 								argument->contexts[worker_info.worker_index] = new_context;
 
-								if(!thread_manager_add_connection(argument->web_socket_manager,
-								                                  descriptor, context,
-								                                  websocket_function_to_use)) {
+								if(!thread_manager_add_connection(
+								       argument->web_socket_manager, descriptor, context,
+								       websocket_function, websocket_args)) {
 									free_http_request(http_request);
 									FREE_AT_END();
 

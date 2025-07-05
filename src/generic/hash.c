@@ -7,7 +7,6 @@
 #include <bcrypt.h>
 #endif
 
-
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
 struct HashSaltResultTypeImpl {

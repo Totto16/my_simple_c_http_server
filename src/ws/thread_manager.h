@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include "./ws.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
 
@@ -24,22 +25,10 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } WebSocketAction;
 
 typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,
-                                             WebSocketMessage message);
+                                             WebSocketMessage message, WsConnectionArgs args);
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	WsFragmentationOff,
-	WsFragmentationAuto,
-} FragmentOption;
-
-#define WS_MINIMUM_FRAGMENT_SIZE 16
-
-NODISCARD int ws_send_message(WebSocketConnection* connection, WebSocketMessage message);
-
-NODISCARD int ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
-                                         int64_t fragment_size);
+NODISCARD int ws_send_message(WebSocketConnection* connection, WebSocketMessage message,
+                              WsFragmentOption fragment_options);
 
 /**
  * NOT Thread safe
@@ -52,7 +41,8 @@ NODISCARD WebSocketThreadManager* initialize_thread_manager(void);
 NODISCARD WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
                                                              ConnectionDescriptor* descriptor,
                                                              ConnectionContext* context,
-                                                             WebSocketFunction function);
+                                                             WebSocketFunction function,
+                                                             WsConnectionArgs args);
 
 /**
  * Thread safe

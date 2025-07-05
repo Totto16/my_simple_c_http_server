@@ -228,3 +228,37 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 
 	return send_http_message_to_connection(descriptor, to_send, send_settings);
 }
+
+NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(bool fragmented,
+                                                                         ParsedURLPath path) {
+	if(!fragmented) {
+		return (WsFragmentOption){ .type = WsFragmentOptionTypeOff };
+	}
+
+	WsFragmentOption result = { .type = WsFragmentOptionTypeAuto };
+
+	ParsedSearchPathEntry* fragment_size = find_search_key(path.search_path, "fragment_size");
+
+	if(fragment_size != NULL) {
+
+		bool success = true;
+
+		long parsed_long = parse_long(fragment_size->value, &success);
+
+		if(success) {
+
+			if(parsed_long >= 0 && (size_t)parsed_long < SIZE_MAX) {
+				result.type = WsFragmentOptionTypeSet;
+				result.data.set.fragment_size = (size_t)parsed_long;
+			}
+		}
+	}
+
+	return result;
+}
+
+NODISCARD WsConnectionArgs get_ws_args_from_http_request(bool fragmented, ParsedURLPath path) {
+
+	return (WsConnectionArgs){ .fragment_option =
+		                           get_ws_fragment_args_from_http_request(fragmented, path) };
+}

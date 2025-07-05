@@ -42,6 +42,7 @@ struct WebSocketConnectionImpl {
 	ConnectionDescriptor* descriptor;
 	WebSocketFunction function;
 	pthread_t thread_id;
+	WsConnectionArgs args;
 };
 
 /**
@@ -362,6 +363,9 @@ NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connec
 	return ws_send_message_raw_internal(connection, raw_message, mask);
 }
 
+// according to rfc
+#define WS_MINIMUM_FRAGMENT_SIZE 16
+
 NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* connection,
                                                          WebSocketMessage message, bool mask,
                                                          uint64_t fragment_size) {
@@ -412,13 +416,13 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 
 NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
                                               WebSocketMessage message, bool mask,
-                                              int64_t fragment_size) {
+                                              WsFragmentOption fragment_option) {
 
-	if(fragment_size == WsFragmentationOff) {
+	if(fragment_option.type == WsFragmentOptionTypeOff) {
 		return ws_send_message_internal_normal(connection, message, mask);
 	}
 
-	if(fragment_size == WsFragmentationAuto || fragment_size <= 0) {
+	if(fragment_option.type == WsFragmentOptionTypeAuto) {
 
 		int socket_fd = get_underlying_socket(connection->descriptor);
 
@@ -433,7 +437,7 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 
 			if(result == 0) {
 				if(buffer_size >= WS_MAXIMUM_HEADER_LENGTH) {
-					// NOTE: this value is the doubled, if you set it, but we use th doubled value
+					// NOTE: this value is the doubled, if you set it, but we use the doubled value
 					// here anyway
 					// we subtract the header length, so that it is can fit into one buffer
 					chosen_fragment_size = ((uint64_t)buffer_size) - WS_MAXIMUM_HEADER_LENGTH;
@@ -448,7 +452,12 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 		return ws_send_message_internal_fragmented(connection, message, mask, chosen_fragment_size);
 	}
 
-	return ws_send_message_internal_fragmented(connection, message, mask, (uint64_t)fragment_size);
+	if(fragment_option.type == WsFragmentOptionTypeSet) {
+		return ws_send_message_internal_fragmented(connection, message, mask,
+		                                           fragment_option.data.set.fragment_size);
+	}
+
+	return ws_send_message_internal_normal(connection, message, mask);
 }
 
 /**
@@ -1125,7 +1134,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	handle_message:
 
 		if(has_message) {
-			WebSocketAction action = connection->function(connection, current_message);
+			WebSocketAction action =
+			    connection->function(connection, current_message, connection->args);
 			free(current_message.data);
 			// has_message = false;
 			current_message.data = NULL;
@@ -1179,14 +1189,9 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 #undef FREE_AT_END
 
-int ws_send_message(WebSocketConnection* connection, WebSocketMessage message) {
-
-	return ws_send_message_internal(connection, message, false, WsFragmentationOff);
-}
-
-int ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
-                               int64_t fragment_size) {
-	return ws_send_message_internal(connection, message, false, fragment_size);
+int ws_send_message(WebSocketConnection* connection, WebSocketMessage message,
+                    WsFragmentOption fragment_options) {
+	return ws_send_message_internal(connection, message, false, fragment_options);
 }
 
 WebSocketThreadManager* initialize_thread_manager(void) {
@@ -1212,7 +1217,8 @@ WebSocketThreadManager* initialize_thread_manager(void) {
 WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
                                                    ConnectionDescriptor* const descriptor,
                                                    ConnectionContext* context,
-                                                   WebSocketFunction function) {
+                                                   WebSocketFunction function,
+                                                   WsConnectionArgs args) {
 
 	int result = pthread_mutex_lock(&manager->mutex);
 	// TODO(Totto): better report error
@@ -1230,6 +1236,7 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	connection->context = context;
 	connection->descriptor = descriptor;
 	connection->function = function;
+	connection->args = args;
 
 	ConnectionNode* current_node = NULL;
 	ConnectionNode* next_node = manager->head;
