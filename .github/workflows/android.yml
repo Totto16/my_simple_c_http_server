@@ -1,0 +1,53 @@
+name: Android CI
+
+on:
+  release:
+    types: [published]
+  push:
+    branches: ['main']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  android-build:
+    name: Build android apk for - ${{ matrix.config.arch }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - arch: armeabi-v7a
+          - arch: arm64-v8a
+          - arch: x86
+          - arch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: '0'
+
+      # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
+      - name: Setup Meson
+        run: |
+          pip install meson --break-system-packages
+
+      - name: Setup ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build jq -y --no-install-recommends
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup NDK
+        run: |
+          sdkmanager --install "ndk;29.0.13599879"
+
+      - name: Build native executable
+        run: |
+          bash ./tools/platforms/build-android.sh ${{ matrix.config.arch }} complete_rebuild release CI
