@@ -625,7 +625,7 @@ NODISCARD static const char* close_websocket_connection(WebSocketConnection* con
                                                         WebSocketThreadManager* manager,
                                                         CloseReason reason) {
 
-	if(reason.message) {
+	if(reason.message != NULL) {
 		int message_size =
 		    reason.message_len < 0 ? (int)strlen(reason.message) : reason.message_len;
 		LOG_MESSAGE(LogLevelTrace, "Closing the websocket connection: %.*s\n", message_size,

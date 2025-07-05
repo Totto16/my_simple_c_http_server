@@ -141,8 +141,8 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params
 		}
 
 		// strip whitespace
-		while(isspace(*params)) {
-			params++;
+		while(isspace(*current_params)) {
+			current_params++;
 		}
 
 		{
