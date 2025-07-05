@@ -262,7 +262,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 #include <sys/types.h>
 #include <unistd.h>
 
-NODISCARD static int check_for_user_linux(const char* username, gid_t* group_id) {
+NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid_t* group_id) {
 
 	struct passwd result = {};
 
@@ -375,7 +375,8 @@ NODISCARD static char* get_group_name(gid_t group_id) {
 	}
 }
 
-NODISCARD static UserRole get_role_for_linux_user(const char* username, gid_t group_id) {
+NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* username,
+                                                               gid_t group_id) {
 
 	int ngroups = 0;
 
@@ -434,6 +435,8 @@ NODISCARD static UserRole get_role_for_linux_user(const char* username, gid_t gr
 	free(group_ids);
 	return role;
 }
+
+#ifdef _SIMPLE_SERVER_HAVE_PAM
 
 #include <security/pam_appl.h>
 #include <security/pam_misc.h>
@@ -546,12 +549,16 @@ pam_is_user_password_combo_ok(const char* username, // NOLINT(bugprone-easily-sw
 	return response;
 }
 
+#endif
+
 NODISCARD static AuthenticationFindResult
 authentication_provider_system_find_user_with_password_linux(
     const char* username, // NOLINT(bugprone-easily-swappable-parameters)
     const char* password) {
 
 #ifndef _SIMPLE_SERVER_HAVE_PAM
+	UNUSED(username);
+	UNUSED(password);
 	return (AuthenticationFindResult){
 		.validity = AuthenticationValidityError,
 		.data = { .error = { .error_message = "not compiled with pam, not possible to do" } }
