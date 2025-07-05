@@ -130,11 +130,11 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params,
                                                                     WsDeflateOptions* options) {
 
-	char* current_param = params;
+	char* current_params = params;
 
 	while(true) {
 
-		char* next_params = index(current_param, ';');
+		char* next_params = index(current_params, ';');
 
 		if(next_params != NULL) {
 			*next_params = '\0';
@@ -147,11 +147,11 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params
 
 		{
 
-			char* current_param_name = current_param;
+			char* current_param_name = current_params;
 
 			char* current_param_value = NULL;
 
-			char* current_param_value_start = index(current_param, '=');
+			char* current_param_value_start = index(current_param_name, '=');
 
 			if(current_param_value_start != NULL) {
 				*current_param_value_start = '\0';
@@ -218,7 +218,15 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params
 				return false;
 			}
 		}
+
+		if(next_params == NULL) {
+			break;
+		}
+
+		current_params = next_params + 1;
 	}
+
+	return true;
 }
 
 #define DEFAULT_CONTEXT_TAKEOVER_VALUE false
