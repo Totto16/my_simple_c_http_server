@@ -9,6 +9,7 @@
 #include "utils/string_builder.h"
 #include "utils/string_helper.h"
 
+#include <ctype.h>
 #include <strings.h>
 
 NODISCARD static int
@@ -121,6 +122,185 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HandshakeHeaderHeaderAllFound = 0b11111,
 } NeededHeaderForHandshake;
 
+#define DEFAULT_MAX_WINDOW_BITS 15
+
+#define MIN_MAX_WINDOW_BITS 8
+#define MAX_MAX_WINDOW_BITS 15
+
+NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params,
+                                                                    WsDeflateOptions* options) {
+
+	char* current_param = params;
+
+	while(true) {
+
+		char* next_params = index(current_param, ';');
+
+		if(next_params != NULL) {
+			*next_params = '\0';
+		}
+
+		// strip whitespace
+		while(isspace(*params)) {
+			params++;
+		}
+
+		{
+
+			char* current_param_name = current_param;
+
+			char* current_param_value = NULL;
+
+			char* current_param_value_start = index(current_param, '=');
+
+			if(current_param_value_start != NULL) {
+				*current_param_value_start = '\0';
+				current_param_value = current_param_value_start + 1;
+			}
+
+			if(strcmp(current_param_name, "server_no_context_takeover") == 0) {
+				if(current_param_value != NULL) {
+					return false;
+				}
+
+				options->server.no_context_takeover = true;
+
+			} else if(strcmp(current_param_name, "server_max_window_bits") == 0) {
+
+				uint8_t max_window_bits = DEFAULT_MAX_WINDOW_BITS;
+
+				if(current_param_value != NULL) {
+					bool success = true;
+					long parsed_number = parse_long(current_param_value, &success);
+
+					if(!success) {
+						return false;
+					}
+
+					if(parsed_number < MIN_MAX_WINDOW_BITS || parsed_number > MAX_MAX_WINDOW_BITS) {
+						return false;
+					}
+
+					max_window_bits = (uint8_t)parsed_number;
+				}
+
+				options->server.max_window_bits = max_window_bits;
+
+			} else if(strcmp(current_param_name, "client_no_context_takeover") == 0) {
+				if(current_param_value != NULL) {
+					return false;
+				}
+
+				options->client.no_context_takeover = true;
+
+			} else if(strcmp(current_param_name, "client_max_window_bits") == 0) {
+
+				uint8_t max_window_bits = DEFAULT_MAX_WINDOW_BITS;
+
+				if(current_param_value != NULL) {
+					bool success = true;
+					long parsed_number = parse_long(current_param_value, &success);
+
+					if(!success) {
+						return false;
+					}
+
+					if(parsed_number < 0 || parsed_number > UINT8_MAX) {
+						return false;
+					}
+
+					max_window_bits = (uint8_t)parsed_number;
+				}
+
+				options->client.max_window_bits = max_window_bits;
+
+			} else {
+				return false;
+			}
+		}
+	}
+}
+
+#define DEFAULT_CONTEXT_TAKEOVER_VALUE false
+
+NODISCARD static WSExtension parse_ws_extension_value(char* value, bool* success) {
+
+	char* name = value;
+
+	char* params_start = index(value, ';');
+
+	char* params = NULL;
+	if(params_start != NULL) {
+		*params_start = '\0';
+		params = params_start + 1;
+
+		// strip whitespace
+		while(isspace(*params)) {
+			params++;
+		}
+	}
+
+	if(strcmp(name, "permessage-deflate") == 0) {
+
+		WSExtension extension = {
+			.type = WSExtensionTypePerMessageDeflate,
+			.data = { .deflate = { .client = { .no_context_takeover =
+			                                       DEFAULT_CONTEXT_TAKEOVER_VALUE,
+			                                   .max_window_bits = DEFAULT_MAX_WINDOW_BITS },
+			                       .server = { .no_context_takeover =
+			                                       DEFAULT_CONTEXT_TAKEOVER_VALUE,
+			                                   .max_window_bits = DEFAULT_MAX_WINDOW_BITS } } }
+		};
+
+		if(params != NULL) {
+			bool res =
+			    parse_ws_extension_per_message_deflate_params(params, &extension.data.deflate);
+
+			*success = res;
+			return extension;
+		}
+
+		*success = true;
+		return extension;
+	}
+
+	*success = false;
+	return (WSExtension){};
+}
+
+// see https://datatracker.ietf.org/doc/html/rfc6455#section-9.1
+static void parse_ws_extensions(WSExtensions* extensions, const char* const value_const) {
+
+	char* value = strdup(value_const);
+
+	char* current_extension = value;
+
+	while(true) {
+
+		char* next_value = index(current_extension, ',');
+
+		if(next_value != NULL) {
+			*next_value = '\0';
+		}
+
+		bool success = true;
+
+		WSExtension extension = parse_ws_extension_value(current_extension, &success);
+
+		if(success) {
+			stbds_arrput(*extensions, extension);
+		}
+
+		if(next_value == NULL) {
+			break;
+		}
+
+		current_extension = next_value + 1;
+	}
+
+	free(value);
+}
+
 static const bool send_http_upgrade_required_status_code = true;
 
 int handle_ws_handshake(const HttpRequest* const http_request,
@@ -132,6 +312,7 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 
 	char* sec_key = NULL;
 	bool from_browser = false;
+	WSExtensions extensions = STBDS_ARRAY_EMPTY;
 
 	for(size_t i = 0; i < stbds_arrlenu(http_request->head.header_fields); ++i) {
 		HttpHeaderField header = http_request->head.header_fields[i];
@@ -168,10 +349,17 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 				return send_failed_handshake_message(
 				    descriptor, "sec-websocket-version has invalid value", send_settings);
 			}
+		} else if(strcasecmp(header.key, "sec-webSocket-extensions") == 0) {
+			// TODO(Totto): this header field may be specified multiple times, but we should
+			// combine all and than parse it, but lets see if the autobahn test suite tests for
+			// that first
+			parse_ws_extensions(&extensions, header.value);
+
 		} else if(strcasecmp(header.key, "origin") == 0) {
 			from_browser = true;
 		} else {
 			// do nothing
+			continue;
 		}
 
 		// TODO(Totto): support this optional headers:
@@ -179,11 +367,7 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 		   8.   Optionally, a |Sec-WebSocket-Protocol| header field, with a list
 		        of values indicating which protocols the client would like to
 		        speak, ordered by preference.
-
-		   9.   Optionally, a |Sec-WebSocket-Extensions| header field, with a
-		        list of values indicating which extensions the client would like
-		        to speak.  The interpretation of this header field is discussed
-		        in Section 9.1. */
+		*/
 	}
 
 	UNUSED(from_browser);

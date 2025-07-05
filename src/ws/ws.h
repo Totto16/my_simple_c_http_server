@@ -31,3 +31,29 @@ typedef struct {
 } WsConnectionArgs;
 
 NODISCARD WsConnectionArgs get_ws_args_from_http_request(bool fragmented, ParsedURLPath path);
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	WSExtensionTypePerMessageDeflate,
+} WSExtensionType;
+
+typedef struct {
+	bool no_context_takeover;
+	uint8_t max_window_bits;
+} WsDeflateSingleOption;
+
+typedef struct {
+	WsDeflateSingleOption client;
+	WsDeflateSingleOption server;
+} WsDeflateOptions;
+
+typedef struct {
+	WSExtensionType type;
+	union {
+		WsDeflateOptions deflate;
+	} data;
+} WSExtension;
+
+typedef STBDS_ARRAY(WSExtension) WSExtensions;
