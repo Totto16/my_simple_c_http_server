@@ -492,16 +492,18 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(char* value) {
 			                      .data = { .error = { .error_message = "empty header value" } } };
 	}
 
-	// Syntax:  Authorization: <auth-scheme> <authorization-parameters>))
-	char* auth_scheme = strchr(value, ' ');
+	char* auth_scheme = value;
 
-	if(auth_scheme == NULL) {
+	// Syntax:  Authorization: <auth-scheme> <authorization-parameters>))
+	char* auth_param_start = strchr(value, ' ');
+
+	if(auth_param_start == NULL) {
 		return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
 			                          .data = { .error = { .error_message =
-			                                                   "no auth-scheme specified" } } };
+			                                                   "no auth-params specified" } } };
 	}
 
-	*auth_scheme = '\0';
+	*auth_param_start = '\0';
 
 	// TODO(Totto): support more auth-schemes
 
@@ -509,16 +511,16 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(char* value) {
 	if(strcasecmp(auth_scheme, "Basic") == 0) {
 		// see https://datatracker.ietf.org/doc/html/rfc7617
 
-		char* value = auth_scheme + 1;
+		char* auth_param = auth_param_start + 1;
 
-		if(strlen(value) == 0) {
+		if(strlen(auth_param) == 0) {
 			return (
 			    HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
 				                      .data = { .error = { .error_message = "data was empty" } } };
 		}
 
 		SizedBuffer decoded =
-		    base64_decode_buffer((SizedBuffer){ .data = value, .size = strlen(value) });
+		    base64_decode_buffer((SizedBuffer){ .data = auth_param, .size = strlen(auth_param) });
 
 		if(!decoded.data) {
 			return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
