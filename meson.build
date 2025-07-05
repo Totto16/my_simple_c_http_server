@@ -50,6 +50,7 @@ endif
 
 other_features_dict = {
     'bcrypt': false,
+    'pam': false,
 }
 
 other_features = get_option('other_features')
@@ -72,6 +73,26 @@ if libbcrypt_dep.found()
     deps += libbcrypt_dep
     compile_flags += '-D_SIMPLE_SERVER_HAVE_BCRYPT'
 endif
+
+pam_dep = dependency(
+    'pam',
+    required: other_features_dict['pam'],
+    allow_fallback: true,
+)
+
+if pam_dep.found()
+    pam_misc_dep = dependency(
+        'pam_misc',
+        required: other_features_dict['pam'],
+        allow_fallback: true,
+    )
+    if pam_misc_dep.found()
+        deps += [pam_dep, pam_misc_dep]
+        compile_flags += '-D_SIMPLE_SERVER_HAVE_PAM'
+    endif
+
+endif
+
 
 compression_features_dict = {
     'zstd': false,

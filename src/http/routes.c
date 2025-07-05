@@ -228,7 +228,7 @@ static HTTPResponseToSend auth_executor_fn(ParsedURLPath path, AuthUserWithConte
 	string_builder_append_single(string_builder, "{\"username\": \"");
 	string_builder_append_single(string_builder, user.user.username);
 	string_builder_append_single(string_builder, "\", \"role\": \"");
-	string_builder_append_single(string_builder, user.user.role);
+	string_builder_append_single(string_builder, get_name_for_user_role(user.user.role));
 	string_builder_append_single(string_builder, "\", \"provider\": \"");
 	string_builder_append_single(string_builder,
 	                             get_name_for_auth_provider_type(user.provider_type));
@@ -451,7 +451,6 @@ NODISCARD static SelectedRoute* selected_route_from_data(HTTPRouteData route_dat
 
 static void free_auth_user(AuthUserWithContext* user) {
 	free(user->user.username);
-	free(user->user.role);
 	free(user);
 }
 
@@ -493,16 +492,18 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(char* value) {
 			                      .data = { .error = { .error_message = "empty header value" } } };
 	}
 
-	// Syntax:  Authorization: <auth-scheme> <authorization-parameters>))
-	char* auth_scheme = strchr(value, ' ');
+	char* auth_scheme = value;
 
-	if(auth_scheme == NULL) {
+	// Syntax:  Authorization: <auth-scheme> <authorization-parameters>))
+	char* auth_param_start = strchr(value, ' ');
+
+	if(auth_param_start == NULL) {
 		return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
 			                          .data = { .error = { .error_message =
-			                                                   "no auth-scheme specified" } } };
+			                                                   "no auth-params specified" } } };
 	}
 
-	*auth_scheme = '\0';
+	*auth_param_start = '\0';
 
 	// TODO(Totto): support more auth-schemes
 
@@ -510,16 +511,16 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(char* value) {
 	if(strcasecmp(auth_scheme, "Basic") == 0) {
 		// see https://datatracker.ietf.org/doc/html/rfc7617
 
-		char* value = auth_scheme + 1;
+		char* auth_param = auth_param_start + 1;
 
-		if(strlen(value) == 0) {
+		if(strlen(auth_param) == 0) {
 			return (
 			    HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
 				                      .data = { .error = { .error_message = "data was empty" } } };
 		}
 
 		SizedBuffer decoded =
-		    base64_decode_buffer((SizedBuffer){ .data = value, .size = strlen(value) });
+		    base64_decode_buffer((SizedBuffer){ .data = auth_param, .size = strlen(auth_param) });
 
 		if(!decoded.data) {
 			return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,

@@ -45,7 +45,7 @@ jobs:
             - name: Install dependencies
               run: |
                   sudo apt-get update
-                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 gcovr libgmp-dev -y --no-install-recommends
+                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 gcovr libgmp-dev libpam0g-dev -y --no-install-recommends
 
             - name: Install pypy2 and autobahn
               run: |
@@ -55,7 +55,7 @@ jobs:
                   sudo apt-get install openssl libssl-dev --no-install-recommends -y
 
             - name: Configure
-              run: meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt
+              run: meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
 
             - name: Build
               run: meson compile -C build
@@ -71,7 +71,7 @@ jobs:
 
             - name: Unit Tests
               run: |
-                  meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt
+                  meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
                   meson compile -C test_build
                   meson test -C test_build --verbose
                   ninja coverage -C test_build

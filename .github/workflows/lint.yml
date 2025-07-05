@@ -30,9 +30,9 @@ jobs:
       - name: Prepare compile_commands.json
         run: |
           sudo apt-get update
-          sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev libgmp-dev -y --no-install-recommends
+          sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev libgmp-dev libpam0g-dev -y --no-install-recommends
 
-          meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress
+          meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
 
       - uses: cpp-linter/cpp-linter-action@v2
         id: linter

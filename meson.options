@@ -24,6 +24,6 @@ option(
     'other_features',
     type: 'array',
     value: [],
-    choices: ['bcrypt'],
+    choices: ['bcrypt', 'pam'],
     description: 'specify other needed features',
 )
