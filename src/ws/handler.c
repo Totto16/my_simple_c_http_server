@@ -5,7 +5,8 @@
 #define MAX_PRINT_FOR_TEXT_MESSAGE 200
 
 WebSocketAction websocket_function(WebSocketConnection* connection, WebSocketMessage message,
-                                   WsConnectionArgs args) {
+                                   WsConnectionArgs args,
+                                   ExtensionSendState* extension_send_state) {
 
 	if(message.is_text) {
 
@@ -21,7 +22,7 @@ WebSocketAction websocket_function(WebSocketConnection* connection, WebSocketMes
 	}
 
 	// for autobahn tests, just echoing the things
-	int result = ws_send_message(connection, message, args.fragment_option);
+	int result = ws_send_message(connection, message, args, extension_send_state);
 
 	if(result) {
 		return WebSocketActionError;

@@ -20,10 +20,11 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } WebSocketAction;
 
 typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,
-                                             WebSocketMessage message, WsConnectionArgs args);
+                                             WebSocketMessage message, WsConnectionArgs args,
+                                             ExtensionSendState* extension_send_state);
 
 NODISCARD int ws_send_message(WebSocketConnection* connection, WebSocketMessage message,
-                              WsFragmentOption fragment_options);
+                              WsConnectionArgs args, ExtensionSendState* extension_send_state);
 
 /**
  * NOT Thread safe
