@@ -452,13 +452,14 @@ static char* compress_ws_message(WebSocketRawMessage* raw_message, WsDeflateOpti
 	    compress_buffer_with_zlib(input_buffer, false, options->server.max_window_bits);
 
 	if(result.data == NULL) {
-		return strdup("decompress error");
+		return strdup("compress error");
 	}
 
 	free_sized_buffer(input_buffer);
 
 	raw_message->payload = result.data;
 	raw_message->payload_len = result.size;
+	raw_message->rsv_bytes = raw_message->rsv_bytes | 0b100;
 
 	return NULL;
 }
@@ -514,14 +515,14 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 	STBDS_ARRAY(WsProcessFn) array_fns = STBDS_ARRAY_EMPTY;
 
 	for(size_t i = 0; i < extension_length; ++i) {
-		WSExtension extension = extensions[i];
+		WSExtension* extension = &(extensions[i]);
 
 		WsProcessFn process_fn = {};
-		switch(extension.type) {
+		switch(extension->type) {
 			case WSExtensionTypePerMessageDeflate: {
 				process_fn = (WsProcessFn){ .receive_fn = permessage_deflate_process_receive_fn,
 					                        .send_fn = permessage_deflate_process_send_fn,
-					                        .arg = &extension.data.deflate };
+					                        .arg = &(extension->data.deflate) };
 				extension_pipeline->extension_mask =
 				    extension_pipeline->extension_mask | WsExtensionMaskPerMessageDeflate;
 				break;

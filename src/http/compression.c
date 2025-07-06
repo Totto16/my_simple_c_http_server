@@ -170,7 +170,7 @@ NODISCARD SizedBuffer decompress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
                                                   size_t max_window_bits) {
 
 	if(max_window_bits < Z_MIN_WINDOW_BITS || max_window_bits > Z_MAX_WINDOW_BITS) {
-		return get_empty_sized_buffer();
+		return SIZED_BUFFER_ERROR;
 	}
 
 	// the maximum window bits are used, even if we could use loweer widnow bits
