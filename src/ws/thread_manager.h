@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include "./types.h"
 #include "./ws.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
@@ -8,12 +9,6 @@
 typedef struct WebSocketThreadManagerImpl WebSocketThreadManager;
 
 typedef struct WebSocketConnectionImpl WebSocketConnection;
-
-typedef struct {
-	bool is_text;
-	void* data;
-	uint64_t data_len;
-} WebSocketMessage;
 
 /**
  * @enum value

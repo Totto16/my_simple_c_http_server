@@ -1,13 +1,14 @@
 
 #include "./extension.h"
 
+#include "http/compression.h"
 #include "utils/string_builder.h"
 
 #include <ctype.h>
 
 #define DEFAULT_MAX_WINDOW_BITS 15
 
-#define MIN_MAX_WINDOW_BITS 8
+#define MIN_MAX_WINDOW_BITS 9
 #define MAX_MAX_WINDOW_BITS 15
 
 NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params,
@@ -298,32 +299,42 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 // one atm, but the chaining pipeline was still implemented in a way, so that no extension is fast
 // and everything is handled correctly
 
-// TODO:
-typedef struct {
-	int todo;
-} WebSocketRawMessage;
-
-typedef void (*WsProcessMessageRawFn)(WebSocketRawMessage* message, ANY arg);
+typedef char* (*WsProcessReceiveMessageRawFn)(
+    WebSocketMessage* message, const ExtensionMessageReceiveState* const message_state, ANY arg);
 
 typedef struct {
-	WsProcessMessageRawFn ptr;
+	WsProcessReceiveMessageRawFn ptr;
 	ANY arg;
-} WsProcessFn;
+} WsProcessReceiveFn;
 
-struct ExtensionPipelineImpl {
-	ExtensionPipelineSettings settings;
-	WsProcessFn process_fn;
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	WsExtensionMaskNone = 0x00,
+	WsExtensionMaskPerMessageDeflate = 0x01,
+} WsExtensionMask;
+
+struct ExtensionReceivePipelineImpl {
+	ExtensionReceivePipelineSettings settings;
+	WsProcessReceiveFn process_fn;
+	size_t active_extensions;
+	WsExtensionMask extension_mask;
 };
 
-NODISCARD static ExtensionPipelineSettings get_pipeline_settings(WSExtensions extensions) {
-	ExtensionPipelineSettings settings = { .allowed_rsv_bytes = 0 };
+struct ExtensionMessageReceiveStateImpl {
+	bool is_compressed_message;
+};
+
+NODISCARD static ExtensionReceivePipelineSettings get_pipeline_settings(WSExtensions extensions) {
+	ExtensionReceivePipelineSettings settings = { .allowed_rsv_bytes = 0 };
 
 	for(size_t i = 0; i < stbds_arrlenu(extensions); ++i) {
 		WSExtension extension = extensions[i];
 
 		switch(extension.type) {
 			case WSExtensionTypePerMessageDeflate: {
-				settings.allowed_rsv_bytes = settings.allowed_rsv_bytes & 0b100;
+				settings.allowed_rsv_bytes = settings.allowed_rsv_bytes | 0b100;
 				break;
 			}
 			default: {
@@ -336,83 +347,197 @@ NODISCARD static ExtensionPipelineSettings get_pipeline_settings(WSExtensions ex
 }
 
 // does't modify the message at all
-static void noop_process_fn(WebSocketRawMessage* message, ANY_TYPE(NULL) arg) {
+static char* noop_process_fn(WebSocketMessage* message,
+                             const ExtensionMessageReceiveState* const message_state,
+                             ANY_TYPE(NULL) arg) {
 	UNUSED(message);
+	UNUSED(message_state);
 	UNUSED(arg);
+	return NULL;
 }
 
-typedef STBDS_ARRAY(WsProcessFn) ArrayProcessArg;
+typedef STBDS_ARRAY(WsProcessReceiveFn) ArrayProcessReceiveArg;
 
-static void array_process_fn(WebSocketRawMessage* message, ANY_TYPE(ArrayProcessArg) arg) {
+static char* array_process_fn(WebSocketMessage* message,
+                              const ExtensionMessageReceiveState* const message_state,
+                              ANY_TYPE(ArrayProcessReceiveArg) arg) {
 
-	ArrayProcessArg process_arg = (ArrayProcessArg)arg;
+	ArrayProcessReceiveArg process_arg = (ArrayProcessReceiveArg)arg;
 
 	for(size_t i = 0; i < stbds_arrlenu(process_arg); ++i) {
-		WsProcessFn fn = process_arg[i];
+		WsProcessReceiveFn process_fn = process_arg[i];
 
-		fn.ptr(message, fn.arg);
+		char* error = process_fn.ptr(message, message_state, process_fn.arg);
+		if(error != NULL) {
+			return error;
+		}
 	}
+	return NULL;
 }
 
-static void permessage_deflate_process_fn(WebSocketRawMessage* message,
-                                          ANY_TYPE(WsDeflateOptions*) arg) {
+static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* options) {
+	// see:
+	// https://datatracker.ietf.org/doc/html/rfc7692#section-6.2https://datatracker.ietf.org/doc/html/rfc7692#section-6.2
 
-	WsDeflateOptions* process_arg = (WsDeflateOptions*)arg;
+	SizedBuffer input_buffer = { .data = message->data, .size = message->data_len };
 
-	// TODO
-	UNUSED(message);
-	UNUSED(process_arg);
+	if(!options->client.no_context_takeover) {
+		return strdup("client context takeover is not supported");
+	}
+
+	SizedBuffer result =
+	    decompress_buffer_with_zlib(input_buffer, false, options->client.max_window_bits);
+
+	if(result.data == NULL) {
+		return strdup("decompress error");
+	}
+
+	free_sized_buffer(input_buffer);
+
+	message->data = result.data;
+	message->data_len = result.size;
+
+	return NULL;
 }
 
-NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
+static char* permessage_deflate_process_fn(WebSocketMessage* message,
+                                           const ExtensionMessageReceiveState* const message_state,
+                                           ANY_TYPE(WsDeflateOptions*) arg) {
 
-	ExtensionPipeline* pipline = malloc(sizeof(ExtensionPipeline));
-
-	if(!pipline) {
+	if(!message_state->is_compressed_message) {
 		return NULL;
 	}
 
-	pipline->settings = get_pipeline_settings(extensions);
+	WsDeflateOptions* process_arg = (WsDeflateOptions*)arg;
 
-	size_t extension_length = stbds_arrlenu(extensions);
+	return decompress_ws_message(message, process_arg);
+}
 
-	if(extension_length == 0) {
-		pipline->process_fn.arg = NULL;
-		pipline->process_fn.ptr = noop_process_fn;
-		return pipline;
+NODISCARD ExtensionReceivePipeline* get_extension_receive_pipeline(WSExtensions extensions) {
+
+	ExtensionReceivePipeline* extension_receive_pipeline = malloc(sizeof(ExtensionReceivePipeline));
+
+	if(!extension_receive_pipeline) {
+		return NULL;
 	}
 
-	STBDS_ARRAY(WsProcessFn) array_fns = STBDS_ARRAY_EMPTY;
+	extension_receive_pipeline->settings = get_pipeline_settings(extensions);
+	extension_receive_pipeline->extension_mask = WsExtensionMaskNone;
+
+	size_t extension_length = stbds_arrlenu(extensions);
+	extension_receive_pipeline->active_extensions = extension_length;
+
+	if(extension_length == 0) {
+		extension_receive_pipeline->process_fn.arg = NULL;
+		extension_receive_pipeline->process_fn.ptr = noop_process_fn;
+		return extension_receive_pipeline;
+	}
+
+	STBDS_ARRAY(WsProcessReceiveFn) array_fns = STBDS_ARRAY_EMPTY;
 
 	for(size_t i = 0; i < extension_length; ++i) {
 		WSExtension extension = extensions[i];
 
-		WsProcessFn fn = {};
+		WsProcessReceiveFn process_fn = {};
 		switch(extension.type) {
 			case WSExtensionTypePerMessageDeflate: {
-				fn = (WsProcessFn){ .ptr = permessage_deflate_process_fn,
-					                .arg = &extension.data.deflate };
+				process_fn = (WsProcessReceiveFn){ .ptr = permessage_deflate_process_fn,
+					                               .arg = &extension.data.deflate };
+				extension_receive_pipeline->extension_mask =
+				    extension_receive_pipeline->extension_mask | WsExtensionMaskPerMessageDeflate;
 				break;
 			}
 			default: {
-				free(pipline);
+				free(extension_receive_pipeline);
 				stbds_arrfree(array_fns);
 				return NULL;
 				break;
 			}
 		}
 
-		stbds_arrput(array_fns, fn);
+		stbds_arrput(array_fns, process_fn);
 	}
 
-	pipline->process_fn.ptr = array_process_fn;
-	pipline->process_fn.arg = array_fns;
+	extension_receive_pipeline->process_fn.ptr = array_process_fn;
+	extension_receive_pipeline->process_fn.arg = array_fns;
 
-	return pipline;
+	return extension_receive_pipeline;
 }
 
-NODISCARD ExtensionPipelineSettings
-get_extension_pipeline_settings(ExtensionPipeline* extension_pipeline) {
+NODISCARD ExtensionReceivePipelineSettings get_extension_receive_pipeline_settings(
+    const ExtensionReceivePipeline* const extension_receive_pipeline) {
 
-	return extension_pipeline->settings;
+	return extension_receive_pipeline->settings;
+}
+
+NODISCARD ExtensionMessageReceiveState* init_extension_receive_message_state(
+    const ExtensionReceivePipeline* const extension_receive_pipeline) {
+
+	if(extension_receive_pipeline->active_extensions == 0) {
+		return NULL;
+	}
+
+	ExtensionMessageReceiveState* message_state = malloc(sizeof(ExtensionMessageReceiveState));
+
+	if(!message_state) {
+		return NULL;
+	}
+
+	message_state->is_compressed_message = false;
+
+	return message_state;
+}
+
+void free_extension_message_state(ExtensionMessageReceiveState* message_state) {
+	if(message_state != NULL) {
+		free(message_state);
+	}
+}
+
+NODISCARD char* extension_receive_pipeline_is_valid_cont_frame(
+    const ExtensionReceivePipeline* const extension_receive_pipeline,
+    const ExtensionMessageReceiveState* const message_state, const WebSocketRawMessage message) {
+
+	if(extension_receive_pipeline->active_extensions == 0) {
+		return NULL;
+	}
+
+	// this may be used in other extensions
+	UNUSED(message_state);
+
+	if((extension_receive_pipeline->extension_mask & WsExtensionMaskPerMessageDeflate) != 0) {
+
+		if((message.rsv_bytes & 0b100) != 0) {
+			return strdup(
+			    "Received Opcode CONTINUATION with compressed bit set, this is an extension "
+			    "error");
+		}
+	}
+
+	return NULL;
+}
+
+void extension_receive_pipeline_process_start_message(
+    const ExtensionReceivePipeline* const extension_receive_pipeline,
+    ExtensionMessageReceiveState* const message_state, const WebSocketRawMessage message) {
+
+	if(extension_receive_pipeline->active_extensions == 0) {
+		return;
+	}
+
+	if((extension_receive_pipeline->extension_mask & WsExtensionMaskPerMessageDeflate) != 0) {
+		message_state->is_compressed_message = (message.rsv_bytes & 0b100) != 0;
+	}
+}
+
+NODISCARD char* extension_receive_pipeline_process_finished_message(
+    const ExtensionReceivePipeline* const extension_receive_pipeline,
+    const ExtensionMessageReceiveState* const message_state, WebSocketMessage* message) {
+
+	if(extension_receive_pipeline->active_extensions == 0) {
+		return NULL;
+	}
+
+	return extension_receive_pipeline->process_fn.ptr(message, message_state,
+	                                                  extension_receive_pipeline->process_fn.arg);
 }

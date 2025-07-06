@@ -45,20 +45,6 @@ struct WebSocketConnectionImpl {
 	WsConnectionArgs args;
 };
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	WsOpcodeCont = 0x0,
-	WsOpcodeText = 0x1,
-	WsOpcodeBin = 0x2,
-	// 0x3 - 0x7 are reserved for further non-control frames
-	WsOpcodeClose = 0x8,
-	WsOpcodePing = 0x9,
-	WsOpcodePong = 0xA,
-	// 0xB - 0xF are reserved for further control frames
-} WsOpcode;
-
 typedef struct {
 	bool fin;
 	WsOpcode op_code;
@@ -74,14 +60,6 @@ typedef struct {
 		const char* error;
 	} data;
 } RawHeaderOneResult;
-
-typedef struct {
-	bool fin;
-	WsOpcode op_code;
-	void* payload;
-	uint64_t payload_len;
-	uint8_t rsv_bytes;
-} WebSocketRawMessage;
 
 typedef struct {
 	bool has_error;
@@ -169,8 +147,8 @@ NODISCARD static bool is_control_op_code(WsOpcode op_code) {
 }
 
 NODISCARD static WebSocketRawMessageResult
-read_raw_message(WebSocketConnection* connection, const ExtensionPipeline* extension_pipeline,
-                 ExtensionPipelineSettings pipeline_settings) {
+read_raw_message(WebSocketConnection* connection,
+                 ExtensionReceivePipelineSettings pipeline_settings) {
 
 	uint8_t* header_bytes =
 	    (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
@@ -183,9 +161,6 @@ read_raw_message(WebSocketConnection* connection, const ExtensionPipeline* exten
 	    get_raw_header(header_bytes, pipeline_settings.allowed_rsv_bytes);
 
 	free(header_bytes);
-
-	UNUSED(extension_pipeline);
-	// TODO: use
 
 	if(raw_header_result.has_error) {
 		return (WebSocketRawMessageResult){ .has_error = true,
@@ -705,23 +680,26 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 	WSExtensions extensions = connection->args.extensions;
 
-	ExtensionPipeline* extension_pipeline = get_extension_pipeline(extensions);
+	ExtensionReceivePipeline* extension_receive_pipeline =
+	    get_extension_receive_pipeline(extensions);
 
-	if(extension_pipeline == NULL) {
+	if(extension_receive_pipeline == NULL) {
 		return NULL;
 	}
 
-	ExtensionPipelineSettings pipeline_settings =
-	    get_extension_pipeline_settings(extension_pipeline);
+	ExtensionReceivePipelineSettings pipeline_receive_settings =
+	    get_extension_receive_pipeline_settings(extension_receive_pipeline);
 
 	while(true) {
 		bool has_message = false;
 		WebSocketMessage current_message = { .is_text = true, .data = NULL, .data_len = 0 };
+		ExtensionMessageReceiveState* message_receive_state =
+		    init_extension_receive_message_state(extension_receive_pipeline);
 
 		while(true) {
 
 			WebSocketRawMessageResult raw_message_result =
-			    read_raw_message(connection, extension_pipeline, pipeline_settings);
+			    read_raw_message(connection, pipeline_receive_settings);
 
 #define FREE_RAW_WS_MESSAGE() \
 	do { \
@@ -906,6 +884,31 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						return NULL;
 					}
 
+					char* extension_error = extension_receive_pipeline_is_valid_cont_frame(
+					    extension_receive_pipeline, message_receive_state, raw_message);
+
+					if(extension_error != NULL) {
+						CloseReason reason = { .code = CloseCodeProtocolError,
+							                   .message = extension_error,
+							                   .message_len = -1 };
+
+						const char* result =
+						    close_websocket_connection(connection, argument->manager, reason);
+
+						free(extension_error);
+
+						if(result != NULL) {
+							LOG_MESSAGE(
+							    LogLevelError,
+							    "Error while closing the websocket connection: CONT error: %s\n",
+							    result);
+						}
+
+						FREE_RAW_WS_MESSAGE();
+						FREE_AT_END();
+						return NULL;
+					}
+
 					uint64_t old_length = current_message.data_len;
 					void* old_data = current_message.data;
 
@@ -926,6 +929,35 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 					if(!raw_message.fin) {
 						continue;
+					}
+
+					char* finish_error = extension_receive_pipeline_process_finished_message(
+					    extension_receive_pipeline, message_receive_state, &current_message);
+
+					if(finish_error != NULL) {
+						char* error_message = NULL;
+						FORMAT_STRING(&error_message, return NULL;
+						              , "Couldnt parse message at end: %s", finish_error);
+
+						CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
+							                   .message = error_message,
+							                   .message_len = -1 };
+
+						const char* result =
+						    close_websocket_connection(connection, argument->manager, reason);
+
+						free(error_message);
+
+						if(result != NULL) {
+							LOG_MESSAGE(LogLevelError,
+							            "Error while closing the websocket connection: "
+							            "Extension pipeline error: %s\n",
+							            result);
+						}
+
+						FREE_RAW_WS_MESSAGE();
+						FREE_AT_END();
+						return NULL;
 					}
 
 					if(current_message.is_text) {
@@ -995,6 +1027,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					}
 
 					has_message = true;
+					extension_receive_pipeline_process_start_message(
+					    extension_receive_pipeline, message_receive_state, raw_message);
 
 					current_message.is_text =
 					    raw_message.op_code == // NOLINT(readability-implicit-bool-conversion)
@@ -1004,6 +1038,35 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 					if(!raw_message.fin) {
 						continue;
+					}
+
+					char* finish_error = extension_receive_pipeline_process_finished_message(
+					    extension_receive_pipeline, message_receive_state, &current_message);
+
+					if(finish_error != NULL) {
+						char* error_message = NULL;
+						FORMAT_STRING(&error_message, return NULL;
+						              , "Couldnt parse message at end: %s", finish_error);
+
+						CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
+							                   .message = error_message,
+							                   .message_len = -1 };
+
+						const char* result =
+						    close_websocket_connection(connection, argument->manager, reason);
+
+						free(error_message);
+
+						if(result != NULL) {
+							LOG_MESSAGE(LogLevelError,
+							            "Error while closing the websocket connection: "
+							            "Extension pipeline error: %s\n",
+							            result);
+						}
+
+						FREE_RAW_WS_MESSAGE();
+						FREE_AT_END();
+						return NULL;
 					}
 
 					if(current_message.is_text) {

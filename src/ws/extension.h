@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include "./types.h"
 #include "utils/utils.h"
 
 #include <stb/ds.h>
@@ -35,13 +36,32 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions);
 
 void parse_ws_extensions(WSExtensions* extensions, const char* const value_const);
 
-typedef struct ExtensionPipelineImpl ExtensionPipeline;
+typedef struct ExtensionReceivePipelineImpl ExtensionReceivePipeline;
 
 typedef struct {
 	uint8_t allowed_rsv_bytes;
-} ExtensionPipelineSettings;
+} ExtensionReceivePipelineSettings;
 
-NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions);
+typedef struct ExtensionMessageReceiveStateImpl ExtensionMessageReceiveState;
 
-NODISCARD ExtensionPipelineSettings
-get_extension_pipeline_settings(ExtensionPipeline* extension_pipeline);
+NODISCARD ExtensionReceivePipeline* get_extension_receive_pipeline(WSExtensions extensions);
+
+NODISCARD ExtensionReceivePipelineSettings
+get_extension_receive_pipeline_settings(const ExtensionReceivePipeline* extension_receive_pipeline);
+
+NODISCARD ExtensionMessageReceiveState*
+init_extension_receive_message_state(const ExtensionReceivePipeline* extension_receive_pipeline);
+
+void free_extension_message_state(ExtensionMessageReceiveState* message_state);
+
+NODISCARD char* extension_receive_pipeline_is_valid_cont_frame(
+    const ExtensionReceivePipeline* extension_receive_pipeline,
+    const ExtensionMessageReceiveState* message_state, WebSocketRawMessage message);
+
+void extension_receive_pipeline_process_start_message(
+    const ExtensionReceivePipeline* extension_receive_pipeline,
+    ExtensionMessageReceiveState* message_state, WebSocketRawMessage message);
+
+NODISCARD char* extension_receive_pipeline_process_finished_message(
+    const ExtensionReceivePipeline* extension_receive_pipeline,
+    const ExtensionMessageReceiveState* message_state, WebSocketMessage* message);

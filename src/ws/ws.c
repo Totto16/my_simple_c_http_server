@@ -158,6 +158,13 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 					    send_settings);
 				}
 
+#ifndef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
+				return send_failed_handshake_message(
+				    descriptor,
+				    "server not compiled with deflate compression and decompression support",
+				    send_settings);
+#endif
+
 				break;
 			}
 			default: {
