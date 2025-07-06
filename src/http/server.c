@@ -258,12 +258,14 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 						}
 						case HTTPRouteSpecialDataTypeWs: {
 
+							WSExtensions extensions = STBDS_ARRAY_EMPTY;
+
 							int ws_request_successful =
-							    handle_ws_handshake(http_request, descriptor, send_settings);
+							    handle_ws_handshake(http_request, descriptor, send_settings, &extensions);
 
 							WsConnectionArgs websocket_args = get_ws_args_from_http_request(
 							    route_data.data.special.data.ws.fragmented,
-							    selected_route_data.path);
+							    selected_route_data.path,extensions);
 
 							if(ws_request_successful >= 0) {
 								// move the context so that we can use it in the long standing web

@@ -64,6 +64,7 @@ typedef struct {
 	WsOpcode op_code;
 	bool mask;
 	uint8_t payload_len;
+	uint8_t rsv_bytes;
 } RawHeaderOne;
 
 typedef struct {
@@ -79,6 +80,7 @@ typedef struct {
 	WsOpcode op_code;
 	void* payload;
 	uint64_t payload_len;
+	uint8_t rsv_bytes;
 } WebSocketRawMessage;
 
 typedef struct {
@@ -112,7 +114,7 @@ typedef struct {
 #define EXTENDED_PAYLOAD_MAGIC_NUMBER2 127
 
 NODISCARD static RawHeaderOneResult
-get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
+get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allowed_rsv_bytes) {
 	bool fin = (header_bytes[0] >> // NOLINT(readability-implicit-bool-conversion)
 	            7 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	            ) &
@@ -121,10 +123,18 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
 	    (header_bytes[0] >> 4) &
 	    0b111; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	if(rsv_bytes != 0) {
-		return (RawHeaderOneResult){ .has_error = true,
-			                         .data = { .error = "only 0 allowed for the rsv bytes" } };
-	};
+	if(allowed_rsv_bytes == 0) {
+		if(rsv_bytes != 0) {
+			return (RawHeaderOneResult){ .has_error = true,
+				                         .data = { .error = "only 0 allowed for the rsv bytes" } };
+		};
+	} else {
+
+		if((rsv_bytes & allowed_rsv_bytes) != allowed_rsv_bytes) {
+			return (RawHeaderOneResult){ .has_error = true,
+				                         .data = { .error = "invalid rsv bits set" } };
+		}
+	}
 
 	WsOpcode op_code =
 	    header_bytes[0] &
@@ -137,9 +147,11 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
 	    header_bytes[1] &
 	    0x7F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	RawHeaderOne header = {
-		.fin = fin, .op_code = op_code, .mask = mask, .payload_len = payload_len
-	};
+	RawHeaderOne header = { .fin = fin,
+		                    .op_code = op_code,
+		                    .mask = mask,
+		                    .payload_len = payload_len,
+		                    .rsv_bytes = rsv_bytes };
 
 	RawHeaderOneResult result = { .has_error = false, .data = { .header = header } };
 	return result;
@@ -156,7 +168,9 @@ NODISCARD static bool is_control_op_code(WsOpcode op_code) {
 	       0;
 }
 
-NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection* connection) {
+NODISCARD static WebSocketRawMessageResult
+read_raw_message(WebSocketConnection* connection, const ExtensionPipeline* extension_pipeline,
+                 ExtensionPipelineSettings pipeline_settings) {
 
 	uint8_t* header_bytes =
 	    (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
@@ -164,9 +178,14 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		return (WebSocketRawMessageResult){ .has_error = true,
 			                                .data = { .error = "couldn't read header bytes (2)" } };
 	}
-	RawHeaderOneResult raw_header_result = get_raw_header(header_bytes);
+
+	RawHeaderOneResult raw_header_result =
+	    get_raw_header(header_bytes, pipeline_settings.allowed_rsv_bytes);
 
 	free(header_bytes);
+
+	UNUSED(extension_pipeline);
+	// TODO: use
 
 	if(raw_header_result.has_error) {
 		return (WebSocketRawMessageResult){ .has_error = true,
@@ -236,7 +255,8 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	WebSocketRawMessage value = { .fin = raw_header.fin,
 		                          .op_code = raw_header.op_code,
 		                          .payload = payload,
-		                          .payload_len = payload_len };
+		                          .payload_len = payload_len,
+		                          .rsv_bytes = raw_header.rsv_bytes };
 
 	WebSocketRawMessageResult result = { .has_error = false, .data = { .message = value } };
 
@@ -683,13 +703,25 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 	WebSocketConnection* connection = argument->connection;
 
+	WSExtensions extensions = connection->args.extensions;
+
+	ExtensionPipeline* extension_pipeline = get_extension_pipeline(extensions);
+
+	if(extension_pipeline == NULL) {
+		return NULL;
+	}
+
+	ExtensionPipelineSettings pipeline_settings =
+	    get_extension_pipeline_settings(extension_pipeline);
+
 	while(true) {
 		bool has_message = false;
 		WebSocketMessage current_message = { .is_text = true, .data = NULL, .data_len = 0 };
 
 		while(true) {
 
-			WebSocketRawMessageResult raw_message_result = read_raw_message(connection);
+			WebSocketRawMessageResult raw_message_result =
+			    read_raw_message(connection, extension_pipeline, pipeline_settings);
 
 #define FREE_RAW_WS_MESSAGE() \
 	do { \

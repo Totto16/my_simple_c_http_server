@@ -9,7 +9,6 @@
 #include "utils/string_builder.h"
 #include "utils/string_helper.h"
 
-#include <ctype.h>
 #include <strings.h>
 
 NODISCARD static int
@@ -122,297 +121,60 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HandshakeHeaderHeaderAllFound = 0b11111,
 } NeededHeaderForHandshake;
 
-#define DEFAULT_MAX_WINDOW_BITS 15
+NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const descriptor,
+                                              SendSettings send_settings, WSExtensions extensions) {
 
-#define MIN_MAX_WINDOW_BITS 8
-#define MAX_MAX_WINDOW_BITS 15
+	size_t extension_length = stbds_arrlenu(extensions);
 
-NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params,
-                                                                    WsDeflateOptions* options) {
-
-	char* current_params = params;
-
-	while(true) {
-
-		char* next_params = index(current_params, ';');
-
-		if(next_params != NULL) {
-			*next_params = '\0';
-		}
-
-		// strip whitespace
-		while(isspace(*current_params)) {
-			current_params++;
-		}
-
-		{
-
-			char* current_param_name = current_params;
-
-			char* current_param_value = NULL;
-
-			char* current_param_value_start = index(current_param_name, '=');
-
-			if(current_param_value_start != NULL) {
-				*current_param_value_start = '\0';
-				current_param_value = current_param_value_start + 1;
-			}
-
-			if(strcmp(current_param_name, "server_no_context_takeover") == 0) {
-				if(current_param_value != NULL) {
-					return false;
-				}
-
-				options->server.no_context_takeover = true;
-
-			} else if(strcmp(current_param_name, "server_max_window_bits") == 0) {
-
-				uint8_t max_window_bits = DEFAULT_MAX_WINDOW_BITS;
-
-				if(current_param_value != NULL) {
-					bool success = true;
-					long parsed_number = parse_long(current_param_value, &success);
-
-					if(!success) {
-						return false;
-					}
-
-					if(parsed_number < MIN_MAX_WINDOW_BITS || parsed_number > MAX_MAX_WINDOW_BITS) {
-						return false;
-					}
-
-					max_window_bits = (uint8_t)parsed_number;
-				}
-
-				options->server.max_window_bits = max_window_bits;
-
-			} else if(strcmp(current_param_name, "client_no_context_takeover") == 0) {
-				if(current_param_value != NULL) {
-					return false;
-				}
-
-				options->client.no_context_takeover = true;
-
-			} else if(strcmp(current_param_name, "client_max_window_bits") == 0) {
-
-				uint8_t max_window_bits = DEFAULT_MAX_WINDOW_BITS;
-
-				if(current_param_value != NULL) {
-					bool success = true;
-					long parsed_number = parse_long(current_param_value, &success);
-
-					if(!success) {
-						return false;
-					}
-
-					if(parsed_number < 0 || parsed_number > UINT8_MAX) {
-						return false;
-					}
-
-					max_window_bits = (uint8_t)parsed_number;
-				}
-
-				options->client.max_window_bits = max_window_bits;
-
-			} else {
-				return false;
-			}
-		}
-
-		if(next_params == NULL) {
-			break;
-		}
-
-		current_params = next_params + 1;
+	if(extension_length == 0) {
+		return 0;
 	}
 
-	return true;
-}
-
-#define DEFAULT_CONTEXT_TAKEOVER_VALUE false
-
-NODISCARD static WSExtension parse_ws_extension_value(char* value, bool* success) {
-
-	char* name = value;
-
-	char* params_start = index(value, ';');
-
-	char* params = NULL;
-	if(params_start != NULL) {
-		*params_start = '\0';
-		params = params_start + 1;
-
-		// strip whitespace
-		while(isspace(*params)) {
-			params++;
-		}
+	// TODO(Totto): support more extensions
+	if(extension_length != 1) {
+		return send_failed_handshake_message(descriptor, "only one extension supported atm",
+		                                     send_settings);
 	}
 
-	if(strcmp(name, "permessage-deflate") == 0) {
-
-		WSExtension extension = {
-			.type = WSExtensionTypePerMessageDeflate,
-			.data = { .deflate = { .client = { .no_context_takeover =
-			                                       DEFAULT_CONTEXT_TAKEOVER_VALUE,
-			                                   .max_window_bits = DEFAULT_MAX_WINDOW_BITS },
-			                       .server = { .no_context_takeover =
-			                                       DEFAULT_CONTEXT_TAKEOVER_VALUE,
-			                                   .max_window_bits = DEFAULT_MAX_WINDOW_BITS } } }
-		};
-
-		if(params != NULL) {
-			bool res =
-			    parse_ws_extension_per_message_deflate_params(params, &extension.data.deflate);
-
-			*success = res;
-			return extension;
-		}
-
-		*success = true;
-		return extension;
-	}
-
-	*success = false;
-	return (WSExtension){};
-}
-
-// see https://datatracker.ietf.org/doc/html/rfc6455#section-9.1
-static void parse_ws_extensions(WSExtensions* extensions, const char* const value_const) {
-
-	char* value = strdup(value_const);
-
-	char* current_extension = value;
-
-	while(true) {
-
-		char* next_value = index(current_extension, ',');
-
-		if(next_value != NULL) {
-			*next_value = '\0';
-		}
-
-		bool success = true;
-
-		WSExtension extension = parse_ws_extension_value(current_extension, &success);
-
-		if(success) {
-			stbds_arrput(*extensions, extension);
-		}
-
-		if(next_value == NULL) {
-			break;
-		}
-
-		current_extension = next_value + 1;
-	}
-
-	free(value);
-}
-
-NODISCARD static bool append_ws_extension_as_string(StringBuilder* string_builder,
-                                                    WSExtension extension) {
-
-	switch(extension.type) {
-		case WSExtensionTypePerMessageDeflate: {
-
-			string_builder_append_single(string_builder, "permessage-deflate;");
-
-			WsDeflateOptions options = extension.data.deflate;
-
-			// always return our window sizes
-			size_t additional_options_count = 0;
-
-			if(options.client.no_context_takeover) {
-				additional_options_count++;
-			}
-
-			if(options.server.no_context_takeover) {
-				additional_options_count++;
-			}
-
-			{
-
-				string_builder_append_single(string_builder, "server_max_window_bits=");
-
-				STRING_BUILDER_APPENDF(string_builder, return false;
-				                       , "%d", options.server.max_window_bits);
-
-				string_builder_append_single(string_builder, ";");
-			}
-
-			size_t index = 0;
-			{
-
-				string_builder_append_single(string_builder, "client_max_window_bits=");
-
-				STRING_BUILDER_APPENDF(string_builder, return false;
-				                       , "%d", options.client.max_window_bits);
-
-				if(additional_options_count != index) {
-					string_builder_append_single(string_builder, ";");
-				}
-
-				++index;
-			}
-
-			if(options.server.no_context_takeover) {
-
-				string_builder_append_single(string_builder, "server_no_context_takeover");
-
-				if(additional_options_count != index) {
-					string_builder_append_single(string_builder, ";");
-				}
-
-				++index;
-			}
-
-			if(options.client.no_context_takeover) {
-
-				string_builder_append_single(string_builder, "client_no_context_takeover");
-			}
-
-			break;
-		}
-		default: {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-NODISCARD static char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
-
-	StringBuilder* string_builder = string_builder_init();
-
-	if(!string_builder) {
-		return NULL;
-	}
-
-	size_t extensions_length = stbds_arrlenu(extensions);
-
-	for(size_t i = 0; i < extensions_length; ++i) {
+	for(size_t i = 0; i < extension_length; ++i) {
 		WSExtension extension = extensions[i];
 
-		bool success = append_ws_extension_as_string(string_builder, extension);
+		switch(extension.type) {
+			case WSExtensionTypePerMessageDeflate: {
 
-		if(!success) {
-			free_string_builder(string_builder);
-			return NULL;
-		}
+				if(!extension.data.deflate.client.no_context_takeover) {
+					return send_failed_handshake_message(
+					    descriptor,
+					    "client needs to set the option no_context_takeover, takeover not "
+					    "supported",
+					    send_settings);
+				}
 
-		if(i != extensions_length - 1) {
-			string_builder_append_single(string_builder, ",");
+				if(!extension.data.deflate.server.no_context_takeover) {
+					return send_failed_handshake_message(
+					    descriptor,
+					    "server needs to set the option no_context_takeover, takeover not "
+					    "supported",
+					    send_settings);
+				}
+
+				break;
+			}
+			default: {
+				return send_failed_handshake_message(descriptor, "unexpected extension found",
+				                                     send_settings);
+			}
 		}
 	}
 
-	return string_builder_release_into_string(&string_builder);
+	return 0;
 }
 
 static const bool send_http_upgrade_required_status_code = true;
 
 int handle_ws_handshake(const HttpRequest* const http_request,
-                        const ConnectionDescriptor* const descriptor, SendSettings send_settings) {
+                        const ConnectionDescriptor* const descriptor, SendSettings send_settings,
+                        WSExtensions* extensions) {
 
 	// check if it is a valid Websocket request
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-2 section 4.2.1.
@@ -420,7 +182,6 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 
 	char* sec_key = NULL;
 	bool from_browser = false;
-	WSExtensions extensions = STBDS_ARRAY_EMPTY;
 
 	for(size_t i = 0; i < stbds_arrlenu(http_request->head.header_fields); ++i) {
 		HttpHeaderField header = http_request->head.header_fields[i];
@@ -461,7 +222,7 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 			// TODO(Totto): this header field may be specified multiple times, but we should
 			// combine all and than parse it, but lets see if the autobahn test suite tests for
 			// that first
-			parse_ws_extensions(&extensions, header.value);
+			parse_ws_extensions(extensions, header.value);
 
 		} else if(strcasecmp(header.key, "origin") == 0) {
 			from_browser = true;
@@ -486,6 +247,10 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 			return send_failed_handshake_message_upgrade_required(descriptor, send_settings);
 		}
 		return send_failed_handshake_message(descriptor, "missing required headers", send_settings);
+	}
+
+	if(are_extensions_supported(descriptor, send_settings, *extensions) < 0) {
+		return -1;
 	}
 
 	// send server handshake
@@ -517,8 +282,8 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 		                                    sec_websocket_accept_header_buffer);
 	}
 
-	if(stbds_arrlenu(extensions) > 0) {
-		char* accepted_extensions = get_accepted_ws_extensions_as_string(extensions);
+	if(stbds_arrlenu(*extensions) > 0) {
+		char* accepted_extensions = get_accepted_ws_extensions_as_string(*extensions);
 
 		if(accepted_extensions != NULL) {
 
@@ -569,8 +334,10 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(bool fr
 	return result;
 }
 
-NODISCARD WsConnectionArgs get_ws_args_from_http_request(bool fragmented, ParsedURLPath path) {
+NODISCARD WsConnectionArgs get_ws_args_from_http_request(bool fragmented, ParsedURLPath path,
+                                                         WSExtensions extensions) {
 
 	return (WsConnectionArgs){ .fragment_option =
-		                           get_ws_fragment_args_from_http_request(fragmented, path) };
+		                           get_ws_fragment_args_from_http_request(fragmented, path),
+		                       .extensions = extensions };
 }

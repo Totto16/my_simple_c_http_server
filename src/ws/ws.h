@@ -1,12 +1,9 @@
 
 #pragma once
 
+#include "./extension.h"
 #include "generic/secure.h"
 #include "http/http_protocol.h"
-
-NODISCARD int handle_ws_handshake(const HttpRequest* http_request,
-                                  const ConnectionDescriptor* descriptor,
-                                  SendSettings send_settings);
 
 /**
  * @enum value
@@ -28,32 +25,12 @@ typedef struct {
 
 typedef struct {
 	WsFragmentOption fragment_option;
+	WSExtensions extensions;
 } WsConnectionArgs;
 
-NODISCARD WsConnectionArgs get_ws_args_from_http_request(bool fragmented, ParsedURLPath path);
+NODISCARD int handle_ws_handshake(const HttpRequest* http_request,
+                                  const ConnectionDescriptor* descriptor,
+                                  SendSettings send_settings, WSExtensions* extension);
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	WSExtensionTypePerMessageDeflate,
-} WSExtensionType;
-
-typedef struct {
-	bool no_context_takeover;
-	uint8_t max_window_bits;
-} WsDeflateSingleOption;
-
-typedef struct {
-	WsDeflateSingleOption client;
-	WsDeflateSingleOption server;
-} WsDeflateOptions;
-
-typedef struct {
-	WSExtensionType type;
-	union {
-		WsDeflateOptions deflate;
-	} data;
-} WSExtension;
-
-typedef STBDS_ARRAY(WSExtension) WSExtensions;
+NODISCARD WsConnectionArgs get_ws_args_from_http_request(bool fragmented, ParsedURLPath path,
+                                                         WSExtensions extensions);
