@@ -108,7 +108,7 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allo
 		};
 	} else {
 
-		if((rsv_bytes & allowed_rsv_bytes) != allowed_rsv_bytes) {
+		if((rsv_bytes | allowed_rsv_bytes) != allowed_rsv_bytes) {
 			return (RawHeaderOneResult){ .has_error = true,
 				                         .data = { .error = "invalid rsv bits set" } };
 		}
