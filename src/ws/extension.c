@@ -443,6 +443,9 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 	input_buffer.data = new_buf;
 	input_buffer.size = input_buffer.size + WS_DECOMPRESS_TAILER_LENGTH;
 
+	message->data = input_buffer.data;
+	message->data_len = input_buffer.size;
+
 	// 2. Decompress the resulting data using DEFLATE.
 	SizedBuffer result =
 	    decompress_buffer_with_zlib_for_ws(input_buffer, options->client.max_window_bits);
