@@ -144,8 +144,10 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, 
 		return SIZED_BUFFER_ERROR;
 	}
 
+	int current_flush_mode = flush_mode;
+
 	while(true) {
-		int deflate_result = deflate(&zstream, flush_mode);
+		int deflate_result = deflate(&zstream, current_flush_mode);
 
 		result_buffer.size += (chunk_size - zstream.avail_out);
 
@@ -153,16 +155,18 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, 
 			break;
 		}
 
-		if(deflate_result == Z_OK || deflate_result == Z_BUF_ERROR) {
-			if(zstream.avail_in == 0) {
-				break;
-			}
+		if((deflate_result == Z_BUF_ERROR || deflate_result == Z_OK) && zstream.avail_out == 0) {
 
 			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			result_buffer.data = new_chunk;
 
 			zstream.avail_out = chunk_size;
 			zstream.next_out = (Bytef*)new_chunk + result_buffer.size;
+			continue;
+		}
+
+		if(deflate_result == Z_OK) {
+			current_flush_mode = Z_FINISH;
 			continue;
 		}
 
@@ -194,9 +198,11 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_compat(SizedBuffer buffer
 	                                      Z_DEFAULT_WINDOW_SIZE, Z_FINISH);
 }
 
+#define WS_FLUSH_MODE Z_SYNC_FLUSH
+
 NODISCARD SizedBuffer compress_buffer_with_zlib_for_ws(SizedBuffer buffer, size_t max_window_bits) {
 	return compress_buffer_with_zlib_impl(buffer, ZlibModeDeflateRaw, max_window_bits,
-	                                      Z_SYNC_FLUSH);
+	                                      WS_FLUSH_MODE);
 }
 
 // see https://zlib.net/manual.html
@@ -267,10 +273,7 @@ NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer
 			break;
 		}
 
-		if(inflate_result == Z_OK || inflate_result == Z_BUF_ERROR) {
-			if(zstream.avail_in == 0) {
-				break;
-			}
+		if((inflate_result == Z_BUF_ERROR || inflate_result == Z_OK) && zstream.avail_out == 0) {
 
 			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			result_buffer.data = new_chunk;
@@ -278,6 +281,11 @@ NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer
 			zstream.avail_out = chunk_size;
 			zstream.next_out = (Bytef*)new_chunk + result_buffer.size;
 			continue;
+		}
+
+		if(inflate_result == Z_OK) {
+			// don't need more buffer, so its ended
+			break;
 		}
 
 		LOG_MESSAGE(LogLevelError, "An error in zlib decompression processing occurred: %s\n",
@@ -302,7 +310,7 @@ NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer
 NODISCARD SizedBuffer decompress_buffer_with_zlib_for_ws(SizedBuffer buffer,
                                                          size_t max_window_bits) {
 	return decompress_buffer_with_zlib_impl(buffer, ZlibModeDeflateRaw, max_window_bits,
-	                                        Z_SYNC_FLUSH);
+	                                        WS_FLUSH_MODE);
 }
 
 #endif
@@ -570,9 +578,10 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 		}
 
 		if(result != 0) {
-			LOG_MESSAGE(LogLevelError,
-			            "An error in compress compression processing occurred: compress state: %s\n",
-			            get_lzws_error(result));
+			LOG_MESSAGE(
+			    LogLevelError,
+			    "An error in compress compression processing occurred: compress state: %s\n",
+			    get_lzws_error(result));
 			free_sized_buffer(compressor_buffer);
 			lzws_compressor_free_state(compressor_state_ptr);
 			return SIZED_BUFFER_ERROR;
