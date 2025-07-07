@@ -1,4 +1,4 @@
-name: Test CI
+name: WS Test CI
 
 on:
     push:
@@ -7,8 +7,8 @@ on:
     workflow_dispatch:
 
 jobs:
-    test:
-        name: Test - ${{ matrix.config.name }}
+    ws_test:
+        name: WS Test - ${{ matrix.config.name }}
         runs-on: ${{ matrix.config.os }}-${{ matrix.config.os-version }}
 
         strategy:
@@ -18,10 +18,6 @@ jobs:
                     - name: x86_64
                       os: ubuntu
                       os-version: 24.04
-
-                    - name: arm64
-                      os: ubuntu
-                      os-version: 24.04-arm
 
         steps:
             - uses: actions/checkout@v4
@@ -47,27 +43,30 @@ jobs:
                   sudo apt-get update
                   sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 gcovr libgmp-dev libpam0g-dev -y --no-install-recommends
 
-            - name: Unit Tests
+            - name: Install pypy2 and autobahn
               run: |
-                  meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
-                  meson compile -C test_build
-                  meson test -C test_build --verbose
-                  ninja coverage -C test_build
-            - name: Create Coverage Report
-              uses: insightsengineering/coverage-action@v2
-              with:
-                  token: ${{ secrets.GITHUB_TOKEN }}
-                  path: ./test_build/meson-logs/coverage.xml
-                  fail: false # TODO: enable after coverage is higher than 0.000001 % xD
-                  # Publish the rendered output as a PR comment
-                  publish: true
-                  coverage-summary-title: "Code Coverage Summary"
-                  togglable-report: true
-                  # TODO: use the diff feature of that later when we require test coverage on PR's to not go down
+                  export KEEP_AUTO_PACKAGES_INSTALLED="true" 
+                  ./tests/autobahn/install_pypy2.sh
+                  ./tests/autobahn/install_autobahn.sh
+                  sudo apt-get install openssl libssl-dev --no-install-recommends -y
+
+            - name: Configure
+              run: meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
+
+            - name: Build
+              run: meson compile -C build
+
+            - name: WS Tests
+              run: |
+                  wget -q https://raw.githubusercontent.com/vishnubob/wait-for-it/refs/heads/master/wait-for-it.sh
+                  chmod +x ./wait-for-it.sh
+                  ./build/server http 8080 -l trace &
+                  ./wait-for-it.sh localhost:8080 -s --timeout=120
+                  pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
+                  wget http://localhost:8080/shutdown -O - -q
 
             - uses: actions/upload-artifact@v4
               with:
-                  name: test results - ${{ matrix.config.name }}
+                  name: ws test results - ${{ matrix.config.name }}
                   path: |
-                      ./test_build/meson-logs/coverage.xml
-                      ./test_build/meson-logs/coveragereport/**
+                      ./reports/servers/**
