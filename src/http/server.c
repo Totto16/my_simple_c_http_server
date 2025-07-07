@@ -263,9 +263,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 							int ws_request_successful = handle_ws_handshake(
 							    http_request, descriptor, send_settings, &extensions);
 
-							WsConnectionArgs websocket_args = get_ws_args_from_http_request(
-							    route_data.data.special.data.ws.fragmented,
-							    selected_route_data.path, extensions);
+							WsConnectionArgs websocket_args =
+							    get_ws_args_from_http_request(selected_route_data.path, extensions);
 
 							if(ws_request_successful >= 0) {
 								// move the context so that we can use it in the long standing web

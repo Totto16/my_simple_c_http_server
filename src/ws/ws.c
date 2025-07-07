@@ -313,21 +313,24 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 	return send_http_message_to_connection(descriptor, to_send, send_settings);
 }
 
-NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(bool fragmented,
-                                                                         ParsedURLPath path) {
-	if(!fragmented) {
+NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedURLPath path) {
+
+	ParsedSearchPathEntry* fragmented_paramater = find_search_key(path.search_path, "fragmented");
+
+	if(fragmented_paramater == NULL) {
 		return (WsFragmentOption){ .type = WsFragmentOptionTypeOff };
 	}
 
 	WsFragmentOption result = { .type = WsFragmentOptionTypeAuto };
 
-	ParsedSearchPathEntry* fragment_size = find_search_key(path.search_path, "fragment_size");
+	ParsedSearchPathEntry* fragment_size_parameter =
+	    find_search_key(path.search_path, "fragment_size");
 
-	if(fragment_size != NULL) {
+	if(fragment_size_parameter != NULL) {
 
 		bool success = true;
 
-		long parsed_long = parse_long(fragment_size->value, &success);
+		long parsed_long = parse_long(fragment_size_parameter->value, &success);
 
 		if(success) {
 
@@ -341,13 +344,12 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(bool fr
 	return result;
 }
 
-NODISCARD WsConnectionArgs get_ws_args_from_http_request(bool fragmented, ParsedURLPath path,
+NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
                                                          WSExtensions extensions) {
 
-	ParsedSearchPathEntry* trace_header = find_search_key(path.search_path, "trace");
+	ParsedSearchPathEntry* trace_paramater = find_search_key(path.search_path, "trace");
 
-	return (WsConnectionArgs){ .fragment_option =
-		                           get_ws_fragment_args_from_http_request(fragmented, path),
+	return (WsConnectionArgs){ .fragment_option = get_ws_fragment_args_from_http_request(path),
 		                       .extensions = extensions,
-		                       .trace = trace_header != NULL };
+		                       .trace = trace_paramater != NULL };
 }

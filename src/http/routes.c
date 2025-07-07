@@ -287,31 +287,12 @@ HTTPRoutes get_default_routes(void) {
 			.method = HTTPRequestRouteMethodGet,
 			.path = "/ws",
 			.data =
-			    (HTTPRouteData){
-			        .type = HTTPRouteTypeSpecial,
-			        .data = { .special = { .type = HTTPRouteSpecialDataTypeWs,
-			                               .data = { .ws = { .fragmented = false } } } } },
+			    (HTTPRouteData){ .type = HTTPRouteTypeSpecial,
+			                     .data = { .special = { .type = HTTPRouteSpecialDataTypeWs } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
 		stbds_arrput(routes, ws_route);
-	}
-
-	{
-		// ws fragmented
-
-		HTTPRoute ws_fragmented = {
-			.method = HTTPRequestRouteMethodGet,
-			.path = "/ws/fragmented",
-			.data =
-			    (HTTPRouteData){
-			        .type = HTTPRouteTypeSpecial,
-			        .data = { .special = { .type = HTTPRouteSpecialDataTypeWs,
-			                               .data = { .ws = { .fragmented = true } } } } },
-			.auth = { .type = HTTPAuthorizationTypeNone }
-		};
-
-		stbds_arrput(routes, ws_fragmented);
 	}
 
 	{

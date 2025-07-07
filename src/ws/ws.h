@@ -33,5 +33,5 @@ NODISCARD int handle_ws_handshake(const HttpRequest* http_request,
                                   const ConnectionDescriptor* descriptor,
                                   SendSettings send_settings, WSExtensions* extension);
 
-NODISCARD WsConnectionArgs get_ws_args_from_http_request(bool fragmented, ParsedURLPath path,
+NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
                                                          WSExtensions extensions);
