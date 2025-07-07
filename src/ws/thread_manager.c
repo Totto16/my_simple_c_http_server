@@ -693,11 +693,16 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	FORMAT_STRING(&thread_name_buffer, return NULL;, "ws listener " PRI_THREADID, get_thread_id());
 	set_thread_name(thread_name_buffer);
 
+#define FREE_ADDITIONALLY() \
+	do { \
+	} while(false)
+
 #define FREE_AT_END() \
 	do { \
 		unset_thread_name(); \
 		free(thread_name_buffer); \
 		free(argument); \
+		FREE_ADDITIONALLY(); \
 	} while(false)
 
 	bool result = setup_sigpipe_signal_handler();
@@ -719,10 +724,28 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 		return NULL;
 	}
 
+#define FREE_CURRENT_STATE() \
+	do { \
+	} while(false)
+
+#undef FREE_ADDITIONALLY
+#define FREE_ADDITIONALLY() \
+	do { \
+		free_extension_pipeline(extension_pipeline); \
+		FREE_CURRENT_STATE(); \
+	} while(false)
+
 	ExtensionReceivePipelineSettings pipeline_receive_settings =
 	    get_extension_receive_pipeline_settings(extension_pipeline);
 
 	while(true) {
+
+#undef FREE_CURRENT_STATE
+#define FREE_CURRENT_STATE() \
+	do { \
+		free_extension_receive_message_state(message_receive_state); \
+	} while(false)
+
 		bool has_message = false;
 		WebSocketMessage current_message = { .is_text = true, .data = NULL, .data_len = 0 };
 		ExtensionMessageReceiveState* message_receive_state =
@@ -1292,6 +1315,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 			WebSocketAction action = connection->function(connection, current_message,
 			                                              connection->args, extension_send_state);
 			free(current_message.data);
+			free_extension_send_state(extension_send_state);
+
 			// has_message = false;
 			current_message.data = NULL;
 			current_message.data_len = 0;
@@ -1334,12 +1359,21 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				return NULL;
 			}
 		}
+
+		free_extension_receive_message_state(message_receive_state);
+
+#undef FREE_ADDITIONALLY
+#undef FREE_CURRENT_STATE
+#define FREE_ADDITIONALLY() \
+	do { \
+	} while(false)
 	}
 
 	FREE_AT_END();
 	return NULL;
 }
 
+#undef FREE_ADDITIONALLY
 #undef FREE_RAW_WS_MESSAGE
 
 #undef FREE_AT_END
@@ -1451,6 +1485,10 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	return connection;
 }
 
+static void free_connection_args(WsConnectionArgs args) {
+	stbds_arrfree(args.extensions);
+}
+
 static void free_connection(WebSocketConnection* connection, bool send_go_away) {
 
 	if(send_go_away) {
@@ -1468,6 +1506,7 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 	close_connection_descriptor_advanced(connection->descriptor, connection->context,
 	                                     WS_ALLOW_SSL_CONTEXT_REUSE);
 	free_connection_context(connection->context);
+	free_connection_args(connection->args);
 	free(connection);
 }
 

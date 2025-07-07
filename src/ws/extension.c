@@ -579,6 +579,21 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 	return extension_pipeline;
 }
 
+void free_extension_pipeline(ExtensionPipeline* extension_pipeline) {
+
+	if(extension_pipeline->active_extensions == 0) {
+
+	} else {
+
+		STBDS_ARRAY(WsProcessFn)
+		array_fns = (STBDS_ARRAY(WsProcessFn))extension_pipeline->process_fn.arg;
+
+		stbds_arrfree(array_fns);
+	}
+
+	free(extension_pipeline);
+}
+
 NODISCARD ExtensionReceivePipelineSettings
 get_extension_receive_pipeline_settings(const ExtensionPipeline* const extension_pipeline) {
 
@@ -603,7 +618,7 @@ init_extension_receive_message_state(const ExtensionPipeline* const extension_pi
 	return message_state;
 }
 
-void free_extension_message_state(ExtensionMessageReceiveState* message_state) {
+void free_extension_receive_message_state(ExtensionMessageReceiveState* message_state) {
 	if(message_state != NULL) {
 		free(message_state);
 	}
@@ -676,6 +691,10 @@ pipline_get_extension_send_state(const ExtensionPipeline* extension_pipeline,
 	extension_send_state->message_state = message_state;
 
 	return extension_send_state;
+}
+
+void free_extension_send_state(ExtensionSendState* extension_send_state) {
+	free(extension_send_state);
 }
 
 NODISCARD char*

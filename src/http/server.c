@@ -260,12 +260,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 							WSExtensions extensions = STBDS_ARRAY_EMPTY;
 
-							int ws_request_successful =
-							    handle_ws_handshake(http_request, descriptor, send_settings, &extensions);
+							int ws_request_successful = handle_ws_handshake(
+							    http_request, descriptor, send_settings, &extensions);
 
 							WsConnectionArgs websocket_args = get_ws_args_from_http_request(
 							    route_data.data.special.data.ws.fragmented,
-							    selected_route_data.path,extensions);
+							    selected_route_data.path, extensions);
 
 							if(ws_request_successful >= 0) {
 								// move the context so that we can use it in the long standing web
@@ -277,6 +277,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								       argument->web_socket_manager, descriptor, context,
 								       websocket_function, websocket_args)) {
 									free_http_request(http_request);
+									stbds_arrfree(extensions);
+									free_selected_route(selected_route);
 									FREE_AT_END();
 
 									return JOB_ERROR_CONNECTION_ADD;
@@ -285,6 +287,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								// finally free everything necessary
 
 								free_http_request(http_request);
+								free_selected_route(selected_route);
 								FREE_AT_END();
 
 								return JOB_ERROR_NONE;

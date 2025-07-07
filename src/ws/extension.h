@@ -46,13 +46,15 @@ typedef struct ExtensionMessageReceiveStateImpl ExtensionMessageReceiveState;
 
 NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions);
 
+void free_extension_pipeline(ExtensionPipeline* extension_pipeline);
+
 NODISCARD ExtensionReceivePipelineSettings
 get_extension_receive_pipeline_settings(const ExtensionPipeline* extension_pipeline);
 
 NODISCARD ExtensionMessageReceiveState*
 init_extension_receive_message_state(const ExtensionPipeline* extension_pipeline);
 
-void free_extension_message_state(ExtensionMessageReceiveState* message_state);
+void free_extension_receive_message_state(ExtensionMessageReceiveState* message_state);
 
 NODISCARD char*
 extension_receive_pipeline_is_valid_cont_frame(const ExtensionPipeline* extension_pipeline,
@@ -72,6 +74,8 @@ typedef struct ExtensionSendStateImpl ExtensionSendState;
 NODISCARD ExtensionSendState*
 pipline_get_extension_send_state(const ExtensionPipeline* extension_pipeline,
                                  const ExtensionMessageReceiveState* message_state);
+
+void free_extension_send_state(ExtensionSendState* extension_send_state);
 
 NODISCARD char*
 extension_send_pipeline_process_finished_message(ExtensionSendState* extension_send_state,
