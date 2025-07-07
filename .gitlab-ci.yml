@@ -84,7 +84,8 @@ unit_tests:
 ws_tests:
     stage: build
     image: ubuntu:24.04
-    when: never
+    rules:
+        - when: never
     needs:
         - compile_clang
         - compile_gcc
