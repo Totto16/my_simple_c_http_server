@@ -8,7 +8,7 @@
 
 #define DEFAULT_MAX_WINDOW_BITS 15
 
-#define MIN_MAX_WINDOW_BITS 9
+#define MIN_MAX_WINDOW_BITS 8
 #define MAX_MAX_WINDOW_BITS 15
 
 NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params,

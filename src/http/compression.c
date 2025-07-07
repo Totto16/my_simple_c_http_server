@@ -68,19 +68,48 @@ bool is_compressions_supported(CompressionType format) {
 #if defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP) || \
     defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE)
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ZlibModeGzip = 0,
+	ZlibModeDeflate,
+	ZlibModeDeflateRaw,
+} ZlibMode;
+
 #define Z_MEMORY_USAGE_LEVEL 8 // 1-9
 
-#define Z_MIN_WINDOW_BITS 9
+#define Z_MIN_WINDOW_BITS 8
 #define Z_MAX_WINDOW_BITS 15
 
 #define Z_GZIP_ENCODING 16 // not inside the zlib header, unfortunately
 
 // see https://zlib.net/manual.html
-NODISCARD SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
-                                                size_t max_window_bits) {
+NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, ZlibMode mode,
+                                                            size_t max_window_bits,
+                                                            int flush_mode) {
 
 	if(max_window_bits < Z_MIN_WINDOW_BITS || max_window_bits > Z_MAX_WINDOW_BITS) {
 		return get_empty_sized_buffer();
+	}
+
+	int window_bits = (int)max_window_bits;
+
+	switch(mode) {
+		case ZlibModeGzip: {
+			window_bits = window_bits | Z_GZIP_ENCODING;
+			break;
+		}
+		case ZlibModeDeflate: {
+			break;
+		}
+		case ZlibModeDeflateRaw: {
+			window_bits = -window_bits;
+			break;
+		}
+		default: {
+			return get_empty_sized_buffer();
+		}
 	}
 
 	// the maximum window bits are used, even if we could use loweer widnow bits
@@ -104,12 +133,6 @@ NODISCARD SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
 	zstream.avail_out = chunk_size;
 	zstream.next_out = (Bytef*)result_buffer.data;
 
-	int window_bits = max_window_bits;
-
-	if(gzip) {
-		window_bits = window_bits | Z_GZIP_ENCODING;
-	}
-
 	int result = deflateInit2(&zstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits,
 	                          Z_MEMORY_USAGE_LEVEL, Z_DEFAULT_STRATEGY);
 
@@ -122,7 +145,7 @@ NODISCARD SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
 	}
 
 	while(true) {
-		int deflate_result = deflate(&zstream, Z_FINISH);
+		int deflate_result = deflate(&zstream, flush_mode);
 
 		result_buffer.size += (chunk_size - zstream.avail_out);
 
@@ -131,6 +154,10 @@ NODISCARD SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
 		}
 
 		if(deflate_result == Z_OK || deflate_result == Z_BUF_ERROR) {
+			if(zstream.avail_in == 0) {
+				break;
+			}
+
 			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			result_buffer.data = new_chunk;
 
@@ -159,18 +186,45 @@ NODISCARD SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
 	return result_buffer;
 }
 
-#define Z_DEFAULT_WINDOW_SIZE 15 // 9-15
+#define Z_DEFAULT_WINDOW_SIZE 15 // 8-15
 
 NODISCARD static SizedBuffer compress_buffer_with_zlib_compat(SizedBuffer buffer, bool gzip) {
 
-	return compress_buffer_with_zlib(buffer, gzip, Z_DEFAULT_WINDOW_SIZE);
+	return compress_buffer_with_zlib_impl(buffer, gzip ? ZlibModeGzip : ZlibModeDeflate,
+	                                      Z_DEFAULT_WINDOW_SIZE, Z_FINISH);
+}
 
-} // see https://zlib.net/manual.html
-NODISCARD SizedBuffer decompress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
-                                                  size_t max_window_bits) {
+NODISCARD SizedBuffer compress_buffer_with_zlib_for_ws(SizedBuffer buffer, size_t max_window_bits) {
+	return compress_buffer_with_zlib_impl(buffer, ZlibModeDeflateRaw, max_window_bits,
+	                                      Z_SYNC_FLUSH);
+}
+
+// see https://zlib.net/manual.html
+NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer, ZlibMode mode,
+                                                              size_t max_window_bits,
+                                                              int flush_mode) {
 
 	if(max_window_bits < Z_MIN_WINDOW_BITS || max_window_bits > Z_MAX_WINDOW_BITS) {
 		return SIZED_BUFFER_ERROR;
+	}
+
+	int window_bits = (int)max_window_bits;
+
+	switch(mode) {
+		case ZlibModeGzip: {
+			window_bits = window_bits | Z_GZIP_ENCODING;
+			break;
+		}
+		case ZlibModeDeflate: {
+			break;
+		}
+		case ZlibModeDeflateRaw: {
+			window_bits = -window_bits;
+			break;
+		}
+		default: {
+			return get_empty_sized_buffer();
+		}
 	}
 
 	// the maximum window bits are used, even if we could use loweer widnow bits
@@ -194,12 +248,6 @@ NODISCARD SizedBuffer decompress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
 	zstream.avail_out = chunk_size;
 	zstream.next_out = (Bytef*)result_buffer.data;
 
-	int window_bits = (int)max_window_bits;
-
-	if(gzip) {
-		window_bits = window_bits | Z_GZIP_ENCODING;
-	}
-
 	int result = inflateInit2(&zstream, window_bits);
 
 	if(result != Z_OK) {
@@ -211,7 +259,7 @@ NODISCARD SizedBuffer decompress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
 	}
 
 	while(true) {
-		int inflate_result = inflate(&zstream, Z_FINISH);
+		int inflate_result = inflate(&zstream, flush_mode);
 
 		result_buffer.size += (chunk_size - zstream.avail_out);
 
@@ -220,6 +268,10 @@ NODISCARD SizedBuffer decompress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
 		}
 
 		if(inflate_result == Z_OK || inflate_result == Z_BUF_ERROR) {
+			if(zstream.avail_in == 0) {
+				break;
+			}
+
 			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			result_buffer.data = new_chunk;
 
@@ -247,6 +299,12 @@ NODISCARD SizedBuffer decompress_buffer_with_zlib(SizedBuffer buffer, bool gzip,
 
 	return result_buffer;
 }
+NODISCARD SizedBuffer decompress_buffer_with_zlib_for_ws(SizedBuffer buffer,
+                                                         size_t max_window_bits) {
+	return decompress_buffer_with_zlib_impl(buffer, ZlibModeDeflateRaw, max_window_bits,
+	                                        Z_SYNC_FLUSH);
+}
+
 #endif
 
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP
