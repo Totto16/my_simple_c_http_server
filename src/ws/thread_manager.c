@@ -347,17 +347,17 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 }
 
 NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connection,
-                                                     WebSocketMessage message, bool mask,
+                                                     WebSocketMessage* message, bool mask,
                                                      ExtensionSendState* extension_send_state) {
 
-	WsOpcode op_code = message.is_text // NOLINT(readability-implicit-bool-conversion)
+	WsOpcode op_code = message->is_text // NOLINT(readability-implicit-bool-conversion)
 	                       ? WsOpcodeText
 	                       : WsOpcodeBin;
 
 	WebSocketRawMessage raw_message = { .fin = true,
 		                                .op_code = op_code,
-		                                .payload = message.data,
-		                                .payload_len = message.data_len,
+		                                .payload = message->data,
+		                                .payload_len = message->data_len,
 		                                .rsv_bytes = 0b000 };
 
 	extension_send_pipeline_process_start_message(extension_send_state, &raw_message);
@@ -369,7 +369,7 @@ NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connec
 #define WS_MINIMUM_FRAGMENT_SIZE 16
 
 NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* connection,
-                                                         WebSocketMessage message, bool mask,
+                                                         WebSocketMessage* message, bool mask,
                                                          uint64_t fragment_size,
                                                          ExtensionSendState* extension_send_state) {
 
@@ -378,29 +378,29 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 		fragment_size = WS_MINIMUM_FRAGMENT_SIZE;
 	}
 
-	if(message.data_len < fragment_size) {
+	if(message->data_len < fragment_size) {
 		return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 	}
 
-	for(uint64_t start = 0; start < message.data_len; start += fragment_size) {
+	for(uint64_t start = 0; start < message->data_len; start += fragment_size) {
 		uint64_t end = start + fragment_size;
 		bool fin = false;
 		uint64_t payload_len = fragment_size;
 
-		if(end >= message.data_len) {
-			end = message.data_len;
+		if(end >= message->data_len) {
+			end = message->data_len;
 			fin = true;
 			payload_len = end - start;
 		}
 
 		WsOpcode op_code =
 		    start == 0
-		        ? (message.is_text // NOLINT(readability-implicit-bool-conversion,readability-avoid-nested-conditional-operator)
+		        ? (message->is_text // NOLINT(readability-implicit-bool-conversion,readability-avoid-nested-conditional-operator)
 		               ? WsOpcodeText
 		               : WsOpcodeBin)
 		        : WsOpcodeCont;
 
-		void* payload = ((uint8_t*)message.data) + start;
+		void* payload = ((uint8_t*)message->data) + start;
 
 		WebSocketRawMessage raw_message = { .fin = fin,
 			                                .op_code = op_code,
@@ -426,12 +426,12 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 #define DEFAULT_AUTO_FRAGMENT_SIZE 4096
 
 NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
-                                              WebSocketMessage message, bool mask,
+                                              WebSocketMessage* message, bool mask,
                                               WsConnectionArgs args,
                                               ExtensionSendState* extension_send_state) {
 
 	char* extension_error =
-	    extension_send_pipeline_process_initial_message(extension_send_state, &message);
+	    extension_send_pipeline_process_initial_message(extension_send_state, message);
 
 	if(extension_error != NULL) {
 		LOG_MESSAGE(LogLevelError, "Extension send error: %s\n", extension_error);
@@ -1311,7 +1311,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				return NULL;
 			}
 
-			WebSocketAction action = connection->function(connection, current_message,
+			WebSocketAction action = connection->function(connection, &current_message,
 			                                              connection->args, extension_send_state);
 
 			free_ws_message(current_message);
@@ -1379,7 +1379,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 #undef FREE_AT_END
 
-int ws_send_message(WebSocketConnection* connection, WebSocketMessage message,
+int ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
                     WsConnectionArgs args, ExtensionSendState* extension_send_state) {
 	return ws_send_message_internal(connection, message, false, args, extension_send_state);
 }
