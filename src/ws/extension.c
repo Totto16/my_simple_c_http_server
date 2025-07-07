@@ -484,12 +484,12 @@ static char* compress_ws_message(WebSocketMessage* message, WsDeflateOptions* op
 	// 2. If the resulting data does not end with an empty DEFLATE block with no compression (the
 	// "BTYPE" bits are set to 00), append an empty DEFLATE block with no compression to the tail
 	// end.
-	// TODO
+	// TODO(Totto): zlib already seems to do that, check that
 
 	// 3. Remove 4 octets (that are 0x00 0x00 0xff 0xff) from the tail end. After this step, the
 	// last octet of the compressed data contains (possibly part of) the DEFLATE header bits with
 	// the "BTYPE" bits set to 00.
-	// TODO
+	// TODO(Totto): zlib already seems to do that, check that
 
 	free_sized_buffer(input_buffer);
 

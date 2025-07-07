@@ -34,7 +34,7 @@ typedef STBDS_ARRAY(WSExtension) WSExtensions;
 
 NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions);
 
-void parse_ws_extensions(WSExtensions* extensions, const char* const value_const);
+void parse_ws_extensions(WSExtensions* extensions, const char* value_const);
 
 typedef struct ExtensionPipelineImpl ExtensionPipeline;
 

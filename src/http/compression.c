@@ -85,9 +85,10 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 #define Z_GZIP_ENCODING 16 // not inside the zlib header, unfortunately
 
 // see https://zlib.net/manual.html
-NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, ZlibMode mode,
-                                                            size_t max_window_bits,
-                                                            int flush_mode) {
+NODISCARD static SizedBuffer
+compress_buffer_with_zlib_impl(SizedBuffer buffer,
+                               ZlibMode mode, // NOLINT(bugprone-easily-swappable-parameters)
+                               size_t max_window_bits, int flush_mode) {
 
 	if(max_window_bits < Z_MIN_WINDOW_BITS || max_window_bits > Z_MAX_WINDOW_BITS) {
 		return get_empty_sized_buffer();
@@ -114,7 +115,7 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, 
 
 	// the maximum window bits are used, even if we could use loweer widnow bits
 
-	const size_t chunk_size = 1 << max_window_bits;
+	const size_t chunk_size = 1UL << max_window_bits;
 
 	void* start_chunk = malloc(chunk_size);
 	if(!start_chunk) {
@@ -147,7 +148,9 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, 
 	bool final_pass = false;
 
 	while(true) {
-		int deflate_result = deflate(&zstream, final_pass ? Z_FINISH : flush_mode);
+		int deflate_result = deflate(
+		    &zstream,
+		    final_pass ? Z_FINISH : flush_mode); // NOLINT(readability-implicit-bool-conversion)
 
 		if(!final_pass) {
 			result_buffer.size += (chunk_size - zstream.avail_out);
@@ -200,8 +203,10 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, 
 
 NODISCARD static SizedBuffer compress_buffer_with_zlib_compat(SizedBuffer buffer, bool gzip) {
 
-	return compress_buffer_with_zlib_impl(buffer, gzip ? ZlibModeGzip : ZlibModeDeflate,
-	                                      Z_DEFAULT_WINDOW_SIZE, Z_FINISH);
+	return compress_buffer_with_zlib_impl(
+	    buffer,
+	    gzip ? ZlibModeGzip : ZlibModeDeflate, // NOLINT(readability-implicit-bool-conversion)
+	    Z_DEFAULT_WINDOW_SIZE, Z_FINISH);
 }
 
 #define WS_FLUSH_MODE Z_SYNC_FLUSH
@@ -212,9 +217,10 @@ NODISCARD SizedBuffer compress_buffer_with_zlib_for_ws(SizedBuffer buffer, size_
 }
 
 // see https://zlib.net/manual.html
-NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer, ZlibMode mode,
-                                                              size_t max_window_bits,
-                                                              int flush_mode) {
+NODISCARD static SizedBuffer
+decompress_buffer_with_zlib_impl(SizedBuffer buffer,
+                                 ZlibMode mode, // NOLINT(bugprone-easily-swappable-parameters)
+                                 size_t max_window_bits, int flush_mode) {
 
 	if(max_window_bits < Z_MIN_WINDOW_BITS || max_window_bits > Z_MAX_WINDOW_BITS) {
 		return SIZED_BUFFER_ERROR;
@@ -239,9 +245,9 @@ NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer
 		}
 	}
 
-	// the maximum window bits are used, even if we could use loweer widnow bits
+	// the maximum window bits are used, even if we could use lower widnow bits
 
-	const size_t chunk_size = 1 << max_window_bits;
+	const size_t chunk_size = 1UL << max_window_bits;
 
 	void* start_chunk = malloc(chunk_size);
 	if(!start_chunk) {
@@ -280,7 +286,7 @@ NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer
 		}
 
 		if((inflate_result == Z_BUF_ERROR || inflate_result == Z_OK) && zstream.avail_out == 0) {
-			if(zstream.avail_in == 0 && inflate_result == Z_OK){
+			if(zstream.avail_in == 0 && inflate_result == Z_OK) {
 				// as we don't need more output, this buffer is enough, we are done
 				break;
 			}
