@@ -379,16 +379,16 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 
 	ArrayProcessArg process_arg = (ArrayProcessArg)arg;
 
-	size_t process_arg_lenght = stbds_arrlenu(process_arg);
+	size_t process_arg_length = stbds_arrlenu(process_arg);
 
-	if(process_arg_lenght == 0) {
+	if(process_arg_length == 0) {
 		return NULL;
 	}
 
 	// NOTE: receive extensions are run in reverse
 
-	for(size_t i = process_arg_lenght - 1; i >= 0; --i) {
-		WsProcessFn process_fn = process_arg[i];
+	for(size_t i = 0; i < process_arg_length; ++i) {
+		WsProcessFn process_fn = process_arg[process_arg_length - 1 - i];
 
 		char* error = process_fn.receive_fn(message, message_state, process_fn.arg);
 		if(error != NULL) {
@@ -415,17 +415,37 @@ static char* array_process_send_fn(WebSocketRawMessage* raw_message,
 	return NULL;
 }
 
+#define WS_DECOMPRESS_TAILER_LENGTH 4
+
 static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* options) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7692#section-6.2
-
-	SizedBuffer input_buffer = { .data = message->data, .size = message->data_len };
 
 	if(!options->client.no_context_takeover) {
 		return strdup("client context takeover is not supported");
 	}
 
+	SizedBuffer input_buffer = { .data = message->data, .size = message->data_len };
+
+	// steps from: https://datatracker.ietf.org/doc/html/rfc7692#section-7.2.2
+
+	// 1. Append 4 octets of 0x00 0x00 0xff 0xff to the tail end of the payload of the message.
+	const uint8_t ws_trailer_data[WS_DECOMPRESS_TAILER_LENGTH] = { 0x00, 0x00, 0xff, 0xff };
+	uint8_t* new_buf =
+	    (uint8_t*)realloc(input_buffer.data, input_buffer.size + WS_DECOMPRESS_TAILER_LENGTH);
+	if(!new_buf) {
+		return strdup("allocation error");
+	}
+
+	for(size_t i = 0; i < WS_DECOMPRESS_TAILER_LENGTH; ++i) {
+		new_buf[input_buffer.size + i] = ws_trailer_data[i];
+	}
+
+	input_buffer.data = new_buf;
+	input_buffer.size = input_buffer.size + WS_DECOMPRESS_TAILER_LENGTH;
+
+	// 2. Decompress the resulting data using DEFLATE.
 	SizedBuffer result =
-	    decompress_buffer_with_zlib(input_buffer, false, options->client.max_window_bits);
+	    decompress_buffer_with_zlib_for_ws(input_buffer, options->client.max_window_bits);
 
 	if(result.data == NULL) {
 		return strdup("decompress error");
@@ -442,18 +462,31 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 static char* compress_ws_message(WebSocketRawMessage* raw_message, WsDeflateOptions* options) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7692#section-6.1
 
-	SizedBuffer input_buffer = { .data = raw_message->payload, .size = raw_message->payload_len };
-
 	if(!options->server.no_context_takeover) {
 		return strdup("server context takeover is not supported");
 	}
 
+	SizedBuffer input_buffer = { .data = raw_message->payload, .size = raw_message->payload_len };
+
+	// steps from: https://datatracker.ietf.org/doc/html/rfc7692#section-7.2.1
+
+	// 1. Compress all the octets of the payload of the message using DEFLATE.
 	SizedBuffer result =
-	    compress_buffer_with_zlib(input_buffer, false, options->server.max_window_bits);
+	    compress_buffer_with_zlib_for_ws(input_buffer, options->server.max_window_bits);
 
 	if(result.data == NULL) {
 		return strdup("compress error");
 	}
+
+	// 2. If the resulting data does not end with an empty DEFLATE block with no compression (the
+	// "BTYPE" bits are set to 00), append an empty DEFLATE block with no compression to the tail
+	// end.
+	// TODO
+
+	// 3. Remove 4 octets (that are 0x00 0x00 0xff 0xff) from the tail end. After this step, the
+	// last octet of the compressed data contains (possibly part of) the DEFLATE header bits with
+	// the "BTYPE" bits set to 00.
+	// TODO
 
 	free_sized_buffer(input_buffer);
 
