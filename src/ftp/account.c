@@ -43,7 +43,7 @@ UserValidity account_verify(const AuthenticationProviders* auth_providers,
 	switch(result.validity) {
 		case AuthenticationValidityError: {
 			LOG_MESSAGE(LogLevelError,
-			            "An error occured, while trying to find a user with password: %s\n",
+			            "An error occurred, while trying to find a user with password: %s\n",
 			            result.data.error.error_message);
 			return UserValidityInternalError;
 		}
@@ -57,7 +57,7 @@ UserValidity account_verify(const AuthenticationProviders* auth_providers,
 			return UserValidityOk;
 		}
 		default: {
-			LOG_MESSAGE_SIMPLE(LogLevelError, "An error occured, while trying to find a user with "
+			LOG_MESSAGE_SIMPLE(LogLevelError, "An error occurred, while trying to find a user with "
 			                                  "password, unexpected return type enum value\n");
 
 			return UserValidityInternalError;

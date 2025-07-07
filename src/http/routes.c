@@ -778,7 +778,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 			}
 			case HttpAuthStatusTypeAuthorizationError: {
 				LOG_MESSAGE(LogLevelError,
-				            "An error occured while tyring to process authentication status: %s\n",
+				            "An error occurred while tyring to process authentication status: %s\n",
 				            auth_status.data.auth_error.error);
 
 				HTTPResponseToSend to_send = {
@@ -796,7 +796,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 			}
 			case HttpAuthStatusTypeError: {
 				LOG_MESSAGE(LogLevelError,
-				            "An error occured while tyring to process authentication status: %s\n",
+				            "An error occurred while tyring to process authentication status: %s\n",
 				            auth_status.data.error.error_message);
 
 				HTTPResponseToSend to_send = {

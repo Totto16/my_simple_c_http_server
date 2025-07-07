@@ -138,7 +138,7 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 			if(!new_body.data) {
 				LOG_MESSAGE(
 				    LogLevelError,
-				    "An error occured while compressing the body with the compression format %s\n",
+				    "An error occurred while compressing the body with the compression format %s\n",
 				    get_string_for_compress_format(send_settings.compression_to_use));
 				format_used = CompressionTypeNone;
 				response->body = to_send.body.body;
