@@ -36,3 +36,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
 
 	return (Utf8DataResult){ .has_error = false, .data = { .result = utf8_data } };
 }
+
+void free_utf8_data(Utf8Data data) {
+	free(data.data);
+}

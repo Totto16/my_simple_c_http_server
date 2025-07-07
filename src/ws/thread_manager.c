@@ -944,7 +944,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						Utf8Data data =
 						    utf8_result.data.result; // NOLINT(clang-analyzer-unix.Malloc)
 						// TODO(Totto): do something with this
-						free(data.data);
+						free_utf8_data(data);
 					}
 				}
 			}
@@ -1086,7 +1086,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 						Utf8Data data = utf8_result.data.result;
 						// TODO(Totto): do something with this
-						free(data.data);
+						free_utf8_data(data);
 					}
 					// can't break out of a switch and the while loop, so using goto
 					goto handle_message;
@@ -1202,7 +1202,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						Utf8Data data =
 						    utf8_result.data.result; // NOLINT(clang-analyzer-unix.Malloc)
 						// TODO(Totto): do something with this
-						free(data.data);
+						free_utf8_data(data);
 					}
 
 					// can't break out of a switch and the while loop, so using goto
