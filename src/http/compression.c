@@ -144,12 +144,16 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, 
 		return SIZED_BUFFER_ERROR;
 	}
 
-	int current_flush_mode = flush_mode;
+	bool final_pass = false;
 
 	while(true) {
-		int deflate_result = deflate(&zstream, current_flush_mode);
+		int deflate_result = deflate(&zstream, final_pass ? Z_FINISH : flush_mode);
 
-		result_buffer.size += (chunk_size - zstream.avail_out);
+		if(!final_pass) {
+			result_buffer.size += (chunk_size - zstream.avail_out);
+		} else {
+			result_buffer.size = zstream.total_out;
+		}
 
 		if(deflate_result == Z_STREAM_END) {
 			break;
@@ -166,7 +170,7 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, 
 		}
 
 		if(deflate_result == Z_OK) {
-			current_flush_mode = Z_FINISH;
+			final_pass = true;
 			continue;
 		}
 
@@ -176,6 +180,8 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, 
 
 		return SIZED_BUFFER_ERROR;
 	}
+
+	assert(result_buffer.size == zstream.total_out);
 
 	int deflate_end_result = deflateEnd(&zstream);
 
@@ -294,6 +300,8 @@ NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer
 
 		return SIZED_BUFFER_ERROR;
 	}
+
+	assert(result_buffer.size == zstream.total_out);
 
 	int inflate_end_result = inflateEnd(&zstream);
 
