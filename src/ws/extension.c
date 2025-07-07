@@ -488,7 +488,8 @@ static char* compress_ws_message(WebSocketRawMessage* raw_message, WsDeflateOpti
 	// the "BTYPE" bits set to 00.
 	// TODO
 
-	free_sized_buffer(input_buffer);
+	// Note: not needed, freed as part of the message
+	// free_sized_buffer(input_buffer);
 
 	raw_message->payload = result.data;
 	raw_message->payload_len = result.size;
