@@ -60,11 +60,6 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 typedef struct {
 	HTTPRouteSpecialDataType type;
-	union {
-		struct {
-			bool fragmented;
-		} ws;
-	} data;
 } HTTPRouteSpecialData;
 
 typedef struct {

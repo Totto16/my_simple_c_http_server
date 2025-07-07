@@ -258,14 +258,13 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 						}
 						case HTTPRouteSpecialDataTypeWs: {
 
-							int ws_request_successful =
-							    handle_ws_handshake(http_request, descriptor, send_settings);
+							WSExtensions extensions = STBDS_ARRAY_EMPTY;
 
-							WebSocketFunction websocket_function_to_use =
-							    route_data // NOLINT(readability-implicit-bool-conversion)
-							            .data.special.data.ws.fragmented
-							        ? websocket_function_fragmented
-							        : websocket_function;
+							int ws_request_successful = handle_ws_handshake(
+							    http_request, descriptor, send_settings, &extensions);
+
+							WsConnectionArgs websocket_args =
+							    get_ws_args_from_http_request(selected_route_data.path, extensions);
 
 							if(ws_request_successful >= 0) {
 								// move the context so that we can use it in the long standing web
@@ -273,10 +272,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								ConnectionContext* new_context = copy_connection_context(context);
 								argument->contexts[worker_info.worker_index] = new_context;
 
-								if(!thread_manager_add_connection(argument->web_socket_manager,
-								                                  descriptor, context,
-								                                  websocket_function_to_use)) {
+								if(!thread_manager_add_connection(
+								       argument->web_socket_manager, descriptor, context,
+								       websocket_function, websocket_args)) {
 									free_http_request(http_request);
+									stbds_arrfree(extensions);
+									free_selected_route(selected_route);
 									FREE_AT_END();
 
 									return JOB_ERROR_CONNECTION_ADD;
@@ -285,6 +286,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								// finally free everything necessary
 
 								free_http_request(http_request);
+								free_selected_route(selected_route);
 								FREE_AT_END();
 
 								return JOB_ERROR_NONE;
@@ -796,6 +798,10 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	free_secure_options(options);
 
 	free_authentication_providers(auth_providers);
+
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+	openssl_cleanup_global_state();
+#endif
 
 	return EXIT_SUCCESS;
 }

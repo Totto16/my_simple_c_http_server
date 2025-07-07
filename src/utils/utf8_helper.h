@@ -18,3 +18,5 @@ typedef struct {
 } Utf8DataResult;
 
 NODISCARD Utf8DataResult get_utf8_string(const void* data, long size);
+
+void free_utf8_data(Utf8Data data);

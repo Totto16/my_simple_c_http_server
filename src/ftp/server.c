@@ -2007,5 +2007,9 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 
 	free_authentication_providers(auth_providers);
 
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+	openssl_cleanup_global_state();
+#endif
+
 	return EXIT_SUCCESS;
 }

@@ -1,11 +1,13 @@
 
 
 #include "thread_manager.h"
+#include "generic/hash.h"
 #include "generic/helper.h"
 #include "generic/read.h"
 #include "generic/send.h"
 #include "utils/log.h"
 #include "utils/thread_helper.h"
+#include "utils/thread_pool.h"
 #include "utils/utf8_helper.h"
 #include "utils/utils.h"
 
@@ -42,27 +44,16 @@ struct WebSocketConnectionImpl {
 	ConnectionDescriptor* descriptor;
 	WebSocketFunction function;
 	pthread_t thread_id;
+	WsConnectionArgs args;
+	LifecycleFunctions fns;
 };
-
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	WsOpcodeCont = 0x0,
-	WsOpcodeText = 0x1,
-	WsOpcodeBin = 0x2,
-	// 0x3 - 0x7 are reserved for further non-control frames
-	WsOpcodeClose = 0x8,
-	WsOpcodePing = 0x9,
-	WsOpcodePong = 0xA,
-	// 0xB - 0xF are reserved for further control frames
-} WsOpcode;
 
 typedef struct {
 	bool fin;
 	WsOpcode op_code;
 	bool mask;
 	uint8_t payload_len;
+	uint8_t rsv_bytes;
 } RawHeaderOne;
 
 typedef struct {
@@ -72,13 +63,6 @@ typedef struct {
 		const char* error;
 	} data;
 } RawHeaderOneResult;
-
-typedef struct {
-	bool fin;
-	WsOpcode op_code;
-	void* payload;
-	uint64_t payload_len;
-} WebSocketRawMessage;
 
 typedef struct {
 	bool has_error;
@@ -92,6 +76,22 @@ typedef struct {
 	WebSocketConnection* connection;
 	WebSocketThreadManager* manager;
 } WebSocketListenerArg;
+
+void thread_manager_thread_startup_function(void) {
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+	openssl_initialize_crypto_thread_state();
+#endif
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running startup function for ws thread\n");
+}
+
+void thread_manager_thread_shutdown_function(void) {
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+	openssl_cleanup_crypto_thread_state();
+#endif
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running shutdown function for ws thread\n");
+}
 
 #define WS_ALLOW_SSL_CONTEXT_REUSE false
 
@@ -111,7 +111,7 @@ typedef struct {
 #define EXTENDED_PAYLOAD_MAGIC_NUMBER2 127
 
 NODISCARD static RawHeaderOneResult
-get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
+get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allowed_rsv_bytes) {
 	bool fin = (header_bytes[0] >> // NOLINT(readability-implicit-bool-conversion)
 	            7 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	            ) &
@@ -120,10 +120,18 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
 	    (header_bytes[0] >> 4) &
 	    0b111; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	if(rsv_bytes != 0) {
-		return (RawHeaderOneResult){ .has_error = true,
-			                         .data = { .error = "only 0 allowed for the rsv bytes" } };
-	};
+	if(allowed_rsv_bytes == 0) {
+		if(rsv_bytes != 0) {
+			return (RawHeaderOneResult){ .has_error = true,
+				                         .data = { .error = "only 0 allowed for the rsv bytes" } };
+		};
+	} else {
+
+		if((rsv_bytes | allowed_rsv_bytes) != allowed_rsv_bytes) {
+			return (RawHeaderOneResult){ .has_error = true,
+				                         .data = { .error = "invalid rsv bits set" } };
+		}
+	}
 
 	WsOpcode op_code =
 	    header_bytes[0] &
@@ -136,9 +144,11 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE]) {
 	    header_bytes[1] &
 	    0x7F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	RawHeaderOne header = {
-		.fin = fin, .op_code = op_code, .mask = mask, .payload_len = payload_len
-	};
+	RawHeaderOne header = { .fin = fin,
+		                    .op_code = op_code,
+		                    .mask = mask,
+		                    .payload_len = payload_len,
+		                    .rsv_bytes = rsv_bytes };
 
 	RawHeaderOneResult result = { .has_error = false, .data = { .header = header } };
 	return result;
@@ -155,7 +165,9 @@ NODISCARD static bool is_control_op_code(WsOpcode op_code) {
 	       0;
 }
 
-NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection* connection) {
+NODISCARD static WebSocketRawMessageResult
+read_raw_message(WebSocketConnection* connection,
+                 ExtensionReceivePipelineSettings pipeline_settings) {
 
 	uint8_t* header_bytes =
 	    (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
@@ -163,7 +175,9 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 		return (WebSocketRawMessageResult){ .has_error = true,
 			                                .data = { .error = "couldn't read header bytes (2)" } };
 	}
-	RawHeaderOneResult raw_header_result = get_raw_header(header_bytes);
+
+	RawHeaderOneResult raw_header_result =
+	    get_raw_header(header_bytes, pipeline_settings.allowed_rsv_bytes);
 
 	free(header_bytes);
 
@@ -235,7 +249,8 @@ NODISCARD static WebSocketRawMessageResult read_raw_message(WebSocketConnection*
 	WebSocketRawMessage value = { .fin = raw_header.fin,
 		                          .op_code = raw_header.op_code,
 		                          .payload = payload,
-		                          .payload_len = payload_len };
+		                          .payload_len = payload_len,
+		                          .rsv_bytes = raw_header.rsv_bytes };
 
 	WebSocketRawMessageResult result = { .has_error = false, .data = { .message = value } };
 
@@ -277,8 +292,9 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 	uint8_t header_one =
 	    ((raw_message.fin & 0b1) // NOLINT(readability-implicit-bool-conversion)
 	     << 7) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	    | (raw_message.op_code &
-	       0b1111); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	    | ((raw_message.rsv_bytes & 0b111) << 4) |
+	    (raw_message.op_code &
+	     0b1111); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	uint8_t additional_payload_len_2 = payload_additional_len == 2 ? EXTENDED_PAYLOAD_MAGIC_NUMBER1
 	                                                               : EXTENDED_PAYLOAD_MAGIC_NUMBER2;
@@ -350,54 +366,72 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 }
 
 NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connection,
-                                                     WebSocketMessage message, bool mask) {
+                                                     WebSocketMessage* message, bool mask,
+                                                     ExtensionSendState* extension_send_state) {
 
-	WsOpcode op_code = message.is_text // NOLINT(readability-implicit-bool-conversion)
+	WsOpcode op_code = message->is_text // NOLINT(readability-implicit-bool-conversion)
 	                       ? WsOpcodeText
 	                       : WsOpcodeBin;
 
-	WebSocketRawMessage raw_message = {
-		.fin = true, .op_code = op_code, .payload = message.data, .payload_len = message.data_len
-	};
+	WebSocketRawMessage raw_message = { .fin = true,
+		                                .op_code = op_code,
+		                                .payload = message->data,
+		                                .payload_len = message->data_len,
+		                                .rsv_bytes = 0b000 };
+
+	extension_send_pipeline_process_start_message(extension_send_state, &raw_message);
+
 	return ws_send_message_raw_internal(connection, raw_message, mask);
 }
 
+// according to rfc
+#define WS_MINIMUM_FRAGMENT_SIZE 16
+
 NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* connection,
-                                                         WebSocketMessage message, bool mask,
-                                                         uint64_t fragment_size) {
+                                                         WebSocketMessage* message, bool mask,
+                                                         uint64_t fragment_size,
+                                                         ExtensionSendState* extension_send_state) {
 
 	// this is the minimum we set, so that everything (header + eventual mask) can be sent
 	if(fragment_size < WS_MINIMUM_FRAGMENT_SIZE) {
 		fragment_size = WS_MINIMUM_FRAGMENT_SIZE;
 	}
 
-	if(message.data_len < fragment_size) {
-		return ws_send_message_internal_normal(connection, message, mask);
+	if(message->data_len < fragment_size) {
+		return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 	}
 
-	for(uint64_t start = 0; start < message.data_len; start += fragment_size) {
+	for(uint64_t start = 0; start < message->data_len; start += fragment_size) {
 		uint64_t end = start + fragment_size;
 		bool fin = false;
 		uint64_t payload_len = fragment_size;
 
-		if(end >= message.data_len) {
-			end = message.data_len;
+		if(end >= message->data_len) {
+			end = message->data_len;
 			fin = true;
 			payload_len = end - start;
 		}
 
 		WsOpcode op_code =
 		    start == 0
-		        ? (message.is_text // NOLINT(readability-implicit-bool-conversion,readability-avoid-nested-conditional-operator)
+		        ? (message->is_text // NOLINT(readability-implicit-bool-conversion,readability-avoid-nested-conditional-operator)
 		               ? WsOpcodeText
 		               : WsOpcodeBin)
 		        : WsOpcodeCont;
 
-		void* payload = ((uint8_t*)message.data) + start;
+		void* payload = ((uint8_t*)message->data) + start;
 
-		WebSocketRawMessage raw_message = {
-			.fin = fin, .op_code = op_code, .payload = payload, .payload_len = payload_len
-		};
+		WebSocketRawMessage raw_message = { .fin = fin,
+			                                .op_code = op_code,
+			                                .payload = payload,
+			                                .payload_len = payload_len,
+			                                .rsv_bytes = 0b000 };
+		if(start) {
+			extension_send_pipeline_process_start_message(extension_send_state, &raw_message);
+		} else {
+			extension_send_pipeline_process_cont_message(extension_send_state, &raw_message);
+		}
+
 		int result = ws_send_message_raw_internal(connection, raw_message, mask);
 
 		if(result < 0) {
@@ -411,14 +445,24 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 #define DEFAULT_AUTO_FRAGMENT_SIZE 4096
 
 NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
-                                              WebSocketMessage message, bool mask,
-                                              int64_t fragment_size) {
+                                              WebSocketMessage* message, bool mask,
+                                              WsConnectionArgs args,
+                                              ExtensionSendState* extension_send_state) {
 
-	if(fragment_size == WsFragmentationOff) {
-		return ws_send_message_internal_normal(connection, message, mask);
+	char* extension_error =
+	    extension_send_pipeline_process_initial_message(extension_send_state, message);
+
+	if(extension_error != NULL) {
+		LOG_MESSAGE(LogLevelError, "Extension send error: %s\n", extension_error);
+		free(extension_error);
+		return -1;
 	}
 
-	if(fragment_size == WsFragmentationAuto || fragment_size <= 0) {
+	if(args.fragment_option.type == WsFragmentOptionTypeOff) {
+		return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
+	}
+
+	if(args.fragment_option.type == WsFragmentOptionTypeAuto) {
 
 		int socket_fd = get_underlying_socket(connection->descriptor);
 
@@ -433,7 +477,7 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 
 			if(result == 0) {
 				if(buffer_size >= WS_MAXIMUM_HEADER_LENGTH) {
-					// NOTE: this value is the doubled, if you set it, but we use th doubled value
+					// NOTE: this value is the doubled, if you set it, but we use the doubled value
 					// here anyway
 					// we subtract the header length, so that it is can fit into one buffer
 					chosen_fragment_size = ((uint64_t)buffer_size) - WS_MAXIMUM_HEADER_LENGTH;
@@ -445,10 +489,17 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 			}
 		}
 
-		return ws_send_message_internal_fragmented(connection, message, mask, chosen_fragment_size);
+		return ws_send_message_internal_fragmented(connection, message, mask, chosen_fragment_size,
+		                                           extension_send_state);
 	}
 
-	return ws_send_message_internal_fragmented(connection, message, mask, (uint64_t)fragment_size);
+	if(args.fragment_option.type == WsFragmentOptionTypeSet) {
+		return ws_send_message_internal_fragmented(connection, message, mask,
+		                                           args.fragment_option.data.set.fragment_size,
+		                                           extension_send_state);
+	}
+
+	return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 }
 
 /**
@@ -601,22 +652,27 @@ NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* con
 		memcpy(payload + 2, reason.message, message_len);
 	}
 
-	WebSocketRawMessage message_raw = {
-		.fin = true, .op_code = WsOpcodeClose, .payload = payload, .payload_len = payload_len
-	};
+	WebSocketRawMessage raw_message = { .fin = true,
+		                                .op_code = WsOpcodeClose,
+		                                .payload = payload,
+		                                .payload_len = payload_len,
+		                                .rsv_bytes = 0b000 };
 
-	int result = ws_send_message_raw_internal(connection, message_raw, false);
+	// TODO(Totto): once we support extensions, that needs to be run on control message, we need to
+	// add that pipline step also here
+
+	int result = ws_send_message_raw_internal(connection, raw_message, false);
 
 	free(payload);
 
 	return result;
 }
 
-NODISCARD static const char* close_websocket_connection(WebSocketConnection* connection,
+NODISCARD static const char* close_websocket_connection(WebSocketConnection** connection,
                                                         WebSocketThreadManager* manager,
                                                         CloseReason reason) {
 
-	if(reason.message) {
+	if(reason.message != NULL) {
 		int message_size =
 		    reason.message_len < 0 ? (int)strlen(reason.message) : reason.message_len;
 		LOG_MESSAGE(LogLevelTrace, "Closing the websocket connection: %.*s\n", message_size,
@@ -625,10 +681,14 @@ NODISCARD static const char* close_websocket_connection(WebSocketConnection* con
 		LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing the websocket connection: (no message)\n");
 	}
 
-	int result = ws_send_close_message_raw_internal(connection, reason);
+	int result = ws_send_close_message_raw_internal(*connection, reason);
+
+	RUN_LIFECYCLE_FN((*connection)->fns.shutdown_fn);
 
 	// even if above failed, we need to remove the connection nevertheless
-	int result2 = thread_manager_remove_connection(manager, connection);
+	int result2 = thread_manager_remove_connection(manager, *connection);
+
+	*connection = NULL;
 
 	if(result < 0) {
 		return "send error";
@@ -656,38 +716,86 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	FORMAT_STRING(&thread_name_buffer, return NULL;, "ws listener " PRI_THREADID, get_thread_id());
 	set_thread_name(thread_name_buffer);
 
-#define FREE_AT_END() \
+#define FREE_ADDITIONALLY() \
+	do { \
+	} while(false)
+
+#define FREE_AT_END_ONE() \
 	do { \
 		unset_thread_name(); \
 		free(thread_name_buffer); \
 		free(argument); \
+		FREE_ADDITIONALLY(); \
 	} while(false)
 
 	bool result = setup_sigpipe_signal_handler();
 
 	if(!result) {
-		FREE_AT_END();
+		FREE_AT_END_ONE();
 		return NULL;
 	}
+
+#define FREE_AT_END() \
+	do { \
+		FREE_AT_END_ONE(); \
+		if(connection != NULL) { \
+			RUN_LIFECYCLE_FN(connection->fns.shutdown_fn); \
+		} \
+	} while(false)
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting WS Listener\n");
 
 	WebSocketConnection* connection = argument->connection;
 
+	RUN_LIFECYCLE_FN(connection->fns.startup_fn);
+
+	WSExtensions extensions = connection->args.extensions;
+
+	ExtensionPipeline* extension_pipeline = get_extension_pipeline(extensions);
+
+	if(extension_pipeline == NULL) {
+		FREE_AT_END();
+		return NULL;
+	}
+
+#define FREE_CURRENT_STATE() \
+	do { \
+	} while(false)
+
+#undef FREE_ADDITIONALLY
+#define FREE_ADDITIONALLY() \
+	do { \
+		free_extension_pipeline(extension_pipeline); \
+		FREE_CURRENT_STATE(); \
+	} while(false)
+
+	ExtensionReceivePipelineSettings pipeline_receive_settings =
+	    get_extension_receive_pipeline_settings(extension_pipeline);
+
 	while(true) {
+
+#undef FREE_CURRENT_STATE
+#define FREE_CURRENT_STATE() \
+	do { \
+		free_extension_receive_message_state(message_receive_state); \
+	} while(false)
+
 		bool has_message = false;
 		WebSocketMessage current_message = { .is_text = true, .data = NULL, .data_len = 0 };
+		ExtensionMessageReceiveState* message_receive_state =
+		    init_extension_receive_message_state(extension_pipeline);
 
 		while(true) {
 
-			WebSocketRawMessageResult raw_message_result = read_raw_message(connection);
+			WebSocketRawMessageResult raw_message_result =
+			    read_raw_message(connection, pipeline_receive_settings);
 
 #define FREE_RAW_WS_MESSAGE() \
 	do { \
 		if(has_message) /*NOLINT(bugprone-redundant-branch-condition)*/ { \
-			free(current_message.data); \
+			free_ws_message(current_message); \
 		} else { \
-			free(raw_message.payload); \
+			free_raw_ws_message(raw_message); \
 		} \
 	} while(false)
 
@@ -710,7 +818,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message_len = -1 };
 
 				const char* result =
-				    close_websocket_connection(connection, argument->manager, reason);
+				    close_websocket_connection(&connection, argument->manager, reason);
 
 				free(error_message);
 
@@ -735,7 +843,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						                   .message_len = -1 };
 
 					const char* result =
-					    close_websocket_connection(connection, argument->manager, reason);
+					    close_websocket_connection(&connection, argument->manager, reason);
 
 					if(result != NULL) {
 						LOG_MESSAGE(LogLevelError,
@@ -755,7 +863,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						                   .message_len = -1 };
 
 					const char* result =
-					    close_websocket_connection(connection, argument->manager, reason);
+					    close_websocket_connection(&connection, argument->manager, reason);
 
 					if(result != NULL) {
 						LOG_MESSAGE(LogLevelError,
@@ -783,7 +891,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message_len = -1 };
 
 							const char* result =
-							    close_websocket_connection(connection, argument->manager, reason);
+							    close_websocket_connection(&connection, argument->manager, reason);
 
 							if(result != NULL) {
 								LOG_MESSAGE(LogLevelError,
@@ -817,7 +925,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message_len = -1 };
 
 							const char* result =
-							    close_websocket_connection(connection, argument->manager, reason);
+							    close_websocket_connection(&connection, argument->manager, reason);
 
 							free(error_message);
 
@@ -836,7 +944,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						Utf8Data data =
 						    utf8_result.data.result; // NOLINT(clang-analyzer-unix.Malloc)
 						// TODO(Totto): do something with this
-						free(data.data);
+						free_utf8_data(data);
 					}
 				}
 			}
@@ -851,7 +959,32 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						};
 
 						const char* result =
-						    close_websocket_connection(connection, argument->manager, reason);
+						    close_websocket_connection(&connection, argument->manager, reason);
+
+						if(result != NULL) {
+							LOG_MESSAGE(
+							    LogLevelError,
+							    "Error while closing the websocket connection: CONT error: %s\n",
+							    result);
+						}
+
+						FREE_RAW_WS_MESSAGE();
+						FREE_AT_END();
+						return NULL;
+					}
+
+					char* extension_error = extension_receive_pipeline_is_valid_cont_frame(
+					    extension_pipeline, message_receive_state, raw_message);
+
+					if(extension_error != NULL) {
+						CloseReason reason = { .code = CloseCodeProtocolError,
+							                   .message = extension_error,
+							                   .message_len = -1 };
+
+						const char* result =
+						    close_websocket_connection(&connection, argument->manager, reason);
+
+						free(extension_error);
 
 						if(result != NULL) {
 							LOG_MESSAGE(
@@ -887,6 +1020,37 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						continue;
 					}
 
+					char* finish_error = extension_receive_pipeline_process_finished_message(
+					    extension_pipeline, message_receive_state, &current_message);
+
+					if(finish_error != NULL) {
+						char* error_message = NULL;
+						FORMAT_STRING(&error_message, FREE_AT_END(); return NULL;
+						              , "Couldn't parse message at end: %s", finish_error);
+
+						free(finish_error);
+
+						CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
+							                   .message = error_message,
+							                   .message_len = -1 };
+
+						const char* result =
+						    close_websocket_connection(&connection, argument->manager, reason);
+
+						free(error_message);
+
+						if(result != NULL) {
+							LOG_MESSAGE(LogLevelError,
+							            "Error while closing the websocket connection: "
+							            "Extension pipeline error: %s\n",
+							            result);
+						}
+
+						FREE_RAW_WS_MESSAGE();
+						FREE_AT_END();
+						return NULL;
+					}
+
 					if(current_message.is_text) {
 						Utf8DataResult utf8_result =
 						    get_utf8_string(current_message.data, (long)current_message.data_len);
@@ -895,7 +1059,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 							char* error_message = NULL;
 							// TODO(Totto): better report error
-							FORMAT_STRING(&error_message, return NULL;
+							FORMAT_STRING(&error_message, FREE_AT_END(); return NULL;
 							              , "Invalid utf8 payload in fragmented message: %s",
 							              utf8_result.data.error);
 
@@ -904,7 +1068,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message_len = -1 };
 
 							const char* result =
-							    close_websocket_connection(connection, argument->manager, reason);
+							    close_websocket_connection(&connection, argument->manager, reason);
 
 							free(error_message);
 
@@ -922,7 +1086,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 						Utf8Data data = utf8_result.data.result;
 						// TODO(Totto): do something with this
-						free(data.data);
+						free_utf8_data(data);
 					}
 					// can't break out of a switch and the while loop, so using goto
 					goto handle_message;
@@ -939,7 +1103,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						};
 
 						const char* result =
-						    close_websocket_connection(connection, argument->manager, reason);
+						    close_websocket_connection(&connection, argument->manager, reason);
 
 						if(result != NULL) {
 							LOG_MESSAGE(
@@ -954,6 +1118,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					}
 
 					has_message = true;
+					extension_receive_pipeline_process_start_message(
+					    extension_pipeline, message_receive_state, raw_message);
 
 					current_message.is_text =
 					    raw_message.op_code == // NOLINT(readability-implicit-bool-conversion)
@@ -963,6 +1129,37 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 					if(!raw_message.fin) {
 						continue;
+					}
+
+					char* finish_error = extension_receive_pipeline_process_finished_message(
+					    extension_pipeline, message_receive_state, &current_message);
+
+					if(finish_error != NULL) {
+						char* error_message = NULL;
+						FORMAT_STRING(&error_message, FREE_AT_END(); return NULL;
+						              , "Couldn't parse message at end: %s", finish_error);
+
+						free(finish_error);
+
+						CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
+							                   .message = error_message,
+							                   .message_len = -1 };
+
+						const char* result =
+						    close_websocket_connection(&connection, argument->manager, reason);
+
+						free(error_message);
+
+						if(result != NULL) {
+							LOG_MESSAGE(LogLevelError,
+							            "Error while closing the websocket connection: "
+							            "Extension pipeline error: %s\n",
+							            result);
+						}
+
+						FREE_RAW_WS_MESSAGE();
+						FREE_AT_END();
+						return NULL;
 					}
 
 					if(current_message.is_text) {
@@ -986,7 +1183,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message_len = -1 };
 
 							const char* result =
-							    close_websocket_connection(connection, argument->manager, reason);
+							    close_websocket_connection(&connection, argument->manager, reason);
 
 							free(error_message);
 
@@ -1005,7 +1202,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						Utf8Data data =
 						    utf8_result.data.result; // NOLINT(clang-analyzer-unix.Malloc)
 						// TODO(Totto): do something with this
-						free(data.data);
+						free_utf8_data(data);
 					}
 
 					// can't break out of a switch and the while loop, so using goto
@@ -1032,7 +1229,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								};
 
 								const char* result = close_websocket_connection(
-								    connection, argument->manager, invalid_close_code_reason);
+								    &connection, argument->manager, invalid_close_code_reason);
 
 								if(result != NULL) {
 									LOG_MESSAGE(LogLevelError,
@@ -1051,7 +1248,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					}
 
 					const char* result =
-					    close_websocket_connection(connection, argument->manager, reason);
+					    close_websocket_connection(&connection, argument->manager, reason);
 
 					if(result != NULL) {
 						LOG_MESSAGE(LogLevelError,
@@ -1069,7 +1266,13 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					WebSocketRawMessage message_raw = { .fin = true,
 						                                .op_code = WsOpcodePong,
 						                                .payload = raw_message.payload,
-						                                .payload_len = raw_message.payload_len };
+						                                .payload_len = raw_message.payload_len,
+						                                .rsv_bytes = raw_message.rsv_bytes };
+
+					// TODO(Totto): once we support extensions, that needs to be run on control
+					// message, we need to
+					// add that pipline step also here
+
 					int result = ws_send_message_raw_internal(connection, message_raw, false);
 
 					if(result < 0) {
@@ -1078,7 +1281,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							                   .message_len = -1 };
 
 						const char* result1 =
-						    close_websocket_connection(connection, argument->manager, reason);
+						    close_websocket_connection(&connection, argument->manager, reason);
 
 						if(result1 != NULL) {
 							LOG_MESSAGE(LogLevelError,
@@ -1106,7 +1309,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						                   .message_len = -1 };
 
 					const char* result =
-					    close_websocket_connection(connection, argument->manager, reason);
+					    close_websocket_connection(&connection, argument->manager, reason);
 
 					if(result != NULL) {
 						LOG_MESSAGE(LogLevelError,
@@ -1125,8 +1328,35 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	handle_message:
 
 		if(has_message) {
-			WebSocketAction action = connection->function(connection, current_message);
-			free(current_message.data);
+
+			ExtensionSendState* extension_send_state =
+			    pipline_get_extension_send_state(extension_pipeline, message_receive_state);
+
+			if(!extension_send_state) {
+				CloseReason reason = { .code = CloseCodeProtocolError,
+					                   .message = "Coudln't form the send extension state",
+					                   .message_len = -1 };
+
+				const char* result =
+				    close_websocket_connection(&connection, argument->manager, reason);
+
+				if(result != NULL) {
+					LOG_MESSAGE_SIMPLE(LogLevelError,
+					                   "Error while closing the websocket connection: "
+					                   "send extension state allocation error\n");
+				}
+
+				FREE_AT_END();
+				return NULL;
+			}
+
+			WebSocketAction action = connection->function(connection, &current_message,
+			                                              connection->args, extension_send_state);
+
+			free_ws_message(current_message);
+
+			free_extension_send_state(extension_send_state);
+
 			// has_message = false;
 			current_message.data = NULL;
 			current_message.data_len = 0;
@@ -1137,7 +1367,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message_len = -1 };
 
 				const char* result =
-				    close_websocket_connection(connection, argument->manager, reason);
+				    close_websocket_connection(&connection, argument->manager, reason);
 
 				if(result != NULL) {
 					LOG_MESSAGE(
@@ -1156,7 +1386,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message_len = -1 };
 
 				const char* result =
-				    close_websocket_connection(connection, argument->manager, reason);
+				    close_websocket_connection(&connection, argument->manager, reason);
 
 				if(result != NULL) {
 					LOG_MESSAGE(LogLevelError,
@@ -1169,24 +1399,36 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				return NULL;
 			}
 		}
+
+		free_extension_receive_message_state(message_receive_state);
+
+#undef FREE_ADDITIONALLY
+#undef FREE_CURRENT_STATE
+#define FREE_ADDITIONALLY() \
+	do { \
+	} while(false)
 	}
 
 	FREE_AT_END();
 	return NULL;
 }
 
+#undef FREE_ADDITIONALLY
 #undef FREE_RAW_WS_MESSAGE
 
 #undef FREE_AT_END
 
-int ws_send_message(WebSocketConnection* connection, WebSocketMessage message) {
-
-	return ws_send_message_internal(connection, message, false, WsFragmentationOff);
+int ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
+                    WsConnectionArgs args, ExtensionSendState* extension_send_state) {
+	return ws_send_message_internal(connection, message, false, args, extension_send_state);
 }
 
-int ws_send_message_fragmented(WebSocketConnection* connection, WebSocketMessage message,
-                               int64_t fragment_size) {
-	return ws_send_message_internal(connection, message, false, fragment_size);
+void free_ws_message(WebSocketMessage message) {
+	free(message.data);
+}
+
+void free_raw_ws_message(WebSocketRawMessage message) {
+	free(message.payload);
 }
 
 WebSocketThreadManager* initialize_thread_manager(void) {
@@ -1212,7 +1454,8 @@ WebSocketThreadManager* initialize_thread_manager(void) {
 WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
                                                    ConnectionDescriptor* const descriptor,
                                                    ConnectionContext* context,
-                                                   WebSocketFunction function) {
+                                                   WebSocketFunction function,
+                                                   WsConnectionArgs args) {
 
 	int result = pthread_mutex_lock(&manager->mutex);
 	// TODO(Totto): better report error
@@ -1230,6 +1473,10 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	connection->context = context;
 	connection->descriptor = descriptor;
 	connection->function = function;
+	connection->args = args;
+	connection->fns =
+	    (LifecycleFunctions){ .startup_fn = thread_manager_thread_startup_function,
+		                      .shutdown_fn = thread_manager_thread_shutdown_function };
 
 	ConnectionNode* current_node = NULL;
 	ConnectionNode* next_node = manager->head;
@@ -1289,6 +1536,10 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	return connection;
 }
 
+static void free_connection_args(WsConnectionArgs args) {
+	stbds_arrfree(args.extensions);
+}
+
 static void free_connection(WebSocketConnection* connection, bool send_go_away) {
 
 	if(send_go_away) {
@@ -1306,6 +1557,7 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 	close_connection_descriptor_advanced(connection->descriptor, connection->context,
 	                                     WS_ALLOW_SSL_CONTEXT_REUSE);
 	free_connection_context(connection->context);
+	free_connection_args(connection->args);
 	free(connection);
 }
 

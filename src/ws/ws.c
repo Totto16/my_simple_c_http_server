@@ -121,10 +121,67 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HandshakeHeaderHeaderAllFound = 0b11111,
 } NeededHeaderForHandshake;
 
+NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const descriptor,
+                                              SendSettings send_settings, WSExtensions extensions) {
+
+	size_t extension_length = stbds_arrlenu(extensions);
+
+	if(extension_length == 0) {
+		return 0;
+	}
+
+	// TODO(Totto): support more extensions
+	if(extension_length != 1) {
+		return send_failed_handshake_message(descriptor, "only one extension supported atm",
+		                                     send_settings);
+	}
+
+	for(size_t i = 0; i < extension_length; ++i) {
+		WSExtension extension = extensions[i];
+
+		switch(extension.type) {
+			case WSExtensionTypePerMessageDeflate: {
+
+				if(!extension.data.deflate.client.no_context_takeover) {
+					return send_failed_handshake_message(
+					    descriptor,
+					    "client needs to set the option no_context_takeover, takeover not "
+					    "supported",
+					    send_settings);
+				}
+
+				if(!extension.data.deflate.server.no_context_takeover) {
+					return send_failed_handshake_message(
+					    descriptor,
+					    "server needs to set the option no_context_takeover, takeover not "
+					    "supported",
+					    send_settings);
+				}
+
+#ifndef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
+				return send_failed_handshake_message(
+				    descriptor,
+				    "server not compiled with deflate compression and decompression support",
+				    send_settings);
+#endif
+
+				break;
+			}
+			default: {
+				return send_failed_handshake_message(descriptor, "unexpected extension found",
+				                                     send_settings);
+			}
+		}
+	}
+
+	return 0;
+}
+
 static const bool send_http_upgrade_required_status_code = true;
 
 int handle_ws_handshake(const HttpRequest* const http_request,
-                        const ConnectionDescriptor* const descriptor, SendSettings send_settings) {
+                        const ConnectionDescriptor* const descriptor, SendSettings send_settings,
+                        WSExtensions* extensions) {
 
 	// check if it is a valid Websocket request
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-2 section 4.2.1.
@@ -168,10 +225,17 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 				return send_failed_handshake_message(
 				    descriptor, "sec-websocket-version has invalid value", send_settings);
 			}
+		} else if(strcasecmp(header.key, "sec-websocket-extensions") == 0) {
+			// TODO(Totto): this header field may be specified multiple times, but we should
+			// combine all and than parse it, but lets see if the autobahn test suite tests for
+			// that first
+			parse_ws_extensions(extensions, header.value);
+
 		} else if(strcasecmp(header.key, "origin") == 0) {
 			from_browser = true;
 		} else {
 			// do nothing
+			continue;
 		}
 
 		// TODO(Totto): support this optional headers:
@@ -179,11 +243,7 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 		   8.   Optionally, a |Sec-WebSocket-Protocol| header field, with a list
 		        of values indicating which protocols the client would like to
 		        speak, ordered by preference.
-
-		   9.   Optionally, a |Sec-WebSocket-Extensions| header field, with a
-		        list of values indicating which extensions the client would like
-		        to speak.  The interpretation of this header field is discussed
-		        in Section 9.1. */
+		*/
 	}
 
 	UNUSED(from_browser);
@@ -194,6 +254,10 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 			return send_failed_handshake_message_upgrade_required(descriptor, send_settings);
 		}
 		return send_failed_handshake_message(descriptor, "missing required headers", send_settings);
+	}
+
+	if(are_extensions_supported(descriptor, send_settings, *extensions) < 0) {
+		return -1;
 	}
 
 	// send server handshake
@@ -213,13 +277,33 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 
 	char* key_answer = generate_key_answer(sec_key);
 
-	char* sec_websocket_accept_header_buffer = NULL;
-	FORMAT_STRING(&sec_websocket_accept_header_buffer, return false;
-	              , "%s%c%s", "Sec-WebSocket-Accept", '\0', key_answer);
+	if(key_answer != NULL) {
 
-	free(key_answer);
+		char* sec_websocket_accept_header_buffer = NULL;
+		FORMAT_STRING(&sec_websocket_accept_header_buffer, return false;
+		              , "%s%c%s", "Sec-WebSocket-Accept", '\0', key_answer);
 
-	add_http_header_field_by_double_str(&additional_headers, sec_websocket_accept_header_buffer);
+		free(key_answer);
+
+		add_http_header_field_by_double_str(&additional_headers,
+		                                    sec_websocket_accept_header_buffer);
+	}
+
+	if(stbds_arrlenu(*extensions) > 0) {
+		char* accepted_extensions = get_accepted_ws_extensions_as_string(*extensions);
+
+		if(accepted_extensions != NULL) {
+
+			char* sec_websocket_extensions_header_buffer = NULL;
+			FORMAT_STRING(&sec_websocket_extensions_header_buffer, return false;
+			              , "%s%c%s", "Sec-WebSocket-Extensions", '\0', accepted_extensions);
+
+			free(accepted_extensions);
+
+			add_http_header_field_by_double_str(&additional_headers,
+			                                    sec_websocket_extensions_header_buffer);
+		}
+	}
 
 	HTTPResponseToSend to_send = { .status = HttpStatusSwitchingProtocols,
 		                           .body = http_response_body_empty(),
@@ -227,4 +311,45 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 		                           .additional_headers = additional_headers };
 
 	return send_http_message_to_connection(descriptor, to_send, send_settings);
+}
+
+NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedURLPath path) {
+
+	ParsedSearchPathEntry* fragmented_paramater = find_search_key(path.search_path, "fragmented");
+
+	if(fragmented_paramater == NULL) {
+		return (WsFragmentOption){ .type = WsFragmentOptionTypeOff };
+	}
+
+	WsFragmentOption result = { .type = WsFragmentOptionTypeAuto };
+
+	ParsedSearchPathEntry* fragment_size_parameter =
+	    find_search_key(path.search_path, "fragment_size");
+
+	if(fragment_size_parameter != NULL) {
+
+		bool success = true;
+
+		long parsed_long = parse_long(fragment_size_parameter->value, &success);
+
+		if(success) {
+
+			if(parsed_long >= 0 && (size_t)parsed_long < SIZE_MAX) {
+				result.type = WsFragmentOptionTypeSet;
+				result.data.set.fragment_size = (size_t)parsed_long;
+			}
+		}
+	}
+
+	return result;
+}
+
+NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
+                                                         WSExtensions extensions) {
+
+	ParsedSearchPathEntry* trace_paramater = find_search_key(path.search_path, "trace");
+
+	return (WsConnectionArgs){ .fragment_option = get_ws_fragment_args_from_http_request(path),
+		                       .extensions = extensions,
+		                       .trace = trace_paramater != NULL };
 }

@@ -7,7 +7,6 @@
 #include <bcrypt.h>
 #endif
 
-
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
 struct HashSaltResultTypeImpl {
@@ -381,6 +380,10 @@ void openssl_initialize_crypto_thread_state(void) {
 }
 
 void openssl_cleanup_crypto_thread_state(void) {
+	OPENSSL_thread_stop();
+}
+
+void openssl_cleanup_global_state(void) {
 	EVP_cleanup();
 	CRYPTO_cleanup_all_ex_data();
 	ERR_free_strings();

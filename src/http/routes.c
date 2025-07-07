@@ -287,31 +287,12 @@ HTTPRoutes get_default_routes(void) {
 			.method = HTTPRequestRouteMethodGet,
 			.path = "/ws",
 			.data =
-			    (HTTPRouteData){
-			        .type = HTTPRouteTypeSpecial,
-			        .data = { .special = { .type = HTTPRouteSpecialDataTypeWs,
-			                               .data = { .ws = { .fragmented = false } } } } },
+			    (HTTPRouteData){ .type = HTTPRouteTypeSpecial,
+			                     .data = { .special = { .type = HTTPRouteSpecialDataTypeWs } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
 		stbds_arrput(routes, ws_route);
-	}
-
-	{
-		// ws fragmented
-
-		HTTPRoute ws_fragmented = {
-			.method = HTTPRequestRouteMethodGet,
-			.path = "/ws/fragmented",
-			.data =
-			    (HTTPRouteData){
-			        .type = HTTPRouteTypeSpecial,
-			        .data = { .special = { .type = HTTPRouteSpecialDataTypeWs,
-			                               .data = { .ws = { .fragmented = true } } } } },
-			.auth = { .type = HTTPAuthorizationTypeNone }
-		};
-
-		stbds_arrput(routes, ws_fragmented);
 	}
 
 	{
@@ -778,7 +759,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 			}
 			case HttpAuthStatusTypeAuthorizationError: {
 				LOG_MESSAGE(LogLevelError,
-				            "An error occured while tyring to process authentication status: %s\n",
+				            "An error occurred while tyring to process authentication status: %s\n",
 				            auth_status.data.auth_error.error);
 
 				HTTPResponseToSend to_send = {
@@ -796,7 +777,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 			}
 			case HttpAuthStatusTypeError: {
 				LOG_MESSAGE(LogLevelError,
-				            "An error occured while tyring to process authentication status: %s\n",
+				            "An error occurred while tyring to process authentication status: %s\n",
 				            auth_status.data.error.error_message);
 
 				HTTPResponseToSend to_send = {

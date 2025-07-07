@@ -68,14 +68,54 @@ bool is_compressions_supported(CompressionType format) {
 #if defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP) || \
     defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE)
 
-#define Z_WINDOW_SIZE 15       // 9-15
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ZlibModeGzip = 0,
+	ZlibModeDeflate,
+	ZlibModeDeflateRaw,
+} ZlibMode;
+
 #define Z_MEMORY_USAGE_LEVEL 8 // 1-9
+
+#define Z_MIN_WINDOW_BITS 8
+#define Z_MAX_WINDOW_BITS 15
 
 #define Z_GZIP_ENCODING 16 // not inside the zlib header, unfortunately
 
-NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool gzip) {
+// see https://zlib.net/manual.html
+NODISCARD static SizedBuffer
+compress_buffer_with_zlib_impl(SizedBuffer buffer,
+                               ZlibMode mode, // NOLINT(bugprone-easily-swappable-parameters)
+                               size_t max_window_bits, int flush_mode) {
 
-	const size_t chunk_size = 1 << Z_WINDOW_SIZE;
+	if(max_window_bits < Z_MIN_WINDOW_BITS || max_window_bits > Z_MAX_WINDOW_BITS) {
+		return get_empty_sized_buffer();
+	}
+
+	int window_bits = (int)max_window_bits;
+
+	switch(mode) {
+		case ZlibModeGzip: {
+			window_bits = window_bits | Z_GZIP_ENCODING;
+			break;
+		}
+		case ZlibModeDeflate: {
+			break;
+		}
+		case ZlibModeDeflateRaw: {
+			window_bits = -window_bits;
+			break;
+		}
+		default: {
+			return get_empty_sized_buffer();
+		}
+	}
+
+	// the maximum window bits are used, even if we could use loweer widnow bits
+
+	const size_t chunk_size = 1UL << max_window_bits;
 
 	void* start_chunk = malloc(chunk_size);
 	if(!start_chunk) {
@@ -94,33 +134,36 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 	zstream.avail_out = chunk_size;
 	zstream.next_out = (Bytef*)result_buffer.data;
 
-	int window_bits = Z_WINDOW_SIZE;
-
-	if(gzip) {
-		window_bits = window_bits | Z_GZIP_ENCODING;
-	}
-
 	int result = deflateInit2(&zstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits,
 	                          Z_MEMORY_USAGE_LEVEL, Z_DEFAULT_STRATEGY);
 
 	if(result != Z_OK) {
-		LOG_MESSAGE(LogLevelError, "An error in gzip compression initiliaization occured: %s\n",
+		LOG_MESSAGE(LogLevelError, "An error in zlib compression initialization occurred: %s\n",
 		            zError(result));
 		free_sized_buffer(result_buffer);
 
 		return SIZED_BUFFER_ERROR;
 	}
 
-	while(true) {
-		int deflate_result = deflate(&zstream, Z_FINISH);
+	bool final_pass = false;
 
-		result_buffer.size += (chunk_size - zstream.avail_out);
+	while(true) {
+		int deflate_result = deflate(
+		    &zstream,
+		    final_pass ? Z_FINISH : flush_mode); // NOLINT(readability-implicit-bool-conversion)
+
+		if(!final_pass) {
+			result_buffer.size += (chunk_size - zstream.avail_out);
+		} else {
+			result_buffer.size = zstream.total_out;
+		}
 
 		if(deflate_result == Z_STREAM_END) {
 			break;
 		}
 
-		if(deflate_result == Z_OK || deflate_result == Z_BUF_ERROR) {
+		if((deflate_result == Z_BUF_ERROR || deflate_result == Z_OK) && zstream.avail_out == 0) {
+
 			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			result_buffer.data = new_chunk;
 
@@ -129,17 +172,24 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 			continue;
 		}
 
-		LOG_MESSAGE(LogLevelError, "An error in gzip compression processing occured: %s\n",
+		if(deflate_result == Z_OK) {
+			final_pass = true;
+			continue;
+		}
+
+		LOG_MESSAGE(LogLevelError, "An error in zlib compression processing occurred: %s\n",
 		            zError(deflate_result));
-		free(result_buffer.data);
+		free_sized_buffer(result_buffer);
 
 		return SIZED_BUFFER_ERROR;
 	}
 
+	assert(result_buffer.size == zstream.total_out);
+
 	int deflate_end_result = deflateEnd(&zstream);
 
 	if(deflate_end_result != Z_OK) {
-		LOG_MESSAGE(LogLevelError, "An error in gzip compression stream end occured: %s\n",
+		LOG_MESSAGE(LogLevelError, "An error in zlib compression stream end occurred: %s\n",
 		            zError(deflate_end_result));
 		free_sized_buffer(result_buffer);
 
@@ -148,17 +198,154 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib(SizedBuffer buffer, bool 
 
 	return result_buffer;
 }
+
+#define Z_DEFAULT_WINDOW_SIZE 15 // 8-15
+
+NODISCARD static SizedBuffer compress_buffer_with_zlib_compat(SizedBuffer buffer, bool gzip) {
+
+	return compress_buffer_with_zlib_impl(
+	    buffer,
+	    gzip ? ZlibModeGzip : ZlibModeDeflate, // NOLINT(readability-implicit-bool-conversion)
+	    Z_DEFAULT_WINDOW_SIZE, Z_FINISH);
+}
+
+#define WS_FLUSH_MODE Z_SYNC_FLUSH
+
+NODISCARD SizedBuffer compress_buffer_with_zlib_for_ws(SizedBuffer buffer, size_t max_window_bits) {
+	return compress_buffer_with_zlib_impl(buffer, ZlibModeDeflateRaw, max_window_bits,
+	                                      WS_FLUSH_MODE);
+}
+
+// see https://zlib.net/manual.html
+NODISCARD static SizedBuffer
+decompress_buffer_with_zlib_impl(SizedBuffer buffer,
+                                 ZlibMode mode, // NOLINT(bugprone-easily-swappable-parameters)
+                                 size_t max_window_bits, int flush_mode) {
+
+	if(max_window_bits < Z_MIN_WINDOW_BITS || max_window_bits > Z_MAX_WINDOW_BITS) {
+		return SIZED_BUFFER_ERROR;
+	}
+
+	int window_bits = (int)max_window_bits;
+
+	switch(mode) {
+		case ZlibModeGzip: {
+			window_bits = window_bits | Z_GZIP_ENCODING;
+			break;
+		}
+		case ZlibModeDeflate: {
+			break;
+		}
+		case ZlibModeDeflateRaw: {
+			window_bits = -window_bits;
+			break;
+		}
+		default: {
+			return get_empty_sized_buffer();
+		}
+	}
+
+	// the maximum window bits are used, even if we could use lower widnow bits
+
+	const size_t chunk_size = 1UL << max_window_bits;
+
+	void* start_chunk = malloc(chunk_size);
+	if(!start_chunk) {
+		return SIZED_BUFFER_ERROR;
+	}
+
+	SizedBuffer result_buffer = { .data = start_chunk, .size = 0 };
+
+	z_stream zstream = {};
+	zstream.zalloc = Z_NULL;
+	zstream.zfree = Z_NULL;
+	zstream.opaque = Z_NULL;
+
+	zstream.avail_in = buffer.size;
+	zstream.next_in = (Bytef*)buffer.data;
+	zstream.avail_out = chunk_size;
+	zstream.next_out = (Bytef*)result_buffer.data;
+
+	int result = inflateInit2(&zstream, window_bits);
+
+	if(result != Z_OK) {
+		LOG_MESSAGE(LogLevelError, "An error in zlib decompression initialization occurred: %s\n",
+		            zError(result));
+		free_sized_buffer(result_buffer);
+
+		return SIZED_BUFFER_ERROR;
+	}
+
+	while(true) {
+		int inflate_result = inflate(&zstream, flush_mode);
+
+		result_buffer.size += (chunk_size - zstream.avail_out);
+
+		if(inflate_result == Z_STREAM_END) {
+			break;
+		}
+
+		if((inflate_result == Z_BUF_ERROR || inflate_result == Z_OK) && zstream.avail_out == 0) {
+			if(zstream.avail_in == 0 && inflate_result == Z_OK) {
+				// as we don't need more output, this buffer is enough, we are done
+				break;
+			}
+
+			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
+			if(!new_chunk) {
+				free_sized_buffer(result_buffer);
+				return SIZED_BUFFER_ERROR;
+			}
+			result_buffer.data = new_chunk;
+
+			zstream.avail_out = chunk_size;
+			zstream.next_out = (Bytef*)new_chunk + result_buffer.size;
+			continue;
+		}
+
+		if(inflate_result == Z_OK) {
+			// don't need more buffer, so its ended
+			break;
+		}
+
+		LOG_MESSAGE(LogLevelError, "An error in zlib decompression processing occurred: %s\n",
+		            zError(inflate_result));
+		free_sized_buffer(result_buffer);
+
+		return SIZED_BUFFER_ERROR;
+	}
+
+	assert(result_buffer.size == zstream.total_out);
+
+	int inflate_end_result = inflateEnd(&zstream);
+
+	if(inflate_end_result != Z_OK) {
+		LOG_MESSAGE(LogLevelError, "An error in zlib decompression stream end occurred: %s\n",
+		            zError(inflate_end_result));
+		free_sized_buffer(result_buffer);
+
+		return SIZED_BUFFER_ERROR;
+	}
+
+	return result_buffer;
+}
+NODISCARD SizedBuffer decompress_buffer_with_zlib_for_ws(SizedBuffer buffer,
+                                                         size_t max_window_bits) {
+	return decompress_buffer_with_zlib_impl(buffer, ZlibModeDeflateRaw, max_window_bits,
+	                                        WS_FLUSH_MODE);
+}
+
 #endif
 
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP
 static SizedBuffer compress_buffer_with_gzip(SizedBuffer buffer) {
-	return compress_buffer_with_zlib(buffer, true);
+	return compress_buffer_with_zlib_compat(buffer, true);
 }
 #endif
 
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE
 static SizedBuffer compress_buffer_with_deflate(SizedBuffer buffer) {
-	return compress_buffer_with_zlib(buffer, false);
+	return compress_buffer_with_zlib_compat(buffer, false);
 }
 #endif
 
@@ -174,20 +361,20 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 	if(!state) {
 		LOG_MESSAGE_SIMPLE(
 		    LogLevelError,
-		    "An error in brotli compression initiliaization occured: failed to initialize state\n");
+		    "An error in brotli compression initialization occurred: failed to initialize state\n");
 
 		return SIZED_BUFFER_ERROR;
 	}
 
 	if(!BrotliEncoderSetParameter(state, BROTLI_PARAM_QUALITY, BROTLI_QUALITY)) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "An error in brotli compression initiliaization occured: "
+		LOG_MESSAGE_SIMPLE(LogLevelError, "An error in brotli compression initialization occurred: "
 		                                  "failed to set parameter quality\n");
 
 		return SIZED_BUFFER_ERROR;
 	};
 
 	if(!BrotliEncoderSetParameter(state, BROTLI_PARAM_LGWIN, BROTLI_WINDOW_SIZE)) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "An error in brotli compression initiliaization occured: "
+		LOG_MESSAGE_SIMPLE(LogLevelError, "An error in brotli compression initialization occurred: "
 		                                  "failed to set parameter sliding window size\n");
 
 		return SIZED_BUFFER_ERROR;
@@ -223,7 +410,7 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 
 		if(!result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError,
-			                   "An error in brotli compression processing occured\n");
+			                   "An error in brotli compression processing occurred\n");
 			free_sized_buffer(result_buffer);
 			BrotliEncoderDestroyInstance(state);
 
@@ -265,14 +452,14 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 	if(!stream) {
 		LOG_MESSAGE_SIMPLE(
 		    LogLevelError,
-		    "An error in zstd compression initiliaization occured: failed to initialize state\n");
+		    "An error in zstd compression initialization occurred: failed to initialize state\n");
 
 		return SIZED_BUFFER_ERROR;
 	}
 
 	const size_t init_result = ZSTD_initCStream(stream, ZSTD_COMPRESSION_LEVEL);
 	if(ZSTD_isError(init_result)) {
-		LOG_MESSAGE(LogLevelError, "An error in zstd compression initiliaization occured: %s\n",
+		LOG_MESSAGE(LogLevelError, "An error in zstd compression initialization occurred: %s\n",
 		            ZSTD_getErrorName(init_result));
 
 		ZSTD_freeCStream(stream);
@@ -300,7 +487,7 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 		const size_t ret = ZSTD_compressStream2(stream, &out_buffer, &input_buffer, operation);
 
 		if(ZSTD_isError(ret)) {
-			LOG_MESSAGE(LogLevelError, "An error in zstd compression processing occured: %s\n",
+			LOG_MESSAGE(LogLevelError, "An error in zstd compression processing occurred: %s\n",
 			            ZSTD_getErrorName(init_result));
 
 			ZSTD_freeCStream(stream);
@@ -369,8 +556,8 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 	lzws_result_t result = lzws_compressor_get_initial_state(&compressor_state_ptr, &options);
 	if(result != 0) {
 		LOG_MESSAGE(LogLevelError,
-		            "An error in compress compression initiliaization "
-		            "occured: failed to initialize state: %s\n",
+		            "An error in compress compression initialization "
+		            "occurred: failed to initialize state: %s\n",
 		            get_lzws_error(result));
 		return SIZED_BUFFER_ERROR;
 	}
@@ -383,8 +570,8 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 	                                                       &compressor_buffer.size, COMPRESS_QUIET);
 	if(result != 0) {
 		LOG_MESSAGE(LogLevelError,
-		            "An error in compress compression initiliaization "
-		            "occured: create destination buffer for compressor failed: %s\n",
+		            "An error in compress compression initialization "
+		            "occurred: create destination buffer for compressor failed: %s\n",
 		            get_lzws_error(result));
 		lzws_compressor_free_state(compressor_state_ptr);
 		return SIZED_BUFFER_ERROR;
@@ -413,9 +600,10 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 		}
 
 		if(result != 0) {
-			LOG_MESSAGE(LogLevelError,
-			            "An error in compress compression processing occured: compress state: %s\n",
-			            get_lzws_error(result));
+			LOG_MESSAGE(
+			    LogLevelError,
+			    "An error in compress compression processing occurred: compress state: %s\n",
+			    get_lzws_error(result));
 			free_sized_buffer(compressor_buffer);
 			lzws_compressor_free_state(compressor_state_ptr);
 			return SIZED_BUFFER_ERROR;
@@ -432,7 +620,7 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 
 	if(result != 0) {
 		LOG_MESSAGE(LogLevelError,
-		            "An error in compress compression processing occured: finish state: %s\n",
+		            "An error in compress compression processing occurred: finish state: %s\n",
 		            get_lzws_error(result));
 
 		free_sized_buffer(compressor_buffer);

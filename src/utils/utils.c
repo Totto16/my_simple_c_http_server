@@ -55,7 +55,7 @@ void* realloc_with_memset(void* previous_ptr, const size_t old_size, const size_
 }
 
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-long parse_long_safely(const char* to_parse, const char* description) {
+static long parse_long_impl(const char* to_parse, const char* description, bool* success) {
 	// this is just allocated, so that strtol can write an address into it,
 	// therefore it doesn't need to be initialized
 	char* endpointer = NULL;
@@ -70,15 +70,45 @@ long parse_long_safely(const char* to_parse, const char* description) {
 
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
 	if(*endpointer != '\0') {
-		LOG_MESSAGE(LogLevelError, "Couldn't parse the incorrect long %s for the argument %s!\n",
-		            to_parse, description);
-		exit(EXIT_FAILURE);
+		if(description != NULL) {
+
+			LOG_MESSAGE(LogLevelError,
+			            "Couldn't parse the incorrect long %s for the argument %s!\n", to_parse,
+			            description);
+		}
+		*success = false;
+		return 0;
+
 	} else if(errno != 0) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't parse the incorrect long: %s\n", strerror(errno));
+
+		if(description != NULL) {
+			LOG_MESSAGE(LogLevelWarn, "Couldn't parse the incorrect long: %s\n", strerror(errno));
+		}
+		*success = false;
+		return 0;
+	}
+
+	*success = true;
+	return result;
+}
+
+// copied from exercises before (PS 1-7, selfmade), it safely parses a long!
+long parse_long_safely(const char* to_parse, const char* description) {
+
+	bool success = true;
+
+	long result = parse_long_impl(to_parse, description, &success);
+
+	if(!success) {
 		exit(EXIT_FAILURE);
 	}
 
 	return result;
+}
+
+long parse_long(const char* to_parse, bool* success) {
+
+	return parse_long_impl(to_parse, NULL, success);
 }
 
 NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* description) {

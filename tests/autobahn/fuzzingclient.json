@@ -7,16 +7,13 @@
         },
         {
             "agent": "custom server - fragmented",
-            "url": "ws://127.0.0.1:8080/ws/fragmented"
+            "url": "ws://127.0.0.1:8080/ws?fragmented"
         }
     ],
     "cases": [
         "*"
     ],
-    "exclude-cases": [
-        "12.*",
-        "13.*"
-    ],
+    "exclude-cases": [],
     "exclude-agent-cases": {
         "custom server - normal": [],
         "custom server - fragmented": []

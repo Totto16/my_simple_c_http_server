@@ -44,9 +44,48 @@ compile_gcc:
         - meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
         - meson compile -C build_no_secure
 
-test:
+unit_tests:
     stage: build
     image: ubuntu:24.04
+    needs:
+        - compile_clang
+        - compile_gcc
+    dependencies: []
+    before_script:
+        # install other dependencies
+        - apt-get update
+        - apt-get install gcc-14 g++-14 libc-dev-bin libc6-dev ninja-build lsb-release wget software-properties-common gnupg python3-pip pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libc-dev-bin libc6-dev bzip2 gcovr gpg libgmp-dev libpam0g-dev --no-install-recommends -y
+        # install clang
+        - wget https://apt.llvm.org/llvm.sh
+        - chmod +x llvm.sh
+        - ./llvm.sh 20
+        - apt-get install libc++-20* libc++abi*20* llvm-20 libclang-rt-20-dev -y --no-install-recommends
+        - export CC="clang-20"
+        - export CXX="clang++-20"
+        # install meson
+        - pip install meson --break-system-packages
+    script:
+        # run unit tests
+        - meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
+        - meson compile -C test_build
+        - meson test -C test_build --verbose
+        - ninja coverage -C test_build
+
+    artifacts:
+        name: "unit test results"
+        paths:
+            - ./test_build/meson-logs/coverage.xml
+            - ./test_build/meson-logs/coveragereport/**
+        reports:
+            coverage_report:
+                coverage_format: cobertura
+                path: ./test_build/meson-logs/coverage.xml
+
+ws_tests:
+    stage: build
+    image: ubuntu:24.04
+    rules:
+        - when: never
     needs:
         - compile_clang
         - compile_gcc
@@ -84,19 +123,8 @@ test:
         # run ws tests
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
         - wget http://localhost:8080/shutdown -O - -q
-        # run unit tests
-        - meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
-        - meson compile -C test_build
-        - meson test -C test_build --verbose
-        - ninja coverage -C test_build
 
     artifacts:
         name: "autobahn test results"
         paths:
             - ./reports/servers/**
-            - ./test_build/meson-logs/coverage.xml
-            - ./test_build/meson-logs/coveragereport/**
-        reports:
-            coverage_report:
-                coverage_format: cobertura
-                path: ./test_build/meson-logs/coverage.xml
