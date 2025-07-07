@@ -60,6 +60,13 @@ jobs:
             - name: Build
               run: meson compile -C build
 
+            - name: Unit Tests
+              run: |
+                  meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
+                  meson compile -C test_build
+                  meson test -C test_build --verbose
+                  ninja coverage -C test_build
+
             - name: WS Tests
               run: |
                   wget -q https://raw.githubusercontent.com/vishnubob/wait-for-it/refs/heads/master/wait-for-it.sh
@@ -68,13 +75,6 @@ jobs:
                   ./wait-for-it.sh localhost:8080 -s --timeout=120
                   pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
                   wget http://localhost:8080/shutdown -O - -q
-
-            - name: Unit Tests
-              run: |
-                  meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
-                  meson compile -C test_build
-                  meson test -C test_build --verbose
-                  ninja coverage -C test_build
 
             - name: Create Coverage Report
               uses: insightsengineering/coverage-action@v2

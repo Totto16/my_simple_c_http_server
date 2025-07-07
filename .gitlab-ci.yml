@@ -72,6 +72,11 @@ test:
         # instal openssl 3
         - apt-get install openssl libssl-dev --no-install-recommends -y
     script:
+        # run unit tests
+        - meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
+        - meson compile -C test_build
+        - meson test -C test_build --verbose
+        - ninja coverage -C test_build
         # setup ws tests
         - meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
         - meson compile -C build
@@ -84,11 +89,6 @@ test:
         # run ws tests
         - pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
         - wget http://localhost:8080/shutdown -O - -q
-        # run unit tests
-        - meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
-        - meson compile -C test_build
-        - meson test -C test_build --verbose
-        - ninja coverage -C test_build
 
     artifacts:
         name: "autobahn test results"
