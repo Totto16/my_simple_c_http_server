@@ -454,6 +454,7 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 
 	if(extension_error != NULL) {
 		LOG_MESSAGE(LogLevelError, "Extension send error: %s\n", extension_error);
+		free(extension_error);
 		return -1;
 	}
 
@@ -1025,7 +1026,9 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					if(finish_error != NULL) {
 						char* error_message = NULL;
 						FORMAT_STRING(&error_message, FREE_AT_END(); return NULL;
-						              , "Couldnt parse message at end: %s", finish_error);
+						              , "Couldn't parse message at end: %s", finish_error);
+
+						free(finish_error);
 
 						CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
 							                   .message = error_message,
