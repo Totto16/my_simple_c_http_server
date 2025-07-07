@@ -303,7 +303,7 @@ typedef char* (*WsProcessReceiveMessageFn)(WebSocketMessage* message,
                                            const ExtensionMessageReceiveState* const message_state,
                                            ANY arg);
 
-typedef char* (*WsProcessSendMessageRawFn)(WebSocketRawMessage* raw_message,
+typedef char* (*WsProcessSendMessageRawFn)(WebSocketMessage* message,
                                            const ExtensionMessageReceiveState* message_state,
                                            ANY arg);
 
@@ -362,10 +362,10 @@ static char* noop_process_receive_fn(WebSocketMessage* message,
 	return NULL;
 }
 
-static char* noop_process_send_fn(WebSocketRawMessage* raw_message,
+static char* noop_process_send_fn(WebSocketMessage* message,
                                   const ExtensionMessageReceiveState* message_state,
                                   ANY_TYPE(NULL) arg) {
-	UNUSED(raw_message);
+	UNUSED(message);
 	UNUSED(arg);
 	UNUSED(message_state);
 	return NULL;
@@ -398,7 +398,7 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 	return NULL;
 }
 
-static char* array_process_send_fn(WebSocketRawMessage* raw_message,
+static char* array_process_send_fn(WebSocketMessage* message,
                                    const ExtensionMessageReceiveState* message_state,
                                    ANY_TYPE(ArrayProcessReceiveArg) arg) {
 
@@ -407,7 +407,7 @@ static char* array_process_send_fn(WebSocketRawMessage* raw_message,
 	for(size_t i = 0; i < stbds_arrlenu(process_arg); ++i) {
 		WsProcessFn process_fn = process_arg[i];
 
-		char* error = process_fn.send_fn(raw_message, message_state, process_fn.arg);
+		char* error = process_fn.send_fn(message, message_state, process_fn.arg);
 		if(error != NULL) {
 			return error;
 		}
@@ -459,14 +459,14 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 	return NULL;
 }
 
-static char* compress_ws_message(WebSocketRawMessage* raw_message, WsDeflateOptions* options) {
+static char* compress_ws_message(WebSocketMessage* message, WsDeflateOptions* options) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7692#section-6.1
 
 	if(!options->server.no_context_takeover) {
 		return strdup("server context takeover is not supported");
 	}
 
-	SizedBuffer input_buffer = { .data = raw_message->payload, .size = raw_message->payload_len };
+	SizedBuffer input_buffer = { .data = message->data, .size = message->data_len };
 
 	// steps from: https://datatracker.ietf.org/doc/html/rfc7692#section-7.2.1
 
@@ -488,12 +488,10 @@ static char* compress_ws_message(WebSocketRawMessage* raw_message, WsDeflateOpti
 	// the "BTYPE" bits set to 00.
 	// TODO
 
-	// Note: not needed, freed as part of the message
-	// free_sized_buffer(input_buffer);
+	free_sized_buffer(input_buffer);
 
-	raw_message->payload = result.data;
-	raw_message->payload_len = result.size;
-	raw_message->rsv_bytes = raw_message->rsv_bytes | 0b100;
+	message->data = result.data;
+	message->data_len = result.size;
 
 	return NULL;
 }
@@ -512,7 +510,7 @@ permessage_deflate_process_receive_fn(WebSocketMessage* message,
 	return decompress_ws_message(message, process_arg);
 }
 
-static char* permessage_deflate_process_send_fn(WebSocketRawMessage* raw_message,
+static char* permessage_deflate_process_send_fn(WebSocketMessage* message,
                                                 const ExtensionMessageReceiveState* message_state,
                                                 ANY_TYPE(WsDeflateOptions*) arg) {
 
@@ -522,7 +520,7 @@ static char* permessage_deflate_process_send_fn(WebSocketRawMessage* raw_message
 
 	WsDeflateOptions* process_arg = (WsDeflateOptions*)arg;
 
-	return compress_ws_message(raw_message, process_arg);
+	return compress_ws_message(message, process_arg);
 }
 
 NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
@@ -698,14 +696,38 @@ void free_extension_send_state(ExtensionSendState* extension_send_state) {
 }
 
 NODISCARD char*
-extension_send_pipeline_process_finished_message(ExtensionSendState* extension_send_state,
-                                                 WebSocketRawMessage* raw_message) {
+extension_send_pipeline_process_initial_message(ExtensionSendState* extension_send_state,
+                                                WebSocketMessage* message) {
 
 	if(extension_send_state->extension_pipeline->active_extensions == 0) {
 		return NULL;
 	}
 
 	return extension_send_state->extension_pipeline->process_fn.send_fn(
-	    raw_message, extension_send_state->message_state,
+	    message, extension_send_state->message_state,
 	    extension_send_state->extension_pipeline->process_fn.arg);
+}
+
+void extension_send_pipeline_process_start_message(ExtensionSendState* extension_send_state,
+                                                   WebSocketRawMessage* raw_message) {
+
+	if(extension_send_state->extension_pipeline->active_extensions == 0) {
+		return;
+	}
+
+	if((extension_send_state->extension_pipeline->extension_mask &
+	    WsExtensionMaskPerMessageDeflate) != 0) {
+
+		if(extension_send_state->message_state->is_compressed_message) {
+			raw_message->rsv_bytes = raw_message->rsv_bytes | 0b100;
+		}
+	}
+}
+
+void extension_send_pipeline_process_cont_message(ExtensionSendState* extension_send_state,
+                                                  WebSocketRawMessage* raw_message) {
+
+	// NOOP atm
+	UNUSED(extension_send_state);
+	UNUSED(raw_message);
 }

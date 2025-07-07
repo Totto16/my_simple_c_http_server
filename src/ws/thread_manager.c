@@ -360,13 +360,7 @@ NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connec
 		                                .payload_len = message.data_len,
 		                                .rsv_bytes = 0b000 };
 
-	char* extension_error =
-	    extension_send_pipeline_process_finished_message(extension_send_state, &raw_message);
-
-	if(extension_error != NULL) {
-		LOG_MESSAGE(LogLevelError, "Extension send error: %s\n", extension_error);
-		return -1;
-	}
+	extension_send_pipeline_process_start_message(extension_send_state, &raw_message);
 
 	return ws_send_message_raw_internal(connection, raw_message, mask);
 }
@@ -413,13 +407,10 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 			                                .payload = payload,
 			                                .payload_len = payload_len,
 			                                .rsv_bytes = 0b000 };
-
-		char* extension_error =
-		    extension_send_pipeline_process_finished_message(extension_send_state, &raw_message);
-
-		if(extension_error != NULL) {
-			LOG_MESSAGE(LogLevelError, "Extension send error: %s\n", extension_error);
-			return -1;
+		if(start) {
+			extension_send_pipeline_process_start_message(extension_send_state, &raw_message);
+		} else {
+			extension_send_pipeline_process_cont_message(extension_send_state, &raw_message);
 		}
 
 		int result = ws_send_message_raw_internal(connection, raw_message, mask);
@@ -438,6 +429,14 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
                                               WebSocketMessage message, bool mask,
                                               WsConnectionArgs args,
                                               ExtensionSendState* extension_send_state) {
+
+	char* extension_error =
+	    extension_send_pipeline_process_initial_message(extension_send_state, &message);
+
+	if(extension_error != NULL) {
+		LOG_MESSAGE(LogLevelError, "Extension send error: %s\n", extension_error);
+		return -1;
+	}
 
 	if(args.fragment_option.type == WsFragmentOptionTypeOff) {
 		return ws_send_message_internal_normal(connection, message, mask, extension_send_state);

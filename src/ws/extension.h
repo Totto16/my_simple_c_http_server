@@ -78,5 +78,11 @@ pipline_get_extension_send_state(const ExtensionPipeline* extension_pipeline,
 void free_extension_send_state(ExtensionSendState* extension_send_state);
 
 NODISCARD char*
-extension_send_pipeline_process_finished_message(ExtensionSendState* extension_send_state,
-                                                 WebSocketRawMessage* raw_message);
+extension_send_pipeline_process_initial_message(ExtensionSendState* extension_send_state,
+                                                WebSocketMessage* message);
+
+void extension_send_pipeline_process_start_message(ExtensionSendState* extension_send_state,
+                                                   WebSocketRawMessage* raw_message);
+
+void extension_send_pipeline_process_cont_message(ExtensionSendState* extension_send_state,
+                                                  WebSocketRawMessage* raw_message);
