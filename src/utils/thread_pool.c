@@ -27,7 +27,7 @@ void thread_pool_worker_thread_startup_function(void) {
 	openssl_initialize_crypto_thread_state();
 #endif
 
-	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running startup function for thread\n");
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running startup function for http thread\n");
 }
 
 void thread_pool_worker_thread_shutdown_function(void) {
@@ -35,7 +35,7 @@ void thread_pool_worker_thread_shutdown_function(void) {
 	openssl_cleanup_crypto_thread_state();
 #endif
 
-	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running shutdown function for thread\n");
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running shutdown function for http thread\n");
 }
 
 // this function is used internally as worker thread Function, therefore the rather cryptic name

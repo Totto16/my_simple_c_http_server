@@ -799,5 +799,9 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 	free_authentication_providers(auth_providers);
 
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+	openssl_cleanup_global_state();
+#endif
+
 	return EXIT_SUCCESS;
 }

@@ -1,11 +1,13 @@
 
 
 #include "thread_manager.h"
+#include "generic/hash.h"
 #include "generic/helper.h"
 #include "generic/read.h"
 #include "generic/send.h"
 #include "utils/log.h"
 #include "utils/thread_helper.h"
+#include "utils/thread_pool.h"
 #include "utils/utf8_helper.h"
 #include "utils/utils.h"
 
@@ -43,6 +45,7 @@ struct WebSocketConnectionImpl {
 	WebSocketFunction function;
 	pthread_t thread_id;
 	WsConnectionArgs args;
+	LifecycleFunctions fns;
 };
 
 typedef struct {
@@ -73,6 +76,22 @@ typedef struct {
 	WebSocketConnection* connection;
 	WebSocketThreadManager* manager;
 } WebSocketListenerArg;
+
+void thread_manager_thread_startup_function(void) {
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+	openssl_initialize_crypto_thread_state();
+#endif
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running startup function for ws thread\n");
+}
+
+void thread_manager_thread_shutdown_function(void) {
+#ifdef _SIMPLE_SERVER_USE_OPENSSL
+	openssl_cleanup_crypto_thread_state();
+#endif
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running shutdown function for ws thread\n");
+}
 
 #define WS_ALLOW_SSL_CONTEXT_REUSE false
 
@@ -648,7 +667,7 @@ NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* con
 	return result;
 }
 
-NODISCARD static const char* close_websocket_connection(WebSocketConnection* connection,
+NODISCARD static const char* close_websocket_connection(WebSocketConnection** connection,
                                                         WebSocketThreadManager* manager,
                                                         CloseReason reason) {
 
@@ -661,10 +680,14 @@ NODISCARD static const char* close_websocket_connection(WebSocketConnection* con
 		LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing the websocket connection: (no message)\n");
 	}
 
-	int result = ws_send_close_message_raw_internal(connection, reason);
+	int result = ws_send_close_message_raw_internal(*connection, reason);
+
+	RUN_LIFECYCLE_FN((*connection)->fns.shutdown_fn);
 
 	// even if above failed, we need to remove the connection nevertheless
-	int result2 = thread_manager_remove_connection(manager, connection);
+	int result2 = thread_manager_remove_connection(manager, *connection);
+
+	*connection = NULL;
 
 	if(result < 0) {
 		return "send error";
@@ -696,7 +719,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	do { \
 	} while(false)
 
-#define FREE_AT_END() \
+#define FREE_AT_END_ONE() \
 	do { \
 		unset_thread_name(); \
 		free(thread_name_buffer); \
@@ -707,19 +730,30 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	bool result = setup_sigpipe_signal_handler();
 
 	if(!result) {
-		FREE_AT_END();
+		FREE_AT_END_ONE();
 		return NULL;
 	}
+
+#define FREE_AT_END() \
+	do { \
+		FREE_AT_END_ONE(); \
+		if(connection != NULL) { \
+			RUN_LIFECYCLE_FN(connection->fns.shutdown_fn); \
+		} \
+	} while(false)
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting WS Listener\n");
 
 	WebSocketConnection* connection = argument->connection;
+
+	RUN_LIFECYCLE_FN(connection->fns.startup_fn);
 
 	WSExtensions extensions = connection->args.extensions;
 
 	ExtensionPipeline* extension_pipeline = get_extension_pipeline(extensions);
 
 	if(extension_pipeline == NULL) {
+		FREE_AT_END();
 		return NULL;
 	}
 
@@ -783,7 +817,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message_len = -1 };
 
 				const char* result =
-				    close_websocket_connection(connection, argument->manager, reason);
+				    close_websocket_connection(&connection, argument->manager, reason);
 
 				free(error_message);
 
@@ -808,7 +842,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						                   .message_len = -1 };
 
 					const char* result =
-					    close_websocket_connection(connection, argument->manager, reason);
+					    close_websocket_connection(&connection, argument->manager, reason);
 
 					if(result != NULL) {
 						LOG_MESSAGE(LogLevelError,
@@ -828,7 +862,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						                   .message_len = -1 };
 
 					const char* result =
-					    close_websocket_connection(connection, argument->manager, reason);
+					    close_websocket_connection(&connection, argument->manager, reason);
 
 					if(result != NULL) {
 						LOG_MESSAGE(LogLevelError,
@@ -856,7 +890,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message_len = -1 };
 
 							const char* result =
-							    close_websocket_connection(connection, argument->manager, reason);
+							    close_websocket_connection(&connection, argument->manager, reason);
 
 							if(result != NULL) {
 								LOG_MESSAGE(LogLevelError,
@@ -890,7 +924,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message_len = -1 };
 
 							const char* result =
-							    close_websocket_connection(connection, argument->manager, reason);
+							    close_websocket_connection(&connection, argument->manager, reason);
 
 							free(error_message);
 
@@ -924,7 +958,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						};
 
 						const char* result =
-						    close_websocket_connection(connection, argument->manager, reason);
+						    close_websocket_connection(&connection, argument->manager, reason);
 
 						if(result != NULL) {
 							LOG_MESSAGE(
@@ -947,7 +981,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							                   .message_len = -1 };
 
 						const char* result =
-						    close_websocket_connection(connection, argument->manager, reason);
+						    close_websocket_connection(&connection, argument->manager, reason);
 
 						free(extension_error);
 
@@ -990,7 +1024,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 					if(finish_error != NULL) {
 						char* error_message = NULL;
-						FORMAT_STRING(&error_message, return NULL;
+						FORMAT_STRING(&error_message, FREE_AT_END(); return NULL;
 						              , "Couldnt parse message at end: %s", finish_error);
 
 						CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
@@ -998,7 +1032,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							                   .message_len = -1 };
 
 						const char* result =
-						    close_websocket_connection(connection, argument->manager, reason);
+						    close_websocket_connection(&connection, argument->manager, reason);
 
 						free(error_message);
 
@@ -1022,7 +1056,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 							char* error_message = NULL;
 							// TODO(Totto): better report error
-							FORMAT_STRING(&error_message, return NULL;
+							FORMAT_STRING(&error_message, FREE_AT_END(); return NULL;
 							              , "Invalid utf8 payload in fragmented message: %s",
 							              utf8_result.data.error);
 
@@ -1031,7 +1065,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message_len = -1 };
 
 							const char* result =
-							    close_websocket_connection(connection, argument->manager, reason);
+							    close_websocket_connection(&connection, argument->manager, reason);
 
 							free(error_message);
 
@@ -1066,7 +1100,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						};
 
 						const char* result =
-						    close_websocket_connection(connection, argument->manager, reason);
+						    close_websocket_connection(&connection, argument->manager, reason);
 
 						if(result != NULL) {
 							LOG_MESSAGE(
@@ -1099,7 +1133,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 					if(finish_error != NULL) {
 						char* error_message = NULL;
-						FORMAT_STRING(&error_message, return NULL;
+						FORMAT_STRING(&error_message, FREE_AT_END(); return NULL;
 						              , "Couldnt parse message at end: %s", finish_error);
 
 						CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
@@ -1107,7 +1141,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							                   .message_len = -1 };
 
 						const char* result =
-						    close_websocket_connection(connection, argument->manager, reason);
+						    close_websocket_connection(&connection, argument->manager, reason);
 
 						free(error_message);
 
@@ -1144,7 +1178,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message_len = -1 };
 
 							const char* result =
-							    close_websocket_connection(connection, argument->manager, reason);
+							    close_websocket_connection(&connection, argument->manager, reason);
 
 							free(error_message);
 
@@ -1190,7 +1224,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								};
 
 								const char* result = close_websocket_connection(
-								    connection, argument->manager, invalid_close_code_reason);
+								    &connection, argument->manager, invalid_close_code_reason);
 
 								if(result != NULL) {
 									LOG_MESSAGE(LogLevelError,
@@ -1209,7 +1243,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					}
 
 					const char* result =
-					    close_websocket_connection(connection, argument->manager, reason);
+					    close_websocket_connection(&connection, argument->manager, reason);
 
 					if(result != NULL) {
 						LOG_MESSAGE(LogLevelError,
@@ -1242,7 +1276,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							                   .message_len = -1 };
 
 						const char* result1 =
-						    close_websocket_connection(connection, argument->manager, reason);
+						    close_websocket_connection(&connection, argument->manager, reason);
 
 						if(result1 != NULL) {
 							LOG_MESSAGE(LogLevelError,
@@ -1270,7 +1304,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						                   .message_len = -1 };
 
 					const char* result =
-					    close_websocket_connection(connection, argument->manager, reason);
+					    close_websocket_connection(&connection, argument->manager, reason);
 
 					if(result != NULL) {
 						LOG_MESSAGE(LogLevelError,
@@ -1299,7 +1333,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message_len = -1 };
 
 				const char* result =
-				    close_websocket_connection(connection, argument->manager, reason);
+				    close_websocket_connection(&connection, argument->manager, reason);
 
 				if(result != NULL) {
 					LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -1328,7 +1362,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message_len = -1 };
 
 				const char* result =
-				    close_websocket_connection(connection, argument->manager, reason);
+				    close_websocket_connection(&connection, argument->manager, reason);
 
 				if(result != NULL) {
 					LOG_MESSAGE(
@@ -1347,7 +1381,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message_len = -1 };
 
 				const char* result =
-				    close_websocket_connection(connection, argument->manager, reason);
+				    close_websocket_connection(&connection, argument->manager, reason);
 
 				if(result != NULL) {
 					LOG_MESSAGE(LogLevelError,
@@ -1435,6 +1469,9 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	connection->descriptor = descriptor;
 	connection->function = function;
 	connection->args = args;
+	connection->fns =
+	    (LifecycleFunctions){ .startup_fn = thread_manager_thread_startup_function,
+		                      .shutdown_fn = thread_manager_thread_shutdown_function };
 
 	ConnectionNode* current_node = NULL;
 	ConnectionNode* next_node = manager->head;

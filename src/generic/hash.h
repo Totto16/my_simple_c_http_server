@@ -44,6 +44,8 @@ void openssl_initialize_crypto_thread_state(void);
 
 void openssl_cleanup_crypto_thread_state(void);
 
+void openssl_cleanup_global_state();
+
 #endif
 
 #ifdef __cplusplus
