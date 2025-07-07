@@ -176,7 +176,7 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_impl(SizedBuffer buffer, 
 
 		LOG_MESSAGE(LogLevelError, "An error in zlib compression processing occurred: %s\n",
 		            zError(deflate_result));
-		free(result_buffer.data);
+		free_sized_buffer(result_buffer);
 
 		return SIZED_BUFFER_ERROR;
 	}
@@ -280,8 +280,16 @@ NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer
 		}
 
 		if((inflate_result == Z_BUF_ERROR || inflate_result == Z_OK) && zstream.avail_out == 0) {
+			if(zstream.avail_in == 0 && inflate_result == Z_OK){
+				// as we don't need more output, this buffer is enough, we are done
+				break;
+			}
 
 			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
+			if(!new_chunk) {
+				free_sized_buffer(result_buffer);
+				return SIZED_BUFFER_ERROR;
+			}
 			result_buffer.data = new_chunk;
 
 			zstream.avail_out = chunk_size;
@@ -296,7 +304,7 @@ NODISCARD static SizedBuffer decompress_buffer_with_zlib_impl(SizedBuffer buffer
 
 		LOG_MESSAGE(LogLevelError, "An error in zlib decompression processing occurred: %s\n",
 		            zError(inflate_result));
-		free(result_buffer.data);
+		free_sized_buffer(result_buffer);
 
 		return SIZED_BUFFER_ERROR;
 	}
