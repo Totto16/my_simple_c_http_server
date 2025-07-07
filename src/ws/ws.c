@@ -344,7 +344,10 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(bool fr
 NODISCARD WsConnectionArgs get_ws_args_from_http_request(bool fragmented, ParsedURLPath path,
                                                          WSExtensions extensions) {
 
+	ParsedSearchPathEntry* trace_header = find_search_key(path.search_path, "trace");
+
 	return (WsConnectionArgs){ .fragment_option =
 		                           get_ws_fragment_args_from_http_request(fragmented, path),
-		                       .extensions = extensions };
+		                       .extensions = extensions,
+		                       .trace = trace_header != NULL };
 }

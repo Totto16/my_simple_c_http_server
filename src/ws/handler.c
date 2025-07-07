@@ -8,24 +8,26 @@ WebSocketAction websocket_function(WebSocketConnection* connection, WebSocketMes
                                    WsConnectionArgs args,
                                    ExtensionSendState* extension_send_state) {
 
-	if(message->is_text) {
+	if(args.trace) {
+		if(message->is_text) {
 
-		if(message->data_len >= MAX_PRINT_FOR_TEXT_MESSAGE) {
-			LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %" PRIu64 "\n",
-			            message->data_len);
+			if(message->data_len >= MAX_PRINT_FOR_TEXT_MESSAGE) {
+				LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %" PRIu64 "\n",
+				            message->data_len);
+			} else {
+				LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n",
+				            (int)(message->data_len), (char*)message->data);
+			}
 		} else {
-			LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n", (int)(message->data_len),
-			            (char*)message->data);
+			LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %" PRIu64 "\n",
+			            message->data_len);
 		}
-	} else {
-		LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %" PRIu64 "\n",
-		            message->data_len);
 	}
 
 	// for autobahn tests, just echoing the things
 	int result = ws_send_message(connection, message, args, extension_send_state);
 
-	if(result) {
+	if(result < 0) {
 		return WebSocketActionError;
 	}
 

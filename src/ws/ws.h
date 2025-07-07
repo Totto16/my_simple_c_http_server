@@ -26,6 +26,7 @@ typedef struct {
 typedef struct {
 	WsFragmentOption fragment_option;
 	WSExtensions extensions;
+	bool trace;
 } WsConnectionArgs;
 
 NODISCARD int handle_ws_handshake(const HttpRequest* http_request,
