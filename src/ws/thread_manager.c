@@ -759,9 +759,9 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 #define FREE_RAW_WS_MESSAGE() \
 	do { \
 		if(has_message) /*NOLINT(bugprone-redundant-branch-condition)*/ { \
-			free(current_message.data); \
+			free_ws_message(current_message); \
 		} else { \
-			free(raw_message.payload); \
+			free_raw_ws_message(raw_message); \
 		} \
 	} while(false)
 
@@ -1314,7 +1314,9 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 			WebSocketAction action = connection->function(connection, current_message,
 			                                              connection->args, extension_send_state);
-			free(current_message.data);
+
+			free_ws_message(current_message);
+
 			free_extension_send_state(extension_send_state);
 
 			// has_message = false;
@@ -1381,6 +1383,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 int ws_send_message(WebSocketConnection* connection, WebSocketMessage message,
                     WsConnectionArgs args, ExtensionSendState* extension_send_state) {
 	return ws_send_message_internal(connection, message, false, args, extension_send_state);
+}
+
+void free_ws_message(WebSocketMessage message) {
+	free(message.data);
+}
+
+void free_raw_ws_message(WebSocketRawMessage message) {
+	free(message.payload);
 }
 
 WebSocketThreadManager* initialize_thread_manager(void) {

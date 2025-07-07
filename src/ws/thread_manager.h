@@ -26,6 +26,10 @@ typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,
 NODISCARD int ws_send_message(WebSocketConnection* connection, WebSocketMessage message,
                               WsConnectionArgs args, ExtensionSendState* extension_send_state);
 
+void free_ws_message(WebSocketMessage message);
+
+void free_raw_ws_message(WebSocketRawMessage message);
+
 /**
  * NOT Thread safe
  */
