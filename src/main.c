@@ -93,6 +93,18 @@ NODISCARD static bool is_help_string(const char* str) {
 	return false;
 }
 
+NODISCARD static bool is_version_string(const char* str) {
+	if(strcmp(str, "--version") == 0) {
+		return true;
+	}
+
+	if(strcmp(str, "-v") == 0) {
+		return true;
+	}
+
+	return false;
+}
+
 typedef struct {
 	char* username;
 	char* password;
@@ -424,6 +436,11 @@ int main(int argc, const char* argv[]) {
 	if(is_help_string(command)) {
 		printf("General help menu:\n");
 		print_usage(argv[0], UsageCommandAll);
+		return EXIT_SUCCESS;
+	}
+
+	if(is_version_string(command)) {
+		printf(STRINGIFY(VERSION_STRING) "\n");
 		return EXIT_SUCCESS;
 	}
 
