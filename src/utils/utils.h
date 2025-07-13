@@ -41,7 +41,7 @@
 #ifdef NDEBUG
 #define UNREACHABLE() \
 	do { \
-		fprintf(stderr, "UNREACHABLE\n"); \
+		fprintf(stderr, "[%s %s:%d]: UNREACHABLE", __func__, __FILE__, __LINE__); \
 		exit(EXIT_FAILURE); \
 	} while(false)
 #else
