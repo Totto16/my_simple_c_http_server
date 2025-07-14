@@ -35,7 +35,7 @@ NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* 
 
 		new_char[BCRYPT_512BITS_BASE64_SIZE] = '\0';
 
-		memcpy(new_char, &result_digest, BCRYPT_512BITS_BASE64_SIZE);
+		memcpy(new_char, result_digest, BCRYPT_512BITS_BASE64_SIZE);
 
 		password_to_use = new_char;
 	}
@@ -69,7 +69,7 @@ NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* 
 		return NULL;
 	}
 
-	memcpy(&result_type->hash, &result_hash, BCRYPT_HASHSIZE);
+	memcpy(result_type->hash, result_hash, BCRYPT_HASHSIZE);
 
 	return result_type;
 }
@@ -97,7 +97,7 @@ NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, 
 
 		new_char[BCRYPT_512BITS_BASE64_SIZE] = '\0';
 
-		memcpy(new_char, &input_digest, BCRYPT_512BITS_BASE64_SIZE);
+		memcpy(new_char, input_digest, BCRYPT_512BITS_BASE64_SIZE);
 
 		password_to_use = new_char;
 	}
