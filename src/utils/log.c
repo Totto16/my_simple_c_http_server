@@ -45,7 +45,7 @@ bool should_log_to_stderr(LogLevel level) {
 }
 
 bool log_should_use_color(void) {
-	return isatty(STDIN_FILENO) != 0;
+	return isatty(STDOUT_FILENO) != 0;
 }
 
 bool has_flag(int flags, LogFlags needle) {
