@@ -32,7 +32,7 @@ static _Thread_local ThreadState
 	    .name = NULL
     };
 
-bool should_log(LogLevel level) {
+bool log_should_log(LogLevel level) {
 	if(g_global_value_log_entry.log_level == LogLevelOff) {
 		return false;
 	}
@@ -40,12 +40,12 @@ bool should_log(LogLevel level) {
 	return g_global_value_log_entry.log_level <= level;
 }
 
-bool should_log_to_stderr(LogLevel level) {
+bool log_should_log_to_stderr(LogLevel level) {
 	return level >= LogLevelError;
 }
 
-bool log_should_use_color(void) {
-	return isatty(STDOUT_FILENO) != 0;
+bool log_should_use_color(bool stderr) {
+	return isatty(stderr ? STDERR_FILENO : STDOUT_FILENO) != 0;
 }
 
 bool has_flag(int flags, LogFlags needle) {

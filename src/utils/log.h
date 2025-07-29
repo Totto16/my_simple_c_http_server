@@ -28,9 +28,9 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 // only for internal use!!
 
-NODISCARD bool should_log(LogLevel level);
+NODISCARD bool log_should_log(LogLevel level);
 
-NODISCARD bool should_log_to_stderr(LogLevel level);
+NODISCARD bool log_should_log_to_stderr(LogLevel level);
 
 NODISCARD const char* get_level_name_internal(LogLevel level, bool color);
 
@@ -40,7 +40,7 @@ void log_lock_mutex(void);
 
 void log_unlock_mutex(void);
 
-NODISCARD bool log_should_use_color(void);
+NODISCARD bool log_should_use_color(bool stderr);
 
 NODISCARD bool has_flag(int flags, LogFlags needle);
 
@@ -56,12 +56,13 @@ LevelAndFlags get_level_and_flags(int level_and_flags);
 		LevelAndFlags destructured = get_level_and_flags(level_and_flags); \
 		LogLevel level = destructured.level; \
 		int flags = destructured.flags; \
-		if(should_log(level)) { \
-			bool should_use_color = log_should_use_color(); \
+		if(log_should_log(level)) { \
+			bool should_log_to_stderr = log_should_log_to_stderr(level); \
+			bool should_use_color = log_should_use_color(should_log_to_stderr); \
 			const char* level_name = get_level_name_internal(level, should_use_color); \
 			const char* thread_name = get_thread_name(); \
 			log_lock_mutex(); \
-			FILE* file_stream = should_log_to_stderr(level) ? stderr : stdout; \
+			FILE* file_stream = should_log_to_stderr ? stderr : stdout; \
 			fprintf(file_stream, "[%s] ", level_name); \
 			if(should_use_color) { \
 				fprintf(file_stream, "[\033[32m%s\033[0m] ", thread_name); /*GREEN*/ \
