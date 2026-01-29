@@ -6,7 +6,6 @@ project(
     default_options: {
         'c_std': ['gnu23', 'gnu2x', 'gnu17', 'gnu11'],
         'werror': 'false',
-        'pic': 'true',
     },
 )
 
@@ -54,6 +53,7 @@ libbcrypt = library(
     c_args: compile_args + private_args,
     dependencies: deps,
     include_directories: inc_dirs,
+    pic: true
 )
 
 libbcrypt_dep = declare_dependency(
