@@ -23,7 +23,13 @@
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
-RequestSupportStatus is_request_supported(HttpRequest* request) {
+RequestSupportStatus is_request_supported(HttpRequest* request_generic) {
+	if(request_generic->type != HttpRequestTypeInternalV1) {
+		return RequestInvalidHttpVersion;
+	}
+
+	Http1Request* request = request_generic->data.v1;
+
 	switch(request->head.request_line.protocol_version) {
 		case HTTPProtocolVersionInvalid: {
 			return RequestInvalidHttpVersion;
@@ -134,8 +140,18 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		goto cleanup;
 	}
 
+	// TODO
+	const bool TODO_is_http2 = false;
+
 	// raw_http_request gets freed in here
-	HttpRequest* http_request = parse_http_request(raw_http_request);
+	HttpRequest* http_request_generic = parse_http_request(raw_http_request, TODO_is_http2);
+
+	if(http_request_generic->type != HttpRequestTypeInternalV1) {
+		// TODO
+		exit(12);
+	}
+
+	Http1Request* http_request = http_request_generic->data.v1;
 
 	// To test this error codes you can use '-X POST' with curl or
 	// '--http2' (doesn't work, since http can only be HTTP/1.1, https can be HTTP 2 or QUIC
@@ -163,7 +179,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 	// if the request is supported then the "beautiful" website is sent, if the path is /shutdown
 	// a shutdown is issued
 
-	RequestSettings* request_settings = get_request_settings(http_request);
+	RequestSettings* request_settings = get_request_settings(http_request_generic);
 
 	SendSettings send_settings = get_send_settings(request_settings);
 	free_request_settings(request_settings);
@@ -172,11 +188,11 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 	// TODO(Totto). check if we need to upgrade to http/2, see the rfc, note that h2c and h2 (http/2
 	// over tls) are negotiated differently!
 
-	const RequestSupportStatus is_supported = is_request_supported(http_request);
+	const RequestSupportStatus is_supported = is_request_supported(http_request_generic);
 
 	if(is_supported == RequestSupported) {
 		SelectedRoute* selected_route =
-		    route_manager_get_route_for_request(route_manager, http_request);
+		    route_manager_get_route_for_request(route_manager, http_request_generic);
 
 		if(selected_route == NULL) {
 
@@ -280,7 +296,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 							WSExtensions extensions = STBDS_ARRAY_EMPTY;
 
 							int ws_request_successful = handle_ws_handshake(
-							    http_request, descriptor, send_settings, &extensions);
+							    http_request_generic, descriptor, send_settings, &extensions);
 
 							WsConnectionArgs websocket_args =
 							    get_ws_args_from_http_request(selected_route_data.path, extensions);
@@ -294,7 +310,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								if(!thread_manager_add_connection(
 								       argument->web_socket_manager, descriptor, context,
 								       websocket_function, websocket_args)) {
-									free_http_request(http_request);
+									free_http1_request(http_request);
 									stbds_arrfree(extensions);
 									free_selected_route(selected_route);
 									FREE_AT_END();
@@ -304,7 +320,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 								// finally free everything necessary
 
-								free_http_request(http_request);
+								free_http1_request(http_request);
 								free_selected_route(selected_route);
 								FREE_AT_END();
 
@@ -330,8 +346,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 				case HTTPRouteTypeNormal: {
 
 					result = route_manager_execute_route(
-					    route_data.data.normal, descriptor, send_settings, http_request, context,
-					    selected_route_data.path, selected_route_data.auth_user);
+					    route_data.data.normal, descriptor, send_settings, http_request_generic,
+					    context, selected_route_data.path, selected_route_data.auth_user);
 
 					break;
 				}
@@ -431,7 +447,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		}
 	}
 
-	free_http_request(http_request);
+	free_http1_request(http_request);
 
 cleanup:
 	// finally close the connection

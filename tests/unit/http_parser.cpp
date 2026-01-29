@@ -251,31 +251,39 @@ namespace {
 
 struct ParsedURLWrapper {
   private:
-	HttpRequest* m_request;
+	Http1Request* m_request;
 
   public:
-	ParsedURLWrapper(HttpRequest* request) : m_request{ request } {}
+	ParsedURLWrapper(Http1Request* request) : m_request{ request } {}
 
 	~ParsedURLWrapper() {
-		free_http_request(m_request);
+		free_http1_request(m_request);
 		m_request = nullptr;
 	}
 
 	[[nodiscard]] const ParsedURLPath& path() const { return m_request->head.request_line.path; }
 };
 
-std::unique_ptr<ParsedURLWrapper> parse_http_request_path(const char* value) {
+std::unique_ptr<ParsedURLWrapper> parse_http1_request_path(const char* value) {
 	std::string final_request = "GET ";
 	final_request += value;
-	final_request += " HTTP/1.1\r\n\r\n";
+	final_request += " ";
+	final_request += get_http_protocol_version_string(HTTPProtocolVersion1Dot1);
+	final_request += "\r\n\r\n";
 
-	HttpRequest* request = parse_http_request(strdup(final_request.c_str()));
+	HttpRequest* request = parse_http_request(strdup(final_request.c_str()), false);
 
 	if(request == nullptr) {
 		return nullptr;
 	}
 
-	return std::make_unique<ParsedURLWrapper>(request);
+	if(request->type != HttpRequestTypeInternalV1) {
+		return nullptr;
+	}
+
+	Http1Request* request1 = request->data.v1;
+
+	return std::make_unique<ParsedURLWrapper>(request1);
 }
 
 } // namespace
@@ -286,11 +294,11 @@ TEST_CASE("testing the parsing of the http request") {
 
 		SUBCASE("simple url") {
 
-			auto pared_path = parse_http_request_path("/");
+			auto parsed_path = parse_http1_request_path("/");
 
-			REQUIRE_NE(pared_path, nullptr);
+			REQUIRE_NE(parsed_path, nullptr);
 
-			const auto& path = pared_path->path();
+			const auto& path = parsed_path->path();
 
 			const auto path_comp = std::string{ path.path };
 
@@ -301,11 +309,11 @@ TEST_CASE("testing the parsing of the http request") {
 
 		SUBCASE("real path url") {
 
-			auto pared_path = parse_http_request_path("/test/hello");
+			auto parsed_path = parse_http1_request_path("/test/hello");
 
-			REQUIRE_NE(pared_path, nullptr);
+			REQUIRE_NE(parsed_path, nullptr);
 
-			const auto& path = pared_path->path();
+			const auto& path = parsed_path->path();
 
 			const auto path_comp = std::string{ path.path };
 
@@ -316,11 +324,11 @@ TEST_CASE("testing the parsing of the http request") {
 
 		SUBCASE("path url with search parameters") {
 
-			auto pared_path = parse_http_request_path("/test/hello?param1=hello&param2&param3=");
+			auto parsed_path = parse_http1_request_path("/test/hello?param1=hello&param2&param3=");
 
-			REQUIRE_NE(pared_path, nullptr);
+			REQUIRE_NE(parsed_path, nullptr);
 
-			const auto& path = pared_path->path();
+			const auto& path = parsed_path->path();
 
 			const auto path_comp = std::string{ path.path };
 

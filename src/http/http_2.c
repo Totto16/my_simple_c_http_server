@@ -13,15 +13,26 @@ typedef struct {
 
 NODISCARD Http2RawHeader parse_http2_raw_header(const uint8_t* const header_data) {
 
-	uint8_t length_raw[3] = { header_data[0], header_data[1], header_data[2] };
+	uint8_t length_raw[4] = { 0, header_data[0], header_data[1], header_data[2] };
 
 	uint8_t type = header_data[3];
 
 	uint8_t flags = header_data[4];
 
-	Http2RawHeader result = (Http2RawHeader) {
-		.length = length, .type = type, .flags = flags, .stream_identifier = TODO
-	}
+	// this is big endian!
+	uint32_t length = *((uint32_t*)(&length_raw));
+
+	uint32_t stream_identifier_raw = *((uint32_t*)(header_data + 5));
+
+	// take the first 31 bit from the 32 bit value
+	uint32_t stream_identifier = stream_identifier_raw & 0x7FFFFFFF;
+
+	// MUST be ignored in receiving
+	// bool reserved = ((stream_identifier_raw >> 31) & 1) == 1;
+
+	Http2RawHeader result = (Http2RawHeader){
+		.length = length, .type = type, .flags = flags, .stream_identifier = stream_identifier
+	};
 
 	return result;
 }
@@ -64,7 +75,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 #define DEFAULT_SETTINGS_MAX_FRAME_SIZE (1 << 14) // 2^14
 
-NODISCARD Http2Request* parse_http_request(SizedBuffer raw_http_request) {
+NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request) {
 
 	Http2Frames* frames = STBDS_ARRAY_EMPTY;
 
@@ -91,5 +102,54 @@ NODISCARD Http2Request* parse_http_request(SizedBuffer raw_http_request) {
 			return NULL;
 		}
 
+		Http2Frame* frame = NULL;
+
+		switch(http2_raw_header.type) {
+			case Http2FrameType_DATA: {
+				break;
+			}
+			case Http2FrameType_HEADERS: {
+				break;
+			}
+			case Http2FrameType_PRIORITY: {
+				break;
+			}
+			case Http2FrameType_RST_STREAM: {
+				break;
+			}
+			case Http2FrameType_SETTINGS: {
+				break;
+			}
+			case Http2FrameType_PUSH_PROMISE: {
+				break;
+			}
+			case Http2FrameType_PING: {
+				break;
+			}
+			case Http2FrameType_GOAWAY: {
+				break;
+			}
+			case Http2FrameType_WINDOW_UPDATE: {
+				break;
+			}
+			case Http2FrameType_CONTINUATION: {
+				break;
+			}
+			default: {
+				// TODO
+				return TODO;
+			}
+		}
+
+		if(frame == NULL) {
+			return TODO;
+		}
+
+		// TODO
+		stbds_arrput(frames, frame);
+
 	} while(remaining_data != 0);
+
+	// TODO
+	return frames;
 }

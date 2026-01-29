@@ -5,6 +5,8 @@
 #include <ctype.h>
 #include <math.h>
 
+// TODO: refacrior into http_1 and generic http implementations
+
 NODISCARD static HTTPRequestMethod get_http_method_from_string(const char* method) {
 
 	if(strcmp(method, "GET") == 0) {
@@ -206,7 +208,7 @@ static void free_request_head(HttpRequestHead head) {
 
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
-void free_http_request(HttpRequest* request) {
+void free_http1_request(Http1Request* request) {
 	free_request_head(request->head);
 	FREE_IF_NOT_NULL(request->body);
 	FREE_IF_NOT_NULL(request);
@@ -214,7 +216,15 @@ void free_http_request(HttpRequest* request) {
 
 // returning a stringbuilder, that makes a string from the http_request, this is useful for
 // debugging
-StringBuilder* http_request_to_string_builder(const HttpRequest* const request, bool https) {
+StringBuilder* http_request_to_string_builder(const HttpRequest* const request_generic,
+                                              bool https) {
+
+	if(request_generic->type != HttpRequestTypeInternalV1) {
+		return NULL;
+	}
+
+	const Http1Request* request = request_generic->data.v1;
+
 	StringBuilder* result = string_builder_init();
 
 	const char* method = get_http_method_string(request->head.request_line.method);

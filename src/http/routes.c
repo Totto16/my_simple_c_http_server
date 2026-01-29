@@ -1,5 +1,6 @@
 
 #include "./routes.h"
+#include "./header.h"
 #include "./http_protocol.h"
 #include "http/send.h"
 
@@ -567,11 +568,19 @@ typedef struct {
 } HttpAuthStatus;
 
 NODISCARD HttpAuthStatus handle_http_authorization_impl(
-    const AuthenticationProviders* auth_providers, const HttpRequest* const request,
+    const AuthenticationProviders* auth_providers, const HttpRequest* const request_generic,
     HTTPAuthorizationComplicatedData* data) {
 
+	if(request_generic->type != HttpRequestTypeInternalV1) {
+		return (
+		    HttpAuthStatus){ .type = HttpAuthStatusTypeError,
+			                 .data = { .error = { .error_message = "Http/2 not yet supported" } } };
+	}
+
+	const Http1Request* request = request_generic->data.v1;
+
 	const HttpHeaderField* authorization_field =
-	    find_header_by_key(request->head.header_fields, "Authorization");
+	    find_header_by_key(request->head.header_fields, g_header_authorization);
 
 	if(authorization_field == NULL) {
 		return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
@@ -681,20 +690,26 @@ NODISCARD HttpAuthStatus handle_http_authorization(const AuthenticationProviders
 	}
 }
 
-#define AUTH_REALM "Authentification"
+#define DEFAULT_AUTH_REALM "Authentication"
 
 // NOTE: auth usage example: curl "http://test1:test2@localhost:8080/auth" ->
 // {"header":"Authorization", "key":"Basic dGVzdDE6dGVzdDI="}
 
 NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const route_manager,
-                                                      const HttpRequest* const request,
+                                                      const HttpRequest* const request_generic,
                                                       HTTPRoute route) {
+
+	if(request_generic->type != HttpRequestTypeInternalV1) {
+		return NULL;
+	}
+
+	const Http1Request* request = request_generic->data.v1;
 
 	AuthUserWithContext* auth_user = NULL;
 
 	if(route.auth.type != HTTPAuthorizationTypeNone) {
 		HttpAuthStatus auth_status =
-		    handle_http_authorization(route_manager->auth_providers, request, route.auth);
+		    handle_http_authorization(route_manager->auth_providers, request_generic, route.auth);
 
 		switch(auth_status.type) {
 			case HttpAuthStatusTypeUnauthorized: {
@@ -709,7 +724,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 					    stbds_arrfree(additional_headers);
 					    return NULL;
 				    },
-				    "WWW-Authenticate%cBasic realm=\"%s\", charset=\"UTF-8\"", '\0', AUTH_REALM);
+				    "%s%cBasic realm=\"%s\", charset=\"UTF-8\"", g_header_www_authenticate, '\0',
+				    DEFAULT_AUTH_REALM);
 
 				add_http_header_field_by_double_str(&additional_headers, www_authenticate_buffer);
 
@@ -816,7 +832,13 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 NODISCARD SelectedRoute*
 route_manager_get_route_for_request(const RouteManager* const route_manager,
-                                    const HttpRequest* const request) {
+                                    const HttpRequest* const request_generic) {
+
+	if(request_generic->type != HttpRequestTypeInternalV1) {
+		return NULL;
+	}
+
+	const Http1Request* request = request_generic->data.v1;
 
 	for(size_t i = 0; i < stbds_arrlenu(route_manager->routes); ++i) {
 		HTTPRoute route = route_manager->routes[i];
@@ -824,11 +846,11 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 		if(is_matching(route.method, request->head.request_line.method)) {
 
 			if(route.path == NULL) {
-				return process_matched_route(route_manager, request, route);
+				return process_matched_route(route_manager, request_generic, route);
 			}
 
 			if(strcmp(route.path, request->head.request_line.path.path) == 0) {
-				return process_matched_route(route_manager, request, route);
+				return process_matched_route(route_manager, request_generic, route);
 			}
 		}
 	}
@@ -845,9 +867,16 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const r
 
 NODISCARD
 int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* const descriptor,
-                                SendSettings send_settings, const HttpRequest* const http_request,
+                                SendSettings send_settings,
+                                const HttpRequest* const http_request_generic,
                                 const ConnectionContext* const context, ParsedURLPath path,
                                 AuthUserWithContext* auth_user) {
+
+	if(http_request_generic->type != HttpRequestTypeInternalV1) {
+		return -70;
+	}
+
+	const Http1Request* http_request = http_request_generic->data.v1;
 
 	HTTPResponseToSend response = {};
 
@@ -874,7 +903,7 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 			break;
 		}
 		case HTTPRouteFnTypeExecutorExtended: {
-			response = route.fn.executor_extended(send_settings, http_request, context, path);
+			response = route.fn.executor_extended(send_settings, http_request_generic, context, path);
 			break;
 		}
 		default: {

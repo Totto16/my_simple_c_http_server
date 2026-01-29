@@ -53,4 +53,4 @@ typedef struct {
 
 typedef STBDS_ARRAY(Http2Frame) Http2Frames;
 
-NODISCARD Http2Request* parse_http_request(SizedBuffer raw_http_request);
+NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request);
