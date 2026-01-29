@@ -104,9 +104,9 @@ const char* get_level_name_internal(LogLevel level, bool color) {
 	}
 }
 
-// 4 for "TID " and 11 for a bit of additional buffer so thart the static message can be
+// 4 for "TID " and 12 for a bit of additional buffer so that the static message can be
 // fitted
-#define ADDITIONAL_TID_SIZE (4 + 11)
+#define ADDITIONAL_TID_SIZE (4 + 12)
 
 #define THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE (THREAD_ID_FORMATTED_MAX_SIZE + ADDITIONAL_TID_SIZE)
 
