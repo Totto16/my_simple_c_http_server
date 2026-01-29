@@ -8,13 +8,15 @@ extern "C" {
 
 // needed h files
 #include "./compression.h"
+#include "./http_2.h"
+
 #include "utils/log.h"
 #include "utils/sized_buffer.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
 #include <stb/ds.h>
 
-// some Mime Type Definitons:
+// some Mime Type Definitions:
 
 #define DEFAULT_MIME_TYPE MIME_TYPE_HTML
 
@@ -154,7 +156,24 @@ typedef struct {
 typedef struct {
 	HttpRequestHead head;
 	char* body;
+} Http1Request;
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HttpRequestTypeInternalV1 = 0,
+	HttpRequestTypeInternalV2,
+} HttpRequestTypeInternal;
+
+typedef struct {
+	HttpRequestTypeInternal type;
+	union {
+		Http1Request v1;
+		Http2Request v2;
+	} data;
 } HttpRequest;
+
 typedef struct {
 	HttpResponseHead head;
 	SizedBuffer body;
@@ -178,7 +197,7 @@ NODISCARD StringBuilder* http_request_to_string_builder(const HttpRequest* reque
 // if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
 // strings, but keep in mind that you gave to use the given free method to free that properly,
 // internally some string"magic" happens
-NODISCARD HttpRequest* parse_http_request(char* raw_http_request);
+NODISCARD HttpRequest* parse_http_request(char* raw_http_request, bool use_http2);
 
 NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
 

@@ -17,6 +17,7 @@ typedef struct {
 	HTTPResponseBody body;
 	const char* mime_type;
 	HttpHeaderFields additional_headers;
+	HTTPProtocolVersion protocol;
 } HTTPResponseToSend;
 
 NODISCARD int send_http_message_to_connection(const ConnectionDescriptor* descriptor,

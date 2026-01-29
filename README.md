@@ -55,6 +55,7 @@ The documentation for each library:
 ### HTTP
 
 - HTTP Spec: [rfc7231](https://datatracker.ietf.org/doc/html/rfc7231)
+- HTTP/2.0 Spec: [rfc7540](https://datatracker.ietf.org/doc/html/rfc7540)
 
 ## WS
 

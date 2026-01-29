@@ -1,5 +1,7 @@
 
-#include "http_protocol.h"
+#include "./http_protocol.h"
+#include "./http_2.h"
+
 #include <ctype.h>
 #include <math.h>
 
@@ -248,7 +250,9 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request, 
 // if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
 // strings, but keep in mind that you gave to use the given free method to free that properly,
 // internally some string"magic" happens
-HttpRequest* parse_http_request(char* raw_http_request) {
+HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
+
+	// TODO: seperate in v1 and v2 parsers
 
 	if(strlen(raw_http_request) == 0) {
 		free(raw_http_request);
@@ -317,11 +321,46 @@ HttpRequest* parse_http_request(char* raw_http_request) {
 			// is already null terminated!
 			protocol_version = all;
 
-			request->head.request_line = get_request_line_from_raw(method, path, protocol_version);
+			const HttpRequestLine request_line =
+			    get_request_line_from_raw(method, path, protocol_version);
+
+			if(request_line.protocol_version == HTTPProtocolVersionInvalid) {
+				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+				                   "Invalid HTTP Version detected in status line!\n");
+				// TODO(Totto): free everything correctly
+				return NULL;
+			}
+
+			if(request_line.protocol_version == HTTPProtocolVersion2) {
+
+				if(!use_http2) {
+					LOG_MESSAGE_SIMPLE(
+					    LogLevelWarn | LogPrintLocation,
+					    "A HTTP 2 status line was detected, but the negotiation wia Upgrade or TLS "
+					    "ALPN wasn't done before that, invlaid request!\n");
+					// TODO(Totto): free everything correctly
+					return NULL;
+				}
+
+				if(strncmp(raw_http_request, g_http2_client_preface,
+				           g_http2_client_preface_length) != 0) {
+					LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+					                   "A HTTP 2 request contained a invalid client preface\n");
+					// TODO(Totto): free everything correctly
+					return NULL;
+				}
+
+				char* http2_request_start = raw_http_request + g_http2_client_preface_length;
+
+				return parse_http2_request(http2_request_start);
+			}
+
+			request->head.request_line = request_line;
 
 			free(method);
 
 		} else {
+			// TODO: seperate into http/1 parsing function
 			if(strlen(all) == 0) {
 				// that denotes now comes the body! so the body is assigned and the loop ends with
 				// the parsed = true the while loop finishes

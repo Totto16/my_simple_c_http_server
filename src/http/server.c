@@ -24,8 +24,24 @@
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
 RequestSupportStatus is_request_supported(HttpRequest* request) {
-	if(request->head.request_line.protocol_version != HTTPProtocolVersion1Dot1) {
-		return RequestInvalidHttpVersion;
+	switch(request->head.request_line.protocol_version) {
+		case HTTPProtocolVersionInvalid: {
+			return RequestInvalidHttpVersion;
+		}
+		case HTTPProtocolVersion1: {
+			break;
+		}
+
+		case HTTPProtocolVersion1Dot1: {
+			break;
+		}
+		case HTTPProtocolVersion2: {
+			// TODO(Totto): implement
+			return RequestInvalidHttpVersion;
+		}
+		default: {
+			return RequestInvalidHttpVersion;
+		}
 	}
 
 	if(request->head.request_line.method == HTTPRequestMethodInvalid) {
@@ -152,6 +168,9 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 	SendSettings send_settings = get_send_settings(request_settings);
 	free_request_settings(request_settings);
 	request_settings = NULL;
+
+	// TODO(Totto). check if we need to upgrade to http/2, see the rfc, note that h2c and h2 (http/2
+	// over tls) are negotiated differently!
 
 	const RequestSupportStatus is_supported = is_request_supported(http_request);
 

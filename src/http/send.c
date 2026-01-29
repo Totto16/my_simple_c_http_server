@@ -110,8 +110,10 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 		return NULL;
 	}
 
+	// TODO(Totto): switch on to_send.protocol
+
 	// using the same trick as before, \0 in the malloced string :)
-	const char* protocol_version = get_http_protocol_version_string(HTTPProtocolVersion1Dot1);
+	const char* protocol_version = get_http_protocol_version_string(to_send.protocol);
 	size_t protocol_length = strlen(protocol_version);
 	const char* status_message = get_status_message(to_send.status);
 
