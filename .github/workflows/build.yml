@@ -41,7 +41,7 @@ jobs:
 
                     - name: MacOS (x86_64)
                       os: macos
-                      os-version: 13
+                      os-version: 15-intel
                       arm: false
 
                     - name: MacOS (Arm64)
