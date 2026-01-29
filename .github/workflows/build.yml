@@ -65,9 +65,9 @@ jobs:
               run: |
                   wget https://apt.llvm.org/llvm.sh
                   chmod +x llvm.sh
-                  sudo ./llvm.sh 20
-                  echo "CC=clang-20" >> "$GITHUB_ENV"
-                  echo "CXX=clang++-20" >> "$GITHUB_ENV"
+                  sudo ./llvm.sh 21
+                  echo "CC=clang-21" >> "$GITHUB_ENV"
+                  echo "CXX=clang++-21" >> "$GITHUB_ENV"
 
             - name: Setup GCC (Linux)
               if: matrix.config.os == 'ubuntu' && matrix.config.use-clang == false
@@ -80,10 +80,10 @@ jobs:
               if: matrix.config.os == 'macos'
               run: |
                   brew update
-                  brew install llvm@20 lld@20
-                  echo "$(brew --prefix)/opt/llvm/bin" >> $GITHUB_PATH
-                  echo "LDFLAGS=-L$(brew --prefix)/opt/llvm/lib -L$(brew --prefix)/opt/llvm/lib/c++ -Wl,-rpath,$(brew --prefix)/opt/llvm/lib/c++" >> "$GITHUB_ENV"
-                  echo "CPPFLAGS=-I$(brew --prefix)/opt/llvm/include" >> "$GITHUB_ENV"
+                  brew install llvm@21 lld@21
+                  echo "$(brew --prefix)/opt/llvm@21/bin" >> $GITHUB_PATH
+                  echo "LDFLAGS=-L$(brew --prefix)/opt/llvm@21/lib -L$(brew --prefix)/opt/llvm@21/lib/c++ -Wl,-rpath,$(brew --prefix)/opt/llvm@21/lib/c++" >> "$GITHUB_ENV"
+                  echo "CPPFLAGS=-I$(brew --prefix)/opt/llvm@21/include" >> "$GITHUB_ENV"
                   echo "CC=clang" >> "$GITHUB_ENV"
                   echo "CC_LD=lld" >> "$GITHUB_ENV"
 

@@ -12,9 +12,9 @@ compile_clang:
         # install clang
         - wget https://apt.llvm.org/llvm.sh
         - chmod +x llvm.sh
-        - ./llvm.sh 20
-        - export CC="clang-20"
-        - export CXX="clang++-20"
+        - ./llvm.sh 21
+        - export CC="clang-21"
+        - export CXX="clang++-21"
         # install meson
         - pip install meson --break-system-packages
     script:
@@ -58,10 +58,10 @@ unit_tests:
         # install clang
         - wget https://apt.llvm.org/llvm.sh
         - chmod +x llvm.sh
-        - ./llvm.sh 20
-        - apt-get install libc++-20* libc++abi*20* llvm-20 libclang-rt-20-dev -y --no-install-recommends
-        - export CC="clang-20"
-        - export CXX="clang++-20"
+        - ./llvm.sh 21
+        - apt-get install libc++-21* libc++abi*21* llvm-21 libclang-rt-21-dev -y --no-install-recommends
+        - export CC="clang-21"
+        - export CXX="clang++-21"
         # install meson
         - pip install meson --break-system-packages
     script:
@@ -97,10 +97,10 @@ ws_tests:
         # install clang
         - wget https://apt.llvm.org/llvm.sh
         - chmod +x llvm.sh
-        - ./llvm.sh 20
-        - apt-get install libc++-20* libc++abi*20* llvm-20 libclang-rt-20-dev -y --no-install-recommends
-        - export CC="clang-20"
-        - export CXX="clang++-20"
+        - ./llvm.sh 21
+        - apt-get install libc++-21* libc++abi*21* llvm-21 libclang-rt-21-dev -y --no-install-recommends
+        - export CC="clang-21"
+        - export CXX="clang++-21"
         # install meson
         - pip install meson --break-system-packages
         # install pypy2
