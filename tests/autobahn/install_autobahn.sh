@@ -54,6 +54,12 @@ wget -O libssl-dev_1.1.1f.deb "$url" --progress=dot:giga
 wget -O libssl-dev_1.1.1f-dev.deb "$dev_url" --progress=dot:giga
 "$SUDO" dpkg -i libssl-dev_1.1.1f-dev.deb
 
+pypy -m pip install -U pip setuptools wheel
+
+pypy -m pip install pycparser cffi
+
+pypy -m pip install typing cryptography==3.3.2
+
 pypy -m pip install typing pyopenssl==21.0.0
 
-pypy -m pip install autobahntestsuite==0.8.2
+pypy -m pip install autobahntestsuite==25.10.1

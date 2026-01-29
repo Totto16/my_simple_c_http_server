@@ -53,7 +53,7 @@ libbcrypt = library(
     c_args: compile_args + private_args,
     dependencies: deps,
     include_directories: inc_dirs,
-    pic: true
+    pic: true,
 )
 
 libbcrypt_dep = declare_dependency(

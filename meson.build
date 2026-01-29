@@ -56,10 +56,11 @@ other_features_dict = {
 other_features = get_option('other_features')
 
 foreach other_feature : other_features
-    other_features_dict = (other_features_dict + {
-        other_feature: true,
-    }
-)
+    other_features_dict = (
+        other_features_dict + {
+                other_feature: true,
+            }
+    )
 endforeach
 
 
@@ -105,10 +106,11 @@ compression_features_dict = {
 compression_features = get_option('compression_features')
 
 foreach compression_feature : compression_features
-    compression_features_dict = (compression_features_dict + {
-        compression_feature: true,
-    }
-)
+    compression_features_dict = (
+        compression_features_dict + {
+                compression_feature: true,
+            }
+    )
 endforeach
 
 
