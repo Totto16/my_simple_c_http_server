@@ -204,5 +204,5 @@ executable(
 
 
 if get_option('tests')
-    subdir('tests/unit')
+    subdir('tests')
 endif
