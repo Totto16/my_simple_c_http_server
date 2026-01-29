@@ -1,0 +1,12 @@
+available options:
+
+curl tests
+
+apache httpd tests
+
+boost beast tests
+
+h2spec?
+
+
+test and support http 1/1 keepalive !
