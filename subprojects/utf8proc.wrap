@@ -1,13 +1,13 @@
 [wrap-file]
-directory = utf8proc-2.9.0
-source_url = https://github.com/JuliaStrings/utf8proc/releases/download/v2.9.0/utf8proc-2.9.0.tar.gz
-source_filename = utf8proc-2.9.0.tar.gz
-source_hash = bd215d04313b5bc42c1abedbcb0a6574667e31acee1085543a232204e36384c4
-patch_filename = utf8proc_2.9.0-1_patch.zip
-patch_url = https://wrapdb.mesonbuild.com/v2/utf8proc_2.9.0-1/get_patch
-patch_hash = 30f8eafbcf28fa053afcf5a00ac3751465c32652d161a8a535c3c46416dfddb6
-source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/utf8proc_2.9.0-1/utf8proc-2.9.0.tar.gz
-wrapdb_version = 2.9.0-1
+directory = utf8proc-2.10.0
+source_url = https://github.com/JuliaStrings/utf8proc/releases/download/v2.10.0/utf8proc-2.10.0.tar.gz
+source_filename = utf8proc-2.10.0.tar.gz
+source_hash = 276a37dc4d1dd24d7896826a579f4439d1e5fe33603add786bb083cab802e23e
+patch_filename = utf8proc_2.10.0-1_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/utf8proc_2.10.0-1/get_patch
+patch_hash = be16c4514603e922f9636045699fe1a6f844d340b9b7c14b809e47253b06a844
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/utf8proc_2.10.0-1/utf8proc-2.10.0.tar.gz
+wrapdb_version = 2.10.0-1
 
 [provide]
 libutf8proc = utf8proc_dep
