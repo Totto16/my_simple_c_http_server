@@ -678,7 +678,7 @@ static CompressionType get_best_compression_that_is_supported(void) {
 
 	for(size_t i = 0; i < COMPRESSIONS_SIZE; ++i) {
 		CompressionType compression = supported_compressions[i];
-		if(is_compressions_supported(compression)) {
+		if(is_compression_supported(compression)) {
 			return compression;
 		}
 	}
@@ -733,7 +733,7 @@ SendSettings get_send_settings(RequestSettings* request_settings) {
 				goto break_for;
 			}
 			case CompressionValueTypeNormalEncoding: {
-				if(is_compressions_supported(entry.value.data.normal_compression)) {
+				if(is_compression_supported(entry.value.data.normal_compression)) {
 					result.compression_to_use = entry.value.data.normal_compression;
 					goto break_for;
 				}

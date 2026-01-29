@@ -23,7 +23,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	CompressionTypeCompress
 } CompressionType;
 
-NODISCARD bool is_compressions_supported(CompressionType format);
+NODISCARD bool is_compression_supported(CompressionType format);
 
 NODISCARD const char* get_string_for_compress_format(CompressionType format);
 

@@ -18,7 +18,7 @@
 #include <compressor/main.h>
 #endif
 
-bool is_compressions_supported(CompressionType format) {
+bool is_compression_supported(CompressionType format) {
 
 	switch(format) {
 		case CompressionTypeNone: { // NOLINT(bugprone-branch-clone)

@@ -96,11 +96,13 @@ doctest::String toString(const CompressionEntry& value) {
 
 TEST_CASE("testing parsing of the Accept-Encoding header") {
 
-	REQUIRE(is_compressions_supported(CompressionTypeGzip));
-	REQUIRE(is_compressions_supported(CompressionTypeDeflate));
-	REQUIRE(is_compressions_supported(CompressionTypeBr));
-	REQUIRE(is_compressions_supported(CompressionTypeZstd));
-	REQUIRE(is_compressions_supported(CompressionTypeCompress));
+	REQUIRE(is_compression_supported(CompressionTypeGzip));
+	REQUIRE(is_compression_supported(CompressionTypeDeflate));
+	REQUIRE(is_compression_supported(CompressionTypeBr));
+	REQUIRE(is_compression_supported(CompressionTypeZstd));
+	REQUIRE(is_compression_supported(CompressionTypeCompress));
+
+	REQUIRE(!is_compression_supported((CompressionType)(CompressionTypeCompress + 2)));
 
 	SUBCASE("no Accept-Encoding header") {
 
