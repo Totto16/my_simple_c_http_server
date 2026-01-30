@@ -3,6 +3,7 @@
 #include "./header.h"
 #include "./http_protocol.h"
 #include "http/send.h"
+#include "utils/path.h"
 
 struct RouteManagerImpl {
 	HTTPRoutes routes;
@@ -427,21 +428,31 @@ NODISCARD HTTPRoutes get_webserver_test_routes(void) {
 	{
 		// / folder serve
 
-		// getenv("WEBSERVER_TEST_WEBROOT")
-		char* folder_path = "";
+		char* folder_path = getenv("WEBSERVER_TEST_WEBROOT");
 
-		HTTPRoute json = { .method = HTTPRequestRouteMethodGet,
-			               .path =
-			                   (HTTPRoutePath){
-			                       .type = HTTPRoutePathTypeStartsWith,
-			                       .data = "/",
-			                   },
-			               .data =
-			                   (HTTPRouteData){ .type = HTTPRouteTypeServeFolder,
-			                                    .data = { .serve_folder =
-			                                                  (HTTPRouteServeFolder){
-			                                                      .folder_path = folder_path } } },
-			               .auth = { .type = HTTPAuthorizationTypeNone } };
+		if(folder_path == NULL) {
+			return NULL;
+		}
+
+		char* folder_path_resolved = get_serve_folder(folder_path);
+
+		if(folder_path_resolved == NULL) {
+			return NULL;
+		}
+
+		HTTPRoute json = {
+			.method = HTTPRequestRouteMethodGet,
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeStartsWith,
+			        .data = "/",
+			    },
+			.data = (HTTPRouteData){ .type = HTTPRouteTypeServeFolder,
+			                         .data = { .serve_folder =
+			                                       (HTTPRouteServeFolder){
+			                                           .folder_path = folder_path_resolved } } },
+			.auth = { .type = HTTPAuthorizationTypeNone }
+		};
 
 		stbds_arrput(routes, json);
 	}

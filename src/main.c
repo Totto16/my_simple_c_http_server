@@ -3,9 +3,9 @@
 #include "generic/secure.h"
 #include "http/server.h"
 #include "utils/log.h"
+#include "utils/path.h"
 
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -415,28 +415,9 @@ NODISCARD static int subcommand_ftp(const char* program_name, int argc, const ch
 		}
 	}
 
-	char* folder = realpath(folder_to_resolve, NULL);
+	char* folder = get_serve_folder(folder_to_resolve);
 
 	if(folder == NULL) {
-		fprintf(stderr, "Couldn't resolve folder '%s': %s\n", folder_to_resolve, strerror(errno));
-		return EXIT_FAILURE;
-	}
-
-	struct stat stat_result;
-	int result = stat(folder, &stat_result);
-
-	if(result != 0) {
-		fprintf(stderr, "Couldn't stat folder '%s': %s\n", folder, strerror(errno));
-		return EXIT_FAILURE;
-	}
-
-	if(!(S_ISDIR(stat_result.st_mode))) {
-		fprintf(stderr, "Folder '%s' is not a directory\n", folder);
-		return EXIT_FAILURE;
-	}
-
-	if(access(folder, R_OK) != 0) {
-		fprintf(stderr, "Can read from folder '%s': %s\n", folder, strerror(errno));
 		return EXIT_FAILURE;
 	}
 

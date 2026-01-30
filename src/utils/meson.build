@@ -7,6 +7,8 @@ src_files += files(
     'log.h',
     'myqueue.c',
     'myqueue.h',
+    'path.c',
+    'path.h',
     'sized_buffer.c',
     'sized_buffer.h',
     'string_builder.c',
