@@ -8,7 +8,7 @@
 #include "generic/secure.h"
 #include "utils/utils.h"
 
-#include <stb/ds.h>
+#include <zvec/zvec.h>
 
 typedef struct RouteManagerImpl RouteManager;
 
@@ -139,13 +139,15 @@ typedef struct {
 	HTTPAuthorization auth;
 } HTTPRoute;
 
-typedef STBDS_ARRAY(HTTPRoute) HTTPRoutes;
+ZVEC_DEFINE_VEC_TYPE(HTTPRoute)
 
-NODISCARD HTTPRoutes get_default_routes(void);
+typedef ZVEC_TYPENAME(HTTPRoute) HTTPRoutes;
 
-NODISCARD HTTPRoutes get_webserver_test_routes(void);
+NODISCARD HTTPRoutes* get_default_routes(void);
 
-NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes,
+NODISCARD HTTPRoutes* get_webserver_test_routes(void);
+
+NODISCARD RouteManager* initialize_route_manager(HTTPRoutes* routes,
                                                  const AuthenticationProviders* auth_providers);
 
 void free_route_manager(RouteManager* route_manager);

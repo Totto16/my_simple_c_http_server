@@ -7,7 +7,7 @@
 #include "utils/path.h"
 
 struct RouteManagerImpl {
-	HTTPRoutes routes;
+	HTTPRoutes* routes;
 	const AuthenticationProviders* auth_providers;
 };
 
@@ -25,7 +25,7 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 		                          .body =
 		                              http_response_body_from_string_builder(&html_string_builder),
 		                          .mime_type = MIME_TYPE_HTML,
-		                          .additional_headers = STBDS_ARRAY_EMPTY };
+		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 	return result;
 }
 
@@ -43,7 +43,7 @@ static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
 		                          .body =
 		                              http_response_body_from_string_builder(&json_string_builder),
 		                          .mime_type = MIME_TYPE_JSON,
-		                          .additional_headers = STBDS_ARRAY_EMPTY };
+		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 	return result;
 }
 
@@ -55,7 +55,7 @@ static HTTPResponseToSend static_executor_fn(ParsedURLPath path) {
 		                          .body =
 		                              http_response_body_from_static_string("{\"static\":true}"),
 		                          .mime_type = MIME_TYPE_JSON,
-		                          .additional_headers = STBDS_ARRAY_EMPTY };
+		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 	return result;
 }
 
@@ -209,7 +209,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path) {
 
-	ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, "pretty");
+	const ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, "pretty");
 
 	bool pretty = pretty_key != NULL;
 
@@ -218,7 +218,7 @@ static HTTPResponseToSend huge_executor_fn(ParsedURLPath path) {
 	HTTPResponseToSend result = { .status = HttpStatusOk,
 		                          .body = http_response_body_from_string_builder(&string_builder),
 		                          .mime_type = MIME_TYPE_JSON,
-		                          .additional_headers = STBDS_ARRAY_EMPTY };
+		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 	return result;
 }
 
@@ -240,13 +240,19 @@ static HTTPResponseToSend auth_executor_fn(ParsedURLPath path, AuthUserWithConte
 	HTTPResponseToSend result = { .status = HttpStatusOk,
 		                          .body = http_response_body_from_string_builder(&string_builder),
 		                          .mime_type = MIME_TYPE_JSON,
-		                          .additional_headers = STBDS_ARRAY_EMPTY };
+		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 	return result;
 }
 
-HTTPRoutes get_default_routes(void) {
+HTTPRoutes* get_default_routes(void) {
 
-	HTTPRoutes routes = STBDS_ARRAY_EMPTY;
+	HTTPRoutes* routes = malloc(sizeof(HTTPRoutes));
+
+	if(routes == NULL) {
+		return NULL;
+	}
+
+	*routes = ZVEC_EMPTY(HTTPRoute);
 
 	{
 		// shutdown
@@ -265,7 +271,8 @@ HTTPRoutes get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		stbds_arrput(routes, shutdown);
+		auto _ = ZVEC_PUSH(HTTPRoute, routes, shutdown);
+		UNUSED(_);
 	}
 
 	{
@@ -288,7 +295,8 @@ HTTPRoutes get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		stbds_arrput(routes, index);
+		auto _ = ZVEC_PUSH(HTTPRoute, routes, index);
+		UNUSED(_);
 	}
 
 	{
@@ -307,7 +315,8 @@ HTTPRoutes get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		stbds_arrput(routes, ws_route);
+		auto _ = ZVEC_PUSH(HTTPRoute, routes, ws_route);
+		UNUSED(_);
 	}
 
 	{
@@ -330,7 +339,8 @@ HTTPRoutes get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		stbds_arrput(routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		UNUSED(_);
 	}
 
 	{
@@ -352,7 +362,8 @@ HTTPRoutes get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		stbds_arrput(routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		UNUSED(_);
 	}
 
 	{
@@ -373,7 +384,8 @@ HTTPRoutes get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		stbds_arrput(routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		UNUSED(_);
 	}
 
 	{
@@ -395,14 +407,21 @@ HTTPRoutes get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeSimple }
 		};
 
-		stbds_arrput(routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		UNUSED(_);
 	}
 
 	return routes;
 }
 
-NODISCARD HTTPRoutes get_webserver_test_routes(void) {
-	HTTPRoutes routes = STBDS_ARRAY_EMPTY;
+NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
+	HTTPRoutes* routes = malloc(sizeof(HTTPRoutes));
+
+	if(routes == NULL) {
+		return NULL;
+	}
+
+	*routes = ZVEC_EMPTY(HTTPRoute);
 
 	{
 		// shutdown
@@ -421,7 +440,8 @@ NODISCARD HTTPRoutes get_webserver_test_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		stbds_arrput(routes, shutdown);
+		auto _ = ZVEC_PUSH(HTTPRoute, routes, shutdown);
+		UNUSED(_);
 	}
 
 	// note, as routes get checked in order, this works, even if / gets mapped to the server_folder!
@@ -455,13 +475,14 @@ NODISCARD HTTPRoutes get_webserver_test_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		stbds_arrput(routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		UNUSED(_);
 	}
 
 	return routes;
 }
 
-NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes,
+NODISCARD RouteManager* initialize_route_manager(HTTPRoutes* routes,
                                                  const AuthenticationProviders* auth_providers) {
 	RouteManager* route_manager = malloc(sizeof(RouteManager));
 
@@ -477,7 +498,8 @@ NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes,
 
 void free_route_manager(RouteManager* route_manager) {
 
-	stbds_arrfree(route_manager->routes);
+	ZVEC_FREE(HTTPRoute, route_manager->routes);
+	free(route_manager->routes);
 
 	free(route_manager);
 }
@@ -686,9 +708,10 @@ typedef struct {
 	} data;
 } HttpAuthStatus;
 
-NODISCARD static HttpAuthStatus handle_http_authorization_impl(
-    const AuthenticationProviders* auth_providers, const HttpRequest* const request_generic,
-    HTTPAuthorizationComplicatedData* data) {
+NODISCARD static HttpAuthStatus
+handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
+                               const HttpRequest* const request_generic,
+                               HTTPAuthorizationComplicatedData* data) {
 
 	if(request_generic->type != HttpRequestTypeInternalV1) {
 		return (
@@ -785,9 +808,9 @@ NODISCARD static HttpAuthStatus handle_http_authorization_impl(
 	UNUSED(data);
 }
 
-NODISCARD static HttpAuthStatus handle_http_authorization(const AuthenticationProviders* auth_providers,
-                                                   const HttpRequest* const request,
-                                                   HTTPAuthorization auth) {
+NODISCARD static HttpAuthStatus
+handle_http_authorization(const AuthenticationProviders* auth_providers,
+                          const HttpRequest* const request, HTTPAuthorization auth) {
 
 	switch(auth.type) {
 		case HTTPAuthorizationTypeNone: {
@@ -833,14 +856,14 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 		switch(auth_status.type) {
 			case HttpAuthStatusTypeUnauthorized: {
 
-				HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
+				HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
 				char* www_authenticate_buffer = NULL;
 				// all 401 have to have a WWW-Authenticate filed according to spec
 				FORMAT_STRING(
 				    &www_authenticate_buffer,
 				    {
-					    stbds_arrfree(additional_headers);
+					    ZVEC_FREE(HttpHeaderField, &additional_headers);
 					    return NULL;
 				    },
 				    "%s%cBasic realm=\"%s\", charset=\"UTF-8\"", HTTP_HEADER_NAME(www_authenticate),
@@ -853,7 +876,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				FORMAT_STRING(
 				    &x_special_reason_buffer,
 				    {
-					    stbds_arrfree(additional_headers);
+					    ZVEC_FREE(HttpHeaderField, &additional_headers);
 					    return NULL;
 				    },
 				    "X-Special-Reason%c%s", '\0', auth_status.data.unauthorized.reason);
@@ -876,11 +899,12 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				auth_user = malloc(sizeof(AuthUserWithContext));
 
 				if(!auth_user) {
-					HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
-						                           .body = http_response_body_from_static_string(
-						                               "Internal error: OOM"),
-						                           .mime_type = MIME_TYPE_TEXT,
-						                           .additional_headers = STBDS_ARRAY_EMPTY };
+					HTTPResponseToSend to_send = {
+						.status = HttpStatusInternalServerError,
+						.body = http_response_body_from_static_string("Internal error: OOM"),
+						.mime_type = MIME_TYPE_TEXT,
+						.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+					};
 
 					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 						                         .data = { .internal = { .send = to_send } } };
@@ -902,7 +926,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 					.body = http_response_body_from_static_string(
 					    "Internal implementation error in authorization process, type 0"),
 					.mime_type = MIME_TYPE_TEXT,
-					.additional_headers = STBDS_ARRAY_EMPTY
+					.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 				};
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
@@ -920,7 +944,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 					.body = http_response_body_from_static_string(
 					    "Internal implementation error in authorization process, type 1"),
 					.mime_type = MIME_TYPE_TEXT,
-					.additional_headers = STBDS_ARRAY_EMPTY
+					.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 				};
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
@@ -934,7 +958,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 					.body = http_response_body_from_static_string(
 					    "Internal implementation error in authorization process, type 2"),
 					.mime_type = MIME_TYPE_TEXT,
-					.additional_headers = STBDS_ARRAY_EMPTY
+					.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 				};
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
@@ -959,8 +983,8 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 
 	const Http1Request* request = request_generic->data.v1;
 
-	for(size_t i = 0; i < stbds_arrlenu(route_manager->routes); ++i) {
-		HTTPRoute route = route_manager->routes[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(*(route_manager->routes)); ++i) {
+		HTTPRoute route = ZVEC_AT(HTTPRoute, *(route_manager->routes), i);
 
 		if(is_matching(route.method, request->head.request_line.method)) {
 
@@ -1008,7 +1032,7 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 					.body = http_response_body_from_static_string(
 					    "Internal error: Authentication required by routem but none given"),
 					.mime_type = MIME_TYPE_TEXT,
-					.additional_headers = STBDS_ARRAY_EMPTY
+					.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 				};
 				break;
 			}

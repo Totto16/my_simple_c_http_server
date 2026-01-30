@@ -10,8 +10,6 @@ typedef struct {
 	bool send_body_data;
 } HTTPResponseBody;
 
-typedef STBDS_ARRAY(HttpHeaderField) HttpHeaderFields;
-
 typedef struct {
 	HttpStatusCode status;
 	HTTPResponseBody body;
