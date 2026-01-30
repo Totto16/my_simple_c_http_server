@@ -603,7 +603,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 }
 
 int start_http_server(uint16_t port, SecureOptions* const options,
-                      AuthenticationProviders* const auth_providers) {
+                      AuthenticationProviders* const auth_providers, HTTPRoutes routes) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -717,9 +717,11 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		return EXIT_FAILURE;
 	}
 
-	HTTPRoutes default_routes = get_default_routes();
+	if(routes == NULL) {
+		return EXIT_FAILURE;
+	}
 
-	RouteManager* route_manager = initialize_route_manager(default_routes, auth_providers);
+	RouteManager* route_manager = initialize_route_manager(routes, auth_providers);
 
 	if(!route_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {

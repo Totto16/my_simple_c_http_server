@@ -371,6 +371,134 @@ HTTPRoutes get_default_routes(void) {
 	return routes;
 }
 
+NODISCARD HTTPRoutes get_webserver_test_routes(void) {
+	HTTPRoutes routes = STBDS_ARRAY_EMPTY;
+
+	{
+		// shutdown
+
+		HTTPRoute shutdown = {
+			.method = HTTPRequestRouteMethodGet,
+			.path = "/shutdown",
+			.data =
+			    (HTTPRouteData){
+			        .type = HTTPRouteTypeSpecial,
+			        .data = { .special = { .type = HTTPRouteSpecialDataTypeShutdown } } },
+			.auth = { .type = HTTPAuthorizationTypeNone }
+		};
+
+		stbds_arrput(routes, shutdown);
+	}
+
+	{
+		// index (/)
+
+		HTTPRoute index = {
+			.method = HTTPRequestRouteMethodGet,
+			.path = "/",
+			.data =
+			    (HTTPRouteData){
+			        .type = HTTPRouteTypeNormal,
+			        .data = { .normal =
+			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorExtended,
+			                                     .fn = { .executor_extended =
+			                                                 index_executor_fn_extended } } } },
+			.auth = { .type = HTTPAuthorizationTypeNone }
+		};
+
+		stbds_arrput(routes, index);
+	}
+
+	{
+		// ws
+
+		HTTPRoute ws_route = {
+			.method = HTTPRequestRouteMethodGet,
+			.path = "/ws",
+			.data =
+			    (HTTPRouteData){ .type = HTTPRouteTypeSpecial,
+			                     .data = { .special = { .type = HTTPRouteSpecialDataTypeWs } } },
+			.auth = { .type = HTTPAuthorizationTypeNone }
+		};
+
+		stbds_arrput(routes, ws_route);
+	}
+
+	{
+		// json
+
+		HTTPRoute json = {
+			.method = HTTPRequestRouteMethodGet,
+			.path = "/json",
+			.data =
+			    (HTTPRouteData){
+			        .type = HTTPRouteTypeNormal,
+			        .data = { .normal =
+			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorExtended,
+			                                     .fn = { .executor_extended =
+			                                                 json_executor_fn_extended } } } },
+			.auth = { .type = HTTPAuthorizationTypeNone }
+		};
+
+		stbds_arrput(routes, json);
+	}
+
+	{
+		// static
+
+		HTTPRoute json = {
+			.method = HTTPRequestRouteMethodGet,
+			.path = "/static",
+			.data =
+			    (HTTPRouteData){
+			        .type = HTTPRouteTypeNormal,
+			        .data = { .normal =
+			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
+			                                     .fn = { .executor = static_executor_fn } } } },
+			.auth = { .type = HTTPAuthorizationTypeNone }
+		};
+
+		stbds_arrput(routes, json);
+	}
+
+	{
+		// huge
+
+		HTTPRoute json = {
+			.method = HTTPRequestRouteMethodGet,
+			.path = "/huge",
+			.data =
+			    (HTTPRouteData){
+			        .type = HTTPRouteTypeNormal,
+			        .data = { .normal = (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
+			                                           .fn = { .executor = huge_executor_fn } } } },
+			.auth = { .type = HTTPAuthorizationTypeNone }
+		};
+
+		stbds_arrput(routes, json);
+	}
+
+	{
+		// authenticated
+
+		HTTPRoute json = {
+			.method = HTTPRequestRouteMethodGet,
+			.path = "/auth",
+			.data =
+			    (HTTPRouteData){
+			        .type = HTTPRouteTypeNormal,
+			        .data = { .normal =
+			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorAuth,
+			                                     .fn = { .executor_auth = auth_executor_fn } } } },
+			.auth = { .type = HTTPAuthorizationTypeSimple }
+		};
+
+		stbds_arrput(routes, json);
+	}
+
+	return routes;
+}
+
 NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes,
                                                  const AuthenticationProviders* auth_providers) {
 	RouteManager* route_manager = malloc(sizeof(RouteManager));

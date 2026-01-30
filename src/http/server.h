@@ -72,4 +72,4 @@ NODISCARD ANY_TYPE(JobError*)
 NODISCARD ANY_TYPE(NULL) http_listener_thread_function(ANY_TYPE(HTTPThreadArgument*) arg);
 
 NODISCARD int start_http_server(uint16_t port, SecureOptions* options,
-                                AuthenticationProviders* auth_providers);
+                                AuthenticationProviders* auth_providers, HTTPRoutes routes);

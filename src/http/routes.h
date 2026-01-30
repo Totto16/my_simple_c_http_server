@@ -124,6 +124,8 @@ typedef STBDS_ARRAY(HTTPRoute) HTTPRoutes;
 
 NODISCARD HTTPRoutes get_default_routes(void);
 
+NODISCARD HTTPRoutes get_webserver_test_routes(void);
+
 NODISCARD RouteManager* initialize_route_manager(HTTPRoutes routes,
                                                  const AuthenticationProviders* auth_providers);
 
