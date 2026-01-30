@@ -728,9 +728,9 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 		FREE_ADDITIONALLY(); \
 	} while(false)
 
-	bool result = setup_sigpipe_signal_handler();
+	bool sigpipe_result = setup_sigpipe_signal_handler();
 
-	if(!result) {
+	if(!sigpipe_result) {
 		FREE_AT_END_ONE();
 		return NULL;
 	}

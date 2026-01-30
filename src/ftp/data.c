@@ -158,8 +158,8 @@ NODISCARD static bool nts_internal_set_last_change_to_now(DataConnection* connec
 	bool clock_result = get_monotonic_time(&current_time);
 
 	if(!clock_result) {
-		LOG_MESSAGE(LogLevelError | LogPrintLocation, "Getting the time failed: %s\n",
-		            strerror(errno));
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "Getting the time failed: %s\n", strerror(errno));
 		return false;
 	}
 
@@ -779,14 +779,14 @@ cleanup:
 	return descriptor;
 }
 
-NODISCARD bool nts_internal_close_connection(DataController* data_controller,
-                                             DataConnection* connection) {
+NODISCARD static bool nts_internal_close_connection(DataController* data_controller,
+                                                    DataConnection* connection) {
 
 	ConnectionsToClose connections_to_close =
 	    nts_internal_data_connections_to_close(data_controller, connection);
 
 	if(stbds_arrlenu(connections_to_close) > 1) {
-		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		                   "ASSERT: maximal one connection should be closed, if we set a filter\n");
 
 		stbds_arrfree(connections_to_close);

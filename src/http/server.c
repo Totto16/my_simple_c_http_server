@@ -968,17 +968,17 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	while(!myqueue_is_empty(&job_ids)) {
 		JobId* job_id = (JobId*)myqueue_pop(&job_ids);
 
-		JobError result = pool_await(job_id);
+		JobError job_result = pool_await(job_id);
 
-		if(is_job_error(result)) {
-			if(result != JOB_ERROR_NONE) {
-				print_job_error(result);
+		if(is_job_error(job_result)) {
+			if(job_result != JOB_ERROR_NONE) {
+				print_job_error(job_result);
 			}
-		} else if(result == PTHREAD_CANCELED) {
+		} else if(job_result == PTHREAD_CANCELED) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "A connection thread was cancelled!\n");
 		} else {
 			LOG_MESSAGE(LogLevelError, "A connection thread was terminated with wrong error: %p!\n",
-			            result);
+			            job_result);
 		}
 	}
 

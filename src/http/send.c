@@ -108,7 +108,8 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 	HttpResponse* response = (HttpResponse*)malloc_with_memset(sizeof(HttpResponse), true);
 
 	if(!response) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return NULL;
 	}
 

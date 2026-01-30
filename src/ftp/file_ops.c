@@ -47,13 +47,15 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 
 	// invariant check 1
 	if((global_folder[g_length - 1] == '/') || (file[f_length - 1] == '/')) {
-		LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated: %s\n", file);
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
+		            "folder invariant 1 violated: %s\n", file);
 		return NULL;
 	}
 
 	// invariant check 2
 	if(strstr(file, global_folder) != file) {
-		LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated: %s\n", file);
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
+		            "folder invariant 2 violated: %s\n", file);
 		return NULL;
 	}
 
@@ -166,8 +168,8 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 		if(result) {
 			*result = DirChangeResultError;
 		} else {
-			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated: %s\n",
-			            file);
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
+			            "folder invariant 1 violated: %s\n", file);
 		}
 
 		return NULL;
@@ -178,8 +180,8 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 		if(result) {
 			*result = DirChangeResultErrorPathTraversal;
 		} else {
-			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated: %s\n",
-			            file);
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
+			            "folder invariant 2 violated: %s\n", file);
 		}
 
 		return NULL;
@@ -369,7 +371,7 @@ void free_send_progress(SendProgress* progress) {
 	free(progress);
 }
 
-NODISCARD char get_type_from_mode(mode_t mode) {
+NODISCARD static char get_type_from_mode(mode_t mode) {
 	switch(mode & S_IFMT) {
 		case S_IFREG: return '-';
 		case S_IFBLK: return 'b';
@@ -382,7 +384,7 @@ NODISCARD char get_type_from_mode(mode_t mode) {
 	}
 }
 
-NODISCARD FilePermissions permissions_from_mode(mode_t mode) {
+NODISCARD static FilePermissions permissions_from_mode(mode_t mode) {
 
 	char special_type = get_type_from_mode(mode);
 
@@ -403,7 +405,7 @@ NODISCARD FilePermissions permissions_from_mode(mode_t mode) {
 
 NODISCARD FileWithMetadata* get_metadata_for_file(const char* absolute_path, const char* name);
 
-NODISCARD FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path) {
+NODISCARD static FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path) {
 
 	char* name_ptr = absolute_path;
 
@@ -426,8 +428,8 @@ NODISCARD FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path)
 	return result;
 }
 
-NODISCARD SingleFile* get_metadata_for_single_file(char* const absolute_path,
-                                                   FileSendFormat format) {
+NODISCARD static SingleFile* get_metadata_for_single_file(char* const absolute_path,
+                                                          FileSendFormat format) {
 
 	SingleFile* result = (SingleFile*)malloc(sizeof(SingleFile));
 
@@ -449,8 +451,8 @@ NODISCARD SingleFile* get_metadata_for_single_file(char* const absolute_path,
 	return result;
 }
 
-NODISCARD FileWithMetadata* get_metadata_for_file_folder(const char* const folder,
-                                                         const char* const name) {
+NODISCARD static FileWithMetadata* get_metadata_for_file_folder(const char* const folder,
+                                                                const char* const name) {
 
 	size_t folder_len = strlen(folder);
 	size_t name_len = strlen(name);
@@ -499,8 +501,8 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 	int result = stat(absolute_path, &stat_result);
 
 	if(result != 0) {
-		LOG_MESSAGE(LogLevelError | LogPrintLocation, "Couldn't stat folder '%s': %s\n",
-		            absolute_path, strerror(errno));
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "Couldn't stat folder '%s': %s\n", absolute_path, strerror(errno));
 
 		free(metadata);
 		return NULL;
@@ -538,7 +540,7 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 	return metadata;
 }
 
-void free_file_metadata(FileWithMetadata* metadata) {
+static void free_file_metadata(FileWithMetadata* metadata) {
 
 	free(metadata->file_name);
 	free(metadata);
@@ -549,7 +551,7 @@ static inline size_t size_for_number(size_t num) {
 	return ((size_t)(floor(log10((double)num)))) + 1;
 }
 
-NODISCARD MaxSize internal_get_size_for(FileWithMetadata* metadata) {
+NODISCARD static MaxSize internal_get_size_for(FileWithMetadata* metadata) {
 
 	MaxSize result = {};
 
@@ -561,7 +563,7 @@ NODISCARD MaxSize internal_get_size_for(FileWithMetadata* metadata) {
 	return result;
 }
 
-void internal_update_max_size(MaxSize* sizes, FileWithMetadata* metadata) {
+static void internal_update_max_size(MaxSize* sizes, FileWithMetadata* metadata) {
 
 	MaxSize size = internal_get_size_for(metadata);
 
@@ -582,7 +584,8 @@ void internal_update_max_size(MaxSize* sizes, FileWithMetadata* metadata) {
 	}
 }
 
-MultipleFiles* get_files_in_folder(const char* const folder, FileSendFormat format) {
+NODISCARD static MultipleFiles* get_files_in_folder(const char* const folder,
+                                                    FileSendFormat format) {
 
 	MultipleFiles* result = (MultipleFiles*)malloc(sizeof(MultipleFiles));
 
@@ -783,7 +786,8 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 
 #define FORMAT_SPACES "    "
 
-NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, MaxSize sizes) {
+NODISCARD static StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file,
+                                                              MaxSize sizes) {
 
 	StringBuilder* string_builder = string_builder_init();
 
@@ -865,7 +869,7 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 
 #define ELPF_PRETTY_PRINT_PERMISSIONS true
 
-NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file) {
+NODISCARD static StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file) {
 
 	StringBuilder* string_builder = string_builder_init();
 
@@ -943,8 +947,8 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 	return string_builder;
 }
 
-NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
-                                          FileSendFormat format) {
+NODISCARD static StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
+                                                 FileSendFormat format) {
 
 	switch(format) {
 		case FileSendFormatLs: {

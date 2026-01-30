@@ -499,7 +499,7 @@ NODISCARD static bool is_matching(HTTPRequestRouteMethod route_method, HTTPReque
 	return false;
 }
 
-NODISCARD bool is_route_matching(HTTPRoutePath route_path, const char* const path) {
+NODISCARD static bool is_route_matching(HTTPRoutePath route_path, const char* const path) {
 
 	if(route_path.data == NULL) {
 		return true;
@@ -686,7 +686,7 @@ typedef struct {
 	} data;
 } HttpAuthStatus;
 
-NODISCARD HttpAuthStatus handle_http_authorization_impl(
+NODISCARD static HttpAuthStatus handle_http_authorization_impl(
     const AuthenticationProviders* auth_providers, const HttpRequest* const request_generic,
     HTTPAuthorizationComplicatedData* data) {
 
@@ -785,7 +785,7 @@ NODISCARD HttpAuthStatus handle_http_authorization_impl(
 	UNUSED(data);
 }
 
-NODISCARD HttpAuthStatus handle_http_authorization(const AuthenticationProviders* auth_providers,
+NODISCARD static HttpAuthStatus handle_http_authorization(const AuthenticationProviders* auth_providers,
                                                    const HttpRequest* const request,
                                                    HTTPAuthorization auth) {
 
