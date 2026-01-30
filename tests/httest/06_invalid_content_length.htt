@@ -1,0 +1,10 @@
+CLIENT
+_REQ localhost 8080
+__POST /clash HTTP/1.1
+__Host: localhost
+__Content-Length: 4
+__Content-Length: 10
+__
+__test
+_EXPECT . "400"
+_END

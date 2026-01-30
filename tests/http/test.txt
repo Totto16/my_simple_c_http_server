@@ -10,3 +10,11 @@ h2spec?
 
 
 test and support http 1/1 keepalive !
+
+https://github.com/regilero/HTTPWookiee
+
+https://manpages.org/httest
+
+https://github.com/ibnesayeed/webserver-tester
+
+https://github.com/init/http-test-suite
