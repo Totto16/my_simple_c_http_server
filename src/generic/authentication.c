@@ -1,5 +1,3 @@
-
-
 #include "./authentication.h"
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
@@ -8,14 +6,18 @@
 
 #include "utils/log.h"
 
+#include <zmap/zmap.h>
+#include <zvec/zvec.h>
+
 typedef struct {
-	char* key;
 	HashSaltResultType* hash_salted_password;
 	UserRole role;
 } SimpleAccountEntry;
 
+ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, SimpleAccountEntry, SimpleAccountEntryHashMap)
+
 typedef struct {
-	STBDS_HASH_MAP(SimpleAccountEntry) entries;
+	ZMAP_TYPENAME_MAP(SimpleAccountEntryHashMap) entries;
 	HashSaltSettings settings;
 } SimpleAuthenticationProviderData;
 
@@ -26,8 +28,11 @@ struct AuthenticationProviderImpl {
 	} data;
 };
 
+// TODO: do we really need to store ptrs here
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(AuthenticationProvider*, AuthenticationProviderPtr)
+
 struct AuthenticationProvidersImpl {
-	STBDS_ARRAY(AuthenticationProvider*) providers;
+	ZVEC_TYPENAME(AuthenticationProviderPtr) providers;
 };
 
 NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType type) {
@@ -54,7 +59,7 @@ NODISCARD AuthenticationProviders* initialize_authentication_providers(void) {
 		return NULL;
 	}
 
-	auth_providers->providers = STBDS_ARRAY_EMPTY;
+	auth_providers->providers = ZVEC_EMPTY(AuthenticationProviderPtr);
 
 	return auth_providers;
 }
@@ -75,7 +80,7 @@ NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void
 
 	auth_provider->type = AuthenticationProviderTypeSimple;
 	auth_provider->data.simple =
-	    (SimpleAuthenticationProviderData){ .entries = STBDS_HASH_MAP_EMPTY,
+	    (SimpleAuthenticationProviderData){ .entries = ZMAP_INIT(SimpleAccountEntryHashMap),
 		                                    .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
 		                                                  .use_sha512 = true } };
 
@@ -102,8 +107,12 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 		return false;
 	}
 
-	stbds_arrput( // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
-	    auth_providers->providers, provider);
+	ZvecResult zvec_result = ZVEC_PUSH_EXTENDED(AuthenticationProvider, AuthenticationProviderPtr,
+	                                            &auth_providers->providers, provider);
+
+	if(zvec_result != ZvecResultOk) {
+		return false;
+	}
 	return true;
 }
 
@@ -143,11 +152,15 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 
 	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
 
-	SimpleAccountEntry entry = { .key = strdup(username),
-		                         .hash_salted_password = hash_salted_password,
-		                         .role = role };
+	SimpleAccountEntry entry = { .hash_salted_password = hash_salted_password, .role = role };
 
-	stbds_shputs(data->entries, entry);
+	ZmapInsertResult insert_result =
+	    ZMAP_INSERT(SimpleAccountEntryHashMap, &(data->entries), strdup(username), entry, false);
+
+	if(insert_result != ZmapInsertResultOk) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -156,16 +169,20 @@ static void free_simple_authentication_provider(SimpleAuthenticationProviderData
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 	UNUSED(data);
 #else
-	size_t hm_length = stbds_shlenu(data.entries);
 
-	for(size_t i = 0; i < hm_length; ++i) {
-		SimpleAccountEntry entry = data.entries[i];
+	size_t hm_total_length = ZMAP_CAPACITY(data.entries);
 
-		free_hash_salted_result(entry.hash_salted_password);
-		free(entry.key);
+	for(size_t i = 0; i < hm_total_length; ++i) {
+		const ZMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* hm_entry =
+		    ZMAP_GET_ENTRY_AT(SimpleAccountEntryHashMap, &data.entries, i);
+
+		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+			free_hash_salted_result(hm_entry->value.hash_salted_password);
+			free(hm_entry->key);
+		}
 	}
 
-	stbds_shfree(data.entries);
+	ZMAP_FREE(SimpleAccountEntryHashMap, &data.entries);
 
 #endif
 }
@@ -187,33 +204,36 @@ void free_authentication_provider(AuthenticationProvider* auth_provider) {
 
 void free_authentication_providers(AuthenticationProviders* auth_providers) {
 
-	for(size_t i = 0; i < stbds_arrlenu(auth_providers->providers); ++i) {
-		free_authentication_provider(auth_providers->providers[i]);
+	for(size_t i = 0; i < ZVEC_LENGTH(auth_providers->providers); ++i) {
+		AuthenticationProvider** auth_provider = ZVEC_GET_AT_MUT_EXTENDED(
+		    AuthenticationProvider*, AuthenticationProviderPtr, &(auth_providers->providers), i);
+		free_authentication_provider(*auth_provider);
 	}
 
-	stbds_arrfree(auth_providers->providers);
+	ZVEC_FREE(AuthenticationProviderPtr, &(auth_providers->providers));
 
 	free(auth_providers);
 }
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
-NODISCARD static SimpleAccountEntry*
+NODISCARD static const SimpleAccountEntry*
 find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username) {
 
-	if(data->entries == STBDS_HASH_MAP_EMPTY) {
+	if(ZMAP_IS_EMPTY(data->entries)) {
 		// note: if hash_map is NULL stbds_shgeti allocates a new value, that is never populated to
 		// the original SimpleAccountEntry value, as this is a struct copy!
 		return NULL;
 	}
 
-	int index = stbds_shgeti(data->entries, username);
+	const SimpleAccountEntry* entry =
+	    ZMAP_GET(SimpleAccountEntryHashMap, &(data->entries), username);
 
-	if(index < 0) {
+	if(entry == NULL) {
 		return NULL;
 	}
 
-	return &data->entries[index];
+	return entry;
 }
 
 NODISCARD static AuthenticationFindResult authentication_provider_simple_find_user_with_password(
@@ -230,7 +250,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 	SimpleAuthenticationProviderData* data = &auth_provider->data.simple;
 
-	SimpleAccountEntry* entry = find_user_by_name_simple(data, username);
+	const SimpleAccountEntry* entry = find_user_by_name_simple(data, username);
 
 	if(!entry) {
 		return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
@@ -246,7 +266,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 	}
 
 	// TODO(Totto): maybe don't allocate this?
-	AuthUser user = { .username = strdup(entry->key), .role = entry->role };
+	AuthUser user = { .username = strdup(username), .role = entry->role };
 
 	return (AuthenticationFindResult){
 		.validity = AuthenticationValidityOk,
@@ -654,19 +674,23 @@ NODISCARD static int get_result_value_for_auth_result(AuthenticationFindResult a
 	}
 }
 
-NODISCARD static int compare_auth_results(AuthenticationFindResult auth1, AuthenticationFindResult auth2) {
+NODISCARD static int compare_auth_results(AuthenticationFindResult auth1,
+                                          AuthenticationFindResult auth2) {
 	return get_result_value_for_auth_result(auth1) - get_result_value_for_auth_result(auth2);
 }
+
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AuthenticationFindResult)
 
 NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
     const AuthenticationProviders* auth_providers,
     char* username, // NOLINT(bugprone-easily-swappable-parameters)
     char* password) {
 
-	STBDS_ARRAY(AuthenticationFindResult) results = STBDS_ARRAY_EMPTY;
+	ZVEC_TYPENAME(AuthenticationFindResult) results = ZVEC_EMPTY(AuthenticationFindResult);
 
-	for(size_t i = 0; i < stbds_arrlenu(auth_providers->providers); ++i) {
-		AuthenticationProvider* provider = auth_providers->providers[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(auth_providers->providers); ++i) {
+		AuthenticationProvider* provider =
+		    ZVEC_AT(AuthenticationProviderPtr, auth_providers->providers, i);
 
 		AuthenticationFindResult result;
 
@@ -700,7 +724,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		// note: the clang analyzer is incoreect here, we return a item, that is malloced, but
 		// we free it everywhere, we use this function!
 		if(result.validity == AuthenticationValidityOk) { // NOLINT(clang-analyzer-unix.Malloc)
-			stbds_arrfree(results);
+			ZVEC_FREE(AuthenticationFindResult, &results);
 			return result;
 		}
 
@@ -710,10 +734,12 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 			            result.data.error.error_message);
 		}
 
-		stbds_arrput(results, result);
+		// TODO
+		auto _ = ZVEC_PUSH(AuthenticationFindResult, &results, result);
+		UNUSED(_);
 	}
 
-	size_t results_length = stbds_arrlenu(results);
+	size_t results_length = ZVEC_LENGTH(results);
 
 	AuthenticationFindResult best_result = (AuthenticationFindResult){
 		.validity = AuthenticationValidityError,
@@ -721,14 +747,14 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 	};
 
 	for(size_t i = 0; i < results_length; ++i) {
-		AuthenticationFindResult current_result = results[i];
+		AuthenticationFindResult current_result = ZVEC_AT(AuthenticationFindResult, results, i);
 
 		if(compare_auth_results(best_result, current_result) <= 0) {
 			best_result = current_result;
 		}
 	}
 
-	stbds_arrfree(results);
+	ZVEC_FREE(AuthenticationFindResult, &results);
 
 	return best_result;
 }
