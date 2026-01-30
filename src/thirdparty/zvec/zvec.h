@@ -109,7 +109,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]]T zvec_at_##Name(ZVEC_TYPENAME(Name) v, size_t 
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_get_at_mut_##Name( ZVEC_TYPENAME(Name) *v, size_t index);                 \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] const T* zvec_get_at_##Name(const ZVEC_TYPENAME(Name) *v, size_t index);                 \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]]  T const * zvec_get_at_##Name(const ZVEC_TYPENAME(Name) *v, size_t index);                 \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_data_##Name(ZVEC_TYPENAME(Name) *v);                                     \
                                                                                             \
@@ -126,13 +126,13 @@ ZVEC_FUN_ATTRIBUTES void zvec_free_##Name(ZVEC_TYPENAME(Name) *v);              
 ZVEC_FUN_ATTRIBUTES void zvec_reverse_##Name(ZVEC_TYPENAME(Name) *v);                                \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES void zvec_sort_##Name(ZVEC_TYPENAME(Name) *v,                                    \
-                                                int (*compar)(const T *, const T *));       \
+                                                int (*compar)( T const *,  T const *));       \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##Name(const ZVEC_TYPENAME(Name) *v, const T *key,                  \
-                                 int (*compar)(const T *, const T *));                      \
+                                 int (*compar)( T const *,  T const *));                      \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME(Name) *v, const T *key,                        \
-                                        int (*compar)(const T *, const T *));
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME(Name) *v,  T const *key,                        \
+                                        int (*compar)( T const *,  T const *));
 
 #define ZVEC_EMPTY(TypeName) ((ZVEC_TYPENAME(TypeName)){.data=NULL, .length=0, .capacity=0})
 
@@ -339,7 +339,7 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_get_at_mut_##Name( ZVEC_TYPENAME(Name)
     return (index < v->length) ? &v->data[index] : NULL;                                    \
 }                                                                                            \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] const T* zvec_get_at_##Name(const ZVEC_TYPENAME(Name) * const v, size_t index){ \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]]  T const * zvec_get_at_##Name( ZVEC_TYPENAME(Name) const * const v, size_t index){ \
     return (index < v->length) ? &v->data[index] : NULL;                                    \
 }                                                                                            \
                                                                                             \
@@ -384,7 +384,7 @@ ZVEC_FUN_ATTRIBUTES void zvec_reverse_##Name(ZVEC_TYPENAME(Name) *v) {          
 }                                                                                           \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES void zvec_sort_##Name(ZVEC_TYPENAME(Name) *v,                                    \
-                                        int (*compar)(const T *, const T *)) {              \
+                                        int (*compar)( T const *,  T const *)) {              \
     if (v->length > 1) {                                                                    \
         int (*qsort_cmp)(const void *, const void *) =                                      \
             (int (*)(const void *, const void *))compar;                                    \
@@ -393,15 +393,15 @@ ZVEC_FUN_ATTRIBUTES void zvec_sort_##Name(ZVEC_TYPENAME(Name) *v,               
 }                                                                                           \
                                                                                             \
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##Name(const ZVEC_TYPENAME(Name) * const v, const T *key,                  \
-                                 int (*compar)(const T *, const T *)) {                     \
+                                 int (*compar)( T const *,  T const *)) {                     \
     if (v->length == 0) return NULL;                                                        \
     int (*bs_cmp)(const void *, const void *) =                                             \
         (int (*)(const void *, const void *))compar;                                        \
     return (T*) bsearch(key, v->data, v->length, sizeof(T), bs_cmp);                        \
 }                                                                                           \
                                                                                             \
-ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME(Name) * const v, const T *key,                        \
-                                        int (*compar)(const T *, const T *)) {              \
+ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME(Name) * const v, T const *key,                        \
+                                        int (*compar)(T const *,  T const *)) {              \
     size_t l = 0;                                                                           \
     size_t r = v->length;                                                                   \
     while (l < r) {                                                                         \
