@@ -11,4 +11,6 @@ src_files += files(
     'send.h',
     'server.c',
     'server.h',
+    'header.c',
+    'header.h',
 )

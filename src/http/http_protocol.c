@@ -599,7 +599,7 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
 	HttpHeaderField* accept_encoding_header =
-	    find_header_by_key(header_fields, g_header_accept_encoding);
+	    find_header_by_key(header_fields, HTTP_HEADER_NAME(accept_encoding));
 
 	if(!accept_encoding_header) {
 		return compression_settings;

@@ -27,13 +27,13 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 
 	char* upgrade_header_buffer = NULL;
 	FORMAT_STRING(&upgrade_header_buffer, return false;
-	              , "%s%c%s", g_header_upgrade, '\0', "WebSocket");
+	              , "%s%c%s", HTTP_HEADER_NAME(upgrade), '\0', "WebSocket");
 
 	add_http_header_field_by_double_str(&additional_headers, upgrade_header_buffer);
 
 	char* connection_header_buffer = NULL;
 	FORMAT_STRING(&connection_header_buffer, return false;
-	              , "%s%c%s", g_header_connection, '\0', "Upgrade");
+	              , "%s%c%s", HTTP_HEADER_NAME(connection), '\0', "Upgrade");
 
 	add_http_header_field_by_double_str(&additional_headers, connection_header_buffer);
 
@@ -200,17 +200,17 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 
 	for(size_t i = 0; i < stbds_arrlenu(http_request->head.header_fields); ++i) {
 		HttpHeaderField header = http_request->head.header_fields[i];
-		if(strcasecmp(header.key, g_header_host) == 0) {
+		if(strcasecmp(header.key, HTTP_HEADER_NAME(host)) == 0) {
 			found_list |= HandshakeHeaderHeaderHost;
-		} else if(strcasecmp(header.key, g_header_upgrade) == 0) {
+		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(upgrade)) == 0) {
 			found_list |= HandshakeHeaderHeaderUpgrade;
 			if(strcasecontains(header.value, "websocket") < 0) {
 				return send_failed_handshake_message(
 				    descriptor, "upgrade does not contain 'websocket'", send_settings);
 			}
-		} else if(strcasecmp(header.key, g_header_connection) == 0) {
+		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(connection)) == 0) {
 			found_list |= HandshakeHeaderHeaderConnection;
-			if(strcasecontains(header.value, g_header_upgrade) < 0) {
+			if(strcasecontains(header.value, HTTP_HEADER_NAME(upgrade)) < 0) {
 				if(send_http_upgrade_required_status_code) {
 					return send_failed_handshake_message_upgrade_required(descriptor,
 					                                                      send_settings);
@@ -219,7 +219,7 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 				return send_failed_handshake_message(
 				    descriptor, "connection does not contain 'upgrade'", send_settings);
 			}
-		} else if(strcasecmp(header.key, g_header_ws_sec_websocket_key) == 0) {
+		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(ws_sec_websocket_key)) == 0) {
 			found_list |= HandshakeHeaderHeaderSecWebsocketKey;
 			if(is_valid_sec_key(header.value)) {
 				sec_key = header.value;
@@ -227,20 +227,20 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 				return send_failed_handshake_message(descriptor, "sec-websocket-key is invalid",
 				                                     send_settings);
 			}
-		} else if(strcasecmp(header.key, g_header_ws_sec_websocket_version) == 0) {
+		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(ws_sec_websocket_version)) == 0) {
 			found_list |= HandshakeHeaderHeaderSecWebsocketVersion;
 			if(strcmp(header.value, "13") != 0) {
 				return send_failed_handshake_message(
 				    descriptor, "sec-websocket-version has invalid value", send_settings);
 			}
-		} else if(strcasecmp(header.key, g_header_ws_sec_websocket_extensions) == 0) {
+		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(ws_sec_websocket_extensions)) == 0) {
 			// TODO(Totto): this header field may be specified multiple times, but we should
 			// combine all and than parse it, but lets see if the autobahn test suite tests for
 			// that first
 			// TODO: normalize headers in some place!
 			parse_ws_extensions(extensions, header.value);
 
-		} else if(strcasecmp(header.key, g_header_origin) == 0) {
+		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(origin)) == 0) {
 			from_browser = true;
 		} else {
 			// do nothing
@@ -275,13 +275,13 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 
 	char* upgrade_header_buffer = NULL;
 	FORMAT_STRING(&upgrade_header_buffer, return false;
-	              , "%s%c%s", g_header_upgrade, '\0', "WebSocket");
+	              , "%s%c%s", HTTP_HEADER_NAME(upgrade), '\0', "WebSocket");
 
 	add_http_header_field_by_double_str(&additional_headers, upgrade_header_buffer);
 
 	char* connection_header_buffer = NULL;
 	FORMAT_STRING(&connection_header_buffer, return false;
-	              , "%s%c%s", g_header_connection, '\0', "Upgrade");
+	              , "%s%c%s", HTTP_HEADER_NAME(connection), '\0', "Upgrade");
 
 	add_http_header_field_by_double_str(&additional_headers, connection_header_buffer);
 
@@ -291,7 +291,7 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 
 		char* sec_websocket_accept_header_buffer = NULL;
 		FORMAT_STRING(&sec_websocket_accept_header_buffer, return false;
-		              , "%s%c%s", g_header_ws_sec_websocket_accept, '\0', key_answer);
+		              , "%s%c%s", HTTP_HEADER_NAME(ws_sec_websocket_accept), '\0', key_answer);
 
 		free(key_answer);
 
@@ -306,7 +306,7 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 
 			char* sec_websocket_extensions_header_buffer = NULL;
 			FORMAT_STRING(&sec_websocket_extensions_header_buffer, return false;
-			              , "%s%c%s", g_header_ws_sec_websocket_extensions, '\0',
+			              , "%s%c%s", HTTP_HEADER_NAME(ws_sec_websocket_extensions), '\0',
 			              accepted_extensions);
 
 			free(accepted_extensions);

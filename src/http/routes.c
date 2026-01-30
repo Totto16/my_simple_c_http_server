@@ -580,7 +580,7 @@ NODISCARD HttpAuthStatus handle_http_authorization_impl(
 	const Http1Request* request = request_generic->data.v1;
 
 	const HttpHeaderField* authorization_field =
-	    find_header_by_key(request->head.header_fields, g_header_authorization);
+	    find_header_by_key(request->head.header_fields, HTTP_HEADER_NAME(authorization));
 
 	if(authorization_field == NULL) {
 		return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
@@ -724,8 +724,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 					    stbds_arrfree(additional_headers);
 					    return NULL;
 				    },
-				    "%s%cBasic realm=\"%s\", charset=\"UTF-8\"", g_header_www_authenticate, '\0',
-				    DEFAULT_AUTH_REALM);
+				    "%s%cBasic realm=\"%s\", charset=\"UTF-8\"", HTTP_HEADER_NAME(www_authenticate),
+				    '\0', DEFAULT_AUTH_REALM);
 
 				add_http_header_field_by_double_str(&additional_headers, www_authenticate_buffer);
 
@@ -903,7 +903,8 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 			break;
 		}
 		case HTTPRouteFnTypeExecutorExtended: {
-			response = route.fn.executor_extended(send_settings, http_request_generic, context, path);
+			response =
+			    route.fn.executor_extended(send_settings, http_request_generic, context, path);
 			break;
 		}
 		default: {

@@ -1,37 +1,43 @@
-
 #pragma once
 
-static const char* const g_header_authorization = "authorization";
+#define HTTP_HEADER_NAME(name) g_http_header_##name
 
-static const char* const g_header_www_authenticate = "www-authenticate";
+#ifdef HTTP_HEADER_IMPL
+#define HTTP_HEADER_DEF(name, content) const char* const HTTP_HEADER_NAME(name) = content
+#else
+#define HTTP_HEADER_DEF(name, content) extern const char* const HTTP_HEADER_NAME(name)
+#endif
 
-static const char* const g_header_upgrade = "upgrade";
+HTTP_HEADER_DEF(authorization, "authorization");
 
-static const char* const g_header_connection = "connection";
+HTTP_HEADER_DEF(www_authenticate, "www-authenticate");
 
-static const char* const g_header_host = "host";
+HTTP_HEADER_DEF(upgrade, "upgrade");
 
-static const char* const g_header_origin = "origin";
+HTTP_HEADER_DEF(connection, "connection");
 
-static const char* const g_header_accept_encoding = "accept-encoding";
+HTTP_HEADER_DEF(host, "host");
 
-static const char* const g_header_content_type = "content-type";
+HTTP_HEADER_DEF(origin, "origin");
 
-static const char* const g_header_content_length = "content-length";
+HTTP_HEADER_DEF(accept_encoding, "accept-encoding");
 
-static const char* const g_header_server = "server";
+HTTP_HEADER_DEF(content_type, "content-type");
 
-static const char* const g_header_content_encoding = "content-encoding";
+HTTP_HEADER_DEF(content_length, "content-length");
 
-static const char* const g_header_allow = "allow";
+HTTP_HEADER_DEF(server, "server");
 
+HTTP_HEADER_DEF(content_encoding, "content-encoding");
+
+HTTP_HEADER_DEF(allow, "allow");
 
 // ws specific stuff
 
-static const char* const g_header_ws_sec_websocket_key = "sec-websocket-key";
+HTTP_HEADER_DEF(ws_sec_websocket_key, "sec-websocket-key");
 
-static const char* const g_header_ws_sec_websocket_version = "sec-websocket-version";
+HTTP_HEADER_DEF(ws_sec_websocket_version, "sec-websocket-version");
 
-static const char* const g_header_ws_sec_websocket_extensions = "sec-websocket-extensions";
+HTTP_HEADER_DEF(ws_sec_websocket_extensions, "sec-websocket-extensions");
 
-static const char* const g_header_ws_sec_websocket_accept = "sec-websocket-accept";
+HTTP_HEADER_DEF(ws_sec_websocket_accept, "sec-websocket-accept");

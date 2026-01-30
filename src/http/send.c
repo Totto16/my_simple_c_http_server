@@ -35,7 +35,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		// add the standard ones, using %c with '\0' to use the trick, described above
 		char* content_type_buffer = NULL;
 		FORMAT_STRING(&content_type_buffer, return NULL;
-		              , "%s%c%s", g_header_content_type, '\0',
+		              , "%s%c%s", HTTP_HEADER_NAME(content_type), '\0',
 		              mime_type == NULL ? DEFAULT_MIME_TYPE : mime_type);
 
 		add_http_header_field_by_double_str(&response->head.header_fields, content_type_buffer);
@@ -46,7 +46,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 
 		char* content_length_buffer = NULL;
 		FORMAT_STRING(&content_length_buffer, return NULL;
-		              , "%s%c%ld", g_header_content_length, '\0', response->body.size);
+		              , "%s%c%ld", HTTP_HEADER_NAME(content_length), '\0', response->body.size);
 
 		add_http_header_field_by_double_str(&response->head.header_fields, content_length_buffer);
 	}
@@ -56,7 +56,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 
 		char* server_buffer = NULL;
 		FORMAT_STRING(&server_buffer, return NULL;
-		              , "%s%c%s", g_header_server, '\0',
+		              , "%s%c%s", HTTP_HEADER_NAME(server), '\0',
 		              "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
 		add_http_header_field_by_double_str(&response->head.header_fields, server_buffer);
@@ -70,7 +70,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 			// add the standard ones, using %c with '\0' to use the trick, described above
 			char* content_encoding_buffer = NULL;
 			FORMAT_STRING(&content_encoding_buffer, return NULL;
-			              , "%s%c%s", g_header_content_encoding, '\0',
+			              , "%s%c%s", HTTP_HEADER_NAME(content_encoding), '\0',
 			              get_string_for_compress_format(compression_format));
 
 			add_http_header_field_by_double_str(&response->head.header_fields,
