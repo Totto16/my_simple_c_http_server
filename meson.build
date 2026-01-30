@@ -201,7 +201,8 @@ internal_c_args += cc.get_supported_arguments(
     '-Wold-style-definition',
     '-Wundef',
     '-Wunused',
-    '-Wcast-align',
+    ## TODO: can only be enabled, after removing stbds usage!
+    # '-Wcast-align',
     '-Wmissing-noreturn',
     '-Wmissing-format-attribute',
     '-Wmissing-include-dirs',

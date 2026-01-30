@@ -151,7 +151,8 @@ SizedBuffer get_sha1_from_string(const char* string) {
 	uint8_t* sha1_result = malloc(SHA_DIGEST_LENGTH * sizeof(uint8_t));
 
 	if(!sha1_result) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return get_empty_sized_buffer();
 	}
 
@@ -191,7 +192,8 @@ SizedBuffer get_sha1_from_string(const char* string) {
 	uint8_t* sha1_result = malloc(EVP_MAX_MD_SIZE * sizeof(uint8_t));
 
 	if(!sha1_result) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return get_empty_sized_buffer();
 	}
 
@@ -229,7 +231,8 @@ SizedBuffer get_sha1_from_string(const char* string) {
 	uint8_t* sha1_result = malloc(SHA1_LEN * sizeof(uint8_t));
 
 	if(!sha1_result) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return get_empty_sized_buffer();
 	}
 

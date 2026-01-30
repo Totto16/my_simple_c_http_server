@@ -285,7 +285,8 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 	uint8_t* resulting_frame = (uint8_t*)malloc(size);
 
 	if(resulting_frame == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return -1;
 	}
 
@@ -502,6 +503,8 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 	return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 }
 
+typedef C_23_ENUM_TYPE(uint16_t) CloseCodeEnumType;
+
 /**
  * @enum value
  * @see https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
@@ -535,7 +538,8 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 	if(raw_message.op_code != WsOpcodeClose) {
 		return (CloseReasonResult){
 			.success = false,
-			.reason = { .code = 0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			.reason = { .code =
+			                (CloseCodeEnumType)0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			            .message = NULL,
 			            .message_len = 0 }
 		};
@@ -638,7 +642,8 @@ NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* con
 	uint8_t* payload = (uint8_t*)malloc(payload_len);
 
 	if(payload == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return -1;
 	}
 
@@ -1627,8 +1632,8 @@ bool thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
 			break;
 		}
 
-		// TODO(Totto): shut down connections, if they are still running e.g. in the case of GET to
-		// /shutdown
+		// TODO(Totto): shut down connections, if they are still running e.g. in the case of GET
+		// to /shutdown
 
 		WebSocketConnection* connection = current_node->connection;
 

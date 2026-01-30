@@ -4,11 +4,11 @@
 
 #include <doctest.h>
 
+#include <cstdint>
 #include <iomanip>
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <cstdint>
 
 #include <utils/sized_buffer.h>
 
@@ -40,6 +40,8 @@ std::ostream& operator<<(std::ostream& os, const SizedBuffer& buffer) {
 
 } // namespace
 
+doctest::String toString(const SizedBuffer& buffer);
+
 doctest::String toString(const SizedBuffer& buffer) {
 	std::stringstream str{};
 	str << buffer;
@@ -47,6 +49,8 @@ doctest::String toString(const SizedBuffer& buffer) {
 	return doctest::String{ string.c_str(),
 		                    static_cast<doctest::String::size_type>(string.size()) };
 }
+
+NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs);
 
 NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs) {
 

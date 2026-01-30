@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-FTPDataSettings* alloc_default_data_settings() {
+static FTPDataSettings* alloc_default_data_settings() {
 	FTPDataSettings* data_settings = (FTPDataSettings*)malloc(sizeof(FTPDataSettings));
 
 	if(!data_settings) {
@@ -33,7 +33,7 @@ NODISCARD static FTPSupportedFeatures* alloc_supported_features(void) {
 	return supported_features;
 }
 
-CustomFTPOptions* alloc_default_options() {
+static CustomFTPOptions* alloc_default_options() {
 	CustomFTPOptions* options = (CustomFTPOptions*)malloc(sizeof(CustomFTPOptions));
 
 	if(!options) {

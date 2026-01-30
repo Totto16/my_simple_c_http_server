@@ -13,7 +13,8 @@ char* read_string_from_connection(const ConnectionDescriptor* const descriptor) 
 	char* message_buffer = (char*)malloc(INITIAL_MESSAGE_BUF_SIZE + 1);
 
 	if(!message_buffer) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return NULL;
 	}
 
@@ -48,7 +49,7 @@ char* read_string_from_connection(const ConnectionDescriptor* const descriptor) 
 			    message_buffer, (old_size + INITIAL_MESSAGE_BUF_SIZE + 1) * sizeof(char));
 
 			if(!new_buffer) {
-				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 				                   "Couldn't re-allocate memory!\n");
 				return NULL;
 			}
@@ -76,7 +77,8 @@ char* read_exact_bytes(const ConnectionDescriptor* const descriptor, size_t n_by
 	char* message_buffer = (char*)malloc(n_bytes);
 
 	if(!message_buffer) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return NULL;
 	}
 

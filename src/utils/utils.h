@@ -10,11 +10,13 @@
 
 #if _SIMPLE_SERVER_COMPILE_WITH_NARROWED_ENUMS
 #define C_23_NARROW_ENUM_TO(x) : x
+#define C_23_ENUM_TYPE(x) x
 #else
 #define C_23_NARROW_ENUM_TO(x)
+#define C_23_ENUM_TYPE(x) int
 #endif
 
-#if __STDC_VERSION__ >= 202000 || __cplusplus
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202000) || __cplusplus
 #define NODISCARD [[nodiscard]]
 #define MAYBE_UNUSED [[maybe_unused]]
 #else
