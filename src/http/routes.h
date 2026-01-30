@@ -47,7 +47,8 @@ typedef struct {
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRouteTypeNormal = 0,
 	HTTPRouteTypeSpecial,
-	HTTPRouteTypeInternal
+	HTTPRouteTypeInternal,
+	HTTPRouteTypeServeFolder
 } HTTPRouteType;
 
 /**
@@ -65,6 +66,10 @@ typedef struct {
 typedef struct {
 	HTTPResponseToSend send;
 } HTTPRouteInternal;
+
+typedef struct {
+	char* folder_path;
+} HTTPRouteServeFolder;
 
 /**
  * @enum value
@@ -96,6 +101,7 @@ typedef struct {
 		HTTPRouteSpecialData special;
 		HTTPRouteInternal internal;
 		HTTPRouteFn normal;
+		HTTPRouteServeFolder serve_folder;
 	} data;
 } HTTPRouteData;
 
@@ -113,9 +119,22 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRequestRouteMethodPost,
 } HTTPRequestRouteMethod;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPRoutePathTypeExact = 0,
+	HTTPRoutePathTypeStartsWith,
+} HTTPRoutePathType;
+
+typedef struct {
+	HTTPRoutePathType type;
+	char* data;
+} HTTPRoutePath;
+
 typedef struct {
 	HTTPRequestRouteMethod method;
-	char* path;
+	HTTPRoutePath path;
 	HTTPRouteData data;
 	HTTPAuthorization auth;
 } HTTPRoute;

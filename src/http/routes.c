@@ -251,7 +251,11 @@ HTTPRoutes get_default_routes(void) {
 
 		HTTPRoute shutdown = {
 			.method = HTTPRequestRouteMethodGet,
-			.path = "/shutdown",
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeExact,
+			        .data = "/shutdown",
+			    },
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeSpecial,
@@ -267,7 +271,11 @@ HTTPRoutes get_default_routes(void) {
 
 		HTTPRoute index = {
 			.method = HTTPRequestRouteMethodGet,
-			.path = "/",
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeExact,
+			        .data = "/",
+			    },
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
@@ -286,7 +294,11 @@ HTTPRoutes get_default_routes(void) {
 
 		HTTPRoute ws_route = {
 			.method = HTTPRequestRouteMethodGet,
-			.path = "/ws",
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeExact,
+			        .data = "/ws",
+			    },
 			.data =
 			    (HTTPRouteData){ .type = HTTPRouteTypeSpecial,
 			                     .data = { .special = { .type = HTTPRouteSpecialDataTypeWs } } },
@@ -301,7 +313,11 @@ HTTPRoutes get_default_routes(void) {
 
 		HTTPRoute json = {
 			.method = HTTPRequestRouteMethodGet,
-			.path = "/json",
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeExact,
+			        .data = "/json",
+			    },
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
@@ -320,7 +336,11 @@ HTTPRoutes get_default_routes(void) {
 
 		HTTPRoute json = {
 			.method = HTTPRequestRouteMethodGet,
-			.path = "/static",
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeExact,
+			        .data = "/static",
+			    },
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
@@ -338,7 +358,11 @@ HTTPRoutes get_default_routes(void) {
 
 		HTTPRoute json = {
 			.method = HTTPRequestRouteMethodGet,
-			.path = "/huge",
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeExact,
+			        .data = "/huge",
+			    },
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
@@ -355,7 +379,11 @@ HTTPRoutes get_default_routes(void) {
 
 		HTTPRoute json = {
 			.method = HTTPRequestRouteMethodGet,
-			.path = "/auth",
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeExact,
+			        .data = "/auth",
+			    },
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
@@ -379,7 +407,11 @@ NODISCARD HTTPRoutes get_webserver_test_routes(void) {
 
 		HTTPRoute shutdown = {
 			.method = HTTPRequestRouteMethodGet,
-			.path = "/shutdown",
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeExact,
+			        .data = "/_special/shutdown",
+			    },
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeSpecial,
@@ -390,108 +422,26 @@ NODISCARD HTTPRoutes get_webserver_test_routes(void) {
 		stbds_arrput(routes, shutdown);
 	}
 
-	{
-		// index (/)
-
-		HTTPRoute index = {
-			.method = HTTPRequestRouteMethodGet,
-			.path = "/",
-			.data =
-			    (HTTPRouteData){
-			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal =
-			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorExtended,
-			                                     .fn = { .executor_extended =
-			                                                 index_executor_fn_extended } } } },
-			.auth = { .type = HTTPAuthorizationTypeNone }
-		};
-
-		stbds_arrput(routes, index);
-	}
+	// note, as routes get checked in order, this works, even if / gets mapped to the server_folder!
 
 	{
-		// ws
+		// / folder serve
 
-		HTTPRoute ws_route = {
-			.method = HTTPRequestRouteMethodGet,
-			.path = "/ws",
-			.data =
-			    (HTTPRouteData){ .type = HTTPRouteTypeSpecial,
-			                     .data = { .special = { .type = HTTPRouteSpecialDataTypeWs } } },
-			.auth = { .type = HTTPAuthorizationTypeNone }
-		};
+		// getenv("WEBSERVER_TEST_WEBROOT")
+		char* folder_path = "";
 
-		stbds_arrput(routes, ws_route);
-	}
-
-	{
-		// json
-
-		HTTPRoute json = {
-			.method = HTTPRequestRouteMethodGet,
-			.path = "/json",
-			.data =
-			    (HTTPRouteData){
-			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal =
-			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorExtended,
-			                                     .fn = { .executor_extended =
-			                                                 json_executor_fn_extended } } } },
-			.auth = { .type = HTTPAuthorizationTypeNone }
-		};
-
-		stbds_arrput(routes, json);
-	}
-
-	{
-		// static
-
-		HTTPRoute json = {
-			.method = HTTPRequestRouteMethodGet,
-			.path = "/static",
-			.data =
-			    (HTTPRouteData){
-			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal =
-			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
-			                                     .fn = { .executor = static_executor_fn } } } },
-			.auth = { .type = HTTPAuthorizationTypeNone }
-		};
-
-		stbds_arrput(routes, json);
-	}
-
-	{
-		// huge
-
-		HTTPRoute json = {
-			.method = HTTPRequestRouteMethodGet,
-			.path = "/huge",
-			.data =
-			    (HTTPRouteData){
-			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal = (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
-			                                           .fn = { .executor = huge_executor_fn } } } },
-			.auth = { .type = HTTPAuthorizationTypeNone }
-		};
-
-		stbds_arrput(routes, json);
-	}
-
-	{
-		// authenticated
-
-		HTTPRoute json = {
-			.method = HTTPRequestRouteMethodGet,
-			.path = "/auth",
-			.data =
-			    (HTTPRouteData){
-			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal =
-			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorAuth,
-			                                     .fn = { .executor_auth = auth_executor_fn } } } },
-			.auth = { .type = HTTPAuthorizationTypeSimple }
-		};
+		HTTPRoute json = { .method = HTTPRequestRouteMethodGet,
+			               .path =
+			                   (HTTPRoutePath){
+			                       .type = HTTPRoutePathTypeStartsWith,
+			                       .data = "/",
+			                   },
+			               .data =
+			                   (HTTPRouteData){ .type = HTTPRouteTypeServeFolder,
+			                                    .data = { .serve_folder =
+			                                                  (HTTPRouteServeFolder){
+			                                                      .folder_path = folder_path } } },
+			               .auth = { .type = HTTPAuthorizationTypeNone } };
 
 		stbds_arrput(routes, json);
 	}
@@ -535,6 +485,35 @@ NODISCARD static bool is_matching(HTTPRequestRouteMethod route_method, HTTPReque
 	}
 
 	return false;
+}
+
+NODISCARD bool is_route_matching(HTTPRoutePath route_path, const char* const path) {
+
+	if(route_path.data == NULL) {
+		return true;
+	}
+
+	switch(route_path.type) {
+		case HTTPRoutePathTypeExact: {
+			return strcmp(route_path.data, path) == 0;
+		}
+		case HTTPRoutePathTypeStartsWith: {
+
+			size_t route_path_len = strlen(route_path.data);
+
+			size_t path_len = strlen(path);
+
+			if(path_len < route_path_len) {
+				return false;
+			}
+
+			// TODO: use cwalk!
+			return strncmp(route_path.data, path, route_path_len) == 0;
+		}
+		default: {
+			return false;
+		}
+	}
 }
 
 struct SelectedRouteImpl {
@@ -973,11 +952,7 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 
 		if(is_matching(route.method, request->head.request_line.method)) {
 
-			if(route.path == NULL) {
-				return process_matched_route(route_manager, request_generic, route);
-			}
-
-			if(strcmp(route.path, request->head.request_line.path.path) == 0) {
+			if(is_route_matching(route.path, request->head.request_line.path.path)) {
 				return process_matched_route(route_manager, request_generic, route);
 			}
 		}
