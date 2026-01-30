@@ -177,6 +177,7 @@ NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 			case ZmapInsertResultWouldOverwrite: {
 				// TODO: if this header has to be unique, error, if this header can be
 				// concatenatend, like e.g. cookie, concatene it, otherwise i don't know what to do
+				UNREACHABLE();
 				break;
 			}
 			case ZmapInsertResultOk: {
@@ -185,7 +186,8 @@ NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 			case ZmapInsertResultErr:
 			default: {
 				// TODO: allow error!
-				return NULL;
+				// return NULL;
+				UNREACHABLE();
 			}
 		}
 

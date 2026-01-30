@@ -189,6 +189,8 @@ ZMAP_COMPARE_FUNC_SIG(KeyT, KeyName);
 
 #define ZMAP_INIT(Name) zmap_init_##Name()
 
+#define ZMAP_EMPTY_MAP(TypeName) ((ZMAP_TYPENAME_MAP(TypeName)){ .buckets=NULL, .capacity = 0, .count = 0, .occupied = 0}   )   
+
 #define ZMAP_SIZE(v) (v).count
 #define ZMAP_IS_EMPTY(v) ((v).count == 0)
 #define ZMAP_CAPACITY(v) (v).capacity
