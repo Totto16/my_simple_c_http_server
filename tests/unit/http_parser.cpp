@@ -4,6 +4,7 @@
 #include <stb/ds.h>
 
 #include <http/compression.h>
+#include <http/header.h>
 #include <http/http_protocol.h>
 
 #include <memory>
@@ -29,7 +30,7 @@ get_compression_setting_by_accept_encoding_header(const char* accept_encoding_va
 
 	char* accept_encoding_buffer = NULL;
 	FORMAT_STRING_IMPL(&accept_encoding_buffer, throw std::runtime_error("OOM");
-	                   , IMPL_STDERR_LOGGER, "%s%c%s", "Accept-Encoding", '\0',
+	                   , IMPL_STDERR_LOGGER, "%s%c%s", g_header_accept_encoding, '\0',
 	                   accept_encoding_value);
 
 	add_http_header_field_by_double_str(&http_header_fields, accept_encoding_buffer);

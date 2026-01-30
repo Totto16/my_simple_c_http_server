@@ -2,6 +2,7 @@
 
 #include "./send.h"
 #include "generic/send.h"
+#include "http/header.h"
 
 NODISCARD static int
 send_concatted_response_to_connection(const ConnectionDescriptor* const descriptor,
@@ -34,7 +35,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		// add the standard ones, using %c with '\0' to use the trick, described above
 		char* content_type_buffer = NULL;
 		FORMAT_STRING(&content_type_buffer, return NULL;
-		              , "%s%c%s", "Content-Type", '\0',
+		              , "%s%c%s", g_header_content_type, '\0',
 		              mime_type == NULL ? DEFAULT_MIME_TYPE : mime_type);
 
 		add_http_header_field_by_double_str(&response->head.header_fields, content_type_buffer);
@@ -45,7 +46,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 
 		char* content_length_buffer = NULL;
 		FORMAT_STRING(&content_length_buffer, return NULL;
-		              , "%s%c%ld", "Content-Length", '\0', response->body.size);
+		              , "%s%c%ld", g_header_content_length, '\0', response->body.size);
 
 		add_http_header_field_by_double_str(&response->head.header_fields, content_length_buffer);
 	}
@@ -55,7 +56,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 
 		char* server_buffer = NULL;
 		FORMAT_STRING(&server_buffer, return NULL;
-		              , "%s%c%s", "Server", '\0',
+		              , "%s%c%s", g_header_server, '\0',
 		              "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
 		add_http_header_field_by_double_str(&response->head.header_fields, server_buffer);
@@ -69,7 +70,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 			// add the standard ones, using %c with '\0' to use the trick, described above
 			char* content_encoding_buffer = NULL;
 			FORMAT_STRING(&content_encoding_buffer, return NULL;
-			              , "%s%c%s", "Content-Encoding", '\0',
+			              , "%s%c%s", g_header_content_encoding, '\0',
 			              get_string_for_compress_format(compression_format));
 
 			add_http_header_field_by_double_str(&response->head.header_fields,

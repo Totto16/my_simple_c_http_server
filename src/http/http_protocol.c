@@ -1,5 +1,6 @@
 
 #include "./http_protocol.h"
+#include "./header.h"
 #include "./http_2.h"
 
 #include <ctype.h>
@@ -58,6 +59,8 @@ NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 }
 
 NODISCARD char* get_http_url_path_string(ParsedURLPath path) {
+
+	// TODO: support escape codes!
 
 	StringBuilder* string_builder = string_builder_init();
 
@@ -595,7 +598,8 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
-	HttpHeaderField* accept_encoding_header = find_header_by_key(header_fields, "accept-encoding");
+	HttpHeaderField* accept_encoding_header =
+	    find_header_by_key(header_fields, g_header_accept_encoding);
 
 	if(!accept_encoding_header) {
 		return compression_settings;

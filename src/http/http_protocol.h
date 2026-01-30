@@ -121,6 +121,7 @@ typedef struct {
 typedef struct {
 	char* path;
 	ParsedSearchPath search_path;
+	// TODO: support fragment
 } ParsedURLPath;
 
 typedef struct {
@@ -163,14 +164,24 @@ typedef struct {
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HttpRequestTypeInternalV1 = 0,
+	HttpRequestTypeInternalV1Keepalive,
 	HttpRequestTypeInternalV2,
 } HttpRequestTypeInternal;
+
+typedef struct {
+	int todo;
+} Http1RequestKeepaliveContext;
+
+typedef struct {
+	int todo;
+} Http2RequestContext;
 
 typedef struct {
 	HttpRequestTypeInternal type;
 	union {
 		Http1Request* v1;
-		Http2Request* v2;
+		Http1RequestKeepaliveContext* keepalive_v1;
+		Http2RequestContext* v2;
 	} data;
 } HttpRequest;
 

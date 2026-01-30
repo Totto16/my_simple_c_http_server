@@ -136,13 +136,16 @@ NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request) {
 				break;
 			}
 			default: {
+				assert(false && "TODO");
 				// TODO
-				return TODO;
+				// return TODO;
 			}
 		}
 
 		if(frame == NULL) {
-			return TODO;
+			assert(false && "TODO");
+			// TODO
+			// return TODO;
 		}
 
 		// TODO
@@ -150,6 +153,7 @@ NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request) {
 
 	} while(remaining_data != 0);
 
+	assert(false && "TODO");
 	// TODO
-	return frames;
+	// return frames;
 }

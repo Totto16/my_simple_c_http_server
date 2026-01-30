@@ -7,6 +7,7 @@
 #include "generic/read.h"
 #include "generic/secure.h"
 #include "generic/signal_fd.h"
+#include "http/header.h"
 #include "utils/errors.h"
 #include "utils/log.h"
 #include "utils/thread_pool.h"
@@ -225,7 +226,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 						    FREE_AT_END();
 						    return JOB_ERROR_STRING_FORMAT;
 					    },
-					    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
+					    "%s%c%s", g_header_allow, '\0', "GET, POST, HEAD, OPTIONS");
 
 					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
 
@@ -401,7 +402,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			    FREE_AT_END();
 			    return JOB_ERROR_STRING_FORMAT;
 		    },
-		    "%s%c%s", "Allow", '\0', "GET, POST, HEAD, OPTIONS");
+		    "%s%c%s", g_header_allow, '\0', "GET, POST, HEAD, OPTIONS");
 
 		add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
 
