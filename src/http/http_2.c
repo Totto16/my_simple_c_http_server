@@ -77,7 +77,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request) {
 
-	Http2Frames* frames = STBDS_ARRAY_EMPTY;
+	ZVEC_TYPENAME(Http2Frame) frames = ZVEC_EMPTY(Http2Frame);
 
 	// TODO: Support the SETTINGS_MAX_FRAME_SIZE setting, in some cases, the settings header needs
 	// to be sent as first, or in h2c cases, it is required to supply it  via a http 1 header
@@ -149,7 +149,9 @@ NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request) {
 		}
 
 		// TODO
-		stbds_arrput(frames, frame);
+		auto _ = ZVEC_PUSH(Http2Frame, &frames, *frame);
+		// TODO
+		UNUSED(_);
 
 	} while(remaining_data != 0);
 

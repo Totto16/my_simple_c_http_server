@@ -4,9 +4,9 @@
 
 #include "utils/utils.h"
 
-#include <stb/ds.h>
 #include <stdint.h>
 #include <utils/sized_buffer.h>
+#include <zvec/zvec.h>
 
 // spec link:
 // https://datatracker.ietf.org/doc/html/rfc7540
@@ -51,6 +51,6 @@ typedef struct {
 	} value;
 } Http2Frame;
 
-typedef STBDS_ARRAY(Http2Frame) Http2Frames;
+ZVEC_DEFINE_VEC_TYPE(Http2Frame)
 
 NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request);
