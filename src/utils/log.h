@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "utils/utils.h"
+
 /**
  * @enum value
  */
@@ -81,6 +82,8 @@ LevelAndFlags get_level_and_flags(int level_and_flags);
 	} while(false);
 
 #define LOG_MESSAGE_SIMPLE(level_and_flags, msg) LOG_MESSAGE(level_and_flags, msg "%s", "")
+
+#define COMBINE_LOG_FLAGS(level, flags) ((int)(level) | (int)(flags))
 
 // everybody can use them
 

@@ -136,7 +136,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		    descriptor, to_send, (SendSettings){ .compression_to_use = CompressionTypeNone });
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
 		}
 
 		goto cleanup;
@@ -172,7 +173,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		    descriptor, to_send, (SendSettings){ .compression_to_use = CompressionTypeNone });
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
 		}
 
 		goto cleanup;
@@ -254,7 +256,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			}
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
 			}
 		} else {
 
@@ -378,7 +381,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			free_selected_route(selected_route);
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
 			}
 		}
 	} else if(is_supported == RequestInvalidHttpVersion) {
@@ -392,7 +396,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		                                                      http_request->head);
 
 		if(result) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
 		}
 	} else if(is_supported == RequestMethodNotSupported) {
 
@@ -423,7 +428,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		                                                      http_request->head);
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
 		}
 	} else if(is_supported == RequestInvalidNonemptyBody) {
 		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
@@ -436,7 +442,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		                                                      http_request->head);
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
 		}
 	} else {
 		HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
@@ -449,7 +456,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		                                                      http_request->head);
 
 		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
 		}
 	}
 
@@ -551,7 +559,8 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		    (HTTPConnectionArgument*)malloc(sizeof(HTTPConnectionArgument));
 
 		if(!connection_argument) {
-			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+			                   "Couldn't allocate memory!\n");
 			return LISTENER_ERROR_MALLOC;
 		}
 
@@ -631,7 +640,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	    (struct sockaddr_in*)malloc_with_memset(sizeof(struct sockaddr_in), true);
 
 	if(!addr) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
 	}
 
@@ -677,15 +687,18 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 				switch(route.path.type) {
 					case HTTPRoutePathTypeExact: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "(Exact)\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "(Exact)\n");
 						break;
 					}
 					case HTTPRoutePathTypeStartsWith: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "(StarsWith)\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "(StarsWith)\n");
 						break;
 					}
 					default: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "(<Unknown>)\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "(<Unknown>)\n");
 						break;
 					}
 				}
@@ -696,15 +709,18 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 				switch(route.method) {
 					case HTTPRequestRouteMethodGet: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "GET\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "GET\n");
 						break;
 					}
 					case HTTPRequestRouteMethodPost: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "POST\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "POST\n");
 						break;
 					}
 					default: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "<Unknown>\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "<Unknown>\n");
 						break;
 					}
 				}
@@ -715,23 +731,26 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 				switch(route.auth.type) {
 					case HTTPAuthorizationTypeNone: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "None\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "None\n");
 						break;
 					}
 					case HTTPAuthorizationTypeSimple: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "Simple\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "Simple\n");
 						break;
 					}
 					case HTTPAuthorizationTypeComplicated: {
 						const HTTPAuthorizationComplicatedData data = route.auth.data.complicated;
 
-						LOG_MESSAGE(LogLevelTrace | LogPrintNoPrelude, "Complicated: (TODO %d)\n",
-						            data.todo);
+						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						            "Complicated: (TODO %d)\n", data.todo);
 
 						break;
 					}
 					default: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "<Unknown>\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "<Unknown>\n");
 						break;
 					}
 				}
@@ -742,29 +761,34 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 				switch(route.data.type) {
 					case HTTPRouteTypeNormal: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "Normal ");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "Normal ");
 
 						const HTTPRouteFn data = route.data.data.normal;
 
 						switch(data.type) {
 							case HTTPRouteFnTypeExecutor: {
-								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
-								                   "(Executor Fn)\n");
+								LOG_MESSAGE_SIMPLE(
+								    COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+								    "(Executor Fn)\n");
 								break;
 							}
 							case HTTPRouteFnTypeExecutorExtended: {
-								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
-								                   "(Extended Executor Fn)\n");
+								LOG_MESSAGE_SIMPLE(
+								    COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+								    "(Extended Executor Fn)\n");
 								break;
 							}
 							case HTTPRouteFnTypeExecutorAuth: {
-								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
-								                   "(Auth Executor Fn)\n");
+								LOG_MESSAGE_SIMPLE(
+								    COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+								    "(Auth Executor Fn)\n");
 								break;
 							}
 							default: {
-								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
-								                   "<Unknown>)\n");
+								LOG_MESSAGE_SIMPLE(
+								    COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+								    "<Unknown>)\n");
 								break;
 							}
 						}
@@ -772,22 +796,27 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 						break;
 					}
 					case HTTPRouteTypeSpecial: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "Special: ");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "Special: ");
 
 						const HTTPRouteSpecialData data = route.data.data.special;
 
 						switch(data.type) {
 							case HTTPRouteSpecialDataTypeShutdown: {
-								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "Shutdown\n");
+								LOG_MESSAGE_SIMPLE(
+								    COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+								    "Shutdown\n");
 								break;
 							}
 							case HTTPRouteSpecialDataTypeWs: {
-								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "WS\n");
+								LOG_MESSAGE_SIMPLE(
+								    COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude), "WS\n");
 								break;
 							}
 							default: {
-								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
-								                   "<Unknown>\n");
+								LOG_MESSAGE_SIMPLE(
+								    COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+								    "<Unknown>\n");
 								break;
 							}
 						}
@@ -795,7 +824,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 						break;
 					}
 					case HTTPRouteTypeInternal: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
 						                   "Internal (Static data)\n");
 
 						break;
@@ -804,13 +833,14 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 						const HTTPRouteServeFolder data = route.data.data.serve_folder;
 
-						LOG_MESSAGE(LogLevelTrace | LogPrintNoPrelude, "Serve Folder: %s\n",
-						            data.folder_path);
+						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						            "Serve Folder: %s\n", data.folder_path);
 
 						break;
 					}
 					default: {
-						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "<Unknown>\n");
+						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
+						                   "<Unknown>\n");
 						break;
 					}
 				}
@@ -856,7 +886,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	    contexts, pool.worker_threads_amount);
 
 	if(!contexts) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
 	}
 

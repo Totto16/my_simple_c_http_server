@@ -57,8 +57,8 @@
 #define CHECK_FOR_ERROR(toCheck, errorString, statement) \
 	do { \
 		if((toCheck) == -1) { \
-			LOG_MESSAGE(LogLevelError | LogPrintLocation, "%s: %s\n", errorString, \
-			            strerror(errno)); \
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), "%s: %s\n", \
+			            errorString, strerror(errno)); \
 			statement; \
 		} \
 	} while(false)
@@ -68,8 +68,8 @@
 		if((toCheck) != 0) { \
 			/*pthread function don't set errno, but return the error value \
 			 * directly*/ \
-			LOG_MESSAGE(LogLevelError | LogPrintLocation, "%s: %s\n", errorString, \
-			            strerror(toCheck)); \
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), "%s: %s\n", \
+			            errorString, strerror(toCheck)); \
 			statement; \
 		} \
 	} while(false)
@@ -130,7 +130,7 @@ NODISCARD void* malloc_with_memset(size_t size, bool initialize_with_zeros);
 	FORMAT_STRING_IMPL(toStore, statement, IMPL_LOGGER_DEFAULT, format, __VA_ARGS__)
 
 #define IMPL_LOGGER_DEFAULT(format, ...) \
-	LOG_MESSAGE(LogLevelWarn | LogPrintLocation, format, __VA_ARGS__)
+	LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation), format, __VA_ARGS__)
 
 #define IMPL_STDERR_LOGGER(format, ...) fprintf(stderr, format, __VA_ARGS__)
 
