@@ -279,7 +279,13 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 	size_t separators_length = strlen(separators);
 	char* currently_at = raw_http_request;
 	bool parsed = false;
-	HttpRequest* request = (HttpRequest*)malloc_with_memset(sizeof(HttpRequest), true);
+	HttpRequest* generic_request = (HttpRequest*)malloc_with_memset(sizeof(HttpRequest), true);
+
+	if(!generic_request) {
+		return NULL;
+	}
+
+	Http1Request* request = (Http1Request*)malloc_with_memset(sizeof(Http1Request), true);
 
 	if(!request) {
 		return NULL;
@@ -297,7 +303,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 			free(raw_http_request);
 			// no more possible leaks, since some fields may be initialized, is covered by the
 			// freeHttpRequest implementation
-			free_http_request(request);
+			free_http1_request(request);
 			return NULL;
 		}
 		char* all = (char*)malloc_with_memset(resulting_index - currently_at + 1, true);
@@ -365,7 +371,10 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 
 				char* http2_request_start = raw_http_request + g_http2_client_preface_length;
 
-				return parse_http2_request(http2_request_start);
+				// TODO
+				UNUSED(http2_request_start);
+				//  //return parse_http2_request(http2_request_start);
+				return NULL;
 			}
 
 			request->head.request_line = request_line;
@@ -415,7 +424,11 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 
 	// at the end free the input raw_http_request string
 	free(raw_http_request);
-	return request;
+
+	generic_request->type = HttpRequestTypeInternalV1;
+	generic_request->data.v1 = request;
+
+	return generic_request;
 }
 
 NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key) {
@@ -691,7 +704,13 @@ void free_compression_settings(CompressionSettings* compression_settings) {
 	free(compression_settings);
 }
 
-RequestSettings* get_request_settings(HttpRequest* http_request) {
+RequestSettings* get_request_settings(HttpRequest* http_request_generic) {
+
+	if(http_request_generic->type != HttpRequestTypeInternalV1) {
+		return NULL;
+	}
+
+	const Http1Request* http_request = http_request_generic->data.v1;
 
 	RequestSettings* request_settings =
 	    (RequestSettings*)malloc_with_memset(sizeof(RequestSettings), true);
@@ -914,8 +933,15 @@ html_from_string(StringBuilder* head_content, // NOLINT(bugprone-easily-swappabl
 	return result;
 }
 
-StringBuilder* http_request_to_json(const HttpRequest* const request, bool https,
+StringBuilder* http_request_to_json(const HttpRequest* const request_generic, bool https,
                                     SendSettings send_settings) {
+
+	if(request_generic->type != HttpRequestTypeInternalV1) {
+		return NULL;
+	}
+
+	const Http1Request* request = request_generic->data.v1;
+
 	StringBuilder* body = string_builder_init();
 
 	const char* method = get_http_method_string(request->head.request_line.method);
@@ -962,8 +988,15 @@ StringBuilder* http_request_to_json(const HttpRequest* const request, bool https
 	return body;
 }
 
-StringBuilder* http_request_to_html(const HttpRequest* const request, bool https,
+StringBuilder* http_request_to_html(const HttpRequest* const request_generic, bool https,
                                     SendSettings send_settings) {
+
+	if(request_generic->type != HttpRequestTypeInternalV1) {
+		return NULL;
+	}
+
+	const Http1Request* request = request_generic->data.v1;
+
 	StringBuilder* body = string_builder_init();
 
 	const char* method = get_http_method_string(request->head.request_line.method);
