@@ -16,6 +16,13 @@
 #define C_23_ENUM_TYPE(x) int
 #endif
 
+#if defined(__clang__) || defined(__GNUC__)
+// see: https://clang.llvm.org/docs/AttributeReference.html#flag-enum
+#define ENUM_IS_MASK __attribute__((flag_enum))
+#else
+#define ENUM_IS_MASK
+#endif
+
 #if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202000) || __cplusplus
 #define NODISCARD [[nodiscard]]
 #define MAYBE_UNUSED [[maybe_unused]]

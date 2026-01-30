@@ -641,7 +641,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 #endif
 }
 
-NODISCARD int get_result_value_for_auth_result(AuthenticationFindResult auth) {
+NODISCARD static int get_result_value_for_auth_result(AuthenticationFindResult auth) {
 
 	switch(auth.validity) {
 		case AuthenticationValidityNoSuchUser: return 1;
@@ -654,7 +654,7 @@ NODISCARD int get_result_value_for_auth_result(AuthenticationFindResult auth) {
 	}
 }
 
-NODISCARD int compare_auth_results(AuthenticationFindResult auth1, AuthenticationFindResult auth2) {
+NODISCARD static int compare_auth_results(AuthenticationFindResult auth1, AuthenticationFindResult auth2) {
 	return get_result_value_for_auth_result(auth1) - get_result_value_for_auth_result(auth2);
 }
 

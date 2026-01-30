@@ -344,7 +344,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 			    get_request_line_from_raw(method, path, protocol_version);
 
 			if(request_line.protocol_version == HTTPProtocolVersionInvalid) {
-				LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 				                   "Invalid HTTP Version detected in status line!\n");
 				// TODO(Totto): free everything correctly
 				return NULL;
@@ -354,7 +354,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 
 				if(!use_http2) {
 					LOG_MESSAGE_SIMPLE(
-					    LogLevelWarn | LogPrintLocation,
+					    COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 					    "A HTTP 2 status line was detected, but the negotiation wia Upgrade or TLS "
 					    "ALPN wasn't done before that, invlaid request!\n");
 					// TODO(Totto): free everything correctly
@@ -363,7 +363,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 
 				if(strncmp(raw_http_request, g_http2_client_preface,
 				           g_http2_client_preface_length) != 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 					                   "A HTTP 2 request contained a invalid client preface\n");
 					// TODO(Totto): free everything correctly
 					return NULL;
@@ -392,7 +392,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 				all = (char*)malloc_with_memset(body_length + 1, true);
 
 				if(!all) {
-					LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation,
+					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 					                   "Couldn't allocate memory!\n");
 					return NULL;
 				}
@@ -656,10 +656,10 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 
 			if(compression_weight != NULL) {
 
-				float value = parse_compression_quality(compression_weight);
+				float weight_value = parse_compression_quality(compression_weight);
 
-				if(!isnan(value)) {
-					entry.weight = value;
+				if(!isnan(weight_value)) {
+					entry.weight = weight_value;
 				}
 			}
 

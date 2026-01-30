@@ -13,7 +13,8 @@
 void* malloc_with_memset(const size_t size, const bool initialize_with_zeros) {
 	void* result = malloc(size);
 	if(result == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return NULL;
 	}
 	if(initialize_with_zeros) {

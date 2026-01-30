@@ -78,7 +78,7 @@ std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
 
 } // namespace
 
-doctest::String toString(const CompressionEntry& value) {
+doctest::String static toString(const CompressionEntry& value) {
 	std::stringstream str{};
 	str << value;
 	std::string string = str.str();
@@ -86,7 +86,7 @@ doctest::String toString(const CompressionEntry& value) {
 		                    static_cast<doctest::String::size_type>(string.size()) };
 }
 
-[[nodiscard]] bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs) {
+[[nodiscard]] static bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs) {
 
 	if(lhs.value != rhs.value) {
 		return false;

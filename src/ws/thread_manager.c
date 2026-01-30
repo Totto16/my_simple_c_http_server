@@ -77,7 +77,7 @@ typedef struct {
 	WebSocketThreadManager* manager;
 } WebSocketListenerArg;
 
-void thread_manager_thread_startup_function(void) {
+static void thread_manager_thread_startup_function(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
 	openssl_initialize_crypto_thread_state();
 #endif
@@ -85,7 +85,7 @@ void thread_manager_thread_startup_function(void) {
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running startup function for ws thread\n");
 }
 
-void thread_manager_thread_shutdown_function(void) {
+static void thread_manager_thread_shutdown_function(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
 	openssl_cleanup_crypto_thread_state();
 #endif
@@ -550,7 +550,8 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 	if(payload_len < 2) {
 		return (CloseReasonResult){
 			.success = false,
-			.reason = { .code = 0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			.reason = { .code =
+			                (CloseCodeEnumType)0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			            .message = NULL,
 			            .message_len = 0 }
 		};
@@ -567,7 +568,8 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 	if(payload_len > MAX_CONTROL_FRAME_PAYLOAD) {
 		return (CloseReasonResult){
 			.success = false,
-			.reason = { .code = 0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			.reason = { .code =
+			                (CloseCodeEnumType)0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			            .message = NULL,
 			            .message_len = 0 }
 		};

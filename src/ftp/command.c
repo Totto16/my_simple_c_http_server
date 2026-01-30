@@ -101,7 +101,7 @@ NODISCARD static bool parse_u8_into(char* input, uint8_t* result_addr) {
 	return true;
 }
 
-FTPPortInformation* parse_ftp_command_port_info(char* arg) {
+static FTPPortInformation* parse_ftp_command_port_info(char* arg) {
 	FTPPortInformation* info = (FTPPortInformation*)malloc(sizeof(FTPPortInformation));
 
 	if(!info) {
