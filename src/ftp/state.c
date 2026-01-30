@@ -57,7 +57,8 @@ FTPState* alloc_default_state(const char* global_folder) {
 
 	// invariant check
 	if(global_folder[global_folder_length - 2] == '/') {
-		LOG_MESSAGE_SIMPLE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
+		                   "folder invariant 1 violated\n");
 
 		free(state);
 		return NULL;

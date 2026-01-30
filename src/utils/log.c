@@ -173,7 +173,7 @@ void set_log_level(LogLevel level) {
 
 // taken from my work in oopetris
 // inspired by SDL_SYS_SetupThread also uses that code for most platforms
-void set_platform_thread_name(const char* name) {
+static void set_platform_thread_name(const char* name) {
 
 #define NAME_BUF_MAX_SIZE 16
 

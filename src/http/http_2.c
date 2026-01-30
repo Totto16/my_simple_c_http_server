@@ -11,7 +11,7 @@ typedef struct {
 	uint32_t stream_identifier; // only 31 bits!
 } Http2RawHeader;
 
-NODISCARD Http2RawHeader parse_http2_raw_header(const uint8_t* const header_data) {
+NODISCARD static Http2RawHeader parse_http2_raw_header(const uint8_t* const header_data) {
 
 	uint8_t length_raw[4] = { 0, header_data[0], header_data[1], header_data[2] };
 

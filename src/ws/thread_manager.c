@@ -505,6 +505,10 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 
 typedef C_23_ENUM_TYPE(uint16_t) CloseCodeEnumType;
 
+#define CLOSE_CODE_CUSTOM(c) (CloseCode)((CloseCodeEnumType)(c))
+
+#define CLOSE_CODE_ZERO CLOSE_CODE_CUSTOM(0)
+
 /**
  * @enum value
  * @see https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
@@ -539,7 +543,7 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 		return (CloseReasonResult){
 			.success = false,
 			.reason = { .code =
-			                (CloseCodeEnumType)0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			                CLOSE_CODE_ZERO, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			            .message = NULL,
 			            .message_len = 0 }
 		};
@@ -551,7 +555,7 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 		return (CloseReasonResult){
 			.success = false,
 			.reason = { .code =
-			                (CloseCodeEnumType)0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			                CLOSE_CODE_ZERO, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			            .message = NULL,
 			            .message_len = 0 }
 		};
@@ -569,7 +573,7 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 		return (CloseReasonResult){
 			.success = false,
 			.reason = { .code =
-			                (CloseCodeEnumType)0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			                CLOSE_CODE_ZERO, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			            .message = NULL,
 			            .message_len = 0 }
 		};
