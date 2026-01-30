@@ -64,8 +64,6 @@ NODISCARD AuthenticationProviders* initialize_authentication_providers(void) {
 	return auth_providers;
 }
 
-#define TODO_HASH_SETTINGS 20
-
 NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void) {
 
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
@@ -217,17 +215,15 @@ void free_authentication_providers(AuthenticationProviders* auth_providers) {
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
-NODISCARD static const SimpleAccountEntry*
-find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username) {
+NODISCARD static const ZMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) *
+    find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username) {
 
 	if(ZMAP_IS_EMPTY(data->entries)) {
-		// note: if hash_map is NULL stbds_shgeti allocates a new value, that is never populated to
-		// the original SimpleAccountEntry value, as this is a struct copy!
 		return NULL;
 	}
 
-	const SimpleAccountEntry* entry =
-	    ZMAP_GET(SimpleAccountEntryHashMap, &(data->entries), username);
+	const ZMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
+	    ZMAP_GET_ENTRY(SimpleAccountEntryHashMap, &(data->entries), username);
 
 	if(entry == NULL) {
 		return NULL;
@@ -250,7 +246,8 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 	SimpleAuthenticationProviderData* data = &auth_provider->data.simple;
 
-	const SimpleAccountEntry* entry = find_user_by_name_simple(data, username);
+	const ZMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
+	    find_user_by_name_simple(data, username);
 
 	if(!entry) {
 		return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
@@ -258,7 +255,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 	}
 
 	bool is_valid_pw = is_string_equal_to_hash_salted_string(data->settings, password,
-	                                                         entry->hash_salted_password);
+	                                                         entry->value.hash_salted_password);
 
 	if(!is_valid_pw) {
 		return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
@@ -266,7 +263,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 	}
 
 	// TODO(Totto): maybe don't allocate this?
-	AuthUser user = { .username = strdup(username), .role = entry->role };
+	AuthUser user = { .username = strdup(entry->key), .role = entry->value.role };
 
 	return (AuthenticationFindResult){
 		.validity = AuthenticationValidityOk,

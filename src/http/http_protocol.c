@@ -66,25 +66,36 @@ NODISCARD char* get_http_url_path_string(ParsedURLPath path) {
 
 	string_builder_append_single(string_builder, path.path);
 
-	size_t search_path_length = stbds_shlenu(path.search_path.hash_map);
+	if(!ZMAP_IS_EMPTY(path.search_path.hash_map)) {
 
-	if(search_path_length != 0) {
 		string_builder_append_single(string_builder, "?");
-	}
 
-	for(size_t i = 0; i < search_path_length; ++i) {
-		ParsedSearchPathEntry entry = path.search_path.hash_map[i];
+		size_t search_path_total_length = ZMAP_CAPACITY(path.search_path.hash_map);
 
-		string_builder_append_single(string_builder, entry.key);
+		size_t added = 0;
 
-		if(strlen(entry.value) != 0) {
-			string_builder_append_single(string_builder, "=");
+		for(size_t i = 0; i < search_path_total_length; ++i) {
 
-			string_builder_append_single(string_builder, entry.value);
-		}
+			const ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
+			    ZMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &path.search_path.hash_map, i);
 
-		if(i != search_path_length - 1) {
-			string_builder_append_single(string_builder, "&");
+			if(hm_entry == NULL || hm_entry == ZMAP_NO_ELEMENT_HERE) {
+				continue;
+			}
+
+			if(added > 0) {
+				string_builder_append_single(string_builder, "&");
+			}
+
+			++added;
+
+			string_builder_append_single(string_builder, hm_entry->key);
+
+			if(hm_entry->value.value != NULL && strlen(hm_entry->value.value) != 0) {
+				string_builder_append_single(string_builder, "=");
+
+				string_builder_append_single(string_builder, hm_entry->value.value);
+			}
 		}
 	}
 
@@ -107,7 +118,7 @@ NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion proto
  * for the result
  *
  * @param path
- * @return NODISCARD
+ * @return ParsedURLPath
  */
 NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 
@@ -117,7 +128,9 @@ NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 
 	char* search_path = strchr(path, '?');
 
-	ParsedURLPath result = { .search_path = { .hash_map = STBDS_HASH_MAP_EMPTY } };
+	ParsedURLPath result = { .search_path = {
+		                         .hash_map = ZMAP_INIT(ParsedSearchPathHashMap),
+		                     } };
 
 	if(search_path == NULL) {
 		result.path = strdup(path);
@@ -155,8 +168,26 @@ NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 
 		char* key_dup = strdup(key);
 		char* value_dup = strdup(value);
+		const ParsedSearchPathValue value_entry = { .value = value_dup };
 
-		stbds_shput(result.search_path.hash_map, key_dup, value_dup);
+		const ZmapInsertResult insert_result = ZMAP_INSERT(
+		    ParsedSearchPathHashMap, &(result.search_path.hash_map), key_dup, value_entry, false);
+
+		switch(insert_result) {
+			case ZmapInsertResultWouldOverwrite: {
+				// TODO: if this header has to be unique, error, if this header can be
+				// concatenatend, like e.g. cookie, concatene it, otherwise i don't know what to do
+				break;
+			}
+			case ZmapInsertResultOk: {
+				break;
+			}
+			case ZmapInsertResultErr:
+			default: {
+				// TODO: allow error!
+				return NULL;
+			}
+		}
 
 		if(next_argument == NULL) {
 			break;
@@ -186,14 +217,22 @@ get_request_line_from_raw(const char* method, // NOLINT(bugprone-easily-swappabl
 static void free_parsed_url_path(ParsedURLPath path) {
 	free(path.path);
 
-	for(size_t i = 0; i < stbds_shlenu(path.search_path.hash_map); ++i) {
-		ParsedSearchPathEntry entry = path.search_path.hash_map[i];
+	size_t hm_total_length = ZMAP_CAPACITY(path.search_path.hash_map);
 
-		free(entry.key);
-		free(entry.value);
+	for(size_t i = 0; i < hm_total_length; ++i) {
+
+		const ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
+		    ZMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &(path.search_path.hash_map), i);
+
+		if(hm_entry == NULL || hm_entry == ZMAP_NO_ELEMENT_HERE) {
+			continue;
+		}
+
+		free(hm_entry->key);
+		free(hm_entry->value.value);
 	}
 
-	stbds_shfree(path.search_path.hash_map);
+	ZMAP_FREE(ParsedSearchPathHashMap, &(path.search_path.hash_map));
 }
 
 static void free_http_request_line(HttpRequestLine line) {
@@ -202,11 +241,12 @@ static void free_http_request_line(HttpRequestLine line) {
 
 static void free_request_head(HttpRequestHead head) {
 	free_http_request_line(head.request_line);
-	for(size_t i = 0; i < stbds_arrlenu(head.header_fields); ++i) {
+	for(size_t i = 0; i < ZVEC_LENGTH(head.header_fields); ++i) {
 		// same elegant freeing but two at once :)
-		FREE_IF_NOT_NULL(head.header_fields[i].key);
+		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, head.header_fields, i);
+		FREE_IF_NOT_NULL(entry.key);
 	}
-	stbds_arrfree(head.header_fields);
+	ZVEC_FREE(HttpHeaderField, &head.header_fields);
 }
 
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
@@ -250,11 +290,11 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request_g
 
 	STRING_BUILDER_APPENDF(result, return NULL;, "\tSecure : %s\n", https ? "true" : " false");
 
-	for(size_t i = 0; i < stbds_arrlenu(request->head.header_fields); ++i) {
-		// same elegant freeing but wo at once :)
+	for(size_t i = 0; i < ZVEC_LENGTH(request->head.header_fields); ++i) {
+		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, request->head.header_fields, i);
+
 		STRING_BUILDER_APPENDF(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
-		                                           request->head.header_fields[i].key,
-		                                           request->head.header_fields[i].value);
+		                                           entry.key, entry.value);
 	}
 	STRING_BUILDER_APPENDF(result, return NULL;, "\tBody: %s\n", request->body);
 	return result;
@@ -291,7 +331,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 		return NULL;
 	}
 
-	request->head.header_fields = STBDS_ARRAY_EMPTY;
+	request->head.header_fields = ZVEC_EMPTY(HttpHeaderField);
 
 	// iterating over each separated string, then determining if header or body or statusLine and
 	// then parsing that accordingly
@@ -413,7 +453,8 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 
 				HttpHeaderField field = { .key = all, .value = begin + 1 };
 
-				stbds_arrput(request->head.header_fields, field);
+				auto _ = ZVEC_PUSH(HttpHeaderField, &(request->head.header_fields), field);
+				UNUSED(_);
 			}
 		}
 
@@ -431,21 +472,21 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 	return generic_request;
 }
 
-NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key) {
+NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath search_path,
+                                                       const char* key) {
 
-	if(path.hash_map == STBDS_HASH_MAP_EMPTY) {
-		// note: if hash_map is NULL stbds_shgeti allocates a new value, that is never populated to
-		// the original ParsedSearchPath value, as this is a struct copy!
+	if(ZMAP_IS_EMPTY(search_path.hash_map)) {
 		return NULL;
 	}
 
-	int index = stbds_shgeti(path.hash_map, key);
+	const ParsedSearchPathEntry* entry =
+	    ZMAP_GET_ENTRY(ParsedSearchPathHashMap, &(search_path.hash_map), key);
 
-	if(index < 0) {
+	if(entry == NULL) {
 		return NULL;
 	}
 
-	return &path.hash_map[index];
+	return entry;
 }
 
 // simple helper for getting the status Message for a special status code, all from the spec for
@@ -502,8 +543,8 @@ const char* get_status_message(HttpStatusCode status_code) {
 
 NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
 
-	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
-		HttpHeaderField* header = &(array[i]);
+	for(size_t i = 0; i < ZVEC_LENGTH(array); ++i) {
+		HttpHeaderField* header = ZVEC_GET_AT_MUT(HttpHeaderField, &array, i);
 		if(strcasecmp(header->key, key) == 0) {
 			return header;
 		}
@@ -608,7 +649,7 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 		return NULL;
 	}
 
-	compression_settings->entries = STBDS_ARRAY_EMPTY;
+	compression_settings->entries = ZVEC_EMPTY(CompressionEntry);
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
@@ -674,7 +715,8 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 			if(ok_result) {
 				entry.value = comp_value;
 
-				stbds_arrput(compression_settings->entries, entry);
+				auto _ = ZVEC_PUSH(CompressionEntry, &(compression_settings->entries), entry);
+				UNUSED(_);
 			} else {
 				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%s'\n", compression_name);
 			}
@@ -701,7 +743,7 @@ CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
 }
 
 void free_compression_settings(CompressionSettings* compression_settings) {
-	stbds_arrfree(compression_settings->entries);
+	ZVEC_FREE(CompressionEntry, &(compression_settings->entries));
 	free(compression_settings);
 }
 
@@ -759,12 +801,10 @@ static CompressionType get_best_compression_that_is_supported(void) {
 	return CompressionTypeNone;
 }
 
-static int compare_function_entries(
-    const ANY_TYPE(CompressionEntry) // NOLINT(bugprone-easily-swappable-parameters)
-    entry1_ign,
-    const ANY_TYPE(CompressionEntry) entry2_ign) {
-	const CompressionEntry* entry1 = (CompressionEntry*)entry1_ign;
-	const CompressionEntry* entry2 = (CompressionEntry*)entry2_ign;
+static int
+compare_function_entries(const CompressionEntry* // NOLINT(bugprone-easily-swappable-parameters)
+                             entry1,
+                         const CompressionEntry* entry2) {
 
 	// note weight is between 0.0 and 1.0
 
@@ -783,7 +823,7 @@ SendSettings get_send_settings(RequestSettings* request_settings) {
 
 	CompressionEntries entries = request_settings->compression_settings->entries;
 
-	size_t entries_length = stbds_arrlenu(entries);
+	size_t entries_length = ZVEC_LENGTH(entries);
 
 	if(entries_length == 0) {
 		return result;
@@ -791,10 +831,10 @@ SendSettings get_send_settings(RequestSettings* request_settings) {
 
 	// this sorts the entries by weight, same weight means, we prefer the ones that come first
 	// in the string, as it is unspecified in the spec, on what to sort as 2. criterium
-	qsort(entries, entries_length, sizeof(CompressionEntry), compare_function_entries);
+	ZVEC_SORT(CompressionEntry, &entries, compare_function_entries);
 
 	for(size_t i = 0; i < entries_length; ++i) {
-		CompressionEntry entry = entries[i];
+		CompressionEntry entry = ZVEC_AT(CompressionEntry, entries, i);
 
 		switch(entry.value.type) {
 			case CompressionValueTypeNoEncoding: {
@@ -841,11 +881,12 @@ HttpConcattedResponse* http_response_concat(HttpResponse* response) {
 	                       response->head.response_line.status_code,
 	                       response->head.response_line.status_message, separators);
 
-	for(size_t i = 0; i < stbds_arrlenu(response->head.header_fields); ++i) {
-		// same elegant freeing but two at once :)
+	for(size_t i = 0; i < ZVEC_LENGTH(response->head.header_fields); ++i) {
+
+		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, response->head.header_fields, i);
+
 		STRING_BUILDER_APPENDF(result, return NULL;
-		                       , "%s: %s%s", response->head.header_fields[i].key,
-		                       response->head.header_fields[i].value, separators);
+		                       , "%s: %s%s", entry.key, entry.value, separators);
 	}
 
 	string_builder_append_single(result, separators);
@@ -857,13 +898,15 @@ HttpConcattedResponse* http_response_concat(HttpResponse* response) {
 }
 
 void free_http_header_fields(HttpHeaderFields* header_fields) {
-	for(size_t i = 0; i < stbds_arrlenu(*header_fields); ++i) {
+	for(size_t i = 0; i < ZVEC_LENGTH(*header_fields); ++i) {
 		// same elegant freeing but two at once :)
 
-		free((*header_fields)[i].key);
+		HttpHeaderField field = ZVEC_AT(HttpHeaderField, *header_fields, i);
+
+		free(field.key);
 	}
-	stbds_arrfree(*header_fields);
-	*header_fields = STBDS_ARRAY_EMPTY;
+	ZVEC_FREE(HttpHeaderField, header_fields);
+	*header_fields = ZVEC_EMPTY(HttpHeaderField);
 }
 
 void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str) {
@@ -873,7 +916,8 @@ void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* 
 
 	HttpHeaderField field = { .key = first_str, .value = second_str };
 
-	stbds_arrput(*header_fields, field);
+	auto _ = ZVEC_PUSH(HttpHeaderField, header_fields, field);
+	UNUSED(_);
 }
 
 // free the HttpResponse, just freeing everything necessary
@@ -964,13 +1008,14 @@ StringBuilder* http_request_to_json(const HttpRequest* const request_generic, bo
 	STRING_BUILDER_APPENDF(body, return NULL;, "\"secure\":%s,", https ? "true" : "false");
 	string_builder_append_single(body, "\"headers\":[");
 
-	const size_t header_amount = stbds_arrlenu(request->head.header_fields);
+	const size_t header_amount = ZVEC_LENGTH(request->head.header_fields);
 
 	for(size_t i = 0; i < header_amount; ++i) {
-		// same elegant freeing but wo at once :)
-		STRING_BUILDER_APPENDF(body, return NULL;, "{\"header\":\"%s\", \"key\":\"%s\"}",
-		                                         request->head.header_fields[i].key,
-		                                         request->head.header_fields[i].value);
+
+		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, request->head.header_fields, i);
+
+		STRING_BUILDER_APPENDF(body, return NULL;
+		                       , "{\"header\":\"%s\", \"key\":\"%s\"}", entry.key, entry.value);
 		if(i + 1 < header_amount) {
 			string_builder_append_single(body, ", ");
 		} else {
@@ -1022,12 +1067,14 @@ StringBuilder* http_request_to_html(const HttpRequest* const request_generic, bo
 	                      "<div>Secure : %s</div><button id=\"shutdown\"> Shutdown </button></div>",
 	                      https ? "true" : "false");
 	string_builder_append_single(body, "<div id=\"header\">");
-	for(size_t i = 0; i < stbds_arrlenu(request->head.header_fields); ++i) {
-		// same elegant freeing but wo at once :)
+	for(size_t i = 0; i < ZVEC_LENGTH(request->head.header_fields); ++i) {
+
+		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, request->head.header_fields, i);
+
 		STRING_BUILDER_APPENDF(
 		    body, return NULL;
-		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>",
-		    request->head.header_fields[i].key, request->head.header_fields[i].value);
+		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>", entry.key,
+		    entry.value);
 	}
 
 	string_builder_append_single(body, "</div> <div id=\"settings\">");

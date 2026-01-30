@@ -157,6 +157,8 @@ ZMAP_FUN_ATTRIBUTES [[nodiscard]] ValT* zmap_get_mut_##Name(ZMAP_TYPENAME_MAP(Na
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ValT* zmap_get_##Name(const ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
                                                                                                                 \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ZMAP_TYPENAME_ENTRY(Name)* zmap_get_entry##Name(const ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
+                                                                                                                \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ZMAP_TYPENAME_ENTRY(Name)* zmap_get_entry_at_##Name(const ZMAP_TYPENAME_MAP(Name) *m, size_t index);             \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES void zmap_remove_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);                        \
@@ -178,6 +180,7 @@ ZMAP_COMPARE_FUNC_SIG(KeyT, KeyName);
 #define ZMAP_INSERT(Name, Map, Key, Value, AllowOverwrite) zmap_insert_##Name(Map, Key, Value, AllowOverwrite)
 #define ZMAP_INSERT_SLOT(Name, Map, Key, AllowOverwrite) zmap_insert_slot_##Name(Map, Key, AllowOverwrite)
 #define ZMAP_GET(Name, Map, Key)                        zmap_get_##Name(Map, Key)
+#define ZMAP_GET_ENTRY(Name, Map, Key)                        zmap_get_entry##Name(Map, Key)
 #define ZMAP_GET_MUT(Name, Map, Key)                    zmap_get_mut_##Name(Map, Key)
 #define ZMAP_GET_ENTRY_AT(Name, Map, Index)             zmap_get_entry_at_##Name(Map, Index)
 #define ZMAP_REM(Name, Map, Key)        zmap_remove_##Name(Map, Key)
@@ -309,6 +312,22 @@ ZMAP_FUN_ATTRIBUTES const ValT* zmap_get_##Name(const ZMAP_TYPENAME_MAP(Name) * 
             if (s == ZMAP_EMPTY) return NULL;                                                                   \
             if (s == ZMAP_OCCUPIED && ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].entry.key, key) == 0) {                             \
                 return &(m->buckets[idx].entry.value);                                                                  \
+            }                                                                                                   \
+            idx = (idx + 1) % m->capacity;                                                                      \
+        }                                                                                                       \
+        return NULL;                                                                                            \
+    }                                                                                                           \
+                                                                                                                \
+ZMAP_FUN_ATTRIBUTES const ZMAP_TYPENAME_ENTRY(Name)* zmap_get_entry_##Name(const ZMAP_TYPENAME_MAP(Name) * const m, const KeyT key) {                                               \
+        if (m->count == 0) return NULL;                                                                         \
+        ZmapHashType hash = ZMAP_HASH_FUNC_NAME(KeyName)(key);                                                                      \
+        size_t idx = hash % m->capacity;                                                                        \
+                                                                                                                \
+        for (size_t i = 0; i < m->capacity; i++) {                                                              \
+            zmap_state s = m->buckets[idx].state;                                                               \
+            if (s == ZMAP_EMPTY) return NULL;                                                                   \
+            if (s == ZMAP_OCCUPIED && ZMAP_COMPARE_FUNC_NAME(KeyName)(m->buckets[idx].entry.key, key) == 0) {                             \
+                return &(m->buckets[idx].entry);                                                                  \
             }                                                                                                   \
             idx = (idx + 1) % m->capacity;                                                                      \
         }                                                                                                       \

@@ -14,7 +14,8 @@ extern "C" {
 #include "utils/sized_buffer.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
-#include <stb/ds.h>
+#include <zmap/zmap.h>
+#include <zvec/zvec.h>
 
 #define STRINGIFY(a) STR_IMPL(a)
 #define STR_IMPL(a) #a
@@ -103,10 +104,16 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPProtocolVersion2,
 } HTTPProtocolVersion;
 
-STBDS_HASH_MAP_TYPE(char*, char*, ParsedSearchPathEntry);
+typedef struct {
+	char* value;
+} ParsedSearchPathValue;
+
+ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
+
+typedef ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap) ParsedSearchPathEntry;
 
 typedef struct {
-	STBDS_HASH_MAP(ParsedSearchPathEntry) hash_map;
+	ZMAP_TYPENAME_MAP(ParsedSearchPathHashMap) hash_map;
 } ParsedSearchPath;
 
 // RFC: https://datatracker.ietf.org/doc/html/rfc1738
@@ -134,16 +141,18 @@ typedef struct {
 	char* status_message;
 } HttpResponseLine;
 
-typedef STBDS_ARRAY(HttpHeaderField) HttpHeaderFields;
+ZVEC_DEFINE_VEC_TYPE(HttpHeaderField)
+
+typedef ZVEC_TYPENAME(HttpHeaderField) HttpHeaderFields;
 
 typedef struct {
 	HttpRequestLine request_line;
-	HttpHeaderFields header_fields;
+	ZVEC_TYPENAME(HttpHeaderField) header_fields;
 } HttpRequestHead;
 
 typedef struct {
 	HttpResponseLine response_line;
-	HttpHeaderFields header_fields;
+	ZVEC_TYPENAME(HttpHeaderField) header_fields;
 } HttpResponseHead;
 
 typedef struct {
@@ -202,13 +211,14 @@ NODISCARD StringBuilder* http_request_to_string_builder(const HttpRequest* reque
 // internally some string"magic" happens
 NODISCARD HttpRequest* parse_http_request(char* raw_http_request, bool use_http2);
 
-NODISCARD ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
+NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);
 
-NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key);
+NODISCARD HttpHeaderField* find_header_by_key(ZVEC_TYPENAME(HttpHeaderField) array,
+                                              const char* key);
 
 /**
  * @enum value
@@ -231,7 +241,9 @@ typedef struct {
 	float weight;
 } CompressionEntry;
 
-typedef STBDS_ARRAY(CompressionEntry) CompressionEntries;
+ZVEC_DEFINE_VEC_TYPE(CompressionEntry)
+
+typedef ZVEC_TYPENAME(CompressionEntry) CompressionEntries;
 
 typedef struct {
 	CompressionEntries entries;
