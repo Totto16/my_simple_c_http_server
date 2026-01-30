@@ -24,6 +24,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	LogPrintLocation = 0x08,
+	LogPrintNoPrelude = 0x10,
 } LogFlags;
 
 // only for internal use!!
@@ -63,11 +64,13 @@ LevelAndFlags get_level_and_flags(int level_and_flags);
 			const char* thread_name = get_thread_name(); \
 			log_lock_mutex(); \
 			FILE* file_stream = should_log_to_stderr ? stderr : stdout; \
-			fprintf(file_stream, "[%s] ", level_name); \
-			if(should_use_color) { \
-				fprintf(file_stream, "[\033[32m%s\033[0m] ", thread_name); /*GREEN*/ \
-			} else { \
-				fprintf(file_stream, "[%s] ", thread_name); \
+			if(!has_flag(flags, LogPrintNoPrelude)) { \
+				fprintf(file_stream, "[%s] ", level_name); \
+				if(should_use_color) { \
+					fprintf(file_stream, "[\033[32m%s\033[0m] ", thread_name); /*GREEN*/ \
+				} else { \
+					fprintf(file_stream, "[%s] ", thread_name); \
+				} \
 			} \
 			if(has_flag(flags, LogPrintLocation)) { \
 				fprintf(file_stream, "[%s %s:%d] ", __func__, __FILE__, __LINE__); \

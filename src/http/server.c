@@ -660,6 +660,159 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	LOG_MESSAGE(LogLevelInfo, "To use this simple Http Server visit '%s://localhost:%d'.\n",
 	            protocol_string, port);
 
+	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", stbds_arrlenu(routes));
+	if(log_should_log(LogLevelTrace)) {
+		for(size_t i = 0; i < stbds_arrlenu(routes); ++i) {
+			HTTPRoute route = routes[i];
+
+			LOG_MESSAGE(LogLevelTrace, "Route %zu:\n", i);
+
+			{ // Path
+				LOG_MESSAGE(LogLevelTrace, "\tPath: %s ", route.path.data);
+
+				switch(route.path.type) {
+					case HTTPRoutePathTypeExact: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "(Exact)\n");
+						break;
+					}
+					case HTTPRoutePathTypeStartsWith: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "(StarsWith)\n");
+						break;
+					}
+					default: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "(<Unknown>)\n");
+						break;
+					}
+				}
+			}
+
+			{ // Method
+				LOG_MESSAGE_SIMPLE(LogLevelTrace, "\tMethod: ");
+
+				switch(route.method) {
+					case HTTPRequestRouteMethodGet: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "GET\n");
+						break;
+					}
+					case HTTPRequestRouteMethodPost: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "POST\n");
+						break;
+					}
+					default: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "<Unknown>\n");
+						break;
+					}
+				}
+			}
+
+			{ // Auth
+				LOG_MESSAGE_SIMPLE(LogLevelTrace, "\tAuth: ");
+
+				switch(route.auth.type) {
+					case HTTPAuthorizationTypeNone: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "None\n");
+						break;
+					}
+					case HTTPAuthorizationTypeSimple: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "Simple\n");
+						break;
+					}
+					case HTTPAuthorizationTypeComplicated: {
+						const HTTPAuthorizationComplicatedData data = route.auth.data.complicated;
+
+						LOG_MESSAGE(LogLevelTrace | LogPrintNoPrelude, "Complicated: (TODO %d)\n",
+						            data.todo);
+
+						break;
+					}
+					default: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "<Unknown>\n");
+						break;
+					}
+				}
+			}
+
+			{ // Handler
+				LOG_MESSAGE_SIMPLE(LogLevelTrace, "\tHandler: ");
+
+				switch(route.data.type) {
+					case HTTPRouteTypeNormal: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "Normal ");
+
+						const HTTPRouteFn data = route.data.data.normal;
+
+						switch(data.type) {
+							case HTTPRouteFnTypeExecutor: {
+								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
+								                   "(Executor Fn)\n");
+								break;
+							}
+							case HTTPRouteFnTypeExecutorExtended: {
+								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
+								                   "(Extended Executor Fn)\n");
+								break;
+							}
+							case HTTPRouteFnTypeExecutorAuth: {
+								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
+								                   "(Auth Executor Fn)\n");
+								break;
+							}
+							default: {
+								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
+								                   "<Unknown>)\n");
+								break;
+							}
+						}
+
+						break;
+					}
+					case HTTPRouteTypeSpecial: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "Special: ");
+
+						const HTTPRouteSpecialData data = route.data.data.special;
+
+						switch(data.type) {
+							case HTTPRouteSpecialDataTypeShutdown: {
+								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "Shutdown\n");
+								break;
+							}
+							case HTTPRouteSpecialDataTypeWs: {
+								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "WS\n");
+								break;
+							}
+							default: {
+								LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
+								                   "<Unknown>\n");
+								break;
+							}
+						}
+
+						break;
+					}
+					case HTTPRouteTypeInternal: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude,
+						                   "Internal (Static data)\n");
+
+						break;
+					}
+					case HTTPRouteTypeServeFolder: {
+
+						const HTTPRouteServeFolder data = route.data.data.serve_folder;
+
+						LOG_MESSAGE(LogLevelTrace | LogPrintNoPrelude, "Serve Folder: %s\n",
+						            data.folder_path);
+
+						break;
+					}
+					default: {
+						LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintNoPrelude, "<Unknown>\n");
+						break;
+					}
+				}
+			}
+		}
+	}
+
 	// set up the signal handler
 	// just create a sigaction structure, then add the handler
 	struct sigaction action = {};
