@@ -23,6 +23,7 @@ src_files += files(
     'utf8_helper.h',
     'utils.c',
     'utils.h',
+    'zmap_common_impl.c',
 )
 
 
