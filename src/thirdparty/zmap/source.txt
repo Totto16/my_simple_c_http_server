@@ -1,0 +1,2 @@
+Commit used: https://github.com/z-libs/zmap.h/commit/743b276cfccf65b8f4a07aa1175c12fc5359b525
+Master: https://github.com/z-libs/zmap.h
