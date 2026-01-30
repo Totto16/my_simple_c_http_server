@@ -16,14 +16,6 @@ extern "C" {
 #include "utils/utils.h"
 #include <stb/ds.h>
 
-// some Mime Type Definitions:
-
-#define DEFAULT_MIME_TYPE MIME_TYPE_HTML
-
-#define MIME_TYPE_HTML "text/html"
-#define MIME_TYPE_JSON "application/json"
-#define MIME_TYPE_TEXT "text/plain"
-
 #define STRINGIFY(a) STR_IMPL(a)
 #define STR_IMPL(a) #a
 

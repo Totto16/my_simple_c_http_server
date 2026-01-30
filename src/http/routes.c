@@ -2,6 +2,7 @@
 #include "./routes.h"
 #include "./header.h"
 #include "./http_protocol.h"
+#include "http/mime.h"
 #include "http/send.h"
 #include "utils/path.h"
 

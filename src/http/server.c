@@ -8,6 +8,7 @@
 #include "generic/secure.h"
 #include "generic/signal_fd.h"
 #include "http/header.h"
+#include "http/mime.h"
 #include "utils/errors.h"
 #include "utils/log.h"
 #include "utils/thread_pool.h"
@@ -356,6 +357,10 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 					result = send_http_message_to_connection_advanced(
 					    descriptor, route_data.data.internal.send, send_settings,
 					    http_request->head);
+					break;
+				}
+				case HTTPRouteTypeServeFolder: {
+					// TODO:
 					break;
 				}
 				default: {

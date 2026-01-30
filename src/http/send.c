@@ -3,6 +3,7 @@
 #include "./send.h"
 #include "generic/send.h"
 #include "http/header.h"
+#include "http/mime.h"
 
 NODISCARD static int
 send_concatted_response_to_connection(const ConnectionDescriptor* const descriptor,

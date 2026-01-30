@@ -5,6 +5,7 @@
 #include "generic/send.h"
 #include "http/header.h"
 #include "http/http_protocol.h"
+#include "http/mime.h"
 #include "http/send.h"
 #include "utils/log.h"
 #include "utils/string_builder.h"
