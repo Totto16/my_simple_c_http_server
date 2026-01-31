@@ -32,6 +32,12 @@ HTTP_HEADER_MAKE(content_encoding, "content-encoding");
 
 HTTP_HEADER_MAKE(allow, "allow");
 
+HTTP_HEADER_MAKE(content_transfer_encoding, "content-transfer-encoding");
+
+HTTP_HEADER_MAKE(content_description, "content-description");
+
+HTTP_HEADER_MAKE(content_disposition, "content-disposition");
+
 // ws specific stuff
 
 HTTP_HEADER_MAKE(ws_sec_websocket_key, "sec-websocket-key");

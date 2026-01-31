@@ -421,12 +421,57 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 							case ServeFolderResultTypeFile: {
 								const ServeFolderFileInfo file = serve_folder_result->data.file;
 
+								HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+								{
+
+									char* content_transfer_encoding_buffer = NULL;
+									FORMAT_STRING(
+									    &content_transfer_encoding_buffer,
+									    {
+										    ZVEC_FREE(HttpHeaderField, &additional_headers);
+										    return NULL;
+									    },
+									    "%s%cbinary", HTTP_HEADER_NAME(content_transfer_encoding),
+									    '\0');
+
+									add_http_header_field_by_double_str(
+									    &additional_headers, content_transfer_encoding_buffer);
+
+									char* content_description_buffer = NULL;
+									FORMAT_STRING(
+									    &content_description_buffer,
+									    {
+										    ZVEC_FREE(HttpHeaderField, &additional_headers);
+										    return NULL;
+									    },
+									    "%s%cFile Transfer", HTTP_HEADER_NAME(content_description),
+									    '\0');
+
+									add_http_header_field_by_double_str(&additional_headers,
+									                                    content_description_buffer);
+
+									char* content_disposition_buffer = NULL;
+									FORMAT_STRING(
+									    &content_disposition_buffer,
+									    {
+										    ZVEC_FREE(HttpHeaderField, &additional_headers);
+										    return NULL;
+									    },
+									    "%s%cattachment; filename=\"%s\"",
+									    HTTP_HEADER_NAME(content_disposition), '\0',
+									    file.file_name);
+
+									add_http_header_field_by_double_str(&additional_headers,
+									                                    content_disposition_buffer);
+								}
+
 								HTTPResponseToSend to_send = {
 									.status = HttpStatusOk,
 									.body = http_response_body_from_data(file.file_content.data,
 									                                     file.file_content.size),
 									.mime_type = file.mime_type,
-									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+									.additional_headers = additional_headers
 								};
 
 								// TODO: files on nginx send also this:
