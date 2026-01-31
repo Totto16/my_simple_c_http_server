@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <signal.h>
 
+#include "./folder.h"
 #include "./send.h"
 #include "./server.h"
 #include "generic/helper.h"
@@ -268,7 +269,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 			HTTPRouteData route_data = selected_route_data.data;
 
-			int result = 0;
+			int result = -1;
 
 			switch(route_data.type) {
 				case HTTPRouteTypeSpecial: {
@@ -370,7 +371,130 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 					break;
 				}
 				case HTTPRouteTypeServeFolder: {
-					// TODO:
+					const HTTPRouteServeFolder data = route_data.data.serve_folder;
+					ServeFolderResult* serve_folder_result =
+					    get_serve_folder_content(http_request_generic, data, selected_route_data);
+
+					if(serve_folder_result == NULL) {
+						HTTPResponseToSend to_send = {
+							.status = HttpStatusInternalServerError,
+							.body = http_response_body_from_static_string(
+							    "Internal Server Error: Folder Server Request failed"),
+							.mime_type = MIME_TYPE_TEXT,
+							.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+						};
+
+						result =
+						    send_http_message_to_connection(descriptor, to_send, send_settings);
+					} else {
+
+						switch(serve_folder_result->type) {
+							case ServeFolderResultTypeNotFound: {
+
+								// TODO. send a info page
+								HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
+									                           .body = http_response_body_empty(),
+									                           .mime_type = MIME_TYPE_TEXT,
+									                           .additional_headers =
+									                               ZVEC_EMPTY(HttpHeaderField) };
+
+								result = send_http_message_to_connection(descriptor, to_send,
+								                                         send_settings);
+
+								break;
+							}
+							case ServeFolderResultTypeServerError: {
+
+								HTTPResponseToSend to_send = {
+									.status = HttpStatusInternalServerError,
+									.body = http_response_body_from_static_string(
+									    "Internal Server Error: 3"),
+									.mime_type = MIME_TYPE_TEXT,
+									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+								};
+
+								result = send_http_message_to_connection(descriptor, to_send,
+								                                         send_settings);
+
+								break;
+							}
+							case ServeFolderResultTypeFile: {
+								const ServeFolderFileInfo file = serve_folder_result->data.file;
+
+								HTTPResponseToSend to_send = {
+									.status = HttpStatusOk,
+									.body = http_response_body_from_data(file.file_content.data,
+									                                     file.file_content.size),
+									.mime_type = file.mime_type,
+									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+								};
+
+								// TODO: files on nginx send also this:
+								//  we also need to accapt range request (detect the header field),
+								//  this should not be done in theadditional headers, as it should
+								//  be done in the generic handler, so we need a send binary handler
+
+								/* HTTP/1.1 200 OK
+								Server: nginx
+								Date: Sat, 31 Jan 2026 06:10:13 GMT
+								Content-Type: application/octet-stream
+								Content-Length: 3135
+								Last-Modified: Sat, 31 Jan 2026 02:17:18 GMT
+								Connection: keep-alive
+								ETag: "697d662e-c3f"
+								Accept-Ranges: bytes */
+
+								result = send_http_message_to_connection(descriptor, to_send,
+								                                         send_settings);
+								break;
+							}
+							case ServeFolderResultTypeFolder: {
+								const ServeFolderFolderInfo folder =
+								    serve_folder_result->data.folder;
+
+								StringBuilder* html_string_builder = folder_content_to_html(folder);
+
+								if(html_string_builder == NULL) {
+									HTTPResponseToSend to_send = {
+										.status = HttpStatusInternalServerError,
+										.body = http_response_body_from_static_string(
+										    "Internal Server Error: 4"),
+										.mime_type = MIME_TYPE_TEXT,
+										.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+									};
+
+									result = send_http_message_to_connection(descriptor, to_send,
+									                                         send_settings);
+								} else {
+
+									HTTPResponseToSend to_send = {
+										.status = HttpStatusOk,
+										.body = http_response_body_from_string_builder(
+										    &html_string_builder),
+										.mime_type = MIME_TYPE_HTML,
+										.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+									};
+
+									result = send_http_message_to_connection(descriptor, to_send,
+									                                         send_settings);
+								}
+								break;
+							}
+							default: {
+								HTTPResponseToSend to_send = {
+									.status = HttpStatusInternalServerError,
+									.body = http_response_body_from_static_string(
+									    "Internal Server Error: 5"),
+									.mime_type = MIME_TYPE_TEXT,
+									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+								};
+
+								result = send_http_message_to_connection(descriptor, to_send,
+								                                         send_settings);
+								break;
+							}
+						}
+					}
 					break;
 				}
 				default: {

@@ -260,7 +260,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				state->account->state = AccountStateOk;
 
-				char* malloced_username = copy_cstr(command->data.string);
+				char* malloced_username = strdup(command->data.string);
 
 				if(!malloced_username) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
@@ -282,7 +282,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			state->account->state = AccountStateOnlyUser;
 
-			char* malloced_username = copy_cstr(command->data.string);
+			char* malloced_username = strdup(command->data.string);
 
 			if(!malloced_username) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
@@ -331,7 +331,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					state->account->state = AccountStateOk;
 
-					char* malloced_username = copy_cstr(username);
+					char* malloced_username = strdup(username);
 
 					if(!malloced_username) {
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");

@@ -67,7 +67,25 @@ typedef struct {
 	HTTPResponseToSend send;
 } HTTPRouteInternal;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPRouteServeFolderTypeRelative /* NGINX 'root'*/ = 0,
+	// this means, that if you server the folder on the path "/test/", and you request
+	// "/hello/test.txt" you will get "<YOUR_FOLDER>/test/hello/test.txt"
+	HTTPRouteServeFolderTypeAbsolute /* NGINX 'alias'*/,
+	// this means, that if you server the folder
+	// on the path "/test/", and you request
+	// "/hello/test.txt" you will get
+	// "<YOUR_FOLDER>/hello/test.txt"
+
+	// see also root vs alias in NGINX, if you serve from "/" it doesn't make any difference
+	// see: https://stackoverflow.com/questions/10631933/nginx-static-file-serving-confusion-with-root-alias
+} HTTPRouteServeFolderType;
+
 typedef struct {
+	HTTPRouteServeFolderType type;
 	char* folder_path;
 } HTTPRouteServeFolder;
 
@@ -108,6 +126,7 @@ typedef struct {
 typedef struct {
 	HTTPRouteData data;
 	ParsedURLPath path;
+	const char* original_path;
 	AuthUserWithContext* auth_user;
 } HTTPSelectedRoute;
 

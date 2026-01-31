@@ -230,6 +230,9 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 				port_metadata->associated_connection = connection;
 			}
 
+			// TODO: we have many places, where raw ararys instead of ZVEc are used, fix that,
+			// search for realloc for that!
+
 			data_controller->connections_size++;
 			DataConnection** new_conns = (DataConnection**)realloc(
 			    (void*)data_controller->connections,

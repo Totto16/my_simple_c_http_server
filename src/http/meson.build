@@ -11,6 +11,8 @@ src_files += files(
     'mime.h',
     'routes.c',
     'routes.h',
+    'folder.c',
+    'folder.h',
     'send.c',
     'send.h',
     'server.c',

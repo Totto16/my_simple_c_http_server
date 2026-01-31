@@ -2,6 +2,7 @@
 
 #include "./file_ops.h"
 #include "generic/send.h"
+#include "utils/path.h"
 #include "utils/string_builder.h"
 
 #include <cwalk.h>
@@ -115,16 +116,6 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 	result[needed_size] = '\0';
 
 	return result;
-}
-
-static bool file_is_absolute(const char* const file) {
-	if(strlen(file) == 0) {
-		// NOTE: 0 length is the same as "." so it is not absolute
-		return false;
-	}
-
-	// TODO(Totto): check or report if upstream supports empty value here
-	return cwk_path_is_absolute(file);
 }
 
 NODISCARD static char*
@@ -409,6 +400,7 @@ NODISCARD static FileWithMetadata* get_metadata_for_file_abs(char* const absolut
 
 	char* name_ptr = absolute_path;
 
+	// TODO. factor out  into helper function or use cwalk
 	while(true) {
 		char* result = strstr(name_ptr, "/");
 
@@ -419,7 +411,7 @@ NODISCARD static FileWithMetadata* get_metadata_for_file_abs(char* const absolut
 		name_ptr = result + 1;
 	}
 
-	char* final_name = copy_cstr(name_ptr);
+	char* final_name = strdup(name_ptr);
 
 	FileWithMetadata* result = get_metadata_for_file(absolute_path, final_name);
 
@@ -636,6 +628,9 @@ NODISCARD static MultipleFiles* get_files_in_folder(const char* const folder,
 
 		result->count++;
 
+		// TODO: we have many places, where raw ararys instead of ZVEc are used, fix that,
+		// search for realloc for that!
+
 		FileWithMetadata** new_array = (FileWithMetadata**)realloc(
 		    (void*)result->files, sizeof(FileWithMetadata*) * result->count);
 
@@ -714,64 +709,12 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 		return NULL;
 	}
 
-	FILE* file = fopen(path, "rb");
+	size_t file_size = 0;
 
-	if(file == NULL) {
-		LOG_MESSAGE(LogLevelError, "Couldn't open file for reading '%s': %s\n", path,
-		            strerror(errno));
+	void* file_data = read_entire_file(path, &file_size);
 
-		free(data);
-		return NULL;
-	}
+	if(file_data == NULL) {
 
-	int fseek_res = fseek(file, 0, SEEK_END);
-
-	if(fseek_res != 0) {
-		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", path,
-		            strerror(errno));
-
-		free(data);
-		return NULL;
-	}
-
-	long file_size = ftell(file);
-	fseek_res = fseek(file, 0, SEEK_SET);
-
-	if(fseek_res != 0) {
-		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", path,
-		            strerror(errno));
-
-		free(data);
-		return NULL;
-	}
-
-	uint8_t* file_data = (uint8_t*)malloc(file_size * sizeof(uint8_t));
-
-	if(!file_data) {
-
-		fclose(file);
-		free(data);
-		return NULL;
-	}
-
-	size_t fread_result = fread(file_data, 1, file_size, file);
-
-	if(fread_result != (size_t)file_size) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't read the correct amount of bytes from file '%s': %s\n",
-		            path, strerror(errno));
-
-		fclose(file);
-		free(file_data);
-		free(data);
-		return NULL;
-	}
-
-	int fclose_result = fclose(file);
-
-	if(fclose_result != 0) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n", path, strerror(errno));
-
-		free(file_data);
 		free(data);
 		return NULL;
 	}

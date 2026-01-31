@@ -134,20 +134,6 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 	return (uint16_t)result;
 }
 
-char* copy_cstr(char* input) {
-	size_t length = strlen(input) + 1;
-
-	char* result = malloc(length);
-
-	if(!result) {
-		return NULL;
-	}
-
-	memcpy(result, input, length);
-
-	return result;
-}
-
 NODISCARD float parse_float(char* value) {
 	char* endpointer = NULL;
 	errno = 0;

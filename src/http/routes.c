@@ -23,12 +23,24 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 	StringBuilder* html_string_builder =
 	    http_request_to_html(http_request, is_secure_context(context), send_settings);
 
+	if(html_string_builder == NULL) {
+
+		HTTPResponseToSend result = { .status = HttpStatusInternalServerError,
+			                          .body = http_response_body_from_static_string(
+			                              "Internal Server Error  6"),
+			                          .mime_type = MIME_TYPE_TEXT,
+			                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+
+		return result;
+	}
+
 	HTTPResponseToSend result = {
 		.status = HttpStatusOk,
 		.body = http_response_body_from_string_builder(&html_string_builder),
 		.mime_type = MIME_TYPE_HTML,
 		.additional_headers = ZVEC_EMPTY(HttpHeaderField),
 	};
+
 	return result;
 }
 
@@ -453,9 +465,13 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 	{
 		// / folder serve
 
-		char* folder_path = getenv("WEBSERVER_TEST_WEBROOT");
+		static const char* s_folder_env_variable = "WEBSERVER_TEST_WEBROOT";
+
+		char* folder_path = getenv(s_folder_env_variable);
 
 		if(folder_path == NULL) {
+			LOG_MESSAGE(LogLevelError, "Couldn't find required env variable '%s'\n",
+			            s_folder_env_variable);
 			return NULL;
 		}
 
@@ -475,7 +491,9 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			.data = (HTTPRouteData){ .type = HTTPRouteTypeServeFolder,
 			                         .data = { .serve_folder =
 			                                       (HTTPRouteServeFolder){
-			                                           .folder_path = folder_path_resolved } } },
+			                                           .type = HTTPRouteServeFolderTypeRelative,
+			                                           .folder_path = folder_path_resolved,
+			                                       } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
@@ -557,10 +575,12 @@ NODISCARD static bool is_route_matching(HTTPRoutePath route_path, const char* co
 struct SelectedRouteImpl {
 	HTTPRouteData route_data;
 	ParsedURLPath path;
+	const char* original_path;
 	AuthUserWithContext* auth_user;
 };
 
 NODISCARD static SelectedRoute* selected_route_from_data(HTTPRouteData route_data,
+                                                         const char* const original_path,
                                                          ParsedURLPath path,
                                                          AuthUserWithContext* auth_user) {
 	SelectedRoute* selected_route = malloc(sizeof(SelectedRoute));
@@ -571,6 +591,7 @@ NODISCARD static SelectedRoute* selected_route_from_data(HTTPRouteData route_dat
 
 	selected_route->route_data = route_data;
 	selected_route->path = path;
+	selected_route->original_path = original_path;
 	selected_route->auth_user = auth_user;
 
 	return selected_route;
@@ -896,8 +917,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 					                         .data = { .internal = { .send = to_send } } };
-				return selected_route_from_data(route_data, request->head.request_line.path,
-				                                auth_user);
+				return selected_route_from_data(route_data, route.path.data,
+				                                request->head.request_line.path, auth_user);
 			}
 			case HttpAuthStatusTypeAuthorized: {
 				auth_user = malloc(sizeof(AuthUserWithContext));
@@ -912,8 +933,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 						                         .data = { .internal = { .send = to_send } } };
-					return selected_route_from_data(route_data, request->head.request_line.path,
-					                                auth_user);
+					return selected_route_from_data(route_data, route.path.data,
+					                                request->head.request_line.path, auth_user);
 				}
 
 				auth_user->user = auth_status.data.authorized.user;
@@ -935,8 +956,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 					                         .data = { .internal = { .send = to_send } } };
-				return selected_route_from_data(route_data, request->head.request_line.path,
-				                                auth_user);
+				return selected_route_from_data(route_data, route.path.data,
+				                                request->head.request_line.path, auth_user);
 			}
 			case HttpAuthStatusTypeError: {
 				LOG_MESSAGE(LogLevelError,
@@ -953,8 +974,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 					                         .data = { .internal = { .send = to_send } } };
-				return selected_route_from_data(route_data, request->head.request_line.path,
-				                                auth_user);
+				return selected_route_from_data(route_data, route.path.data,
+				                                request->head.request_line.path, auth_user);
 			}
 			default: {
 				HTTPResponseToSend to_send = {
@@ -967,14 +988,14 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 					                         .data = { .internal = { .send = to_send } } };
-				return selected_route_from_data(route_data, request->head.request_line.path,
-				                                auth_user);
+				return selected_route_from_data(route_data, route.path.data,
+				                                request->head.request_line.path, auth_user);
 			}
 		}
 	}
 
 	return selected_route_from_data( // NOLINT(clang-analyzer-unix.Malloc)
-	    route.data, request->head.request_line.path, auth_user);
+	    route.data, route.path.data, request->head.request_line.path, auth_user);
 }
 
 NODISCARD SelectedRoute*
@@ -1005,6 +1026,7 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const r
 
 	return (HTTPSelectedRoute){ .data = route->route_data,
 		                        .path = route->path,
+		                        .original_path = route->original_path,
 		                        .auth_user = route->auth_user };
 }
 

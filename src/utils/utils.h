@@ -147,8 +147,6 @@ NODISCARD void* malloc_with_memset(size_t size, bool initialize_with_zeros);
 NODISCARD void* realloc_with_memset(void* previous_ptr, size_t old_size, size_t new_size,
                                     bool initialize_with_zeros);
 
-NODISCARD char* copy_cstr(char* input);
-
 NODISCARD float parse_float(char* value);
 
 #define FREE_ARRAY_AND_ENTRIES(ARRAY) \
