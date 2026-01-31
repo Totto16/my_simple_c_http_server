@@ -84,7 +84,8 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 	// attention arg is malloced!
 	FTPControlConnectionArgument* argument = (FTPControlConnectionArgument*)arg_ign;
 
-	ConnectionContext* context = argument->contexts[worker_info.worker_index];
+	ConnectionContext* context =
+	    ZVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
 	char* thread_name_buffer = NULL;
 	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
 	              , "connection handler %lu", worker_info.worker_index);
@@ -169,7 +170,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		}
 
 		// raw_ftp_commands gets freed in here
-		FTPCommandArray ftp_commands = parse_multiple_ftp_commands(raw_ftp_commands);
+		FTPCommandArray* ftp_commands = parse_multiple_ftp_commands(raw_ftp_commands);
 
 		// ftp_commands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
@@ -187,8 +188,8 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 			continue;
 		}
 
-		for(size_t i = 0; i < stbds_arrlenu(ftp_commands); ++i) {
-			FTPCommand* command = ftp_commands[i];
+		for(size_t i = 0; i < ZVEC_LENGTH(*ftp_commands); ++i) {
+			FTPCommand* command = ZVEC_AT(FTPCommandPtr, *ftp_commands, i);
 			bool successfull = ftp_process_command(descriptor, server_addr, argument, command);
 			if(!successfull) {
 				quit = true;
@@ -678,14 +679,15 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose connections_to_close =
+				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+				for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close =
+					    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
 				}
-				stbds_arrfree(connections_to_close);
+				ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -869,14 +871,15 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose connections_to_close =
+				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+				for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close =
+					    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
 				}
-				stbds_arrfree(connections_to_close);
+				ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -1089,14 +1092,15 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose connections_to_close =
+				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+				for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close =
+					    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
 				}
-				stbds_arrfree(connections_to_close);
+				ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -1568,14 +1572,15 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose connections_to_close =
+				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument.data_controller);
 
-				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close[i];
+				for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+					ConnectionDescriptor* connection_to_close =
+					    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
 				}
-				stbds_arrfree(connections_to_close);
+				ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			continue;
@@ -1628,14 +1633,15 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		{
 			// empty the data connections and close the ones, that are no longer required or
 			// timed out
-			ConnectionsToClose connections_to_close =
+			ConnectionsToClose* connections_to_close =
 			    data_connections_to_close(argument.data_controller);
 
-			for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-				ConnectionDescriptor* connection_to_close = connections_to_close[i];
+			for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+				ConnectionDescriptor* connection_to_close =
+				    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 				close_connection_descriptor(connection_to_close);
 			}
-			stbds_arrfree(connections_to_close);
+			ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 		}
 	}
 
@@ -1848,12 +1854,13 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	};
 
 	// this is an array of pointers
-	STBDS_ARRAY(ConnectionContext*)
-	control_contexts = STBDS_ARRAY_EMPTY;
+	ZVEC_TYPENAME(ConnectionContextPtr) control_contexts = ZVEC_EMPTY(ConnectionContextPtr);
 
-	stbds_arrsetlen(control_contexts, control_pool.worker_threads_amount);
+	const ZvecResult allocate_result =
+	    ZVEC_ALLOCATE_UNINITIALIZED_EXTENDED(ConnectionContext*, ConnectionContextPtr,
+	                                         &control_contexts, control_pool.worker_threads_amount);
 
-	if(!control_contexts) {
+	if(allocate_result == ZvecResultErr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
@@ -1866,7 +1873,11 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	        : options;
 
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
-		control_contexts[i] = get_connection_context(final_options);
+		ConnectionContext* context = get_connection_context(final_options);
+
+		auto _ = ZVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, &control_contexts,
+		                              i, context);
+		UNUSED(_);
 	}
 
 	size_t port_amount = DEFAULT_PASSIVE_PORT_AMOUNT;
@@ -1878,9 +1889,9 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 		                   "Couldn't allocate memory!\n");
 
 		for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
-			free_connection_context(control_contexts[i]);
+			free_connection_context(ZVEC_AT(ConnectionContextPtr, control_contexts, i));
 		}
-		free((void*)control_contexts);
+		ZVEC_FREE(ConnectionContextPtr, &control_contexts);
 		return EXIT_FAILURE;
 	}
 
@@ -2015,7 +2026,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	free(ports);
 
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
-		free_connection_context(control_contexts[i]);
+		free_connection_context(ZVEC_AT(ConnectionContextPtr, control_contexts, i));
 	}
 
 	free(folder);
