@@ -36,12 +36,12 @@ HTTP_MIME_TYPE_MAKE(octet_stream, "application/octet-stream");
 // from: https://www.iana.org/assignments/media-types/media-types.xhtml
 // and nginx
 
-ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, char*, SimpleAccountEntryHashMap)
+ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, char*, MimeTypeEntryHashMap)
 
-typedef ZMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) SimpleAccountEntry;
+typedef ZMAP_TYPENAME_ENTRY(MimeTypeEntryHashMap) MimeTypeEntry;
 
 typedef struct {
-	ZMAP_TYPENAME_MAP(SimpleAccountEntryHashMap) entries;
+	ZMAP_TYPENAME_MAP(MimeTypeEntryHashMap) entries;
 } MimeTypeMappings;
 
 extern MimeTypeMappings g_mime_type_mappings;
