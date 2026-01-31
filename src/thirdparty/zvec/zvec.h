@@ -23,10 +23,16 @@
 #include <string.h>
 #include <assert.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum : bool {
     ZvecResultErr = false,
     ZvecResultOk = true,
 } ZvecResult;
+
+
 
 // Memory Macros.
 // If the user hasn't defined their own allocator, use the standard one.
@@ -66,7 +72,7 @@ typedef enum : bool {
 #endif
 
 
-#if __STDC_VERSION__ >= 202311L || defined(__cplusplus)
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L) || defined(__cplusplus)
 #define STATIC_ASSERT(check, message) static_assert(check, message)
 #elif __STDC_VERSION__ < 201112L
 // empty, as not supported
@@ -145,7 +151,11 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_bsearch_##Name(const ZVEC_TYPENAME(Nam
 ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME(Name) *v,  T const *key,                        \
                                         int (*compar)( T const *,  T const *));
 
+#if  defined(__cplusplus)
+#define ZVEC_EMPTY(TypeName) (ZVEC_TYPENAME(TypeName){NULL, 0, 0})
+#else
 #define ZVEC_EMPTY(TypeName) ((ZVEC_TYPENAME(TypeName)){.data=NULL, .length=0, .capacity=0})
+#endif
 
 #define ZVEC_LENGTH(v) (v).length
 #define ZVEC_IS_EMPTY(v) ((v).length == 0)
@@ -455,3 +465,8 @@ ZVEC_FUN_ATTRIBUTES [[nodiscard]] T* zvec_lower_bound_##Name(const ZVEC_TYPENAME
 #define ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(T, Name) \
     ZVEC_DEFINE_VEC_TYPE_EXTENDED(T, Name)                   \
     ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(T, Name)
+
+#ifdef __cplusplus
+//extern "C" {
+}
+#endif

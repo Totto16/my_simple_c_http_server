@@ -19,6 +19,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 // Return Codes.
 typedef enum : bool {
@@ -67,7 +71,7 @@ typedef enum : uint8_t {
 #endif
 
 
-#if __STDC_VERSION__ >= 202311L || defined(__cplusplus)
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L)|| defined(__cplusplus)
 #define STATIC_ASSERT(check, message) static_assert(check, message)
 #elif __STDC_VERSION__ < 201112L
 // empty, as not supported
@@ -376,3 +380,8 @@ ZMAP_FUN_ATTRIBUTES void zmap_clear_##Name(ZMAP_TYPENAME_MAP(Name) *m) {        
 #define ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(KeyT, KeyName, ValT, Name) \
     ZMAP_DEFINE_MAP_TYPE(KeyT, KeyName, ValT, Name)                   \
     ZMAP_IMPLEMENT_MAP_TYPE(KeyT, KeyName, ValT, Name)
+
+#ifdef __cplusplus
+//extern "C" {
+}
+#endif

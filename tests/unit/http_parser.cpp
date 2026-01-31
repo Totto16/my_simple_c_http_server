@@ -1,7 +1,6 @@
-
-
 #include <doctest.h>
-#include <stb/ds.h>
+#include <zmap/zmap.h>
+#include <zvec/zvec.h>
 
 #include <http/compression.h>
 #include <http/header.h>
@@ -26,7 +25,7 @@ get_compression_settings_cpp(HttpHeaderFields http_header_fields) {
 
 [[nodiscard]] CompressionSettingsCppPtr
 get_compression_setting_by_accept_encoding_header(const char* accept_encoding_value) {
-	HttpHeaderFields http_header_fields = STBDS_ARRAY_EMPTY;
+	HttpHeaderFields http_header_fields = ZVEC_EMPTY(HttpHeaderField);
 
 	char* accept_encoding_buffer = NULL;
 	FORMAT_STRING_IMPL(&accept_encoding_buffer, throw std::runtime_error("OOM");
@@ -107,14 +106,14 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("no Accept-Encoding header") {
 
-		HttpHeaderFields http_header_fields = STBDS_ARRAY_EMPTY;
+		HttpHeaderFields http_header_fields = ZVEC_EMPTY(HttpHeaderField);
 
 		CompressionSettingsCppPtr compression_settings =
 		    get_compression_settings_cpp(http_header_fields);
 
 		REQUIRE_NE(compression_settings, nullptr);
 
-		size_t entries_length = stbds_arrlenu(compression_settings->entries);
+		size_t entries_length = ZVEC_LENGTH(compression_settings->entries);
 
 		REQUIRE_EQ(entries_length, 0);
 	}
@@ -126,11 +125,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_NE(compression_settings, nullptr);
 
-		size_t entries_length = stbds_arrlenu(compression_settings->entries);
+		size_t entries_length = ZVEC_LENGTH(compression_settings->entries);
 
 		REQUIRE_EQ(entries_length, 2);
 
-		CompressionEntry entry1 = compression_settings->entries[0];
+		CompressionEntry entry1 = ZVEC_AT(CompressionEntry, compression_settings->entries, 0);
 
 		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -139,7 +138,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entry1, entry1Expected);
 
-		CompressionEntry entry2 = compression_settings->entries[1];
+		CompressionEntry entry2 = ZVEC_AT(CompressionEntry, compression_settings->entries, 1);
 
 		CompressionEntry entry2Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -156,7 +155,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_NE(compression_settings, nullptr);
 
-		size_t entries_length = stbds_arrlenu(compression_settings->entries);
+		size_t entries_length = ZVEC_LENGTH(compression_settings->entries);
 
 		REQUIRE_EQ(entries_length, 0);
 	}
@@ -168,11 +167,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_NE(compression_settings, nullptr);
 
-		size_t entries_length = stbds_arrlenu(compression_settings->entries);
+		size_t entries_length = ZVEC_LENGTH(compression_settings->entries);
 
 		REQUIRE_EQ(entries_length, 1);
 
-		CompressionEntry entry1 = compression_settings->entries[0];
+		CompressionEntry entry1 = ZVEC_AT(CompressionEntry, compression_settings->entries, 0);
 
 		CompressionEntry entry1Expected = {
 			.value = { .type = CompressionValueTypeAllEncodings, .data = {} }, .weight = 1.0F
@@ -187,11 +186,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_NE(compression_settings, nullptr);
 
-		size_t entries_length = stbds_arrlenu(compression_settings->entries);
+		size_t entries_length = ZVEC_LENGTH(compression_settings->entries);
 
 		REQUIRE_EQ(entries_length, 2);
 
-		CompressionEntry entry1 = compression_settings->entries[0];
+		CompressionEntry entry1 = ZVEC_AT(CompressionEntry, compression_settings->entries, 0);
 
 		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -200,7 +199,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entry1, entry1Expected);
 
-		CompressionEntry entry2 = compression_settings->entries[1];
+		CompressionEntry entry2 = ZVEC_AT(CompressionEntry, compression_settings->entries, 1);
 
 		CompressionEntry entry2Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -217,11 +216,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_NE(compression_settings, nullptr);
 
-		size_t entries_length = stbds_arrlenu(compression_settings->entries);
+		size_t entries_length = ZVEC_LENGTH(compression_settings->entries);
 
 		REQUIRE_EQ(entries_length, 3);
 
-		CompressionEntry entry1 = compression_settings->entries[0];
+		CompressionEntry entry1 = ZVEC_AT(CompressionEntry, compression_settings->entries, 0);
 
 		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -230,7 +229,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entry1, entry1Expected);
 
-		CompressionEntry entry2 = compression_settings->entries[1];
+		CompressionEntry entry2 = ZVEC_AT(CompressionEntry, compression_settings->entries, 1);
 
 		CompressionEntry entry2Expected = {
 			.value = { .type = CompressionValueTypeNoEncoding, .data = {} }, .weight = 0.5F
@@ -238,7 +237,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entry2, entry2Expected);
 
-		CompressionEntry entry3 = compression_settings->entries[2];
+		CompressionEntry entry3 = ZVEC_AT(CompressionEntry, compression_settings->entries, 2);
 
 		CompressionEntry entry3Expected = {
 			.value = { .type = CompressionValueTypeAllEncodings, .data = {} }, .weight = 0.0F
@@ -305,7 +304,7 @@ TEST_CASE("testing the parsing of the http request") {
 
 			REQUIRE_EQ(path_comp, "/");
 
-			REQUIRE_EQ(stbds_shlenu(path.search_path.hash_map), 0);
+			REQUIRE_EQ(ZMAP_SIZE(path.search_path.hash_map), 0);
 		}
 
 		SUBCASE("real path url") {
@@ -320,7 +319,7 @@ TEST_CASE("testing the parsing of the http request") {
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
-			REQUIRE_EQ(stbds_shlenu(path.search_path.hash_map), 0);
+			REQUIRE_EQ(ZMAP_SIZE(path.search_path.hash_map), 0);
 		}
 
 		SUBCASE("path url with search parameters") {
@@ -337,43 +336,43 @@ TEST_CASE("testing the parsing of the http request") {
 
 			const ParsedSearchPath search_path = path.search_path;
 
-			REQUIRE_EQ(stbds_shlenu(search_path.hash_map), 3);
+			REQUIRE_EQ(ZMAP_SIZE(search_path.hash_map), 3);
 
 			{
 
-				ParsedSearchPathEntry* entry = find_search_key(search_path, "param1");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1");
 
 				REQUIRE_NE(entry, nullptr);
 
 				REQUIRE_EQ(std::string{ entry->key }, "param1");
 
-				REQUIRE_EQ(std::string{ entry->value }, "hello");
+				REQUIRE_EQ(std::string{ entry->value.value }, "hello");
 			}
 
 			{
 
-				ParsedSearchPathEntry* entry = find_search_key(search_path, "param2");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2");
 
 				REQUIRE_NE(entry, nullptr);
 
 				REQUIRE_EQ(std::string{ entry->key }, "param2");
 
-				REQUIRE_EQ(std::string{ entry->value }, "");
+				REQUIRE_EQ(std::string{ entry->value.value }, "");
 			}
 
 			{
-				ParsedSearchPathEntry* entry = find_search_key(search_path, "param3");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3");
 
 				REQUIRE_NE(entry, nullptr);
 
 				REQUIRE_EQ(std::string{ entry->key }, "param3");
 
-				REQUIRE_EQ(std::string{ entry->value }, "");
+				REQUIRE_EQ(std::string{ entry->value.value }, "");
 			}
 
 			{
 
-				ParsedSearchPathEntry* entry = find_search_key(search_path, "param4");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4");
 
 				REQUIRE_EQ(entry, nullptr);
 			}
