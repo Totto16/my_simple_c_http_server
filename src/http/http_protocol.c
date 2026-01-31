@@ -1068,9 +1068,11 @@ StringBuilder* http_request_to_json(const HttpRequest* const request_generic, bo
 
 	string_builder_append_single(body, ", \"settings\": {");
 
-	STRING_BUILDER_APPENDF(body, return NULL;
-	                       , "\"send_settings\":{\"compression\" : \"%s\"} }",
-	                       get_string_for_compress_format(send_settings.compression_to_use));
+	STRING_BUILDER_APPENDF(
+	    body, return NULL;
+	    , "\"send_settings\":{\"compression\" : \"%s\", \"http_protocol\": \"%s\"} }",
+	    get_string_for_compress_format(send_settings.compression_to_use),
+	    get_http_protocol_version_string(send_settings.protocol_to_use));
 
 	string_builder_append_single(body, "}");
 	return body;
@@ -1127,6 +1129,9 @@ StringBuilder* http_request_to_html(const HttpRequest* const request_generic, bo
 		STRING_BUILDER_APPENDF(body, return NULL;
 		                       , "<h3>Compression:</h3> %s",
 		                       get_string_for_compress_format(send_settings.compression_to_use));
+		STRING_BUILDER_APPENDF(body, return NULL;
+		                       , "<h3>HTTP Protocol:</h3> %s",
+		                       get_http_protocol_version_string(send_settings.protocol_to_use));
 		string_builder_append_single(body, "</div>");
 	}
 	string_builder_append_single(body, "</div>");
