@@ -788,6 +788,11 @@ RequestSettings* get_request_settings(HttpRequest* http_request_generic) {
 		return NULL;
 	}
 
+	*request_settings = (RequestSettings){
+		.compression_settings = NULL,
+		.protocol_used = http_request->head.request_line.protocol_version,
+	};
+
 	CompressionSettings* compression_settings =
 	    get_compression_settings(http_request->head.header_fields);
 
@@ -843,9 +848,20 @@ compare_function_entries(const CompressionEntry* // NOLINT(bugprone-easily-swapp
 	return 0;
 }
 
+#define DEFAULT_RESPONSE_PROTOCOL_VERSION HTTPProtocolVersion1Dot1
+
 SendSettings get_send_settings(RequestSettings* request_settings) {
 
-	SendSettings result = { .compression_to_use = CompressionTypeNone };
+	SendSettings result = {
+		.compression_to_use = CompressionTypeNone,
+		.protocol_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION,
+	};
+
+	if(request_settings->protocol_used == HTTPProtocolVersionInvalid) {
+		result.protocol_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION;
+	} else {
+		result.protocol_to_use = request_settings->protocol_used;
+	}
 
 	CompressionEntries entries = request_settings->compression_settings->entries;
 

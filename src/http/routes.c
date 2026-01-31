@@ -23,11 +23,12 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 	StringBuilder* html_string_builder =
 	    http_request_to_html(http_request, is_secure_context(context), send_settings);
 
-	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body =
-		                              http_response_body_from_string_builder(&html_string_builder),
-		                          .mime_type = MIME_TYPE_HTML,
-		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+	HTTPResponseToSend result = {
+		.status = HttpStatusOk,
+		.body = http_response_body_from_string_builder(&html_string_builder),
+		.mime_type = MIME_TYPE_HTML,
+		.additional_headers = ZVEC_EMPTY(HttpHeaderField),
+	};
 	return result;
 }
 
@@ -41,11 +42,12 @@ static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
 	StringBuilder* json_string_builder =
 	    http_request_to_json(http_request, is_secure_context(context), send_settings);
 
-	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body =
-		                              http_response_body_from_string_builder(&json_string_builder),
-		                          .mime_type = MIME_TYPE_JSON,
-		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField), };
+	HTTPResponseToSend result = {
+		.status = HttpStatusOk,
+		.body = http_response_body_from_string_builder(&json_string_builder),
+		.mime_type = MIME_TYPE_JSON,
+		.additional_headers = ZVEC_EMPTY(HttpHeaderField),
+	};
 	return result;
 }
 

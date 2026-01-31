@@ -103,8 +103,6 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 	return true;
 }
 
-#define DEFAULT_RESPONSE_PROTOCOL_VERSION HTTPProtocolVersion1Dot1
-
 // simple http Response constructor using string builder, headers can be NULL, when header_size is
 // also null!
 NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_send,
@@ -121,12 +119,11 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 	// TODO(Totto): switch on to_send.protocol
 
 	// using the same trick as before, \0 in the malloced string :)
-	const char* protocol_version = NULL;
-	if(to_send.protocol == HTTPProtocolVersionInvalid) {
-		protocol_version = get_http_protocol_version_string(DEFAULT_RESPONSE_PROTOCOL_VERSION);
-	} else {
-		protocol_version = get_http_protocol_version_string(to_send.protocol);
+	if(send_settings.protocol_to_use == HTTPProtocolVersionInvalid) {
+		// FATAL error
+		return NULL;
 	}
+	const char* protocol_version = get_http_protocol_version_string(send_settings.protocol_to_use);
 
 	size_t protocol_length = strlen(protocol_version);
 	const char* status_message = get_status_message(to_send.status);

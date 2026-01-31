@@ -254,10 +254,12 @@ typedef struct {
 
 typedef struct {
 	CompressionSettings* compression_settings;
+	HTTPProtocolVersion protocol_used;
 } RequestSettings;
 
 typedef struct {
 	CompressionType compression_to_use;
+	HTTPProtocolVersion protocol_to_use;
 } SendSettings;
 
 NODISCARD CompressionSettings* get_compression_settings(HttpHeaderFields header_fields);
