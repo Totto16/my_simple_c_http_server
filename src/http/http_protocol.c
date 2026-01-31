@@ -973,10 +973,7 @@ void free_http_response(HttpResponse* response) {
 	free(response);
 }
 
-// really simple and dumb html boilerplate, this is used for demonstration purposes, and is
-// static, but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
-
-NODISCARD static StringBuilder*
+NODISCARD StringBuilder*
 html_from_string(StringBuilder* head_content, // NOLINT(bugprone-easily-swappable-parameters)
                  StringBuilder* script_content, StringBuilder* style_content,
                  StringBuilder* body_content) {

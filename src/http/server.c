@@ -449,10 +449,11 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								break;
 							}
 							case ServeFolderResultTypeFolder: {
-								const ServeFolderFolderInfo folder =
+								const ServeFolderFolderInfo folder_info =
 								    serve_folder_result->data.folder;
 
-								StringBuilder* html_string_builder = folder_content_to_html(folder);
+								StringBuilder* html_string_builder = folder_content_to_html(
+								    folder_info, http_request->head.request_line.path.path);
 
 								if(html_string_builder == NULL) {
 									HTTPResponseToSend to_send = {

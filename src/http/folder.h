@@ -34,6 +34,7 @@ ZVEC_DEFINE_VEC_TYPE(ServeFolderFolderEntry)
 
 typedef struct {
 	ZVEC_TYPENAME(ServeFolderFolderEntry) entries;
+	bool has_valid_parent;
 } ServeFolderFolderInfo;
 
 typedef struct {
@@ -50,4 +51,4 @@ NODISCARD ServeFolderResult* get_serve_folder_content(const HttpRequest* http_re
 
 void free_serve_folder_result(ServeFolderResult* serve_folder_result);
 
-NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder);
+NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_info, const char* folder_path);

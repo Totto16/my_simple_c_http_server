@@ -288,12 +288,19 @@ void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* 
 // free the HttpResponse, just freeing everything necessary
 void free_http_response(HttpResponse* response);
 
-// really simple and dumb html boilerplate, this is used for demonstration purposes, and is static,
-// but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
+// really simple and dumb html boilerplate, this is used for demonstration purposes, and is
+// static, but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
+
+NODISCARD StringBuilder*
+html_from_string(StringBuilder* head_content, // NOLINT(bugprone-easily-swappable-parameters)
+                 StringBuilder* script_content, StringBuilder* style_content,
+                 StringBuilder* body_content);
 
 NODISCARD StringBuilder* http_request_to_json(const HttpRequest* request, bool https,
                                               SendSettings send_settings);
 
+// really simple and dumb html boilerplate, this is used for demonstration purposes, and is
+// static, but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
 NODISCARD StringBuilder* http_request_to_html(const HttpRequest* request, bool https,
                                               SendSettings send_settings);
 

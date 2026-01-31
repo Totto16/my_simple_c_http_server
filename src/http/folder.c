@@ -1,6 +1,7 @@
 #include "./folder.h"
 #include "./mime.h"
 
+#include "utils/clock.h"
 #include "utils/path.h"
 
 #include <cwalk.h>
@@ -281,11 +282,15 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry(const char* const folde
 	return result;
 }
 
-static ServeFolderResult get_serve_folder_content_for_folder(const char* const folder_path) {
+NODISCARD static ServeFolderResult
+get_serve_folder_content_for_folder(const char* const folder_path, bool has_valid_parent) {
 
 	ServeFolderResult result = { .type = ServeFolderResultTypeServerError };
 
-	ServeFolderFolderInfo folder_info = { .entries = ZVEC_EMPTY(ServeFolderFolderEntry) };
+	ServeFolderFolderInfo folder_info = {
+		.entries = ZVEC_EMPTY(ServeFolderFolderEntry),
+		.has_valid_parent = has_valid_parent,
+	};
 
 	DIR* dir = opendir(folder_path);
 	if(dir == NULL) {
@@ -314,9 +319,6 @@ static ServeFolderResult get_serve_folder_content_for_folder(const char* const f
 			continue;
 		}
 
-		// TODO: in some cases this folder "needs" to be added, but i think here is the wrong place,
-		// it would be better, to do it in the htnml generation step, check if the current folder is
-		// the "root" and then don't add it, otherwise add it
 		if(strcmp("..", name) == 0) {
 			continue;
 		}
@@ -352,6 +354,67 @@ success:
 	result.type = ServeFolderResultTypeFolder;
 	result.data.folder = folder_info;
 	return result;
+}
+
+NODISCARD static inline uint64_t abs_i64(int64_t a) {
+	if(a < 0) {
+		// handles overflow in then - MIN_I64 is bigger than MAX_I64 by one
+		return ((uint64_t)(-(a + 1))) + 1;
+	}
+
+	return (uint64_t)a;
+}
+
+/**
+ * @brief Check if both paths are the same
+ *        handles "/dir/" == "/dir"
+ *        the path need to be at least partially normalized, the only non normalized thing is the
+ * end
+ *
+ * @param path1
+ * @param path2
+ * @return NODISCARD
+ */
+NODISCARD static bool is_the_same_path(const char* path1, const char* path2) {
+
+	const size_t len1 = strlen(path1);
+
+	const size_t len2 = strlen(path2);
+
+	if(len1 == len2) {
+		return strncmp(path1, path2, len1) == 0;
+	}
+
+	uint64_t diff = abs_i64((int64_t)len1) - ((int64_t)len2);
+
+	if(diff > 1) {
+		return false;
+	}
+
+	if(diff == 1) {
+
+		size_t min = 0;
+		const char* has_slash = NULL;
+		size_t hash_len = 0;
+
+		if(len1 < len2) {
+			min = len1;
+			has_slash = path2;
+			hash_len = len2;
+		} else {
+			min = len2;
+			has_slash = path1;
+			hash_len = len1;
+		}
+
+		if(has_slash[hash_len - 1] != '/') {
+			return false;
+		}
+
+		return strncmp(path1, path2, min) == 0;
+	}
+
+	return false;
 }
 
 NODISCARD ServeFolderResult* get_serve_folder_content(const HttpRequest* http_request_generic,
@@ -420,7 +483,10 @@ NODISCARD ServeFolderResult* get_serve_folder_content(const HttpRequest* http_re
 	bool is_folder = S_ISDIR(stat_result.st_mode);
 
 	if(is_folder) {
-		*result = get_serve_folder_content_for_folder(final_path);
+
+		const bool has_valid_parent = is_the_same_path(final_path, data.folder_path);
+
+		*result = get_serve_folder_content_for_folder(final_path, has_valid_parent);
 	} else {
 		*result = get_serve_folder_content_for_file(final_path);
 	}
@@ -460,10 +526,69 @@ void free_serve_folder_result(ServeFolderResult* serve_folder_result) {
 	free(serve_folder_result);
 }
 
-NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder) {
-	// TODO
+NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
+                                                         ServeFolderFolderEntry entry) {
 
-	UNUSED(folder);
+	// TODO: better format it, add link / a for folder or file, better format date!
 
-	return NULL;
+	const auto time_in_ms = get_time_in_milli_seconds((Time){ entry.date });
+
+	STRING_BUILDER_APPENDF(body, return NULL;
+	                       ,
+	                       "<div class=\"entry\"> <div class=\"name\">%s</div> <div "
+	                       "class=\"date\">%zu</div> <div class=\"size\">%zu</div> </div> <br>",
+	                       entry.file_name, time_in_ms, entry.size);
+
+	return body;
+}
+
+NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_info,
+                                                const char* folder_path) {
+
+	StringBuilder* body = string_builder_init();
+
+	STRING_BUILDER_APPENDF(body, return NULL;
+	                       , "<h1 id=\"title\">Index of %s</h1> <br>", folder_path);
+
+	string_builder_append_single(body, "<div id=\"content\">");
+
+	if(folder_info.has_valid_parent) {
+		ServeFolderFolderEntry parent = {
+			.dir = true,
+			.date = (struct timespec){ 0 },
+			.size = 0,
+		};
+
+		if(!folder_content_add_entry(body, parent)) {
+			return NULL;
+		}
+	}
+
+	for(size_t i = 0; i < ZVEC_LENGTH(folder_info.entries); ++i) {
+
+		ServeFolderFolderEntry entry = ZVEC_AT(ServeFolderFolderEntry, folder_info.entries, i);
+
+		if(!folder_content_add_entry(body, entry)) {
+			return NULL;
+		}
+	}
+
+	string_builder_append_single(body, "</div>");
+
+	// style
+
+	StringBuilder* style = string_builder_init();
+	string_builder_append_single(style, "body{background: red;}"
+
+	);
+
+	// script
+	StringBuilder* script = string_builder_init();
+	string_builder_append_single(
+	    script, "function setDynamicContent(){"
+	            "/*TODO: make date and sizes human readable in the Intl format of teh user! */"
+	            "window.addEventListener('DOMContentLoaded',setDynamicContent);");
+
+	StringBuilder* html_result = html_from_string(NULL, script, style, body);
+	return html_result;
 }
