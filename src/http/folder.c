@@ -578,7 +578,14 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 	// style
 
 	StringBuilder* style = string_builder_init();
-	string_builder_append_single(style, "body{background: red;}"
+	string_builder_append_single(
+	    style, "body{background: #a6a5a1;}"
+	           "\n"
+	           "#content {  display: flex; flex-flow: column; align-items: center;}"
+	           "\n"
+	           ".entry{ width: 100%; background: #666; text-align: center; color: white; display: "
+	           "grid; padding: 10px; "
+	           "grid-template-columns: 50% 10% 40%; justify-items: start; }"
 
 	);
 
