@@ -10,6 +10,8 @@ ZVEC_IMPLEMENT_VEC_TYPE(HttpHeaderField)
 
 ZVEC_IMPLEMENT_VEC_TYPE(CompressionEntry)
 
+ZMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
+
 // TODO: refacrior into http_1 and generic http implementations
 
 NODISCARD static HTTPRequestMethod get_http_method_from_string(const char* method) {

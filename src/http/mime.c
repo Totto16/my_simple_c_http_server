@@ -2,6 +2,8 @@
 
 #include "./mime.h"
 
+ZMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, char*, SimpleAccountEntryHashMap)
+
 MimeTypeMappings g_mime_type_mappings = {
 	.entries = ZMAP_EMPTY_MAP(SimpleAccountEntryHashMap),
 };
@@ -115,7 +117,7 @@ NODISCARD const char* get_mime_type_for_ext(const char* ext) {
 		initialize_mime_type_mappings();
 	}
 
-	const char** result = ZMAP_GET(SimpleAccountEntryHashMap, &g_mime_type_mappings.entries, ext);
+	char* const* result = ZMAP_GET(SimpleAccountEntryHashMap, &g_mime_type_mappings.entries, ext);
 
 	if(result == NULL) {
 		return UNRECOGNIZED_MIME_TYPE;

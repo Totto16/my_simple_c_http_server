@@ -14,7 +14,7 @@ typedef struct {
 	UserRole role;
 } SimpleAccountEntry;
 
-ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, SimpleAccountEntry, SimpleAccountEntryHashMap)
+ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, SimpleAccountEntry, SimpleAccountEntryHashMap)
 
 typedef struct {
 	ZMAP_TYPENAME_MAP(SimpleAccountEntryHashMap) entries;

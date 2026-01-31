@@ -142,22 +142,22 @@ ZMAP_FUN_ATTRIBUTES [[nodiscard]] ZmapResult zmap_resize_##Name(ZMAP_TYPENAME_MA
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, bool allow_overwrite);       \
                                                                                                                 \
-ZMAP_FUN_ATTRIBUTES [[nodiscard]] ZmapInsertResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, const ValT val, bool allow_overwrite);                 \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]] ZmapInsertResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key,  ValT const val, bool allow_overwrite);                 \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] inline ValT* zmap_put_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key){       \
     return zmap_insert_slot_##Name(m, key, true);                                                               \
 }                                                                                                               \
                                                                                                                 \
-ZMAP_FUN_ATTRIBUTES [[nodiscard]] inline ZmapResult zmap_put_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, const ValT val){                 \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]] inline ZmapResult zmap_put_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, ValT const val){                 \
     const ZmapInsertResult result = zmap_insert_##Name(m, key, val, true);                                                                \
     return result == ZmapInsertResultOk ? ZmapResultOk : ZmapResultErr;                                         \
 }                                                                                                               \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] ValT* zmap_get_mut_##Name(ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
                                                                                                                 \
-ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ValT* zmap_get_##Name(const ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]]  ValT const * zmap_get_##Name(const ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
                                                                                                                 \
-ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ZMAP_TYPENAME_ENTRY(Name)* zmap_get_entry##Name(const ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
+ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ZMAP_TYPENAME_ENTRY(Name)* zmap_get_entry_##Name(const ZMAP_TYPENAME_MAP(Name) *m, const KeyT key);             \
                                                                                                                 \
 ZMAP_FUN_ATTRIBUTES [[nodiscard]] const ZMAP_TYPENAME_ENTRY(Name)* zmap_get_entry_at_##Name(const ZMAP_TYPENAME_MAP(Name) *m, size_t index);             \
                                                                                                                 \
@@ -180,7 +180,7 @@ ZMAP_COMPARE_FUNC_SIG(KeyT, KeyName);
 #define ZMAP_INSERT(Name, Map, Key, Value, AllowOverwrite) zmap_insert_##Name(Map, Key, Value, AllowOverwrite)
 #define ZMAP_INSERT_SLOT(Name, Map, Key, AllowOverwrite) zmap_insert_slot_##Name(Map, Key, AllowOverwrite)
 #define ZMAP_GET(Name, Map, Key)                        zmap_get_##Name(Map, Key)
-#define ZMAP_GET_ENTRY(Name, Map, Key)                        zmap_get_entry##Name(Map, Key)
+#define ZMAP_GET_ENTRY(Name, Map, Key)                        zmap_get_entry_##Name(Map, Key)
 #define ZMAP_GET_MUT(Name, Map, Key)                    zmap_get_mut_##Name(Map, Key)
 #define ZMAP_GET_ENTRY_AT(Name, Map, Index)             zmap_get_entry_at_##Name(Map, Index)
 #define ZMAP_REM(Name, Map, Key)        zmap_remove_##Name(Map, Key)
@@ -280,7 +280,7 @@ ZMAP_FUN_ATTRIBUTES ValT* zmap_insert_slot_##Name(ZMAP_TYPENAME_MAP(Name) *m, Ke
         return NULL;                                                                                           \
     }                                                                                                           \
                                                                                                                 \
-ZMAP_FUN_ATTRIBUTES ZmapInsertResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key, const ValT val, bool allow_overwrite) {                                           \
+ZMAP_FUN_ATTRIBUTES ZmapInsertResult zmap_insert_##Name(ZMAP_TYPENAME_MAP(Name) *m, KeyT key,  ValT const val, bool allow_overwrite) {                                           \
     ValT* slot = zmap_insert_slot_##Name(m, key, allow_overwrite);                                               \
     if (slot == NULL) { return ZmapInsertResultErr; }                                                              \
     if(slot == ZMAP_WOULD_OVERWRITE) { return ZmapInsertResultWouldOverwrite; }                  \
@@ -304,7 +304,7 @@ ZMAP_FUN_ATTRIBUTES ValT* zmap_get_mut_##Name(ZMAP_TYPENAME_MAP(Name) *m, const 
         return NULL;                                                                                            \
     }                                                                                                           \
                                                                                                                 \
-ZMAP_FUN_ATTRIBUTES const ValT* zmap_get_##Name(const ZMAP_TYPENAME_MAP(Name) * const m, const KeyT key) {                                               \
+ZMAP_FUN_ATTRIBUTES  ValT const * zmap_get_##Name( ZMAP_TYPENAME_MAP(Name) const * const m, const KeyT key) {                                               \
         if (m->count == 0) return NULL;                                                                         \
         ZmapHashType hash = ZMAP_HASH_FUNC_NAME(KeyName)(key);                                                                      \
         size_t idx = hash % m->capacity;                                                                        \
