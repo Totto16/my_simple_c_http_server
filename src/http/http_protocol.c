@@ -55,7 +55,7 @@ get_protocol_version_from_string(const char* protocol_version) {
 
 NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 	switch(method) {
-		case HTTPRequestMethodInvalid: return "<Invalid>";
+		case HTTPRequestMethodInvalid: return "<Invalid HTTP Method>";
 		case HTTPRequestMethodGet: return "Get";
 		case HTTPRequestMethodPost: return "Post";
 		case HTTPRequestMethodHead: return "Head";
@@ -111,7 +111,7 @@ NODISCARD char* get_http_url_path_string(ParsedURLPath path) {
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version) {
 
 	switch(protocol_version) {
-		case HTTPProtocolVersionInvalid: return "<Invalid>";
+		case HTTPProtocolVersionInvalid: return "<Invalid HTTP Version>";
 		case HTTPProtocolVersion1: return "HTTP/1.0";
 		case HTTPProtocolVersion1Dot1: return "HTTP/1.1";
 		case HTTPProtocolVersion2: return "HTTP/2";
@@ -263,6 +263,24 @@ void free_http1_request(Http1Request* request) {
 	free_request_head(request->head);
 	FREE_IF_NOT_NULL(request->body);
 	FREE_IF_NOT_NULL(request);
+}
+
+void free_http_request(HttpRequest* request) {
+
+	switch(request->type) {
+		case HttpRequestTypeInternalV1: {
+			free_http1_request(request->data.v1);
+			break;
+		}
+		default: {
+			// TODO
+			LOG_MESSAGE(LogLevelError, "Can't free the http request fully atm: type: %d\n",
+			            request->type);
+			break;
+		}
+	}
+
+	free(request);
 }
 
 // returning a stringbuilder, that makes a string from the http_request, this is useful for

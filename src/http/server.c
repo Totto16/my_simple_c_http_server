@@ -322,7 +322,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								if(!thread_manager_add_connection(
 								       argument->web_socket_manager, descriptor, context,
 								       websocket_function, websocket_args)) {
-									free_http1_request(http_request);
+									free_http_request(http_request_generic);
 									ZVEC_FREE(WSExtension, &extensions);
 									free_selected_route(selected_route);
 									FREE_AT_END();
@@ -332,7 +332,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 								// finally free everything necessary
 
-								free_http1_request(http_request);
+								free_http_request(http_request_generic);
 								free_selected_route(selected_route);
 								FREE_AT_END();
 
@@ -469,7 +469,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		}
 	}
 
-	free_http1_request(http_request);
+	free_http_request(http_request_generic);
 
 cleanup:
 	// finally close the connection

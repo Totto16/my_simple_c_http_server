@@ -202,6 +202,9 @@ construct the responses correctly
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
 void free_http1_request(Http1Request* request);
+
+void free_http_request(HttpRequest* request);
+
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
 
 NODISCARD StringBuilder* http_request_to_string_builder(const HttpRequest* request, bool https);
