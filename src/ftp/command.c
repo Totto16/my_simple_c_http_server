@@ -478,7 +478,7 @@ FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 			return NULL;
 		}
 
-		stbds_arrput(array, command); // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
+		stbds_arrput(array, command);
 
 		size_t actual_length = length + separators_length;
 		size_to_proccess -= actual_length;

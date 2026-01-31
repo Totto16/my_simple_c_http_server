@@ -314,10 +314,10 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								// socket thread
 								ConnectionContext* new_context = copy_connection_context(context);
 
-								ConnectionContext** store_at = ZVEC_GET_AT_MUT_EXTENDED(
+								auto _ = ZVEC_SET_AT_EXTENDED(
 								    ConnectionContext*, ConnectionContextPtr, &(argument->contexts),
-								    worker_info.worker_index);
-								*store_at = new_context;
+								    worker_info.worker_index, new_context);
+								UNUSED(_);
 
 								if(!thread_manager_add_connection(
 								       argument->web_socket_manager, descriptor, context,
@@ -894,10 +894,10 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	// this is an array of pointers
 	ZVEC_TYPENAME(ConnectionContextPtr) contexts = ZVEC_EMPTY(ConnectionContextPtr);
 
-	const ZvecResult reserve_result = ZVEC_RESERVE_EXTENDED(
+	const ZvecResult allocate_result = ZVEC_ALLOCATE_UNINITIALIZED_EXTENDED(
 	    ConnectionContext*, ConnectionContextPtr, &contexts, pool.worker_threads_amount);
 
-	if(reserve_result == ZvecResultErr) {
+	if(allocate_result == ZvecResultErr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
@@ -906,7 +906,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 		ConnectionContext* context = get_connection_context(options);
 
-		auto _ = ZVEC_PUSH_EXTENDED(ConnectionContext*, ConnectionContextPtr, &contexts, context);
+		auto _ =
+		    ZVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, &contexts, i, context);
 		UNUSED(_);
 	}
 

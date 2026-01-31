@@ -395,8 +395,7 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 					}
 				}
 
-				stbds_arrput( // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
-				    connections, current_conn->descriptor);
+				stbds_arrput(connections, current_conn->descriptor);
 			} else {
 
 				data_controller->connections[current_keep_index] = current_conn;

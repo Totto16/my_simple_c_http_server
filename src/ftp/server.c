@@ -1851,8 +1851,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	STBDS_ARRAY(ConnectionContext*)
 	control_contexts = STBDS_ARRAY_EMPTY;
 
-	stbds_arrsetlen( // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
-	    control_contexts, control_pool.worker_threads_amount);
+	stbds_arrsetlen(control_contexts, control_pool.worker_threads_amount);
 
 	if(!control_contexts) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
