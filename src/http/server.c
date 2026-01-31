@@ -87,7 +87,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 	// attention arg is malloced!
 	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)arg_ign;
 
-	ConnectionContext* context = argument->contexts[worker_info.worker_index];
+	ConnectionContext* context =
+	    ZVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
 	char* thread_name_buffer = NULL;
 	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
 	              , "connection handler %lu", worker_info.worker_index);
@@ -129,7 +130,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			.body = http_response_body_from_static_string(
 			    "Request couldn't be read, a connection error occurred!"),
 			.mime_type = MIME_TYPE_TEXT,
-			.additional_headers = STBDS_ARRAY_EMPTY
+			.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 		};
 
 		int result = send_http_message_to_connection(
@@ -167,7 +168,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			                           .body = http_response_body_from_static_string(
 			                               "Request couldn't be parsed, it was malformed!"),
 			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = STBDS_ARRAY_EMPTY };
+			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
 		int result = send_http_message_to_connection(
 		    descriptor, to_send, (SendSettings){ .compression_to_use = CompressionTypeNone });
@@ -207,25 +208,26 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 				case HTTPRequestMethodPost:
 				case HTTPRequestMethodHead: {
 
-					HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
-						                           .body = http_response_body_from_static_string(
-						                               "File not Found"),
-						                           .mime_type = MIME_TYPE_TEXT,
-						                           .additional_headers = STBDS_ARRAY_EMPTY };
+					HTTPResponseToSend to_send = {
+						.status = HttpStatusNotFound,
+						.body = http_response_body_from_static_string("File not Found"),
+						.mime_type = MIME_TYPE_TEXT,
+						.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+					};
 
 					result = send_http_message_to_connection_advanced(
 					    descriptor, to_send, send_settings, http_request->head);
 					break;
 				}
 				case HTTPRequestMethodOptions: {
-					HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
+					HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
 					char* allowed_header_buffer = NULL;
 					// all 405 have to have a Allow filed according to spec
 					FORMAT_STRING(
 					    &allowed_header_buffer,
 					    {
-						    stbds_arrfree(additional_headers);
+						    ZVEC_FREE(HttpHeaderField, &additional_headers);
 						    FREE_AT_END();
 						    return JOB_ERROR_STRING_FORMAT;
 					    },
@@ -244,11 +246,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 				}
 				case HTTPRequestMethodInvalid:
 				default: {
-					HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
-						                           .body = http_response_body_from_static_string(
-						                               "Internal Server Error 1"),
-						                           .mime_type = MIME_TYPE_TEXT,
-						                           .additional_headers = STBDS_ARRAY_EMPTY };
+					HTTPResponseToSend to_send = {
+						.status = HttpStatusInternalServerError,
+						.body = http_response_body_from_static_string("Internal Server Error 1"),
+						.mime_type = MIME_TYPE_TEXT,
+						.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+					};
 
 					result = send_http_message_to_connection(descriptor, to_send, send_settings);
 					break;
@@ -278,7 +281,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								.status = HttpStatusOk,
 								.body = http_response_body_from_static_string("Shutting Down"),
 								.mime_type = MIME_TYPE_TEXT,
-								.additional_headers = STBDS_ARRAY_EMPTY
+								.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 							};
 
 							result = send_http_message_to_connection_advanced(
@@ -298,7 +301,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 						}
 						case HTTPRouteSpecialDataTypeWs: {
 
-							WSExtensions extensions = STBDS_ARRAY_EMPTY;
+							WSExtensions extensions = ZVEC_EMPTY(WSExtension);
 
 							int ws_request_successful = handle_ws_handshake(
 							    http_request_generic, descriptor, send_settings, &extensions);
@@ -310,13 +313,17 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								// move the context so that we can use it in the long standing web
 								// socket thread
 								ConnectionContext* new_context = copy_connection_context(context);
-								argument->contexts[worker_info.worker_index] = new_context;
+
+								ConnectionContext** store_at = ZVEC_GET_AT_MUT_EXTENDED(
+								    ConnectionContext*, ConnectionContextPtr, &(argument->contexts),
+								    worker_info.worker_index);
+								*store_at = new_context;
 
 								if(!thread_manager_add_connection(
 								       argument->web_socket_manager, descriptor, context,
 								       websocket_function, websocket_args)) {
 									free_http1_request(http_request);
-									stbds_arrfree(extensions);
+									ZVEC_FREE(WSExtension, &extensions);
 									free_selected_route(selected_route);
 									FREE_AT_END();
 
@@ -371,7 +378,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 						                           .body = http_response_body_from_static_string(
 						                               "Internal error: Implementation error"),
 						                           .mime_type = MIME_TYPE_TEXT,
-						                           .additional_headers = STBDS_ARRAY_EMPTY };
+						                           .additional_headers =
+						                               ZVEC_EMPTY(HttpHeaderField) };
 					result = send_http_message_to_connection_advanced(
 					    descriptor, to_send, send_settings, http_request->head);
 					break;
@@ -390,7 +398,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			                           .body = http_response_body_from_static_string(
 			                               "Only HTTP/1.1 is supported atm"),
 			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = STBDS_ARRAY_EMPTY };
+			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
 		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
 		                                                      http_request->head);
@@ -401,14 +409,14 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		}
 	} else if(is_supported == RequestMethodNotSupported) {
 
-		HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
+		HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
 		char* allowed_header_buffer = NULL;
 		// all 405 have to have a Allow filed according to spec
 		FORMAT_STRING(
 		    &allowed_header_buffer,
 		    {
-			    stbds_arrfree(additional_headers);
+			    ZVEC_FREE(HttpHeaderField, &additional_headers);
 			    FREE_AT_END();
 			    return JOB_ERROR_STRING_FORMAT;
 		    },
@@ -436,7 +444,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			                           .body = http_response_body_from_static_string(
 			                               "A GET, HEAD or OPTIONS Request can't have a body"),
 			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = STBDS_ARRAY_EMPTY };
+			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
 		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
 		                                                      http_request->head);
@@ -450,7 +458,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			                           .body = http_response_body_from_static_string(
 			                               "Internal Server Error 2"),
 			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = STBDS_ARRAY_EMPTY };
+			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
 		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
 		                                                      http_request->head);
@@ -617,7 +625,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 }
 
 int start_http_server(uint16_t port, SecureOptions* const options,
-                      AuthenticationProviders* const auth_providers, HTTPRoutes routes) {
+                      AuthenticationProviders* const auth_providers, HTTPRoutes* routes) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -675,10 +683,14 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	LOG_MESSAGE(LogLevelInfo, "To use this simple Http Server visit '%s://localhost:%d'.\n",
 	            protocol_string, port);
 
-	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", stbds_arrlenu(routes));
+	if(routes == NULL) {
+		return EXIT_FAILURE;
+	}
+
+	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", ZVEC_LENGTH(*routes));
 	if(log_should_log(LogLevelTrace)) {
-		for(size_t i = 0; i < stbds_arrlenu(routes); ++i) {
-			HTTPRoute route = routes[i];
+		for(size_t i = 0; i < ZVEC_LENGTH(*routes); ++i) {
+			HTTPRoute route = ZVEC_AT(HTTPRoute, *routes, i);
 
 			LOG_MESSAGE(LogLevelTrace, "Route %zu:\n", i);
 
@@ -880,33 +892,34 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	};
 
 	// this is an array of pointers
-	STBDS_ARRAY(ConnectionContext*) contexts = STBDS_ARRAY_EMPTY;
+	ZVEC_TYPENAME(ConnectionContextPtr) contexts = ZVEC_EMPTY(ConnectionContextPtr);
 
-	stbds_arrsetlen( // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
-	    contexts, pool.worker_threads_amount);
+	const ZvecResult reserve_result = ZVEC_RESERVE_EXTENDED(
+	    ConnectionContext*, ConnectionContextPtr, &contexts, pool.worker_threads_amount);
 
-	if(!contexts) {
+	if(reserve_result == ZvecResultErr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
 	}
 
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
-		contexts[i] = get_connection_context(options);
+		ConnectionContext* context = get_connection_context(options);
+
+		auto _ = ZVEC_PUSH_EXTENDED(ConnectionContext*, ConnectionContextPtr, &contexts, context);
+		UNUSED(_);
 	}
 
 	WebSocketThreadManager* web_socket_manager = initialize_thread_manager();
 
 	if(!web_socket_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
-			free_connection_context(contexts[i]);
+			ConnectionContext* context =
+			    ZVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
+			free_connection_context(context);
 		}
-		stbds_arrfree(contexts);
+		ZVEC_FREE(ConnectionContextPtr, &contexts);
 
-		return EXIT_FAILURE;
-	}
-
-	if(routes == NULL) {
 		return EXIT_FAILURE;
 	}
 
@@ -914,9 +927,11 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 	if(!route_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
-			free_connection_context(contexts[i]);
+			ConnectionContext* context =
+			    ZVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
+			free_connection_context(context);
 		}
-		stbds_arrfree(contexts);
+		ZVEC_FREE(ConnectionContextPtr, &contexts);
 
 		if(!free_thread_manager(web_socket_manager)) {
 			return EXIT_FAILURE;
@@ -1007,7 +1022,9 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	free(addr);
 
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
-		free_connection_context(contexts[i]);
+		ConnectionContext* context =
+		    ZVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
+		free_connection_context(context);
 	}
 
 	if(!thread_manager_remove_all_connections(web_socket_manager)) {
@@ -1020,7 +1037,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 	free_route_manager(route_manager);
 
-	stbds_arrfree(contexts);
+	ZVEC_FREE(ConnectionContextPtr, &contexts);
 
 	free_secure_options(options);
 

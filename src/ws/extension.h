@@ -4,7 +4,7 @@
 #include "./types.h"
 #include "utils/utils.h"
 
-#include <stb/ds.h>
+#include <zvec/zvec.h>
 
 /**
  * @enum value
@@ -30,7 +30,9 @@ typedef struct {
 	} data;
 } WSExtension;
 
-typedef STBDS_ARRAY(WSExtension) WSExtensions;
+ZVEC_DEFINE_VEC_TYPE(WSExtension)
+
+typedef ZVEC_TYPENAME(WSExtension) WSExtensions;
 
 NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions);
 
