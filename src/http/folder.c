@@ -484,7 +484,7 @@ NODISCARD ServeFolderResult* get_serve_folder_content(const HttpRequest* http_re
 
 	if(is_folder) {
 
-		const bool has_valid_parent = is_the_same_path(final_path, data.folder_path);
+		const bool has_valid_parent = !is_the_same_path(final_path, data.folder_path);
 
 		*result = get_serve_folder_content_for_folder(final_path, has_valid_parent);
 	} else {
@@ -533,11 +533,18 @@ NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
 
 	const auto time_in_ms = get_time_in_milli_seconds((Time){ entry.date });
 
-	STRING_BUILDER_APPENDF(body, return NULL;
-	                       ,
-	                       "<div class=\"entry\"> <div class=\"name\">%s</div> <div "
-	                       "class=\"date\">%zu</div> <div class=\"size\">%zu</div> </div> <br>",
-	                       entry.file_name, time_in_ms, entry.size);
+	const char* dir_delim = "";
+
+	if(entry.dir) {
+		dir_delim = "/";
+	}
+
+	STRING_BUILDER_APPENDF(
+	    body, return NULL;
+	    ,
+	    "<div class=\"entry\"> <div class=\"name\"><a href=\"%s%s\">%s%s</a></div> <div "
+	    "class=\"date\">%zu</div> <div class=\"size\">%zu</div> </div> <br>",
+	    entry.file_name, dir_delim, entry.file_name, dir_delim, time_in_ms, entry.size);
 
 	return body;
 }
@@ -554,6 +561,7 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 
 	if(folder_info.has_valid_parent) {
 		ServeFolderFolderEntry parent = {
+			.file_name = "..",
 			.dir = true,
 			.date = (struct timespec){ 0 },
 			.size = 0,
