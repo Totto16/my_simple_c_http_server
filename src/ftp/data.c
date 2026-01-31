@@ -352,13 +352,14 @@ NODISCARD static bool nts_internal_should_close_connection(DataConnection* conne
 	return false;
 }
 
-NODISCARD static ConnectionsToClose
+NODISCARD static ConnectionsToClose*
 nts_internal_data_connections_to_close(DataController* data_controller, DataConnection* filter) {
-	ConnectionsToClose connections = STBDS_ARRAY_EMPTY;
+	ConnectionsToClose* connections = malloc(sizeof(ConnectionsToClose));
 
-	if(!connections) {
+	if(connections == NULL) {
 		goto cleanup;
 	}
+	*connections = ZVEC_EMPTY(ConnectionDescriptorPtr);
 
 	{
 
@@ -395,7 +396,8 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 					}
 				}
 
-				stbds_arrput(connections, current_conn->descriptor);
+				auto _ = ZVEC_PUSH(ConnectionDescriptorPtr, connections, current_conn->descriptor);
+				UNUSED(_);
 			} else {
 
 				data_controller->connections[current_keep_index] = current_conn;
@@ -426,13 +428,13 @@ cleanup:
 	return connections;
 }
 
-ConnectionsToClose data_connections_to_close(DataController* data_controller) {
+ConnectionsToClose* data_connections_to_close(DataController* data_controller) {
 	int result = pthread_mutex_lock(&data_controller->mutex);
 	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to lock the mutex for the data_controller",
 	    return NULL;);
 
-	ConnectionsToClose connections = nts_internal_data_connections_to_close(data_controller, NULL);
+	ConnectionsToClose* connections = nts_internal_data_connections_to_close(data_controller, NULL);
 
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
@@ -781,23 +783,24 @@ cleanup:
 NODISCARD static bool nts_internal_close_connection(DataController* data_controller,
                                                     DataConnection* connection) {
 
-	ConnectionsToClose connections_to_close =
+	ConnectionsToClose* connections_to_close =
 	    nts_internal_data_connections_to_close(data_controller, connection);
 
-	if(stbds_arrlenu(connections_to_close) > 1) {
+	if(ZVEC_LENGTH(*connections_to_close) > 1) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		                   "ASSERT: maximal one connection should be closed, if we set a filter\n");
 
-		stbds_arrfree(connections_to_close);
+		ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 		return false;
 	}
 
-	for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-		ConnectionDescriptor* connection_to_close = connections_to_close[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+		ConnectionDescriptor* connection_to_close =
+		    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 		close_connection_descriptor(connection_to_close);
 	}
 
-	stbds_arrfree(connections_to_close);
+	ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 	return true;
 }
 

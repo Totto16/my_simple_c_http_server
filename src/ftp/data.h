@@ -5,7 +5,7 @@
 #include "./state.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
-#include <stb/ds.h>
+#include <zvec/zvec.h>
 
 #include <netinet/in.h>
 #include <signal.h>
@@ -18,7 +18,9 @@ typedef struct DataControllerImpl DataController;
 // opaque type
 typedef struct DataConnectionImpl DataConnection;
 
-typedef STBDS_ARRAY(ConnectionDescriptor*) ConnectionsToClose;
+ZVEC_DEFINE_VEC_TYPE_EXTENDED(ConnectionDescriptor*, ConnectionDescriptorPtr)
+
+typedef ZVEC_TYPENAME(ConnectionDescriptorPtr) ConnectionsToClose;
 
 typedef struct sockaddr_in RawNetworkAddress;
 
@@ -37,7 +39,7 @@ NODISCARD bool data_controller_add_descriptor(DataController* data_controller,
                                               ConnectionDescriptor* descriptor);
 
 // thread save
-NODISCARD ConnectionsToClose data_connections_to_close(DataController* data_controller);
+NODISCARD ConnectionsToClose* data_connections_to_close(DataController* data_controller);
 
 // thread save
 NODISCARD DataConnection*
