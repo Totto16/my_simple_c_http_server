@@ -5,6 +5,8 @@
 
 #include "utils/utils.h"
 
+#include <zvec/zvec.h>
+
 #define ESSL 167
 
 typedef struct SecureDataImpl SecureData;
@@ -25,6 +27,10 @@ typedef struct {
 } SecureOptions;
 
 typedef struct ConnectionContextImpl ConnectionContext;
+
+ZVEC_DEFINE_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
+
+typedef ZVEC_TYPENAME(ConnectionContextPtr) ConnectionContextPtrs;
 
 typedef struct ConnectionDescriptorImpl ConnectionDescriptor;
 

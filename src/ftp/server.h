@@ -15,12 +15,10 @@
 
 #define FTP_MAX_QUEUE_SIZE 100
 
-ZVEC_DEFINE_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
-
 typedef struct {
 	ThreadPool* pool;
 	Myqueue* job_ids;
-	ZVEC_TYPENAME(ConnectionContextPtr) contexts;
+	ConnectionContextPtrs contexts;
 	int socket_fd;
 	const char* const global_folder;
 	DataController* data_controller;
@@ -29,7 +27,7 @@ typedef struct {
 } FTPControlThreadArgument;
 
 typedef struct {
-	ZVEC_TYPENAME(ConnectionContextPtr) contexts;
+	ConnectionContextPtrs contexts;
 	pthread_t listener_thread;
 	int connection_fd;
 	FTPState* state;

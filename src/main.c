@@ -299,7 +299,7 @@ NODISCARD static int subcommand_http(const char* program_name, int argc, const c
 		return EXIT_FAILURE;
 	}
 
-	HTTPRoutes routes = NULL;
+	HTTPRoutes* routes = NULL;
 
 	switch(route_identifier) {
 		case RouteIdentifierDefault: {

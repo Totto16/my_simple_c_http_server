@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
+
 struct SecureDataImpl {
 	SSL_CTX* ssl_context;
 };

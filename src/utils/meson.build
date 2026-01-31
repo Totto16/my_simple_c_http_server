@@ -24,7 +24,6 @@ src_files += files(
     'utils.c',
     'utils.h',
     'zmap_common_impl.c',
-    'zvec_common_impl.c',
 )
 
 

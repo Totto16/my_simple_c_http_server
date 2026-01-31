@@ -1854,7 +1854,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	};
 
 	// this is an array of pointers
-	ZVEC_TYPENAME(ConnectionContextPtr) control_contexts = ZVEC_EMPTY(ConnectionContextPtr);
+	ConnectionContextPtrs control_contexts = ZVEC_EMPTY(ConnectionContextPtr);
 
 	const ZvecResult allocate_result =
 	    ZVEC_ALLOCATE_UNINITIALIZED_EXTENDED(ConnectionContext*, ConnectionContextPtr,

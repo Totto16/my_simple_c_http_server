@@ -892,7 +892,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	};
 
 	// this is an array of pointers
-	ZVEC_TYPENAME(ConnectionContextPtr) contexts = ZVEC_EMPTY(ConnectionContextPtr);
+	ConnectionContextPtrs contexts = ZVEC_EMPTY(ConnectionContextPtr);
 
 	const ZvecResult allocate_result = ZVEC_ALLOCATE_UNINITIALIZED_EXTENDED(
 	    ConnectionContext*, ConnectionContextPtr, &contexts, pool.worker_threads_amount);

@@ -39,14 +39,12 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 // returned an enum state, the caller has to handle errors
 NODISCARD RequestSupportStatus is_request_supported(HttpRequest* request);
 
-ZVEC_DEFINE_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
-
 // structs for the listenerThread
 
 typedef struct {
 	ThreadPool* pool;
 	Myqueue* job_ids;
-	ZVEC_TYPENAME(ConnectionContextPtr) contexts;
+	ConnectionContextPtrs contexts;
 	int socket_fd;
 	WebSocketThreadManager* web_socket_manager;
 	const RouteManager* route_manager;
@@ -54,7 +52,7 @@ typedef struct {
 } HTTPThreadArgument;
 
 typedef struct {
-	ZVEC_TYPENAME(ConnectionContextPtr) contexts;
+	ConnectionContextPtrs contexts;
 	pthread_t listener_thread;
 	int connection_fd;
 	WebSocketThreadManager* web_socket_manager;
