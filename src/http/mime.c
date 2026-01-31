@@ -99,7 +99,7 @@ static void initialize_mime_type_mappings(void) {
 	// mpeg
 	ZMAP_INSERT_AND_ASSERT(MimeTypeEntryHashMap, &g_mime_type_mappings.entries, strdup("mpeg"),
 	                       strdup("video/mpeg"));
-	ZMAP_INSERT_AND_ASSERT(MimeTypeEntryHashMap, &g_mime_type_mappings.entries, strdup("mpeg"),
+	ZMAP_INSERT_AND_ASSERT(MimeTypeEntryHashMap, &g_mime_type_mappings.entries, strdup("mpg"),
 	                       strdup("video/mpg"));
 
 	// webm
