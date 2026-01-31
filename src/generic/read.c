@@ -72,9 +72,9 @@ char* read_string_from_connection(const ConnectionDescriptor* const descriptor) 
 	return message_buffer;
 }
 
-char* read_exact_bytes(const ConnectionDescriptor* const descriptor, size_t n_bytes) {
+void* read_exact_bytes(const ConnectionDescriptor* const descriptor, size_t n_bytes) {
 
-	char* message_buffer = (char*)malloc(n_bytes);
+	void* message_buffer = malloc(n_bytes);
 
 	if(!message_buffer) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
@@ -86,8 +86,9 @@ char* read_exact_bytes(const ConnectionDescriptor* const descriptor, size_t n_by
 
 	while(true) {
 		// read bytes, save the amount of read bytes, and then test for various scenarios
-		int read_bytes = read_from_descriptor(descriptor, message_buffer + actual_bytes_read,
-		                                      n_bytes - actual_bytes_read);
+		int read_bytes =
+		    read_from_descriptor(descriptor, ((uint8_t*)message_buffer) + actual_bytes_read,
+		                         n_bytes - actual_bytes_read);
 
 		if(read_bytes == -1) {
 			LOG_MESSAGE(LogLevelWarn, "Couldn't read from a connection: %s\n", strerror(errno));

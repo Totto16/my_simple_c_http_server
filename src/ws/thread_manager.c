@@ -314,11 +314,14 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 
 	if(payload_additional_len == 2) {
 		// in network byte order
-		*((uint16_t*)(resulting_frame + 2)) = htons((uint16_t)(raw_message.payload_len));
+		uint16_t temp_value = htons((uint16_t)(raw_message.payload_len));
+		memcpy(resulting_frame + 2, &temp_value, sizeof(temp_value));
+
 	} else if(payload_additional_len ==
 	          8) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		// in network byte order (alias big endian = be)
-		*((uint64_t*)(resulting_frame + 2)) = htobe64(raw_message.payload_len);
+		uint64_t temp_value = htobe64(raw_message.payload_len);
+		memcpy(resulting_frame + 2, &temp_value, sizeof(temp_value));
 	}
 
 	if(raw_message.payload_len != 0) {
@@ -329,8 +332,8 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 
 		uint32_t mask_byte = get_random_byte();
 
-		*((uint32_t*)(resulting_frame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len)) =
-		    mask_byte;
+		memcpy(resulting_frame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len, &mask_byte,
+		       sizeof(mask_byte));
 
 		for(size_t i = 0; i < raw_message.payload_len; ++i) {
 			(resulting_frame + header_offset)[i] =

@@ -45,7 +45,7 @@ static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
 		                          .body =
 		                              http_response_body_from_string_builder(&json_string_builder),
 		                          .mime_type = MIME_TYPE_JSON,
-		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField), };
 	return result;
 }
 

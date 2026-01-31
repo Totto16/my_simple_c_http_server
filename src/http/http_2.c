@@ -15,16 +15,16 @@ typedef struct {
 
 NODISCARD static Http2RawHeader parse_http2_raw_header(const uint8_t* const header_data) {
 
-	uint8_t length_raw[4] = { 0, header_data[0], header_data[1], header_data[2] };
-
 	uint8_t type = header_data[3];
 
 	uint8_t flags = header_data[4];
 
 	// this is big endian!
-	uint32_t length = *((uint32_t*)(&length_raw));
+	uint32_t length = (header_data[0] << 16) | (header_data[1] << 8) | (header_data[2]);
 
-	uint32_t stream_identifier_raw = *((uint32_t*)(header_data + 5));
+	uint32_t stream_identifier_raw;
+
+	memcpy(&stream_identifier_raw, header_data + 5, sizeof(stream_identifier_raw));
 
 	// take the first 31 bit from the 32 bit value
 	uint32_t stream_identifier = stream_identifier_raw & 0x7FFFFFFF;

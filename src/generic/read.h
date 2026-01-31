@@ -8,4 +8,4 @@
 // it may be NULL!
 NODISCARD char* read_string_from_connection(const ConnectionDescriptor* descriptor);
 
-NODISCARD char* read_exact_bytes(const ConnectionDescriptor* descriptor, size_t n_bytes);
+NODISCARD void* read_exact_bytes(const ConnectionDescriptor* descriptor, size_t n_bytes);
