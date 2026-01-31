@@ -182,7 +182,8 @@ void parse_ws_extensions(WSExtensions* extensions, const char* const value_const
 		WSExtension extension = parse_ws_extension_value(current_extension, &success);
 
 		if(success) {
-			stbds_arrput(*extensions, extension);
+			auto _ = ZVEC_PUSH(WSExtension, extensions, extension);
+			UNUSED(_);
 		}
 
 		if(next_value == NULL) {
@@ -275,10 +276,10 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 		return NULL;
 	}
 
-	size_t extensions_length = stbds_arrlenu(extensions);
+	size_t extensions_length = ZVEC_LENGTH(extensions);
 
 	for(size_t i = 0; i < extensions_length; ++i) {
-		WSExtension extension = extensions[i];
+		WSExtension extension = ZVEC_AT(WSExtension, extensions, i);
 
 		bool success = append_ws_extension_as_string(string_builder, extension);
 
@@ -335,8 +336,8 @@ struct ExtensionMessageReceiveStateImpl {
 NODISCARD static ExtensionReceivePipelineSettings get_pipeline_settings(WSExtensions extensions) {
 	ExtensionReceivePipelineSettings settings = { .allowed_rsv_bytes = 0 };
 
-	for(size_t i = 0; i < stbds_arrlenu(extensions); ++i) {
-		WSExtension extension = extensions[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(extensions); ++i) {
+		WSExtension extension = ZVEC_AT(WSExtension, extensions, i);
 
 		switch(extension.type) {
 			case WSExtensionTypePerMessageDeflate: {
@@ -371,15 +372,19 @@ static char* noop_process_send_fn(WebSocketMessage* message,
 	return NULL;
 }
 
-typedef STBDS_ARRAY(WsProcessFn) ArrayProcessArg;
+// TODO: do the same as ZVEC qsort with ANY_TYPE and pthread functions!
+
+ZVEC_DEFINE_VEC_TYPE(WsProcessFn)
+
+typedef ZVEC_TYPENAME(WsProcessFn) ArrayProcessArg;
 
 static char* array_process_receive_fn(WebSocketMessage* message,
                                       const ExtensionMessageReceiveState* const message_state,
-                                      ANY_TYPE(ArrayProcessReceiveArg) arg) {
+                                      ANY_TYPE(ArrayProcessArg) arg) {
 
-	ArrayProcessArg process_arg = (ArrayProcessArg)arg;
+	const ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
 
-	size_t process_arg_length = stbds_arrlenu(process_arg);
+	size_t process_arg_length = ZVEC_LENGTH(*process_arg);
 
 	if(process_arg_length == 0) {
 		return NULL;
@@ -388,7 +393,7 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 	// NOTE: receive extensions are run in reverse
 
 	for(size_t i = 0; i < process_arg_length; ++i) {
-		WsProcessFn process_fn = process_arg[process_arg_length - 1 - i];
+		WsProcessFn process_fn = ZVEC_AT(WsProcessFn, *process_arg, process_arg_length - 1 - i);
 
 		char* error = process_fn.receive_fn(message, message_state, process_fn.arg);
 		if(error != NULL) {
@@ -400,12 +405,12 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 
 static char* array_process_send_fn(WebSocketMessage* message,
                                    const ExtensionMessageReceiveState* message_state,
-                                   ANY_TYPE(ArrayProcessReceiveArg) arg) {
+                                   ANY_TYPE(ArrayProcessArg) arg) {
 
-	ArrayProcessArg process_arg = (ArrayProcessArg)arg;
+	ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
 
-	for(size_t i = 0; i < stbds_arrlenu(process_arg); ++i) {
-		WsProcessFn process_fn = process_arg[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(*process_arg); ++i) {
+		WsProcessFn process_fn = ZVEC_AT(WsProcessFn, *process_arg, i);
 
 		char* error = process_fn.send_fn(message, message_state, process_fn.arg);
 		if(error != NULL) {
@@ -537,7 +542,7 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 	extension_pipeline->settings = get_pipeline_settings(extensions);
 	extension_pipeline->extension_mask = WsExtensionMaskNone;
 
-	size_t extension_length = stbds_arrlenu(extensions);
+	size_t extension_length = ZVEC_LENGTH(extensions);
 	extension_pipeline->active_extensions = extension_length;
 
 	if(extension_length == 0) {
@@ -547,10 +552,16 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 		return extension_pipeline;
 	}
 
-	STBDS_ARRAY(WsProcessFn) array_fns = STBDS_ARRAY_EMPTY;
+	ArrayProcessArg* array_fns = malloc(sizeof(ArrayProcessArg));
+
+	if(array_fns == NULL) {
+		return NULL;
+	}
+
+	*array_fns = ZVEC_EMPTY(WsProcessFn);
 
 	for(size_t i = 0; i < extension_length; ++i) {
-		WSExtension* extension = &(extensions[i]);
+		WSExtension* extension = ZVEC_GET_AT_MUT(WSExtension, &extensions, i);
 
 		WsProcessFn process_fn = {};
 		switch(extension->type) {
@@ -564,13 +575,14 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 			}
 			default: {
 				free(extension_pipeline);
-				stbds_arrfree(array_fns);
+				ZVEC_FREE(WsProcessFn, array_fns);
 				return NULL;
 				break;
 			}
 		}
 
-		stbds_arrput(array_fns, process_fn);
+		auto _ = ZVEC_PUSH(WsProcessFn, array_fns, process_fn);
+		UNUSED(_);
 	}
 
 	extension_pipeline->process_fn.receive_fn = array_process_receive_fn;
@@ -586,10 +598,10 @@ void free_extension_pipeline(ExtensionPipeline* extension_pipeline) {
 
 	} else {
 
-		STBDS_ARRAY(WsProcessFn)
-		array_fns = (STBDS_ARRAY(WsProcessFn))extension_pipeline->process_fn.arg;
+		ArrayProcessArg* array_fns = ((ArrayProcessArg*)(extension_pipeline->process_fn.arg));
 
-		stbds_arrfree(array_fns);
+		ZVEC_FREE(WsProcessFn, array_fns);
+		free(array_fns);
 	}
 
 	free(extension_pipeline);

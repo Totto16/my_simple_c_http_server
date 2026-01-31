@@ -1547,8 +1547,8 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	return connection;
 }
 
-static void free_connection_args(WsConnectionArgs args) {
-	stbds_arrfree(args.extensions);
+static void free_connection_args(WsConnectionArgs* args) {
+	ZVEC_FREE(WSExtension, &(args->extensions));
 }
 
 static void free_connection(WebSocketConnection* connection, bool send_go_away) {
@@ -1568,7 +1568,7 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 	close_connection_descriptor_advanced(connection->descriptor, connection->context,
 	                                     WS_ALLOW_SSL_CONTEXT_REUSE);
 	free_connection_context(connection->context);
-	free_connection_args(connection->args);
+	free_connection_args(&(connection->args));
 	free(connection);
 }
 
