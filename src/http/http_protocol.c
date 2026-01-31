@@ -6,6 +6,10 @@
 #include <ctype.h>
 #include <math.h>
 
+ZVEC_IMPLEMENT_VEC_TYPE(HttpHeaderField)
+
+ZVEC_IMPLEMENT_VEC_TYPE(CompressionEntry)
+
 // TODO: refacrior into http_1 and generic http implementations
 
 NODISCARD static HTTPRequestMethod get_http_method_from_string(const char* method) {

@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <pthread.h>
 
+ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionDescriptor*, ConnectionDescriptorPtr)
+
 // the timeout is 30 seconds
 #define DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S_D 30.0
 

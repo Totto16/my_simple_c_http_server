@@ -3,7 +3,7 @@
 
 #include <zvec/zvec.h>
 
-ZVEC_DEFINE_VEC_TYPE(char)
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(char)
 
 typedef ZVEC_TYPENAME(char) CString;
 

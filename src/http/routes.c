@@ -6,6 +6,8 @@
 #include "http/send.h"
 #include "utils/path.h"
 
+ZVEC_IMPLEMENT_VEC_TYPE(HTTPRoute)
+
 struct RouteManagerImpl {
 	HTTPRoutes* routes;
 	const AuthenticationProviders* auth_providers;

@@ -2,6 +2,8 @@
 
 #include "./http_2.h"
 
+ZVEC_IMPLEMENT_VEC_TYPE(Http2Frame)
+
 #define HTTP2_HEADER_SIZE 9
 
 typedef struct {

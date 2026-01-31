@@ -4,6 +4,8 @@
 #include "utils/utils.h"
 #include <string.h>
 
+ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(FTPCommand*, FTPCommandPtr)
+
 #define MAKE_STRING_ARG(str) \
 	do { \
 		int str_length = strlen(str) + 1; \

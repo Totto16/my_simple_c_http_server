@@ -6,6 +6,9 @@
 
 #include <ctype.h>
 
+ZVEC_IMPLEMENT_VEC_TYPE(WSExtension)
+
+
 #define DEFAULT_MAX_WINDOW_BITS 15
 
 #define MIN_MAX_WINDOW_BITS 8
@@ -374,7 +377,7 @@ static char* noop_process_send_fn(WebSocketMessage* message,
 
 // TODO: do the same as ZVEC qsort with ANY_TYPE and pthread functions!
 
-ZVEC_DEFINE_VEC_TYPE(WsProcessFn)
+ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(WsProcessFn)
 
 typedef ZVEC_TYPENAME(WsProcessFn) ArrayProcessArg;
 
