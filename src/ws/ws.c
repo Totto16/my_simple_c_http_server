@@ -24,7 +24,7 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 	string_builder_append_single(message, "Error: The client handshake was invalid: This endpoint "
 	                                      "requires an upgrade to the WebSocket protocol");
 
-	HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
+	HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
 	char* upgrade_header_buffer = NULL;
 	FORMAT_STRING(&upgrade_header_buffer, return false;
@@ -66,7 +66,7 @@ NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* c
 	HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
 		                           .body = http_response_body_from_string_builder(&message),
 		                           .mime_type = MIME_TYPE_TEXT,
-		                           .additional_headers = STBDS_ARRAY_EMPTY };
+		                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
 	free_string_builder(message);
 
@@ -127,7 +127,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const descriptor,
                                               SendSettings send_settings, WSExtensions extensions) {
 
-	size_t extension_length = stbds_arrlenu(extensions);
+	size_t extension_length = ZVEC_LENGTH(extensions);
 
 	if(extension_length == 0) {
 		return 0;
@@ -140,7 +140,7 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 	}
 
 	for(size_t i = 0; i < extension_length; ++i) {
-		WSExtension extension = extensions[i];
+		WSExtension extension = ZVEC_AT(WSExtension, extensions, i);
 
 		switch(extension.type) {
 			case WSExtensionTypePerMessageDeflate: {
@@ -199,8 +199,8 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 	char* sec_key = NULL;
 	bool from_browser = false;
 
-	for(size_t i = 0; i < stbds_arrlenu(http_request->head.header_fields); ++i) {
-		HttpHeaderField header = http_request->head.header_fields[i];
+	for(size_t i = 0; i < ZVEC_LENGTH(http_request->head.header_fields); ++i) {
+		HttpHeaderField header = ZVEC_AT(HttpHeaderField, http_request->head.header_fields, i);
 		if(strcasecmp(header.key, HTTP_HEADER_NAME(host)) == 0) {
 			found_list |= HandshakeHeaderHeaderHost;
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(upgrade)) == 0) {
@@ -272,7 +272,7 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 
 	// send server handshake
 
-	HttpHeaderFields additional_headers = STBDS_ARRAY_EMPTY;
+	HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
 	char* upgrade_header_buffer = NULL;
 	FORMAT_STRING(&upgrade_header_buffer, return false;
@@ -300,7 +300,7 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 		                                    sec_websocket_accept_header_buffer);
 	}
 
-	if(stbds_arrlenu(*extensions) > 0) {
+	if(!ZVEC_IS_EMPTY(*extensions)) {
 		char* accepted_extensions = get_accepted_ws_extensions_as_string(*extensions);
 
 		if(accepted_extensions != NULL) {
@@ -327,7 +327,8 @@ int handle_ws_handshake(const HttpRequest* const http_request_generic,
 
 NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedURLPath path) {
 
-	ParsedSearchPathEntry* fragmented_paramater = find_search_key(path.search_path, "fragmented");
+	const ParsedSearchPathEntry* fragmented_paramater =
+	    find_search_key(path.search_path, "fragmented");
 
 	if(fragmented_paramater == NULL) {
 		return (WsFragmentOption){ .type = WsFragmentOptionTypeOff };
@@ -335,14 +336,14 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedU
 
 	WsFragmentOption result = { .type = WsFragmentOptionTypeAuto };
 
-	ParsedSearchPathEntry* fragment_size_parameter =
+	const ParsedSearchPathEntry* fragment_size_parameter =
 	    find_search_key(path.search_path, "fragment_size");
 
 	if(fragment_size_parameter != NULL) {
 
 		bool success = true;
 
-		long parsed_long = parse_long(fragment_size_parameter->value, &success);
+		long parsed_long = parse_long(fragment_size_parameter->value.value, &success);
 
 		if(success) {
 
@@ -359,7 +360,7 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedU
 NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
                                                          WSExtensions extensions) {
 
-	ParsedSearchPathEntry* trace_paramater = find_search_key(path.search_path, "trace");
+	const ParsedSearchPathEntry* trace_paramater = find_search_key(path.search_path, "trace");
 
 	return (WsConnectionArgs){ .fragment_option = get_ws_fragment_args_from_http_request(path),
 		                       .extensions = extensions,
