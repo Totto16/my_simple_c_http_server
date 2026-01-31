@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 #include "./state.h"
-#include <stb/ds.h>
+#include <zvec/zvec.h>
 
 /**
  * @ref https://datatracker.ietf.org/doc/html/rfc959  5.3.1
@@ -77,13 +77,15 @@ typedef struct {
 
 } FTPCommand;
 
-typedef STBDS_ARRAY(FTPCommand*) FTPCommandArray;
+ZVEC_DEFINE_VEC_TYPE_EXTENDED(FTPCommand*, FTPCommandPtr)
 
-NODISCARD FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands);
+typedef ZVEC_TYPENAME(FTPCommandPtr) FTPCommandArray;
+
+NODISCARD FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands);
 
 void free_ftp_command(FTPCommand* cmd);
 
-void free_ftp_command_array(FTPCommandArray array);
+void free_ftp_command_array(FTPCommandArray* array);
 
 NODISCARD const char* get_command_name(const FTPCommand* command);
 

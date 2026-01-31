@@ -436,14 +436,20 @@ NODISCARD static FTPCommand* parse_single_ftp_command(char* command_str) {
 	return NULL;
 }
 
-FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
+FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands) {
 
 #define FREE_AT_END() \
 	do { \
 		free(raw_ftp_commands); \
 	} while(false)
 
-	FTPCommandArray array = STBDS_ARRAY_EMPTY;
+	FTPCommandArray* array = malloc(sizeof(FTPCommandArray));
+
+	if(!array) {
+		return NULL;
+	}
+
+	*array = ZVEC_EMPTY(FTPCommandPtr);
 
 	const char* const separators = "\r\n";
 	size_t separators_length = strlen(separators);
@@ -478,7 +484,8 @@ FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 			return NULL;
 		}
 
-		stbds_arrput(array, command);
+		auto _ = ZVEC_PUSH(FTPCommandPtr, array, command);
+		UNUSED(_);
 
 		size_t actual_length = length + separators_length;
 		size_to_proccess -= actual_length;
@@ -556,16 +563,17 @@ void free_ftp_command(FTPCommand* cmd) {
 	}
 }
 
-void free_ftp_command_array(FTPCommandArray array) {
+void free_ftp_command_array(FTPCommandArray* array) {
 	if(array == NULL) {
 		return;
 	}
 
-	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
-		free_ftp_command(array[i]);
+	for(size_t i = 0; i < ZVEC_LENGTH(*array); ++i) {
+		free_ftp_command(ZVEC_AT(FTPCommandPtr, *array, i));
 	}
 
-	stbds_arrfree(array);
+	ZVEC_FREE(FTPCommandPtr, array);
+	free(array);
 }
 
 const char* get_command_name(const FTPCommand* const command) {
