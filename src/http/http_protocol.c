@@ -467,7 +467,7 @@ NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char
 	return NULL;
 }
 
-static CompressionType parse_compression_type(char* compression_name, bool* ok_result) {
+static CompressionType parse_compression_type(char* compression_name, OUT_PARAM(bool) ok_result) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.3
 	if(strcmp(compression_name, "gzip") == 0 || strcmp(compression_name, "x-gzip") == 0) {
 		*ok_result = true;
@@ -502,7 +502,7 @@ static CompressionType parse_compression_type(char* compression_name, bool* ok_r
 	return CompressionTypeNone;
 }
 
-static CompressionValue parse_compression_value(char* compression_name, bool* ok_result) {
+static CompressionValue parse_compression_value(char* compression_name, OUT_PARAM(bool) ok_result) {
 
 	if(strcmp(compression_name, "*") == 0) {
 		*ok_result = true;

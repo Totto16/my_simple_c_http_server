@@ -231,6 +231,8 @@ internal_c_args += cc.get_supported_arguments(
     '-Wtype-limits',
     '-Wshadow',
     '-Wfloat-conversion',
+    '-Wno-nullability-extension',
+    '-Wno-nullability-completeness',
 )
 
 src_files = []

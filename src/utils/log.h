@@ -28,6 +28,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	LogPrintNoPrelude = 0x10,
 } LogFlags;
 
+#define FLAGS_TYPE C_23_ENUM_TYPE(uint8_t)
+
 // only for internal use!!
 
 NODISCARD bool log_should_log(LogLevel level);
@@ -44,14 +46,14 @@ void log_unlock_mutex(void);
 
 NODISCARD bool log_should_use_color(bool stderr);
 
-NODISCARD bool has_flag(int flags, LogFlags needle);
+NODISCARD bool has_flag(FLAGS_TYPE flags, LogFlags needle);
 
 typedef struct {
 	LogLevel level;
 	LogFlags flags;
 } LevelAndFlags;
 
-LevelAndFlags get_level_and_flags(int level_and_flags);
+LevelAndFlags get_level_and_flags(FLAGS_TYPE level_and_flags);
 
 #define LOG_MESSAGE(level_and_flags, msg, ...) \
 	do { \
@@ -83,7 +85,7 @@ LevelAndFlags get_level_and_flags(int level_and_flags);
 
 #define LOG_MESSAGE_SIMPLE(level_and_flags, msg) LOG_MESSAGE(level_and_flags, msg "%s", "")
 
-#define COMBINE_LOG_FLAGS(level, flags) ((int)(level) | (int)(flags))
+#define COMBINE_LOG_FLAGS(level, flags) ((FLAGS_TYPE)(level) | (FLAGS_TYPE)(flags))
 
 // everybody can use them
 

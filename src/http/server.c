@@ -10,6 +10,7 @@
 #include "generic/signal_fd.h"
 #include "http/header.h"
 #include "http/mime.h"
+#include "utils/clock.h"
 #include "utils/errors.h"
 #include "utils/log.h"
 #include "utils/thread_pool.h"
@@ -19,7 +20,7 @@
 #include "ws/ws.h"
 
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
-#include <openssl/crypto.h>
+	#include <openssl/crypto.h>
 #endif
 
 #define SUPPORT_KEEPALIVE false
@@ -207,7 +208,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 	SendSettings send_settings = get_send_settings(request_settings);
 	HttpRequestProperties http_properties = request_settings->http_properties;
-	
+
 	free_request_settings(request_settings);
 	request_settings = NULL;
 
@@ -219,6 +220,15 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 	if(is_supported == RequestSupported) {
 		SelectedRoute* selected_route = route_manager_get_route_for_request(
 		    route_manager, http_properties, http_request_generic);
+
+		// TODO: check path is correct
+		char* uri_str = get_request_uri_as_string(http_request->head.request_line.uri);
+		LOG_MESSAGE(LogLevelWarn, "HERE We have the uri: %s\n", uri_str);
+		free(uri_str);
+
+		if(http_request->head.request_line.uri.type == ParsedURITypeAbsoluteURI) {
+			LOG_MESSAGE_SIMPLE(LogLevelWarn, "full URI\n");
+		}
 
 		if(selected_route == NULL) {
 
@@ -433,178 +443,202 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 						result =
 						    send_http_message_to_connection(descriptor, to_send, send_settings);
-					} else {
+						break;
+					}
 
-						switch(serve_folder_result->type) {
-							case ServeFolderResultTypeNotFound: {
+					switch(serve_folder_result->type) {
+						case ServeFolderResultTypeNotFound: {
 
-								// TODO. send a info page
-								HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
-									                           .body = http_response_body_empty(),
-									                           .mime_type = MIME_TYPE_TEXT,
-									                           .additional_headers =
-									                               ZVEC_EMPTY(HttpHeaderField) };
+							// TODO. send a info page
+							HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
+								                           .body = http_response_body_empty(),
+								                           .mime_type = MIME_TYPE_TEXT,
+								                           .additional_headers =
+								                               ZVEC_EMPTY(HttpHeaderField) };
 
-								result = send_http_message_to_connection(descriptor, to_send,
-								                                         send_settings);
+							result =
+							    send_http_message_to_connection(descriptor, to_send, send_settings);
 
-								break;
+							break;
+						}
+						case ServeFolderResultTypeServerError: {
+
+							HTTPResponseToSend to_send = {
+								.status = HttpStatusInternalServerError,
+								.body = http_response_body_from_static_string(
+								    "Internal Server Error: 3"),
+								.mime_type = MIME_TYPE_TEXT,
+								.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+							};
+
+							result =
+							    send_http_message_to_connection(descriptor, to_send, send_settings);
+
+							break;
+						}
+						case ServeFolderResultTypeFile: {
+							const ServeFolderFileInfo file = serve_folder_result->data.file;
+
+							HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+							{
+
+								char* content_transfer_encoding_buffer = NULL;
+								FORMAT_STRING(
+								    &content_transfer_encoding_buffer,
+								    {
+									    ZVEC_FREE(HttpHeaderField, &additional_headers);
+									    return NULL;
+								    },
+								    "%s%cbinary", HTTP_HEADER_NAME(content_transfer_encoding),
+								    '\0');
+
+								add_http_header_field_by_double_str(
+								    &additional_headers, content_transfer_encoding_buffer);
+
+								char* content_description_buffer = NULL;
+								FORMAT_STRING(
+								    &content_description_buffer,
+								    {
+									    ZVEC_FREE(HttpHeaderField, &additional_headers);
+									    return NULL;
+								    },
+								    "%s%cFile Transfer", HTTP_HEADER_NAME(content_description),
+								    '\0');
+
+								add_http_header_field_by_double_str(&additional_headers,
+								                                    content_description_buffer);
+
+								char* content_disposition_buffer = NULL;
+								FORMAT_STRING(
+								    &content_disposition_buffer,
+								    {
+									    ZVEC_FREE(HttpHeaderField, &additional_headers);
+									    return NULL;
+								    },
+								    "%s%cattachment; filename=\"%s\"",
+								    HTTP_HEADER_NAME(content_disposition), '\0', file.file_name);
+
+								add_http_header_field_by_double_str(&additional_headers,
+								                                    content_disposition_buffer);
+
+								Time now;
+
+								bool success = get_current_time(&now);
+
+								if(success) {
+									char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+									if(date_str != NULL) {
+
+										char* date_buffer = NULL;
+										FORMAT_STRING(
+										    &date_buffer,
+										    {
+											    ZVEC_FREE(HttpHeaderField, &additional_headers);
+											    return NULL;
+										    },
+										    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+										add_http_header_field_by_double_str(&additional_headers,
+										                                    date_buffer);
+
+										free(date_str);
+									}
+								}
 							}
-							case ServeFolderResultTypeServerError: {
 
+							HTTPResponseToSend to_send = {
+								.status = HttpStatusOk,
+								.body = http_response_body_from_data(file.file_content.data,
+								                                     file.file_content.size),
+								.mime_type = file.mime_type,
+								.additional_headers = additional_headers
+							};
+
+							// TODO: files on nginx send also this:
+							//  we also need to accapt range request (detect the header field),
+							//  this should not be done in theadditional headers, as it should
+							//  be done in the generic handler, so we need a send binary handler
+
+							/* HTTP/1.1 200 OK
+							Server: nginx
+							Date: Sat, 31 Jan 2026 06:10:13 GMT
+							Content-Type: application/octet-stream
+							Content-Length: 3135
+							Last-Modified: Sat, 31 Jan 2026 02:17:18 GMT
+							Connection: keep-alive
+							ETag: "697d662e-c3f"
+							Accept-Ranges: bytes */
+
+							result =
+							    send_http_message_to_connection(descriptor, to_send, send_settings);
+							break;
+						}
+						case ServeFolderResultTypeFolder: {
+							const ServeFolderFolderInfo folder_info =
+							    serve_folder_result->data.folder;
+
+							if(http_properties.type != HTTPPropertyTypeNormal) {
 								HTTPResponseToSend to_send = {
 									.status = HttpStatusInternalServerError,
 									.body = http_response_body_from_static_string(
-									    "Internal Server Error: 3"),
+									    "Internal Server Error: Not allowed internal type: "
+									    "HTTPPropertyType"),
 									.mime_type = MIME_TYPE_TEXT,
 									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 								};
 
 								result = send_http_message_to_connection(descriptor, to_send,
 								                                         send_settings);
-
 								break;
 							}
-							case ServeFolderResultTypeFile: {
-								const ServeFolderFileInfo file = serve_folder_result->data.file;
 
-								HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+							const auto normal_data = http_properties.data.normal;
 
-								{
+							StringBuilder* html_string_builder =
+							    folder_content_to_html(folder_info, normal_data.path);
 
-									char* content_transfer_encoding_buffer = NULL;
-									FORMAT_STRING(
-									    &content_transfer_encoding_buffer,
-									    {
-										    ZVEC_FREE(HttpHeaderField, &additional_headers);
-										    return NULL;
-									    },
-									    "%s%cbinary", HTTP_HEADER_NAME(content_transfer_encoding),
-									    '\0');
+							if(html_string_builder == NULL) {
+								HTTPResponseToSend to_send = {
+									.status = HttpStatusInternalServerError,
+									.body = http_response_body_from_static_string(
+									    "Internal Server Error: 4"),
+									.mime_type = MIME_TYPE_TEXT,
+									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+								};
 
-									add_http_header_field_by_double_str(
-									    &additional_headers, content_transfer_encoding_buffer);
-
-									char* content_description_buffer = NULL;
-									FORMAT_STRING(
-									    &content_description_buffer,
-									    {
-										    ZVEC_FREE(HttpHeaderField, &additional_headers);
-										    return NULL;
-									    },
-									    "%s%cFile Transfer", HTTP_HEADER_NAME(content_description),
-									    '\0');
-
-									add_http_header_field_by_double_str(&additional_headers,
-									                                    content_description_buffer);
-
-									char* content_disposition_buffer = NULL;
-									FORMAT_STRING(
-									    &content_disposition_buffer,
-									    {
-										    ZVEC_FREE(HttpHeaderField, &additional_headers);
-										    return NULL;
-									    },
-									    "%s%cattachment; filename=\"%s\"",
-									    HTTP_HEADER_NAME(content_disposition), '\0',
-									    file.file_name);
-
-									add_http_header_field_by_double_str(&additional_headers,
-									                                    content_disposition_buffer);
-								}
+								result = send_http_message_to_connection(descriptor, to_send,
+								                                         send_settings);
+							} else {
 
 								HTTPResponseToSend to_send = {
 									.status = HttpStatusOk,
-									.body = http_response_body_from_data(file.file_content.data,
-									                                     file.file_content.size),
-									.mime_type = file.mime_type,
-									.additional_headers = additional_headers
-								};
-
-								// TODO: files on nginx send also this:
-								//  we also need to accapt range request (detect the header field),
-								//  this should not be done in theadditional headers, as it should
-								//  be done in the generic handler, so we need a send binary handler
-
-								/* HTTP/1.1 200 OK
-								Server: nginx
-								Date: Sat, 31 Jan 2026 06:10:13 GMT
-								Content-Type: application/octet-stream
-								Content-Length: 3135
-								Last-Modified: Sat, 31 Jan 2026 02:17:18 GMT
-								Connection: keep-alive
-								ETag: "697d662e-c3f"
-								Accept-Ranges: bytes */
-
-								result = send_http_message_to_connection(descriptor, to_send,
-								                                         send_settings);
-								break;
-							}
-							case ServeFolderResultTypeFolder: {
-								const ServeFolderFolderInfo folder_info =
-								    serve_folder_result->data.folder;
-
-								if(http_properties.type != HTTPPropertyTypeNormal) {
-									HTTPResponseToSend to_send = {
-										.status = HttpStatusInternalServerError,
-										.body = http_response_body_from_static_string(
-										    "Internal Server Error: Not allowed internal type: "
-										    "HTTPPropertyType"),
-										.mime_type = MIME_TYPE_TEXT,
-										.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-									};
-
-									result = send_http_message_to_connection(descriptor, to_send,
-									                                         send_settings);
-									break;
-								}
-
-								const auto normal_data = http_properties.data.normal;
-
-								StringBuilder* html_string_builder =
-								    folder_content_to_html(folder_info, normal_data.path);
-
-								if(html_string_builder == NULL) {
-									HTTPResponseToSend to_send = {
-										.status = HttpStatusInternalServerError,
-										.body = http_response_body_from_static_string(
-										    "Internal Server Error: 4"),
-										.mime_type = MIME_TYPE_TEXT,
-										.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-									};
-
-									result = send_http_message_to_connection(descriptor, to_send,
-									                                         send_settings);
-								} else {
-
-									HTTPResponseToSend to_send = {
-										.status = HttpStatusOk,
-										.body = http_response_body_from_string_builder(
-										    &html_string_builder),
-										.mime_type = MIME_TYPE_HTML,
-										.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-									};
-
-									result = send_http_message_to_connection(descriptor, to_send,
-									                                         send_settings);
-								}
-								break;
-							}
-							default: {
-								HTTPResponseToSend to_send = {
-									.status = HttpStatusInternalServerError,
-									.body = http_response_body_from_static_string(
-									    "Internal Server Error: 5"),
-									.mime_type = MIME_TYPE_TEXT,
+									.body = http_response_body_from_string_builder(
+									    &html_string_builder),
+									.mime_type = MIME_TYPE_HTML,
 									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 								};
 
 								result = send_http_message_to_connection(descriptor, to_send,
 								                                         send_settings);
-								break;
 							}
+							break;
+						}
+						default: {
+							HTTPResponseToSend to_send = {
+								.status = HttpStatusInternalServerError,
+								.body = http_response_body_from_static_string(
+								    "Internal Server Error: 5"),
+								.mime_type = MIME_TYPE_TEXT,
+								.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+							};
+
+							result =
+							    send_http_message_to_connection(descriptor, to_send, send_settings);
+							break;
 						}
 					}
+
 					break;
 				}
 				default: {
@@ -1175,6 +1209,9 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		return EXIT_FAILURE;
 	}
 
+	// create global http arguments
+	global_initialize_http_global_data();
+
 	// initializing the thread Arguments for the single listener thread, it receives all
 	// necessary arguments
 	pthread_t listener_thread = {};
@@ -1282,5 +1319,17 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	openssl_cleanup_global_state();
 #endif
 
+	global_free_http_global_data();
+
 	return EXIT_SUCCESS;
+}
+
+void global_initialize_http_global_data(void) {
+	global_initialize_mime_map();
+	global_initialize_locale_for_http();
+}
+
+void global_free_http_global_data(void) {
+	global_free_mime_map();
+	global_free_locale_for_http();
 }

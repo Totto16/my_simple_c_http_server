@@ -120,7 +120,7 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params
 
 #define DEFAULT_CONTEXT_TAKEOVER_SERVER_VALUE true
 
-NODISCARD static WSExtension parse_ws_extension_value(char* value, bool* success) {
+NODISCARD static WSExtension parse_ws_extension_value(char* value, OUT_PARAM(bool) success) {
 
 	char* name = value;
 

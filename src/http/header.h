@@ -38,6 +38,8 @@ HTTP_HEADER_MAKE(content_description, "content-description");
 
 HTTP_HEADER_MAKE(content_disposition, "content-disposition");
 
+HTTP_HEADER_MAKE(date, "date");
+
 // ws specific stuff
 
 HTTP_HEADER_MAKE(ws_sec_websocket_key, "sec-websocket-key");

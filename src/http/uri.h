@@ -6,14 +6,14 @@
 #include <zmap/zmap.h>
 
 typedef struct {
-	char* NULLABLE username;
-	char* NULLABLE password;
+	char* /* NULLABLE */ username;
+	char* /* NULLABLE */ password;
 } URIUserInfo;
 
 typedef struct {
-	URIUserInfo NULLABLE user_info;
+	URIUserInfo /* NULLABLE */ user_info;
 	char* host;
-	uint16_t NULLABLE port;
+	uint16_t /* NULLABLE */ port;
 } ParsedAuthority;
 
 typedef struct {
@@ -31,8 +31,8 @@ typedef struct {
 // RFC: https://datatracker.ietf.org/doc/html/rfc1738
 typedef struct {
 	char* path;
-	ParsedSearchPath NULLABLE search_path;
-	char* NULLABLE fragment;
+	ParsedSearchPath /* NULLABLE */ search_path;
+	char* /* NULLABLE */ fragment;
 } ParsedURLPath;
 
 //  URI spec: https://datatracker.ietf.org/doc/html/rfc3986

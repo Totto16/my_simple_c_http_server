@@ -3,7 +3,9 @@
 #pragma once
 
 #include "./routes.h"
+#include "utils/clock.h"
 #include "utils/utils.h"
+
 #include <zvec/zvec.h>
 
 /**
@@ -26,7 +28,7 @@ typedef struct {
 typedef struct {
 	bool dir;
 	char* file_name;
-	struct timespec date;
+	Time date;
 	size_t size;
 } ServeFolderFolderEntry;
 

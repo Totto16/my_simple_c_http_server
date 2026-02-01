@@ -59,6 +59,13 @@ static volatile sig_atomic_t
     g_usr1_signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     0;
 
+// this does some ftp specific stuff, it decreases the value of the interval, so that the next call
+// can use the lower value,
+NODISCARD static int ftp_specific_time_nanosleep(Time* intervall_in_out) {
+
+	return nanosleep(&intervall_in_out->_impl_value, &intervall_in_out->_impl_value);
+}
+
 // only setting the volatile sig_atomic_t g_signal_received' in here
 static void usr1_handler(int signal_number) {
 	g_usr1_signal_received = signal_number;
@@ -711,16 +718,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
-					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
+				Time interval =
+				    time_from_details(DATA_CONNECTION_INTERVAL_S, DATA_CONNECTION_INTERVAL_NS);
 
 				// TODO(Totto): don't use intervals for active connection, use poll() for that!
 				while(true) {
 
 					if(g_usr1_signal_received == 0) {
-						int sleep_result = nanosleep(&interval, NULL);
+						int sleep_result = ftp_specific_time_nanosleep(&interval);
 
-						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's
+						// ignore EINTR errors, as we just want to sleep, if it's shorter it's
 						// not that bad, we also interrupt this thread in passive mode, so that
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
@@ -729,6 +736,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 							return true;
 						}
 
+						// TODO. check all 3 locations, is this correct like this?
 						g_usr1_signal_received = 0;
 					}
 
@@ -903,16 +911,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
-					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
+				Time interval =
+				    time_from_details(DATA_CONNECTION_INTERVAL_S, DATA_CONNECTION_INTERVAL_NS);
 
 				// TODO(Totto): don't use intervals for active connection, use poll() for that!
 				while(true) {
 
 					if(g_usr1_signal_received == 0) {
-						int sleep_result = nanosleep(&interval, NULL);
+						int sleep_result = ftp_specific_time_nanosleep(&interval);
 
-						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's
+						// ignore EINTR errors, as we just want to sleep, if it's shorter it's
 						// not that bad, we also interrupt this thread in passive mode, so that
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
@@ -1124,16 +1132,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
-					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
+				Time interval =
+				    time_from_details(DATA_CONNECTION_INTERVAL_S, DATA_CONNECTION_INTERVAL_NS);
 
 				// TODO(Totto): don't use intervals for active connection, use poll() for that!
 				while(true) {
 
 					if(g_usr1_signal_received == 0) {
-						int sleep_result = nanosleep(&interval, NULL);
+						int sleep_result = ftp_specific_time_nanosleep(&interval);
 
-						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's
+						// ignore EINTR errors, as we just want to sleep, if it's shorter it's
 						// not that bad, we also interrupt this thread in passive mode, so that
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {

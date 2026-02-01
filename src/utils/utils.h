@@ -8,28 +8,55 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if _SIMPLE_SERVER_COMPILE_WITH_NARROWED_ENUMS
-#define C_23_NARROW_ENUM_TO(x) : x
-#define C_23_ENUM_TYPE(x) x
+// see https://clang.llvm.org/docs/AttributeReference.html#nullability-attributes
+
+#if defined(__GNUC__) || defined(__clang__)
+	#define NULLABLE _Nullable
+	#define NON_NULLABLE _Nonnull
+	#define NO_NULLABLE_INFO _Null_unspecified
+
+	#define OUT_PARAM(type) type* NON_NULLABLE
+	#define DEFAULT_PARAM(type) type* NO_NULLABLE_INFO
+
+#elif defined(_MSC_VER)
+	#define NULLABLE
+	#define NON_NULLABLE
+	#define NO_NULLABLE_INFO
+
+	#define OUT_PARAM(type) _Out_ type*
+	#define DEFAULT_PARAM(type) type*
+
 #else
-#define C_23_NARROW_ENUM_TO(x)
-#define C_23_ENUM_TYPE(x) int
+	#define NULLABLE
+	#define NON_NULLABLE
+	#define NO_NULLABLE_INFO
+
+	#define OUT_PARAM(type) type*
+	#define DEFAULT_PARAM(type) type*
+#endif
+
+#if _SIMPLE_SERVER_COMPILE_WITH_NARROWED_ENUMS
+	#define C_23_NARROW_ENUM_TO(x) : x
+	#define C_23_ENUM_TYPE(x) x
+#else
+	#define C_23_NARROW_ENUM_TO(x)
+	#define C_23_ENUM_TYPE(x) int
 #endif
 
 #if defined(__clang__) || defined(__GNUC__)
-// see: https://clang.llvm.org/docs/AttributeReference.html#flag-enum
-#define ENUM_IS_MASK __attribute__((flag_enum))
+    // see: https://clang.llvm.org/docs/AttributeReference.html#flag-enum
+	#define ENUM_IS_MASK __attribute__((flag_enum))
 #else
-#define ENUM_IS_MASK
+	#define ENUM_IS_MASK
 #endif
 
 #if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202000) || __cplusplus
-#define NODISCARD [[nodiscard]]
-#define MAYBE_UNUSED [[maybe_unused]]
+	#define NODISCARD [[nodiscard]]
+	#define MAYBE_UNUSED [[maybe_unused]]
 #else
-// see e.g. https://www.gnu.org/software/gnulib/manual/html_node/Attributes.html
-#define NODISCARD __attribute__((__warn_unused_result__))
-#define MAYBE_UNUSED __attribute__((__unused__))
+    // see e.g. https://www.gnu.org/software/gnulib/manual/html_node/Attributes.html
+	#define NODISCARD __attribute__((__warn_unused_result__))
+	#define MAYBE_UNUSED __attribute__((__unused__))
 #endif
 
 #define UNUSED(v) ((void)(v))
@@ -37,28 +64,28 @@
 // cool trick from here:
 // https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
 #ifdef NDEBUG
-#define assert(x) /* NOLINT(readability-identifier-naming) */ \
-	do { \
-		UNUSED((x)); \
-	} while(false)
+	#define assert(x) /* NOLINT(readability-identifier-naming) */ \
+		do { \
+			UNUSED((x)); \
+		} while(false)
 #else
 
-#include <assert.h>
+	#include <assert.h>
 
 #endif
 
 #ifdef NDEBUG
-#define UNREACHABLE() \
-	do { \
-		fprintf(stderr, "[%s %s:%d]: UNREACHABLE", __func__, __FILE__, __LINE__); \
-		exit(EXIT_FAILURE); \
-	} while(false)
+	#define UNREACHABLE() \
+		do { \
+			fprintf(stderr, "[%s %s:%d]: UNREACHABLE", __func__, __FILE__, __LINE__); \
+			exit(EXIT_FAILURE); \
+		} while(false)
 #else
 
-#define UNREACHABLE() \
-	do { \
-		assert(false && "UNREACHABLE"); \
-	} while(false)
+	#define UNREACHABLE() \
+		do { \
+			assert(false && "UNREACHABLE"); \
+		} while(false)
 
 #endif
 
@@ -89,7 +116,7 @@
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
 NODISCARD long parse_long_safely(const char* to_parse, const char* description);
 
-NODISCARD long parse_long(const char* to_parse, bool* success);
+NODISCARD long parse_long(const char* to_parse, OUT_PARAM(bool) success);
 
 NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* description);
 
@@ -163,19 +190,6 @@ NODISCARD uint32_t get_random_byte(void);
 
 NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max);
 
-NODISCARD int get_random_bytes(size_t size, uint8_t* out_bytes);
+NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
 
 #define CHAR_PTR_KEYNAME CString
-
-// TODO: diferntiate clang or gcc or other with ifdef
-#ifdef TODODODODOD
-
-#define NULLABLE __nullable
-#define NON_NULLABLE __nonnull
-
-#else
-
-#define NULLABLE
-#define NON_NULLABLE
-
-#endif

@@ -47,3 +47,7 @@ typedef struct {
 extern MimeTypeMappings g_mime_type_mappings;
 
 NODISCARD const char* get_mime_type_for_ext(const char* ext);
+
+void global_initialize_mime_map(void);
+
+void global_free_mime_map(void);

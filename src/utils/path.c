@@ -46,7 +46,7 @@ NODISCARD bool file_is_absolute(const char* const file) {
 	return cwk_path_is_absolute(file);
 }
 
-NODISCARD void* read_entire_file(const char* file_path, size_t* out_len) {
+NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_len) {
 
 	if(out_len == NULL) {
 		return NULL;
@@ -107,7 +107,6 @@ NODISCARD void* read_entire_file(const char* file_path, size_t* out_len) {
 		free(file_data);
 		return NULL;
 	}
-
 
 	*out_len = file_size;
 	return file_data;

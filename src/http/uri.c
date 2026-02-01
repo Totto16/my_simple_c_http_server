@@ -132,7 +132,7 @@ NODISCARD static char* find_authority_end(char* const str) {
 	return end;
 }
 
-NODISCARD static uint16_t parse_u16(const char* to_parse, bool* success) {
+NODISCARD static uint16_t parse_u16(const char* to_parse, OUT_PARAM(bool) success) {
 
 	long result = parse_long(to_parse, success);
 
@@ -154,7 +154,7 @@ NODISCARD static uint16_t parse_u16(const char* to_parse, bool* success) {
 	return (uint16_t)result;
 }
 
-NODISCARD static char* parse_authority(char* const str, ParsedAuthority* out_result) {
+NODISCARD static char* parse_authority(char* const str, OUT_PARAM(ParsedAuthority) out_result) {
 
 	ParsedAuthority local_authority = {
 		.user_info = (URIUserInfo){ .username = NULL, .password = NULL }, .host = NULL, .port = 0

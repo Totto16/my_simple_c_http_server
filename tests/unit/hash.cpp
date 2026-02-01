@@ -12,7 +12,7 @@
 
 namespace {
 
-[[nodiscard]] consteval std::uint8_t single_hex_number(char input, bool* success) {
+[[nodiscard]] consteval std::uint8_t single_hex_number(char input, OUT_PARAM(bool) success) {
 	if(input >= '0' && input <= '9') {
 		*success = true;
 		return static_cast<std::uint8_t>(input - '0');
@@ -33,7 +33,7 @@ namespace {
 	;
 }
 
-[[nodiscard]] consteval std::uint8_t single_hex_value(const char* input, bool* success) {
+[[nodiscard]] consteval std::uint8_t single_hex_value(const char* input, OUT_PARAM(bool) success) {
 
 	const auto first = single_hex_number(input[0], success);
 

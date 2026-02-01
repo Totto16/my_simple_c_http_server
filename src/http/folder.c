@@ -235,7 +235,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 #ifdef __APPLE__
 	result.date = stat_result.st_mtimespec;
 #else
-	result.date = stat_result.st_mtim;
+	result.date = time_from_struct(stat_result.st_mtim);
 #endif
 
 	result.size = stat_result.st_size;
@@ -530,7 +530,7 @@ NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
 
 	// TODO: better format it, add link / a for folder or file, better format date!
 
-	const uint64_t time_in_ms = get_time_in_milli_seconds((Time){ entry.date });
+	const uint64_t time_in_ms = get_time_in_milli_seconds(entry.date);
 
 	const char* dir_delim = "";
 
@@ -562,7 +562,7 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 		ServeFolderFolderEntry parent = {
 			.file_name = "..",
 			.dir = true,
-			.date = (struct timespec){ 0 },
+			.date = empty_time(),
 			.size = 0,
 		};
 
@@ -600,7 +600,7 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 	StringBuilder* script = string_builder_init();
 	string_builder_append_single(
 	    script, "function setDynamicContent(){"
-	            "/*TODO: make date and sizes human readable in the Intl format of teh user! */"
+	            "/*TODO: make date and sizes human readable in the Intl format of the user! */"
 	            "window.addEventListener('DOMContentLoaded',setDynamicContent);");
 
 	StringBuilder* html_result = html_from_string(NULL, script, style, body);

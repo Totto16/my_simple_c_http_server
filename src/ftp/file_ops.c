@@ -2,6 +2,7 @@
 
 #include "./file_ops.h"
 #include "generic/send.h"
+#include "utils/clock.h"
 #include "utils/path.h"
 #include "utils/string_builder.h"
 
@@ -12,7 +13,6 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-
 // this is a way by hdining the real struct dataementation withour using opaque pointers
 typedef struct {
 	size_t total_count;
@@ -266,7 +266,7 @@ typedef struct {
 	size_t link_amount;
 	Owners owners;
 	size_t size;
-	struct timespec last_mod;
+	Time last_mod;
 	char* file_name;
 	UniqueIdentifier identifier;
 } FileWithMetadata;
@@ -520,9 +520,9 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 	metadata->owners = owners;
 	metadata->size = stat_result.st_size;
 #ifdef __APPLE__
-	metadata->last_mod = stat_result.st_mtimespec;
+	metadata->last_mod = time_from_struct(stat_result.st_mtimespec);
 #else
-	metadata->last_mod = stat_result.st_mtim;
+	metadata->last_mod = time_from_struct(stat_result.st_mtim);
 #endif
 
 	metadata->file_name = new_name;
@@ -759,31 +759,11 @@ NODISCARD static StringBuilder* format_file_line_in_ls_format(FileWithMetadata* 
 		                                                   modes[1], 3, modes[2]);
 	}
 
-	size_t max_bytes =
-	    0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	char* date_str = (char*)malloc(max_bytes * sizeof(char));
+	char* date_str = get_date_string(file->last_mod, TimeFormatFTP);
 
-	struct tm converted_time;
-
-	struct tm* convert_result = localtime_r(&file->last_mod.tv_sec, &converted_time);
-
-	if(!convert_result) {
-		free(date_str);
+	if(date_str == NULL) {
 		return NULL;
 	}
-
-	// see filezilla source code at src/engine/directorylistingparser.cpp:1094 at
-	// CDirectoryListingParser::ParseUnixDateTime on why this exact format is used, it has the most
-	// available information, while being recognized
-
-	size_t result = strftime(date_str, max_bytes, "%Y-%m-%d %H:%M", &converted_time);
-
-	if(result == 0) {
-		free(date_str);
-		return NULL;
-	}
-
-	date_str[result] = '\0';
 
 	STRING_BUILDER_APPENDF(
 	    string_builder,
@@ -803,11 +783,11 @@ NODISCARD static StringBuilder* format_file_line_in_ls_format(FileWithMetadata* 
 #undef FORMAT_SPACES
 
 #ifdef __APPLE__
-#define DEV_FMT "%d"
-#define INO_FMT "%llu"
+	#define DEV_FMT "%d"
+	#define INO_FMT "%llu"
 #else
-#define DEV_FMT "%lu"
-#define INO_FMT "%lu"
+	#define DEV_FMT "%lu"
+	#define INO_FMT "%lu"
 #endif
 
 #define ELPF_PRETTY_PRINT_PERMISSIONS true
@@ -846,7 +826,8 @@ NODISCARD static StringBuilder* format_file_line_in_eplf_format(FileWithMetadata
 		}
 
 		// last mod time in UNIX epoch seconds
-		STRING_BUILDER_APPENDF(string_builder, return NULL;, "m%lu,", file->last_mod.tv_sec);
+		STRING_BUILDER_APPENDF(string_builder, return NULL;
+		                       , "m%lu,", get_time_in_seconds(file->last_mod));
 
 		// unique identifier (dev.ino)
 		STRING_BUILDER_APPENDF(string_builder, return NULL;, "i" DEV_FMT "." INO_FMT ",",

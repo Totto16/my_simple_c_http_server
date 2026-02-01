@@ -48,15 +48,15 @@ bool log_should_use_color(bool stderr) {
 	return isatty(stderr ? STDERR_FILENO : STDOUT_FILENO) != 0;
 }
 
-bool has_flag(int flags, LogFlags needle) {
+bool has_flag(FLAGS_TYPE flags, LogFlags needle) {
 	return (flags & needle) != 0;
 }
 
 static const int level_flag_mask = 0b111;
 
-LevelAndFlags get_level_and_flags(int level_and_flags) {
-	int level = level_and_flags & level_flag_mask;
-	int flags = level_and_flags & (~(level_flag_mask));
+LevelAndFlags get_level_and_flags(FLAGS_TYPE level_and_flags) {
+	FLAGS_TYPE level = level_and_flags & level_flag_mask;
+	FLAGS_TYPE flags = level_and_flags & (~(level_flag_mask));
 
 	return (LevelAndFlags){ .level = level, .flags = flags };
 }

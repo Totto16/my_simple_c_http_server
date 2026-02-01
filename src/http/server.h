@@ -73,3 +73,7 @@ NODISCARD ANY_TYPE(NULL) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 NODISCARD int start_http_server(uint16_t port, SecureOptions* options,
                                 AuthenticationProviders* auth_providers, HTTPRoutes* routes);
+
+void global_initialize_http_global_data(void);
+
+void global_free_http_global_data(void);

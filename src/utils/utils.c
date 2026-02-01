@@ -57,7 +57,8 @@ void* realloc_with_memset(void* previous_ptr, const size_t old_size, const size_
 }
 
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-static long parse_long_impl(const char* to_parse, const char* description, bool* success) {
+static long parse_long_impl(const char* to_parse, const char* description,
+                            OUT_PARAM(bool) success) {
 	// this is just allocated, so that strtol can write an address into it,
 	// therefore it doesn't need to be initialized
 	char* endpointer = NULL;
@@ -108,7 +109,7 @@ long parse_long_safely(const char* to_parse, const char* description) {
 	return result;
 }
 
-long parse_long(const char* to_parse, bool* success) {
+long parse_long(const char* to_parse, OUT_PARAM(bool) success) {
 
 	return parse_long_impl(to_parse, NULL, success);
 }
@@ -178,7 +179,7 @@ NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max) {
 	return (value % (max - min)) + min;
 }
 
-NODISCARD int get_random_bytes(size_t size, uint8_t* out_bytes) {
+NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes) {
 
 	if(size == 0) {
 		return -1;
