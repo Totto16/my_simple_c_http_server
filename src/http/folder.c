@@ -476,6 +476,8 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 			}
 		}
 
+		free(final_path);
+
 		return result;
 	}
 

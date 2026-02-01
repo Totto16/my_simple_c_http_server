@@ -569,12 +569,40 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 					switch(serve_folder_result->type) {
 						case ServeFolderResultTypeNotFound: {
 
+							HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+							{
+								Time now;
+
+								bool success = get_current_time(&now);
+
+								if(success) {
+									char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+									if(date_str != NULL) {
+
+										char* date_buffer = NULL;
+										FORMAT_STRING(
+										    &date_buffer,
+										    {
+											    ZVEC_FREE(HttpHeaderField, &additional_headers);
+											    return NULL;
+										    },
+										    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+										add_http_header_field_by_double_str(&additional_headers,
+										                                    date_buffer);
+
+										free(date_str);
+									}
+								}
+							}
+
 							// TODO. send a info page
 							HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
 								                           .body = http_response_body_empty(),
 								                           .mime_type = MIME_TYPE_TEXT,
 								                           .additional_headers =
-								                               ZVEC_EMPTY(HttpHeaderField) };
+								                               additional_headers };
 
 							result =
 							    send_http_message_to_connection(descriptor, to_send, send_settings);
