@@ -175,7 +175,7 @@ NODISCARD static char* parse_authority(char* const str, OUT_PARAM(ParsedAuthorit
 
 	char* port_part = strchr(current_ptr, ':');
 
-	char* at_or_after_end_ptr = NULL;
+	char* authority_end = NULL;
 
 	if(port_part != NULL) {
 		*port_part = '\0';
@@ -183,18 +183,17 @@ NODISCARD static char* parse_authority(char* const str, OUT_PARAM(ParsedAuthorit
 
 		char* const port_str = port_part + 1;
 
-		char* authority_end = find_authority_end(port_str);
+		authority_end = find_authority_end(port_str);
 
-		if(*authority_end == '\0') {
-			at_or_after_end_ptr = authority_end; // no +1 as this is the end of the string!
-		} else {
-			*authority_end = '\0';
-			at_or_after_end_ptr = authority_end + 1;
-		}
+		assert(authority_end != NULL);
 
 		bool success = false;
 
-		uint16_t port = parse_u16(port_str, &success);
+		char* valid_port_str = strndup(port_str, authority_end - port_str);
+
+		uint16_t port = parse_u16(valid_port_str, &success);
+
+		free(valid_port_str);
 
 		if(!success && port == 0) {
 			free(local_authority.host);
@@ -204,22 +203,17 @@ NODISCARD static char* parse_authority(char* const str, OUT_PARAM(ParsedAuthorit
 		local_authority.port = port;
 	} else {
 
-		char* authority_end = find_authority_end(current_ptr);
+		authority_end = find_authority_end(current_ptr);
 
-		if(*authority_end == '\0') {
-			at_or_after_end_ptr = authority_end; // no +1 as this is the end of the string!
-		} else {
-			*authority_end = '\0';
-			at_or_after_end_ptr = authority_end + 1;
-		}
+		assert(authority_end != NULL);
 
-		local_authority.host = strdup(current_ptr);
+		local_authority.host = strndup(current_ptr, authority_end - current_ptr);
 		local_authority.port = 0;
 	}
 
 	*out_result = local_authority;
 
-	return at_or_after_end_ptr;
+	return authority_end;
 }
 
 #define SCHEME_SEPERATOR "://"
@@ -288,17 +282,17 @@ NODISCARD static ParsedRequestURI get_parsed_uri_or_authority_from_raw(char* con
 	uri.authority = authority;
 
 	if(*authority_parse_result == '\0') {
-		// the path is not empty
-
-		ParsedURLPath parsed_path = get_parsed_url_path_from_raw(path);
-		uri.path = parsed_path;
-	} else {
 		// the path is empty
 
 		ParsedURLPath parsed_path =  {.path=strdup("/"), .search_path= {
 		                         .hash_map = ZMAP_INIT(ParsedSearchPathHashMap),
 		                     },.fragment = NULL};
 
+		uri.path = parsed_path;
+	} else {
+		// the path is not empty
+
+		ParsedURLPath parsed_path = get_parsed_url_path_from_raw(authority_parse_result);
 		uri.path = parsed_path;
 	}
 

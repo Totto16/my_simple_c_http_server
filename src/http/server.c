@@ -221,15 +221,6 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		SelectedRoute* selected_route = route_manager_get_route_for_request(
 		    route_manager, http_properties, http_request_generic);
 
-		// TODO: check path is correct
-		char* uri_str = get_request_uri_as_string(http_request->head.request_line.uri);
-		LOG_MESSAGE(LogLevelWarn, "HERE We have the uri: %s\n", uri_str);
-		free(uri_str);
-
-		if(http_request->head.request_line.uri.type == ParsedURITypeAbsoluteURI) {
-			LOG_MESSAGE_SIMPLE(LogLevelWarn, "full URI\n");
-		}
-
 		if(selected_route == NULL) {
 
 			int result = 0;
