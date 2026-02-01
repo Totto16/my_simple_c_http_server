@@ -197,8 +197,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 	const RequestSupportStatus is_supported = is_request_supported(http_request_generic);
 
 	if(is_supported == RequestSupported) {
-		SelectedRoute* selected_route =
-		    route_manager_get_route_for_request(route_manager, http_request_generic);
+		SelectedRoute* selected_route = route_manager_get_route_for_request(
+		    route_manager, request_settings->http_properties, http_request_generic);
 
 		if(selected_route == NULL) {
 
@@ -245,10 +245,9 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 					break;
 				}
-				case HTTPRequestMethodConnect:{
-					//TODOOOOOO
-					sasa
-					break;
+				case HTTPRequestMethodConnect: {
+					// TODOOOOOO
+					sasa break;
 				}
 				case HTTPRequestMethodInvalid:
 				default: {
@@ -377,8 +376,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 				}
 				case HTTPRouteTypeServeFolder: {
 					const HTTPRouteServeFolder data = route_data.data.serve_folder;
-					ServeFolderResult* serve_folder_result =
-					    get_serve_folder_content(http_request_generic, data, selected_route_data);
+					ServeFolderResult* serve_folder_result = get_serve_folder_content(
+					    request_settings->http_properties, data, selected_route_data);
 
 					if(serve_folder_result == NULL) {
 						HTTPResponseToSend to_send = {
@@ -502,8 +501,27 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								const ServeFolderFolderInfo folder_info =
 								    serve_folder_result->data.folder;
 
-								StringBuilder* html_string_builder = folder_content_to_html(
-								    folder_info, http_request->head.request_line.path.path);
+								if(request_settings->http_properties.type !=
+								   HTTPPropertyTypeNormal) {
+									HTTPResponseToSend to_send = {
+										.status = HttpStatusInternalServerError,
+										.body = http_response_body_from_static_string(
+										    "Internal Server Error: Not allowed internal type: "
+										    "HTTPPropertyType"),
+										.mime_type = MIME_TYPE_TEXT,
+										.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+									};
+
+									result = send_http_message_to_connection(descriptor, to_send,
+									                                         send_settings);
+									break;
+								}
+
+								const auto normal_data =
+								    request_settings->http_properties.data.normal;
+
+								StringBuilder* html_string_builder =
+								    folder_content_to_html(folder_info, normal_data.path);
 
 								if(html_string_builder == NULL) {
 									HTTPResponseToSend to_send = {

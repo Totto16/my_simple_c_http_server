@@ -9,6 +9,7 @@
 #include <sys/random.h>
 #include <time.h>
 
+#//TODO: remove, as we shoudl just set all fields, not rely on zeroing them!
 // simple malloc Wrapper, using also memset to set everything to 0
 void* malloc_with_memset(const size_t size, const bool initialize_with_zeros) {
 	void* result = malloc(size);

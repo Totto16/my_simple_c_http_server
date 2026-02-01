@@ -233,9 +233,29 @@ typedef struct {
 	CompressionEntries entries;
 } CompressionSettings;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPPropertyTypeInvalid = 0,
+	HTTPPropertyTypeNormal,
+	HTTPPropertyTypeOptions,
+	HTTPPropertyTypeConnect,
+} HTTPPropertyType;
+
+typedef struct {
+	HTTPPropertyType type;
+	union {
+		ParsedURLPath normal; // Method: POST | GET | HEAD
+		int todo_options;     // Method: OPTIONS
+		int todo_connect;     // Method: CONNECT
+	} data;
+} HttpRequestProperties;
+
 typedef struct {
 	CompressionSettings* compression_settings;
 	HTTPProtocolVersion protocol_used;
+	HttpRequestProperties http_properties;
 } RequestSettings;
 
 typedef struct {

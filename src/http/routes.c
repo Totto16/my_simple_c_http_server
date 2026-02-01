@@ -868,10 +868,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
                                                       const HttpRequest* const request_generic,
                                                       HTTPRoute route) {
 
-	// note: !(a == c || a == b) is faster than inlining the !
-	if(!(http_properties.method == HTTPRequestMethodGet ||
-	     http_properties.method == HTTPRequestMethodHead ||
-	     http_properties.method == HTTPRequestMethodPost)) {
+	if(http_properties.type != HTTPPropertyTypeNormal) {
 		return NULL;
 	}
 
@@ -1008,19 +1005,22 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
                                     HttpRequestProperties http_properties,
                                     const HttpRequest* request_generic) {
 
-	// note: !(a == c || a == b) is faster than inlining the !
-	if(!(http_properties.method == HTTPRequestMethodGet ||
-	     http_properties.method == HTTPRequestMethodHead ||
-	     http_properties.method == HTTPRequestMethodPost)) {
+	if(http_properties.type != HTTPPropertyTypeNormal) {
 		return NULL;
 	}
 
 	const ParsedURLPath normal_data = http_properties.data.normal;
 
+	if(request_generic->type != HttpRequestTypeInternalV1) {
+		return NULL;
+	}
+
+	const Http1Request* http_request = request_generic->data.v1;
+
 	for(size_t i = 0; i < ZVEC_LENGTH(*(route_manager->routes)); ++i) {
 		HTTPRoute route = ZVEC_AT(HTTPRoute, *(route_manager->routes), i);
 
-		if(is_matching(route.method, http_properties.method)) {
+		if(is_matching(route.method, http_request->head.request_line.method)) {
 
 			if(is_route_matching(route.path, normal_data.path)) {
 				return process_matched_route(route_manager, http_properties, request_generic,

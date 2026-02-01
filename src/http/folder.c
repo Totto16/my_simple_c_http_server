@@ -434,9 +434,7 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 		return result;
 	}
 
-	// note: !(a == c || a == b) is faster than inlining the !
-	if(!(http_properties.method == HTTPRequestMethodGet ||
-	     http_properties.method == HTTPRequestMethodHead)) {
+	if(http_properties.type != HTTPPropertyTypeNormal) {
 		result->type = ServeFolderResultTypeServerError;
 		return result;
 	}

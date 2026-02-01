@@ -661,6 +661,79 @@ void free_compression_settings(CompressionSettings* compression_settings) {
 	free(compression_settings);
 }
 
+NODISCARD static HttpRequestProperties get_http_properties(HttpRequest* http_request_generic) {
+
+	HttpRequestProperties http_properties = { .type = HTTPPropertyTypeInvalid };
+
+	if(http_request_generic->type != HttpRequestTypeInternalV1) {
+
+		http_properties.type = HTTPPropertyTypeInvalid;
+
+		return http_properties;
+	}
+
+	const Http1Request* http_request = http_request_generic->data.v1;
+
+	ParsedRequestURI uri = http_request->head.request_line.uri;
+
+	const ParsedURLPath* path = NULL;
+
+	switch(uri.type) {
+		case ParsedURITypeAbsoluteURI: {
+			path = &uri.data.uri.path;
+			break;
+		}
+		case ParsedURITypeAbsPath: {
+			path = &uri.data.path;
+			break;
+		}
+		case ParsedURITypeAsterisk:
+		case ParsedURITypeAuthority:
+		case ParsedURITypeError:
+		default: {
+			http_properties.type = HTTPPropertyTypeInvalid;
+
+			return http_properties;
+		}
+	}
+
+	if(path == NULL) {
+		http_properties.type = HTTPPropertyTypeInvalid;
+
+		return http_properties;
+	}
+
+	switch(http_request->head.request_line.method) {
+		case HTTPRequestMethodGet:
+		case HTTPRequestMethodPost:
+		case HTTPRequestMethodHead: {
+
+			http_properties.type = HTTPPropertyTypeNormal;
+			http_properties.data.normal = *path;
+
+			return http_properties;
+		}
+		case HTTPRequestMethodOptions: {
+			http_properties.type = HTTPPropertyTypeOptions;
+			http_properties.data.todo_options = 1;
+
+			return http_properties;
+		}
+		case HTTPRequestMethodConnect: {
+			http_properties.type = HTTPPropertyTypeConnect;
+			http_properties.data.todo_connect = 1;
+
+			return http_properties;
+		}
+		case HTTPRequestMethodInvalid:
+		default: {
+			http_properties.type = HTTPPropertyTypeInvalid;
+
+			return http_properties;
+		}
+	}
+}
+
 RequestSettings* get_request_settings(HttpRequest* http_request_generic) {
 
 	if(http_request_generic->type != HttpRequestTypeInternalV1) {
@@ -679,6 +752,7 @@ RequestSettings* get_request_settings(HttpRequest* http_request_generic) {
 	*request_settings = (RequestSettings){
 		.compression_settings = NULL,
 		.protocol_used = http_request->head.request_line.protocol_version,
+		.http_properties = { .type = HTTPPropertyTypeInvalid },
 	};
 
 	CompressionSettings* compression_settings =
@@ -690,6 +764,8 @@ RequestSettings* get_request_settings(HttpRequest* http_request_generic) {
 	}
 
 	request_settings->compression_settings = compression_settings;
+
+	request_settings->http_properties = get_http_properties(http_request_generic);
 
 	return request_settings;
 }
