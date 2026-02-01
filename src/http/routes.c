@@ -8,6 +8,8 @@
 
 ZVEC_IMPLEMENT_VEC_TYPE(HTTPRoute)
 
+ZVEC_IMPLEMENT_VEC_TYPE(HTTPFreeFn)
+
 struct RouteManagerImpl {
 	HTTPRoutes* routes;
 	const AuthenticationProviders* auth_providers;
@@ -268,7 +270,10 @@ HTTPRoutes* get_default_routes(void) {
 		return NULL;
 	}
 
-	*routes = ZVEC_EMPTY(HTTPRoute);
+	*routes = (HTTPRoutes){
+		.routes = ZVEC_EMPTY(HTTPRoute),
+		.free_fns = ZVEC_EMPTY(HTTPFreeFn),
+	};
 
 	{
 		// shutdown
@@ -287,7 +292,7 @@ HTTPRoutes* get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _ = ZVEC_PUSH(HTTPRoute, routes, shutdown);
+		auto _ = ZVEC_PUSH(HTTPRoute, &routes->routes, shutdown);
 		UNUSED(_);
 	}
 
@@ -311,7 +316,7 @@ HTTPRoutes* get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _ = ZVEC_PUSH(HTTPRoute, routes, index);
+		auto _ = ZVEC_PUSH(HTTPRoute, &routes->routes, index);
 		UNUSED(_);
 	}
 
@@ -331,7 +336,7 @@ HTTPRoutes* get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _ = ZVEC_PUSH(HTTPRoute, routes, ws_route);
+		auto _ = ZVEC_PUSH(HTTPRoute, &routes->routes, ws_route);
 		UNUSED(_);
 	}
 
@@ -355,7 +360,7 @@ HTTPRoutes* get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, &routes->routes, json);
 		UNUSED(_);
 	}
 
@@ -378,7 +383,7 @@ HTTPRoutes* get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, &routes->routes, json);
 		UNUSED(_);
 	}
 
@@ -400,7 +405,7 @@ HTTPRoutes* get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, &routes->routes, json);
 		UNUSED(_);
 	}
 
@@ -423,7 +428,7 @@ HTTPRoutes* get_default_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeSimple }
 		};
 
-		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, &routes->routes, json);
 		UNUSED(_);
 	}
 
@@ -437,7 +442,10 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 		return NULL;
 	}
 
-	*routes = ZVEC_EMPTY(HTTPRoute);
+	*routes = (HTTPRoutes){
+		.routes = ZVEC_EMPTY(HTTPRoute),
+		.free_fns = ZVEC_EMPTY(HTTPFreeFn),
+	};
 
 	{
 		// shutdown
@@ -456,7 +464,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _ = ZVEC_PUSH(HTTPRoute, routes, shutdown);
+		auto _ = ZVEC_PUSH(HTTPRoute, &routes->routes, shutdown);
 		UNUSED(_);
 	}
 
@@ -481,7 +489,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			return NULL;
 		}
 
-		HTTPRoute json = {
+		HTTPRoute serve_route = {
 			.method = HTTPRequestRouteMethodGet,
 			.path =
 			    (HTTPRoutePath){
@@ -497,8 +505,13 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _ = ZVEC_PUSH(HTTPRoute, routes, json);
+		auto _ = ZVEC_PUSH(HTTPRoute, &routes->routes, serve_route);
 		UNUSED(_);
+
+		HTTPFreeFn free_route = { .data = folder_path_resolved, .fn = free };
+
+		auto _1 = ZVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
+		UNUSED(_1);
 	}
 
 	return routes;
@@ -518,10 +531,23 @@ NODISCARD RouteManager* initialize_route_manager(HTTPRoutes* routes,
 	return route_manager;
 }
 
+static void free_routes(HTTPRoutes* routes) {
+
+	ZVEC_FREE(HTTPRoute, &routes->routes);
+
+	for(size_t i = 0; i < ZVEC_LENGTH(routes->free_fns); ++i) {
+		HTTPFreeFn free_fn = ZVEC_AT(HTTPFreeFn, routes->free_fns, i);
+		free_fn.fn(free_fn.data);
+	}
+
+	ZVEC_FREE(HTTPFreeFn, &routes->free_fns);
+
+	free(routes);
+}
+
 void free_route_manager(RouteManager* route_manager) {
 
-	ZVEC_FREE(HTTPRoute, route_manager->routes);
-	free(route_manager->routes);
+	free_routes(route_manager->routes);
 
 	free(route_manager);
 }
@@ -1017,8 +1043,8 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 
 	const Http1Request* http_request = request_generic->data.v1;
 
-	for(size_t i = 0; i < ZVEC_LENGTH(*(route_manager->routes)); ++i) {
-		HTTPRoute route = ZVEC_AT(HTTPRoute, *(route_manager->routes), i);
+	for(size_t i = 0; i < ZVEC_LENGTH(route_manager->routes->routes); ++i) {
+		HTTPRoute route = ZVEC_AT(HTTPRoute, route_manager->routes->routes, i);
 
 		if(is_matching(route.method, http_request->head.request_line.method)) {
 

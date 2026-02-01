@@ -326,14 +326,18 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 						case HTTPRouteSpecialDataTypeShutdown: {
 
 							HTTPResponseBody body;
+							HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
 							if(http_request->head.request_line.method == HTTPRequestMethodGet) {
 								body = http_response_body_from_static_string("Shutting Down");
 							} else if(http_request->head.request_line.method ==
 							          HTTPRequestMethodHead) {
 								body = http_response_body_empty();
+
+								add_http_header_field_by_double_str(&additional_headers,
+								                                    "x-shutdown\0true");
+
 							} else {
-								HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
 								char* allowed_header_buffer = NULL;
 								// all 405 have to have a Allow filed according to spec
@@ -369,7 +373,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								                           .body = body,
 								                           .mime_type = MIME_TYPE_TEXT,
 								                           .additional_headers =
-								                               ZVEC_EMPTY(HttpHeaderField) };
+								                               additional_headers };
 
 							result = send_http_message_to_connection_advanced(
 							    descriptor, to_send, send_settings, http_request->head);
@@ -710,6 +714,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 						}
 					}
 
+					free_serve_folder_result(serve_folder_result);
+
 					break;
 				}
 				default: {
@@ -1026,10 +1032,10 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		return EXIT_FAILURE;
 	}
 
-	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", ZVEC_LENGTH(*routes));
+	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", ZVEC_LENGTH(routes->routes));
 	if(log_should_log(LogLevelTrace)) {
-		for(size_t i = 0; i < ZVEC_LENGTH(*routes); ++i) {
-			HTTPRoute route = ZVEC_AT(HTTPRoute, *routes, i);
+		for(size_t i = 0; i < ZVEC_LENGTH(routes->routes); ++i) {
+			HTTPRoute route = ZVEC_AT(HTTPRoute, routes->routes, i);
 
 			LOG_MESSAGE(LogLevelTrace, "Route %zu:\n", i);
 

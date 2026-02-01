@@ -161,7 +161,23 @@ typedef struct {
 
 ZVEC_DEFINE_VEC_TYPE(HTTPRoute)
 
-typedef ZVEC_TYPENAME(HTTPRoute) HTTPRoutes;
+typedef ZVEC_TYPENAME(HTTPRoute) HTTPRoutesArray;
+
+typedef void (*FreeFnImpl)(void*);
+
+typedef struct {
+	void* data;
+	FreeFnImpl fn;
+} HTTPFreeFn;
+
+ZVEC_DEFINE_VEC_TYPE(HTTPFreeFn)
+
+typedef ZVEC_TYPENAME(HTTPFreeFn) HTTPFreeFns;
+
+typedef struct {
+	HTTPRoutesArray routes;
+	HTTPFreeFns free_fns;
+} HTTPRoutes;
 
 NODISCARD HTTPRoutes* get_default_routes(void);
 
