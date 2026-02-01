@@ -3,14 +3,14 @@
 
 ZMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
 
-NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
+NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(char* const path) {
 	// precodnition:  path is not NULL and len is > 1
 
-	const char* search_path = strchr(path, '?');
+	char* search_path = strchr(path, '?');
 
 	ParsedURLPath result = { .search_path = {
 		                         .hash_map = ZMAP_INIT(ParsedSearchPathHashMap),
-		                     } };
+		                     } ,.fragment = NULL};
 
 	if(search_path == NULL) {
 		result.path = strdup(path);
@@ -23,6 +23,14 @@ NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 	result.path = strdup(path);
 
 	char* search_params = search_path + 1;
+
+	char* fragment_part = strchr(search_params, '#');
+
+	if(fragment_part != NULL) {
+		*fragment_part = '\0';
+
+		result.fragment = strdup(fragment_part + 1);
+	}
 
 	if(strlen(search_params) == 0) {
 		return result;
@@ -81,12 +89,23 @@ NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
 	return result;
 }
 
-NODISCARD static UserInfo parse_user_info(const char* userinfo) {
+NODISCARD static UserInfo parse_user_info(char* const userinfo) {
+
+	UserInfo result = { .username = NULL, .password = NULL };
 
 	char* password_part = strchr(userinfo, ':');
 
-	if(password_part == NULL) {
+	if(password_part != NULL) {
+		*password_part = '\0';
+
+		char* password_str = password_part + 1;
+
+		result.password = strdup(password_str);
 	}
+
+	result.username = strdup(userinfo);
+
+	return result;
 }
 
 NODISCARD static char* find_authority_end(char* const str) {

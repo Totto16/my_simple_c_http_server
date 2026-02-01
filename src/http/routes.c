@@ -1000,7 +1000,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 NODISCARD SelectedRoute*
 route_manager_get_route_for_request(const RouteManager* const route_manager,
-                                    const HttpRequest* const request_generic) {
+                                    HttpRequestProperties http_properties) {
 
 	if(request_generic->type != HttpRequestTypeInternalV1) {
 		return NULL;

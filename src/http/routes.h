@@ -81,7 +81,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	// "<YOUR_FOLDER>/hello/test.txt"
 
 	// see also root vs alias in NGINX, if you serve from "/" it doesn't make any difference
-	// see: https://stackoverflow.com/questions/10631933/nginx-static-file-serving-confusion-with-root-alias
+	// see:
+	// https://stackoverflow.com/questions/10631933/nginx-static-file-serving-confusion-with-root-alias
 } HTTPRouteServeFolderType;
 
 typedef struct {
@@ -175,8 +176,17 @@ typedef struct SelectedRouteImpl SelectedRoute;
 
 void free_selected_route(SelectedRoute* selected_route);
 
+typedef struct {
+	HTTPRequestMethod method;
+	union {
+		ParsedURLPath normal;
+		int todo_options;
+		int todo_connect;
+	} data;
+} HttpRequestProperties;
+
 NODISCARD SelectedRoute* route_manager_get_route_for_request(const RouteManager* route_manager,
-                                                             const HttpRequest* request);
+                                                             HttpRequestProperties http_properties);
 
 NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* route);
 
