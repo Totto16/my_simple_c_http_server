@@ -1,6 +1,8 @@
 
 #include "./uri.h"
 
+#include "utils/string_builder.h"
+
 ZMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
 
 NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(char* const path) {
@@ -406,6 +408,114 @@ void free_parsed_request_uri(ParsedRequestURI uri) {
 		}
 		default: {
 			break;
+		}
+	}
+}
+
+NODISCARD char* get_parsed_url_as_string(ParsedURLPath path) {
+
+	// TODO: support escape codes!
+
+	StringBuilder* string_builder = string_builder_init();
+
+	string_builder_append_single(string_builder, path.path);
+
+	if(!ZMAP_IS_EMPTY(path.search_path.hash_map)) {
+
+		string_builder_append_single(string_builder, "?");
+
+		size_t search_path_total_length = ZMAP_CAPACITY(path.search_path.hash_map);
+
+		size_t added = 0;
+
+		for(size_t i = 0; i < search_path_total_length; ++i) {
+
+			const ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
+			    ZMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &path.search_path.hash_map, i);
+
+			if(hm_entry == NULL || hm_entry == ZMAP_NO_ELEMENT_HERE) {
+				continue;
+			}
+
+			if(added > 0) {
+				string_builder_append_single(string_builder, "&");
+			}
+
+			++added;
+
+			string_builder_append_single(string_builder, hm_entry->key);
+
+			if(hm_entry->value.value != NULL && strlen(hm_entry->value.value) != 0) {
+				string_builder_append_single(string_builder, "=");
+
+				string_builder_append_single(string_builder, hm_entry->value.value);
+			}
+		}
+	}
+
+	return string_builder_release_into_string(&string_builder);
+}
+
+NODISCARD char* get_parsed_authority_as_string(ParsedAuthority authority) {
+
+	StringBuilder* string_builder = string_builder_init();
+
+	if(authority.user_info.username != NULL) {
+		string_builder_append_single(string_builder, authority.user_info.username);
+		if(authority.user_info.password != NULL) {
+			string_builder_append_single(string_builder, ":");
+			string_builder_append_single(string_builder, authority.user_info.password);
+		}
+		string_builder_append_single(string_builder, "@");
+	}
+
+	string_builder_append_single(string_builder, authority.host);
+
+	if(authority.port != 0) {
+		STRING_BUILDER_APPENDF(string_builder, return NULL;, ":%u", authority.port);
+	}
+
+	return string_builder_release_into_string(&string_builder);
+}
+
+NODISCARD char* get_uri_as_string(ParsedURI uri) {
+	StringBuilder* string_builder = string_builder_init();
+
+	string_builder_append_single(string_builder, uri.scheme);
+
+	string_builder_append_single(string_builder, "://");
+
+	if(uri.authority.host != NULL) {
+		char* authority_str = get_parsed_authority_as_string(uri.authority);
+		string_builder_append_single(string_builder, authority_str);
+		free(authority_str);
+	}
+
+	char* path_str = get_parsed_url_as_string(uri.path);
+	string_builder_append_single(string_builder, path_str);
+	free(path_str);
+
+	return string_builder_release_into_string(&string_builder);
+}
+
+NODISCARD char* get_request_uri_as_string(ParsedRequestURI uri) {
+
+	switch(uri.type) {
+		case ParsedURITypeAsterisk: {
+			return strdup("*");
+		}
+		case ParsedURITypeAbsoluteURI: {
+			return get_uri_as_string(uri.data.uri);
+		}
+		case ParsedURITypeAbsPath: {
+			return get_parsed_url_as_string(uri.data.path);
+		}
+		case ParsedURITypeAuthority: {
+			return get_parsed_authority_as_string(uri.data.authority);
+		}
+		case ParsedURITypeError:
+		default: {
+			return NULL;
 		}
 	}
 }

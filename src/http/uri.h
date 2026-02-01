@@ -75,3 +75,11 @@ typedef struct {
 NODISCARD ParsedRequestURI get_parsed_request_uri_from_raw(char* path);
 
 void free_parsed_request_uri(ParsedRequestURI uri);
+
+NODISCARD char* get_parsed_url_as_string(ParsedURLPath path);
+
+NODISCARD char* get_parsed_authority_as_string(ParsedAuthority authority);
+
+NODISCARD char* get_uri_as_string(ParsedURI uri);
+
+NODISCARD char* get_request_uri_as_string(ParsedRequestURI uri);

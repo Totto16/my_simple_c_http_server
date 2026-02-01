@@ -114,8 +114,6 @@ typedef struct {
 
 NODISCARD const char* get_http_method_string(HTTPRequestMethod method);
 
-NODISCARD char* get_http_url_path_string(ParsedURLPath path);
-
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version);
 
 typedef struct {

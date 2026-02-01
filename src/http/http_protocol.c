@@ -67,50 +67,6 @@ NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 	}
 }
 
-NODISCARD char* get_http_url_path_string(ParsedURLPath path) {
-
-	// TODO: support escape codes!
-
-	StringBuilder* string_builder = string_builder_init();
-
-	string_builder_append_single(string_builder, path.path);
-
-	if(!ZMAP_IS_EMPTY(path.search_path.hash_map)) {
-
-		string_builder_append_single(string_builder, "?");
-
-		size_t search_path_total_length = ZMAP_CAPACITY(path.search_path.hash_map);
-
-		size_t added = 0;
-
-		for(size_t i = 0; i < search_path_total_length; ++i) {
-
-			const ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
-			    ZMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &path.search_path.hash_map, i);
-
-			if(hm_entry == NULL || hm_entry == ZMAP_NO_ELEMENT_HERE) {
-				continue;
-			}
-
-			if(added > 0) {
-				string_builder_append_single(string_builder, "&");
-			}
-
-			++added;
-
-			string_builder_append_single(string_builder, hm_entry->key);
-
-			if(hm_entry->value.value != NULL && strlen(hm_entry->value.value) != 0) {
-				string_builder_append_single(string_builder, "=");
-
-				string_builder_append_single(string_builder, hm_entry->value.value);
-			}
-		}
-	}
-
-	return string_builder_release_into_string(&string_builder);
-}
-
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version) {
 
 	switch(protocol_version) {
@@ -138,7 +94,7 @@ get_request_line_from_raw(const char* method, // NOLINT(bugprone-easily-swappabl
 }
 
 static void free_http_request_line(HttpRequestLine line) {
-	free_parsed_uri(line.uri);
+	free_parsed_request_uri(line.uri);
 }
 
 static void free_request_head(HttpRequestHead head) {
@@ -191,7 +147,7 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request_g
 	StringBuilder* result = string_builder_init();
 
 	const char* method = get_http_method_string(request->head.request_line.method);
-	char* path = get_http_uri_string(request->head.request_line.path);
+	char* request_uri = get_request_uri_as_string(request->head.request_line.uri);
 	const char* protocol_version =
 	    get_http_protocol_version_string(request->head.request_line.protocol_version);
 
@@ -201,8 +157,8 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request_g
 	string_builder_append_single(result, method);
 	string_builder_append_single(result, "\n");
 
-	STRING_BUILDER_APPENDF(result, return NULL;, "\tPath: %s\n", path);
-	free(path);
+	STRING_BUILDER_APPENDF(result, return NULL;, "\tRequestURI: %s\n", request_uri);
+	free(request_uri);
 
 	string_builder_append_single(result, "\tProtocolVersion:");
 	string_builder_append_single(result, protocol_version);
@@ -961,7 +917,6 @@ StringBuilder* http_request_to_json(const HttpRequest* const request_generic, bo
 	StringBuilder* body = string_builder_init();
 
 	const char* method = get_http_method_string(request->head.request_line.method);
-	char* path = get_http_url_path_string(request->head.request_line.path);
 	const char* protocol_version =
 	    get_http_protocol_version_string(request->head.request_line.protocol_version);
 
@@ -969,10 +924,72 @@ StringBuilder* http_request_to_json(const HttpRequest* const request_generic, bo
 	string_builder_append_single(body, method);
 	string_builder_append_single(body, "\",");
 
-	STRING_BUILDER_APPENDF(body, return NULL;, "\"path\": \"%s\",", path);
-	free(path);
+	string_builder_append_single(body, "\"request_uri\": {");
 
-	string_builder_append_single(body, "\"protocol_version\":\"");
+	{
+
+		const ParsedRequestURI request_uri = request->head.request_line.uri;
+
+		// TODO. factor out some things, like e.g. NULL means not present, port == 0 means default
+		// etc
+		switch(request_uri.type) {
+			case ParsedURITypeAsterisk: {
+				string_builder_append_single(body, "\"type\": \"asterisk\"");
+				break;
+			}
+			case ParsedURITypeAbsoluteURI: {
+				const ParsedURI uri = request_uri.data.uri;
+				const ParsedAuthority authority = uri.authority;
+
+				char* path_str = get_parsed_url_as_string(uri.path);
+				char* uri_str = get_uri_as_string(uri);
+
+				STRING_BUILDER_APPENDF(
+				    body, return NULL;,
+				                      "\"type\": \"uri\", \"data\": { \"path\": { \"str_form\": "
+				                      "\"%s\"  } , \"uri_str\":\"%s\"  , \"scheme\":\"%s\" , "
+				                      "\"authority\": { \"user\": { \"name\": "
+				                      "\"%s\",\"password\": \"%s\" }, \"host\": "
+				                      "\"%s\", \"port\": "
+				                      "\"%u\"  }}",
+				                      path_str, uri_str, uri.scheme, authority.user_info.username,
+				                      authority.user_info.password, authority.host, authority.port);
+
+				free(path_str);
+				free(uri_str);
+				break;
+			}
+			case ParsedURITypeAbsPath: {
+				char* path_str = get_parsed_url_as_string(request_uri.data.path);
+
+				STRING_BUILDER_APPENDF(body, return NULL;
+				                       , "\"type\": \"path\", \"data\": { \"str_form\": \"%s\"  }",
+				                       path_str);
+
+				free(path_str);
+				break;
+			}
+			case ParsedURITypeAuthority: {
+				const ParsedAuthority authority = request_uri.data.authority;
+
+				STRING_BUILDER_APPENDF(body, return NULL;
+				                       ,
+				                       "\"type\": \"authority\", \"data\": { \"user\": { \"name\": "
+				                       "\"%s\",\"password\": \"%s\" }, \"host\": "
+				                       "\"%s\", \"port\": "
+				                       "\"%u\"  }",
+				                       authority.user_info.username, authority.user_info.password,
+				                       authority.host, authority.port);
+				break;
+			}
+			case ParsedURITypeError:
+			default: {
+				return NULL;
+			}
+		}
+	}
+
+	string_builder_append_single(body, "}, \"protocol_version\":\"");
 	string_builder_append_single(body, protocol_version);
 	string_builder_append_single(body, "\",");
 
@@ -1019,7 +1036,7 @@ StringBuilder* http_request_to_html(const HttpRequest* const request_generic, bo
 	StringBuilder* body = string_builder_init();
 
 	const char* method = get_http_method_string(request->head.request_line.method);
-	char* path = get_http_url_path_string(request->head.request_line.path);
+	char* request_uri = get_request_uri_as_string(request->head.request_line.uri);
 	const char* protocol_version =
 	    get_http_protocol_version_string(request->head.request_line.protocol_version);
 
@@ -1029,8 +1046,8 @@ StringBuilder* http_request_to_html(const HttpRequest* const request_generic, bo
 	string_builder_append_single(body, method);
 	string_builder_append_single(body, "</div>");
 
-	STRING_BUILDER_APPENDF(body, return NULL;, "<div>Path: %s</div>", path);
-	free(path);
+	STRING_BUILDER_APPENDF(body, return NULL;, "<div>RequestURI: %s</div>", request_uri);
+	free(request_uri);
 
 	string_builder_append_single(body, "<div>ProtocolVersion:");
 	string_builder_append_single(body, protocol_version);
