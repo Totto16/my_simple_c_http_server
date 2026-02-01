@@ -324,14 +324,52 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 					switch(route_data.data.special.type) {
 						case HTTPRouteSpecialDataTypeShutdown: {
+
+							HTTPResponseBody body;
+
+							if(http_request->head.request_line.method == HTTPRequestMethodGet) {
+								body = http_response_body_from_static_string("Shutting Down");
+							} else if(http_request->head.request_line.method ==
+							          HTTPRequestMethodHead) {
+								body = http_response_body_empty();
+							} else {
+								HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+								char* allowed_header_buffer = NULL;
+								// all 405 have to have a Allow filed according to spec
+								FORMAT_STRING(
+								    &allowed_header_buffer,
+								    {
+									    ZVEC_FREE(HttpHeaderField, &additional_headers);
+									    FREE_AT_END();
+									    return JOB_ERROR_STRING_FORMAT;
+								    },
+								    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET, HEAD");
+
+								add_http_header_field_by_double_str(&additional_headers,
+								                                    allowed_header_buffer);
+
+								HTTPResponseToSend to_send = {
+									.status = HttpStatusMethodNotAllowed,
+									.body = http_response_body_from_static_string(
+									    "Only GET and HEAD supported to this URL"),
+									.mime_type = MIME_TYPE_TEXT,
+									.additional_headers = additional_headers
+								};
+
+								result = send_http_message_to_connection_advanced(
+								    descriptor, to_send, send_settings, http_request->head);
+
+								break;
+							}
+
 							LOG_MESSAGE_SIMPLE(LogLevelInfo, "Shutdown requested!\n");
 
-							HTTPResponseToSend to_send = {
-								.status = HttpStatusOk,
-								.body = http_response_body_from_static_string("Shutting Down"),
-								.mime_type = MIME_TYPE_TEXT,
-								.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-							};
+							HTTPResponseToSend to_send = { .status = HttpStatusOk,
+								                           .body = body,
+								                           .mime_type = MIME_TYPE_TEXT,
+								                           .additional_headers =
+								                               ZVEC_EMPTY(HttpHeaderField) };
 
 							result = send_http_message_to_connection_advanced(
 							    descriptor, to_send, send_settings, http_request->head);
@@ -349,6 +387,37 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 							break;
 						}
 						case HTTPRouteSpecialDataTypeWs: {
+
+							if(http_request->head.request_line.method != HTTPRequestMethodGet) {
+								HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+								char* allowed_header_buffer = NULL;
+								// all 405 have to have a Allow filed according to spec
+								FORMAT_STRING(
+								    &allowed_header_buffer,
+								    {
+									    ZVEC_FREE(HttpHeaderField, &additional_headers);
+									    FREE_AT_END();
+									    return JOB_ERROR_STRING_FORMAT;
+								    },
+								    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET");
+
+								add_http_header_field_by_double_str(&additional_headers,
+								                                    allowed_header_buffer);
+
+								HTTPResponseToSend to_send = {
+									.status = HttpStatusMethodNotAllowed,
+									.body = http_response_body_from_static_string(
+									    "Only GET supported to this URL"),
+									.mime_type = MIME_TYPE_TEXT,
+									.additional_headers = additional_headers
+								};
+
+								result = send_http_message_to_connection_advanced(
+								    descriptor, to_send, send_settings, http_request->head);
+
+								break;
+							}
 
 							WSExtensions extensions = ZVEC_EMPTY(WSExtension);
 
@@ -538,13 +607,18 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								}
 							}
 
-							HTTPResponseToSend to_send = {
-								.status = HttpStatusOk,
-								.body = http_response_body_from_data(file.file_content.data,
-								                                     file.file_content.size),
-								.mime_type = file.mime_type,
-								.additional_headers = additional_headers
-							};
+							HTTPResponseBody body = http_response_body_from_data(
+							    file.file_content.data, file.file_content.size);
+
+							if(http_request->head.request_line.method == HTTPRequestMethodHead) {
+								body.send_body_data = false;
+							}
+
+							HTTPResponseToSend to_send = { .status = HttpStatusOk,
+								                           .body = body,
+								                           .mime_type = file.mime_type,
+								                           .additional_headers =
+								                               additional_headers };
 
 							// TODO: files on nginx send also this:
 							//  we also need to accapt range request (detect the header field),
@@ -602,13 +676,19 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								                                         send_settings);
 							} else {
 
-								HTTPResponseToSend to_send = {
-									.status = HttpStatusOk,
-									.body = http_response_body_from_string_builder(
-									    &html_string_builder),
-									.mime_type = MIME_TYPE_HTML,
-									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-								};
+								HTTPResponseBody body =
+								    http_response_body_from_string_builder(&html_string_builder);
+
+								if(http_request->head.request_line.method ==
+								   HTTPRequestMethodHead) {
+									body.send_body_data = false;
+								}
+
+								HTTPResponseToSend to_send = { .status = HttpStatusOk,
+									                           .body = body,
+									                           .mime_type = MIME_TYPE_HTML,
+									                           .additional_headers =
+									                               ZVEC_EMPTY(HttpHeaderField) };
 
 								result = send_http_message_to_connection(descriptor, to_send,
 								                                         send_settings);
