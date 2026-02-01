@@ -835,7 +835,7 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 
 NODISCARD static HttpAuthStatus
 handle_http_authorization(const AuthenticationProviders* auth_providers,
-                          const HttpRequest* const request, HTTPAuthorization auth) {
+                          const HttpRequest* const request_generic, HTTPAuthorization auth) {
 
 	switch(auth.type) {
 		case HTTPAuthorizationTypeNone: {
@@ -844,10 +844,11 @@ handle_http_authorization(const AuthenticationProviders* auth_providers,
 				                 .data = { .error = { .error_message = "Implementation error" } } };
 		}
 		case HTTPAuthorizationTypeSimple: {
-			return handle_http_authorization_impl(auth_providers, request, NULL);
+			return handle_http_authorization_impl(auth_providers, request_generic, NULL);
 		}
 		case HTTPAuthorizationTypeComplicated: {
-			return handle_http_authorization_impl(auth_providers, request, &auth.data.complicated);
+			return handle_http_authorization_impl(auth_providers, request_generic,
+			                                      &auth.data.complicated);
 		}
 		default: {
 			return (
@@ -863,14 +864,18 @@ handle_http_authorization(const AuthenticationProviders* auth_providers,
 // {"header":"Authorization", "key":"Basic dGVzdDE6dGVzdDI="}
 
 NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const route_manager,
+                                                      HttpRequestProperties http_properties,
                                                       const HttpRequest* const request_generic,
                                                       HTTPRoute route) {
 
-	if(request_generic->type != HttpRequestTypeInternalV1) {
+	// note: !(a == c || a == b) is faster than inlining the !
+	if(!(http_properties.method == HTTPRequestMethodGet ||
+	     http_properties.method == HTTPRequestMethodHead ||
+	     http_properties.method == HTTPRequestMethodPost)) {
 		return NULL;
 	}
 
-	const Http1Request* request = request_generic->data.v1;
+	const ParsedURLPath normal_data = http_properties.data.normal;
 
 	AuthUserWithContext* auth_user = NULL;
 
@@ -917,8 +922,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 					                         .data = { .internal = { .send = to_send } } };
-				return selected_route_from_data(route_data, route.path.data,
-				                                request->head.request_line.path, auth_user);
+				return selected_route_from_data(route_data, route.path.data, normal_data,
+				                                auth_user);
 			}
 			case HttpAuthStatusTypeAuthorized: {
 				auth_user = malloc(sizeof(AuthUserWithContext));
@@ -933,8 +938,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 						                         .data = { .internal = { .send = to_send } } };
-					return selected_route_from_data(route_data, route.path.data,
-					                                request->head.request_line.path, auth_user);
+					return selected_route_from_data(route_data, route.path.data, normal_data,
+					                                auth_user);
 				}
 
 				auth_user->user = auth_status.data.authorized.user;
@@ -956,8 +961,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 					                         .data = { .internal = { .send = to_send } } };
-				return selected_route_from_data(route_data, route.path.data,
-				                                request->head.request_line.path, auth_user);
+				return selected_route_from_data(route_data, route.path.data, normal_data,
+				                                auth_user);
 			}
 			case HttpAuthStatusTypeError: {
 				LOG_MESSAGE(LogLevelError,
@@ -974,8 +979,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 					                         .data = { .internal = { .send = to_send } } };
-				return selected_route_from_data(route_data, route.path.data,
-				                                request->head.request_line.path, auth_user);
+				return selected_route_from_data(route_data, route.path.data, normal_data,
+				                                auth_user);
 			}
 			default: {
 				HTTPResponseToSend to_send = {
@@ -988,33 +993,38 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 					                         .data = { .internal = { .send = to_send } } };
-				return selected_route_from_data(route_data, route.path.data,
-				                                request->head.request_line.path, auth_user);
+				return selected_route_from_data(route_data, route.path.data, normal_data,
+				                                auth_user);
 			}
 		}
 	}
 
 	return selected_route_from_data( // NOLINT(clang-analyzer-unix.Malloc)
-	    route.data, route.path.data, request->head.request_line.path, auth_user);
+	    route.data, route.path.data, normal_data, auth_user);
 }
 
 NODISCARD SelectedRoute*
 route_manager_get_route_for_request(const RouteManager* const route_manager,
-                                    HttpRequestProperties http_properties) {
+                                    HttpRequestProperties http_properties,
+                                    const HttpRequest* request_generic) {
 
-	if(request_generic->type != HttpRequestTypeInternalV1) {
+	// note: !(a == c || a == b) is faster than inlining the !
+	if(!(http_properties.method == HTTPRequestMethodGet ||
+	     http_properties.method == HTTPRequestMethodHead ||
+	     http_properties.method == HTTPRequestMethodPost)) {
 		return NULL;
 	}
 
-	const Http1Request* request = request_generic->data.v1;
+	const ParsedURLPath normal_data = http_properties.data.normal;
 
 	for(size_t i = 0; i < ZVEC_LENGTH(*(route_manager->routes)); ++i) {
 		HTTPRoute route = ZVEC_AT(HTTPRoute, *(route_manager->routes), i);
 
-		if(is_matching(route.method, request->head.request_line.method)) {
+		if(is_matching(route.method, http_properties.method)) {
 
-			if(is_route_matching(route.path, request->head.request_line.path.path)) {
-				return process_matched_route(route_manager, request_generic, route);
+			if(is_route_matching(route.path, normal_data.path)) {
+				return process_matched_route(route_manager, http_properties, request_generic,
+				                             route);
 			}
 		}
 	}

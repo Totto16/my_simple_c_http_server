@@ -179,14 +179,15 @@ void free_selected_route(SelectedRoute* selected_route);
 typedef struct {
 	HTTPRequestMethod method;
 	union {
-		ParsedURLPath normal;
+		ParsedURLPath normal; // POST | GET | HEAD
 		int todo_options;
 		int todo_connect;
 	} data;
 } HttpRequestProperties;
 
 NODISCARD SelectedRoute* route_manager_get_route_for_request(const RouteManager* route_manager,
-                                                             HttpRequestProperties http_properties);
+                                                             HttpRequestProperties http_properties,
+                                                             const HttpRequest* request_generic);
 
 NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* route);
 

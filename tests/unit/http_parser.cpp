@@ -261,7 +261,15 @@ struct ParsedURLWrapper {
 		m_request = nullptr;
 	}
 
-	[[nodiscard]] const ParsedURLPath& path() const { return m_request->head.request_line.path; }
+	[[nodiscard]] const ParsedURLPath* path() const {
+		auto uri = m_request->head.request_line.uri;
+		if(uri.type == ParsedURITypeAbsoluteURI) {
+			return &(m_request->head.request_line.uri.data.uri.path);
+		} else if(uri.type == ParsedURITypeAbsPath) {
+			return &(m_request->head.request_line.uri.data.path);
+		}
+		throw std::runtime_error("invalid parse url result: " + std::to_string(uri.type));
+	}
 };
 
 std::unique_ptr<ParsedURLWrapper> parse_http1_request_path(const char* value) {
@@ -300,11 +308,11 @@ TEST_CASE("testing the parsing of the http request") {
 
 			const auto& path = parsed_path->path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = std::string{ path->path };
 
 			REQUIRE_EQ(path_comp, "/");
 
-			REQUIRE_EQ(ZMAP_SIZE(path.search_path.hash_map), 0);
+			REQUIRE_EQ(ZMAP_SIZE(path->search_path.hash_map), 0);
 		}
 
 		SUBCASE("real path url") {
@@ -315,11 +323,11 @@ TEST_CASE("testing the parsing of the http request") {
 
 			const auto& path = parsed_path->path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = std::string{ path->path };
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
-			REQUIRE_EQ(ZMAP_SIZE(path.search_path.hash_map), 0);
+			REQUIRE_EQ(ZMAP_SIZE(path->search_path.hash_map), 0);
 		}
 
 		SUBCASE("path url with search parameters") {
@@ -330,11 +338,67 @@ TEST_CASE("testing the parsing of the http request") {
 
 			const auto& path = parsed_path->path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = std::string{ path->path };
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
-			const ParsedSearchPath search_path = path.search_path;
+			const ParsedSearchPath search_path = path->search_path;
+
+			REQUIRE_EQ(ZMAP_SIZE(search_path.hash_map), 3);
+
+			{
+
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1");
+
+				REQUIRE_NE(entry, nullptr);
+
+				REQUIRE_EQ(std::string{ entry->key }, "param1");
+
+				REQUIRE_EQ(std::string{ entry->value.value }, "hello");
+			}
+
+			{
+
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2");
+
+				REQUIRE_NE(entry, nullptr);
+
+				REQUIRE_EQ(std::string{ entry->key }, "param2");
+
+				REQUIRE_EQ(std::string{ entry->value.value }, "");
+			}
+
+			{
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3");
+
+				REQUIRE_NE(entry, nullptr);
+
+				REQUIRE_EQ(std::string{ entry->key }, "param3");
+
+				REQUIRE_EQ(std::string{ entry->value.value }, "");
+			}
+
+			{
+
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4");
+
+				REQUIRE_EQ(entry, nullptr);
+			}
+		}
+
+		SUBCASE("path url with search parameters") {
+
+			auto parsed_path = parse_http1_request_path("/test/hello?param1=hello&param2&param3=");
+
+			REQUIRE_NE(parsed_path, nullptr);
+
+			const auto& path = parsed_path->path();
+
+			const auto path_comp = std::string{ path->path };
+
+			REQUIRE_EQ(path_comp, "/test/hello");
+
+			const ParsedSearchPath search_path = path->search_path;
 
 			REQUIRE_EQ(ZMAP_SIZE(search_path.hash_map), 3);
 

@@ -45,10 +45,11 @@ typedef struct {
 	} data;
 } ServeFolderResult;
 
-NODISCARD ServeFolderResult* get_serve_folder_content(const HttpRequest* http_request_generic,
+NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http_properties,
                                                       HTTPRouteServeFolder data,
                                                       HTTPSelectedRoute selected_route_data);
 
 void free_serve_folder_result(ServeFolderResult* serve_folder_result);
 
-NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_info, const char* folder_path);
+NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_info,
+                                                const char* folder_path);

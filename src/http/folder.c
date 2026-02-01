@@ -417,7 +417,7 @@ NODISCARD static bool is_the_same_path(const char* path1, const char* path2) {
 	return false;
 }
 
-NODISCARD ServeFolderResult* get_serve_folder_content(const HttpRequest* http_request_generic,
+NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http_properties,
                                                       HTTPRouteServeFolder data,
                                                       HTTPSelectedRoute selected_route_data) {
 
@@ -434,15 +434,16 @@ NODISCARD ServeFolderResult* get_serve_folder_content(const HttpRequest* http_re
 		return result;
 	}
 
-	if(http_request_generic->type != HttpRequestTypeInternalV1) {
+	// note: !(a == c || a == b) is faster than inlining the !
+	if(!(http_properties.method == HTTPRequestMethodGet ||
+	     http_properties.method == HTTPRequestMethodHead)) {
 		result->type = ServeFolderResultTypeServerError;
 		return result;
 	}
 
-	const Http1Request* http_request = http_request_generic->data.v1;
+	const ParsedURLPath normal_data = http_properties.data.normal;
 
-	char* final_path = get_final_file_path(data, selected_route_data.original_path,
-	                                       http_request->head.request_line.path);
+	char* final_path = get_final_file_path(data, selected_route_data.original_path, normal_data);
 
 	if(final_path == NULL) {
 		result->type = ServeFolderResultTypeServerError;
@@ -531,7 +532,7 @@ NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
 
 	// TODO: better format it, add link / a for folder or file, better format date!
 
-	const auto time_in_ms = get_time_in_milli_seconds((Time){ entry.date });
+	const uint64_t time_in_ms = get_time_in_milli_seconds((Time){ entry.date });
 
 	const char* dir_delim = "";
 
