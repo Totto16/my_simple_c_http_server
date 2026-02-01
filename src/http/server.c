@@ -79,6 +79,8 @@ static void receive_signal(int signal_number) {
 	g_signal_received = signal_number;
 }
 
+#define SUPPORTED_HTTP_METHODS "GET, POST, HEAD, OPTIONS, CONNECT"
+
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
@@ -244,19 +246,46 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 				case HTTPRequestMethodOptions: {
 					HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
-					char* allowed_header_buffer = NULL;
-					// all 405 have to have a Allow filed according to spec
-					FORMAT_STRING(
-					    &allowed_header_buffer,
-					    {
-						    ZVEC_FREE(HttpHeaderField, &additional_headers);
-						    FREE_AT_END();
-						    return JOB_ERROR_STRING_FORMAT;
-					    },
-					    "%s%c%s", HTTP_HEADER_NAME(allow), '\0',
-					    "GET, POST, HEAD, OPTIONS, CONNECT");
+					{
 
-					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
+						char* allowed_header_buffer = NULL;
+						// all 405 have to have a Allow filed according to spec
+						FORMAT_STRING(
+						    &allowed_header_buffer,
+						    {
+							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    FREE_AT_END();
+							    return JOB_ERROR_STRING_FORMAT;
+						    },
+						    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
+
+						add_http_header_field_by_double_str(&additional_headers,
+						                                    allowed_header_buffer);
+
+						Time now;
+
+						bool success = get_current_time(&now);
+
+						if(success) {
+							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+							if(date_str != NULL) {
+
+								char* date_buffer = NULL;
+								FORMAT_STRING(
+								    &date_buffer,
+								    {
+									    ZVEC_FREE(HttpHeaderField, &additional_headers);
+									    return NULL;
+								    },
+								    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+								add_http_header_field_by_double_str(&additional_headers,
+								                                    date_buffer);
+
+								free(date_str);
+							}
+						}
+					}
 
 					HTTPResponseToSend to_send = { .status = HttpStatusOk,
 						                           .body = http_response_body_empty(),
@@ -270,19 +299,46 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 				case HTTPRequestMethodConnect: {
 					HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
-					char* allowed_header_buffer = NULL;
-					// all 405 have to have a Allow filed according to spec
-					FORMAT_STRING(
-					    &allowed_header_buffer,
-					    {
-						    ZVEC_FREE(HttpHeaderField, &additional_headers);
-						    FREE_AT_END();
-						    return JOB_ERROR_STRING_FORMAT;
-					    },
-					    "%s%c%s", HTTP_HEADER_NAME(allow), '\0',
-					    "GET, POST, HEAD, OPTIONS, CONNECT");
+					{
 
-					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
+						char* allowed_header_buffer = NULL;
+						// all 405 have to have a Allow filed according to spec
+						FORMAT_STRING(
+						    &allowed_header_buffer,
+						    {
+							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    FREE_AT_END();
+							    return JOB_ERROR_STRING_FORMAT;
+						    },
+						    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
+
+						add_http_header_field_by_double_str(&additional_headers,
+						                                    allowed_header_buffer);
+
+						Time now;
+
+						bool success = get_current_time(&now);
+
+						if(success) {
+							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+							if(date_str != NULL) {
+
+								char* date_buffer = NULL;
+								FORMAT_STRING(
+								    &date_buffer,
+								    {
+									    ZVEC_FREE(HttpHeaderField, &additional_headers);
+									    return NULL;
+								    },
+								    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+								add_http_header_field_by_double_str(&additional_headers,
+								                                    date_buffer);
+
+								free(date_str);
+							}
+						}
+					}
 
 					HTTPResponseToSend to_send = { .status = HttpStatusOk,
 						                           .body = http_response_body_empty(),
@@ -763,26 +819,51 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 		HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
-		char* allowed_header_buffer = NULL;
-		// all 405 have to have a Allow filed according to spec
-		FORMAT_STRING(
-		    &allowed_header_buffer,
-		    {
-			    ZVEC_FREE(HttpHeaderField, &additional_headers);
-			    FREE_AT_END();
-			    return JOB_ERROR_STRING_FORMAT;
-		    },
-		    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET, POST, HEAD, OPTIONS");
+		{
 
-		add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
+			char* allowed_header_buffer = NULL;
+			// all 405 have to have a Allow filed according to spec
+			FORMAT_STRING(
+			    &allowed_header_buffer,
+			    {
+				    ZVEC_FREE(HttpHeaderField, &additional_headers);
+				    FREE_AT_END();
+				    return JOB_ERROR_STRING_FORMAT;
+			    },
+			    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
 
-		HTTPResponseToSend to_send = {
-			.status = HttpStatusMethodNotAllowed,
-			.body = http_response_body_from_static_string(
-			    "This primitive HTTP Server only supports GET, POST, HEAD and OPTIONS requests"),
-			.mime_type = MIME_TYPE_TEXT,
-			.additional_headers = additional_headers
-		};
+			add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
+
+			Time now;
+
+			bool success = get_current_time(&now);
+
+			if(success) {
+				char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+				if(date_str != NULL) {
+
+					char* date_buffer = NULL;
+					FORMAT_STRING(
+					    &date_buffer,
+					    {
+						    ZVEC_FREE(HttpHeaderField, &additional_headers);
+						    return NULL;
+					    },
+					    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+					add_http_header_field_by_double_str(&additional_headers, date_buffer);
+
+					free(date_str);
+				}
+			}
+		}
+
+		HTTPResponseToSend to_send = { .status = HttpStatusMethodNotAllowed,
+			                           .body = http_response_body_from_static_string(
+			                               "This primitive HTTP Server only supports GET, POST, "
+			                               "HEAD, OPTIONS and CONNECT requests"),
+			                           .mime_type = MIME_TYPE_TEXT,
+			                           .additional_headers = additional_headers };
 
 		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
 		                                                      http_request->head);
