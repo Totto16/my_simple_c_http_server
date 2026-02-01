@@ -641,6 +641,13 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 							result =
 							    send_http_message_to_connection(descriptor, to_send, send_settings);
+
+							{ // setup the value of the file, so that it isn't freed twice, as
+							  // sending
+								// the body frees it!
+								serve_folder_result->data.file.file_content.data = NULL;
+							}
+
 							break;
 						}
 						case ServeFolderResultTypeFolder: {
