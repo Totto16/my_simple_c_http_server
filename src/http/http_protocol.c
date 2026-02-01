@@ -30,6 +30,10 @@ NODISCARD static HTTPRequestMethod get_http_method_from_string(const char* metho
 		return HTTPRequestMethodOptions;
 	}
 
+	if(strcmp(method, "CONNECT") == 0) {
+		return HTTPRequestMethodConnect;
+	}
+
 	return HTTPRequestMethodInvalid;
 }
 
@@ -58,6 +62,7 @@ NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 		case HTTPRequestMethodPost: return "Post";
 		case HTTPRequestMethodHead: return "Head";
 		case HTTPRequestMethodOptions: return "Options";
+		case HTTPRequestMethodConnect: return "Connect";
 		default: return "<Unknown>";
 	}
 }
@@ -132,29 +137,8 @@ get_request_line_from_raw(const char* method, // NOLINT(bugprone-easily-swappabl
 	return result;
 }
 
-static void free_parsed_url_path(ParsedURLPath path) {
-	free(path.path);
-
-	size_t hm_total_length = ZMAP_CAPACITY(path.search_path.hash_map);
-
-	for(size_t i = 0; i < hm_total_length; ++i) {
-
-		const ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
-		    ZMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &(path.search_path.hash_map), i);
-
-		if(hm_entry == NULL || hm_entry == ZMAP_NO_ELEMENT_HERE) {
-			continue;
-		}
-
-		free(hm_entry->key);
-		free(hm_entry->value.value);
-	}
-
-	ZMAP_FREE(ParsedSearchPathHashMap, &(path.search_path.hash_map));
-}
-
 static void free_http_request_line(HttpRequestLine line) {
-	free_parsed_url_path(line.path);
+	free_parsed_uri(line.uri);
 }
 
 static void free_request_head(HttpRequestHead head) {
@@ -207,7 +191,7 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request_g
 	StringBuilder* result = string_builder_init();
 
 	const char* method = get_http_method_string(request->head.request_line.method);
-	char* path = get_http_url_path_string(request->head.request_line.path);
+	char* path = get_http_uri_string(request->head.request_line.path);
 	const char* protocol_version =
 	    get_http_protocol_version_string(request->head.request_line.protocol_version);
 
@@ -319,11 +303,49 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 			const HttpRequestLine request_line =
 			    get_request_line_from_raw(method, path, protocol_version);
 
+			if(request_line.uri.type == ParsedURITypeError) {
+				LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+				            "Invalid uri in HTTP request: %s\n", request_line.uri.data.error);
+				return NULL;
+			}
+
 			if(request_line.protocol_version == HTTPProtocolVersionInvalid) {
 				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 				                   "Invalid HTTP Version detected in status line!\n");
 				// TODO(Totto): free everything correctly
 				return NULL;
+			}
+
+			if(request_line.uri.type == ParsedURITypeAsterisk) {
+				if(request_line.method != HTTPRequestMethodOptions) {
+					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+					                   "Invalid path in combination with method: path '*' is only "
+					                   "supported with OPTIONS\n");
+					return NULL;
+				} else {
+
+					// TODO. implement further, search for todo_options
+					LOG_MESSAGE_SIMPLE(
+					    COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+					    "not implemented for method OPTIONS: asterisk or normal request\n");
+					return NULL;
+				}
+			}
+
+			if(request_line.uri.type == ParsedURITypeAuthority) {
+				if(request_line.method != HTTPRequestMethodConnect) {
+					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+					                   "Invalid path in combination with method: path '*' is only "
+					                   "supported with OPTIONS\n");
+					return NULL;
+				} else {
+
+					// TODO. implement further, search for todo_options
+					LOG_MESSAGE_SIMPLE(
+					    COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+					    "not implemented for method OPTIONS: asterisk or normal request\n");
+					return NULL;
+				}
 			}
 
 			if(request_line.protocol_version == HTTPProtocolVersion2) {

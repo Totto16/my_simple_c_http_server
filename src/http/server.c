@@ -245,6 +245,11 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 					break;
 				}
+				case HTTPRequestMethodConnect:{
+					//TODOOOOOO
+					sasa
+					break;
+				}
 				case HTTPRequestMethodInvalid:
 				default: {
 					HTTPResponseToSend to_send = {

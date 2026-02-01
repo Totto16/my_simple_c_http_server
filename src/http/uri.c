@@ -89,9 +89,9 @@ NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(char* const path) {
 	return result;
 }
 
-NODISCARD static UserInfo parse_user_info(char* const userinfo) {
+NODISCARD static URIUserInfo parse_user_info(char* const userinfo) {
 
-	UserInfo result = { .username = NULL, .password = NULL };
+	URIUserInfo result = { .username = NULL, .password = NULL };
 
 	char* password_part = strchr(userinfo, ':');
 
@@ -155,7 +155,7 @@ NODISCARD static uint16_t parse_u16(const char* to_parse, bool* success) {
 NODISCARD static char* parse_authority(char* const str, ParsedAuthority* out_result) {
 
 	ParsedAuthority local_authority = {
-		.user_info = (UserInfo){ .username = NULL, .password = NULL }, .host = NULL, .port = 0
+		.user_info = (URIUserInfo){ .username = NULL, .password = NULL }, .host = NULL, .port = 0
 	};
 
 	char* current_ptr = str;
@@ -331,4 +331,81 @@ NODISCARD ParsedRequestURI get_parsed_request_uri_from_raw(char* const path) {
 	result = get_parsed_uri_or_authority_from_raw(path);
 
 	return result;
+}
+
+static void free_parsed_url_path(ParsedURLPath path) {
+	free(path.path);
+
+	size_t hm_total_length = ZMAP_CAPACITY(path.search_path.hash_map);
+
+	for(size_t i = 0; i < hm_total_length; ++i) {
+
+		const ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
+		    ZMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &(path.search_path.hash_map), i);
+
+		if(hm_entry == NULL || hm_entry == ZMAP_NO_ELEMENT_HERE) {
+			continue;
+		}
+
+		free(hm_entry->key);
+		free(hm_entry->value.value);
+	}
+
+	ZMAP_FREE(ParsedSearchPathHashMap, &(path.search_path.hash_map));
+
+	if(path.fragment) {
+		free(path.fragment);
+	}
+}
+
+static void free_user_info(URIUserInfo user_info) {
+	// NOTE. it is not necessary to check for NULL, but i do it for good measures
+	if(user_info.username) {
+		free(user_info.username);
+	}
+
+	if(user_info.password) {
+		free(user_info.password);
+	}
+}
+
+static void free_parsed_authority(ParsedAuthority authority) {
+
+	free_user_info(authority.user_info);
+	free(authority.host);
+}
+
+static void free_parsed_uri(ParsedURI uri) {
+
+	free(uri.scheme);
+	free_parsed_authority(uri.authority);
+	free_parsed_url_path(uri.path);
+}
+
+void free_parsed_request_uri(ParsedRequestURI uri) {
+
+	switch(uri.type) {
+		case ParsedURITypeAsterisk: {
+			break;
+		}
+		case ParsedURITypeAbsoluteURI: {
+			free_parsed_uri(uri.data.uri);
+			break;
+		}
+		case ParsedURITypeAbsPath: {
+			free_parsed_url_path(uri.data.path);
+			break;
+		}
+		case ParsedURITypeAuthority: {
+			free_parsed_authority(uri.data.authority);
+			break;
+		}
+		case ParsedURITypeError: {
+			// NOOP
+			break;
+		}
+		default: {
+			break;
+		}
+	}
 }

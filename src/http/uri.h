@@ -8,10 +8,10 @@
 typedef struct {
 	char* NULLABLE username;
 	char* NULLABLE password;
-} UserInfo;
+} URIUserInfo;
 
 typedef struct {
-	UserInfo NULLABLE user_info;
+	URIUserInfo NULLABLE user_info;
 	char* host;
 	uint16_t NULLABLE port;
 } ParsedAuthority;
@@ -73,3 +73,5 @@ typedef struct {
  * @return ParsedRequestURI
  */
 NODISCARD ParsedRequestURI get_parsed_request_uri_from_raw(char* path);
+
+void free_parsed_request_uri(ParsedRequestURI uri);

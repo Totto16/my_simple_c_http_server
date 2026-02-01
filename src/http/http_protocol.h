@@ -93,6 +93,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRequestMethodPost,
 	HTTPRequestMethodHead,
 	HTTPRequestMethodOptions,
+	HTTPRequestMethodConnect
 } HTTPRequestMethod;
 
 /**
