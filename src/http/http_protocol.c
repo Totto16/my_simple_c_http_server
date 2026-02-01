@@ -270,13 +270,9 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 				return NULL;
 			}
 
-			if(request_line.protocol_version == HTTPProtocolVersionInvalid) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-				                   "Invalid HTTP Version detected in status line!\n");
-				// TODO(Totto): free everything correctly
-				return NULL;
-			}
-
+			// TODO: check these things in another place, as here we just check REAl parse errors,
+			// not logic errors, these need to be checked later, as the NULL  return gives wrong
+			// info
 			if(request_line.uri.type == ParsedURITypeAsterisk) {
 				if(request_line.method != HTTPRequestMethodOptions) {
 					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
