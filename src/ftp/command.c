@@ -438,6 +438,13 @@ NODISCARD static FTPCommand* parse_single_ftp_command(char* command_str) {
 	return NULL;
 }
 
+#define FTP_COMMAND_SEPERATORS "\r\n"
+
+#define SIZEOF_FTP_COMMAND_SEPERATORS 2
+
+static_assert((sizeof(FTP_COMMAND_SEPERATORS) / (sizeof(FTP_COMMAND_SEPERATORS[0]))) - 1 ==
+              SIZEOF_FTP_COMMAND_SEPERATORS);
+
 FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands) {
 
 #define FREE_AT_END() \
@@ -453,9 +460,6 @@ FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands) {
 
 	*array = ZVEC_EMPTY(FTPCommandPtr);
 
-	const char* const separators = "\r\n";
-	size_t separators_length = strlen(separators);
-
 	size_t size_to_proccess = strlen(raw_ftp_commands);
 	char* currently_at = raw_ftp_commands;
 
@@ -465,7 +469,7 @@ FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands) {
 
 	while(size_to_proccess > 0) {
 
-		char* resulting_index = strstr(currently_at, separators);
+		char* resulting_index = strstr(currently_at, FTP_COMMAND_SEPERATORS);
 		// no"\r\n" could be found, so a parse Error occurred, a NULL signals that
 		if(resulting_index == NULL) {
 			free_ftp_command_array(array);
@@ -489,7 +493,7 @@ FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands) {
 		auto _ = ZVEC_PUSH(FTPCommandPtr, array, command);
 		UNUSED(_);
 
-		size_t actual_length = length + separators_length;
+		size_t actual_length = length + SIZEOF_FTP_COMMAND_SEPERATORS;
 		size_to_proccess -= actual_length;
 		currently_at += actual_length;
 	}

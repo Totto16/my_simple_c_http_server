@@ -176,6 +176,13 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request_g
 	return result;
 }
 
+#define HTTP_LINE_SEPERATORS "\r\n"
+
+#define SIZEOF_HTTP_LINE_SEPERATORS 2
+
+static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0]))) - 1 ==
+              SIZEOF_HTTP_LINE_SEPERATORS);
+
 // if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
 // strings, but keep in mind that you gave to use the given free method to free that properly,
 // internally some string"magic" happens
@@ -191,8 +198,6 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 	// considered using strtok, but that doesn't recognize the delimiter between the status and
 	// body! so now using own way of doing that!
 
-	const char* const separators = "\r\n";
-	size_t separators_length = strlen(separators);
 	char* currently_at = raw_http_request;
 	bool parsed = false;
 	HttpRequest* generic_request = (HttpRequest*)malloc_with_memset(sizeof(HttpRequest), true);
@@ -212,7 +217,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 	// iterating over each separated string, then determining if header or body or statusLine and
 	// then parsing that accordingly
 	do {
-		char* resulting_index = strstr(currently_at, separators);
+		char* resulting_index = strstr(currently_at, HTTP_LINE_SEPERATORS);
 		// no"\r\n" could be found, so a parse Error occurred, a NULL signals that
 		if(resulting_index == NULL) {
 			// also the input raw_http_request string has to be freed
@@ -341,8 +346,9 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 				// that denotes now comes the body! so the body is assigned and the loop ends with
 				// the parsed = true the while loop finishes
 				free(all);
-				size_t body_length = strlen(raw_http_request) -
-				                     ((resulting_index - raw_http_request) + separators_length);
+				size_t body_length =
+				    strlen(raw_http_request) -
+				    ((resulting_index - raw_http_request) + SIZEOF_HTTP_LINE_SEPERATORS);
 				all = (char*)malloc_with_memset(body_length + 1, true);
 
 				if(!all) {
@@ -351,7 +357,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 					return NULL;
 				}
 
-				memcpy(all, currently_at + separators_length, body_length);
+				memcpy(all, currently_at + SIZEOF_HTTP_LINE_SEPERATORS, body_length);
 				request->body = all;
 				parsed = true;
 			} else {
@@ -373,7 +379,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 		}
 
 		// adjust the values
-		currently_at = resulting_index + separators_length;
+		currently_at = resulting_index + SIZEOF_HTTP_LINE_SEPERATORS;
 
 	} while(!parsed);
 
@@ -880,22 +886,21 @@ HttpConcattedResponse* http_response_concat(HttpResponse* response) {
 	}
 
 	StringBuilder* result = string_builder_init();
-	const char* const separators = "\r\n";
 
 	STRING_BUILDER_APPENDF(result, return NULL;
 	                       , "%s %s %s%s", response->head.response_line.protocol_version,
 	                       response->head.response_line.status_code,
-	                       response->head.response_line.status_message, separators);
+	                       response->head.response_line.status_message, HTTP_LINE_SEPERATORS);
 
 	for(size_t i = 0; i < ZVEC_LENGTH(response->head.header_fields); ++i) {
 
 		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, response->head.header_fields, i);
 
 		STRING_BUILDER_APPENDF(result, return NULL;
-		                       , "%s: %s%s", entry.key, entry.value, separators);
+		                       , "%s: %s%s", entry.key, entry.value, HTTP_LINE_SEPERATORS);
 	}
 
-	string_builder_append_single(result, separators);
+	string_builder_append_single(result, HTTP_LINE_SEPERATORS);
 
 	concatted_response->headers = result;
 	concatted_response->body = response->body;

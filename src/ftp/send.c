@@ -3,6 +3,8 @@
 #include "./send.h"
 #include "generic/send.h"
 
+#define FTP_COMMAND_SEPERATOR "\r\n"
+
 NODISCARD static int send_ftp_message_to_connection_malloced( // NOLINT(misc-no-recursion)
     const ConnectionDescriptor* const descriptor, FtpReturnCode status, char* body) {
 
@@ -14,14 +16,13 @@ NODISCARD static int send_ftp_message_to_connection_malloced( // NOLINT(misc-no-
 	}
 
 	StringBuilder* string_builder = string_builder_init();
-	const char* const separators = "\r\n";
 
 	if(strlen(body) == 0) {
 		STRING_BUILDER_APPENDF(string_builder, free(body); return -3;
-		                       , "%03d%s", status, separators);
+		                       , "%03d%s", status, FTP_COMMAND_SEPERATOR);
 	} else {
 		STRING_BUILDER_APPENDF(string_builder, free(body); return -3;
-		                       , "%03d %s%s", status, body, separators);
+		                       , "%03d %s%s", status, body, FTP_COMMAND_SEPERATOR);
 	}
 
 	int result = send_string_builder_to_connection(descriptor, &string_builder);

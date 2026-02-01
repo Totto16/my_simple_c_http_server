@@ -222,12 +222,19 @@ NODISCARD static char* parse_authority(char* const str, OUT_PARAM(ParsedAuthorit
 	return at_or_after_end_ptr;
 }
 
+#define SCHEME_SEPERATOR "://"
+
+#define SIZEOF_SCHEME_SEPERATOR 3
+
+static_assert((sizeof(SCHEME_SEPERATOR) / (sizeof(SCHEME_SEPERATOR[0]))) - 1 ==
+              SIZEOF_SCHEME_SEPERATOR);
+
 NODISCARD static ParsedRequestURI get_parsed_uri_or_authority_from_raw(char* const path) {
 	// precodnition:  path is not NULL and len is > 1
 
 	ParsedRequestURI result = {};
 
-	char* scheme_identifier = strstr(path, "://");
+	char* scheme_identifier = strstr(path, SCHEME_SEPERATOR);
 
 	if(scheme_identifier == NULL) {
 		// parse authority
@@ -263,7 +270,7 @@ NODISCARD static ParsedRequestURI get_parsed_uri_or_authority_from_raw(char* con
 
 	uri.scheme = strdup(path);
 
-	char* current_ptr = scheme_identifier + 1;
+	char* current_ptr = scheme_identifier + SIZEOF_SCHEME_SEPERATOR;
 
 	// TODO: note, some uris might not have an authority, is that even valid? maybe with file://
 	// /test/hello.txt, but otherwise?
