@@ -110,7 +110,7 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 
 	HttpResponse* response = (HttpResponse*)malloc_with_memset(sizeof(HttpResponse), true);
 
-	if(!response) {
+	if(response == NULL) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return NULL;
@@ -118,16 +118,17 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 
 	// TODO(Totto): switch on to_send.protocol
 
-	// using the same trick as before, \0 in the malloced string :)
+	HTTPProtocolVersion version_to_use = send_settings.protocol_to_use;
+
 	if(send_settings.protocol_to_use == HTTPProtocolVersionInvalid) {
-		// FATAL error
-		return NULL;
+		version_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION;
 	}
-	const char* protocol_version = get_http_protocol_version_string(send_settings.protocol_to_use);
+	const char* protocol_version = get_http_protocol_version_string(version_to_use);
 
 	size_t protocol_length = strlen(protocol_version);
 	const char* status_message = get_status_message(to_send.status);
 
+	// using the same trick as before, \0 in the malloced string :)
 	char* response_line_buffer = NULL;
 	FORMAT_STRING(&response_line_buffer, return NULL;
 	              , "%s%c%d%c%s", protocol_version, '\0', to_send.status, '\0', status_message);

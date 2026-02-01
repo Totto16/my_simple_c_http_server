@@ -818,8 +818,6 @@ compare_function_entries(const CompressionEntry* // NOLINT(bugprone-easily-swapp
 	return 0;
 }
 
-#define DEFAULT_RESPONSE_PROTOCOL_VERSION HTTPProtocolVersion1Dot1
-
 SendSettings get_send_settings(RequestSettings* request_settings) {
 
 	SendSettings result = {
@@ -881,7 +879,11 @@ HttpConcattedResponse* http_response_concat(HttpResponse* response) {
 	HttpConcattedResponse* concatted_response =
 	    (HttpConcattedResponse*)malloc_with_memset(sizeof(HttpConcattedResponse), true);
 
-	if(!concatted_response) {
+	if(response == NULL) {
+		return NULL;
+	}
+
+	if(concatted_response == NULL) {
 		return NULL;
 	}
 

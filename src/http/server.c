@@ -137,8 +137,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 		};
 
-		int result = send_http_message_to_connection(
-		    descriptor, to_send, (SendSettings){ .compression_to_use = CompressionTypeNone });
+		int result =
+		    send_http_message_to_connection(descriptor, to_send,
+		                                    (SendSettings){
+		                                        .compression_to_use = CompressionTypeNone,
+		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
+		                                    });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -153,6 +157,28 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 	// raw_http_request gets freed in here
 	HttpRequest* http_request_generic = parse_http_request(raw_http_request, TODO_is_http2);
+
+	if(http_request_generic == NULL) {
+		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
+			                           .body = http_response_body_from_static_string(
+			                               "Request couldn't be parsed, it was malformed!"),
+			                           .mime_type = MIME_TYPE_TEXT,
+			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+
+		int result =
+		    send_http_message_to_connection(descriptor, to_send,
+		                                    (SendSettings){
+		                                        .compression_to_use = CompressionTypeNone,
+		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
+		                                    });
+
+		if(result < 0) {
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
+		}
+
+		goto cleanup;
+	}
 
 	if(http_request_generic->type != HttpRequestTypeInternalV1) {
 		// TODO
@@ -174,8 +200,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
-		int result = send_http_message_to_connection(
-		    descriptor, to_send, (SendSettings){ .compression_to_use = CompressionTypeNone });
+		int result =
+		    send_http_message_to_connection(descriptor, to_send,
+		                                    (SendSettings){
+		                                        .compression_to_use = CompressionTypeNone,
+		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
+		                                    });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -197,8 +227,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
-		int result = send_http_message_to_connection(
-		    descriptor, to_send, (SendSettings){ .compression_to_use = CompressionTypeNone });
+		int result =
+		    send_http_message_to_connection(descriptor, to_send,
+		                                    (SendSettings){
+		                                        .compression_to_use = CompressionTypeNone,
+		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
+		                                    });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),

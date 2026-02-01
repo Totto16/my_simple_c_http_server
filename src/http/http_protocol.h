@@ -96,6 +96,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRequestMethodConnect
 } HTTPRequestMethod;
 
+#define DEFAULT_RESPONSE_PROTOCOL_VERSION HTTPProtocolVersion1Dot1
+
 /**
  * @enum value
  */
