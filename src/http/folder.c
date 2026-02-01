@@ -103,7 +103,7 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 	return result_path;
 }
 
-static ServeFolderResult get_serve_folder_content_for_file(const char* final_path) {
+static ServeFolderResult get_serve_folder_content_for_file(const char* const final_path) {
 
 	ServeFolderResult result = { .type = ServeFolderResultTypeServerError };
 
@@ -489,6 +489,8 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 	} else {
 		*result = get_serve_folder_content_for_file(final_path);
 	}
+
+	free(final_path);
 
 	return result;
 }
