@@ -10,11 +10,12 @@ extern "C" {
 #include "./compression.h"
 #include "./http_2.h"
 
+#include "./uri.h"
 #include "utils/log.h"
 #include "utils/sized_buffer.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
-#include <zmap/zmap.h>
+
 #include <zvec/zvec.h>
 
 #define STRINGIFY(a) STR_IMPL(a)
@@ -105,27 +106,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } HTTPProtocolVersion;
 
 typedef struct {
-	char* value;
-} ParsedSearchPathValue;
-
-ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
-
-typedef ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap) ParsedSearchPathEntry;
-
-typedef struct {
-	ZMAP_TYPENAME_MAP(ParsedSearchPathHashMap) hash_map;
-} ParsedSearchPath;
-
-// RFC: https://datatracker.ietf.org/doc/html/rfc1738
-typedef struct {
-	char* path;
-	ParsedSearchPath search_path;
-	// TODO: support fragment
-} ParsedURLPath;
-
-typedef struct {
 	HTTPRequestMethod method;
-	ParsedURLPath path;
+	ParsedRequestURI uri;
 	HTTPProtocolVersion protocol_version;
 } HttpRequestLine;
 

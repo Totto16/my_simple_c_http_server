@@ -10,8 +10,6 @@ ZVEC_IMPLEMENT_VEC_TYPE(HttpHeaderField)
 
 ZVEC_IMPLEMENT_VEC_TYPE(CompressionEntry)
 
-ZMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
-
 // TODO: refacrior into http_1 and generic http implementations
 
 NODISCARD static HTTPRequestMethod get_http_method_from_string(const char* method) {
@@ -119,101 +117,13 @@ NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion proto
 	}
 }
 
-/**
- * @brief Get the parsed url path from raw object, it modifies the string inline and creates copies
- * for the result
- *
- * @param path
- * @return ParsedURLPath
- */
-NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(const char* path) {
-
-	if(strlen(path) == 0) {
-		path = "/";
-	}
-
-	char* search_path = strchr(path, '?');
-
-	ParsedURLPath result = { .search_path = {
-		                         .hash_map = ZMAP_INIT(ParsedSearchPathHashMap),
-		                     } };
-
-	if(search_path == NULL) {
-		result.path = strdup(path);
-
-		return result;
-	}
-
-	*search_path = '\0';
-
-	result.path = strdup(path);
-
-	char* search_params = search_path + 1;
-
-	if(strlen(search_params) == 0) {
-		return result;
-	}
-
-	while(true) {
-
-		char* next_argument = strchr(search_params, '&');
-
-		if(next_argument != NULL) {
-			*next_argument = '\0';
-		}
-
-		char* key = search_params;
-
-		char* value_ptr = strchr(search_params, '=');
-
-		if(value_ptr != NULL) {
-			*value_ptr = '\0';
-		}
-
-		const char* value = value_ptr == NULL ? "" : value_ptr + 1;
-
-		char* key_dup = strdup(key);
-		char* value_dup = strdup(value);
-		const ParsedSearchPathValue value_entry = { .value = value_dup };
-
-		const ZmapInsertResult insert_result = ZMAP_INSERT(
-		    ParsedSearchPathHashMap, &(result.search_path.hash_map), key_dup, value_entry, false);
-
-		switch(insert_result) {
-			case ZmapInsertResultWouldOverwrite: {
-				// TODO: if this header has to be unique, error, if this header can be
-				// concatenatend, like e.g. cookie, concatene it, otherwise i don't know what to do
-				UNREACHABLE();
-				break;
-			}
-			case ZmapInsertResultOk: {
-				break;
-			}
-			case ZmapInsertResultErr:
-			default: {
-				// TODO: allow error!
-				// return NULL;
-				UNREACHABLE();
-			}
-		}
-
-		if(next_argument == NULL) {
-			break;
-		}
-
-		search_params = next_argument + 1;
-	}
-
-	return result;
-}
-
 NODISCARD static HttpRequestLine
 get_request_line_from_raw(const char* method, // NOLINT(bugprone-easily-swappable-parameters)
-                          const char* path, const char* protocol_version) {
+                          char* const path, const char* protocol_version) {
 
 	HttpRequestLine result = {};
 
-	result.path = get_parsed_url_path_from_raw(path);
+	result.uri = get_parsed_request_uri_from_raw(path);
 
 	result.method = get_http_method_from_string(method);
 

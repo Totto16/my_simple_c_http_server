@@ -1,6 +1,8 @@
 src_files += files(
     'compression.c',
     'compression.h',
+    'folder.c',
+    'folder.h',
     'header.c',
     'header.h',
     'http_2.c',
@@ -11,10 +13,10 @@ src_files += files(
     'mime.h',
     'routes.c',
     'routes.h',
-    'folder.c',
-    'folder.h',
     'send.c',
     'send.h',
     'server.c',
     'server.h',
+    'uri.c',
+    'uri.h',
 )
