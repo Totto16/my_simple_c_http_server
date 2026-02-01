@@ -187,7 +187,27 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 	RequestSettings* request_settings = get_request_settings(http_request_generic);
 
+	if(request_settings == NULL) {
+		HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+			                           .body = http_response_body_from_static_string(
+			                               "Internal Server Error: request settings is NULL"),
+			                           .mime_type = MIME_TYPE_TEXT,
+			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+
+		int result = send_http_message_to_connection(
+		    descriptor, to_send, (SendSettings){ .compression_to_use = CompressionTypeNone });
+
+		if(result < 0) {
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
+		}
+
+		goto cleanup;
+	}
+
 	SendSettings send_settings = get_send_settings(request_settings);
+	HttpRequestProperties http_properties = request_settings->http_properties;
+	
 	free_request_settings(request_settings);
 	request_settings = NULL;
 
@@ -198,7 +218,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 	if(is_supported == RequestSupported) {
 		SelectedRoute* selected_route = route_manager_get_route_for_request(
-		    route_manager, request_settings->http_properties, http_request_generic);
+		    route_manager, http_properties, http_request_generic);
 
 		if(selected_route == NULL) {
 
@@ -399,8 +419,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 				}
 				case HTTPRouteTypeServeFolder: {
 					const HTTPRouteServeFolder data = route_data.data.serve_folder;
-					ServeFolderResult* serve_folder_result = get_serve_folder_content(
-					    request_settings->http_properties, data, selected_route_data);
+					ServeFolderResult* serve_folder_result =
+					    get_serve_folder_content(http_properties, data, selected_route_data);
 
 					if(serve_folder_result == NULL) {
 						HTTPResponseToSend to_send = {
@@ -524,8 +544,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								const ServeFolderFolderInfo folder_info =
 								    serve_folder_result->data.folder;
 
-								if(request_settings->http_properties.type !=
-								   HTTPPropertyTypeNormal) {
+								if(http_properties.type != HTTPPropertyTypeNormal) {
 									HTTPResponseToSend to_send = {
 										.status = HttpStatusInternalServerError,
 										.body = http_response_body_from_static_string(
@@ -540,8 +559,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 									break;
 								}
 
-								const auto normal_data =
-								    request_settings->http_properties.data.normal;
+								const auto normal_data = http_properties.data.normal;
 
 								StringBuilder* html_string_builder =
 								    folder_content_to_html(folder_info, normal_data.path);
