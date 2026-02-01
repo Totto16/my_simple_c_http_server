@@ -232,7 +232,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 						    FREE_AT_END();
 						    return JOB_ERROR_STRING_FORMAT;
 					    },
-					    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET, POST, HEAD, OPTIONS");
+					    "%s%c%s", HTTP_HEADER_NAME(allow), '\0',
+					    "GET, POST, HEAD, OPTIONS, CONNECT");
 
 					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
 
@@ -246,8 +247,30 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 					break;
 				}
 				case HTTPRequestMethodConnect: {
-					// TODOOOOOO
-					sasa break;
+					HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+					char* allowed_header_buffer = NULL;
+					// all 405 have to have a Allow filed according to spec
+					FORMAT_STRING(
+					    &allowed_header_buffer,
+					    {
+						    ZVEC_FREE(HttpHeaderField, &additional_headers);
+						    FREE_AT_END();
+						    return JOB_ERROR_STRING_FORMAT;
+					    },
+					    "%s%c%s", HTTP_HEADER_NAME(allow), '\0',
+					    "GET, POST, HEAD, OPTIONS, CONNECT");
+
+					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
+
+					HTTPResponseToSend to_send = { .status = HttpStatusOk,
+						                           .body = http_response_body_empty(),
+						                           .mime_type = NULL,
+						                           .additional_headers = additional_headers };
+
+					result = send_http_message_to_connection(descriptor, to_send, send_settings);
+
+					break;
 				}
 				case HTTPRequestMethodInvalid:
 				default: {
