@@ -311,7 +311,7 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 				if(!use_http2) {
 					LOG_MESSAGE_SIMPLE(
 					    COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-					    "A HTTP 2 status line was detected, but the negotiation wia Upgrade or TLS "
+					    "A HTTP 2 status line was detected, but the negotiation via Upgrade or TLS "
 					    "ALPN wasn't done before that, invlaid request!\n");
 					// TODO(Totto): free everything correctly
 					return NULL;

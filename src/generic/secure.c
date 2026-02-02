@@ -30,11 +30,29 @@ struct ConnectionContextImpl {
 	} data;
 };
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ALPNProtocolSelectedNone = 0,
+	ALPNProtocolSelectedHttp1Dot1,
+	ALPNProtocolSelectedHttp2,
+} ALPNProtocolSelected;
+
+typedef struct {
+	SSL* ssl_structure;
+	ALPNProtocolSelected protocol;
+} SecureConnectionData;
+
+typedef struct {
+	int fd;
+} NormalConnectionData;
+
 struct ConnectionDescriptorImpl {
 	SecureOptionsType type;
 	union {
-		SSL* ssl_structure;
-		int fd;
+		SecureConnectionData secure;
+		NormalConnectionData normal;
 	} data;
 };
 
@@ -42,6 +60,18 @@ bool is_secure(const SecureOptions* const options) {
 	return options->type == // NOLINT(readability-implicit-bool-conversion)
 	       SecureOptionsTypeSecure;
 }
+
+#define ALPN_PROTO_H2 "h2"
+
+#define H2_PROTO_SIZE 2
+
+static_assert((sizeof(ALPN_PROTO_H2) / (sizeof(ALPN_PROTO_H2[0]))) - 1 == H2_PROTO_SIZE);
+
+#define ALPN_PROTO_H1_1 "http/1.1"
+
+#define H1_1_PROTO_SIZE 8
+
+static_assert((sizeof(ALPN_PROTO_H1_1) / (sizeof(ALPN_PROTO_H1_1[0]))) - 1 == H1_1_PROTO_SIZE);
 
 #ifndef _SIMPLE_SERVER_SECURE_DISABLED
 
@@ -58,6 +88,28 @@ static int error_logger(const char* str, size_t len, void* user_data) {
 
 	LOG_MESSAGE(LogLevelError, "\t%.*s\n", (int)len, str);
 	return (int)len;
+}
+
+// NOTE: order is important, we advertise http/2 first :)
+static const unsigned char g_alpn_protos[] = {
+	H2_PROTO_SIZE,   'h', '2',                              // ALPN name for http/2
+	H1_1_PROTO_SIZE, 'h', 't', 't', 'p', '/', '1', '.', '1' // ALPN name for http/1.1
+};
+
+// inspired by the docs and
+// https://github.com/openssl/openssl/blob/master/demos/guide/quic-server-block.c#L95
+static int alpn_select_cb(SSL* /* ssl */, const unsigned char** out, unsigned char* outlen,
+                          const unsigned char* in, unsigned int inlen, void* /* arg */) {
+
+	// check if the clinet support one of our protocols, if so, this fn return
+	// OPENSSL_NPN_NEGOTIATED and sets out and outlen, so the exact thing the cb function expects,
+	// so nothing to except return OK
+	if(SSL_select_next_proto((unsigned char**)out, outlen, g_alpn_protos, sizeof(g_alpn_protos), in,
+	                         inlen) == OPENSSL_NPN_NEGOTIATED) {
+		return SSL_TLSEXT_ERR_OK;
+	}
+
+	return SSL_TLSEXT_ERR_ALERT_FATAL;
 }
 
 static SecureData* initialize_secure_data(const char* const public_cert_file,
@@ -175,6 +227,21 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	// not verified (if they are even really used, outside of the part, where they are needed to
 	// establish a handshake?)
 	SSL_CTX_set_verify(ssl_context, SSL_VERIFY_NONE, NULL);
+
+	// setup ALPN for http/1.1 and http/2
+
+	result = SSL_CTX_set_alpn_protos(ssl_context, g_alpn_protos, sizeof(g_alpn_protos));
+
+	if(result != 0) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_set_alpn_protos failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
+
+		SSL_CTX_free(ssl_context);
+		free(data);
+		return NULL;
+	}
+
+	SSL_CTX_set_alpn_select_cb(ssl_context, alpn_select_cb, NULL);
 
 	data->ssl_context = ssl_context;
 
@@ -371,7 +438,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 
 	if(!is_secure_context(context)) {
 		descriptor->type = SecureOptionsTypeNotSecure;
-		descriptor->data.fd = native_fd;
+		descriptor->data.normal = (NormalConnectionData){ .fd = native_fd };
 		return descriptor;
 	}
 
@@ -402,7 +469,31 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 		return NULL;
 	}
 
-	descriptor->data.ssl_structure = ssl_structure;
+	SecureConnectionData secure_data = {
+		.ssl_structure = ssl_structure,
+		.protocol = ALPNProtocolSelectedNone,
+	};
+
+	{ // get selected protocol
+
+		const unsigned char* proto = NULL;
+		unsigned int proto_len = 0;
+
+		SSL_get0_alpn_selected(ssl_structure, &proto, &proto_len);
+
+		if(proto_len != 0) {
+
+			if(proto_len == 2 && memcmp(proto, ALPN_PROTO_H2, H2_PROTO_SIZE) == 0) {
+				// HTTP/2 selected
+				secure_data.protocol = ALPNProtocolSelectedHttp2;
+			} else if(proto_len == 8 && memcmp(proto, ALPN_PROTO_H1_1, H1_1_PROTO_SIZE) == 0) {
+				// HTTP/1.1 selected
+				secure_data.protocol = ALPNProtocolSelectedHttp1Dot1;
+			}
+		}
+	}
+
+	descriptor->data.secure = secure_data;
 
 	return descriptor;
 #endif
@@ -417,7 +508,7 @@ int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
                                          ConnectionContext* const context, bool allow_reuse) {
 
 	if(!is_secure_descriptor(descriptor)) {
-		int result = close(descriptor->data.fd);
+		int result = close(descriptor->data.normal.fd);
 		free(descriptor);
 		return result;
 	}
@@ -428,7 +519,7 @@ int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
 	UNREACHABLE();
 #else
 
-	SSL* ssl_structure = descriptor->data.ssl_structure;
+	SSL* ssl_structure = descriptor->data.secure.ssl_structure;
 
 	int result = 0;
 
@@ -506,7 +597,7 @@ int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
 NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const descriptor,
                                           void* buffer, size_t n_bytes) {
 	if(!is_secure_descriptor(descriptor)) {
-		ssize_t result = read(descriptor->data.fd, buffer, n_bytes);
+		ssize_t result = read(descriptor->data.normal.fd, buffer, n_bytes);
 
 		if(result > 0) {
 			return (ReadResult){
@@ -530,7 +621,7 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const desc
 	UNREACHABLE();
 #else
 
-	SSL* ssl_structure = descriptor->data.ssl_structure;
+	SSL* ssl_structure = descriptor->data.secure.ssl_structure;
 
 	size_t bytes_read = 0;
 
@@ -592,7 +683,7 @@ ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* 
                             size_t n_bytes) {
 
 	if(!is_secure_descriptor(descriptor)) {
-		return write(descriptor->data.fd, buffer, n_bytes);
+		return write(descriptor->data.normal.fd, buffer, n_bytes);
 	}
 
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
@@ -600,7 +691,7 @@ ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* 
 	UNREACHABLE();
 #else
 
-	SSL* ssl_structure = descriptor->data.ssl_structure;
+	SSL* ssl_structure = descriptor->data.secure.ssl_structure;
 
 	return SSL_write(ssl_structure, buffer, (int)n_bytes);
 #endif
@@ -608,14 +699,14 @@ ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* 
 
 int get_underlying_socket(const ConnectionDescriptor* const descriptor) {
 	if(!is_secure_descriptor(descriptor)) {
-		return descriptor->data.fd;
+		return descriptor->data.normal.fd;
 	}
 
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
 	UNREACHABLE();
 #else
 
-	SSL* ssl_structure = descriptor->data.ssl_structure;
+	SSL* ssl_structure = descriptor->data.secure.ssl_structure;
 
 	int ssl_fd = SSL_get_fd(ssl_structure);
 

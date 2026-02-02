@@ -39,6 +39,7 @@ RequestSupportStatus is_request_supported(const HttpRequest* const request_gener
 			return RequestInvalidHttpVersion;
 		}
 		case HTTPProtocolVersion1: {
+			//TODO. https doesnt work here, so check if we have tls are here, then its an error
 			break;
 		}
 
