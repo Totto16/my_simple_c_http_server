@@ -11,6 +11,11 @@
 
 ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
 
+// general notes: the openssl docs are quite extensive, even i didn't use them at the beginning, but
+// there are also exaples:
+// e.g.: https://docs.openssl.org/3.5/man7/ossl-guide-tls-server-block/#name
+// docs url: https://docs.openssl.org/3.5/man7
+
 struct SecureDataImpl {
 	SSL_CTX* ssl_context;
 };
@@ -86,10 +91,56 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 		return NULL;
 	}
 
-	int result = SSL_CTX_use_certificate_file(ssl_context, public_cert_file, SSL_FILETYPE_PEM);
+	/*
+	 * TLS versions older than TLS 1.2 are deprecated by IETF and SHOULD
+	 * be avoided if possible.
+	 */
+	int result = SSL_CTX_set_min_proto_version(ssl_context, TLS1_2_VERSION);
+
+	if(result != 1) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_set_min_proto_version failed:\n");
+		ERR_print_errors_cb(error_logger, NULL);
+
+		SSL_CTX_free(ssl_context);
+		free(data);
+		return 0;
+	}
+
+	{ // some options
+
+		/*
+		 * Tolerate clients hanging up without a TLS "shutdown".  Appropriate in all
+		 * application protocols which perform their own message "framing", and
+		 * don't rely on TLS to defend against "truncation" attacks. Like In our case with HTTP
+		 */
+		uint64_t opts = SSL_OP_IGNORE_UNEXPECTED_EOF;
+
+		// NOTE: this might introduce some error in the login in
+		// close_connection_descriptor_advanced
+		// TODO: check if that is true
+
+		/*
+		 * Block potential CPU-exhaustion attacks by clients that request frequent
+		 * renegotiation.
+		 */
+		opts |= SSL_OP_NO_RENEGOTIATION;
+
+		// makes the server preference have priority over the ones from the client, as the clinet
+		// might choose to use unsecure ciphers, over good ones
+		opts |= SSL_OP_CIPHER_SERVER_PREFERENCE;
+
+		// set by default in new openssl versions: SSL_OP_NO_COMPRESSION
+
+		uint64_t _new_opts = SSL_CTX_set_options(ssl_context, opts);
+		UNUSED(_new_opts);
+	}
+
+	result = SSL_CTX_use_certificate_file(ssl_context, public_cert_file, SSL_FILETYPE_PEM);
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_use_certificate_file failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
+
+		SSL_CTX_free(ssl_context);
 		free(data);
 		return NULL;
 	}
@@ -99,6 +150,8 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_use_PrivateKey_file failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
+
+		SSL_CTX_free(ssl_context);
 		free(data);
 		return NULL;
 	}
@@ -108,9 +161,20 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_check_private_key failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
+
+		SSL_CTX_free(ssl_context);
 		free(data);
 		return NULL;
 	}
+
+	// SSL_VERIFY_NONE => Server mode : the server will not send a client certificate request to the
+	// client,
+	//       so the client will not send a certificate.
+
+	// don't setup storage for verification of client certificates, as http client certificates are
+	// not verified (if they are even really used, outside of the part, where they are needed to
+	// establish a handshake?)
+	SSL_CTX_set_verify(ssl_context, SSL_VERIFY_NONE, NULL);
 
 	data->ssl_context = ssl_context;
 
@@ -439,10 +503,26 @@ int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
 #endif
 }
 
-int read_from_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,
-                         size_t n_bytes) {
+NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const descriptor,
+                                          void* buffer, size_t n_bytes) {
 	if(!is_secure_descriptor(descriptor)) {
-		return (int)read(descriptor->data.fd, buffer, n_bytes);
+		ssize_t result = read(descriptor->data.fd, buffer, n_bytes);
+
+		if(result > 0) {
+			return (ReadResult){
+				.type = ReadResultTypeSuccess,
+				.data = { .bytes_read = (size_t)result },
+			};
+		}
+
+		if(result == 0) {
+			return (ReadResult){ .type = ReadResultTypeEOF };
+		};
+
+		return (ReadResult){
+			.type = ReadResultTypeError,
+			.data = { .opaque_error = (OpaqueError){ .errno_error = errno } },
+		};
 	}
 
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
@@ -452,8 +532,60 @@ int read_from_descriptor(const ConnectionDescriptor* const descriptor, void* buf
 
 	SSL* ssl_structure = descriptor->data.ssl_structure;
 
-	return SSL_read(ssl_structure, buffer, (int)n_bytes);
+	size_t bytes_read = 0;
+
+	int result = SSL_read_ex(ssl_structure, buffer, (int)n_bytes, &bytes_read);
+
+	if(result > 0) {
+		return (ReadResult){
+			.type = ReadResultTypeSuccess,
+			.data = { .bytes_read = bytes_read },
+		};
+	}
+
+	int error = SSL_get_error(ssl_structure, result);
+
+	unsigned long ssl_error = 0;
+
+	switch(error) {
+		case SSL_ERROR_ZERO_RETURN: {
+			return (ReadResult){ .type = ReadResultTypeEOF };
+		}
+		case SSL_ERROR_NONE: {
+			ssl_error = 0;
+			break;
+		}
+		case SSL_ERROR_SYSCALL:
+		case SSL_ERROR_SSL:
+		default: {
+			// TODO: what is the best solution here? the err functions in openssl are powerfull,
+			// butz depeden on global (thread local?) state, and so they are not really safe to use
+			// after this call returns, so we need to store the errors somehow...
+			ssl_error = ERR_get_error();
+			break;
+		}
+	}
+
+	return (ReadResult){
+		.type = ReadResultTypeError,
+		.data = { .opaque_error = (OpaqueError){ .ssl_error = ssl_error } },
+	};
+
 #endif
+}
+
+NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
+                                       OpaqueError opaque_error) {
+
+	if(!is_secure_descriptor(descriptor)) {
+		// note for thread safe usage we should use strerror_r, but it doesn't matter that much, if
+		// errors occur while error handling, it is not really necessary to handle error messges
+		// without errors xD
+		return strerror(opaque_error.errno_error);
+	}
+
+	// same reason as above, we should use ERR_error_string_n
+	return ERR_error_string(opaque_error.ssl_error, NULL);
 }
 
 ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,

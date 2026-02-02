@@ -57,8 +57,32 @@ int close_connection_descriptor(ConnectionDescriptor* descriptor);
 int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
                                          ConnectionContext* context, bool allow_reuse);
 
-NODISCARD int read_from_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
-                                   size_t n_bytes);
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ReadResultTypeEOF = 0,
+	ReadResultTypeSuccess,
+	ReadResultTypeError,
+} ReadResultType;
+
+typedef union {
+	int errno_error;
+	unsigned long ssl_error;
+} OpaqueError;
+
+typedef struct {
+	ReadResultType type;
+	union {
+		size_t bytes_read;
+		OpaqueError opaque_error;
+	} data;
+} ReadResult;
+
+NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
+                                          size_t n_bytes);
+
+NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor, OpaqueError opaque_error);
 
 NODISCARD ssize_t write_to_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
                                       size_t n_bytes);

@@ -24,19 +24,21 @@ read_buffer_from_connection_impl(const ConnectionDescriptor* const descriptor) {
 	size_t buffers_used = 0;
 	while(true) {
 		// read bytes, save the amount of read bytes, and then test for various scenarios
-		int read_bytes = read_from_descriptor(
+		ReadResult read_result = read_from_descriptor(
 		    descriptor, message_buffer + (INITIAL_MESSAGE_BUF_SIZE * buffers_used),
 		    INITIAL_MESSAGE_BUF_SIZE);
 
-		if(read_bytes == -1) {
-			LOG_MESSAGE(LogLevelWarn, "Couldn't read from a connection: %s\n", strerror(errno));
+		if(read_result.type == ReadResultTypeError) {
+			// NOTE. make a function that gets the error from openssl!
+			LOG_MESSAGE(LogLevelWarn, "Couldn't read from a connection: %s\n",
+			            get_read_error_meaning(descriptor, read_result.data.opaque_error));
 
 			free(message_buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		if(read_bytes == 0) {
-			size_t total_size = (INITIAL_MESSAGE_BUF_SIZE * buffers_used) + read_bytes;
+		if(read_result.type == ReadResultTypeEOF) {
+			size_t total_size = (INITIAL_MESSAGE_BUF_SIZE * buffers_used);
 			*(message_buffer + total_size) = '\0';
 
 			// client disconnected, so done
@@ -44,8 +46,12 @@ read_buffer_from_connection_impl(const ConnectionDescriptor* const descriptor) {
 			return (SizedBuffer){ .data = message_buffer, .size = total_size };
 		}
 
-		if(read_bytes == INITIAL_MESSAGE_BUF_SIZE) {
-			// now the buffer has to be reused, so it's re-alloced, the used realloc helper also
+		assert(read_result.type == ReadResultTypeSuccess);
+
+		size_t bytes_read = read_result.data.bytes_read;
+
+		if(bytes_read == INITIAL_MESSAGE_BUF_SIZE) {
+			// now the buffer has to be reused, so it's re-allocated, the used realloc helper also
 			// initializes it with 0 and copies the old content, so nothing is lost and a new
 			// INITIAL_MESSAGE_BUF_SIZE capacity is available + a null byte at the end
 			size_t old_size = ((buffers_used + 1) * INITIAL_MESSAGE_BUF_SIZE);
@@ -68,7 +74,7 @@ read_buffer_from_connection_impl(const ConnectionDescriptor* const descriptor) {
 			continue;
 		}
 
-		size_t total_size = (INITIAL_MESSAGE_BUF_SIZE * buffers_used) + read_bytes;
+		size_t total_size = (INITIAL_MESSAGE_BUF_SIZE * buffers_used) + bytes_read;
 
 		*(message_buffer + total_size) = '\0';
 
@@ -106,16 +112,17 @@ void* read_exact_bytes(const ConnectionDescriptor* const descriptor, size_t n_by
 
 	while(true) {
 		// read bytes, save the amount of read bytes, and then test for various scenarios
-		int read_bytes =
+		ReadResult read_result =
 		    read_from_descriptor(descriptor, ((uint8_t*)message_buffer) + actual_bytes_read,
 		                         n_bytes - actual_bytes_read);
 
-		if(read_bytes == -1) {
-			LOG_MESSAGE(LogLevelWarn, "Couldn't read from a connection: %s\n", strerror(errno));
+		if(read_result.type == ReadResultTypeError) {
+			LOG_MESSAGE(LogLevelWarn, "Couldn't read from a connection: %s\n",
+			            get_read_error_meaning(descriptor, read_result.data.opaque_error));
 			return NULL;
 		}
 
-		if(read_bytes == 0) {
+		if(read_result.type == ReadResultTypeEOF) {
 			if(n_bytes == actual_bytes_read) {
 				return message_buffer;
 			}
@@ -125,7 +132,11 @@ void* read_exact_bytes(const ConnectionDescriptor* const descriptor, size_t n_by
 			return NULL;
 		}
 
-		actual_bytes_read += read_bytes;
+		assert(read_result.type == ReadResultTypeSuccess);
+
+		size_t bytes_read = read_result.data.bytes_read;
+
+		actual_bytes_read += bytes_read;
 	}
 
 	// malloced, null terminated an probably "huge"
