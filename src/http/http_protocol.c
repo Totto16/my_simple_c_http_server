@@ -2,6 +2,7 @@
 #include "./http_protocol.h"
 #include "./header.h"
 #include "./http_2.h"
+#include "generic/read.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -388,6 +389,60 @@ HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
 	return generic_request;
 }
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPReaderStateEmpty = 0,
+	HTTPReaderStateTODO,
+} HTTPReaderState;
+
+struct HTTPReaderImpl {
+	ConnectionDescriptor* descriptor;
+	//
+	HTTPReaderState state;
+	size_t cursor;
+	SizedBuffer data;
+};
+
+NODISCARD HTTPReader* NULLABLE
+initialize_http_reader_from_connection(ConnectionDescriptor* const descriptor) {
+
+	HTTPReader* reader = malloc(sizeof(HTTPReader));
+
+	if(!reader) {
+		return NULL;
+	}
+
+	*reader = (HTTPReader){
+		.descriptor = descriptor,
+		.state = HTTPReaderStateEmpty,
+		.cursor = 0,
+		.data = (SizedBuffer){ .data = NULL, .size = 0 },
+	};
+
+	return reader;
+}
+
+HttpRequest* get_http_request(HTTPReader* const reader, bool use_http2) {
+
+	if(!reader) {
+		return NULL;
+	}
+
+	// TODO: if it is alredy http2, like from tls, process http2
+	//  otherwise reader header and than decided after taht!
+	//  support http 1.1.  keepalive and http2 upgrade over h2c http1.1
+
+	char* raw_http_request = read_string_from_connection(reader->descriptor);
+
+	if(!raw_http_request) {
+		return NULL;
+	}
+
+	return parse_http_request(raw_http_request, use_http2);
+}
+
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath search_path,
                                                        const char* key) {
 
@@ -663,7 +718,8 @@ void free_compression_settings(CompressionSettings* compression_settings) {
 	free(compression_settings);
 }
 
-NODISCARD static HttpRequestProperties get_http_properties(HttpRequest* http_request_generic) {
+NODISCARD static HttpRequestProperties
+get_http_properties(const HttpRequest* const http_request_generic) {
 
 	HttpRequestProperties http_properties = { .type = HTTPPropertyTypeInvalid };
 
@@ -736,7 +792,7 @@ NODISCARD static HttpRequestProperties get_http_properties(HttpRequest* http_req
 	}
 }
 
-RequestSettings* get_request_settings(HttpRequest* http_request_generic) {
+RequestSettings* get_request_settings(const HttpRequest* const http_request_generic) {
 
 	if(http_request_generic->type != HttpRequestTypeInternalV1) {
 		return NULL;

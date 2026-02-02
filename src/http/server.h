@@ -37,7 +37,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
-NODISCARD RequestSupportStatus is_request_supported(HttpRequest* request);
+NODISCARD RequestSupportStatus is_request_supported(const HttpRequest* request);
 
 // structs for the listenerThread
 

@@ -27,7 +27,7 @@
 
 // returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
 // returned an enum state, the caller has to handle errors
-RequestSupportStatus is_request_supported(HttpRequest* request_generic) {
+RequestSupportStatus is_request_supported(const HttpRequest* const request_generic) {
 	if(request_generic->type != HttpRequestTypeInternalV1) {
 		return RequestInvalidHttpVersion;
 	}
@@ -81,111 +81,25 @@ static void receive_signal(int signal_number) {
 
 #define SUPPORTED_HTTP_METHODS "GET, POST, HEAD, OPTIONS, CONNECT"
 
-// the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
-// pool, but the listener adds it
-// it receives all the necessary information and also handles the html parsing and response
+#define FREE_AT_END() \
+	do { \
+	} while(false)
 
-ANY_TYPE(JobError*)
-http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, WorkerInfo worker_info) {
-
-	// attention arg is malloced!
-	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)arg_ign;
+NODISCARD static JobError process_http_request(const HttpRequest* const http_request_generic,
+                                               ConnectionDescriptor* const descriptor,
+                                               const RouteManager* const route_manager,
+                                               HTTPConnectionArgument* argument,
+                                               const WorkerInfo worker_info) {
 
 	ConnectionContext* context =
 	    ZVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
-	char* thread_name_buffer = NULL;
-	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
-	              , "connection handler %lu", worker_info.worker_index);
-	set_thread_name(thread_name_buffer);
-
-	const RouteManager* route_manager = argument->route_manager;
-
-#define FREE_AT_END() \
-	do { \
-		unset_thread_name(); \
-		free(thread_name_buffer); \
-		free(argument); \
-	} while(false)
-
-	bool sig_result = setup_sigpipe_signal_handler();
-
-	if(!sig_result) {
-		FREE_AT_END();
-		return NULL;
-	}
-
-	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
-
-	ConnectionDescriptor* const descriptor =
-	    get_connection_descriptor(context, argument->connection_fd);
-
-	if(descriptor == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "get_connection_descriptor failed\n");
-
-		FREE_AT_END();
-		return JOB_ERROR_DESC;
-	}
-
-	char* raw_http_request = read_string_from_connection(descriptor);
-
-	if(!raw_http_request) {
-		HTTPResponseToSend to_send = {
-			.status = HttpStatusBadRequest,
-			.body = http_response_body_from_static_string(
-			    "Request couldn't be read, a connection error occurred!"),
-			.mime_type = MIME_TYPE_TEXT,
-			.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-		};
-
-		int result =
-		    send_http_message_to_connection(descriptor, to_send,
-		                                    (SendSettings){
-		                                        .compression_to_use = CompressionTypeNone,
-		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
-		                                    });
-
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
-		}
-
-		goto cleanup;
-	}
-
-	// TODO
-	const bool TODO_is_http2 = false;
-
-	// raw_http_request gets freed in here
-	HttpRequest* http_request_generic = parse_http_request(raw_http_request, TODO_is_http2);
-
-	if(http_request_generic == NULL) {
-		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
-			                           .body = http_response_body_from_static_string(
-			                               "Request couldn't be parsed, it was malformed!"),
-			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
-
-		int result =
-		    send_http_message_to_connection(descriptor, to_send,
-		                                    (SendSettings){
-		                                        .compression_to_use = CompressionTypeNone,
-		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
-		                                    });
-
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
-		}
-
-		goto cleanup;
-	}
 
 	if(http_request_generic->type != HttpRequestTypeInternalV1) {
 		// TODO
 		exit(12);
 	}
 
-	Http1Request* http_request = http_request_generic->data.v1;
+	const Http1Request* http_request = http_request_generic->data.v1;
 
 	// To test this error codes you can use '-X POST' with curl or
 	// '--http2' (doesn't work, since http can only be HTTP/1.1, https can be HTTP 2 or QUIC
@@ -212,7 +126,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			                   "Error in sending response\n");
 		}
 
-		goto cleanup;
+		return JOB_ERROR_CLEANUP_CONNECTION;
 	}
 
 	// if the request is supported then the "beautiful" website is sent, if the path is /shutdown
@@ -239,7 +153,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 			                   "Error in sending response\n");
 		}
 
-		goto cleanup;
+		return JOB_ERROR_CLEANUP_CONNECTION;
 	}
 
 	SendSettings send_settings = get_send_settings(request_settings);
@@ -534,7 +448,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 								if(!thread_manager_add_connection(
 								       argument->web_socket_manager, descriptor, context,
 								       websocket_function, websocket_args)) {
-									free_http_request(http_request_generic);
+
 									ZVEC_FREE(WSExtension, &extensions);
 									free_selected_route(selected_route);
 									FREE_AT_END();
@@ -544,7 +458,6 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 
 								// finally free everything necessary
 
-								free_http_request(http_request_generic);
 								free_selected_route(selected_route);
 								FREE_AT_END();
 
@@ -993,7 +906,133 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign, Worker
 		}
 	}
 
-	free_http_request(http_request_generic);
+	return JOB_ERROR_NONE;
+}
+
+#undef FREE_AT_END
+
+// the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
+// pool, but the listener adds it
+// it receives all the necessary information and also handles the html parsing and response
+
+ANY_TYPE(JobError*)
+http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
+                               const WorkerInfo worker_info) {
+
+	// attention arg is malloced!
+	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)arg_ign;
+
+	ConnectionContext* context =
+	    ZVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
+
+	char* thread_name_buffer = NULL;
+	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
+	              , "connection handler %lu", worker_info.worker_index);
+	set_thread_name(thread_name_buffer);
+
+	const RouteManager* route_manager = argument->route_manager;
+
+#define FREE_AT_END() \
+	do { \
+		unset_thread_name(); \
+		free(thread_name_buffer); \
+		free(argument); \
+	} while(false)
+
+	bool sig_result = setup_sigpipe_signal_handler();
+
+	if(!sig_result) {
+		FREE_AT_END();
+		return NULL;
+	}
+
+	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
+
+	ConnectionDescriptor* const descriptor =
+	    get_connection_descriptor(context, argument->connection_fd);
+
+	if(descriptor == NULL) {
+		LOG_MESSAGE_SIMPLE(LogLevelError, "get_connection_descriptor failed\n");
+
+		FREE_AT_END();
+		return JOB_ERROR_DESC;
+	}
+
+	JobError job_error = JOB_ERROR_NONE;
+
+	HTTPReader* http_reader = initialize_http_reader_from_connection(descriptor);
+
+	while(true) {
+
+		// keepalive and http2, but not http 1.0 !!
+
+		if(!http_reader) {
+			HTTPResponseToSend to_send = {
+				.status = HttpStatusBadRequest,
+				.body = http_response_body_from_static_string(
+				    "Request couldn't be read, a connection error occurred!"),
+				.mime_type = MIME_TYPE_TEXT,
+				.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+			};
+
+			int result =
+			    send_http_message_to_connection(descriptor, to_send,
+			                                    (SendSettings){
+			                                        .compression_to_use = CompressionTypeNone,
+			                                        .protocol_to_use = HTTPProtocolVersionInvalid,
+			                                    });
+
+			if(result < 0) {
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
+			}
+
+			goto cleanup;
+		}
+
+		// TODO
+		const bool TODO_is_http2 = false;
+
+		// raw_http_request gets freed in here
+		HttpRequest* http_request_generic = get_http_request(http_reader, TODO_is_http2);
+
+		if(http_request_generic == NULL) {
+			HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
+				                           .body = http_response_body_from_static_string(
+				                               "Request couldn't be parsed, it was malformed!"),
+				                           .mime_type = MIME_TYPE_TEXT,
+				                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+
+			int result =
+			    send_http_message_to_connection(descriptor, to_send,
+			                                    (SendSettings){
+			                                        .compression_to_use = CompressionTypeNone,
+			                                        .protocol_to_use = HTTPProtocolVersionInvalid,
+			                                    });
+
+			if(result < 0) {
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
+			}
+
+			goto cleanup;
+		}
+
+		JobError process_error = process_http_request(http_request_generic, descriptor,
+		                                              route_manager, argument, worker_info);
+
+		free_http_request(http_request_generic);
+
+		if(process_error == JOB_ERROR_CLEANUP_CONNECTION) {
+			job_error = JOB_ERROR_NONE;
+			goto cleanup;
+		}
+
+		if(process_error != JOB_ERROR_NONE) {
+			job_error = process_error;
+			goto cleanup;
+		}
+	}
 
 cleanup:
 	// finally close the connection
@@ -1004,7 +1043,7 @@ cleanup:
 	});
 	// and free the malloced argument
 	FREE_AT_END();
-	return JOB_ERROR_NONE;
+	return job_error;
 }
 
 #undef FREE_AT_END

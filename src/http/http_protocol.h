@@ -11,6 +11,7 @@ extern "C" {
 #include "./http_2.h"
 
 #include "./uri.h"
+#include "generic/secure.h"
 #include "utils/log.h"
 #include "utils/sized_buffer.h"
 #include "utils/string_builder.h"
@@ -197,6 +198,13 @@ NODISCARD StringBuilder* http_request_to_string_builder(const HttpRequest* reque
 // internally some string"magic" happens
 NODISCARD HttpRequest* parse_http_request(char* raw_http_request, bool use_http2);
 
+typedef struct HTTPReaderImpl HTTPReader;
+
+NODISCARD HTTPReader* NULLABLE
+initialize_http_reader_from_connection(ConnectionDescriptor* descriptor);
+
+HttpRequest* get_http_request(HTTPReader* reader, bool use_http2);
+
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
@@ -269,7 +277,7 @@ NODISCARD CompressionSettings* get_compression_settings(HttpHeaderFields header_
 
 void free_compression_settings(CompressionSettings* compression_settings);
 
-NODISCARD RequestSettings* get_request_settings(HttpRequest* http_request);
+NODISCARD RequestSettings* get_request_settings(const HttpRequest* http_request);
 
 void free_request_settings(RequestSettings* request_settings);
 
