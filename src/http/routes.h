@@ -21,9 +21,9 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRouteFnTypeExecutorAuth
 } HTTPRouteFnType;
 
-typedef HTTPResponseToSend (*HTTPRouteFnExecutor)(ParsedURLPath path);
+typedef HTTPResponseToSend (*HTTPRouteFnExecutor)(ParsedURLPath path, bool send_body);
 
-typedef HTTPResponseToSend (*HTTPRouteFnExecutorAuth)(ParsedURLPath path, AuthUserWithContext user);
+typedef HTTPResponseToSend (*HTTPRouteFnExecutorAuth)(ParsedURLPath path, AuthUserWithContext user, bool send_body);
 
 typedef HTTPResponseToSend (*HTTPRouteFnExecutorExtended)(SendSettings send_settings,
                                                           const HttpRequest http_request,

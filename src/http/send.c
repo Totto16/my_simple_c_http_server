@@ -209,38 +209,28 @@ int send_http_message_to_connection(const ConnectionDescriptor* const descriptor
 	return send_message_to_connection(descriptor, to_send, send_settings);
 }
 
-NODISCARD int send_http_message_to_connection_advanced(const ConnectionDescriptor* descriptor,
-                                                       HTTPResponseToSend to_send,
-                                                       SendSettings send_settings,
-                                                       bool is_head) {
-
-	if(is_head) {
-		to_send.body.send_body_data = false;
-	}
-
-	return send_http_message_to_connection(descriptor, to_send, send_settings);
-}
-
-NODISCARD HTTPResponseBody http_response_body_from_static_string(const char* static_string) {
+NODISCARD HTTPResponseBody http_response_body_from_static_string(const char* static_string,
+                                                                 bool send_body) {
 	char* malloced_string = strdup(static_string);
 
-	return http_response_body_from_string(malloced_string);
+	return http_response_body_from_string(malloced_string, send_body);
 }
 
-NODISCARD HTTPResponseBody http_response_body_from_string(char* string) {
-	return http_response_body_from_data(string, strlen(string));
+NODISCARD HTTPResponseBody http_response_body_from_string(char* string, bool send_body) {
+	return http_response_body_from_data(string, strlen(string), send_body);
 }
 
-NODISCARD HTTPResponseBody http_response_body_from_string_builder(StringBuilder** string_builder) {
+NODISCARD HTTPResponseBody http_response_body_from_string_builder(StringBuilder** string_builder,
+                                                                  bool send_body) {
 	SizedBuffer string_builder_buffer = string_builder_release_into_sized_buffer(string_builder);
-	HTTPResponseBody result =
-	    http_response_body_from_data(string_builder_buffer.data, string_builder_buffer.size);
+	HTTPResponseBody result = http_response_body_from_data(string_builder_buffer.data,
+	                                                       string_builder_buffer.size, send_body);
 	return result;
 }
 
-NODISCARD HTTPResponseBody http_response_body_from_data(void* data, size_t size) {
+NODISCARD HTTPResponseBody http_response_body_from_data(void* data, size_t size, bool send_body) {
 	return (HTTPResponseBody){ .body = (SizedBuffer){ .data = data, .size = size },
-		                       .send_body_data = true };
+		                       .send_body_data = send_body };
 }
 
 NODISCARD HTTPResponseBody http_response_body_empty(void) {

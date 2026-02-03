@@ -23,6 +23,8 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 
 	UNUSED(path);
 
+	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
+
 	StringBuilder* html_string_builder =
 	    http_request_to_html(http_request, is_secure_context(context), send_settings);
 
@@ -30,7 +32,7 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 
 		HTTPResponseToSend result = { .status = HttpStatusInternalServerError,
 			                          .body = http_response_body_from_static_string(
-			                              "Internal Server Error  6"),
+			                              "Internal Server Error  6", send_body),
 			                          .mime_type = MIME_TYPE_TEXT,
 			                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
@@ -39,7 +41,7 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 
 	HTTPResponseToSend result = {
 		.status = HttpStatusOk,
-		.body = http_response_body_from_string_builder(&html_string_builder),
+		.body = http_response_body_from_string_builder(&html_string_builder, send_body),
 		.mime_type = MIME_TYPE_HTML,
 		.additional_headers = ZVEC_EMPTY(HttpHeaderField),
 	};
@@ -54,25 +56,27 @@ static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
 
 	UNUSED(path);
 
+	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
+
 	StringBuilder* json_string_builder =
 	    http_request_to_json(http_request, is_secure_context(context), send_settings);
 
 	HTTPResponseToSend result = {
 		.status = HttpStatusOk,
-		.body = http_response_body_from_string_builder(&json_string_builder),
+		.body = http_response_body_from_string_builder(&json_string_builder, send_body),
 		.mime_type = MIME_TYPE_JSON,
 		.additional_headers = ZVEC_EMPTY(HttpHeaderField),
 	};
 	return result;
 }
 
-static HTTPResponseToSend static_executor_fn(ParsedURLPath path) {
+static HTTPResponseToSend static_executor_fn(ParsedURLPath path, bool send_body) {
 
 	UNUSED(path);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body =
-		                              http_response_body_from_static_string("{\"static\":true}"),
+		                          .body = http_response_body_from_static_string("{\"static\":true}",
+		                                                                        send_body),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 	return result;
@@ -226,7 +230,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 	return string_builder;
 }
 
-static HTTPResponseToSend huge_executor_fn(ParsedURLPath path) {
+static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_body) {
 
 	const ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, "pretty");
 
@@ -235,13 +239,15 @@ static HTTPResponseToSend huge_executor_fn(ParsedURLPath path) {
 	StringBuilder* string_builder = get_random_json_string_builder(pretty);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = http_response_body_from_string_builder(&string_builder),
+		                          .body = http_response_body_from_string_builder(&string_builder,
+		                                                                         send_body),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 	return result;
 }
 
-static HTTPResponseToSend auth_executor_fn(ParsedURLPath path, AuthUserWithContext user) {
+static HTTPResponseToSend auth_executor_fn(ParsedURLPath path, AuthUserWithContext user,
+                                           const bool send_body) {
 
 	UNUSED(path);
 
@@ -257,7 +263,8 @@ static HTTPResponseToSend auth_executor_fn(ParsedURLPath path, AuthUserWithConte
 	string_builder_append_single(string_builder, "\"}");
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = http_response_body_from_string_builder(&string_builder),
+		                          .body = http_response_body_from_string_builder(&string_builder,
+		                                                                         send_body),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 	return result;
@@ -890,6 +897,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 	const ParsedURLPath normal_data = http_properties.data.normal;
 
+	const bool send_body = request.head.request_line.method != HTTPRequestMethodHead;
+
 	AuthUserWithContext* auth_user = NULL;
 
 	if(route.auth.type != HTTPAuthorizationTypeNone) {
@@ -942,12 +951,12 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				auth_user = malloc(sizeof(AuthUserWithContext));
 
 				if(!auth_user) {
-					HTTPResponseToSend to_send = {
-						.status = HttpStatusInternalServerError,
-						.body = http_response_body_from_static_string("Internal error: OOM"),
-						.mime_type = MIME_TYPE_TEXT,
-						.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-					};
+					HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+						                           .body = http_response_body_from_static_string(
+						                               "Internal error: OOM", send_body),
+						                           .mime_type = MIME_TYPE_TEXT,
+						                           .additional_headers =
+						                               ZVEC_EMPTY(HttpHeaderField) };
 
 					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
 						                         .data = { .internal = { .send = to_send } } };
@@ -967,7 +976,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				HTTPResponseToSend to_send = {
 					.status = HttpStatusInternalServerError,
 					.body = http_response_body_from_static_string(
-					    "Internal implementation error in authorization process, type 0"),
+					    "Internal implementation error in authorization process, type 0",
+					    send_body),
 					.mime_type = MIME_TYPE_TEXT,
 					.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 				};
@@ -985,7 +995,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				HTTPResponseToSend to_send = {
 					.status = HttpStatusInternalServerError,
 					.body = http_response_body_from_static_string(
-					    "Internal implementation error in authorization process, type 1"),
+					    "Internal implementation error in authorization process, type 1",
+					    send_body),
 					.mime_type = MIME_TYPE_TEXT,
 					.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 				};
@@ -999,7 +1010,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				HTTPResponseToSend to_send = {
 					.status = HttpStatusInternalServerError,
 					.body = http_response_body_from_static_string(
-					    "Internal implementation error in authorization process, type 2"),
+					    "Internal implementation error in authorization process, type 2",
+					    send_body),
 					.mime_type = MIME_TYPE_TEXT,
 					.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 				};
@@ -1057,9 +1069,11 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 
 	HTTPResponseToSend response = {};
 
+	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
+
 	switch(route.type) {
 		case HTTPRouteFnTypeExecutor: {
-			response = route.fn.executor(path);
+			response = route.fn.executor(path, send_body);
 
 			break;
 		}
@@ -1068,14 +1082,15 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 				response = (HTTPResponseToSend){
 					.status = HttpStatusInternalServerError,
 					.body = http_response_body_from_static_string(
-					    "Internal error: Authentication required by routem but none given"),
+					    "Internal error: Authentication required by route, but none given",
+					    send_body),
 					.mime_type = MIME_TYPE_TEXT,
 					.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 				};
 				break;
 			}
 
-			response = route.fn.executor_auth(path, *auth_user);
+			response = route.fn.executor_auth(path, *auth_user, send_body);
 
 			break;
 		}
@@ -1089,10 +1104,11 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 		}
 	}
 
-	const bool is_head = http_request.head.request_line.method == HTTPRequestMethodHead;
+	if(http_request.head.request_line.method == HTTPRequestMethodHead) {
+		response.body.send_body_data = false;
+	}
 
-	int result =
-	    send_http_message_to_connection_advanced(descriptor, response, send_settings, is_head);
+	int result = send_http_message_to_connection(descriptor, response, send_settings);
 
 	return result;
 }

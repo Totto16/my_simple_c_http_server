@@ -3,7 +3,7 @@
 #include "./parse.h"
 
 NODISCARD static Byte* parser_get_until_delimiter_fixed_impl(ParseState* state,
-                                                      const SizedBuffer delimiter) {
+                                                             const SizedBuffer delimiter) {
 
 	size_t delimiter_index = 0;
 	Byte* delimiter_bytes = (Byte*)delimiter.data;
@@ -39,4 +39,8 @@ NODISCARD Byte* parser_get_until_delimiter(ParseState* state, const char* const 
 
 NODISCARD Byte* parser_get_until_delimiter_fixed(ParseState* state, const SizedBuffer delimiter) {
 	return parser_get_until_delimiter_fixed_impl(state, delimiter);
+}
+
+void free_parser(ParseState state) {
+	free_sized_buffer(state.data);
 }

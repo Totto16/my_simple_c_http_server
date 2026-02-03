@@ -533,6 +533,11 @@ NODISCARD bool http_reader_more_available(const HTTPReader* const reader) {
 	}
 }
 
+static void free_reader_content(HTTPContent content) {
+	// TODO
+	UNUSED(content);
+}
+
 // TODO: the reader should tell us now if we have http 1.1 keepalive or http/2, but how does
 // http/1.1 vs http/2 behave, do they close the connection, otherwise this can be false always?,
 // investigate
@@ -545,7 +550,8 @@ bool finish_reader(HTTPReader* reader, ConnectionContext* context) {
 	    close_connection_descriptor_advanced(reader->descriptor, context, SUPPORT_KEEPALIVE);
 	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", { return false; });
 
-	free_sized_buffer(reader->data);
+	free_parser(reader->parser);
+	free_reader_content(reader->content);
 	free(reader);
 
 	return true;

@@ -4,8 +4,8 @@
 #include "generic/hash.h"
 #include "generic/send.h"
 #include "http/header.h"
-#include "http/protocol.h"
 #include "http/mime.h"
+#include "http/protocol.h"
 #include "http/send.h"
 #include "utils/log.h"
 #include "utils/string_builder.h"
@@ -39,7 +39,7 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 	add_http_header_field_by_double_str(&additional_headers, connection_header_buffer);
 
 	HTTPResponseToSend to_send = { .status = HttpStatusUpgradeRequired,
-		                           .body = http_response_body_from_string_builder(&message),
+		                           .body = http_response_body_from_string_builder(&message, true),
 		                           .mime_type = MIME_TYPE_TEXT,
 		                           .additional_headers = additional_headers };
 
@@ -64,7 +64,7 @@ NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* c
 	                       , "Error: The client handshake was invalid: %s", error_reason);
 
 	HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
-		                           .body = http_response_body_from_string_builder(&message),
+		                           .body = http_response_body_from_string_builder(&message, true),
 		                           .mime_type = MIME_TYPE_TEXT,
 		                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
