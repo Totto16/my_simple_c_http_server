@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-ZVEC_IMPLEMENT_VEC_TYPE(ServeFolderFolderEntry)
+TVEC_IMPLEMENT_VEC_TYPE(ServeFolderFolderEntry)
 
 static char* get_final_file_path(HTTPRouteServeFolder data, const char* const route_path,
                                  ParsedURLPath request_path) {
@@ -202,15 +202,15 @@ static void free_folder_info_entry(ServeFolderFolderEntry folder_info_entry) {
 
 static void free_folder_info(ServeFolderFolderInfo folder_info) {
 
-	for(size_t i = 0; i < ZVEC_LENGTH(folder_info.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(folder_info.entries); ++i) {
 
 		const ServeFolderFolderEntry entry =
-		    ZVEC_AT(ServeFolderFolderEntry, folder_info.entries, i);
+		    TVEC_AT(ServeFolderFolderEntry, folder_info.entries, i);
 
 		free_folder_info_entry(entry);
 	}
 
-	ZVEC_FREE(ServeFolderFolderEntry, &folder_info.entries);
+	TVEC_FREE(ServeFolderFolderEntry, &folder_info.entries);
 }
 
 NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
@@ -306,7 +306,7 @@ get_serve_folder_content_for_folder(const char* const folder_path, bool has_vali
 	ServeFolderResult result = { .type = ServeFolderResultTypeServerError };
 
 	ServeFolderFolderInfo folder_info = {
-		.entries = ZVEC_EMPTY(ServeFolderFolderEntry),
+		.entries = TVEC_EMPTY(ServeFolderFolderEntry),
 		.has_valid_parent = has_valid_parent,
 	};
 
@@ -347,9 +347,9 @@ get_serve_folder_content_for_folder(const char* const folder_path, bool has_vali
 			goto error;
 		}
 
-		ZvecResult push_res = ZVEC_PUSH(ServeFolderFolderEntry, &folder_info.entries, metadata);
+		TvecResult push_res = TVEC_PUSH(ServeFolderFolderEntry, &folder_info.entries, metadata);
 
-		if(push_res != ZvecResultOk) {
+		if(push_res != TvecResultOk) {
 
 			free_folder_info_entry(metadata);
 
@@ -594,9 +594,9 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 		}
 	}
 
-	for(size_t i = 0; i < ZVEC_LENGTH(folder_info.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(folder_info.entries); ++i) {
 
-		ServeFolderFolderEntry entry = ZVEC_AT(ServeFolderFolderEntry, folder_info.entries, i);
+		ServeFolderFolderEntry entry = TVEC_AT(ServeFolderFolderEntry, folder_info.entries, i);
 
 		if(!folder_content_add_entry(body, entry)) {
 			return NULL;

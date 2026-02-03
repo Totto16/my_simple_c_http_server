@@ -6,7 +6,7 @@
 
 #include <ctype.h>
 
-ZVEC_IMPLEMENT_VEC_TYPE(WSExtension)
+TVEC_IMPLEMENT_VEC_TYPE(WSExtension)
 
 
 #define DEFAULT_MAX_WINDOW_BITS 15
@@ -185,7 +185,7 @@ void parse_ws_extensions(WSExtensions* extensions, const char* const value_const
 		WSExtension extension = parse_ws_extension_value(current_extension, &success);
 
 		if(success) {
-			auto _ = ZVEC_PUSH(WSExtension, extensions, extension);
+			auto _ = TVEC_PUSH(WSExtension, extensions, extension);
 			UNUSED(_);
 		}
 
@@ -279,10 +279,10 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 		return NULL;
 	}
 
-	size_t extensions_length = ZVEC_LENGTH(extensions);
+	size_t extensions_length = TVEC_LENGTH(extensions);
 
 	for(size_t i = 0; i < extensions_length; ++i) {
-		WSExtension extension = ZVEC_AT(WSExtension, extensions, i);
+		WSExtension extension = TVEC_AT(WSExtension, extensions, i);
 
 		bool success = append_ws_extension_as_string(string_builder, extension);
 
@@ -339,8 +339,8 @@ struct ExtensionMessageReceiveStateImpl {
 NODISCARD static ExtensionReceivePipelineSettings get_pipeline_settings(WSExtensions extensions) {
 	ExtensionReceivePipelineSettings settings = { .allowed_rsv_bytes = 0 };
 
-	for(size_t i = 0; i < ZVEC_LENGTH(extensions); ++i) {
-		WSExtension extension = ZVEC_AT(WSExtension, extensions, i);
+	for(size_t i = 0; i < TVEC_LENGTH(extensions); ++i) {
+		WSExtension extension = TVEC_AT(WSExtension, extensions, i);
 
 		switch(extension.type) {
 			case WSExtensionTypePerMessageDeflate: {
@@ -377,9 +377,9 @@ static char* noop_process_send_fn(WebSocketMessage* message,
 
 // TODO: do the same as ZVEC qsort with ANY_TYPE and pthread functions!
 
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(WsProcessFn)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(WsProcessFn)
 
-typedef ZVEC_TYPENAME(WsProcessFn) ArrayProcessArg;
+typedef TVEC_TYPENAME(WsProcessFn) ArrayProcessArg;
 
 static char* array_process_receive_fn(WebSocketMessage* message,
                                       const ExtensionMessageReceiveState* const message_state,
@@ -387,7 +387,7 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 
 	const ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
 
-	size_t process_arg_length = ZVEC_LENGTH(*process_arg);
+	size_t process_arg_length = TVEC_LENGTH(*process_arg);
 
 	if(process_arg_length == 0) {
 		return NULL;
@@ -396,7 +396,7 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 	// NOTE: receive extensions are run in reverse
 
 	for(size_t i = 0; i < process_arg_length; ++i) {
-		WsProcessFn process_fn = ZVEC_AT(WsProcessFn, *process_arg, process_arg_length - 1 - i);
+		WsProcessFn process_fn = TVEC_AT(WsProcessFn, *process_arg, process_arg_length - 1 - i);
 
 		char* error = process_fn.receive_fn(message, message_state, process_fn.arg);
 		if(error != NULL) {
@@ -412,8 +412,8 @@ static char* array_process_send_fn(WebSocketMessage* message,
 
 	ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
 
-	for(size_t i = 0; i < ZVEC_LENGTH(*process_arg); ++i) {
-		WsProcessFn process_fn = ZVEC_AT(WsProcessFn, *process_arg, i);
+	for(size_t i = 0; i < TVEC_LENGTH(*process_arg); ++i) {
+		WsProcessFn process_fn = TVEC_AT(WsProcessFn, *process_arg, i);
 
 		char* error = process_fn.send_fn(message, message_state, process_fn.arg);
 		if(error != NULL) {
@@ -545,7 +545,7 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 	extension_pipeline->settings = get_pipeline_settings(extensions);
 	extension_pipeline->extension_mask = WsExtensionMaskNone;
 
-	size_t extension_length = ZVEC_LENGTH(extensions);
+	size_t extension_length = TVEC_LENGTH(extensions);
 	extension_pipeline->active_extensions = extension_length;
 
 	if(extension_length == 0) {
@@ -561,10 +561,10 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 		return NULL;
 	}
 
-	*array_fns = ZVEC_EMPTY(WsProcessFn);
+	*array_fns = TVEC_EMPTY(WsProcessFn);
 
 	for(size_t i = 0; i < extension_length; ++i) {
-		WSExtension* extension = ZVEC_GET_AT_MUT(WSExtension, &extensions, i);
+		WSExtension* extension = TVEC_GET_AT_MUT(WSExtension, &extensions, i);
 
 		WsProcessFn process_fn = {};
 		switch(extension->type) {
@@ -578,13 +578,13 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 			}
 			default: {
 				free(extension_pipeline);
-				ZVEC_FREE(WsProcessFn, array_fns);
+				TVEC_FREE(WsProcessFn, array_fns);
 				return NULL;
 				break;
 			}
 		}
 
-		auto _ = ZVEC_PUSH(WsProcessFn, array_fns, process_fn);
+		auto _ = TVEC_PUSH(WsProcessFn, array_fns, process_fn);
 		UNUSED(_);
 	}
 
@@ -603,7 +603,7 @@ void free_extension_pipeline(ExtensionPipeline* extension_pipeline) {
 
 		ArrayProcessArg* array_fns = ((ArrayProcessArg*)(extension_pipeline->process_fn.arg));
 
-		ZVEC_FREE(WsProcessFn, array_fns);
+		TVEC_FREE(WsProcessFn, array_fns);
 		free(array_fns);
 	}
 

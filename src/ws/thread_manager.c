@@ -1551,7 +1551,7 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 }
 
 static void free_connection_args(WsConnectionArgs* args) {
-	ZVEC_FREE(WSExtension, &(args->extensions));
+	TVEC_FREE(WSExtension, &(args->extensions));
 }
 
 static void free_connection(WebSocketConnection* connection, bool send_go_away) {

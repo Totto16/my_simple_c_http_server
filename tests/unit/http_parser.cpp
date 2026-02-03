@@ -1,6 +1,6 @@
 #include <doctest.h>
 #include <zmap/zmap.h>
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 #include <http/compression.h>
 #include <http/header.h>
@@ -25,7 +25,7 @@ class CompressionSettingsCpp {
 
 	CompressionSettingsCpp(const char* accept_encoding_value) {
 
-		HttpHeaderFields http_header_fields = ZVEC_EMPTY(HttpHeaderField);
+		HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
 
 		char* accept_encoding_buffer = NULL;
 		FORMAT_STRING_IMPL(&accept_encoding_buffer, throw std::runtime_error("OOM");
@@ -111,11 +111,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("no Accept-Encoding header") {
 
-		HttpHeaderFields http_header_fields = ZVEC_EMPTY(HttpHeaderField);
+		HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
 
 		CompressionSettingsCpp compression_settings = CompressionSettingsCpp(http_header_fields);
 
-		size_t entries_length = ZVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 0);
 	}
@@ -124,11 +124,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" compress, gzip");
 
-		size_t entries_length = ZVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 2);
 
-		CompressionEntry entry1 = ZVEC_AT(CompressionEntry, compression_settings.entries(), 0);
+		CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
 
 		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -137,7 +137,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entry1, entry1Expected);
 
-		CompressionEntry entry2 = ZVEC_AT(CompressionEntry, compression_settings.entries(), 1);
+		CompressionEntry entry2 = TVEC_AT(CompressionEntry, compression_settings.entries(), 1);
 
 		CompressionEntry entry2Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -151,7 +151,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionSettingsCpp compression_settings = CompressionSettingsCpp("");
 
-		size_t entries_length = ZVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 0);
 	}
@@ -160,11 +160,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" *");
 
-		size_t entries_length = ZVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 1);
 
-		CompressionEntry entry1 = ZVEC_AT(CompressionEntry, compression_settings.entries(), 0);
+		CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
 
 		CompressionEntry entry1Expected = {
 			.value = { .type = CompressionValueTypeAllEncodings, .data = {} }, .weight = 1.0F
@@ -177,11 +177,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 		CompressionSettingsCpp compression_settings =
 		    CompressionSettingsCpp(" deflate;q=0.5, br;q=1.0");
 
-		size_t entries_length = ZVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 2);
 
-		CompressionEntry entry1 = ZVEC_AT(CompressionEntry, compression_settings.entries(), 0);
+		CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
 
 		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -190,7 +190,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entry1, entry1Expected);
 
-		CompressionEntry entry2 = ZVEC_AT(CompressionEntry, compression_settings.entries(), 1);
+		CompressionEntry entry2 = TVEC_AT(CompressionEntry, compression_settings.entries(), 1);
 
 		CompressionEntry entry2Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -204,11 +204,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 		CompressionSettingsCpp compression_settings =
 		    CompressionSettingsCpp(" zstd;q=1.0, identity; q=0.5, *;q=0");
 
-		size_t entries_length = ZVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 3);
 
-		CompressionEntry entry1 = ZVEC_AT(CompressionEntry, compression_settings.entries(), 0);
+		CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
 
 		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
 			                                           .data = { .normal_compression =
@@ -217,7 +217,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entry1, entry1Expected);
 
-		CompressionEntry entry2 = ZVEC_AT(CompressionEntry, compression_settings.entries(), 1);
+		CompressionEntry entry2 = TVEC_AT(CompressionEntry, compression_settings.entries(), 1);
 
 		CompressionEntry entry2Expected = {
 			.value = { .type = CompressionValueTypeNoEncoding, .data = {} }, .weight = 0.5F
@@ -225,7 +225,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		REQUIRE_EQ(entry2, entry2Expected);
 
-		CompressionEntry entry3 = ZVEC_AT(CompressionEntry, compression_settings.entries(), 2);
+		CompressionEntry entry3 = TVEC_AT(CompressionEntry, compression_settings.entries(), 2);
 
 		CompressionEntry entry3Expected = {
 			.value = { .type = CompressionValueTypeAllEncodings, .data = {} }, .weight = 0.0F

@@ -24,7 +24,7 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 	string_builder_append_single(message, "Error: The client handshake was invalid: This endpoint "
 	                                      "requires an upgrade to the WebSocket protocol");
 
-	HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+	HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 	char* upgrade_header_buffer = NULL;
 	FORMAT_STRING(&upgrade_header_buffer, return false;
@@ -66,7 +66,7 @@ NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* c
 	HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
 		                           .body = http_response_body_from_string_builder(&message, true),
 		                           .mime_type = MIME_TYPE_TEXT,
-		                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+		                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
 	free_string_builder(message);
 
@@ -127,7 +127,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const descriptor,
                                               SendSettings send_settings, WSExtensions extensions) {
 
-	size_t extension_length = ZVEC_LENGTH(extensions);
+	size_t extension_length = TVEC_LENGTH(extensions);
 
 	if(extension_length == 0) {
 		return 0;
@@ -140,7 +140,7 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 	}
 
 	for(size_t i = 0; i < extension_length; ++i) {
-		WSExtension extension = ZVEC_AT(WSExtension, extensions, i);
+		WSExtension extension = TVEC_AT(WSExtension, extensions, i);
 
 		switch(extension.type) {
 			case WSExtensionTypePerMessageDeflate: {
@@ -193,8 +193,8 @@ int handle_ws_handshake(const HttpRequest http_request,
 	char* sec_key = NULL;
 	bool from_browser = false;
 
-	for(size_t i = 0; i < ZVEC_LENGTH(http_request.head.header_fields); ++i) {
-		HttpHeaderField header = ZVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
+	for(size_t i = 0; i < TVEC_LENGTH(http_request.head.header_fields); ++i) {
+		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 	
 		if(strcasecmp(header.key, HTTP_HEADER_NAME(host)) == 0) {
 			found_list |= HandshakeHeaderHeaderHost;
@@ -267,7 +267,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 	// send server handshake
 
-	HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+	HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 	char* upgrade_header_buffer = NULL;
 	FORMAT_STRING(&upgrade_header_buffer, return false;
@@ -295,7 +295,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 		                                    sec_websocket_accept_header_buffer);
 	}
 
-	if(!ZVEC_IS_EMPTY(*extensions)) {
+	if(!TVEC_IS_EMPTY(*extensions)) {
 		char* accepted_extensions = get_accepted_ws_extensions_as_string(*extensions);
 
 		if(accepted_extensions != NULL) {

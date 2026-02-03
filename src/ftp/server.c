@@ -92,7 +92,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 	FTPControlConnectionArgument* argument = (FTPControlConnectionArgument*)arg_ign;
 
 	ConnectionContext* context =
-	    ZVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
+	    TVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
 	char* thread_name_buffer = NULL;
 	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
 	              , "connection handler %lu", worker_info.worker_index);
@@ -195,8 +195,8 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 			continue;
 		}
 
-		for(size_t i = 0; i < ZVEC_LENGTH(*ftp_commands); ++i) {
-			FTPCommand* command = ZVEC_AT(FTPCommandPtr, *ftp_commands, i);
+		for(size_t i = 0; i < TVEC_LENGTH(*ftp_commands); ++i) {
+			FTPCommand* command = TVEC_AT(FTPCommandPtr, *ftp_commands, i);
 			bool successfull = ftp_process_command(descriptor, server_addr, argument, command);
 			if(!successfull) {
 				quit = true;
@@ -689,12 +689,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+				for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
 					ConnectionDescriptor* connection_to_close =
-					    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
 				}
-				ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -882,12 +882,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+				for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
 					ConnectionDescriptor* connection_to_close =
-					    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
 				}
-				ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -1103,12 +1103,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+				for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
 					ConnectionDescriptor* connection_to_close =
-					    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
 				}
-				ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -1583,12 +1583,12 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument.data_controller);
 
-				for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+				for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
 					ConnectionDescriptor* connection_to_close =
-					    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
 				}
-				ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			continue;
@@ -1644,12 +1644,12 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			ConnectionsToClose* connections_to_close =
 			    data_connections_to_close(argument.data_controller);
 
-			for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+			for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
 				ConnectionDescriptor* connection_to_close =
-				    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+				    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 				close_connection_descriptor(connection_to_close);
 			}
-			ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+			TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 		}
 	}
 
@@ -1862,13 +1862,13 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	};
 
 	// this is an array of pointers
-	ConnectionContextPtrs control_contexts = ZVEC_EMPTY(ConnectionContextPtr);
+	ConnectionContextPtrs control_contexts = TVEC_EMPTY(ConnectionContextPtr);
 
-	const ZvecResult allocate_result =
-	    ZVEC_ALLOCATE_UNINITIALIZED_EXTENDED(ConnectionContext*, ConnectionContextPtr,
+	const TvecResult allocate_result =
+	    TVEC_ALLOCATE_UNINITIALIZED_EXTENDED(ConnectionContext*, ConnectionContextPtr,
 	                                         &control_contexts, control_pool.worker_threads_amount);
 
-	if(allocate_result == ZvecResultErr) {
+	if(allocate_result == TvecResultErr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
@@ -1883,7 +1883,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
 		ConnectionContext* context = get_connection_context(final_options);
 
-		auto _ = ZVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, &control_contexts,
+		auto _ = TVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, &control_contexts,
 		                              i, context);
 		UNUSED(_);
 	}
@@ -1897,9 +1897,9 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 		                   "Couldn't allocate memory!\n");
 
 		for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
-			free_connection_context(ZVEC_AT(ConnectionContextPtr, control_contexts, i));
+			free_connection_context(TVEC_AT(ConnectionContextPtr, control_contexts, i));
 		}
-		ZVEC_FREE(ConnectionContextPtr, &control_contexts);
+		TVEC_FREE(ConnectionContextPtr, &control_contexts);
 		return EXIT_FAILURE;
 	}
 
@@ -2034,7 +2034,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	free(ports);
 
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
-		free_connection_context(ZVEC_AT(ConnectionContextPtr, control_contexts, i));
+		free_connection_context(TVEC_AT(ConnectionContextPtr, control_contexts, i));
 	}
 
 	free(folder);

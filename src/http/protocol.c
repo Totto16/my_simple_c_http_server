@@ -2,9 +2,9 @@
 #include "./protocol.h"
 #include "./parser.h"
 
-ZVEC_IMPLEMENT_VEC_TYPE(HttpHeaderField)
+TVEC_IMPLEMENT_VEC_TYPE(HttpHeaderField)
 
-ZVEC_IMPLEMENT_VEC_TYPE(CompressionEntry)
+TVEC_IMPLEMENT_VEC_TYPE(CompressionEntry)
 
 NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 	switch(method) {
@@ -34,12 +34,12 @@ static void free_http_request_line(HttpRequestLine line) {
 
 static void free_request_head(HttpRequestHead head) {
 	free_http_request_line(head.request_line);
-	for(size_t i = 0; i < ZVEC_LENGTH(head.header_fields); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(head.header_fields); ++i) {
 		// same elegant freeing but two at once :)
-		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, head.header_fields, i);
+		HttpHeaderField entry = TVEC_AT(HttpHeaderField, head.header_fields, i);
 		free(entry.key);
 	}
-	ZVEC_FREE(HttpHeaderField, &head.header_fields);
+	TVEC_FREE(HttpHeaderField, &head.header_fields);
 }
 
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
@@ -151,8 +151,8 @@ const char* get_status_message(HttpStatusCode status_code) {
 
 NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
 
-	for(size_t i = 0; i < ZVEC_LENGTH(array); ++i) {
-		HttpHeaderField* header = ZVEC_GET_AT_MUT(HttpHeaderField, &array, i);
+	for(size_t i = 0; i < TVEC_LENGTH(array); ++i) {
+		HttpHeaderField* header = TVEC_GET_AT_MUT(HttpHeaderField, &array, i);
 		if(strcasecmp(header->key, key) == 0) {
 			return header;
 		}
@@ -206,7 +206,7 @@ SendSettings get_send_settings(const RequestSettings request_settings) {
 
 	CompressionEntries entries = request_settings.compression_settings.entries;
 
-	size_t entries_length = ZVEC_LENGTH(entries);
+	size_t entries_length = TVEC_LENGTH(entries);
 
 	if(entries_length == 0) {
 		return result;
@@ -214,10 +214,10 @@ SendSettings get_send_settings(const RequestSettings request_settings) {
 
 	// this sorts the entries by weight, same weight means, we prefer the ones that come first
 	// in the string, as it is unspecified in the spec, on what to sort as 2. criterium
-	ZVEC_SORT(CompressionEntry, &entries, compare_function_entries);
+	TVEC_SORT(CompressionEntry, &entries, compare_function_entries);
 
 	for(size_t i = 0; i < entries_length; ++i) {
-		CompressionEntry entry = ZVEC_AT(CompressionEntry, entries, i);
+		CompressionEntry entry = TVEC_AT(CompressionEntry, entries, i);
 
 		switch(entry.value.type) {
 			case CompressionValueTypeNoEncoding: {
@@ -247,15 +247,15 @@ break_for:
 }
 
 void free_http_header_fields(HttpHeaderFields* header_fields) {
-	for(size_t i = 0; i < ZVEC_LENGTH(*header_fields); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(*header_fields); ++i) {
 		// same elegant freeing but two at once :)
 
-		HttpHeaderField field = ZVEC_AT(HttpHeaderField, *header_fields, i);
+		HttpHeaderField field = TVEC_AT(HttpHeaderField, *header_fields, i);
 
 		free(field.key);
 	}
-	ZVEC_FREE(HttpHeaderField, header_fields);
-	*header_fields = ZVEC_EMPTY(HttpHeaderField);
+	TVEC_FREE(HttpHeaderField, header_fields);
+	*header_fields = TVEC_EMPTY(HttpHeaderField);
 }
 
 void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str) {
@@ -265,7 +265,7 @@ void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* 
 
 	HttpHeaderField field = { .key = first_str, .value = second_str };
 
-	auto _ = ZVEC_PUSH(HttpHeaderField, header_fields, field);
+	auto _ = TVEC_PUSH(HttpHeaderField, header_fields, field);
 	UNUSED(_);
 }
 
@@ -301,9 +301,9 @@ HttpConcattedResponse* http_response_concat(HttpResponse* response) {
 	                       response->head.response_line.status_code,
 	                       response->head.response_line.status_message, HTTP_LINE_SEPERATORS);
 
-	for(size_t i = 0; i < ZVEC_LENGTH(response->head.header_fields); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(response->head.header_fields); ++i) {
 
-		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, response->head.header_fields, i);
+		HttpHeaderField entry = TVEC_AT(HttpHeaderField, response->head.header_fields, i);
 
 		STRING_BUILDER_APPENDF(result, return NULL;
 		                       , "%s: %s%s", entry.key, entry.value, HTTP_LINE_SEPERATORS);

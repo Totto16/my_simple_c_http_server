@@ -8,7 +8,7 @@
 #include "generic/secure.h"
 #include "utils/utils.h"
 
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 typedef struct RouteManagerImpl RouteManager;
 
@@ -159,9 +159,9 @@ typedef struct {
 	HTTPAuthorization auth;
 } HTTPRoute;
 
-ZVEC_DEFINE_VEC_TYPE(HTTPRoute)
+TVEC_DEFINE_VEC_TYPE(HTTPRoute)
 
-typedef ZVEC_TYPENAME(HTTPRoute) HTTPRoutesArray;
+typedef TVEC_TYPENAME(HTTPRoute) HTTPRoutesArray;
 
 typedef void (*FreeFnImpl)(void*);
 
@@ -170,9 +170,9 @@ typedef struct {
 	FreeFnImpl fn;
 } HTTPFreeFn;
 
-ZVEC_DEFINE_VEC_TYPE(HTTPFreeFn)
+TVEC_DEFINE_VEC_TYPE(HTTPFreeFn)
 
-typedef ZVEC_TYPENAME(HTTPFreeFn) HTTPFreeFns;
+typedef TVEC_TYPENAME(HTTPFreeFn) HTTPFreeFns;
 
 typedef struct {
 	HTTPRoutesArray routes;

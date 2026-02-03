@@ -5,7 +5,7 @@
 
 #include "utils/utils.h"
 
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 #define ESSL 167
 
@@ -28,9 +28,9 @@ typedef struct {
 
 typedef struct ConnectionContextImpl ConnectionContext;
 
-ZVEC_DEFINE_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
+TVEC_DEFINE_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
 
-typedef ZVEC_TYPENAME(ConnectionContextPtr) ConnectionContextPtrs;
+typedef TVEC_TYPENAME(ConnectionContextPtr) ConnectionContextPtrs;
 
 typedef struct ConnectionDescriptorImpl ConnectionDescriptor;
 

@@ -55,7 +55,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 			                           .body = http_response_body_from_string_builder(
 			                               &string_builder, send_body),
 			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+			                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
 		return send_http_message_to_connection(descriptor, to_send, send_settings);
 	}
@@ -63,7 +63,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 	switch(error.value.enum_value) {
 		case HttpRequestErrorTypeInvalidHttpVersion: {
 
-			HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+			HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 			{
 
@@ -79,7 +79,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 						FORMAT_STRING(
 						    &date_buffer,
 						    {
-							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    TVEC_FREE(HttpHeaderField, &additional_headers);
 							    return -1;
 						    },
 						    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
@@ -106,7 +106,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 		}
 		case HttpRequestErrorTypeMethodNotSupported: {
 
-			HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+			HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 			{
 
@@ -115,7 +115,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				FORMAT_STRING(
 				    &allowed_header_buffer,
 				    {
-					    ZVEC_FREE(HttpHeaderField, &additional_headers);
+					    TVEC_FREE(HttpHeaderField, &additional_headers);
 					    FREE_AT_END();
 					    return INT_ERROR_FROM_VOID_PTR(JOB_ERROR_STRING_FORMAT);
 				    },
@@ -135,7 +135,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 						FORMAT_STRING(
 						    &date_buffer,
 						    {
-							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    TVEC_FREE(HttpHeaderField, &additional_headers);
 							    return -1;
 						    },
 						    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
@@ -165,7 +165,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                               "A GET, HEAD or OPTIONS Request can't have a body",
 				                               send_body),
 				                           .mime_type = MIME_TYPE_TEXT,
-				                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
 			return send_http_message_to_connection(descriptor, to_send, send_settings);
 		}
@@ -190,7 +190,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .body = http_response_body_from_static_string(
 				                               "Internal Server Error 2", send_body),
 				                           .mime_type = MIME_TYPE_TEXT,
-				                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
 			return send_http_message_to_connection(descriptor, to_send, send_settings);
 		}
@@ -203,7 +203,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
                      const WorkerInfo worker_info, const RequestSettings request_settings) {
 
 	ConnectionContext* context =
-	    ZVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
+	    TVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
 
 	// To test this error codes you can use '-X POST' with curl or
 	// '--http2' (doesn't work, since http can only be HTTP/1.1, https can be HTTP 2 or QUIC
@@ -233,13 +233,13 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					                           .body = http_response_body_from_static_string(
 					                               "File not Found", send_body),
 					                           .mime_type = MIME_TYPE_TEXT,
-					                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+					                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
 				result = send_http_message_to_connection(descriptor, to_send, send_settings);
 				break;
 			}
 			case HTTPRequestMethodOptions: {
-				HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+				HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 				{
 
@@ -248,7 +248,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					FORMAT_STRING(
 					    &allowed_header_buffer,
 					    {
-						    ZVEC_FREE(HttpHeaderField, &additional_headers);
+						    TVEC_FREE(HttpHeaderField, &additional_headers);
 						    FREE_AT_END();
 						    return JOB_ERROR_STRING_FORMAT;
 					    },
@@ -268,7 +268,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							FORMAT_STRING(
 							    &date_buffer,
 							    {
-								    ZVEC_FREE(HttpHeaderField, &additional_headers);
+								    TVEC_FREE(HttpHeaderField, &additional_headers);
 								    return NULL;
 							    },
 							    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
@@ -290,7 +290,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 				break;
 			}
 			case HTTPRequestMethodConnect: {
-				HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+				HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 				{
 
@@ -299,7 +299,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					FORMAT_STRING(
 					    &allowed_header_buffer,
 					    {
-						    ZVEC_FREE(HttpHeaderField, &additional_headers);
+						    TVEC_FREE(HttpHeaderField, &additional_headers);
 						    FREE_AT_END();
 						    return JOB_ERROR_STRING_FORMAT;
 					    },
@@ -319,7 +319,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							FORMAT_STRING(
 							    &date_buffer,
 							    {
-								    ZVEC_FREE(HttpHeaderField, &additional_headers);
+								    TVEC_FREE(HttpHeaderField, &additional_headers);
 								    return NULL;
 							    },
 							    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
@@ -345,7 +345,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					                           .body = http_response_body_from_static_string(
 					                               "Internal Server Error 1", send_body),
 					                           .mime_type = MIME_TYPE_TEXT,
-					                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+					                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
 				result = send_http_message_to_connection(descriptor, to_send, send_settings);
 				break;
@@ -373,7 +373,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 				case HTTPRouteSpecialDataTypeShutdown: {
 
 					HTTPResponseBody body;
-					HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+					HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 					if(http_request.head.request_line.method == HTTPRequestMethodGet) {
 						body = http_response_body_from_static_string("Shutting Down", send_body);
@@ -390,7 +390,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						FORMAT_STRING(
 						    &allowed_header_buffer,
 						    {
-							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    TVEC_FREE(HttpHeaderField, &additional_headers);
 							    FREE_AT_END();
 							    return JOB_ERROR_STRING_FORMAT;
 						    },
@@ -436,14 +436,14 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 				case HTTPRouteSpecialDataTypeWs: {
 
 					if(http_request.head.request_line.method != HTTPRequestMethodGet) {
-						HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+						HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 						char* allowed_header_buffer = NULL;
 						// all 405 have to have a Allow filed according to spec
 						FORMAT_STRING(
 						    &allowed_header_buffer,
 						    {
-							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    TVEC_FREE(HttpHeaderField, &additional_headers);
 							    FREE_AT_END();
 							    return JOB_ERROR_STRING_FORMAT;
 						    },
@@ -466,7 +466,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						break;
 					}
 
-					WSExtensions extensions = ZVEC_EMPTY(WSExtension);
+					WSExtensions extensions = TVEC_EMPTY(WSExtension);
 
 					int ws_request_successful =
 					    handle_ws_handshake(http_request, descriptor, send_settings, &extensions);
@@ -479,7 +479,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						// socket thread
 						ConnectionContext* new_context = copy_connection_context(context);
 
-						auto _ = ZVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr,
+						auto _ = TVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr,
 						                              &(argument->contexts),
 						                              worker_info.worker_index, new_context);
 						UNUSED(_);
@@ -488,7 +488,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						                                  context, websocket_function,
 						                                  websocket_args)) {
 
-							ZVEC_FREE(WSExtension, &extensions);
+							TVEC_FREE(WSExtension, &extensions);
 							free_selected_route(selected_route);
 							FREE_AT_END();
 
@@ -544,7 +544,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					.body = http_response_body_from_static_string(
 					    "Internal Server Error: Folder Server Request failed", send_body),
 					.mime_type = MIME_TYPE_TEXT,
-					.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+					.additional_headers = TVEC_EMPTY(HttpHeaderField)
 				};
 
 				result = send_http_message_to_connection(descriptor, to_send, send_settings);
@@ -554,7 +554,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 			switch(serve_folder_result->type) {
 				case ServeFolderResultTypeNotFound: {
 
-					HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+					HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 					{
 						Time now;
@@ -569,7 +569,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 								FORMAT_STRING(
 								    &date_buffer,
 								    {
-									    ZVEC_FREE(HttpHeaderField, &additional_headers);
+									    TVEC_FREE(HttpHeaderField, &additional_headers);
 									    return NULL;
 								    },
 								    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
@@ -599,7 +599,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						                               "Internal Server Error: 3", send_body),
 						                           .mime_type = MIME_TYPE_TEXT,
 						                           .additional_headers =
-						                               ZVEC_EMPTY(HttpHeaderField) };
+						                               TVEC_EMPTY(HttpHeaderField) };
 
 					result = send_http_message_to_connection(descriptor, to_send, send_settings);
 
@@ -608,7 +608,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 				case ServeFolderResultTypeFile: {
 					const ServeFolderFileInfo file = serve_folder_result->data.file;
 
-					HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+					HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 					{
 
@@ -616,7 +616,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						FORMAT_STRING(
 						    &content_transfer_encoding_buffer,
 						    {
-							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    TVEC_FREE(HttpHeaderField, &additional_headers);
 							    return NULL;
 						    },
 						    "%s%cbinary", HTTP_HEADER_NAME(content_transfer_encoding), '\0');
@@ -628,7 +628,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						FORMAT_STRING(
 						    &content_description_buffer,
 						    {
-							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    TVEC_FREE(HttpHeaderField, &additional_headers);
 							    return NULL;
 						    },
 						    "%s%cFile Transfer", HTTP_HEADER_NAME(content_description), '\0');
@@ -640,7 +640,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						FORMAT_STRING(
 						    &content_disposition_buffer,
 						    {
-							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    TVEC_FREE(HttpHeaderField, &additional_headers);
 							    return NULL;
 						    },
 						    "%s%cattachment; filename=\"%s\"",
@@ -661,7 +661,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 								FORMAT_STRING(
 								    &date_buffer,
 								    {
-									    ZVEC_FREE(HttpHeaderField, &additional_headers);
+									    TVEC_FREE(HttpHeaderField, &additional_headers);
 									    return NULL;
 								    },
 								    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
@@ -718,7 +718,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							    "HTTPPropertyType",
 							    send_body),
 							.mime_type = MIME_TYPE_TEXT,
-							.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+							.additional_headers = TVEC_EMPTY(HttpHeaderField)
 						};
 
 						result =
@@ -737,7 +737,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							.body = http_response_body_from_static_string(
 							    "Internal Server Error: 4", send_body),
 							.mime_type = MIME_TYPE_TEXT,
-							.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+							.additional_headers = TVEC_EMPTY(HttpHeaderField)
 						};
 
 						result =
@@ -755,7 +755,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							                           .body = body,
 							                           .mime_type = MIME_TYPE_HTML,
 							                           .additional_headers =
-							                               ZVEC_EMPTY(HttpHeaderField) };
+							                               TVEC_EMPTY(HttpHeaderField) };
 
 						result =
 						    send_http_message_to_connection(descriptor, to_send, send_settings);
@@ -768,7 +768,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						                               "Internal Server Error: 5", send_body),
 						                           .mime_type = MIME_TYPE_TEXT,
 						                           .additional_headers =
-						                               ZVEC_EMPTY(HttpHeaderField) };
+						                               TVEC_EMPTY(HttpHeaderField) };
 
 					result = send_http_message_to_connection(descriptor, to_send, send_settings);
 					break;
@@ -784,7 +784,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 				                           .body = http_response_body_from_static_string(
 				                               "Internal error: Implementation error", send_body),
 				                           .mime_type = MIME_TYPE_TEXT,
-				                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 			result = send_http_message_to_connection(descriptor, to_send, send_settings);
 			break;
 		}
@@ -814,7 +814,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)arg_ign;
 
 	ConnectionContext* context =
-	    ZVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
+	    TVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
 
 	char* thread_name_buffer = NULL;
 	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
@@ -858,7 +858,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			                           .body = http_response_body_from_static_string(
 			                               "Internal Server Error: 0x1", true),
 			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+			                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
 		int result = send_http_message_to_connection(
 		    descriptor, to_send,
@@ -1141,10 +1141,10 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		return EXIT_FAILURE;
 	}
 
-	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", ZVEC_LENGTH(routes->routes));
+	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", TVEC_LENGTH(routes->routes));
 	if(log_should_log(LogLevelTrace)) {
-		for(size_t i = 0; i < ZVEC_LENGTH(routes->routes); ++i) {
-			HTTPRoute route = ZVEC_AT(HTTPRoute, routes->routes, i);
+		for(size_t i = 0; i < TVEC_LENGTH(routes->routes); ++i) {
+			HTTPRoute route = TVEC_AT(HTTPRoute, routes->routes, i);
 
 			LOG_MESSAGE(LogLevelTrace, "Route %zu:\n", i);
 
@@ -1346,12 +1346,12 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	};
 
 	// this is an array of pointers
-	ConnectionContextPtrs contexts = ZVEC_EMPTY(ConnectionContextPtr);
+	ConnectionContextPtrs contexts = TVEC_EMPTY(ConnectionContextPtr);
 
-	const ZvecResult allocate_result = ZVEC_ALLOCATE_UNINITIALIZED_EXTENDED(
+	const TvecResult allocate_result = TVEC_ALLOCATE_UNINITIALIZED_EXTENDED(
 	    ConnectionContext*, ConnectionContextPtr, &contexts, pool.worker_threads_amount);
 
-	if(allocate_result == ZvecResultErr) {
+	if(allocate_result == TvecResultErr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
@@ -1361,7 +1361,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		ConnectionContext* context = get_connection_context(options);
 
 		auto _ =
-		    ZVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, &contexts, i, context);
+		    TVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, &contexts, i, context);
 		UNUSED(_);
 	}
 
@@ -1370,10 +1370,10 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	if(!web_socket_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 			ConnectionContext* context =
-			    ZVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
+			    TVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
 			free_connection_context(context);
 		}
-		ZVEC_FREE(ConnectionContextPtr, &contexts);
+		TVEC_FREE(ConnectionContextPtr, &contexts);
 
 		return EXIT_FAILURE;
 	}
@@ -1383,10 +1383,10 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	if(!route_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 			ConnectionContext* context =
-			    ZVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
+			    TVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
 			free_connection_context(context);
 		}
-		ZVEC_FREE(ConnectionContextPtr, &contexts);
+		TVEC_FREE(ConnectionContextPtr, &contexts);
 
 		if(!free_thread_manager(web_socket_manager)) {
 			return EXIT_FAILURE;
@@ -1481,7 +1481,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 		ConnectionContext* context =
-		    ZVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
+		    TVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
 		free_connection_context(context);
 	}
 
@@ -1495,7 +1495,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 	free_route_manager(route_manager);
 
-	ZVEC_FREE(ConnectionContextPtr, &contexts);
+	TVEC_FREE(ConnectionContextPtr, &contexts);
 
 	free_secure_options(options);
 

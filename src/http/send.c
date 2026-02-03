@@ -26,7 +26,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
                                           HttpHeaderFields additional_headers,
                                           CompressionType compression_format) {
 
-	response->head.header_fields = ZVEC_EMPTY(HttpHeaderField);
+	response->head.header_fields = TVEC_EMPTY(HttpHeaderField);
 
 	// add standard fields
 
@@ -79,25 +79,25 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		}
 	}
 
-	size_t current_array_size = ZVEC_LENGTH(response->head.header_fields);
+	size_t current_array_size = TVEC_LENGTH(response->head.header_fields);
 
-	size_t additional_headers_size = ZVEC_LENGTH(additional_headers);
+	size_t additional_headers_size = TVEC_LENGTH(additional_headers);
 
-	auto _ = ZVEC_RESERVE(HttpHeaderField, &response->head.header_fields,
+	auto _ = TVEC_RESERVE(HttpHeaderField, &response->head.header_fields,
 	                      current_array_size + additional_headers_size);
 	UNUSED(_);
 
 	for(size_t i = 0; i < additional_headers_size; ++i) {
 
-		HttpHeaderField field = ZVEC_AT(HttpHeaderField, additional_headers, i);
+		HttpHeaderField field = TVEC_AT(HttpHeaderField, additional_headers, i);
 
-		auto _1 = ZVEC_PUSH(HttpHeaderField, &response->head.header_fields, field);
+		auto _1 = TVEC_PUSH(HttpHeaderField, &response->head.header_fields, field);
 		UNUSED(_1);
 	}
 
 	// if additional Headers are specified free them now
 	if(additional_headers_size > 0) {
-		ZVEC_FREE(HttpHeaderField, &additional_headers);
+		TVEC_FREE(HttpHeaderField, &additional_headers);
 	}
 
 	return true;

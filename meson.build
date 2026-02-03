@@ -170,6 +170,11 @@ deps += dependency(
     allow_fallback: true,
 )
 
+deps += dependency(
+    'tvec.h',
+    allow_fallback: true,
+)
+
 cc = meson.get_compiler('c')
 
 deps += cc.find_library(

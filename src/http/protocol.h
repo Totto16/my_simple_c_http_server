@@ -16,7 +16,7 @@ extern "C" {
 #include "utils/string_builder.h"
 #include "utils/utils.h"
 
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 // according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 // + 418
@@ -117,18 +117,18 @@ typedef struct {
 	char* status_message;
 } HttpResponseLine;
 
-ZVEC_DEFINE_VEC_TYPE(HttpHeaderField)
+TVEC_DEFINE_VEC_TYPE(HttpHeaderField)
 
-typedef ZVEC_TYPENAME(HttpHeaderField) HttpHeaderFields;
+typedef TVEC_TYPENAME(HttpHeaderField) HttpHeaderFields;
 
 typedef struct {
 	HttpRequestLine request_line;
-	ZVEC_TYPENAME(HttpHeaderField) header_fields;
+	TVEC_TYPENAME(HttpHeaderField) header_fields;
 } HttpRequestHead;
 
 typedef struct {
 	HttpResponseLine response_line;
-	ZVEC_TYPENAME(HttpHeaderField) header_fields;
+	TVEC_TYPENAME(HttpHeaderField) header_fields;
 } HttpResponseHead;
 
 typedef struct {
@@ -197,9 +197,9 @@ typedef struct {
 	float weight;
 } CompressionEntry;
 
-ZVEC_DEFINE_VEC_TYPE(CompressionEntry)
+TVEC_DEFINE_VEC_TYPE(CompressionEntry)
 
-typedef ZVEC_TYPENAME(CompressionEntry) CompressionEntries;
+typedef TVEC_TYPENAME(CompressionEntry) CompressionEntries;
 
 typedef struct {
 	CompressionEntries entries;
@@ -241,7 +241,7 @@ NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, co
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);
 
-NODISCARD HttpHeaderField* find_header_by_key(ZVEC_TYPENAME(HttpHeaderField) array,
+NODISCARD HttpHeaderField* find_header_by_key(TVEC_TYPENAME(HttpHeaderField) array,
                                               const char* key);
 
 typedef struct {

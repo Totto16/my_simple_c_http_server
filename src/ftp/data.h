@@ -5,7 +5,7 @@
 #include "./state.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 #include <netinet/in.h>
 #include <signal.h>
@@ -18,9 +18,9 @@ typedef struct DataControllerImpl DataController;
 // opaque type
 typedef struct DataConnectionImpl DataConnection;
 
-ZVEC_DEFINE_VEC_TYPE_EXTENDED(ConnectionDescriptor*, ConnectionDescriptorPtr)
+TVEC_DEFINE_VEC_TYPE_EXTENDED(ConnectionDescriptor*, ConnectionDescriptorPtr)
 
-typedef ZVEC_TYPENAME(ConnectionDescriptorPtr) ConnectionsToClose;
+typedef TVEC_TYPENAME(ConnectionDescriptorPtr) ConnectionsToClose;
 
 typedef struct sockaddr_in RawNetworkAddress;
 

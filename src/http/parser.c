@@ -354,7 +354,7 @@ NODISCARD static HttpRequestProperties get_http_properties(const HttpRequest htt
 
 NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_fields) {
 
-	CompressionSettings compression_settings = { .entries = ZVEC_EMPTY(CompressionEntry) };
+	CompressionSettings compression_settings = { .entries = TVEC_EMPTY(CompressionEntry) };
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
@@ -420,7 +420,7 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 			if(ok_result) {
 				entry.value = comp_value;
 
-				auto _ = ZVEC_PUSH(CompressionEntry, &(compression_settings.entries), entry);
+				auto _ = TVEC_PUSH(CompressionEntry, &(compression_settings.entries), entry);
 				UNUSED(_);
 			} else {
 				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%s'\n", compression_name);
@@ -448,7 +448,7 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 }
 
 void free_compression_settings(CompressionSettings compression_settings) {
-	ZVEC_FREE(CompressionEntry, &(compression_settings.entries));
+	TVEC_FREE(CompressionEntry, &(compression_settings.entries));
 }
 
 void free_request_settings(RequestSettings request_settings) {
@@ -461,7 +461,7 @@ NODISCARD static RequestSettings get_request_settings(const HttpRequest http_req
 	RequestSettings request_settings = {
 		.compression_settings =
 		    (CompressionSettings){
-		        .entries = ZVEC_EMPTY(CompressionEntry),
+		        .entries = TVEC_EMPTY(CompressionEntry),
 		    },
 		.protocol_used = http_request.head.request_line.protocol_version,
 		.http_properties = { .type = HTTPPropertyTypeInvalid },
@@ -540,8 +540,8 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	// the body length is determined as given by this rfc entry:
 	// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3
 
-	for(size_t i = 0; i < ZVEC_LENGTH(http_request.head.header_fields); ++i) {
-		HttpHeaderField header = ZVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
+	for(size_t i = 0; i < TVEC_LENGTH(http_request.head.header_fields); ++i) {
+		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
 		if(strcasecmp(header.key, HTTP_HEADER_NAME(content_length)) == 0) {
 			if(analyze_result.length.type != HTTPRequestLengthTypeUnknown) {
@@ -679,7 +679,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
                                                        HTTPReader* const reader) {
 
 	HttpRequest request = {
-		.head = { .request_line = request_line, .header_fields = ZVEC_EMPTY(HttpHeaderField) },
+		.head = { .request_line = request_line, .header_fields = TVEC_EMPTY(HttpHeaderField) },
 		.body = (SizedBuffer){ .data = NULL, .size = 0 },
 	};
 
@@ -742,7 +742,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 			HttpHeaderField field = { .key = strdup(header_start),
 				                      .value = strdup(header_value_start) };
 
-			auto _ = ZVEC_PUSH(HttpHeaderField, &(request.head.header_fields), field);
+			auto _ = TVEC_PUSH(HttpHeaderField, &(request.head.header_fields), field);
 			UNUSED(_);
 		}
 

@@ -1,0 +1,9 @@
+[wrap-git]
+directory = tvec.h
+url = https://github.com/Totto16/tvec.h.git
+# future branch
+revision = 051ba7d441c2c41be73b1108a30caf2e7556155b
+depth = 1
+
+[provide]
+provides = tvec.h

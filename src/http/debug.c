@@ -29,8 +29,8 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 
 	STRING_BUILDER_APPENDF(result, return NULL;, "\tSecure : %s\n", https ? "true" : " false");
 
-	for(size_t i = 0; i < ZVEC_LENGTH(request.head.header_fields); ++i) {
-		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, request.head.header_fields, i);
+	for(size_t i = 0; i < TVEC_LENGTH(request.head.header_fields); ++i) {
+		HttpHeaderField entry = TVEC_AT(HttpHeaderField, request.head.header_fields, i);
 
 		STRING_BUILDER_APPENDF(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
 		                                           entry.key, entry.value);
@@ -168,11 +168,11 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 	STRING_BUILDER_APPENDF(body, return NULL;, "\"secure\":%s,", https ? "true" : "false");
 	string_builder_append_single(body, "\"headers\":[");
 
-	const size_t header_amount = ZVEC_LENGTH(request.head.header_fields);
+	const size_t header_amount = TVEC_LENGTH(request.head.header_fields);
 
 	for(size_t i = 0; i < header_amount; ++i) {
 
-		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, request.head.header_fields, i);
+		HttpHeaderField entry = TVEC_AT(HttpHeaderField, request.head.header_fields, i);
 
 		STRING_BUILDER_APPENDF(body, return NULL;
 		                       , "{\"header\":\"%s\", \"key\":\"%s\"}", entry.key, entry.value);
@@ -224,9 +224,9 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 	                      "<div>Secure : %s</div><button id=\"shutdown\"> Shutdown </button></div>",
 	                      https ? "true" : "false");
 	string_builder_append_single(body, "<div id=\"header\">");
-	for(size_t i = 0; i < ZVEC_LENGTH(request.head.header_fields); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(request.head.header_fields); ++i) {
 
-		HttpHeaderField entry = ZVEC_AT(HttpHeaderField, request.head.header_fields, i);
+		HttpHeaderField entry = TVEC_AT(HttpHeaderField, request.head.header_fields, i);
 
 		STRING_BUILDER_APPENDF(
 		    body, return NULL;

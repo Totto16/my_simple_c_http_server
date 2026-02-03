@@ -6,7 +6,7 @@
 #include "utils/clock.h"
 #include "utils/utils.h"
 
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 /**
  * @enum value
@@ -32,10 +32,10 @@ typedef struct {
 	size_t size;
 } ServeFolderFolderEntry;
 
-ZVEC_DEFINE_VEC_TYPE(ServeFolderFolderEntry)
+TVEC_DEFINE_VEC_TYPE(ServeFolderFolderEntry)
 
 typedef struct {
-	ZVEC_TYPENAME(ServeFolderFolderEntry) entries;
+	TVEC_TYPENAME(ServeFolderFolderEntry) entries;
 	bool has_valid_parent;
 } ServeFolderFolderInfo;
 

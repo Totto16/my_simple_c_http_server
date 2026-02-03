@@ -4,7 +4,7 @@
 #include "utils/utils.h"
 #include <string.h>
 
-ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(FTPCommand*, FTPCommandPtr)
+TVEC_IMPLEMENT_VEC_TYPE_EXTENDED(FTPCommand*, FTPCommandPtr)
 
 #define MAKE_STRING_ARG(str) \
 	do { \
@@ -458,7 +458,7 @@ FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands) {
 		return NULL;
 	}
 
-	*array = ZVEC_EMPTY(FTPCommandPtr);
+	*array = TVEC_EMPTY(FTPCommandPtr);
 
 	size_t size_to_proccess = strlen(raw_ftp_commands);
 	char* currently_at = raw_ftp_commands;
@@ -490,7 +490,7 @@ FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands) {
 			return NULL;
 		}
 
-		auto _ = ZVEC_PUSH(FTPCommandPtr, array, command);
+		auto _ = TVEC_PUSH(FTPCommandPtr, array, command);
 		UNUSED(_);
 
 		size_t actual_length = length + SIZEOF_FTP_COMMAND_SEPERATORS;
@@ -574,11 +574,11 @@ void free_ftp_command_array(FTPCommandArray* array) {
 		return;
 	}
 
-	for(size_t i = 0; i < ZVEC_LENGTH(*array); ++i) {
-		free_ftp_command(ZVEC_AT(FTPCommandPtr, *array, i));
+	for(size_t i = 0; i < TVEC_LENGTH(*array); ++i) {
+		free_ftp_command(TVEC_AT(FTPCommandPtr, *array, i));
 	}
 
-	ZVEC_FREE(FTPCommandPtr, array);
+	TVEC_FREE(FTPCommandPtr, array);
 	free(array);
 }
 

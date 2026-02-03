@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 
-ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionDescriptor*, ConnectionDescriptorPtr)
+TVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionDescriptor*, ConnectionDescriptorPtr)
 
 // the timeout is 30 seconds
 #define DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S_D 30.0
@@ -364,7 +364,7 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 	if(connections == NULL) {
 		goto cleanup;
 	}
-	*connections = ZVEC_EMPTY(ConnectionDescriptorPtr);
+	*connections = TVEC_EMPTY(ConnectionDescriptorPtr);
 
 	{
 
@@ -401,7 +401,7 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 					}
 				}
 
-				auto _ = ZVEC_PUSH(ConnectionDescriptorPtr, connections, current_conn->descriptor);
+				auto _ = TVEC_PUSH(ConnectionDescriptorPtr, connections, current_conn->descriptor);
 				UNUSED(_);
 			} else {
 
@@ -792,21 +792,21 @@ NODISCARD static bool nts_internal_close_connection(DataController* data_control
 	ConnectionsToClose* connections_to_close =
 	    nts_internal_data_connections_to_close(data_controller, connection);
 
-	if(ZVEC_LENGTH(*connections_to_close) > 1) {
+	if(TVEC_LENGTH(*connections_to_close) > 1) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		                   "ASSERT: maximal one connection should be closed, if we set a filter\n");
 
-		ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+		TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 		return false;
 	}
 
-	for(size_t i = 0; i < ZVEC_LENGTH(*connections_to_close); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
 		ConnectionDescriptor* connection_to_close =
-		    ZVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+		    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 		close_connection_descriptor(connection_to_close);
 	}
 
-	ZVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+	TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 	return true;
 }
 

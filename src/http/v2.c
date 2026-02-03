@@ -2,7 +2,7 @@
 
 #include "./v2.h"
 
-ZVEC_IMPLEMENT_VEC_TYPE(Http2Frame)
+TVEC_IMPLEMENT_VEC_TYPE(Http2Frame)
 
 #define HTTP2_HEADER_SIZE 9
 
@@ -80,7 +80,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 // TODO: accept parsstate and  http2 state, e.g. the SETTINgs is in there!
 NODISCARD Http2Request* parse_http2_request_TODO(SizedBuffer raw_http_request) {
 
-	ZVEC_TYPENAME(Http2Frame) frames = ZVEC_EMPTY(Http2Frame);
+	TVEC_TYPENAME(Http2Frame) frames = TVEC_EMPTY(Http2Frame);
 
 	// TODO: Support the SETTINGS_MAX_FRAME_SIZE setting, in some cases, the settings header needs
 	// to be sent as first, or in h2c cases, it is required to supply it  via a http 1 header
@@ -152,7 +152,7 @@ NODISCARD Http2Request* parse_http2_request_TODO(SizedBuffer raw_http_request) {
 		}
 
 		// TODO
-		auto _ = ZVEC_PUSH(Http2Frame, &frames, *frame);
+		auto _ = TVEC_PUSH(Http2Frame, &frames, *frame);
 		// TODO
 		UNUSED(_);
 

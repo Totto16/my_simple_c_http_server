@@ -1,11 +1,11 @@
 #include "string_builder.h"
 #include "utils/log.h"
 
-#include <zvec/zvec.h>
+#include <tvec.h>
 
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(char)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(char)
 
-typedef ZVEC_TYPENAME(char) CString;
+typedef TVEC_TYPENAME(char) CString;
 
 // this is just a dynamic array of chars, with the property, that the size is 1 more and at the end
 // we have a 0 byte
@@ -19,7 +19,7 @@ StringBuilder* string_builder_init() {
 		return NULL;
 	}
 
-	result->value = ZVEC_EMPTY(char);
+	result->value = TVEC_EMPTY(char);
 
 	return result;
 }
@@ -37,15 +37,15 @@ static int string_builder_append_string_impl(StringBuilder* string_builder, cons
 		return -1;
 	}
 
-	size_t current_size = ZVEC_LENGTH(string_builder->value);
+	size_t current_size = TVEC_LENGTH(string_builder->value);
 
 	// allocate 0 byte at the end, if needed
 	size_t new_size = current_size + size + (current_size == 0 ? 1 : 0);
 
-	auto _ = ZVEC_ALLOCATE_UNINITIALIZED(char, &string_builder->value, new_size);
+	auto _ = TVEC_ALLOCATE_UNINITIALIZED(char, &string_builder->value, new_size);
 	UNUSED(_);
 
-	auto _1 = ZVEC_SET_AT(char, &string_builder->value, new_size - 1, '\0');
+	auto _1 = TVEC_SET_AT(char, &string_builder->value, new_size - 1, '\0');
 	UNUSED(_1);
 
 	// TODO: make this a public function on the ZVEC
@@ -119,7 +119,7 @@ NODISCARD size_t string_builder_get_string_size(StringBuilder* string_builder) {
 		return 0;
 	}
 
-	size_t current_size = ZVEC_LENGTH(string_builder->value);
+	size_t current_size = TVEC_LENGTH(string_builder->value);
 
 	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
 	return current_string_size;
@@ -135,7 +135,7 @@ NODISCARD SizedBuffer string_builder_release_into_sized_buffer(StringBuilder** s
 		return get_empty_sized_buffer();
 	}
 
-	size_t current_size = ZVEC_LENGTH((*string_builder)->value);
+	size_t current_size = TVEC_LENGTH((*string_builder)->value);
 
 	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
 
@@ -157,6 +157,6 @@ void free_string_builder(StringBuilder* string_builder) {
 		return;
 	}
 
-	ZVEC_FREE(char, &string_builder->value);
+	TVEC_FREE(char, &string_builder->value);
 	free(string_builder);
 }

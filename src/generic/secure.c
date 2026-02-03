@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-ZVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
+TVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
 
 // general notes: the openssl docs are quite extensive, even i didn't use them at the beginning, but
 // there are also exaples:

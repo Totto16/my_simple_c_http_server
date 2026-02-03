@@ -7,7 +7,7 @@
 #include "utils/log.h"
 
 #include <zmap/zmap.h>
-#include <zvec/zvec.h>
+#include <tvec.h>
 
 typedef struct {
 	HashSaltResultType* hash_salted_password;
@@ -29,10 +29,10 @@ struct AuthenticationProviderImpl {
 };
 
 // TODO: do we really need to store ptrs here
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(AuthenticationProvider*, AuthenticationProviderPtr)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(AuthenticationProvider*, AuthenticationProviderPtr)
 
 struct AuthenticationProvidersImpl {
-	ZVEC_TYPENAME(AuthenticationProviderPtr) providers;
+	TVEC_TYPENAME(AuthenticationProviderPtr) providers;
 };
 
 NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType type) {
@@ -59,7 +59,7 @@ NODISCARD AuthenticationProviders* initialize_authentication_providers(void) {
 		return NULL;
 	}
 
-	auth_providers->providers = ZVEC_EMPTY(AuthenticationProviderPtr);
+	auth_providers->providers = TVEC_EMPTY(AuthenticationProviderPtr);
 
 	return auth_providers;
 }
@@ -105,10 +105,10 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 		return false;
 	}
 
-	ZvecResult zvec_result = ZVEC_PUSH_EXTENDED(AuthenticationProvider, AuthenticationProviderPtr,
+	TvecResult zvec_result = TVEC_PUSH_EXTENDED(AuthenticationProvider, AuthenticationProviderPtr,
 	                                            &auth_providers->providers, provider);
 
-	if(zvec_result != ZvecResultOk) {
+	if(zvec_result != TvecResultOk) {
 		return false;
 	}
 	return true;
@@ -202,13 +202,13 @@ void free_authentication_provider(AuthenticationProvider* auth_provider) {
 
 void free_authentication_providers(AuthenticationProviders* auth_providers) {
 
-	for(size_t i = 0; i < ZVEC_LENGTH(auth_providers->providers); ++i) {
-		AuthenticationProvider** auth_provider = ZVEC_GET_AT_MUT_EXTENDED(
+	for(size_t i = 0; i < TVEC_LENGTH(auth_providers->providers); ++i) {
+		AuthenticationProvider** auth_provider = TVEC_GET_AT_MUT_EXTENDED(
 		    AuthenticationProvider*, AuthenticationProviderPtr, &(auth_providers->providers), i);
 		free_authentication_provider(*auth_provider);
 	}
 
-	ZVEC_FREE(AuthenticationProviderPtr, &(auth_providers->providers));
+	TVEC_FREE(AuthenticationProviderPtr, &(auth_providers->providers));
 
 	free(auth_providers);
 }
@@ -676,18 +676,18 @@ NODISCARD static int compare_auth_results(AuthenticationFindResult auth1,
 	return get_result_value_for_auth_result(auth1) - get_result_value_for_auth_result(auth2);
 }
 
-ZVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AuthenticationFindResult)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AuthenticationFindResult)
 
 NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
     const AuthenticationProviders* auth_providers,
     char* username, // NOLINT(bugprone-easily-swappable-parameters)
     char* password) {
 
-	ZVEC_TYPENAME(AuthenticationFindResult) results = ZVEC_EMPTY(AuthenticationFindResult);
+	TVEC_TYPENAME(AuthenticationFindResult) results = TVEC_EMPTY(AuthenticationFindResult);
 
-	for(size_t i = 0; i < ZVEC_LENGTH(auth_providers->providers); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(auth_providers->providers); ++i) {
 		AuthenticationProvider* provider =
-		    ZVEC_AT(AuthenticationProviderPtr, auth_providers->providers, i);
+		    TVEC_AT(AuthenticationProviderPtr, auth_providers->providers, i);
 
 		AuthenticationFindResult result;
 
@@ -721,7 +721,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		// note: the clang analyzer is incoreect here, we return a item, that is malloced, but
 		// we free it everywhere, we use this function!
 		if(result.validity == AuthenticationValidityOk) { // NOLINT(clang-analyzer-unix.Malloc)
-			ZVEC_FREE(AuthenticationFindResult, &results);
+			TVEC_FREE(AuthenticationFindResult, &results);
 			return result;
 		}
 
@@ -732,11 +732,11 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		}
 
 		// TODO
-		auto _ = ZVEC_PUSH(AuthenticationFindResult, &results, result);
+		auto _ = TVEC_PUSH(AuthenticationFindResult, &results, result);
 		UNUSED(_);
 	}
 
-	size_t results_length = ZVEC_LENGTH(results);
+	size_t results_length = TVEC_LENGTH(results);
 
 	AuthenticationFindResult best_result = (AuthenticationFindResult){
 		.validity = AuthenticationValidityError,
@@ -744,14 +744,14 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 	};
 
 	for(size_t i = 0; i < results_length; ++i) {
-		AuthenticationFindResult current_result = ZVEC_AT(AuthenticationFindResult, results, i);
+		AuthenticationFindResult current_result = TVEC_AT(AuthenticationFindResult, results, i);
 
 		if(compare_auth_results(best_result, current_result) <= 0) {
 			best_result = current_result;
 		}
 	}
 
-	ZVEC_FREE(AuthenticationFindResult, &results);
+	TVEC_FREE(AuthenticationFindResult, &results);
 
 	return best_result;
 }
