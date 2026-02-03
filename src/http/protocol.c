@@ -83,12 +83,12 @@ typedef struct {
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath search_path,
                                                        const char* key) {
 
-	if(ZMAP_IS_EMPTY(search_path.hash_map)) {
+	if(TMAP_IS_EMPTY(search_path.hash_map)) {
 		return NULL;
 	}
 
 	const ParsedSearchPathEntry* entry =
-	    ZMAP_GET_ENTRY(ParsedSearchPathHashMap, &(search_path.hash_map), key);
+	    TMAP_GET_ENTRY(ParsedSearchPathHashMap, &(search_path.hash_map), key);
 
 	if(entry == NULL) {
 		return NULL;

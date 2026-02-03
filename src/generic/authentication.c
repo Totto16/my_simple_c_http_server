@@ -7,18 +7,18 @@
 #include "utils/log.h"
 
 #include <tvec.h>
-#include <zmap/zmap.h>
+#include <tmap.h>
 
 typedef struct {
 	HashSaltResultType* hash_salted_password;
 	UserRole role;
 } SimpleAccountEntry;
 
-ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, SimpleAccountEntry,
+TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, SimpleAccountEntry,
                                    SimpleAccountEntryHashMap)
 
 typedef struct {
-	ZMAP_TYPENAME_MAP(SimpleAccountEntryHashMap) entries;
+	TMAP_TYPENAME_MAP(SimpleAccountEntryHashMap) entries;
 	HashSaltSettings settings;
 } SimpleAuthenticationProviderData;
 
@@ -79,7 +79,7 @@ NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void
 
 	auth_provider->type = AuthenticationProviderTypeSimple;
 	auth_provider->data.simple =
-	    (SimpleAuthenticationProviderData){ .entries = ZMAP_INIT(SimpleAccountEntryHashMap),
+	    (SimpleAuthenticationProviderData){ .entries = TMAP_INIT(SimpleAccountEntryHashMap),
 		                                    .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
 		                                                  .use_sha512 = true } };
 
@@ -153,10 +153,10 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 
 	SimpleAccountEntry entry = { .hash_salted_password = hash_salted_password, .role = role };
 
-	ZmapInsertResult insert_result =
-	    ZMAP_INSERT(SimpleAccountEntryHashMap, &(data->entries), strdup(username), entry, false);
+	TmapInsertResult insert_result =
+	    TMAP_INSERT(SimpleAccountEntryHashMap, &(data->entries), strdup(username), entry, false);
 
-	if(insert_result != ZmapInsertResultOk) {
+	if(insert_result != TmapInsertResultOk) {
 		return false;
 	}
 
@@ -169,19 +169,19 @@ static void free_simple_authentication_provider(SimpleAuthenticationProviderData
 	UNUSED(data);
 #else
 
-	size_t hm_total_length = ZMAP_CAPACITY(data.entries);
+	size_t hm_total_length = TMAP_CAPACITY(data.entries);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
-		const ZMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* hm_entry =
-		    ZMAP_GET_ENTRY_AT(SimpleAccountEntryHashMap, &data.entries, i);
+		const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* hm_entry =
+		    TMAP_GET_ENTRY_AT(SimpleAccountEntryHashMap, &data.entries, i);
 
-		if(hm_entry != NULL && hm_entry != ZMAP_NO_ELEMENT_HERE) {
+		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
 			free_hash_salted_result(hm_entry->value.hash_salted_password);
 			free(hm_entry->key);
 		}
 	}
 
-	ZMAP_FREE(SimpleAccountEntryHashMap, &data.entries);
+	TMAP_FREE(SimpleAccountEntryHashMap, &data.entries);
 
 #endif
 }
@@ -216,15 +216,15 @@ void free_authentication_providers(AuthenticationProviders* auth_providers) {
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
-NODISCARD static const ZMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) *
+NODISCARD static const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) *
     find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username) {
 
-	if(ZMAP_IS_EMPTY(data->entries)) {
+	if(TMAP_IS_EMPTY(data->entries)) {
 		return NULL;
 	}
 
-	const ZMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
-	    ZMAP_GET_ENTRY(SimpleAccountEntryHashMap, &(data->entries), username);
+	const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
+	    TMAP_GET_ENTRY(SimpleAccountEntryHashMap, &(data->entries), username);
 
 	if(entry == NULL) {
 		return NULL;
@@ -247,7 +247,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 	SimpleAuthenticationProviderData* data = &auth_provider->data.simple;
 
-	const ZMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
+	const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
 	    find_user_by_name_simple(data, username);
 
 	if(!entry) {

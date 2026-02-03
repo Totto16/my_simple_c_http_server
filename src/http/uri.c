@@ -3,7 +3,7 @@
 
 #include "utils/string_builder.h"
 
-ZMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
+TMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
 
 NODISCARD static ParsedURLPath parse_url_path(char* const path) {
 	// precodnition:  path is not NULL and len is > 1
@@ -11,7 +11,7 @@ NODISCARD static ParsedURLPath parse_url_path(char* const path) {
 	char* search_path = strchr(path, '?');
 
 	ParsedURLPath result = { .search_path = {
-		                         .hash_map = ZMAP_INIT(ParsedSearchPathHashMap),
+		                         .hash_map = TMAP_INIT(ParsedSearchPathHashMap),
 		                     } ,.fragment = NULL};
 
 	if(search_path == NULL) {
@@ -60,20 +60,20 @@ NODISCARD static ParsedURLPath parse_url_path(char* const path) {
 		char* value_dup = strdup(value);
 		const ParsedSearchPathValue value_entry = { .value = value_dup };
 
-		const ZmapInsertResult insert_result = ZMAP_INSERT(
+		const TmapInsertResult insert_result = TMAP_INSERT(
 		    ParsedSearchPathHashMap, &(result.search_path.hash_map), key_dup, value_entry, false);
 
 		switch(insert_result) {
-			case ZmapInsertResultWouldOverwrite: {
+			case TmapInsertResultWouldOverwrite: {
 				// TODO: if this header has to be unique, error, if this header can be
 				// concatenatend, like e.g. cookie, concatene it, otherwise i don't know what to do
 				UNREACHABLE();
 				break;
 			}
-			case ZmapInsertResultOk: {
+			case TmapInsertResultOk: {
 				break;
 			}
-			case ZmapInsertResultErr:
+			case TmapInsertResultErr:
 			default: {
 				// TODO: allow error!
 				// return NULL;
@@ -286,7 +286,7 @@ NODISCARD static ParsedRequestURIResult parse_uri_or_authority(char* const path)
 		// the path is empty
 
 		ParsedURLPath parsed_path =  {.path=strdup("/"), .search_path= {
-		                         .hash_map = ZMAP_INIT(ParsedSearchPathHashMap),
+		                         .hash_map = TMAP_INIT(ParsedSearchPathHashMap),
 		                     },.fragment = NULL};
 
 		uri.path = parsed_path;
@@ -310,7 +310,7 @@ NODISCARD ParsedRequestURIResult parse_request_uri(char* const path) {
 	if(path == NULL || strlen(path) == 0) {
 		result.type = ParsedURITypeAbsPath;
 		result.data.path = (ParsedURLPath){.path=strdup("/"), .search_path= {
-		                         .hash_map = ZMAP_INIT(ParsedSearchPathHashMap),
+		                         .hash_map = TMAP_INIT(ParsedSearchPathHashMap),
 		                     },.fragment = NULL};
 
 		return (ParsedRequestURIResult){ .is_error = false, .value = { .uri = result } };
@@ -338,14 +338,14 @@ NODISCARD ParsedRequestURIResult parse_request_uri(char* const path) {
 static void free_parsed_url_path(ParsedURLPath path) {
 	free(path.path);
 
-	size_t hm_total_length = ZMAP_CAPACITY(path.search_path.hash_map);
+	size_t hm_total_length = TMAP_CAPACITY(path.search_path.hash_map);
 
 	for(size_t i = 0; i < hm_total_length; ++i) {
 
-		const ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
-		    ZMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &(path.search_path.hash_map), i);
+		const TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
+		    TMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &(path.search_path.hash_map), i);
 
-		if(hm_entry == NULL || hm_entry == ZMAP_NO_ELEMENT_HERE) {
+		if(hm_entry == NULL || hm_entry == TMAP_NO_ELEMENT_HERE) {
 			continue;
 		}
 
@@ -353,7 +353,7 @@ static void free_parsed_url_path(ParsedURLPath path) {
 		free(hm_entry->value.value);
 	}
 
-	ZMAP_FREE(ParsedSearchPathHashMap, &(path.search_path.hash_map));
+	TMAP_FREE(ParsedSearchPathHashMap, &(path.search_path.hash_map));
 
 	if(path.fragment) {
 		free(path.fragment);
@@ -416,20 +416,20 @@ NODISCARD char* get_parsed_url_as_string(ParsedURLPath path) {
 
 	string_builder_append_single(string_builder, path.path);
 
-	if(!ZMAP_IS_EMPTY(path.search_path.hash_map)) {
+	if(!TMAP_IS_EMPTY(path.search_path.hash_map)) {
 
 		string_builder_append_single(string_builder, "?");
 
-		size_t search_path_total_length = ZMAP_CAPACITY(path.search_path.hash_map);
+		size_t search_path_total_length = TMAP_CAPACITY(path.search_path.hash_map);
 
 		size_t added = 0;
 
 		for(size_t i = 0; i < search_path_total_length; ++i) {
 
-			const ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
-			    ZMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &path.search_path.hash_map, i);
+			const TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
+			    TMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &path.search_path.hash_map, i);
 
-			if(hm_entry == NULL || hm_entry == ZMAP_NO_ELEMENT_HERE) {
+			if(hm_entry == NULL || hm_entry == TMAP_NO_ELEMENT_HERE) {
 				continue;
 			}
 

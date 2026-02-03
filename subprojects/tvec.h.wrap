@@ -6,4 +6,4 @@ revision = fe2b5b1947d1790a4986520a0e57d37228db2372
 depth = 1
 
 [provide]
-provides = tvec.h
+dependency_names = tvec.h

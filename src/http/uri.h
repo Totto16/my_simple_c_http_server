@@ -3,7 +3,7 @@
 #pragma once
 
 #include "utils/utils.h"
-#include <zmap/zmap.h>
+#include <tmap.h>
 
 typedef struct {
 	char* /* NULLABLE */ username;
@@ -20,12 +20,12 @@ typedef struct {
 	char* value;
 } ParsedSearchPathValue;
 
-ZMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
+TMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
 
-typedef ZMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap) ParsedSearchPathEntry;
+typedef TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap) ParsedSearchPathEntry;
 
 typedef struct {
-	ZMAP_TYPENAME_MAP(ParsedSearchPathHashMap) hash_map;
+	TMAP_TYPENAME_MAP(ParsedSearchPathHashMap) hash_map;
 } ParsedSearchPath;
 
 // RFC: https://datatracker.ietf.org/doc/html/rfc1738

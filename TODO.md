@@ -26,8 +26,6 @@ features:
  allow multilepl rouet, main http --route, fore test servers!
 
 
-use zen c z-libs zvec instead of stdds and also zmap and maybe also zlist!
-
 - use string views, use from assparserc, for oparsing config file and also generic parsing, (optional write generic text parser?, for http and config parsing)
 
 - us enginx like config, for ftp / ws / http / ftp handling and setup!)
