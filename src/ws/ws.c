@@ -195,7 +195,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 	for(size_t i = 0; i < TVEC_LENGTH(http_request.head.header_fields); ++i) {
 		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
-	
+
 		if(strcasecmp(header.key, HTTP_HEADER_NAME(host)) == 0) {
 			found_list |= HandshakeHeaderHeaderHost;
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(upgrade)) == 0) {
@@ -295,7 +295,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 		                                    sec_websocket_accept_header_buffer);
 	}
 
-	if(!TVEC_IS_EMPTY(*extensions)) {
+	if(!TVEC_IS_EMPTY(WSExtension, *extensions)) {
 		char* accepted_extensions = get_accepted_ws_extensions_as_string(*extensions);
 
 		if(accepted_extensions != NULL) {

@@ -1864,9 +1864,8 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// this is an array of pointers
 	ConnectionContextPtrs control_contexts = TVEC_EMPTY(ConnectionContextPtr);
 
-	const TvecResult allocate_result =
-	    TVEC_ALLOCATE_UNINITIALIZED_EXTENDED(ConnectionContext*, ConnectionContextPtr,
-	                                         &control_contexts, control_pool.worker_threads_amount);
+	const TvecResult allocate_result = TVEC_ALLOCATE_UNINITIALIZED(
+	    ConnectionContextPtr, &control_contexts, control_pool.worker_threads_amount);
 
 	if(allocate_result == TvecResultErr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
@@ -1883,7 +1882,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
 		ConnectionContext* context = get_connection_context(final_options);
 
-		auto _ = TVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, &control_contexts,
+		auto _ = TVEC_SET_AT(ConnectionContextPtr, &control_contexts,
 		                              i, context);
 		UNUSED(_);
 	}

@@ -1,20 +1,21 @@
 #include "./authentication.h"
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
-#include <bcrypt.h>
+	#include <bcrypt.h>
 #endif
 
 #include "utils/log.h"
 
-#include <zmap/zmap.h>
 #include <tvec.h>
+#include <zmap/zmap.h>
 
 typedef struct {
 	HashSaltResultType* hash_salted_password;
 	UserRole role;
 } SimpleAccountEntry;
 
-ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, SimpleAccountEntry, SimpleAccountEntryHashMap)
+ZMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, SimpleAccountEntry,
+                                   SimpleAccountEntryHashMap)
 
 typedef struct {
 	ZMAP_TYPENAME_MAP(SimpleAccountEntryHashMap) entries;
@@ -105,8 +106,8 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 		return false;
 	}
 
-	TvecResult zvec_result = TVEC_PUSH_EXTENDED(AuthenticationProvider, AuthenticationProviderPtr,
-	                                            &auth_providers->providers, provider);
+	TvecResult zvec_result =
+	    TVEC_PUSH(AuthenticationProviderPtr, &auth_providers->providers, provider);
 
 	if(zvec_result != TvecResultOk) {
 		return false;
@@ -203,8 +204,8 @@ void free_authentication_provider(AuthenticationProvider* auth_provider) {
 void free_authentication_providers(AuthenticationProviders* auth_providers) {
 
 	for(size_t i = 0; i < TVEC_LENGTH(auth_providers->providers); ++i) {
-		AuthenticationProvider** auth_provider = TVEC_GET_AT_MUT_EXTENDED(
-		    AuthenticationProvider*, AuthenticationProviderPtr, &(auth_providers->providers), i);
+		AuthenticationProvider** auth_provider =
+		    TVEC_GET_AT_MUT(AuthenticationProviderPtr, &(auth_providers->providers), i);
 		free_authentication_provider(*auth_provider);
 	}
 
@@ -275,11 +276,11 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 #if defined(__linux__)
 
-#include <pwd.h>
-#include <sys/types.h>
-#include <unistd.h>
+	#include <pwd.h>
+	#include <sys/types.h>
+	#include <unistd.h>
 
-#define INITIAL_SIZE_FOR_LINUX_FUNCS 0xFF
+	#define INITIAL_SIZE_FOR_LINUX_FUNCS 0xFF
 
 NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid_t* group_id) {
 
@@ -336,7 +337,7 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid
 	}
 }
 
-#include <grp.h>
+	#include <grp.h>
 
 NODISCARD static char* get_group_name(gid_t group_id) {
 
@@ -455,10 +456,10 @@ NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* usern
 	return role;
 }
 
-#ifdef _SIMPLE_SERVER_HAVE_PAM
+	#ifdef _SIMPLE_SERVER_HAVE_PAM
 
-#include <security/pam_appl.h>
-#include <security/pam_misc.h>
+		#include <security/pam_appl.h>
+		#include <security/pam_misc.h>
 
 typedef struct {
 	const char* password;
@@ -573,21 +574,21 @@ pam_is_user_password_combo_ok(const char* username, // NOLINT(bugprone-easily-sw
 	return response;
 }
 
-#endif
+	#endif
 
 NODISCARD static AuthenticationFindResult
 authentication_provider_system_find_user_with_password_linux(
     const char* username, // NOLINT(bugprone-easily-swappable-parameters)
     const char* password) {
 
-#ifndef _SIMPLE_SERVER_HAVE_PAM
+	#ifndef _SIMPLE_SERVER_HAVE_PAM
 	UNUSED(username);
 	UNUSED(password);
 	return (AuthenticationFindResult){
 		.validity = AuthenticationValidityError,
 		.data = { .error = { .error_message = "not compiled with pam, not possible to do" } }
 	};
-#else
+	#else
 
 	gid_t group_id = 0;
 
@@ -628,7 +629,7 @@ authentication_provider_system_find_user_with_password_linux(
 		.data = { .ok = { .provider_type = AuthenticationProviderTypeSystem, .user = user } }
 	};
 
-#endif
+	#endif
 }
 
 #endif

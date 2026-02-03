@@ -479,9 +479,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						// socket thread
 						ConnectionContext* new_context = copy_connection_context(context);
 
-						auto _ = TVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr,
-						                              &(argument->contexts),
-						                              worker_info.worker_index, new_context);
+						auto _ = TVEC_SET_AT(ConnectionContextPtr, &(argument->contexts),
+						                     worker_info.worker_index, new_context);
 						UNUSED(_);
 
 						if(!thread_manager_add_connection(argument->web_socket_manager, descriptor,
@@ -1348,8 +1347,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	// this is an array of pointers
 	ConnectionContextPtrs contexts = TVEC_EMPTY(ConnectionContextPtr);
 
-	const TvecResult allocate_result = TVEC_ALLOCATE_UNINITIALIZED_EXTENDED(
-	    ConnectionContext*, ConnectionContextPtr, &contexts, pool.worker_threads_amount);
+	const TvecResult allocate_result =
+	    TVEC_ALLOCATE_UNINITIALIZED(ConnectionContextPtr, &contexts, pool.worker_threads_amount);
 
 	if(allocate_result == TvecResultErr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
@@ -1360,8 +1359,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 		ConnectionContext* context = get_connection_context(options);
 
-		auto _ =
-		    TVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, &contexts, i, context);
+		auto _ = TVEC_SET_AT(ConnectionContextPtr, &contexts, i, context);
 		UNUSED(_);
 	}
 
@@ -1369,8 +1367,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 	if(!web_socket_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
-			ConnectionContext* context =
-			    TVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
+			ConnectionContext* context = TVEC_AT(ConnectionContextPtr, contexts, i);
 			free_connection_context(context);
 		}
 		TVEC_FREE(ConnectionContextPtr, &contexts);
@@ -1382,8 +1379,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 	if(!route_manager) {
 		for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
-			ConnectionContext* context =
-			    TVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
+			ConnectionContext* context = TVEC_AT(ConnectionContextPtr, contexts, i);
 			free_connection_context(context);
 		}
 		TVEC_FREE(ConnectionContextPtr, &contexts);
@@ -1480,8 +1476,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	free(addr);
 
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
-		ConnectionContext* context =
-		    TVEC_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr, contexts, i);
+		ConnectionContext* context = TVEC_AT(ConnectionContextPtr, contexts, i);
 		free_connection_context(context);
 	}
 
