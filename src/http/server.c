@@ -10,6 +10,7 @@
 #include "generic/signal_fd.h"
 #include "http/header.h"
 #include "http/mime.h"
+#include "http/parser.h"
 #include "utils/clock.h"
 #include "utils/errors.h"
 #include "utils/log.h"
@@ -38,7 +39,7 @@ static void receive_signal(int signal_number) {
 	do { \
 	} while(false)
 
-#define INT_ERROR_FROM_VOID_PTR(ERR) (-(((uint8_t*)(ERR)) - ((uint8_t*)0)))
+#define INT_ERROR_FROM_VOID_PTR(ERR) (-((int)((uintptr_t)(ERR))))
 
 NODISCARD static int process_http_error(const HttpRequestError error,
                                         ConnectionDescriptor* const descriptor,
@@ -136,7 +137,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 						    &date_buffer,
 						    {
 							    ZVEC_FREE(HttpHeaderField, &additional_headers);
-							    return NULL;
+							    return -1;
 						    },
 						    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
 
@@ -156,13 +157,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				.additional_headers = additional_headers
 			};
 
-			int result = send_http_message_to_connection_advanced(
-			    descriptor, to_send, send_settings, http_request->head);
-
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
-			}
+			return send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
+			                                                is_head);
 		}
 		case HttpRequestErrorTypeInvalidNonEmptyBody: {
 			HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
@@ -171,13 +167,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
-			int result = send_http_message_to_connection_advanced(descriptor, to_send,
-			                                                      send_settings, is_head);
-
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
-			}
+			return send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
+			                                                is_head);
 		}
 		default: {
 			HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
@@ -186,13 +177,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
-			int result = send_http_message_to_connection_advanced(descriptor, to_send,
-			                                                      send_settings, is_head);
-
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
-			}
+			return send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
+			                                                is_head);
 		}
 	}
 }
@@ -253,7 +239,7 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 
 		int result = 0;
 
-		switch(http_request->head.request_line.method) {
+		switch(http_request.head.request_line.method) {
 			case HTTPRequestMethodGet:
 			case HTTPRequestMethodPost:
 			case HTTPRequestMethodHead: {
@@ -265,7 +251,8 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 					                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
 				result = send_http_message_to_connection_advanced(
-				    descriptor, to_send, send_settings, http_request->head);
+				    descriptor, to_send, send_settings,
+				    http_request.head.request_line.method == HTTPRequestMethodHead);
 				break;
 			}
 			case HTTPRequestMethodOptions: {
@@ -370,7 +357,6 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 
 				break;
 			}
-			case HTTPRequestMethodInvalid:
 			default: {
 				HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
 					                           .body = http_response_body_from_static_string(
@@ -393,6 +379,8 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 
 		HTTPRouteData route_data = selected_route_data.data;
 
+		const bool is_head = http_request.head.request_line.method == HTTPRequestMethodHead;
+
 		int result = -1;
 
 		switch(route_data.type) {
@@ -404,9 +392,9 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 						HTTPResponseBody body;
 						HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
-						if(http_request->head.request_line.method == HTTPRequestMethodGet) {
+						if(http_request.head.request_line.method == HTTPRequestMethodGet) {
 							body = http_response_body_from_static_string("Shutting Down");
-						} else if(http_request->head.request_line.method == HTTPRequestMethodHead) {
+						} else if(http_request.head.request_line.method == HTTPRequestMethodHead) {
 							body = http_response_body_empty();
 
 							add_http_header_field_by_double_str(&additional_headers,
@@ -437,7 +425,7 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 							};
 
 							result = send_http_message_to_connection_advanced(
-							    descriptor, to_send, send_settings, http_request->head);
+							    descriptor, to_send, send_settings, is_head);
 
 							break;
 						}
@@ -449,8 +437,8 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 							                           .mime_type = MIME_TYPE_TEXT,
 							                           .additional_headers = additional_headers };
 
-						result = send_http_message_to_connection_advanced(
-						    descriptor, to_send, send_settings, http_request->head);
+						result = send_http_message_to_connection_advanced(descriptor, to_send,
+						                                                  send_settings, is_head);
 
 						// just cancel the listener thread, then no new connection are accepted
 						// and the main thread cleans the pool and queue, all jobs are finished
@@ -466,7 +454,7 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 					}
 					case HTTPRouteSpecialDataTypeWs: {
 
-						if(http_request->head.request_line.method != HTTPRequestMethodGet) {
+						if(http_request.head.request_line.method != HTTPRequestMethodGet) {
 							HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
 							char* allowed_header_buffer = NULL;
@@ -492,7 +480,7 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 							};
 
 							result = send_http_message_to_connection_advanced(
-							    descriptor, to_send, send_settings, http_request->head);
+							    descriptor, to_send, send_settings, is_head);
 
 							break;
 						}
@@ -560,7 +548,7 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 			}
 			case HTTPRouteTypeInternal: {
 				result = send_http_message_to_connection_advanced(
-				    descriptor, route_data.data.internal.send, send_settings, http_request->head);
+				    descriptor, route_data.data.internal.send, send_settings, is_head);
 				break;
 			}
 			case HTTPRouteTypeServeFolder: {
@@ -710,7 +698,7 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 						HTTPResponseBody body = http_response_body_from_data(
 						    file.file_content.data, file.file_content.size);
 
-						if(http_request->head.request_line.method == HTTPRequestMethodHead) {
+						if(http_request.head.request_line.method == HTTPRequestMethodHead) {
 							body.send_body_data = false;
 						}
 
@@ -784,7 +772,7 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 							HTTPResponseBody body =
 							    http_response_body_from_string_builder(&html_string_builder);
 
-							if(http_request->head.request_line.method == HTTPRequestMethodHead) {
+							if(http_request.head.request_line.method == HTTPRequestMethodHead) {
 								body.send_body_data = false;
 							}
 
@@ -824,8 +812,8 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 					                               "Internal error: Implementation error"),
 					                           .mime_type = MIME_TYPE_TEXT,
 					                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
-				result = send_http_message_to_connection_advanced(
-				    descriptor, to_send, send_settings, http_request->head);
+				result = send_http_message_to_connection_advanced(descriptor, to_send,
+				                                                  send_settings, is_head);
 				break;
 			}
 		}
@@ -901,12 +889,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
-		int result =
-		    send_http_message_to_connection(descriptor, to_send,
-		                                    (SendSettings){
-		                                        .compression_to_use = CompressionTypeNone,
-		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
-		                                    });
+		int result = send_http_message_to_connection(
+		    descriptor, to_send,
+		    (SendSettings){
+		        .compression_to_use = CompressionTypeNone,
+		        .protocol_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION,
+		    });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -923,14 +911,15 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 		// optional<> ws expected<>
 		HttpRequestResult http_request_result = get_http_request(http_reader);
 
-		if(http_request_result.error) {
+		if(http_request_result.is_error) {
 
 			auto s = (SendSettings){
 				.compression_to_use = CompressionTypeNone,
 				.protocol_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION,
 			};
 
-			const bool is_head = TODO;
+			// TODO
+			const bool is_head = false;
 
 			int result =
 			    process_http_error(http_request_result.value.error, descriptor, s, is_head);

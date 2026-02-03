@@ -18,9 +18,6 @@ extern "C" {
 
 #include <zvec/zvec.h>
 
-#define STRINGIFY(a) STR_IMPL(a)
-#define STR_IMPL(a) #a
-
 // according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 // + 418
 /**
@@ -69,13 +66,6 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	HttpStatusGatewayTimeout = 504,
 	HttpStatusHttpVersionNotSupported = 505,
 } HttpStatusCode;
-
-#define FREE_IF_NOT_NULL(pointerToFree) \
-	do { \
-		if((pointerToFree) != NULL) { \
-			free(pointerToFree); \
-		} \
-	} while(false)
 
 // self implemented Http Request and Http Response Structs
 
@@ -173,21 +163,9 @@ typedef struct {
 	SizedBuffer body;
 } HttpResponse;
 
-/*
-This is a selfmade http response constructor and request parser, it uses string functions of c and
-the self implemented string_builder to achieve this task, it is rudimentary, since it doesn't comply
-to the spec exactly, some things are compliant, but not checked if 100% compliant to spec, but thats
-not the requirement of this task, it can parse all tested http requests in the right way and also
-construct the responses correctly
-*/
-
 // frees the HttpRequest, taking care of Null Pointer, this is needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
 void free_http_request(HttpRequest request);
-
-// returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
-
-NODISCARD StringBuilder* http_request_to_string_builder(const HttpRequest* request, bool https);
 
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
 
@@ -267,6 +245,13 @@ void free_request_settings(RequestSettings* request_settings);
 
 NODISCARD SendSettings get_send_settings(RequestSettings* request_settings);
 
+void free_http_header_fields(HttpHeaderFields* header_fields);
+
+void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str);
+
+// free the HttpResponse, just freeing everything necessary
+void free_http_response(HttpResponse* response);
+
 typedef struct {
 	StringBuilder* headers;
 	SizedBuffer body;
@@ -276,28 +261,12 @@ typedef struct {
 // with some slight modification
 NODISCARD HttpConcattedResponse* http_response_concat(HttpResponse* response);
 
-void free_http_header_fields(HttpHeaderFields* header_fields);
+#define HTTP_LINE_SEPERATORS "\r\n"
 
-void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str);
+#define SIZEOF_HTTP_LINE_SEPERATORS 2
 
-// free the HttpResponse, just freeing everything necessary
-void free_http_response(HttpResponse* response);
-
-// really simple and dumb html boilerplate, this is used for demonstration purposes, and is
-// static, but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
-
-NODISCARD StringBuilder*
-html_from_string(StringBuilder* head_content, // NOLINT(bugprone-easily-swappable-parameters)
-                 StringBuilder* script_content, StringBuilder* style_content,
-                 StringBuilder* body_content);
-
-NODISCARD StringBuilder* http_request_to_json(HttpRequest request, bool https,
-                                              SendSettings send_settings);
-
-// really simple and dumb html boilerplate, this is used for demonstration purposes, and is
-// static, but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
-NODISCARD StringBuilder* http_request_to_html(HttpRequest request, bool https,
-                                              SendSettings send_settings);
+static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0]))) - 1 ==
+              SIZEOF_HTTP_LINE_SEPERATORS);
 
 #ifdef __cplusplus
 }

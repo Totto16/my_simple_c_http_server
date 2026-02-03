@@ -1,5 +1,6 @@
 
 #include "./routes.h"
+#include "./debug.h"
 #include "./header.h"
 #include "./protocol.h"
 #include "http/mime.h"

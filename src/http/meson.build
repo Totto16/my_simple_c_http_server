@@ -1,6 +1,8 @@
 src_files += files(
     'compression.c',
     'compression.h',
+    'debug.c',
+    'debug.h',
     'folder.c',
     'folder.h',
     'header.c',

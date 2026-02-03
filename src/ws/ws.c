@@ -182,7 +182,7 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 
 static const bool send_http_upgrade_required_status_code = true;
 
-int handle_ws_handshake(const HttpRequest* const http_request,
+int handle_ws_handshake(const HttpRequest http_request,
                         const ConnectionDescriptor* const descriptor, SendSettings send_settings,
                         WSExtensions* extensions) {
 
@@ -193,8 +193,8 @@ int handle_ws_handshake(const HttpRequest* const http_request,
 	char* sec_key = NULL;
 	bool from_browser = false;
 
-	for(size_t i = 0; i < ZVEC_LENGTH(http_request->head.header_fields); ++i) {
-		HttpHeaderField header = ZVEC_AT(HttpHeaderField, http_request->head.header_fields, i);
+	for(size_t i = 0; i < ZVEC_LENGTH(http_request.head.header_fields); ++i) {
+		HttpHeaderField header = ZVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 		if(strcasecmp(header.key, HTTP_HEADER_NAME(host)) == 0) {
 			found_list |= HandshakeHeaderHeaderHost;
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(upgrade)) == 0) {

@@ -3,6 +3,7 @@
 
 #include "utils/clock.h"
 #include "utils/path.h"
+#include "./debug.h"
 
 #include <cwalk.h>
 #include <dirent.h>

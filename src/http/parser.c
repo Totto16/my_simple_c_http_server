@@ -66,13 +66,6 @@ NODISCARD static HTTPProtocolVersion get_protocol_version_from_string(const char
 	return HTTPProtocolVersion1;
 }
 
-#define HTTP_LINE_SEPERATORS "\r\n"
-
-#define SIZEOF_HTTP_LINE_SEPERATORS 2
-
-static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0]))) - 1 ==
-              SIZEOF_HTTP_LINE_SEPERATORS);
-
 // parse in string form, for http 1
 NODISCARD static HttpRequestLine parse_http1_request_line(ParseState* state,
                                                           OUT_PARAM(bool) success) {
