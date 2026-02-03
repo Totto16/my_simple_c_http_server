@@ -46,6 +46,44 @@ NODISCARD bool file_is_absolute(const char* const file) {
 	return cwk_path_is_absolute(file);
 }
 
+NODISCARD bool get_file_size_of_file(const char* file_path, OUT_PARAM(size_t) out_len) {
+
+	if(out_len == NULL) {
+		return false;
+	}
+
+	FILE* file = fopen(file_path, "rb");
+
+	if(file == NULL) {
+		LOG_MESSAGE(LogLevelError, "Couldn't open file for reading '%s': %s\n", file_path,
+		            strerror(errno));
+
+		return false;
+	}
+
+	int fseek_res = fseek(file, 0, SEEK_END);
+
+	if(fseek_res != 0) {
+		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", file_path,
+		            strerror(errno));
+
+		return false;
+	}
+
+	long file_size = ftell(file);
+
+	int fclose_result = fclose(file);
+
+	if(fclose_result != 0) {
+		LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n", file_path, strerror(errno));
+
+		return false;
+	}
+
+	*out_len = file_size;
+	return true;
+}
+
 NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_len) {
 
 	if(out_len == NULL) {

@@ -49,7 +49,7 @@ typedef struct {
 
 NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http_properties,
                                                       HTTPRouteServeFolder data,
-                                                      HTTPSelectedRoute selected_route_data);
+                                                      HTTPSelectedRoute selected_route_data, bool send_body);
 
 void free_serve_folder_result(ServeFolderResult* serve_folder_result);
 

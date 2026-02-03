@@ -1,9 +1,9 @@
 #include "./folder.h"
 #include "./mime.h"
 
+#include "./debug.h"
 #include "utils/clock.h"
 #include "utils/path.h"
-#include "./debug.h"
 
 #include <cwalk.h>
 #include <dirent.h>
@@ -104,7 +104,8 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 	return result_path;
 }
 
-static ServeFolderResult get_serve_folder_content_for_file(const char* const final_path) {
+static ServeFolderResult get_serve_folder_content_for_file(const char* const final_path,
+                                                           const bool send_body) {
 
 	ServeFolderResult result = { .type = ServeFolderResultTypeServerError };
 
@@ -155,16 +156,32 @@ static ServeFolderResult get_serve_folder_content_for_file(const char* const fin
 
 	size_t file_size = 0;
 
-	void* file_data = read_entire_file(final_path, &file_size);
+	SizedBuffer file_content = { .data = NULL, .size = 0 };
 
-	if(file_data == NULL) {
+	if(!send_body) {
+		// we just need the size, no need to read the entire file
+		bool success = get_file_size_of_file(final_path, &file_size);
 
-		free(file_name);
-		result.type = ServeFolderResultTypeServerError;
-		return result;
+		if(!success) {
+
+			free(file_name);
+			result.type = ServeFolderResultTypeServerError;
+			return result;
+		}
+
+		file_content = (SizedBuffer){ .data = NULL, .size = file_size };
+	} else {
+		void* file_data = read_entire_file(final_path, &file_size);
+
+		if(file_data == NULL) {
+
+			free(file_name);
+			result.type = ServeFolderResultTypeServerError;
+			return result;
+		}
+
+		file_content = (SizedBuffer){ .data = file_data, .size = file_size };
 	}
-
-	SizedBuffer file_content = { .data = file_data, .size = file_size };
 
 	ServeFolderFileInfo file_info = {
 		.file_content = file_content,
@@ -420,7 +437,8 @@ NODISCARD static bool is_the_same_path(const char* path1, const char* path2) {
 
 NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http_properties,
                                                       HTTPRouteServeFolder data,
-                                                      HTTPSelectedRoute selected_route_data) {
+                                                      HTTPSelectedRoute selected_route_data,
+                                                      const bool send_body) {
 
 	ServeFolderResult* result = malloc(sizeof(ServeFolderResult));
 
@@ -490,7 +508,7 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 
 		*result = get_serve_folder_content_for_folder(final_path, has_valid_parent);
 	} else {
-		*result = get_serve_folder_content_for_file(final_path);
+		*result = get_serve_folder_content_for_file(final_path, send_body);
 	}
 
 	free(final_path);

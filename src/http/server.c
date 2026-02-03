@@ -550,8 +550,9 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 		}
 		case HTTPRouteTypeServeFolder: {
 			const HTTPRouteServeFolder data = route_data.data.serve_folder;
+
 			ServeFolderResult* serve_folder_result =
-			    get_serve_folder_content(http_properties, data, selected_route_data);
+			    get_serve_folder_content(http_properties, data, selected_route_data, send_body);
 
 			if(serve_folder_result == NULL) {
 				HTTPResponseToSend to_send = {
@@ -691,10 +692,6 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 
 					HTTPResponseBody body = http_response_body_from_data(
 					    file.file_content.data, file.file_content.size, send_body);
-
-					if(http_request.head.request_line.method == HTTPRequestMethodHead) {
-						body.send_body_data = false;
-					}
 
 					HTTPResponseToSend to_send = { .status = HttpStatusOk,
 						                           .body = body,
@@ -907,7 +904,6 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 				.compression_to_use = CompressionTypeNone,
 				.protocol_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION,
 			};
-
 
 			int result = process_http_error(http_request_result.value.error, descriptor,
 			                                default_send_settings, true);
