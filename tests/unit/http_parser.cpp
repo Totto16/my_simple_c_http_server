@@ -34,7 +34,7 @@ class CompressionSettingsCpp {
 
 		add_http_header_field_by_double_str(&http_header_fields, accept_encoding_buffer);
 
-		*this = CompressionSettingsCpp(http_header_fields);
+		this->m_settings = get_compression_settings(http_header_fields);
 
 		free_http_header_fields(&http_header_fields);
 	}
@@ -52,9 +52,12 @@ class CompressionSettingsCpp {
 	switch(value.type) {
 		case CompressionValueTypeNoEncoding: return "'identity'";
 		case CompressionValueTypeAllEncodings: return "'*'";
-		case CompressionValueTypeNormalEncoding:
+		case CompressionValueTypeNormalEncoding: {
 			return compression_type_to_string(value.data.normal_compression);
-		default: UNREACHABLE();
+		}
+		default: {
+			UNREACHABLE();
+		}
 	}
 }
 
