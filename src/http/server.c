@@ -23,54 +23,6 @@
 	#include <openssl/crypto.h>
 #endif
 
-#define SUPPORT_KEEPALIVE false
-
-// returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
-// returned an enum state, the caller has to handle errors
-RequestSupportStatus is_request_supported(const HttpRequest* const request_generic) {
-	if(request_generic->type != HttpRequestTypeInternalV1) {
-		return RequestInvalidHttpVersion;
-	}
-
-	Http1Request* request = request_generic->data.v1;
-
-	switch(request->head.request_line.protocol_version) {
-		case HTTPProtocolVersionInvalid: {
-			return RequestInvalidHttpVersion;
-		}
-		case HTTPProtocolVersion1: {
-			//TODO. https doesnt work here, so check if we have tls are here, then its an error
-			break;
-		}
-
-		case HTTPProtocolVersion1Dot1: {
-			break;
-		}
-		case HTTPProtocolVersion2: {
-			// TODO(Totto): implement
-			return RequestInvalidHttpVersion;
-		}
-		default: {
-			return RequestInvalidHttpVersion;
-		}
-	}
-
-	if(request->head.request_line.method == HTTPRequestMethodInvalid) {
-		return RequestMethodNotSupported;
-	}
-
-	if((request->head.request_line.method == HTTPRequestMethodGet ||
-	    request->head.request_line.method == HTTPRequestMethodHead ||
-	    request->head.request_line.method == HTTPRequestMethodOptions) &&
-	   strlen(request->body) != 0) {
-		LOG_MESSAGE(LogLevelDebug, "Non Empty body in GET / HEAD or OPTIONS: '%s'\n",
-		            request->body);
-		return RequestInvalidNonemptyBody;
-	}
-
-	return RequestSupported;
-}
-
 static volatile sig_atomic_t
     g_signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     0;
@@ -86,7 +38,166 @@ static void receive_signal(int signal_number) {
 	do { \
 	} while(false)
 
-NODISCARD static JobError process_http_request(const HttpRequest* const http_request_generic,
+#define INT_ERROR_FROM_VOID_PTR(ERR) (-(((uint8_t*)(ERR)) - ((uint8_t*)0)))
+
+NODISCARD static int process_http_error(const HttpRequestError error,
+                                        ConnectionDescriptor* const descriptor,
+                                        const SendSettings send_settings, const bool is_head) {
+
+	if(error.is_advanced) {
+
+		StringBuilder* string_builder = string_builder_init();
+
+		string_builder_append_single(string_builder, "Bad Request: ");
+
+		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
+			                           .body =
+			                               http_response_body_from_string_builder(&string_builder),
+			                           .mime_type = MIME_TYPE_TEXT,
+			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+
+		return send_http_message_to_connection(descriptor, to_send, send_settings);
+	}
+
+	switch(error.value.enum_value) {
+		case HttpRequestErrorTypeInvalidHttpVersion: {
+
+			HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+			{
+
+				Time now;
+
+				bool success = get_current_time(&now);
+
+				if(success) {
+					char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+					if(date_str != NULL) {
+
+						char* date_buffer = NULL;
+						FORMAT_STRING(
+						    &date_buffer,
+						    {
+							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    return -1;
+						    },
+						    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+						add_http_header_field_by_double_str(&additional_headers, date_buffer);
+
+						free(date_str);
+					}
+				}
+			}
+
+			HTTPResponseToSend to_send = { .status = HttpStatusHttpVersionNotSupported,
+				                           .body = http_response_body_from_static_string(
+				                               "Only HTTP/1.1 is supported atm"),
+				                           .mime_type = MIME_TYPE_TEXT,
+				                           .additional_headers = additional_headers };
+
+			int result = send_http_message_to_connection_advanced(descriptor, to_send,
+			                                                      send_settings, is_head);
+
+			if(result) {
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
+			}
+		}
+		case HttpRequestErrorTypeMethodNotSupported: {
+
+			HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+			{
+
+				char* allowed_header_buffer = NULL;
+				// all 405 have to have a Allow filed according to spec
+				FORMAT_STRING(
+				    &allowed_header_buffer,
+				    {
+					    ZVEC_FREE(HttpHeaderField, &additional_headers);
+					    FREE_AT_END();
+					    return INT_ERROR_FROM_VOID_PTR(JOB_ERROR_STRING_FORMAT);
+				    },
+				    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
+
+				add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
+
+				Time now;
+
+				bool success = get_current_time(&now);
+
+				if(success) {
+					char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+					if(date_str != NULL) {
+
+						char* date_buffer = NULL;
+						FORMAT_STRING(
+						    &date_buffer,
+						    {
+							    ZVEC_FREE(HttpHeaderField, &additional_headers);
+							    return NULL;
+						    },
+						    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+						add_http_header_field_by_double_str(&additional_headers, date_buffer);
+
+						free(date_str);
+					}
+				}
+			}
+
+			HTTPResponseToSend to_send = {
+				.status = HttpStatusMethodNotAllowed,
+				.body = http_response_body_from_static_string(
+				    "This primitive HTTP Server only supports GET, POST, "
+				    "HEAD, OPTIONS and CONNECT requests"),
+				.mime_type = MIME_TYPE_TEXT,
+				.additional_headers = additional_headers
+			};
+
+			int result = send_http_message_to_connection_advanced(
+			    descriptor, to_send, send_settings, http_request->head);
+
+			if(result < 0) {
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
+			}
+		}
+		case HttpRequestErrorTypeInvalidNonEmptyBody: {
+			HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
+				                           .body = http_response_body_from_static_string(
+				                               "A GET, HEAD or OPTIONS Request can't have a body"),
+				                           .mime_type = MIME_TYPE_TEXT,
+				                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+
+			int result = send_http_message_to_connection_advanced(descriptor, to_send,
+			                                                      send_settings, is_head);
+
+			if(result < 0) {
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
+			}
+		}
+		default: {
+			HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+				                           .body = http_response_body_from_static_string(
+				                               "Internal Server Error 2"),
+				                           .mime_type = MIME_TYPE_TEXT,
+				                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+
+			int result = send_http_message_to_connection_advanced(descriptor, to_send,
+			                                                      send_settings, is_head);
+
+			if(result < 0) {
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
+			}
+		}
+	}
+}
+
+NODISCARD static JobError process_http_request(const HttpRequest http_request,
                                                ConnectionDescriptor* const descriptor,
                                                const RouteManager* const route_manager,
                                                HTTPConnectionArgument* argument,
@@ -95,45 +206,14 @@ NODISCARD static JobError process_http_request(const HttpRequest* const http_req
 	ConnectionContext* context =
 	    ZVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
 
-	if(http_request_generic->type != HttpRequestTypeInternalV1) {
-		// TODO
-		exit(12);
-	}
-
-	const Http1Request* http_request = http_request_generic->data.v1;
-
 	// To test this error codes you can use '-X POST' with curl or
 	// '--http2' (doesn't work, since http can only be HTTP/1.1, https can be HTTP 2 or QUIC
 	// alias HTTP 3)
 
-	// http_request can be null, then it wasn't parse-able, according to parseHttpRequest, see
-	// there for more information
-	if(http_request == NULL) {
-		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
-			                           .body = http_response_body_from_static_string(
-			                               "Request couldn't be parsed, it was malformed!"),
-			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
-
-		int result =
-		    send_http_message_to_connection(descriptor, to_send,
-		                                    (SendSettings){
-		                                        .compression_to_use = CompressionTypeNone,
-		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
-		                                    });
-
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
-		}
-
-		return JOB_ERROR_CLEANUP_CONNECTION;
-	}
-
 	// if the request is supported then the "beautiful" website is sent, if the path is /shutdown
 	// a shutdown is issued
 
-	RequestSettings* request_settings = get_request_settings(http_request_generic);
+	RequestSettings* request_settings = get_request_settings(http_request);
 
 	if(request_settings == NULL) {
 		HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
@@ -142,12 +222,12 @@ NODISCARD static JobError process_http_request(const HttpRequest* const http_req
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
-		int result =
-		    send_http_message_to_connection(descriptor, to_send,
-		                                    (SendSettings){
-		                                        .compression_to_use = CompressionTypeNone,
-		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
-		                                    });
+		int result = send_http_message_to_connection(
+		    descriptor, to_send,
+		    (SendSettings){
+		        .compression_to_use = CompressionTypeNone,
+		        .protocol_to_use = http_request.head.request_line.protocol_version,
+		    });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -166,345 +246,564 @@ NODISCARD static JobError process_http_request(const HttpRequest* const http_req
 	// TODO(Totto). check if we need to upgrade to http/2, see the rfc, note that h2c and h2 (http/2
 	// over tls) are negotiated differently!
 
-	const RequestSupportStatus is_supported = is_request_supported(http_request_generic);
+	SelectedRoute* selected_route =
+	    route_manager_get_route_for_request(route_manager, http_properties, http_request);
 
-	if(is_supported == RequestSupported) {
-		SelectedRoute* selected_route = route_manager_get_route_for_request(
-		    route_manager, http_properties, http_request_generic);
+	if(selected_route == NULL) {
 
-		if(selected_route == NULL) {
+		int result = 0;
 
-			int result = 0;
+		switch(http_request->head.request_line.method) {
+			case HTTPRequestMethodGet:
+			case HTTPRequestMethodPost:
+			case HTTPRequestMethodHead: {
 
-			switch(http_request->head.request_line.method) {
-				case HTTPRequestMethodGet:
-				case HTTPRequestMethodPost:
-				case HTTPRequestMethodHead: {
+				HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
+					                           .body = http_response_body_from_static_string(
+					                               "File not Found"),
+					                           .mime_type = MIME_TYPE_TEXT,
+					                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
-					HTTPResponseToSend to_send = {
-						.status = HttpStatusNotFound,
-						.body = http_response_body_from_static_string("File not Found"),
-						.mime_type = MIME_TYPE_TEXT,
-						.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-					};
+				result = send_http_message_to_connection_advanced(
+				    descriptor, to_send, send_settings, http_request->head);
+				break;
+			}
+			case HTTPRequestMethodOptions: {
+				HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
-					result = send_http_message_to_connection_advanced(
-					    descriptor, to_send, send_settings, http_request->head);
-					break;
-				}
-				case HTTPRequestMethodOptions: {
-					HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+				{
 
-					{
+					char* allowed_header_buffer = NULL;
+					// all 405 have to have a Allow filed according to spec
+					FORMAT_STRING(
+					    &allowed_header_buffer,
+					    {
+						    ZVEC_FREE(HttpHeaderField, &additional_headers);
+						    FREE_AT_END();
+						    return JOB_ERROR_STRING_FORMAT;
+					    },
+					    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
 
-						char* allowed_header_buffer = NULL;
-						// all 405 have to have a Allow filed according to spec
-						FORMAT_STRING(
-						    &allowed_header_buffer,
-						    {
-							    ZVEC_FREE(HttpHeaderField, &additional_headers);
-							    FREE_AT_END();
-							    return JOB_ERROR_STRING_FORMAT;
-						    },
-						    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
+					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
 
-						add_http_header_field_by_double_str(&additional_headers,
-						                                    allowed_header_buffer);
+					Time now;
 
-						Time now;
+					bool success = get_current_time(&now);
 
-						bool success = get_current_time(&now);
+					if(success) {
+						char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+						if(date_str != NULL) {
 
-						if(success) {
-							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-							if(date_str != NULL) {
+							char* date_buffer = NULL;
+							FORMAT_STRING(
+							    &date_buffer,
+							    {
+								    ZVEC_FREE(HttpHeaderField, &additional_headers);
+								    return NULL;
+							    },
+							    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
 
-								char* date_buffer = NULL;
-								FORMAT_STRING(
-								    &date_buffer,
-								    {
-									    ZVEC_FREE(HttpHeaderField, &additional_headers);
-									    return NULL;
-								    },
-								    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+							add_http_header_field_by_double_str(&additional_headers, date_buffer);
 
-								add_http_header_field_by_double_str(&additional_headers,
-								                                    date_buffer);
-
-								free(date_str);
-							}
+							free(date_str);
 						}
 					}
-
-					HTTPResponseToSend to_send = { .status = HttpStatusOk,
-						                           .body = http_response_body_empty(),
-						                           .mime_type = NULL,
-						                           .additional_headers = additional_headers };
-
-					result = send_http_message_to_connection(descriptor, to_send, send_settings);
-
-					break;
 				}
-				case HTTPRequestMethodConnect: {
-					HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
-					{
+				HTTPResponseToSend to_send = { .status = HttpStatusOk,
+					                           .body = http_response_body_empty(),
+					                           .mime_type = NULL,
+					                           .additional_headers = additional_headers };
 
-						char* allowed_header_buffer = NULL;
-						// all 405 have to have a Allow filed according to spec
-						FORMAT_STRING(
-						    &allowed_header_buffer,
-						    {
-							    ZVEC_FREE(HttpHeaderField, &additional_headers);
-							    FREE_AT_END();
-							    return JOB_ERROR_STRING_FORMAT;
-						    },
-						    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
+				result = send_http_message_to_connection(descriptor, to_send, send_settings);
 
-						add_http_header_field_by_double_str(&additional_headers,
-						                                    allowed_header_buffer);
+				break;
+			}
+			case HTTPRequestMethodConnect: {
+				HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
-						Time now;
+				{
 
-						bool success = get_current_time(&now);
+					char* allowed_header_buffer = NULL;
+					// all 405 have to have a Allow filed according to spec
+					FORMAT_STRING(
+					    &allowed_header_buffer,
+					    {
+						    ZVEC_FREE(HttpHeaderField, &additional_headers);
+						    FREE_AT_END();
+						    return JOB_ERROR_STRING_FORMAT;
+					    },
+					    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
 
-						if(success) {
-							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-							if(date_str != NULL) {
+					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
 
-								char* date_buffer = NULL;
-								FORMAT_STRING(
-								    &date_buffer,
-								    {
-									    ZVEC_FREE(HttpHeaderField, &additional_headers);
-									    return NULL;
-								    },
-								    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+					Time now;
 
-								add_http_header_field_by_double_str(&additional_headers,
-								                                    date_buffer);
+					bool success = get_current_time(&now);
 
-								free(date_str);
-							}
+					if(success) {
+						char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+						if(date_str != NULL) {
+
+							char* date_buffer = NULL;
+							FORMAT_STRING(
+							    &date_buffer,
+							    {
+								    ZVEC_FREE(HttpHeaderField, &additional_headers);
+								    return NULL;
+							    },
+							    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+							add_http_header_field_by_double_str(&additional_headers, date_buffer);
+
+							free(date_str);
 						}
 					}
-
-					HTTPResponseToSend to_send = { .status = HttpStatusOk,
-						                           .body = http_response_body_empty(),
-						                           .mime_type = NULL,
-						                           .additional_headers = additional_headers };
-
-					result = send_http_message_to_connection(descriptor, to_send, send_settings);
-
-					break;
 				}
-				case HTTPRequestMethodInvalid:
-				default: {
-					HTTPResponseToSend to_send = {
-						.status = HttpStatusInternalServerError,
-						.body = http_response_body_from_static_string("Internal Server Error 1"),
-						.mime_type = MIME_TYPE_TEXT,
-						.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-					};
 
-					result = send_http_message_to_connection(descriptor, to_send, send_settings);
-					break;
-				}
+				HTTPResponseToSend to_send = { .status = HttpStatusOk,
+					                           .body = http_response_body_empty(),
+					                           .mime_type = NULL,
+					                           .additional_headers = additional_headers };
+
+				result = send_http_message_to_connection(descriptor, to_send, send_settings);
+
+				break;
 			}
+			case HTTPRequestMethodInvalid:
+			default: {
+				HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+					                           .body = http_response_body_from_static_string(
+					                               "Internal Server Error 1"),
+					                           .mime_type = MIME_TYPE_TEXT,
+					                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
+				result = send_http_message_to_connection(descriptor, to_send, send_settings);
+				break;
 			}
-		} else {
+		}
 
-			HTTPSelectedRoute selected_route_data = get_selected_route_data(selected_route);
+		if(result < 0) {
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
+		}
+	} else {
 
-			HTTPRouteData route_data = selected_route_data.data;
+		HTTPSelectedRoute selected_route_data = get_selected_route_data(selected_route);
 
-			int result = -1;
+		HTTPRouteData route_data = selected_route_data.data;
 
-			switch(route_data.type) {
-				case HTTPRouteTypeSpecial: {
+		int result = -1;
 
-					switch(route_data.data.special.type) {
-						case HTTPRouteSpecialDataTypeShutdown: {
+		switch(route_data.type) {
+			case HTTPRouteTypeSpecial: {
 
-							HTTPResponseBody body;
-							HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+				switch(route_data.data.special.type) {
+					case HTTPRouteSpecialDataTypeShutdown: {
 
-							if(http_request->head.request_line.method == HTTPRequestMethodGet) {
-								body = http_response_body_from_static_string("Shutting Down");
-							} else if(http_request->head.request_line.method ==
-							          HTTPRequestMethodHead) {
-								body = http_response_body_empty();
+						HTTPResponseBody body;
+						HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
-								add_http_header_field_by_double_str(&additional_headers,
-								                                    "x-shutdown\0true");
+						if(http_request->head.request_line.method == HTTPRequestMethodGet) {
+							body = http_response_body_from_static_string("Shutting Down");
+						} else if(http_request->head.request_line.method == HTTPRequestMethodHead) {
+							body = http_response_body_empty();
 
-							} else {
+							add_http_header_field_by_double_str(&additional_headers,
+							                                    "x-shutdown\0true");
 
-								char* allowed_header_buffer = NULL;
-								// all 405 have to have a Allow filed according to spec
-								FORMAT_STRING(
-								    &allowed_header_buffer,
-								    {
-									    ZVEC_FREE(HttpHeaderField, &additional_headers);
-									    FREE_AT_END();
-									    return JOB_ERROR_STRING_FORMAT;
-								    },
-								    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET, HEAD");
+						} else {
 
-								add_http_header_field_by_double_str(&additional_headers,
-								                                    allowed_header_buffer);
+							char* allowed_header_buffer = NULL;
+							// all 405 have to have a Allow filed according to spec
+							FORMAT_STRING(
+							    &allowed_header_buffer,
+							    {
+								    ZVEC_FREE(HttpHeaderField, &additional_headers);
+								    FREE_AT_END();
+								    return JOB_ERROR_STRING_FORMAT;
+							    },
+							    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET, HEAD");
 
-								HTTPResponseToSend to_send = {
-									.status = HttpStatusMethodNotAllowed,
-									.body = http_response_body_from_static_string(
-									    "Only GET and HEAD supported to this URL"),
-									.mime_type = MIME_TYPE_TEXT,
-									.additional_headers = additional_headers
-								};
+							add_http_header_field_by_double_str(&additional_headers,
+							                                    allowed_header_buffer);
 
-								result = send_http_message_to_connection_advanced(
-								    descriptor, to_send, send_settings, http_request->head);
-
-								break;
-							}
-
-							LOG_MESSAGE_SIMPLE(LogLevelInfo, "Shutdown requested!\n");
-
-							HTTPResponseToSend to_send = { .status = HttpStatusOk,
-								                           .body = body,
-								                           .mime_type = MIME_TYPE_TEXT,
-								                           .additional_headers =
-								                               additional_headers };
+							HTTPResponseToSend to_send = {
+								.status = HttpStatusMethodNotAllowed,
+								.body = http_response_body_from_static_string(
+								    "Only GET and HEAD supported to this URL"),
+								.mime_type = MIME_TYPE_TEXT,
+								.additional_headers = additional_headers
+							};
 
 							result = send_http_message_to_connection_advanced(
 							    descriptor, to_send, send_settings, http_request->head);
 
-							// just cancel the listener thread, then no new connection are accepted
-							// and the main thread cleans the pool and queue, all jobs are finished
-							// so shutdown gracefully
-							int cancel_result = pthread_cancel(argument->listener_thread);
-							CHECK_FOR_ERROR(cancel_result,
-							                "While trying to cancel the listener Thread", {
-								                FREE_AT_END();
-								                return JOB_ERROR_THREAD_CANCEL;
-							                });
+							break;
+						}
+
+						LOG_MESSAGE_SIMPLE(LogLevelInfo, "Shutdown requested!\n");
+
+						HTTPResponseToSend to_send = { .status = HttpStatusOk,
+							                           .body = body,
+							                           .mime_type = MIME_TYPE_TEXT,
+							                           .additional_headers = additional_headers };
+
+						result = send_http_message_to_connection_advanced(
+						    descriptor, to_send, send_settings, http_request->head);
+
+						// just cancel the listener thread, then no new connection are accepted
+						// and the main thread cleans the pool and queue, all jobs are finished
+						// so shutdown gracefully
+						int cancel_result = pthread_cancel(argument->listener_thread);
+						CHECK_FOR_ERROR(cancel_result, "While trying to cancel the listener Thread",
+						                {
+							                FREE_AT_END();
+							                return JOB_ERROR_THREAD_CANCEL;
+						                });
+
+						break;
+					}
+					case HTTPRouteSpecialDataTypeWs: {
+
+						if(http_request->head.request_line.method != HTTPRequestMethodGet) {
+							HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+							char* allowed_header_buffer = NULL;
+							// all 405 have to have a Allow filed according to spec
+							FORMAT_STRING(
+							    &allowed_header_buffer,
+							    {
+								    ZVEC_FREE(HttpHeaderField, &additional_headers);
+								    FREE_AT_END();
+								    return JOB_ERROR_STRING_FORMAT;
+							    },
+							    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET");
+
+							add_http_header_field_by_double_str(&additional_headers,
+							                                    allowed_header_buffer);
+
+							HTTPResponseToSend to_send = {
+								.status = HttpStatusMethodNotAllowed,
+								.body = http_response_body_from_static_string(
+								    "Only GET supported to this URL"),
+								.mime_type = MIME_TYPE_TEXT,
+								.additional_headers = additional_headers
+							};
+
+							result = send_http_message_to_connection_advanced(
+							    descriptor, to_send, send_settings, http_request->head);
 
 							break;
 						}
-						case HTTPRouteSpecialDataTypeWs: {
 
-							if(http_request->head.request_line.method != HTTPRequestMethodGet) {
-								HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+						WSExtensions extensions = ZVEC_EMPTY(WSExtension);
 
-								char* allowed_header_buffer = NULL;
-								// all 405 have to have a Allow filed according to spec
-								FORMAT_STRING(
-								    &allowed_header_buffer,
-								    {
-									    ZVEC_FREE(HttpHeaderField, &additional_headers);
-									    FREE_AT_END();
-									    return JOB_ERROR_STRING_FORMAT;
-								    },
-								    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET");
+						int ws_request_successful = handle_ws_handshake(http_request, descriptor,
+						                                                send_settings, &extensions);
 
-								add_http_header_field_by_double_str(&additional_headers,
-								                                    allowed_header_buffer);
+						WsConnectionArgs websocket_args =
+						    get_ws_args_from_http_request(selected_route_data.path, extensions);
 
-								HTTPResponseToSend to_send = {
-									.status = HttpStatusMethodNotAllowed,
-									.body = http_response_body_from_static_string(
-									    "Only GET supported to this URL"),
-									.mime_type = MIME_TYPE_TEXT,
-									.additional_headers = additional_headers
-								};
+						if(ws_request_successful >= 0) {
+							// move the context so that we can use it in the long standing web
+							// socket thread
+							ConnectionContext* new_context = copy_connection_context(context);
 
-								result = send_http_message_to_connection_advanced(
-								    descriptor, to_send, send_settings, http_request->head);
+							auto _ = ZVEC_SET_AT_EXTENDED(ConnectionContext*, ConnectionContextPtr,
+							                              &(argument->contexts),
+							                              worker_info.worker_index, new_context);
+							UNUSED(_);
 
-								break;
-							}
+							if(!thread_manager_add_connection(argument->web_socket_manager,
+							                                  descriptor, context,
+							                                  websocket_function, websocket_args)) {
 
-							WSExtensions extensions = ZVEC_EMPTY(WSExtension);
-
-							int ws_request_successful = handle_ws_handshake(
-							    http_request_generic, descriptor, send_settings, &extensions);
-
-							WsConnectionArgs websocket_args =
-							    get_ws_args_from_http_request(selected_route_data.path, extensions);
-
-							if(ws_request_successful >= 0) {
-								// move the context so that we can use it in the long standing web
-								// socket thread
-								ConnectionContext* new_context = copy_connection_context(context);
-
-								auto _ = ZVEC_SET_AT_EXTENDED(
-								    ConnectionContext*, ConnectionContextPtr, &(argument->contexts),
-								    worker_info.worker_index, new_context);
-								UNUSED(_);
-
-								if(!thread_manager_add_connection(
-								       argument->web_socket_manager, descriptor, context,
-								       websocket_function, websocket_args)) {
-
-									ZVEC_FREE(WSExtension, &extensions);
-									free_selected_route(selected_route);
-									FREE_AT_END();
-
-									return JOB_ERROR_CONNECTION_ADD;
-								}
-
-								// finally free everything necessary
-
+								ZVEC_FREE(WSExtension, &extensions);
 								free_selected_route(selected_route);
 								FREE_AT_END();
 
-								return JOB_ERROR_NONE;
+								return JOB_ERROR_CONNECTION_ADD;
 							}
 
-							// the error was already sent, just close the descriptor and free the
-							// http request, this is done at the end of this big if else statements
-							break;
+							// finally free everything necessary
+
+							free_selected_route(selected_route);
+							FREE_AT_END();
+
+							return JOB_ERROR_NONE;
 						}
-						default: {
-							// TODO(Totto): refactor all these arbitrary -<int> error numbers into
-							// some error enum, e.g also -11
-							result =
-							    -10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-							break;
-						}
+
+						// the error was already sent, just close the descriptor and free the
+						// http request, this is done at the end of this big if else statements
+						break;
 					}
+					default: {
+						// TODO(Totto): refactor all these arbitrary -<int> error numbers into
+						// some error enum, e.g also -11
+						result =
+						    -10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+						break;
+					}
+				}
 
+				break;
+			}
+
+			case HTTPRouteTypeNormal: {
+
+				result = route_manager_execute_route(
+				    route_data.data.normal, descriptor, send_settings, http_request, context,
+				    selected_route_data.path, selected_route_data.auth_user);
+
+				break;
+			}
+			case HTTPRouteTypeInternal: {
+				result = send_http_message_to_connection_advanced(
+				    descriptor, route_data.data.internal.send, send_settings, http_request->head);
+				break;
+			}
+			case HTTPRouteTypeServeFolder: {
+				const HTTPRouteServeFolder data = route_data.data.serve_folder;
+				ServeFolderResult* serve_folder_result =
+				    get_serve_folder_content(http_properties, data, selected_route_data);
+
+				if(serve_folder_result == NULL) {
+					HTTPResponseToSend to_send = {
+						.status = HttpStatusInternalServerError,
+						.body = http_response_body_from_static_string(
+						    "Internal Server Error: Folder Server Request failed"),
+						.mime_type = MIME_TYPE_TEXT,
+						.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+					};
+
+					result = send_http_message_to_connection(descriptor, to_send, send_settings);
 					break;
 				}
 
-				case HTTPRouteTypeNormal: {
+				switch(serve_folder_result->type) {
+					case ServeFolderResultTypeNotFound: {
 
-					result = route_manager_execute_route(
-					    route_data.data.normal, descriptor, send_settings, http_request_generic,
-					    context, selected_route_data.path, selected_route_data.auth_user);
+						HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
 
-					break;
-				}
-				case HTTPRouteTypeInternal: {
-					result = send_http_message_to_connection_advanced(
-					    descriptor, route_data.data.internal.send, send_settings,
-					    http_request->head);
-					break;
-				}
-				case HTTPRouteTypeServeFolder: {
-					const HTTPRouteServeFolder data = route_data.data.serve_folder;
-					ServeFolderResult* serve_folder_result =
-					    get_serve_folder_content(http_properties, data, selected_route_data);
+						{
+							Time now;
 
-					if(serve_folder_result == NULL) {
+							bool success = get_current_time(&now);
+
+							if(success) {
+								char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+								if(date_str != NULL) {
+
+									char* date_buffer = NULL;
+									FORMAT_STRING(
+									    &date_buffer,
+									    {
+										    ZVEC_FREE(HttpHeaderField, &additional_headers);
+										    return NULL;
+									    },
+									    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+									add_http_header_field_by_double_str(&additional_headers,
+									                                    date_buffer);
+
+									free(date_str);
+								}
+							}
+						}
+
+						// TODO. send a info page
+						HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
+							                           .body = http_response_body_empty(),
+							                           .mime_type = MIME_TYPE_TEXT,
+							                           .additional_headers = additional_headers };
+
+						result =
+						    send_http_message_to_connection(descriptor, to_send, send_settings);
+
+						break;
+					}
+					case ServeFolderResultTypeServerError: {
+
 						HTTPResponseToSend to_send = {
 							.status = HttpStatusInternalServerError,
-							.body = http_response_body_from_static_string(
-							    "Internal Server Error: Folder Server Request failed"),
+							.body =
+							    http_response_body_from_static_string("Internal Server Error: 3"),
+							.mime_type = MIME_TYPE_TEXT,
+							.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+						};
+
+						result =
+						    send_http_message_to_connection(descriptor, to_send, send_settings);
+
+						break;
+					}
+					case ServeFolderResultTypeFile: {
+						const ServeFolderFileInfo file = serve_folder_result->data.file;
+
+						HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
+
+						{
+
+							char* content_transfer_encoding_buffer = NULL;
+							FORMAT_STRING(
+							    &content_transfer_encoding_buffer,
+							    {
+								    ZVEC_FREE(HttpHeaderField, &additional_headers);
+								    return NULL;
+							    },
+							    "%s%cbinary", HTTP_HEADER_NAME(content_transfer_encoding), '\0');
+
+							add_http_header_field_by_double_str(&additional_headers,
+							                                    content_transfer_encoding_buffer);
+
+							char* content_description_buffer = NULL;
+							FORMAT_STRING(
+							    &content_description_buffer,
+							    {
+								    ZVEC_FREE(HttpHeaderField, &additional_headers);
+								    return NULL;
+							    },
+							    "%s%cFile Transfer", HTTP_HEADER_NAME(content_description), '\0');
+
+							add_http_header_field_by_double_str(&additional_headers,
+							                                    content_description_buffer);
+
+							char* content_disposition_buffer = NULL;
+							FORMAT_STRING(
+							    &content_disposition_buffer,
+							    {
+								    ZVEC_FREE(HttpHeaderField, &additional_headers);
+								    return NULL;
+							    },
+							    "%s%cattachment; filename=\"%s\"",
+							    HTTP_HEADER_NAME(content_disposition), '\0', file.file_name);
+
+							add_http_header_field_by_double_str(&additional_headers,
+							                                    content_disposition_buffer);
+
+							Time now;
+
+							bool success = get_current_time(&now);
+
+							if(success) {
+								char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+								if(date_str != NULL) {
+
+									char* date_buffer = NULL;
+									FORMAT_STRING(
+									    &date_buffer,
+									    {
+										    ZVEC_FREE(HttpHeaderField, &additional_headers);
+										    return NULL;
+									    },
+									    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
+
+									add_http_header_field_by_double_str(&additional_headers,
+									                                    date_buffer);
+
+									free(date_str);
+								}
+							}
+						}
+
+						HTTPResponseBody body = http_response_body_from_data(
+						    file.file_content.data, file.file_content.size);
+
+						if(http_request->head.request_line.method == HTTPRequestMethodHead) {
+							body.send_body_data = false;
+						}
+
+						HTTPResponseToSend to_send = { .status = HttpStatusOk,
+							                           .body = body,
+							                           .mime_type = file.mime_type,
+							                           .additional_headers = additional_headers };
+
+						// TODO: files on nginx send also this:
+						//  we also need to accapt range request (detect the header field),
+						//  this should not be done in theadditional headers, as it should
+						//  be done in the generic handler, so we need a send binary handler
+
+						/* HTTP/1.1 200 OK
+						Server: nginx
+						Date: Sat, 31 Jan 2026 06:10:13 GMT
+						Content-Type: application/octet-stream
+						Content-Length: 3135
+						Last-Modified: Sat, 31 Jan 2026 02:17:18 GMT
+						Connection: keep-alive
+						ETag: "697d662e-c3f"
+						Accept-Ranges: bytes */
+
+						result =
+						    send_http_message_to_connection(descriptor, to_send, send_settings);
+
+						{ // setup the value of the file, so that it isn't freed twice, as
+						  // sending
+							// the body frees it!
+							serve_folder_result->data.file.file_content.data = NULL;
+						}
+
+						break;
+					}
+					case ServeFolderResultTypeFolder: {
+						const ServeFolderFolderInfo folder_info = serve_folder_result->data.folder;
+
+						if(http_properties.type != HTTPPropertyTypeNormal) {
+							HTTPResponseToSend to_send = {
+								.status = HttpStatusInternalServerError,
+								.body = http_response_body_from_static_string(
+								    "Internal Server Error: Not allowed internal type: "
+								    "HTTPPropertyType"),
+								.mime_type = MIME_TYPE_TEXT,
+								.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+							};
+
+							result =
+							    send_http_message_to_connection(descriptor, to_send, send_settings);
+							break;
+						}
+
+						const auto normal_data = http_properties.data.normal;
+
+						StringBuilder* html_string_builder =
+						    folder_content_to_html(folder_info, normal_data.path);
+
+						if(html_string_builder == NULL) {
+							HTTPResponseToSend to_send = {
+								.status = HttpStatusInternalServerError,
+								.body = http_response_body_from_static_string(
+								    "Internal Server Error: 4"),
+								.mime_type = MIME_TYPE_TEXT,
+								.additional_headers = ZVEC_EMPTY(HttpHeaderField)
+							};
+
+							result =
+							    send_http_message_to_connection(descriptor, to_send, send_settings);
+						} else {
+
+							HTTPResponseBody body =
+							    http_response_body_from_string_builder(&html_string_builder);
+
+							if(http_request->head.request_line.method == HTTPRequestMethodHead) {
+								body.send_body_data = false;
+							}
+
+							HTTPResponseToSend to_send = { .status = HttpStatusOk,
+								                           .body = body,
+								                           .mime_type = MIME_TYPE_HTML,
+								                           .additional_headers =
+								                               ZVEC_EMPTY(HttpHeaderField) };
+
+							result =
+							    send_http_message_to_connection(descriptor, to_send, send_settings);
+						}
+						break;
+					}
+					default: {
+						HTTPResponseToSend to_send = {
+							.status = HttpStatusInternalServerError,
+							.body =
+							    http_response_body_from_static_string("Internal Server Error: 5"),
 							.mime_type = MIME_TYPE_TEXT,
 							.additional_headers = ZVEC_EMPTY(HttpHeaderField)
 						};
@@ -513,393 +812,25 @@ NODISCARD static JobError process_http_request(const HttpRequest* const http_req
 						    send_http_message_to_connection(descriptor, to_send, send_settings);
 						break;
 					}
-
-					switch(serve_folder_result->type) {
-						case ServeFolderResultTypeNotFound: {
-
-							HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
-
-							{
-								Time now;
-
-								bool success = get_current_time(&now);
-
-								if(success) {
-									char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-									if(date_str != NULL) {
-
-										char* date_buffer = NULL;
-										FORMAT_STRING(
-										    &date_buffer,
-										    {
-											    ZVEC_FREE(HttpHeaderField, &additional_headers);
-											    return NULL;
-										    },
-										    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-										add_http_header_field_by_double_str(&additional_headers,
-										                                    date_buffer);
-
-										free(date_str);
-									}
-								}
-							}
-
-							// TODO. send a info page
-							HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
-								                           .body = http_response_body_empty(),
-								                           .mime_type = MIME_TYPE_TEXT,
-								                           .additional_headers =
-								                               additional_headers };
-
-							result =
-							    send_http_message_to_connection(descriptor, to_send, send_settings);
-
-							break;
-						}
-						case ServeFolderResultTypeServerError: {
-
-							HTTPResponseToSend to_send = {
-								.status = HttpStatusInternalServerError,
-								.body = http_response_body_from_static_string(
-								    "Internal Server Error: 3"),
-								.mime_type = MIME_TYPE_TEXT,
-								.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-							};
-
-							result =
-							    send_http_message_to_connection(descriptor, to_send, send_settings);
-
-							break;
-						}
-						case ServeFolderResultTypeFile: {
-							const ServeFolderFileInfo file = serve_folder_result->data.file;
-
-							HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
-
-							{
-
-								char* content_transfer_encoding_buffer = NULL;
-								FORMAT_STRING(
-								    &content_transfer_encoding_buffer,
-								    {
-									    ZVEC_FREE(HttpHeaderField, &additional_headers);
-									    return NULL;
-								    },
-								    "%s%cbinary", HTTP_HEADER_NAME(content_transfer_encoding),
-								    '\0');
-
-								add_http_header_field_by_double_str(
-								    &additional_headers, content_transfer_encoding_buffer);
-
-								char* content_description_buffer = NULL;
-								FORMAT_STRING(
-								    &content_description_buffer,
-								    {
-									    ZVEC_FREE(HttpHeaderField, &additional_headers);
-									    return NULL;
-								    },
-								    "%s%cFile Transfer", HTTP_HEADER_NAME(content_description),
-								    '\0');
-
-								add_http_header_field_by_double_str(&additional_headers,
-								                                    content_description_buffer);
-
-								char* content_disposition_buffer = NULL;
-								FORMAT_STRING(
-								    &content_disposition_buffer,
-								    {
-									    ZVEC_FREE(HttpHeaderField, &additional_headers);
-									    return NULL;
-								    },
-								    "%s%cattachment; filename=\"%s\"",
-								    HTTP_HEADER_NAME(content_disposition), '\0', file.file_name);
-
-								add_http_header_field_by_double_str(&additional_headers,
-								                                    content_disposition_buffer);
-
-								Time now;
-
-								bool success = get_current_time(&now);
-
-								if(success) {
-									char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-									if(date_str != NULL) {
-
-										char* date_buffer = NULL;
-										FORMAT_STRING(
-										    &date_buffer,
-										    {
-											    ZVEC_FREE(HttpHeaderField, &additional_headers);
-											    return NULL;
-										    },
-										    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-										add_http_header_field_by_double_str(&additional_headers,
-										                                    date_buffer);
-
-										free(date_str);
-									}
-								}
-							}
-
-							HTTPResponseBody body = http_response_body_from_data(
-							    file.file_content.data, file.file_content.size);
-
-							if(http_request->head.request_line.method == HTTPRequestMethodHead) {
-								body.send_body_data = false;
-							}
-
-							HTTPResponseToSend to_send = { .status = HttpStatusOk,
-								                           .body = body,
-								                           .mime_type = file.mime_type,
-								                           .additional_headers =
-								                               additional_headers };
-
-							// TODO: files on nginx send also this:
-							//  we also need to accapt range request (detect the header field),
-							//  this should not be done in theadditional headers, as it should
-							//  be done in the generic handler, so we need a send binary handler
-
-							/* HTTP/1.1 200 OK
-							Server: nginx
-							Date: Sat, 31 Jan 2026 06:10:13 GMT
-							Content-Type: application/octet-stream
-							Content-Length: 3135
-							Last-Modified: Sat, 31 Jan 2026 02:17:18 GMT
-							Connection: keep-alive
-							ETag: "697d662e-c3f"
-							Accept-Ranges: bytes */
-
-							result =
-							    send_http_message_to_connection(descriptor, to_send, send_settings);
-
-							{ // setup the value of the file, so that it isn't freed twice, as
-							  // sending
-								// the body frees it!
-								serve_folder_result->data.file.file_content.data = NULL;
-							}
-
-							break;
-						}
-						case ServeFolderResultTypeFolder: {
-							const ServeFolderFolderInfo folder_info =
-							    serve_folder_result->data.folder;
-
-							if(http_properties.type != HTTPPropertyTypeNormal) {
-								HTTPResponseToSend to_send = {
-									.status = HttpStatusInternalServerError,
-									.body = http_response_body_from_static_string(
-									    "Internal Server Error: Not allowed internal type: "
-									    "HTTPPropertyType"),
-									.mime_type = MIME_TYPE_TEXT,
-									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-								};
-
-								result = send_http_message_to_connection(descriptor, to_send,
-								                                         send_settings);
-								break;
-							}
-
-							const auto normal_data = http_properties.data.normal;
-
-							StringBuilder* html_string_builder =
-							    folder_content_to_html(folder_info, normal_data.path);
-
-							if(html_string_builder == NULL) {
-								HTTPResponseToSend to_send = {
-									.status = HttpStatusInternalServerError,
-									.body = http_response_body_from_static_string(
-									    "Internal Server Error: 4"),
-									.mime_type = MIME_TYPE_TEXT,
-									.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-								};
-
-								result = send_http_message_to_connection(descriptor, to_send,
-								                                         send_settings);
-							} else {
-
-								HTTPResponseBody body =
-								    http_response_body_from_string_builder(&html_string_builder);
-
-								if(http_request->head.request_line.method ==
-								   HTTPRequestMethodHead) {
-									body.send_body_data = false;
-								}
-
-								HTTPResponseToSend to_send = { .status = HttpStatusOk,
-									                           .body = body,
-									                           .mime_type = MIME_TYPE_HTML,
-									                           .additional_headers =
-									                               ZVEC_EMPTY(HttpHeaderField) };
-
-								result = send_http_message_to_connection(descriptor, to_send,
-								                                         send_settings);
-							}
-							break;
-						}
-						default: {
-							HTTPResponseToSend to_send = {
-								.status = HttpStatusInternalServerError,
-								.body = http_response_body_from_static_string(
-								    "Internal Server Error: 5"),
-								.mime_type = MIME_TYPE_TEXT,
-								.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-							};
-
-							result =
-							    send_http_message_to_connection(descriptor, to_send, send_settings);
-							break;
-						}
-					}
-
-					free_serve_folder_result(serve_folder_result);
-
-					break;
 				}
-				default: {
-					HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
-						                           .body = http_response_body_from_static_string(
-						                               "Internal error: Implementation error"),
-						                           .mime_type = MIME_TYPE_TEXT,
-						                           .additional_headers =
-						                               ZVEC_EMPTY(HttpHeaderField) };
-					result = send_http_message_to_connection_advanced(
-					    descriptor, to_send, send_settings, http_request->head);
-					break;
-				}
+
+				free_serve_folder_result(serve_folder_result);
+
+				break;
 			}
-
-			free_selected_route(selected_route);
-
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
-			}
-		}
-	} else if(is_supported == RequestInvalidHttpVersion) {
-
-		HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
-
-		{
-
-			Time now;
-
-			bool success = get_current_time(&now);
-
-			if(success) {
-				char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-				if(date_str != NULL) {
-
-					char* date_buffer = NULL;
-					FORMAT_STRING(
-					    &date_buffer,
-					    {
-						    ZVEC_FREE(HttpHeaderField, &additional_headers);
-						    return NULL;
-					    },
-					    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-					add_http_header_field_by_double_str(&additional_headers, date_buffer);
-
-					free(date_str);
-				}
+			default: {
+				HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+					                           .body = http_response_body_from_static_string(
+					                               "Internal error: Implementation error"),
+					                           .mime_type = MIME_TYPE_TEXT,
+					                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+				result = send_http_message_to_connection_advanced(
+				    descriptor, to_send, send_settings, http_request->head);
+				break;
 			}
 		}
 
-		HTTPResponseToSend to_send = { .status = HttpStatusHttpVersionNotSupported,
-			                           .body = http_response_body_from_static_string(
-			                               "Only HTTP/1.1 is supported atm"),
-			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = additional_headers };
-
-		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
-		                                                      http_request->head);
-
-		if(result) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
-		}
-	} else if(is_supported == RequestMethodNotSupported) {
-
-		HttpHeaderFields additional_headers = ZVEC_EMPTY(HttpHeaderField);
-
-		{
-
-			char* allowed_header_buffer = NULL;
-			// all 405 have to have a Allow filed according to spec
-			FORMAT_STRING(
-			    &allowed_header_buffer,
-			    {
-				    ZVEC_FREE(HttpHeaderField, &additional_headers);
-				    FREE_AT_END();
-				    return JOB_ERROR_STRING_FORMAT;
-			    },
-			    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
-
-			add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
-
-			Time now;
-
-			bool success = get_current_time(&now);
-
-			if(success) {
-				char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-				if(date_str != NULL) {
-
-					char* date_buffer = NULL;
-					FORMAT_STRING(
-					    &date_buffer,
-					    {
-						    ZVEC_FREE(HttpHeaderField, &additional_headers);
-						    return NULL;
-					    },
-					    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-					add_http_header_field_by_double_str(&additional_headers, date_buffer);
-
-					free(date_str);
-				}
-			}
-		}
-
-		HTTPResponseToSend to_send = { .status = HttpStatusMethodNotAllowed,
-			                           .body = http_response_body_from_static_string(
-			                               "This primitive HTTP Server only supports GET, POST, "
-			                               "HEAD, OPTIONS and CONNECT requests"),
-			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = additional_headers };
-
-		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
-		                                                      http_request->head);
-
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
-		}
-	} else if(is_supported == RequestInvalidNonemptyBody) {
-		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
-			                           .body = http_response_body_from_static_string(
-			                               "A GET, HEAD or OPTIONS Request can't have a body"),
-			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
-
-		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
-		                                                      http_request->head);
-
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
-		}
-	} else {
-		HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
-			                           .body = http_response_body_from_static_string(
-			                               "Internal Server Error 2"),
-			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
-
-		int result = send_http_message_to_connection_advanced(descriptor, to_send, send_settings,
-		                                                      http_request->head);
+		free_selected_route(selected_route);
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -963,53 +894,46 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 
 	HTTPReader* http_reader = initialize_http_reader_from_connection(descriptor);
 
-	while(true) {
+	if(!http_reader) {
+		HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+			                           .body = http_response_body_from_static_string(
+			                               "Internal Server Error: 0x1"),
+			                           .mime_type = MIME_TYPE_TEXT,
+			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
 
-		// keepalive and http2, but not http 1.0 !!
+		int result =
+		    send_http_message_to_connection(descriptor, to_send,
+		                                    (SendSettings){
+		                                        .compression_to_use = CompressionTypeNone,
+		                                        .protocol_to_use = HTTPProtocolVersionInvalid,
+		                                    });
 
-		if(!http_reader) {
-			HTTPResponseToSend to_send = {
-				.status = HttpStatusBadRequest,
-				.body = http_response_body_from_static_string(
-				    "Request couldn't be read, a connection error occurred!"),
-				.mime_type = MIME_TYPE_TEXT,
-				.additional_headers = ZVEC_EMPTY(HttpHeaderField)
-			};
-
-			int result =
-			    send_http_message_to_connection(descriptor, to_send,
-			                                    (SendSettings){
-			                                        .compression_to_use = CompressionTypeNone,
-			                                        .protocol_to_use = HTTPProtocolVersionInvalid,
-			                                    });
-
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
-			}
-
-			goto cleanup;
+		if(result < 0) {
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
 		}
 
-		// TODO
-		const bool TODO_is_http2 = false;
+		goto cleanup;
+	}
+
+	do {
 
 		// raw_http_request gets freed in here
-		HttpRequest* http_request_generic = get_http_request(http_reader, TODO_is_http2);
+		// TODO: replace with proper error handling instead of NULL or value, thats the same as
+		// optional<> ws expected<>
+		HttpRequestResult http_request_result = get_http_request(http_reader);
 
-		if(http_request_generic == NULL) {
-			HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
-				                           .body = http_response_body_from_static_string(
-				                               "Request couldn't be parsed, it was malformed!"),
-				                           .mime_type = MIME_TYPE_TEXT,
-				                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
+		if(http_request_result.error) {
+
+			auto s = (SendSettings){
+				.compression_to_use = CompressionTypeNone,
+				.protocol_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION,
+			};
+
+			const bool is_head = TODO;
 
 			int result =
-			    send_http_message_to_connection(descriptor, to_send,
-			                                    (SendSettings){
-			                                        .compression_to_use = CompressionTypeNone,
-			                                        .protocol_to_use = HTTPProtocolVersionInvalid,
-			                                    });
+			    process_http_error(http_request_result.value.error, descriptor, s, is_head);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -1019,10 +943,12 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			goto cleanup;
 		}
 
-		JobError process_error = process_http_request(http_request_generic, descriptor,
-		                                              route_manager, argument, worker_info);
+		const HttpRequest http_request = http_request_result.value.request;
 
-		free_http_request(http_request_generic);
+		JobError process_error =
+		    process_http_request(http_request, descriptor, route_manager, argument, worker_info);
+
+		free_http_request(http_request);
 
 		if(process_error == JOB_ERROR_CLEANUP_CONNECTION) {
 			job_error = JOB_ERROR_NONE;
@@ -1033,17 +959,23 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			job_error = process_error;
 			goto cleanup;
 		}
-	}
+	} while(http_reader_more_available(http_reader));
 
 cleanup:
-	// finally close the connection
-	int result = close_connection_descriptor_advanced(descriptor, context, SUPPORT_KEEPALIVE);
-	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", {
-		FREE_AT_END();
-		return JOB_ERROR_CLOSE;
-	});
-	// and free the malloced argument
+
+	// TODO. shoudl we log, if the reader had an error or what the reason for the exit of the loop
+	// was?
+
+	bool finished_cleanly = finish_reader(http_reader, context);
+
+	// free the malloced stuff
+	// needs to be called at the very end, as some things here are in use by the http_reader
 	FREE_AT_END();
+
+	if(!finished_cleanly) {
+		job_error = JOB_ERROR_CLOSE;
+	}
+
 	return job_error;
 }
 

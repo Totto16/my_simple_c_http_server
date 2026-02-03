@@ -8,7 +8,6 @@ extern "C" {
 
 // needed h files
 #include "./compression.h"
-#include "./http_2.h"
 
 #include "./uri.h"
 #include "generic/secure.h"
@@ -89,25 +88,24 @@ typedef struct {
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HTTPRequestMethodInvalid = 0,
-	HTTPRequestMethodGet,
+	HTTPRequestMethodGet = 0,
 	HTTPRequestMethodPost,
 	HTTPRequestMethodHead,
 	HTTPRequestMethodOptions,
-	HTTPRequestMethodConnect
+	HTTPRequestMethodConnect,
+	HTTPRequestMethodPRI
 } HTTPRequestMethod;
-
-#define DEFAULT_RESPONSE_PROTOCOL_VERSION HTTPProtocolVersion1Dot1
 
 /**
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HTTPProtocolVersionInvalid = 0,
 	HTTPProtocolVersion1,
 	HTTPProtocolVersion1Dot1,
 	HTTPProtocolVersion2,
 } HTTPProtocolVersion;
+
+#define DEFAULT_RESPONSE_PROTOCOL_VERSION HTTPProtocolVersion1Dot1
 
 typedef struct {
 	HTTPRequestMethod method;
@@ -141,34 +139,34 @@ typedef struct {
 
 typedef struct {
 	HttpRequestHead head;
-	char* body;
-} Http1Request;
+	SizedBuffer body;
+} HttpRequest;
 
 /**
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HttpRequestTypeInternalV1 = 0,
-	HttpRequestTypeInternalV1Keepalive,
-	HttpRequestTypeInternalV2,
-} HttpRequestTypeInternal;
+	HttpRequestErrorTypeInvalidHttpVersion = 0,
+	HttpRequestErrorTypeMethodNotSupported,
+	HttpRequestErrorTypeInvalidNonEmptyBody,
+	HttpRequestErrorTypeInvalidHttp2Preface
+} HttpRequestErrorType;
 
 typedef struct {
-	int todo;
-} Http1RequestKeepaliveContext;
-
-typedef struct {
-	int todo;
-} Http2RequestContext;
-
-typedef struct {
-	HttpRequestTypeInternal type;
+	bool is_advanced;
 	union {
-		Http1Request* v1;
-		Http1RequestKeepaliveContext* keepalive_v1;
-		Http2RequestContext* v2;
-	} data;
-} HttpRequest;
+		HttpRequestErrorType enum_value;
+		const char* advanced;
+	} value;
+} HttpRequestError;
+
+typedef struct {
+	bool is_error;
+	union {
+		HttpRequest request;
+		HttpRequestError error;
+	} value;
+} HttpRequestResult;
 
 typedef struct {
 	HttpResponseHead head;
@@ -183,27 +181,13 @@ not the requirement of this task, it can parse all tested http requests in the r
 construct the responses correctly
 */
 
-// frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
+// frees the HttpRequest, taking care of Null Pointer, this is needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
-void free_http1_request(Http1Request* request);
-
-void free_http_request(HttpRequest* request);
+void free_http_request(HttpRequest request);
 
 // returning a stringbuilder, that makes a string from the httpRequest, this is useful for debugging
 
 NODISCARD StringBuilder* http_request_to_string_builder(const HttpRequest* request, bool https);
-
-// if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
-// strings, but keep in mind that you gave to use the given free method to free that properly,
-// internally some string"magic" happens
-NODISCARD HttpRequest* parse_http_request(char* raw_http_request, bool use_http2);
-
-typedef struct HTTPReaderImpl HTTPReader;
-
-NODISCARD HTTPReader* NULLABLE
-initialize_http_reader_from_connection(ConnectionDescriptor* descriptor);
-
-HttpRequest* get_http_request(HTTPReader* reader, bool use_http2);
 
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
 
@@ -277,7 +261,7 @@ NODISCARD CompressionSettings* get_compression_settings(HttpHeaderFields header_
 
 void free_compression_settings(CompressionSettings* compression_settings);
 
-NODISCARD RequestSettings* get_request_settings(const HttpRequest* http_request);
+NODISCARD RequestSettings* get_request_settings(HttpRequest http_request);
 
 void free_request_settings(RequestSettings* request_settings);
 
@@ -307,12 +291,12 @@ html_from_string(StringBuilder* head_content, // NOLINT(bugprone-easily-swappabl
                  StringBuilder* script_content, StringBuilder* style_content,
                  StringBuilder* body_content);
 
-NODISCARD StringBuilder* http_request_to_json(const HttpRequest* request, bool https,
+NODISCARD StringBuilder* http_request_to_json(HttpRequest request, bool https,
                                               SendSettings send_settings);
 
 // really simple and dumb html boilerplate, this is used for demonstration purposes, and is
 // static, but it looks"cool" and has a shutdown button, that works (with XMLHttpRequest)
-NODISCARD StringBuilder* http_request_to_html(const HttpRequest* request, bool https,
+NODISCARD StringBuilder* http_request_to_html(HttpRequest request, bool https,
                                               SendSettings send_settings);
 
 #ifdef __cplusplus

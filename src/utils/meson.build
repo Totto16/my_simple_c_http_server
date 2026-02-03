@@ -11,6 +11,8 @@ src_files += files(
     'path.h',
     'sized_buffer.c',
     'sized_buffer.h',
+    'parse.c',
+    'parse.h',
     'string_builder.c',
     'string_builder.h',
     'string_helper.c',

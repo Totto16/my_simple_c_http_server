@@ -5,7 +5,7 @@
 
 ZMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
 
-NODISCARD static ParsedURLPath get_parsed_url_path_from_raw(char* const path) {
+NODISCARD static ParsedURLPath parse_url_path(char* const path) {
 	// precodnition:  path is not NULL and len is > 1
 
 	char* search_path = strchr(path, '?');
@@ -223,7 +223,7 @@ NODISCARD static char* parse_authority(char* const str, OUT_PARAM(ParsedAuthorit
 static_assert((sizeof(SCHEME_SEPERATOR) / (sizeof(SCHEME_SEPERATOR[0]))) - 1 ==
               SIZEOF_SCHEME_SEPERATOR);
 
-NODISCARD static ParsedRequestURI get_parsed_uri_or_authority_from_raw(char* const path) {
+NODISCARD static ParsedRequestURIResult parse_uri_or_authority(char* const path) {
 	// precodnition:  path is not NULL and len is > 1
 
 	ParsedRequestURI result = {};
@@ -237,25 +237,27 @@ NODISCARD static ParsedRequestURI get_parsed_uri_or_authority_from_raw(char* con
 		char* authority_parse_result = parse_authority(path, &authority);
 
 		if(authority_parse_result == NULL) {
-			result.type = ParsedURITypeError;
-			result.data.error = "Authority parse error: not a valid authority";
 
-			return result;
+			return (ParsedRequestURIResult){
+				.is_error = true,
+				.value = { .error = "Authority parse error: not a valid authority" }
+			};
 		}
 
 		if(*authority_parse_result != '\0') {
-			result.type = ParsedURITypeError;
-			result.data.error =
-			    "Authority parse error: we got more data after the authority, but no scheme "
-			    "(<scheme>://), so this is a URI missing that scheme or an invalid authority";
 
-			return result;
+			return (ParsedRequestURIResult){ .is_error = true,
+				                             .value = {
+				                                 .error = "Authority parse error: we got more data "
+				                                          "after the authority, but no scheme "
+				                                          "(<scheme>://), so this is a URI missing "
+				                                          "that scheme or an invalid authority" } };
 		}
 
 		result.type = ParsedURITypeAuthority;
 		result.data.authority = authority;
 
-		return result;
+		return (ParsedRequestURIResult){ .is_error = false, .value = { .uri = result } };
 	}
 
 	ParsedURI uri = {};
@@ -273,10 +275,9 @@ NODISCARD static ParsedRequestURI get_parsed_uri_or_authority_from_raw(char* con
 	char* authority_parse_result = parse_authority(current_ptr, &authority);
 
 	if(authority_parse_result == NULL) {
-		result.type = ParsedURITypeError;
-		result.data.error = "Authority parse error: not a valid authority";
-
-		return result;
+		return (ParsedRequestURIResult){
+			.is_error = true, .value = { .error = "Authority parse error: not a valid authority" }
+		};
 	}
 
 	uri.authority = authority;
@@ -292,17 +293,17 @@ NODISCARD static ParsedRequestURI get_parsed_uri_or_authority_from_raw(char* con
 	} else {
 		// the path is not empty
 
-		ParsedURLPath parsed_path = get_parsed_url_path_from_raw(authority_parse_result);
+		ParsedURLPath parsed_path = parse_url_path(authority_parse_result);
 		uri.path = parsed_path;
 	}
 
 	result.type = ParsedURITypeAbsoluteURI;
 	result.data.uri = uri;
 
-	return result;
+	return (ParsedRequestURIResult){ .is_error = false, .value = { .uri = result } };
 }
 
-NODISCARD ParsedRequestURI get_parsed_request_uri_from_raw(char* const path) {
+NODISCARD ParsedRequestURIResult parse_request_uri(char* const path) {
 
 	ParsedRequestURI result = {};
 
@@ -312,28 +313,26 @@ NODISCARD ParsedRequestURI get_parsed_request_uri_from_raw(char* const path) {
 		                         .hash_map = ZMAP_INIT(ParsedSearchPathHashMap),
 		                     },.fragment = NULL};
 
-		return result;
+		return (ParsedRequestURIResult){ .is_error = false, .value = { .uri = result } };
 	}
 
 	if(strlen(path) == 1 && path[0] == '*') {
 		result.type = ParsedURITypeAsterisk;
 
-		return result;
+		return (ParsedRequestURIResult){ .is_error = false, .value = { .uri = result } };
 	}
 
 	if(path[0] == '/') {
 
-		ParsedURLPath parsed_path = get_parsed_url_path_from_raw(path);
+		ParsedURLPath parsed_path = parse_url_path(path);
 
 		result.type = ParsedURITypeAbsPath;
 		result.data.path = parsed_path;
 
-		return result;
+		return (ParsedRequestURIResult){ .is_error = false, .value = { .uri = result } };
 	}
 
-	result = get_parsed_uri_or_authority_from_raw(path);
-
-	return result;
+	return parse_uri_or_authority(path);
 }
 
 static void free_parsed_url_path(ParsedURLPath path) {
@@ -401,10 +400,6 @@ void free_parsed_request_uri(ParsedRequestURI uri) {
 		}
 		case ParsedURITypeAuthority: {
 			free_parsed_authority(uri.data.authority);
-			break;
-		}
-		case ParsedURITypeError: {
-			// NOOP
 			break;
 		}
 		default: {
@@ -514,7 +509,6 @@ NODISCARD char* get_request_uri_as_string(ParsedRequestURI uri) {
 		case ParsedURITypeAuthority: {
 			return get_parsed_authority_as_string(uri.data.authority);
 		}
-		case ParsedURITypeError:
 		default: {
 			return NULL;
 		}

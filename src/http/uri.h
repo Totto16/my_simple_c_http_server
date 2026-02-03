@@ -50,7 +50,6 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	ParsedURITypeAbsoluteURI,
 	ParsedURITypeAbsPath,
 	ParsedURITypeAuthority,
-	ParsedURITypeError,
 } ParsedURIType;
 
 // spec:
@@ -61,18 +60,25 @@ typedef struct {
 		ParsedURI uri;
 		ParsedURLPath path;
 		ParsedAuthority authority;
-		const char* error;
 	} data;
 } ParsedRequestURI;
+
+typedef struct {
+	bool is_error;
+	union {
+		const char* error;
+		ParsedRequestURI uri;
+	} value;
+} ParsedRequestURIResult;
 
 /**
  * @brief Get the parsed url path from raw object, it modifies the string inline and creates copies
  * for the result
  *
  * @param path
- * @return ParsedRequestURI
+ * @return ParsedRequestURIResult
  */
-NODISCARD ParsedRequestURI get_parsed_request_uri_from_raw(char* path);
+NODISCARD ParsedRequestURIResult parse_request_uri(char* path);
 
 void free_parsed_request_uri(ParsedRequestURI uri);
 

@@ -30,18 +30,9 @@ struct ConnectionContextImpl {
 	} data;
 };
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	ALPNProtocolSelectedNone = 0,
-	ALPNProtocolSelectedHttp1Dot1,
-	ALPNProtocolSelectedHttp2,
-} ALPNProtocolSelected;
-
 typedef struct {
 	SSL* ssl_structure;
-	ALPNProtocolSelected protocol;
+	ProtocolSelected protocol;
 } SecureConnectionData;
 
 typedef struct {
@@ -471,7 +462,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 
 	SecureConnectionData secure_data = {
 		.ssl_structure = ssl_structure,
-		.protocol = ALPNProtocolSelectedNone,
+		.protocol = ProtocolSelectedNone,
 	};
 
 	{ // get selected protocol
@@ -485,10 +476,10 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 
 			if(proto_len == 2 && memcmp(proto, ALPN_PROTO_H2, H2_PROTO_SIZE) == 0) {
 				// HTTP/2 selected
-				secure_data.protocol = ALPNProtocolSelectedHttp2;
+				secure_data.protocol = ProtocolSelectedHttp2;
 			} else if(proto_len == 8 && memcmp(proto, ALPN_PROTO_H1_1, H1_1_PROTO_SIZE) == 0) {
 				// HTTP/1.1 selected
-				secure_data.protocol = ALPNProtocolSelectedHttp1Dot1;
+				secure_data.protocol = ProtocolSelectedHttp1Dot1;
 			}
 		}
 	}
@@ -717,5 +708,20 @@ int get_underlying_socket(const ConnectionDescriptor* const descriptor) {
 	}
 
 	return ssl_fd;
+#endif
+}
+
+NODISCARD ProtocolSelected get_selected_protocol(const ConnectionDescriptor* descriptor) {
+	if(!is_secure_descriptor(descriptor)) {
+		// no way of negotiating a a protocol before starting reading, so always none
+		return ProtocolSelectedNone;
+	}
+
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
+	UNREACHABLE();
+#else
+
+	return descriptor->data.secure.protocol;
+
 #endif
 }

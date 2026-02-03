@@ -1,7 +1,7 @@
 
 #include "./routes.h"
 #include "./header.h"
-#include "./http_protocol.h"
+#include "./protocol.h"
 #include "http/mime.h"
 #include "http/send.h"
 #include "utils/path.h"
@@ -16,7 +16,7 @@ struct RouteManagerImpl {
 };
 
 static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
-                                                     const HttpRequest* const http_request,
+                                                     const HttpRequest http_request,
                                                      const ConnectionContext* const context,
                                                      ParsedURLPath path) {
 
@@ -47,7 +47,7 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 }
 
 static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
-                                                    const HttpRequest* const http_request,
+                                                    const HttpRequest http_request,
                                                     const ConnectionContext* const context,
                                                     ParsedURLPath path) {
 
@@ -761,19 +761,10 @@ typedef struct {
 
 NODISCARD static HttpAuthStatus
 handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
-                               const HttpRequest* const request_generic,
-                               HTTPAuthorizationComplicatedData* data) {
-
-	if(request_generic->type != HttpRequestTypeInternalV1) {
-		return (
-		    HttpAuthStatus){ .type = HttpAuthStatusTypeError,
-			                 .data = { .error = { .error_message = "Http/2 not yet supported" } } };
-	}
-
-	const Http1Request* request = request_generic->data.v1;
+                               const HttpRequest request, HTTPAuthorizationComplicatedData* data) {
 
 	const HttpHeaderField* authorization_field =
-	    find_header_by_key(request->head.header_fields, HTTP_HEADER_NAME(authorization));
+	    find_header_by_key(request.head.header_fields, HTTP_HEADER_NAME(authorization));
 
 	if(authorization_field == NULL) {
 		return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
@@ -794,7 +785,7 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 			                     .data = { .error = { .error_message = "Header parse error" } } };
 	}
 
-	// note: this potential meory leak is not one, as it is just returned and than later freed by
+	// note: this potential memory leak is not one, as it is just returned and than later freed by
 	// the cosnuming functions
 	char* username = NULL; // NOLINT(clang-analyzer-unix.Malloc)
 	char* password = NULL;
@@ -811,7 +802,7 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 		default: {
 			return (
 			    HttpAuthStatus){ .type = HttpAuthStatusTypeError,
-				                 .data = { .error = { .error_message = "Implemetation error" } } };
+				                 .data = { .error = { .error_message = "Implementation error" } } };
 		}
 	}
 
@@ -851,17 +842,17 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 		default: {
 			return (
 			    HttpAuthStatus){ .type = HttpAuthStatusTypeError,
-				                 .data = { .error = { .error_message = "Implemetation error" } } };
+				                 .data = { .error = { .error_message = "Implementation error" } } };
 		}
 	}
 
-	// TODO(Totto): handle the data, if presenet, check if the user really is authorized
+	// TODO(Totto): handle the data, if present, check if the user really is authorized
 	UNUSED(data);
 }
 
 NODISCARD static HttpAuthStatus
-handle_http_authorization(const AuthenticationProviders* auth_providers,
-                          const HttpRequest* const request_generic, HTTPAuthorization auth) {
+handle_http_authorization(const AuthenticationProviders* auth_providers, const HttpRequest request,
+                          HTTPAuthorization auth) {
 
 	switch(auth.type) {
 		case HTTPAuthorizationTypeNone: {
@@ -870,11 +861,10 @@ handle_http_authorization(const AuthenticationProviders* auth_providers,
 				                 .data = { .error = { .error_message = "Implementation error" } } };
 		}
 		case HTTPAuthorizationTypeSimple: {
-			return handle_http_authorization_impl(auth_providers, request_generic, NULL);
+			return handle_http_authorization_impl(auth_providers, request, NULL);
 		}
 		case HTTPAuthorizationTypeComplicated: {
-			return handle_http_authorization_impl(auth_providers, request_generic,
-			                                      &auth.data.complicated);
+			return handle_http_authorization_impl(auth_providers, request, &auth.data.complicated);
 		}
 		default: {
 			return (
@@ -891,8 +881,7 @@ handle_http_authorization(const AuthenticationProviders* auth_providers,
 
 NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const route_manager,
                                                       HttpRequestProperties http_properties,
-                                                      const HttpRequest* const request_generic,
-                                                      HTTPRoute route) {
+                                                      const HttpRequest request, HTTPRoute route) {
 
 	if(http_properties.type != HTTPPropertyTypeNormal) {
 		return NULL;
@@ -904,7 +893,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 
 	if(route.auth.type != HTTPAuthorizationTypeNone) {
 		HttpAuthStatus auth_status =
-		    handle_http_authorization(route_manager->auth_providers, request_generic, route.auth);
+		    handle_http_authorization(route_manager->auth_providers, request, route.auth);
 
 		switch(auth_status.type) {
 			case HttpAuthStatusTypeUnauthorized: {
@@ -1029,7 +1018,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 NODISCARD SelectedRoute*
 route_manager_get_route_for_request(const RouteManager* const route_manager,
                                     HttpRequestProperties http_properties,
-                                    const HttpRequest* request_generic) {
+                                    const HttpRequest request) {
 
 	if(http_properties.type != HTTPPropertyTypeNormal) {
 		return NULL;
@@ -1037,20 +1026,13 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 
 	const ParsedURLPath normal_data = http_properties.data.normal;
 
-	if(request_generic->type != HttpRequestTypeInternalV1) {
-		return NULL;
-	}
-
-	const Http1Request* http_request = request_generic->data.v1;
-
 	for(size_t i = 0; i < ZVEC_LENGTH(route_manager->routes->routes); ++i) {
 		HTTPRoute route = ZVEC_AT(HTTPRoute, route_manager->routes->routes, i);
 
-		if(is_matching(route.method, http_request->head.request_line.method)) {
+		if(is_matching(route.method, request.head.request_line.method)) {
 
 			if(is_route_matching(route.path, normal_data.path)) {
-				return process_matched_route(route_manager, http_properties, request_generic,
-				                             route);
+				return process_matched_route(route_manager, http_properties, request, route);
 			}
 		}
 	}
@@ -1068,16 +1050,9 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const r
 
 NODISCARD
 int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* const descriptor,
-                                SendSettings send_settings,
-                                const HttpRequest* const http_request_generic,
+                                SendSettings send_settings, const HttpRequest http_request,
                                 const ConnectionContext* const context, ParsedURLPath path,
                                 AuthUserWithContext* auth_user) {
-
-	if(http_request_generic->type != HttpRequestTypeInternalV1) {
-		return -70;
-	}
-
-	const Http1Request* http_request = http_request_generic->data.v1;
 
 	HTTPResponseToSend response = {};
 
@@ -1104,8 +1079,7 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 			break;
 		}
 		case HTTPRouteFnTypeExecutorExtended: {
-			response =
-			    route.fn.executor_extended(send_settings, http_request_generic, context, path);
+			response = route.fn.executor_extended(send_settings, http_request, context, path);
 			break;
 		}
 		default: {
@@ -1114,8 +1088,10 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 		}
 	}
 
-	int result = send_http_message_to_connection_advanced(descriptor, response, send_settings,
-	                                                      http_request->head);
+	const bool is_head = http_request.head.request_line.method == HTTPRequestMethodHead;
+
+	int result =
+	    send_http_message_to_connection_advanced(descriptor, response, send_settings, is_head);
 
 	return result;
 }

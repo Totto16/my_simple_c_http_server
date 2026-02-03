@@ -12,7 +12,7 @@
 #include "./routes.h"
 #include "generic/authentication.h"
 #include "generic/secure.h"
-#include "http/http_protocol.h"
+#include "http/protocol.h"
 #include "utils/thread_pool.h"
 #include "ws/thread_manager.h"
 
@@ -24,20 +24,6 @@
 #define HTTP_SOCKET_BACKLOG_SIZE 10
 
 #define HTTP_MAX_QUEUE_SIZE 100
-
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	RequestSupported = 0,
-	RequestInvalidHttpVersion,
-	RequestMethodNotSupported,
-	RequestInvalidNonemptyBody,
-} RequestSupportStatus;
-
-// returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
-// returned an enum state, the caller has to handle errors
-NODISCARD RequestSupportStatus is_request_supported(const HttpRequest* request);
 
 // structs for the listenerThread
 

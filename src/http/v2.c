@@ -1,6 +1,6 @@
 
 
-#include "./http_2.h"
+#include "./v2.h"
 
 ZVEC_IMPLEMENT_VEC_TYPE(Http2Frame)
 
@@ -77,7 +77,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 #define DEFAULT_SETTINGS_MAX_FRAME_SIZE (1 << 14) // 2^14
 
-NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request) {
+// TODO: accept parsstate and  http2 state, e.g. the SETTINgs is in there!
+NODISCARD Http2Request* parse_http2_request_TODO(SizedBuffer raw_http_request) {
 
 	ZVEC_TYPENAME(Http2Frame) frames = ZVEC_EMPTY(Http2Frame);
 
@@ -160,4 +161,53 @@ NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request) {
 	assert(false && "TODO");
 	// TODO
 	// return frames;
+}
+
+// http2 preface: see: https://datatracker.ietf.org/doc/html/rfc7540#section-3.5
+
+#define HTTP2_CLIENT_PREFACE "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
+
+#define SIZEOF_HTTP2_CLIENT_PREFACE 24
+
+static_assert((sizeof(HTTP2_CLIENT_PREFACE) / (sizeof(HTTP2_CLIENT_PREFACE[0]))) - 1 ==
+              SIZEOF_HTTP2_CLIENT_PREFACE);
+
+#define HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE "\r\nSM\r\n\r\n"
+
+#define SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE 8
+
+static_assert((sizeof(HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE) /
+               (sizeof(HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE[0]))) -
+                  1 ==
+              SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE);
+
+NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
+                                                   ParseState* state) {
+
+	if(request_line.protocol_version != HTTPProtocolVersion2) {
+		return Http2PrefaceStatusErr;
+	}
+
+	if(request_line.method != HTTPRequestMethodPRI) {
+		return Http2PrefaceStatusErr;
+	}
+
+	if(request_line.uri.type != ParsedURITypeAsterisk) {
+		return Http2PrefaceStatusErr;
+	}
+
+	size_t remaining_size = state->data.size - state->cursor;
+
+	if(remaining_size < SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE) {
+		return Http2PrefaceStatusNotEnoughData;
+	}
+
+	if(memcmp(state->data.data, HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE,
+	          SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE) == 0) {
+
+		state->cursor += SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE;
+		return Http2PrefaceStatusOk;
+	}
+
+	return Http2PrefaceStatusErr;
 }

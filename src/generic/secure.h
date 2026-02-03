@@ -82,9 +82,21 @@ typedef struct {
 NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
                                           size_t n_bytes);
 
-NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor, OpaqueError opaque_error);
+NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
+                                       OpaqueError opaque_error);
 
 NODISCARD ssize_t write_to_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
                                       size_t n_bytes);
 
 NODISCARD int get_underlying_socket(const ConnectionDescriptor* descriptor);
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ProtocolSelectedNone = 0,
+	ProtocolSelectedHttp1Dot1,
+	ProtocolSelectedHttp2,
+} ProtocolSelected;
+
+NODISCARD ProtocolSelected get_selected_protocol(const ConnectionDescriptor* descriptor);

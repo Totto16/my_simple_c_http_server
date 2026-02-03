@@ -120,9 +120,6 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 
 	HTTPProtocolVersion version_to_use = send_settings.protocol_to_use;
 
-	if(send_settings.protocol_to_use == HTTPProtocolVersionInvalid) {
-		version_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION;
-	}
 	const char* protocol_version = get_http_protocol_version_string(version_to_use);
 
 	size_t protocol_length = strlen(protocol_version);
@@ -215,9 +212,9 @@ int send_http_message_to_connection(const ConnectionDescriptor* const descriptor
 NODISCARD int send_http_message_to_connection_advanced(const ConnectionDescriptor* descriptor,
                                                        HTTPResponseToSend to_send,
                                                        SendSettings send_settings,
-                                                       HttpRequestHead request_head) {
+                                                       bool is_head) {
 
-	if(request_head.request_line.method == HTTPRequestMethodHead) {
+	if(is_head) {
 		to_send.body.send_body_data = false;
 	}
 

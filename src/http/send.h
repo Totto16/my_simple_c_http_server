@@ -3,7 +3,7 @@
 #pragma once
 
 #include "generic/secure.h"
-#include "http/http_protocol.h"
+#include "http/protocol.h"
 
 typedef struct {
 	SizedBuffer body;
@@ -24,7 +24,7 @@ NODISCARD int send_http_message_to_connection(const ConnectionDescriptor* descri
 NODISCARD int send_http_message_to_connection_advanced(const ConnectionDescriptor* descriptor,
                                                        HTTPResponseToSend to_send,
                                                        SendSettings send_settings,
-                                                       HttpRequestHead request_head);
+                                                       bool is_head);
 
 NODISCARD HTTPResponseBody http_response_body_from_static_string(const char* static_string);
 

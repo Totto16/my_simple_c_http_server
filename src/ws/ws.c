@@ -4,7 +4,7 @@
 #include "generic/hash.h"
 #include "generic/send.h"
 #include "http/header.h"
-#include "http/http_protocol.h"
+#include "http/protocol.h"
 #include "http/mime.h"
 #include "http/send.h"
 #include "utils/log.h"
@@ -182,15 +182,9 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 
 static const bool send_http_upgrade_required_status_code = true;
 
-int handle_ws_handshake(const HttpRequest* const http_request_generic,
+int handle_ws_handshake(const HttpRequest* const http_request,
                         const ConnectionDescriptor* const descriptor, SendSettings send_settings,
                         WSExtensions* extensions) {
-
-	if(http_request_generic->type != HttpRequestTypeInternalV1) {
-		return -1;
-	}
-
-	const Http1Request* http_request = http_request_generic->data.v1;
 
 	// check if it is a valid Websocket request
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-2 section 4.2.1.

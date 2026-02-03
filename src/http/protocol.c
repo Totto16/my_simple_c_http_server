@@ -1,8 +1,8 @@
 
-#include "./http_protocol.h"
+#include "./protocol.h"
 #include "./header.h"
-#include "./http_2.h"
 #include "generic/read.h"
+#include "utils/parse.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -11,59 +11,14 @@ ZVEC_IMPLEMENT_VEC_TYPE(HttpHeaderField)
 
 ZVEC_IMPLEMENT_VEC_TYPE(CompressionEntry)
 
-// TODO: refacrior into http_1 and generic http implementations
-
-NODISCARD static HTTPRequestMethod get_http_method_from_string(const char* method) {
-
-	if(strcmp(method, "GET") == 0) {
-		return HTTPRequestMethodGet;
-	}
-
-	if(strcmp(method, "POST") == 0) {
-		return HTTPRequestMethodPost;
-	}
-
-	if(strcmp(method, "HEAD") == 0) {
-		return HTTPRequestMethodHead;
-	}
-
-	if(strcmp(method, "OPTIONS") == 0) {
-		return HTTPRequestMethodOptions;
-	}
-
-	if(strcmp(method, "CONNECT") == 0) {
-		return HTTPRequestMethodConnect;
-	}
-
-	return HTTPRequestMethodInvalid;
-}
-
-NODISCARD static HTTPProtocolVersion
-get_protocol_version_from_string(const char* protocol_version) {
-
-	if(strcmp(protocol_version, "HTTP/1.0") == 0) {
-		return HTTPProtocolVersion1;
-	}
-
-	if(strcmp(protocol_version, "HTTP/1.1") == 0) {
-		return HTTPProtocolVersion1Dot1;
-	}
-
-	if(strcmp(protocol_version, "HTTP/2") == 0) {
-		return HTTPProtocolVersion2;
-	}
-
-	return HTTPProtocolVersionInvalid;
-}
-
 NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 	switch(method) {
-		case HTTPRequestMethodInvalid: return "<Invalid HTTP Method>";
 		case HTTPRequestMethodGet: return "Get";
 		case HTTPRequestMethodPost: return "Post";
 		case HTTPRequestMethodHead: return "Head";
 		case HTTPRequestMethodOptions: return "Options";
 		case HTTPRequestMethodConnect: return "Connect";
+		case HTTPRequestMethodPRI: return "Pri";
 		default: return "<Unknown>";
 	}
 }
@@ -71,27 +26,11 @@ NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version) {
 
 	switch(protocol_version) {
-		case HTTPProtocolVersionInvalid: return "<Invalid HTTP Version>";
 		case HTTPProtocolVersion1: return "HTTP/1.0";
 		case HTTPProtocolVersion1Dot1: return "HTTP/1.1";
 		case HTTPProtocolVersion2: return "HTTP/2";
 		default: return "<Unknown>";
 	}
-}
-
-NODISCARD static HttpRequestLine
-get_request_line_from_raw(const char* method, // NOLINT(bugprone-easily-swappable-parameters)
-                          char* const path, const char* protocol_version) {
-
-	HttpRequestLine result = {};
-
-	result.uri = get_parsed_request_uri_from_raw(path);
-
-	result.method = get_http_method_from_string(method);
-
-	result.protocol_version = get_protocol_version_from_string(protocol_version);
-
-	return result;
 }
 
 static void free_http_request_line(HttpRequestLine line) {
@@ -110,40 +49,14 @@ static void free_request_head(HttpRequestHead head) {
 
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
-void free_http1_request(Http1Request* request) {
-	free_request_head(request->head);
-	FREE_IF_NOT_NULL(request->body);
-	FREE_IF_NOT_NULL(request);
-}
-
-void free_http_request(HttpRequest* request) {
-
-	switch(request->type) {
-		case HttpRequestTypeInternalV1: {
-			free_http1_request(request->data.v1);
-			break;
-		}
-		default: {
-			// TODO
-			LOG_MESSAGE(LogLevelError, "Can't free the http request fully atm: type: %d\n",
-			            request->type);
-			break;
-		}
-	}
-
-	free(request);
+void free_http_request(HttpRequest request) {
+	free_request_head(request.head);
+	free_sized_buffer(request.body);
 }
 
 // returning a stringbuilder, that makes a string from the http_request, this is useful for
 // debugging
-StringBuilder* http_request_to_string_builder(const HttpRequest* const request_generic,
-                                              bool https) {
-
-	if(request_generic->type != HttpRequestTypeInternalV1) {
-		return NULL;
-	}
-
-	const Http1Request* request = request_generic->data.v1;
+StringBuilder* http_request_to_string_builder(const HttpRequest* const request, bool https) {
 
 	StringBuilder* result = string_builder_init();
 
@@ -177,271 +90,31 @@ StringBuilder* http_request_to_string_builder(const HttpRequest* const request_g
 	return result;
 }
 
-#define HTTP_LINE_SEPERATORS "\r\n"
-
-#define SIZEOF_HTTP_LINE_SEPERATORS 2
-
-static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0]))) - 1 ==
-              SIZEOF_HTTP_LINE_SEPERATORS);
-
-// if the parsing did go wrong NULL is returned otherwise everything is filled with malloced
-// strings, but keep in mind that you gave to use the given free method to free that properly,
-// internally some string"magic" happens
-HttpRequest* parse_http_request(char* raw_http_request, bool use_http2) {
-
-	// TODO: seperate in v1 and v2 parsers
-
-	if(strlen(raw_http_request) == 0) {
-		free(raw_http_request);
-		return NULL;
-	}
-
-	// considered using strtok, but that doesn't recognize the delimiter between the status and
-	// body! so now using own way of doing that!
-
-	char* currently_at = raw_http_request;
-	bool parsed = false;
-	HttpRequest* generic_request = (HttpRequest*)malloc_with_memset(sizeof(HttpRequest), true);
-
-	if(!generic_request) {
-		return NULL;
-	}
-
-	Http1Request* request = (Http1Request*)malloc_with_memset(sizeof(Http1Request), true);
-
-	if(!request) {
-		return NULL;
-	}
-
-	request->head.header_fields = ZVEC_EMPTY(HttpHeaderField);
-
-	// iterating over each separated string, then determining if header or body or statusLine and
-	// then parsing that accordingly
-	do {
-		char* resulting_index = strstr(currently_at, HTTP_LINE_SEPERATORS);
-		// no"\r\n" could be found, so a parse Error occurred, a NULL signals that
-		if(resulting_index == NULL) {
-			// also the input raw_http_request string has to be freed
-			free(raw_http_request);
-			// no more possible leaks, since some fields may be initialized, is covered by the
-			// freeHttpRequest implementation
-			free_http1_request(request);
-			return NULL;
-		}
-		char* all = (char*)malloc_with_memset(resulting_index - currently_at + 1, true);
-
-		if(!all) {
-			return NULL;
-		}
-
-		// return pointer == all, so is ignored
-		memcpy(all, currently_at, resulting_index - currently_at);
-
-		char* method = NULL;
-		char* path = NULL;
-		char* protocol_version = NULL;
-
-		// other way of checking if at the beginning
-		if(currently_at == raw_http_request) {
-			// parsing the string and inserting"\0" bytes at the" " space byte, so the three part
-			// string can be used in three different fields, with the correct start address, this
-			// trick is used more often trough-out this implementation, you don't have to understand
-			// it, since its abstracted away when using only the provided function
-			char* begin = strchr(all, ' ');
-			if(begin == NULL) {
-				// missing " " after the path
-				return NULL;
-			}
-			*begin = '\0';
-			method = all;
-			all = begin + 1;
-			begin = strchr(all, ' ');
-			*begin = '\0';
-			path = all;
-			all = begin + 1;
-			// is already null terminated!
-			protocol_version = all;
-
-			const HttpRequestLine request_line =
-			    get_request_line_from_raw(method, path, protocol_version);
-
-			if(request_line.uri.type == ParsedURITypeError) {
-				LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-				            "Invalid uri in HTTP request: %s\n", request_line.uri.data.error);
-				return NULL;
-			}
-
-			// TODO: check these things in another place, as here we just check REAl parse errors,
-			// not logic errors, these need to be checked later, as the NULL  return gives wrong
-			// info
-			if(request_line.uri.type == ParsedURITypeAsterisk) {
-				if(request_line.method != HTTPRequestMethodOptions) {
-					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-					                   "Invalid path in combination with method: path '*' is only "
-					                   "supported with OPTIONS\n");
-					return NULL;
-				} else {
-
-					// TODO. implement further, search for todo_options
-					LOG_MESSAGE_SIMPLE(
-					    COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-					    "not implemented for method OPTIONS: asterisk or normal request\n");
-					return NULL;
-				}
-			}
-
-			if(request_line.uri.type == ParsedURITypeAuthority) {
-				if(request_line.method != HTTPRequestMethodConnect) {
-					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-					                   "Invalid path in combination with method: path '*' is only "
-					                   "supported with OPTIONS\n");
-					return NULL;
-				} else {
-
-					// TODO. implement further, search for todo_options
-					LOG_MESSAGE_SIMPLE(
-					    COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-					    "not implemented for method OPTIONS: asterisk or normal request\n");
-					return NULL;
-				}
-			}
-
-			if(request_line.protocol_version == HTTPProtocolVersion2) {
-
-				if(!use_http2) {
-					LOG_MESSAGE_SIMPLE(
-					    COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-					    "A HTTP 2 status line was detected, but the negotiation via Upgrade or TLS "
-					    "ALPN wasn't done before that, invlaid request!\n");
-					// TODO(Totto): free everything correctly
-					return NULL;
-				}
-
-				if(strncmp(raw_http_request, g_http2_client_preface,
-				           g_http2_client_preface_length) != 0) {
-					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-					                   "A HTTP 2 request contained a invalid client preface\n");
-					// TODO(Totto): free everything correctly
-					return NULL;
-				}
-
-				char* http2_request_start = raw_http_request + g_http2_client_preface_length;
-
-				// TODO
-				UNUSED(http2_request_start);
-				//  //return parse_http2_request(http2_request_start);
-				return NULL;
-			}
-
-			request->head.request_line = request_line;
-
-			free(method);
-
-		} else {
-			// TODO: seperate into http/1 parsing function
-			if(strlen(all) == 0) {
-				// that denotes now comes the body! so the body is assigned and the loop ends with
-				// the parsed = true the while loop finishes
-				free(all);
-				size_t body_length =
-				    strlen(raw_http_request) -
-				    ((resulting_index - raw_http_request) + SIZEOF_HTTP_LINE_SEPERATORS);
-				all = (char*)malloc_with_memset(body_length + 1, true);
-
-				if(!all) {
-					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-					                   "Couldn't allocate memory!\n");
-					return NULL;
-				}
-
-				memcpy(all, currently_at + SIZEOF_HTTP_LINE_SEPERATORS, body_length);
-				request->body = all;
-				parsed = true;
-			} else {
-				// here headers are parsed, here":" is the delimiter
-
-				// using same trick, the header string is one with the right 0 bytes :)
-				char* begin = strchr(all, ':');
-				*begin = '\0';
-				if(*(begin + 1) == ' ') {
-					++begin;
-					*begin = '\0';
-				}
-
-				HttpHeaderField field = { .key = all, .value = begin + 1 };
-
-				auto _ = ZVEC_PUSH(HttpHeaderField, &(request->head.header_fields), field);
-				UNUSED(_);
-			}
-		}
-
-		// adjust the values
-		currently_at = resulting_index + SIZEOF_HTTP_LINE_SEPERATORS;
-
-	} while(!parsed);
-
-	// at the end free the input raw_http_request string
-	free(raw_http_request);
-
-	generic_request->type = HttpRequestTypeInternalV1;
-	generic_request->data.v1 = request;
-
-	return generic_request;
-}
-
 /**
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPReaderStateEmpty = 0,
-	HTTPReaderStateTODO,
+	HTTPReaderStateReading,
+	HTTPReaderStateEnd,
+	HTTPReaderStateError,
 } HTTPReaderState;
 
-struct HTTPReaderImpl {
-	ConnectionDescriptor* descriptor;
-	//
-	HTTPReaderState state;
-	size_t cursor;
-	SizedBuffer data;
-};
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPContentTypeV1 = 0,
+	HTTPContentTypeV1Keepalive,
+	HTTPContentTypeV2,
+} HTTPContentType;
 
-NODISCARD HTTPReader* NULLABLE
-initialize_http_reader_from_connection(ConnectionDescriptor* const descriptor) {
-
-	HTTPReader* reader = malloc(sizeof(HTTPReader));
-
-	if(!reader) {
-		return NULL;
-	}
-
-	*reader = (HTTPReader){
-		.descriptor = descriptor,
-		.state = HTTPReaderStateEmpty,
-		.cursor = 0,
-		.data = (SizedBuffer){ .data = NULL, .size = 0 },
-	};
-
-	return reader;
-}
-
-HttpRequest* get_http_request(HTTPReader* const reader, bool use_http2) {
-
-	if(!reader) {
-		return NULL;
-	}
-
-	// TODO: if it is alredy http2, like from tls, process http2
-	//  otherwise reader header and than decided after taht!
-	//  support http 1.1.  keepalive and http2 upgrade over h2c http1.1
-
-	char* raw_http_request = read_string_from_connection(reader->descriptor);
-
-	if(!raw_http_request) {
-		return NULL;
-	}
-
-	return parse_http_request(raw_http_request, use_http2);
-}
+typedef struct {
+	HTTPContentType type;
+	union {
+		int todo;
+	} data;
+} HTTPContent;
 
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath search_path,
                                                        const char* key) {
@@ -718,19 +391,18 @@ void free_compression_settings(CompressionSettings* compression_settings) {
 	free(compression_settings);
 }
 
-NODISCARD static HttpRequestProperties
-get_http_properties(const HttpRequest* const http_request_generic) {
+NODISCARD static HttpRequestProperties get_http_properties(const HttpRequest* const http_request) {
 
 	HttpRequestProperties http_properties = { .type = HTTPPropertyTypeInvalid };
 
-	if(http_request_generic->type != HttpRequestTypeInternalV1) {
+	if(http_request->type != HttpRequestTypeInternalV1) {
 
 		http_properties.type = HTTPPropertyTypeInvalid;
 
 		return http_properties;
 	}
 
-	const Http1Request* http_request = http_request_generic->data.v1;
+	const Http1Request* http_request = http_request->data.v1;
 
 	ParsedRequestURI uri = http_request->head.request_line.uri;
 
@@ -792,13 +464,7 @@ get_http_properties(const HttpRequest* const http_request_generic) {
 	}
 }
 
-RequestSettings* get_request_settings(const HttpRequest* const http_request_generic) {
-
-	if(http_request_generic->type != HttpRequestTypeInternalV1) {
-		return NULL;
-	}
-
-	const Http1Request* http_request = http_request_generic->data.v1;
+RequestSettings* get_request_settings(const HttpRequest http_request) {
 
 	RequestSettings* request_settings =
 	    (RequestSettings*)malloc_with_memset(sizeof(RequestSettings), true);
@@ -823,7 +489,7 @@ RequestSettings* get_request_settings(const HttpRequest* const http_request_gene
 
 	request_settings->compression_settings = compression_settings;
 
-	request_settings->http_properties = get_http_properties(http_request_generic);
+	request_settings->http_properties = get_http_properties(http_request);
 
 	return request_settings;
 }
@@ -1040,14 +706,14 @@ html_from_string(StringBuilder* head_content, // NOLINT(bugprone-easily-swappabl
 	return result;
 }
 
-StringBuilder* http_request_to_json(const HttpRequest* const request_generic, bool https,
+StringBuilder* http_request_to_json(const HttpRequest request, bool https,
                                     SendSettings send_settings) {
 
-	if(request_generic->type != HttpRequestTypeInternalV1) {
+	if(request->type != HttpRequestTypeInternalV1) {
 		return NULL;
 	}
 
-	const Http1Request* request = request_generic->data.v1;
+	const Http1Request* request = request->data.v1;
 
 	StringBuilder* body = string_builder_init();
 
@@ -1159,14 +825,14 @@ StringBuilder* http_request_to_json(const HttpRequest* const request_generic, bo
 	return body;
 }
 
-StringBuilder* http_request_to_html(const HttpRequest* const request_generic, bool https,
+StringBuilder* http_request_to_html(const HttpRequest request, bool https,
                                     SendSettings send_settings) {
 
-	if(request_generic->type != HttpRequestTypeInternalV1) {
+	if(request->type != HttpRequestTypeInternalV1) {
 		return NULL;
 	}
 
-	const Http1Request* request = request_generic->data.v1;
+	const Http1Request* request = request->data.v1;
 
 	StringBuilder* body = string_builder_init();
 

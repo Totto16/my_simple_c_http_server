@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "./http_protocol.h"
+#include "./protocol.h"
 #include "./send.h"
 #include "generic/authentication.h"
 #include "generic/secure.h"
@@ -26,7 +26,7 @@ typedef HTTPResponseToSend (*HTTPRouteFnExecutor)(ParsedURLPath path);
 typedef HTTPResponseToSend (*HTTPRouteFnExecutorAuth)(ParsedURLPath path, AuthUserWithContext user);
 
 typedef HTTPResponseToSend (*HTTPRouteFnExecutorExtended)(SendSettings send_settings,
-                                                          const HttpRequest* const http_request,
+                                                          const HttpRequest http_request,
                                                           const ConnectionContext* const context,
                                                           ParsedURLPath path);
 
@@ -194,12 +194,11 @@ void free_selected_route(SelectedRoute* selected_route);
 
 NODISCARD SelectedRoute* route_manager_get_route_for_request(const RouteManager* route_manager,
                                                              HttpRequestProperties http_properties,
-                                                             const HttpRequest* request_generic);
+                                                             HttpRequest request);
 
 NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* route);
 
 NODISCARD int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* descriptor,
-                                          SendSettings send_settings,
-                                          const HttpRequest* http_request,
+                                          SendSettings send_settings, HttpRequest http_request,
                                           const ConnectionContext* context, ParsedURLPath path,
                                           AuthUserWithContext* auth_user);

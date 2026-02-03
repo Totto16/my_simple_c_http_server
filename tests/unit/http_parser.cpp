@@ -4,7 +4,7 @@
 
 #include <http/compression.h>
 #include <http/header.h>
-#include <http/http_protocol.h>
+#include <http/protocol.h>
 
 #include <memory>
 #include <ostream>
@@ -249,49 +249,49 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 namespace {
 
-struct ParsedURLWrapper {
+struct ParsedURIWrapper {
   private:
-	Http1Request* m_request;
+	ParsedRequestURIResult m_result;
 
   public:
-	ParsedURLWrapper(Http1Request* request) : m_request{ request } {}
+	ParsedURIWrapper(ParsedRequestURIResult result) : m_result{ result } {}
 
-	~ParsedURLWrapper() {
-		free_http1_request(m_request);
-		m_request = nullptr;
+	[[nodiscard]] const ParsedURLPath& path() const {
+		if(m_result.is_error) {
+			throw std::runtime_error("invalid parse url result: " +
+			                         std::string{ m_result.value.error });
+		}
+
+		switch(m_result.value.uri.type) {
+			case ParsedURITypeAbsoluteURI: {
+				return m_result.value.uri.data.uri.path;
+			};
+			case ParsedURITypeAbsPath: {
+				return m_result.value.uri.data.path;
+			}
+			default: {
+				throw std::runtime_error("invalid parse url result: " +
+				                         std::to_string(m_result.value.uri.type));
+			}
+		}
 	}
 
-	[[nodiscard]] const ParsedURLPath* path() const {
-		auto uri = m_request->head.request_line.uri;
-		if(uri.type == ParsedURITypeAbsoluteURI) {
-			return &(m_request->head.request_line.uri.data.uri.path);
-		} else if(uri.type == ParsedURITypeAbsPath) {
-			return &(m_request->head.request_line.uri.data.path);
+	[[nodiscard]] const char* error() const {
+		if(m_result.is_error) {
+			return m_result.value.error;
 		}
-		throw std::runtime_error("invalid parse url result: " + std::to_string(uri.type));
+
+		return NULL;
 	}
 };
 
-std::unique_ptr<ParsedURLWrapper> parse_http1_request_path(const char* value) {
-	std::string final_request = "GET ";
-	final_request += value;
-	final_request += " ";
-	final_request += get_http_protocol_version_string(HTTPProtocolVersion1Dot1);
-	final_request += "\r\n\r\n";
+ParsedURIWrapper parse_uri(const char* value) {
 
-	HttpRequest* request = parse_http_request(strdup(final_request.c_str()), false);
+	std::string readable_copy = std::string{ value };
 
-	if(request == nullptr) {
-		return nullptr;
-	}
+	auto result = parse_request_uri(readable_copy.data());
 
-	if(request->type != HttpRequestTypeInternalV1) {
-		return nullptr;
-	}
-
-	Http1Request* request1 = request->data.v1;
-
-	return std::make_unique<ParsedURLWrapper>(request1);
+	return ParsedURIWrapper(result);
 }
 
 } // namespace
@@ -302,47 +302,47 @@ TEST_CASE("testing the parsing of the http request") {
 
 		SUBCASE("simple url") {
 
-			auto parsed_path = parse_http1_request_path("/");
+			auto parsed_path = parse_uri("/");
 
-			REQUIRE_NE(parsed_path, nullptr);
+			REQUIRE_EQ(parsed_path.error(), nullptr);
 
-			const auto& path = parsed_path->path();
+			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path->path };
+			const auto path_comp = std::string{ path.path };
 
 			REQUIRE_EQ(path_comp, "/");
 
-			REQUIRE_EQ(ZMAP_SIZE(path->search_path.hash_map), 0);
+			REQUIRE_EQ(ZMAP_SIZE(path.search_path.hash_map), 0);
 		}
 
 		SUBCASE("real path url") {
 
-			auto parsed_path = parse_http1_request_path("/test/hello");
+			auto parsed_path = parse_uri("/test/hello");
 
-			REQUIRE_NE(parsed_path, nullptr);
+			REQUIRE_EQ(parsed_path.error(), nullptr);
 
-			const auto& path = parsed_path->path();
+			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path->path };
+			const auto path_comp = std::string{ path.path };
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
-			REQUIRE_EQ(ZMAP_SIZE(path->search_path.hash_map), 0);
+			REQUIRE_EQ(ZMAP_SIZE(path.search_path.hash_map), 0);
 		}
 
 		SUBCASE("path url with search parameters") {
 
-			auto parsed_path = parse_http1_request_path("/test/hello?param1=hello&param2&param3=");
+			auto parsed_path = parse_uri("/test/hello?param1=hello&param2&param3=");
 
-			REQUIRE_NE(parsed_path, nullptr);
+			REQUIRE_EQ(parsed_path.error(), nullptr);
 
-			const auto& path = parsed_path->path();
+			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path->path };
+			const auto path_comp = std::string{ path.path };
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
-			const ParsedSearchPath search_path = path->search_path;
+			const ParsedSearchPath search_path = path.search_path;
 
 			REQUIRE_EQ(ZMAP_SIZE(search_path.hash_map), 3);
 
@@ -388,17 +388,17 @@ TEST_CASE("testing the parsing of the http request") {
 
 		SUBCASE("path url with search parameters") {
 
-			auto parsed_path = parse_http1_request_path("/test/hello?param1=hello&param2&param3=");
+			auto parsed_path = parse_uri("/test/hello?param1=hello&param2&param3=");
 
-			REQUIRE_NE(parsed_path, nullptr);
+			REQUIRE_EQ(parsed_path.error(), nullptr);
 
-			const auto& path = parsed_path->path();
+			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path->path };
+			const auto path_comp = std::string{ path.path };
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
-			const ParsedSearchPath search_path = path->search_path;
+			const ParsedSearchPath search_path = path.search_path;
 
 			REQUIRE_EQ(ZMAP_SIZE(search_path.hash_map), 3);
 

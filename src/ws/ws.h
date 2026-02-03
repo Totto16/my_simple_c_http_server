@@ -3,7 +3,7 @@
 
 #include "./extension.h"
 #include "generic/secure.h"
-#include "http/http_protocol.h"
+#include "http/protocol.h"
 
 /**
  * @enum value

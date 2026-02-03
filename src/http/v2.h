@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "utils/parse.h"
 #include "utils/utils.h"
+#include "./protocol.h"
 
 #include <stdint.h>
 #include <utils/sized_buffer.h>
@@ -10,14 +12,6 @@
 
 // spec link:
 // https://datatracker.ietf.org/doc/html/rfc7540
-
-// see: https://datatracker.ietf.org/doc/html/rfc7540#section-3.5
-
-#define HTTP2_CLIENT_PREFACE "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
-
-static const char* const g_http2_client_preface = HTTP2_CLIENT_PREFACE;
-
-static const uint8_t g_http2_client_preface_length = sizeof(HTTP2_CLIENT_PREFACE) - 1;
 
 typedef struct {
 	int todo;
@@ -53,4 +47,15 @@ typedef struct {
 
 ZVEC_DEFINE_VEC_TYPE(Http2Frame)
 
-NODISCARD Http2Request* parse_http2_request(SizedBuffer raw_http_request);
+NODISCARD Http2Request* parse_http2_request_TODO(SizedBuffer raw_http_request);
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2PrefaceStatusOk = 0,
+	Http2PrefaceStatusErr,
+	Http2PrefaceStatusNotEnoughData
+} Http2PrefaceStatus;
+
+NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line, ParseState* state);
