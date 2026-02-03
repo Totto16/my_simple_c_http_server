@@ -2,6 +2,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "./protocol.h"
 
 typedef struct HTTPReaderImpl HTTPReader;
@@ -20,3 +24,7 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 void free_compression_settings(CompressionSettings compression_settings);
 
 void free_request_settings(RequestSettings request_settings);
+
+#ifdef __cplusplus
+}
+#endif
