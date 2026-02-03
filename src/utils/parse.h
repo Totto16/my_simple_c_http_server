@@ -33,4 +33,8 @@ NODISCARD Byte* parser_get_until_delimiter(ParseState* state, const char* delimi
  */
 NODISCARD Byte* parser_get_until_delimiter_fixed(ParseState* state, SizedBuffer delimiter);
 
+NODISCARD SizedBuffer parser_get_until_end(ParseState* state);
+
+NODISCARD SizedBuffer parser_get_until(ParseState* state, size_t amount);
+
 void free_parser(ParseState state);

@@ -3,9 +3,9 @@
 #define HTTP_HEADER_NAME(name) g_http_header_##name
 
 #ifdef HTTP_HEADER_IMPL
-#define HTTP_HEADER_MAKE(name, content) const char* const HTTP_HEADER_NAME(name) = content
+	#define HTTP_HEADER_MAKE(name, content) const char* const HTTP_HEADER_NAME(name) = content
 #else
-#define HTTP_HEADER_MAKE(name, content) extern const char* const HTTP_HEADER_NAME(name)
+	#define HTTP_HEADER_MAKE(name, content) extern const char* const HTTP_HEADER_NAME(name)
 #endif
 
 HTTP_HEADER_MAKE(authorization, "authorization");
@@ -31,6 +31,8 @@ HTTP_HEADER_MAKE(server, "server");
 HTTP_HEADER_MAKE(content_encoding, "content-encoding");
 
 HTTP_HEADER_MAKE(allow, "allow");
+
+HTTP_HEADER_MAKE(transfer_encoding, "transfer-encoding");
 
 HTTP_HEADER_MAKE(content_transfer_encoding, "content-transfer-encoding");
 

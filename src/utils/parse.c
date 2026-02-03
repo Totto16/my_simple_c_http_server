@@ -41,6 +41,32 @@ NODISCARD Byte* parser_get_until_delimiter_fixed(ParseState* state, const SizedB
 	return parser_get_until_delimiter_fixed_impl(state, delimiter);
 }
 
+NODISCARD SizedBuffer parser_get_until_end(ParseState* const state) {
+
+	size_t size = state->data.size - state->cursor;
+
+	SizedBuffer result = { .data = state->data.data, .size = size };
+
+	state->cursor += size;
+
+	return result;
+}
+
+NODISCARD SizedBuffer parser_get_until(ParseState* const state, const size_t amount) {
+
+	size_t remaining_size = state->data.size - state->cursor;
+
+	if(remaining_size < amount) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	SizedBuffer result = { .data = state->data.data, .size = amount };
+
+	state->cursor += amount;
+
+	return result;
+}
+
 void free_parser(ParseState state) {
 	free_sized_buffer(state.data);
 }

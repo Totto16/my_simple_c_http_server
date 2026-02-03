@@ -6,6 +6,7 @@
 #include "utils/parse.h"
 
 #include <ctype.h>
+#include <math.h>
 
 NODISCARD static HTTPRequestMethod get_http_method_from_string(const char* const method,
                                                                OUT_PARAM(bool) success) {
@@ -202,15 +203,482 @@ initialize_http_reader_from_connection(ConnectionDescriptor* const descriptor) {
 	return reader;
 }
 
+static CompressionType parse_compression_type(char* compression_name, OUT_PARAM(bool) ok_result) {
+	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.3
+	if(strcmp(compression_name, "gzip") == 0 || strcmp(compression_name, "x-gzip") == 0) {
+		*ok_result = true;
+		return CompressionTypeGzip;
+	}
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.2
+	if(strcmp(compression_name, "deflate") == 0) {
+		*ok_result = true;
+		return CompressionTypeDeflate;
+	}
+
+	if(strcmp(compression_name, "br") == 0) {
+		*ok_result = true;
+		return CompressionTypeBr;
+	}
+
+	if(strcmp(compression_name, "zstd") == 0) {
+		*ok_result = true;
+		return CompressionTypeZstd;
+	}
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.1
+	if(strcmp(compression_name, "compress") == 0 || strcmp(compression_name, "x-compress") == 0) {
+		*ok_result = true;
+		return CompressionTypeCompress;
+	}
+
+	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %s\n", compression_name);
+
+	*ok_result = false;
+	return CompressionTypeNone;
+}
+
+static CompressionValue parse_compression_value(char* compression_name, OUT_PARAM(bool) ok_result) {
+
+	if(strcmp(compression_name, "*") == 0) {
+		*ok_result = true;
+		return (CompressionValue){ .type = CompressionValueTypeAllEncodings, .data = {} };
+	}
+
+	if(strcmp(compression_name, "identity") == 0) {
+		*ok_result = true;
+		return (CompressionValue){ .type = CompressionValueTypeNoEncoding, .data = {} };
+	}
+
+	CompressionValue result = { .type = CompressionValueTypeNormalEncoding, .data = {} };
+
+	CompressionType type = parse_compression_type(compression_name, ok_result);
+
+	if(!(*ok_result)) {
+		return result;
+	}
+
+	result.data.normal_compression = type;
+	*ok_result = true;
+
+	return result;
+}
+
+NODISCARD static float parse_compression_quality(char* compression_weight) {
+	// strip whitespace
+	while(isspace(*compression_weight)) {
+		compression_weight++;
+	}
+
+	if(strlen(compression_weight) < 2) {
+		// no q=
+		return NAN;
+	}
+
+	if(compression_weight[0] != 'q' && compression_weight[0] != 'Q') {
+		return NAN;
+	}
+	compression_weight++;
+
+	if(compression_weight[0] != '=') {
+		return NAN;
+	}
+	compression_weight++;
+
+	float value = parse_float(compression_weight);
+
+	return value;
+}
+
+NODISCARD static HttpRequestProperties get_http_properties(const HttpRequest http_request) {
+
+	HttpRequestProperties http_properties = { .type = HTTPPropertyTypeInvalid };
+
+	ParsedRequestURI uri = http_request.head.request_line.uri;
+
+	const ParsedURLPath* path = NULL;
+
+	switch(uri.type) {
+		case ParsedURITypeAbsoluteURI: {
+			path = &uri.data.uri.path;
+			break;
+		}
+		case ParsedURITypeAbsPath: {
+			path = &uri.data.path;
+			break;
+		}
+		case ParsedURITypeAsterisk:
+		case ParsedURITypeAuthority:
+		default: {
+			http_properties.type = HTTPPropertyTypeInvalid;
+
+			return http_properties;
+		}
+	}
+
+	if(path == NULL) {
+		http_properties.type = HTTPPropertyTypeInvalid;
+
+		return http_properties;
+	}
+
+	switch(http_request.head.request_line.method) {
+		case HTTPRequestMethodGet:
+		case HTTPRequestMethodPost:
+		case HTTPRequestMethodHead: {
+
+			http_properties.type = HTTPPropertyTypeNormal;
+			http_properties.data.normal = *path;
+
+			return http_properties;
+		}
+		case HTTPRequestMethodOptions: {
+			http_properties.type = HTTPPropertyTypeOptions;
+			http_properties.data.todo_options = 1;
+
+			return http_properties;
+		}
+		case HTTPRequestMethodConnect: {
+			http_properties.type = HTTPPropertyTypeConnect;
+			http_properties.data.todo_connect = 1;
+
+			return http_properties;
+		}
+		default: {
+			http_properties.type = HTTPPropertyTypeInvalid;
+
+			return http_properties;
+		}
+	}
+}
+
+NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_fields) {
+
+	CompressionSettings compression_settings = { .entries = ZVEC_EMPTY(CompressionEntry) };
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
+
+	HttpHeaderField* accept_encoding_header =
+	    find_header_by_key(header_fields, HTTP_HEADER_NAME(accept_encoding));
+
+	if(!accept_encoding_header) {
+		return compression_settings;
+	}
+
+	char* raw_value = accept_encoding_header->value;
+
+	if(strlen(raw_value) == 0) {
+		return compression_settings;
+	}
+
+	// copy the value, so that parsing is easier
+
+	char* value = strdup(raw_value);
+	char* original_value = value;
+
+	do {
+
+		char* index = strstr(value, ",");
+
+		if(index != NULL) {
+			*index = '\0';
+		}
+
+		// value points to the string to parse, that is null terminated
+
+		{
+
+			char* sub_index = strstr(value, ";");
+
+			char* compression_name = value;
+			char* compression_weight = NULL;
+
+			if(sub_index != NULL) {
+				*sub_index = '\0';
+				compression_weight = sub_index + 1;
+			}
+
+			CompressionEntry entry = { .value = {}, .weight = 1.0F };
+
+			if(compression_weight != NULL) {
+
+				float weight_value = parse_compression_quality(compression_weight);
+
+				if(!isnan(weight_value)) {
+					entry.weight = weight_value;
+				}
+			}
+
+			// strip whitespace
+			while(isspace(*compression_name)) {
+				compression_name++;
+			}
+
+			bool ok_result = true;
+			CompressionValue comp_value = parse_compression_value(compression_name, &ok_result);
+
+			if(ok_result) {
+				entry.value = comp_value;
+
+				auto _ = ZVEC_PUSH(CompressionEntry, &(compression_settings.entries), entry);
+				UNUSED(_);
+			} else {
+				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%s'\n", compression_name);
+			}
+		}
+
+		if(index == NULL) {
+			break;
+		}
+
+		value = index + 1;
+
+		{
+
+			// strip whitespace
+			while(isspace(*value)) {
+				value++;
+			}
+		}
+
+	} while(true);
+
+	free(original_value);
+	return compression_settings;
+}
+
+void free_compression_settings(CompressionSettings compression_settings) {
+	ZVEC_FREE(CompressionEntry, &(compression_settings.entries));
+}
+
+void free_request_settings(RequestSettings request_settings) {
+
+	free_compression_settings(request_settings.compression_settings);
+}
+
+NODISCARD static RequestSettings get_request_settings(const HttpRequest http_request) {
+
+	RequestSettings request_settings = {
+		.compression_settings =
+		    (CompressionSettings){
+		        .entries = ZVEC_EMPTY(CompressionEntry),
+		    },
+		.protocol_used = http_request.head.request_line.protocol_version,
+		.http_properties = { .type = HTTPPropertyTypeInvalid },
+	};
+
+	CompressionSettings compression_settings =
+	    get_compression_settings(http_request.head.header_fields);
+
+	request_settings.compression_settings = compression_settings;
+
+	request_settings.http_properties = get_http_properties(http_request);
+
+	// TODO: body encoding
+
+	return request_settings;
+}
+
 NODISCARD static HttpRequestResult parse_http2_request(HTTPReader* const reader) {
 	UNUSED(reader);
 	UNREACHABLE();
 }
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPRequestLengthTypeUnknown = 0,
+	HTTPRequestLengthTypeClose,
+	HTTPRequestLengthTypeContentLength,
+	HTTPRequestLengthTypeTransferEncoded,
+} HTTPRequestLengthType;
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPEncodingChunked = 0,
+	// TODO: also support compressions with chunked
+} HTTPEncoding;
+
+typedef struct {
+	HTTPRequestLengthType type;
+	union {
+		size_t length;
+		HTTPEncoding encoding;
+	} value;
+} HTTPRequestLength;
+
+typedef struct {
+	HTTPRequestLength length;
+	RequestSettings settings;
+} HTTPAnalyzeHeaders;
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPAnalyzeHeaderErrorProtocolError = 0,
+	HTTPAnalyzeHeaderErrorNotSupported,
+} HTTPAnalyzeHeaderError;
+
+typedef struct {
+	bool is_error;
+	union {
+		HTTPAnalyzeHeaderError error;
+		HTTPAnalyzeHeaders result;
+	} data;
+} HTTPAnalyzeHeadersResult;
+
+NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest http_request) {
+
+	HTTPAnalyzeHeaders analyze_result = {
+		.length = { .type = HTTPRequestLengthTypeUnknown },
+	};
+
+	// the body length is determined as given by this rfc entry:
+	// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3
+
+	for(size_t i = 0; i < ZVEC_LENGTH(http_request.head.header_fields); ++i) {
+		HttpHeaderField header = ZVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
+
+		if(strcasecmp(header.key, HTTP_HEADER_NAME(content_length)) == 0) {
+			if(analyze_result.length.type != HTTPRequestLengthTypeUnknown) {
+				// both transfer-encoding and length are used
+
+				return (HTTPAnalyzeHeadersResult){
+					.is_error = true,
+					.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
+				};
+			}
+
+			bool success = false;
+
+			const size_t content_length = parse_size_t(header.value, &success);
+
+			if(!success) {
+				return (HTTPAnalyzeHeadersResult){
+					.is_error = true,
+					.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
+				};
+			}
+
+			analyze_result.length.type = HTTPRequestLengthTypeContentLength;
+			analyze_result.length.value.length = content_length;
+
+		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(transfer_encoding)) == 0) {
+
+			if(analyze_result.length.type != HTTPRequestLengthTypeUnknown) {
+				// both transfer-encoding and length are used
+
+				return (HTTPAnalyzeHeadersResult){
+					.is_error = true,
+					.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
+				};
+			}
+
+			analyze_result.length.type = HTTPRequestLengthTypeTransferEncoded;
+
+			// TODO: support more than chunked, as also compressionc an be used with chunked!
+			if(strcasecmp(header.value, "chunked") != 0) {
+				return (HTTPAnalyzeHeadersResult){
+					.is_error = true,
+					.data = { .error = HTTPAnalyzeHeaderErrorNotSupported },
+				};
+			}
+			analyze_result.length.value.encoding = HTTPEncodingChunked;
+
+		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(connection)) == 0) {
+			// see https://datatracker.ietf.org/doc/html/rfc7230#section-6.1
+			if(strcasecmp(header.value, "close") != 0) {
+				analyze_result.length.type = HTTPRequestLengthTypeClose;
+			}
+		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(connection)) == 0) {
+			// see: https://datatracker.ietf.org/doc/html/rfc7230#section-6.7
+
+			// char* value = strdup(header.value);
+
+			// TODO
+			LOG_MESSAGE_SIMPLE(LogLevelWarn, "TODO: implement h2 upgrade check\n");
+		}
+	}
+
+	analyze_result.settings = get_request_settings(http_request);
+
+	return (HTTPAnalyzeHeadersResult){
+		.is_error = false,
+		.data = { .result = analyze_result },
+	};
+}
+
+typedef struct {
+	bool is_error;
+	union {
+		const char* error;
+		SizedBuffer body;
+	} data;
+} HttpBodyReadResult;
+
+NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
+                                                  const HTTPAnalyzeHeaders analyze) {
+
+	switch(analyze.length.type) {
+		case HTTPRequestLengthTypeUnknown:
+		case HTTPRequestLengthTypeClose: {
+
+			const SizedBuffer res = parser_get_until_end(&(reader->parser));
+
+			if(res.data == NULL) {
+				return (HttpBodyReadResult){
+					.is_error = true,
+					.data = { .error = "read failed" },
+				};
+			}
+
+			return (HttpBodyReadResult){
+				.is_error = false,
+				.data = { .body = res },
+			};
+		}
+
+		case HTTPRequestLengthTypeContentLength: {
+
+			const SizedBuffer res =
+			    parser_get_until(&(reader->parser), analyze.length.value.length);
+
+			if(res.data == NULL) {
+				return (HttpBodyReadResult){
+					.is_error = true,
+					.data = { .error = "read failed" },
+				};
+			}
+
+			return (HttpBodyReadResult){
+				.is_error = false,
+				.data = { .body = res },
+			};
+		}
+		case HTTPRequestLengthTypeTransferEncoded: {
+			// TODO. implement
+			return (HttpBodyReadResult){
+				.is_error = true,
+				.data = { .error = "transfer encoding not yet implemented" },
+			};
+		}
+		default: {
+			return (HttpBodyReadResult){
+				.is_error = true,
+				.data = { .error = "invalid length type" },
+			};
+		}
+	}
+}
+
 NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine request_line,
                                                        HTTPReader* const reader) {
 
-	HttpRequest result = {
+	HttpRequest request = {
 		.head = { .request_line = request_line, .header_fields = ZVEC_EMPTY(HttpHeaderField) },
 		.body = (SizedBuffer){ .data = NULL, .size = 0 },
 	};
@@ -219,11 +687,8 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 
 	char* const start = (char*)state->data.data + state->cursor;
 
-	// this can be changed by calls to parser_get_until_delimiter
-	volatile size_t* cursor = &(state->cursor);
-
-	// TODO: don't use libc parse function that operate on strings, use parser ones, that operate on
-	// slices of bytes
+	// TODO: don't use libc parse function that operate on strings, use parser ones, that
+	// operate on slices of bytes
 
 	bool headers_finished = false;
 
@@ -277,25 +742,69 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 			HttpHeaderField field = { .key = strdup(header_start),
 				                      .value = strdup(header_value_start) };
 
-			auto _ = ZVEC_PUSH(HttpHeaderField, &(result.head.header_fields), field);
+			auto _ = ZVEC_PUSH(HttpHeaderField, &(request.head.header_fields), field);
 			UNUSED(_);
 		}
 
 	} while(!headers_finished);
 
-	// TODO: ws / compression and other headers get analyzed
-	const auto TODO_request_settings = http_analyze_headers(result.head.header_fields);
+	const HTTPAnalyzeHeadersResult analyze_result = http_analyze_headers(request);
 
-	// TODO: support more body encodings
-	const auto TODO_body = parse_body(RequestSettings, reader);
+	if(analyze_result.is_error) {
 
-	result.body = TODO_body;
+		HttpRequestErrorType enum_value = HttpRequestErrorTypeProtocolError;
+		switch(analyze_result.data.error) {
+			case HTTPAnalyzeHeaderErrorProtocolError: {
+				enum_value = HttpRequestErrorTypeProtocolError;
+				break;
+			}
+			case HTTPAnalyzeHeaderErrorNotSupported: {
+				enum_value = HttpRequestErrorTypeNotSupported;
+				break;
+			}
+			default: {
+				enum_value = HttpRequestErrorTypeProtocolError;
+				break;
+			}
+		}
+
+		return (HttpRequestResult){ .is_error = true,
+			                        .value = { .error = (HttpRequestError){
+			                                       .is_advanced = false,
+			                                       .value = { .enum_value = enum_value } } } };
+	}
+
+	const HTTPAnalyzeHeaders analyze = analyze_result.data.result;
+
+	if(analyze.length.type == HTTPRequestLengthTypeUnknown &&
+	   request_line.protocol_version != HTTPProtocolVersion1) {
+		return (HttpRequestResult){
+			.is_error = true,
+			.value = { .error =
+			               (HttpRequestError){
+			                   .is_advanced = false,
+			                   .value = { .enum_value = HttpRequestErrorTypeLengthRequired } } }
+		};
+	}
+
+	const HttpBodyReadResult body_result = get_http_body(reader, analyze);
+
+	if(body_result.is_error) {
+		return (HttpRequestResult){
+			.is_error = true,
+			.value = { .error =
+			               (HttpRequestError){ .is_advanced = true,
+			                                   .value = { .advanced = body_result.data.error } } }
+		};
+	}
+
+	request.body = body_result.data.body;
 
 	// check if the request body makes sense
 	if((request_line.method == HTTPRequestMethodGet ||
 	    request_line.method == HTTPRequestMethodHead ||
 	    request_line.method == HTTPRequestMethodOptions) &&
-	   result.body.size != 0) {
+	   request.body.size != 0) {
 
 		return (HttpRequestResult){
 			.is_error = true,
@@ -306,14 +815,20 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 			                                  HttpRequestErrorTypeInvalidNonEmptyBody } } }
 		};
 	}
+
+	return (HttpRequestResult){ .is_error = false,
+		                        .value = { .result = {
+		                                       .request = request,
+		                                       .settings = analyze.settings,
+		                                   } } };
 }
 
 NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const reader) {
 
 	bool success = false;
 
-	// only possible in the first request, as also http2 must send a valid http1 request line (the
-	// preface)
+	// only possible in the first request, as also http2 must send a valid http1 request line
+	// (the preface)
 	HttpRequestLine request_line = parse_http1_request_line(&(reader->parser), &success);
 
 	if(!success) {
@@ -326,8 +841,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		};
 	}
 
-	{ // check for logic errors, this differs in the first request and the following ones, as the
-	  // first request might negotiate some things
+	{ // check for logic errors, this differs in the first request and the following ones, as
+	  // the first request might negotiate some things
 
 		// check if the negotiated protocol matches!
 		switch(reader->protocol) {
@@ -348,9 +863,9 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 			}
 			case ProtocolSelectedHttp2: {
 
-				// this consumes more bytes, if the request line matches, otherwise it is an error
-				// if it matches the data after the reader cursors position is already the http2
-				// request!
+				// this consumes more bytes, if the request line matches, otherwise it is an
+				// error if it matches the data after the reader cursors position is already the
+				// http2 request!
 				const Http2PrefaceStatus http2_preface_status =
 				    analyze_http2_preface(request_line, &(reader->parser));
 
@@ -376,9 +891,9 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		// check if the method makes sense
 
 		if(request_line.method == HTTPRequestMethodPRI) {
-			// this makes no sense here, if we use tls, the h2 alpn case would be checked earlier,
-			// if we use no tls, the first request has to be http 1.1 and must negotiate an upgrade,
-			// after the successfull upgrade, we can use http2
+			// this makes no sense here, if we use tls, the h2 alpn case would be checked
+			// earlier, if we use no tls, the first request has to be http 1.1 and must
+			// negotiate an upgrade, after the successfull upgrade, we can use http2
 			return (HttpRequestResult){
 				.is_error = true,
 				.value = { .error =
@@ -494,8 +1009,8 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 					                                  "HTTP reader state was invalid" } } }
 				};
 			}
-			// TODO: if we fail to parse something, because not delimiter could be found, we should
-			// just try to read more!
+			// TODO: if we fail to parse something, because not delimiter could be found, we
+			// should just try to read more!
 			reader->state = HTTPReaderStateReading;
 			reader->parser.data = buffer;
 

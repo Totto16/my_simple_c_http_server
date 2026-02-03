@@ -169,6 +169,22 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 			return send_http_message_to_connection(descriptor, to_send, send_settings);
 		}
+		case HttpRequestErrorTypeInvalidHttp2Preface: {
+			UNREACHABLE();
+			break;
+		}
+		case HttpRequestErrorTypeLengthRequired: {
+			UNREACHABLE();
+			break;
+		}
+		case HttpRequestErrorTypeProtocolError: {
+			UNREACHABLE();
+			break;
+		}
+		case HttpRequestErrorTypeNotSupported: {
+			UNREACHABLE();
+			break;
+		}
 		default: {
 			HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
 				                           .body = http_response_body_from_static_string(
@@ -181,11 +197,10 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 	}
 }
 
-NODISCARD static JobError process_http_request(const HttpRequest http_request,
-                                               ConnectionDescriptor* const descriptor,
-                                               const RouteManager* const route_manager,
-                                               HTTPConnectionArgument* argument,
-                                               const WorkerInfo worker_info) {
+NODISCARD static JobError
+process_http_request(const HttpRequest http_request, ConnectionDescriptor* const descriptor,
+                     const RouteManager* const route_manager, HTTPConnectionArgument* argument,
+                     const WorkerInfo worker_info, const RequestSettings request_settings) {
 
 	ConnectionContext* context =
 	    ZVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
@@ -197,41 +212,10 @@ NODISCARD static JobError process_http_request(const HttpRequest http_request,
 	// if the request is supported then the "beautiful" website is sent, if the path is /shutdown
 	// a shutdown is issued
 
-	RequestSettings* request_settings = get_request_settings(http_request);
-
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
-	if(request_settings == NULL) {
-		HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
-			                           .body = http_response_body_from_static_string(
-			                               "Internal Server Error: request settings is NULL",
-			                               send_body),
-			                           .mime_type = MIME_TYPE_TEXT,
-			                           .additional_headers = ZVEC_EMPTY(HttpHeaderField) };
-
-		int result = send_http_message_to_connection(
-		    descriptor, to_send,
-		    (SendSettings){
-		        .compression_to_use = CompressionTypeNone,
-		        .protocol_to_use = http_request.head.request_line.protocol_version,
-		    });
-
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
-		}
-
-		return JOB_ERROR_CLEANUP_CONNECTION;
-	}
-
 	SendSettings send_settings = get_send_settings(request_settings);
-	HttpRequestProperties http_properties = request_settings->http_properties;
-
-	free_request_settings(request_settings);
-	request_settings = NULL;
-
-	// TODO(Totto). check if we need to upgrade to http/2, see the rfc, note that h2c and h2 (http/2
-	// over tls) are negotiated differently!
+	HttpRequestProperties http_properties = request_settings.http_properties;
 
 	SelectedRoute* selected_route =
 	    route_manager_get_route_for_request(route_manager, http_properties, http_request);
@@ -916,12 +900,13 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			goto cleanup;
 		}
 
-		const HttpRequest http_request = http_request_result.value.request;
+		const HTTPResultOk http_result = http_request_result.value.result;
+		const HttpRequest http_request = http_result.request;
 
-		JobError process_error =
-		    process_http_request(http_request, descriptor, route_manager, argument, worker_info);
+		JobError process_error = process_http_request(http_request, descriptor, route_manager,
+		                                              argument, worker_info, http_result.settings);
 
-		free_http_request(http_request);
+		free_http_request_result(http_result);
 
 		if(process_error == JOB_ERROR_CLEANUP_CONNECTION) {
 			job_error = JOB_ERROR_NONE;

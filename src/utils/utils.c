@@ -109,9 +109,42 @@ long parse_long_safely(const char* to_parse, const char* description) {
 	return result;
 }
 
-long parse_long(const char* to_parse, OUT_PARAM(bool) success) {
+NODISCARD long parse_long(const char* to_parse, OUT_PARAM(bool) success) {
 
 	return parse_long_impl(to_parse, NULL, success);
+}
+
+static_assert(sizeof(unsigned long long) == sizeof(size_t));
+
+static size_t parse_size_t_impl(const char* to_parse, OUT_PARAM(bool) success) {
+	// this is just allocated, so that strtol can write an address into it,
+	// therefore it doesn't need to be initialized
+	char* endpointer = NULL;
+	// reseting errno, since it's not guaranteed to be that, but strtol can return some values that
+	// generally are also valid, so errno is the only REAL and consistent method of checking for
+	// error
+	errno = 0;
+	// using strtol, string to long, since atoi doesn't report errors that well
+	size_t result =
+	    strtoull(to_parse, &endpointer,
+	             10); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+	// it isn't a number, if either errno is set or if the endpointer is not a '\0
+	if(*endpointer != '\0') {
+		*success = false;
+		return 0;
+
+	} else if(errno != 0) {
+		*success = false;
+		return 0;
+	}
+
+	*success = true;
+	return result;
+}
+
+NODISCARD size_t parse_size_t(const char* to_parse, OUT_PARAM(bool) success) {
+	return parse_size_t_impl(to_parse, success);
 }
 
 NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* description) {

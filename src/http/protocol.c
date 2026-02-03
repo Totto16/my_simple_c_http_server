@@ -1,11 +1,6 @@
 
 #include "./protocol.h"
-#include "./header.h"
-#include "generic/read.h"
-#include "utils/parse.h"
-
-#include <ctype.h>
-#include <math.h>
+#include "./parser.h"
 
 ZVEC_IMPLEMENT_VEC_TYPE(HttpHeaderField)
 
@@ -52,6 +47,11 @@ static void free_request_head(HttpRequestHead head) {
 void free_http_request(HttpRequest request) {
 	free_request_head(request.head);
 	free_sized_buffer(request.body);
+}
+
+void free_http_request_result(HTTPResultOk result) {
+	free_http_request(result.request);
+	free_request_settings(result.settings);
 }
 
 /**
@@ -161,298 +161,6 @@ NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char
 	return NULL;
 }
 
-static CompressionType parse_compression_type(char* compression_name, OUT_PARAM(bool) ok_result) {
-	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.3
-	if(strcmp(compression_name, "gzip") == 0 || strcmp(compression_name, "x-gzip") == 0) {
-		*ok_result = true;
-		return CompressionTypeGzip;
-	}
-
-	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.2
-	if(strcmp(compression_name, "deflate") == 0) {
-		*ok_result = true;
-		return CompressionTypeDeflate;
-	}
-
-	if(strcmp(compression_name, "br") == 0) {
-		*ok_result = true;
-		return CompressionTypeBr;
-	}
-
-	if(strcmp(compression_name, "zstd") == 0) {
-		*ok_result = true;
-		return CompressionTypeZstd;
-	}
-
-	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.1
-	if(strcmp(compression_name, "compress") == 0 || strcmp(compression_name, "x-compress") == 0) {
-		*ok_result = true;
-		return CompressionTypeCompress;
-	}
-
-	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %s\n", compression_name);
-
-	*ok_result = false;
-	return CompressionTypeNone;
-}
-
-static CompressionValue parse_compression_value(char* compression_name, OUT_PARAM(bool) ok_result) {
-
-	if(strcmp(compression_name, "*") == 0) {
-		*ok_result = true;
-		return (CompressionValue){ .type = CompressionValueTypeAllEncodings, .data = {} };
-	}
-
-	if(strcmp(compression_name, "identity") == 0) {
-		*ok_result = true;
-		return (CompressionValue){ .type = CompressionValueTypeNoEncoding, .data = {} };
-	}
-
-	CompressionValue result = { .type = CompressionValueTypeNormalEncoding, .data = {} };
-
-	CompressionType type = parse_compression_type(compression_name, ok_result);
-
-	if(!(*ok_result)) {
-		return result;
-	}
-
-	result.data.normal_compression = type;
-	*ok_result = true;
-
-	return result;
-}
-
-NODISCARD static float parse_compression_quality(char* compression_weight) {
-	// strip whitespace
-	while(isspace(*compression_weight)) {
-		compression_weight++;
-	}
-
-	if(strlen(compression_weight) < 2) {
-		// no q=
-		return NAN;
-	}
-
-	if(compression_weight[0] != 'q' && compression_weight[0] != 'Q') {
-		return NAN;
-	}
-	compression_weight++;
-
-	if(compression_weight[0] != '=') {
-		return NAN;
-	}
-	compression_weight++;
-
-	float value = parse_float(compression_weight);
-
-	return value;
-}
-
-CompressionSettings* get_compression_settings(HttpHeaderFields header_fields) {
-
-	CompressionSettings* compression_settings =
-	    (CompressionSettings*)malloc(sizeof(CompressionSettings));
-
-	if(!compression_settings) {
-		return NULL;
-	}
-
-	compression_settings->entries = ZVEC_EMPTY(CompressionEntry);
-
-	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
-
-	HttpHeaderField* accept_encoding_header =
-	    find_header_by_key(header_fields, HTTP_HEADER_NAME(accept_encoding));
-
-	if(!accept_encoding_header) {
-		return compression_settings;
-	}
-
-	char* raw_value = accept_encoding_header->value;
-
-	if(strlen(raw_value) == 0) {
-		return compression_settings;
-	}
-
-	// copy the value, so that parsing is easier
-
-	char* value = strdup(raw_value);
-	char* original_value = value;
-
-	do {
-
-		char* index = strstr(value, ",");
-
-		if(index != NULL) {
-			*index = '\0';
-		}
-
-		// value points to the string to parse, that is null terminated
-
-		{
-
-			char* sub_index = strstr(value, ";");
-
-			char* compression_name = value;
-			char* compression_weight = NULL;
-
-			if(sub_index != NULL) {
-				*sub_index = '\0';
-				compression_weight = sub_index + 1;
-			}
-
-			CompressionEntry entry = { .value = {}, .weight = 1.0F };
-
-			if(compression_weight != NULL) {
-
-				float weight_value = parse_compression_quality(compression_weight);
-
-				if(!isnan(weight_value)) {
-					entry.weight = weight_value;
-				}
-			}
-
-			// strip whitespace
-			while(isspace(*compression_name)) {
-				compression_name++;
-			}
-
-			bool ok_result = true;
-			CompressionValue comp_value = parse_compression_value(compression_name, &ok_result);
-
-			if(ok_result) {
-				entry.value = comp_value;
-
-				auto _ = ZVEC_PUSH(CompressionEntry, &(compression_settings->entries), entry);
-				UNUSED(_);
-			} else {
-				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%s'\n", compression_name);
-			}
-		}
-
-		if(index == NULL) {
-			break;
-		}
-
-		value = index + 1;
-
-		{
-
-			// strip whitespace
-			while(isspace(*value)) {
-				value++;
-			}
-		}
-
-	} while(true);
-
-	free(original_value);
-	return compression_settings;
-}
-
-void free_compression_settings(CompressionSettings* compression_settings) {
-	ZVEC_FREE(CompressionEntry, &(compression_settings->entries));
-	free(compression_settings);
-}
-
-NODISCARD static HttpRequestProperties get_http_properties(const HttpRequest http_request) {
-
-	HttpRequestProperties http_properties = { .type = HTTPPropertyTypeInvalid };
-
-	ParsedRequestURI uri = http_request.head.request_line.uri;
-
-	const ParsedURLPath* path = NULL;
-
-	switch(uri.type) {
-		case ParsedURITypeAbsoluteURI: {
-			path = &uri.data.uri.path;
-			break;
-		}
-		case ParsedURITypeAbsPath: {
-			path = &uri.data.path;
-			break;
-		}
-		case ParsedURITypeAsterisk:
-		case ParsedURITypeAuthority:
-		default: {
-			http_properties.type = HTTPPropertyTypeInvalid;
-
-			return http_properties;
-		}
-	}
-
-	if(path == NULL) {
-		http_properties.type = HTTPPropertyTypeInvalid;
-
-		return http_properties;
-	}
-
-	switch(http_request.head.request_line.method) {
-		case HTTPRequestMethodGet:
-		case HTTPRequestMethodPost:
-		case HTTPRequestMethodHead: {
-
-			http_properties.type = HTTPPropertyTypeNormal;
-			http_properties.data.normal = *path;
-
-			return http_properties;
-		}
-		case HTTPRequestMethodOptions: {
-			http_properties.type = HTTPPropertyTypeOptions;
-			http_properties.data.todo_options = 1;
-
-			return http_properties;
-		}
-		case HTTPRequestMethodConnect: {
-			http_properties.type = HTTPPropertyTypeConnect;
-			http_properties.data.todo_connect = 1;
-
-			return http_properties;
-		}
-		default: {
-			http_properties.type = HTTPPropertyTypeInvalid;
-
-			return http_properties;
-		}
-	}
-}
-
-RequestSettings* get_request_settings(const HttpRequest http_request) {
-
-	RequestSettings* request_settings =
-	    (RequestSettings*)malloc_with_memset(sizeof(RequestSettings), true);
-
-	if(!request_settings) {
-		return NULL;
-	}
-
-	*request_settings = (RequestSettings){
-		.compression_settings = NULL,
-		.protocol_used = http_request.head.request_line.protocol_version,
-		.http_properties = { .type = HTTPPropertyTypeInvalid },
-	};
-
-	CompressionSettings* compression_settings =
-	    get_compression_settings(http_request.head.header_fields);
-
-	if(!compression_settings) {
-		free(request_settings);
-		return NULL;
-	}
-
-	request_settings->compression_settings = compression_settings;
-
-	request_settings->http_properties = get_http_properties(http_request);
-
-	return request_settings;
-}
-
-void free_request_settings(RequestSettings* request_settings) {
-
-	free_compression_settings(request_settings->compression_settings);
-	free(request_settings);
-}
-
 #define COMPRESSIONS_SIZE 5
 
 static CompressionType get_best_compression_that_is_supported(void) {
@@ -489,14 +197,14 @@ compare_function_entries(const CompressionEntry* // NOLINT(bugprone-easily-swapp
 	return 0;
 }
 
-SendSettings get_send_settings(RequestSettings* request_settings) {
+SendSettings get_send_settings(const RequestSettings request_settings) {
 
 	SendSettings result = {
 		.compression_to_use = CompressionTypeNone,
-		.protocol_to_use = request_settings->protocol_used,
+		.protocol_to_use = request_settings.protocol_used,
 	};
 
-	CompressionEntries entries = request_settings->compression_settings->entries;
+	CompressionEntries entries = request_settings.compression_settings.entries;
 
 	size_t entries_length = ZVEC_LENGTH(entries);
 

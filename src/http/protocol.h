@@ -26,6 +26,7 @@ extern "C" {
 typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	HttpStatusContinue = 100,
 	HttpStatusSwitchingProtocols = 101,
+	//
 	HttpStatusOk = 200,
 	HttpStatusCreated = 201,
 	HttpStatusAccepted = 202,
@@ -33,6 +34,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	HttpStatusNoContent = 204,
 	HttpStatusResetContent = 205,
 	HttpStatusPartialContent = 206,
+	//
 	HttpStatusMultipleChoices = 300,
 	HttpStatusMovedPermanently = 301,
 	HttpStatusFound = 302,
@@ -40,6 +42,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	HttpStatusNotModified = 304,
 	HttpStatusUseProxy = 305,
 	HttpStatusTemporaryRedirect = 307,
+	//
 	HttpStatusBadRequest = 400,
 	HttpStatusUnauthorized = 401,
 	HttpStatusPaymentRequired = 402,
@@ -59,6 +62,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	HttpStatusRangeNotSatisfiable = 416,
 	HttpStatusExpectationFailed = 417,
 	HttpStatusUpgradeRequired = 426,
+	//
 	HttpStatusInternalServerError = 500,
 	HttpStatusNotImplemented = 501,
 	HttpStatusBadGateway = 502,
@@ -139,7 +143,10 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HttpRequestErrorTypeInvalidHttpVersion = 0,
 	HttpRequestErrorTypeMethodNotSupported,
 	HttpRequestErrorTypeInvalidNonEmptyBody,
-	HttpRequestErrorTypeInvalidHttp2Preface
+	HttpRequestErrorTypeInvalidHttp2Preface,
+	HttpRequestErrorTypeLengthRequired,
+	HttpRequestErrorTypeProtocolError,
+	HttpRequestErrorTypeNotSupported
 } HttpRequestErrorType;
 
 typedef struct {
@@ -150,31 +157,24 @@ typedef struct {
 	} value;
 } HttpRequestError;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPPropertyTypeInvalid = 0,
+	HTTPPropertyTypeNormal,
+	HTTPPropertyTypeOptions,
+	HTTPPropertyTypeConnect,
+} HTTPPropertyType;
+
 typedef struct {
-	bool is_error;
+	HTTPPropertyType type;
 	union {
-		HttpRequest request;
-		HttpRequestError error;
-	} value;
-} HttpRequestResult;
-
-typedef struct {
-	HttpResponseHead head;
-	SizedBuffer body;
-} HttpResponse;
-
-// frees the HttpRequest, taking care of Null Pointer, this is needed for some corrupted requests,
-// when a corrupted request e.g was parsed partly correct
-void free_http_request(HttpRequest request);
-
-NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
-
-// simple helper for getting the status Message for a special status code, not all implemented,
-// only the ones needed
-NODISCARD const char* get_status_message(HttpStatusCode status_code);
-
-NODISCARD HttpHeaderField* find_header_by_key(ZVEC_TYPENAME(HttpHeaderField) array,
-                                              const char* key);
+		ParsedURLPath normal; // Method: POST | GET | HEAD
+		int todo_options;     // Method: OPTIONS
+		int todo_connect;     // Method: CONNECT
+	} data;
+} HttpRequestProperties;
 
 /**
  * @enum value
@@ -205,45 +205,51 @@ typedef struct {
 	CompressionEntries entries;
 } CompressionSettings;
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HTTPPropertyTypeInvalid = 0,
-	HTTPPropertyTypeNormal,
-	HTTPPropertyTypeOptions,
-	HTTPPropertyTypeConnect,
-} HTTPPropertyType;
-
 typedef struct {
-	HTTPPropertyType type;
-	union {
-		ParsedURLPath normal; // Method: POST | GET | HEAD
-		int todo_options;     // Method: OPTIONS
-		int todo_connect;     // Method: CONNECT
-	} data;
-} HttpRequestProperties;
-
-typedef struct {
-	CompressionSettings* compression_settings;
+	CompressionSettings compression_settings;
 	HTTPProtocolVersion protocol_used;
 	HttpRequestProperties http_properties;
 } RequestSettings;
+
+typedef struct {
+	HttpRequest request;
+	RequestSettings settings;
+} HTTPResultOk;
+
+typedef struct {
+	bool is_error;
+	union {
+		HTTPResultOk result;
+		HttpRequestError error;
+	} value;
+} HttpRequestResult;
+
+typedef struct {
+	HttpResponseHead head;
+	SizedBuffer body;
+} HttpResponse;
+
+// frees the HttpRequest, taking care of Null Pointer, this is needed for some corrupted requests,
+// when a corrupted request e.g was parsed partly correct
+void free_http_request(HttpRequest request);
+
+void free_http_request_result(HTTPResultOk result);
+
+NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
+
+// simple helper for getting the status Message for a special status code, not all implemented,
+// only the ones needed
+NODISCARD const char* get_status_message(HttpStatusCode status_code);
+
+NODISCARD HttpHeaderField* find_header_by_key(ZVEC_TYPENAME(HttpHeaderField) array,
+                                              const char* key);
 
 typedef struct {
 	CompressionType compression_to_use;
 	HTTPProtocolVersion protocol_to_use;
 } SendSettings;
 
-NODISCARD CompressionSettings* get_compression_settings(HttpHeaderFields header_fields);
-
-void free_compression_settings(CompressionSettings* compression_settings);
-
-NODISCARD RequestSettings* get_request_settings(HttpRequest http_request);
-
-void free_request_settings(RequestSettings* request_settings);
-
-NODISCARD SendSettings get_send_settings(RequestSettings* request_settings);
+NODISCARD SendSettings get_send_settings(RequestSettings request_settings);
 
 void free_http_header_fields(HttpHeaderFields* header_fields);
 

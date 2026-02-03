@@ -118,6 +118,8 @@ NODISCARD long parse_long_safely(const char* to_parse, const char* description);
 
 NODISCARD long parse_long(const char* to_parse, OUT_PARAM(bool) success);
 
+NODISCARD size_t parse_size_t(const char* to_parse, OUT_PARAM(bool) success);
+
 NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* description);
 
 // a hacky but good and understandable way that is used with pthread functions

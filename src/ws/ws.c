@@ -187,7 +187,7 @@ int handle_ws_handshake(const HttpRequest http_request,
                         WSExtensions* extensions) {
 
 	// check if it is a valid Websocket request
-	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-2 section 4.2.1.
+	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
 	NeededHeaderForHandshake found_list = HandshakeHeaderNone;
 
 	char* sec_key = NULL;
@@ -195,6 +195,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 	for(size_t i = 0; i < ZVEC_LENGTH(http_request.head.header_fields); ++i) {
 		HttpHeaderField header = ZVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
+	
 		if(strcasecmp(header.key, HTTP_HEADER_NAME(host)) == 0) {
 			found_list |= HandshakeHeaderHeaderHost;
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(upgrade)) == 0) {
