@@ -77,7 +77,6 @@ static size_t buffered_reader_get_more_data_partially(BufferedReader* const read
 	void* buffer = (Byte*)new_buffer + reader->data.data.size;
 
 	reader->data.data.data = new_buffer;
-	reader->data.data.size += amount;
 
 	ReadResult res = read_from_descriptor(reader->descriptor, buffer, amount);
 
@@ -92,7 +91,11 @@ static size_t buffered_reader_get_more_data_partially(BufferedReader* const read
 	}
 
 	reader->state = StreamStateOpen;
-	return res.data.bytes_read;
+
+	const size_t bytes_read = res.data.bytes_read;
+
+	reader->data.data.size += bytes_read;
+	return bytes_read;
 }
 
 static void buffered_reader_get_more_data_exact(BufferedReader* const reader, size_t amount) {
