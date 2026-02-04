@@ -67,9 +67,26 @@ NODISCARD static HTTPProtocolVersion get_protocol_version_from_string(const char
 	return HTTPProtocolVersion1Dot0;
 }
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HttpRequestLineResultTypeOk = 0,
+	HttpRequestLineResultTypeError,
+	HttpRequestLineResultTypeUnsupportedHttpVersion,
+	HttpRequestLineResultTypeUnsupportedMethod,
+	HttpRequestLineResultTypeUriError
+} HttpRequestLineResultType;
+
+typedef struct {
+	HttpRequestLineResultType type;
+	union {
+		HttpRequestLine line;
+	} data;
+} HttpRequestLineResult;
+
 // parse in string form, for http 1
-NODISCARD static HttpRequestLine parse_http1_request_line(BufferedReader* const reader,
-                                                          OUT_PARAM(bool) success) {
+NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* const reader) {
 
 	HttpRequestLine result = {};
 
@@ -77,8 +94,7 @@ NODISCARD static HttpRequestLine parse_http1_request_line(BufferedReader* const 
 	    buffered_reader_get_until_delimiter(reader, HTTP_LINE_SEPERATORS);
 
 	if(read_result.type != BufferedReadResultTypeOk) {
-		*success = false;
-		return result;
+		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 	}
 
 	// TODO: don't use libc parse function that operate on strings, use parser ones, that operate on
@@ -99,8 +115,7 @@ NODISCARD static HttpRequestLine parse_http1_request_line(BufferedReader* const 
 		char* method_end = strchr(start, ' ');
 
 		if(method_end == NULL) {
-			*success = false;
-			return result;
+			return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 		}
 
 		*method_end = '\0';
@@ -112,8 +127,7 @@ NODISCARD static HttpRequestLine parse_http1_request_line(BufferedReader* const 
 		char* path_end = strchr(path, ' ');
 
 		if(path_end == NULL) {
-			*success = false;
-			return result;
+			return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 		}
 
 		*path_end = '\0';
@@ -126,22 +140,31 @@ NODISCARD static HttpRequestLine parse_http1_request_line(BufferedReader* const 
 	if(uri_result.is_error) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		            "Invalid uri in HTTP request: %s\n", uri_result.value.error);
-		// TODO: use zerror!
-		*success = false;
-		return result;
+		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeUriError };
 	}
 
 	result.uri = uri_result.value.uri;
 
-	result.method = get_http_method_from_string(method, success);
+	bool success = false;
 
-	if(!(*success)) {
-		return result;
+	result.method = get_http_method_from_string(method, &success);
+
+	if(!success) {
+		free_parsed_request_uri(result.uri);
+		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeUnsupportedMethod };
 	}
 
-	result.protocol_version = get_protocol_version_from_string(protocol_version, success);
+	result.protocol_version = get_protocol_version_from_string(protocol_version, &success);
 
-	return result;
+	if(!success) {
+		free_parsed_request_uri(result.uri);
+		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeUnsupportedHttpVersion };
+	}
+
+	return (HttpRequestLineResult){
+		.type = HttpRequestLineResultTypeOk,
+		.data = { .line = result },
+	};
 }
 
 /**
@@ -827,24 +850,61 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 
 NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const reader) {
 
-	bool success = false;
-
 	// only possible in the first request, as also http2 must send a valid http1 request line
 	// (the preface)
-	HttpRequestLine request_line = parse_http1_request_line(reader->reader, &success);
+	HttpRequestLineResult request_line_result = parse_http1_request_line(reader->reader);
 
-	if(!success) {
-		return (HttpRequestResult){
-			.is_error = true,
-			.value = { .error =
-			               (HttpRequestError){
-			                   .is_advanced = true,
-			                   .value = { .advanced = "failed to parse request line" } } }
-		};
+	switch(request_line_result.type) {
+		case HttpRequestLineResultTypeOk: {
+			break;
+		}
+
+		case HttpRequestLineResultTypeUnsupportedHttpVersion: {
+			return (HttpRequestResult){
+				.is_error = true,
+				.value = { .error =
+				               (HttpRequestError){
+				                   .is_advanced = false,
+				                   .value = { .enum_value =
+				                                  HttpRequestErrorTypeInvalidHttpVersion } } }
+			};
+		}
+		case HttpRequestLineResultTypeUnsupportedMethod: {
+			return (HttpRequestResult){
+				.is_error = true,
+				.value = { .error =
+				               (HttpRequestError){
+				                   .is_advanced = false,
+				                   .value = { .enum_value =
+				                                  HttpRequestErrorTypeMethodNotSupported } } }
+			};
+		}
+		case HttpRequestLineResultTypeUriError: {
+			return (HttpRequestResult){
+				.is_error = true,
+				.value = { .error =
+				               (HttpRequestError){
+				                   .is_advanced = true,
+				                   .value = { .advanced =
+				                                  "failed to parse URi in request line" } } }
+			};
+		}
+		case HttpRequestLineResultTypeError:
+		default: {
+			return (HttpRequestResult){
+				.is_error = true,
+				.value = { .error =
+				               (HttpRequestError){
+				                   .is_advanced = true,
+				                   .value = { .advanced = "failed to parse request line" } } }
+			};
+		}
 	}
 
-	{ // check for logic errors, this differs in the first request and the following ones, as
-	  // the first request might negotiate some things
+	HttpRequestLine request_line = request_line_result.data.line;
+
+	{ // check for logic errors, this differs in the first request and the following ones,
+	  // as the first request might negotiate some things
 
 		// check if the negotiated protocol matches!
 		switch(reader->protocol) {
@@ -866,8 +926,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 			case ProtocolSelectedHttp2: {
 
 				// this consumes more bytes, if the request line matches, otherwise it is an
-				// error if it matches the data after the reader cursors position is already the
-				// http2 request!
+				// error if it matches the data after the reader cursors position is already
+				// the http2 request!
 				const Http2PrefaceStatus http2_preface_status =
 				    analyze_http2_preface(request_line, reader->reader);
 
@@ -937,15 +997,14 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				} else {
 
 					// TODO. implement further, search for todo_options
-					return (HttpRequestResult){
-						.is_error = true,
-						.value = { .error =
-						               (HttpRequestError){
-						                   .is_advanced = true,
-						                   .value = { .advanced =
-						                                  "not implemented for method OPTIONS: "
-						                                  "asterisk or normal request" } } }
-					};
+					return (HttpRequestResult){ .is_error = true,
+						                        .value = { .error = (HttpRequestError){
+						                                       .is_advanced = true,
+						                                       .value = { .advanced =
+						                                                      "not implemented for "
+						                                                      "method OPTIONS: "
+						                                                      "asterisk or normal "
+						                                                      "request" } } } };
 				}
 			}
 
@@ -968,11 +1027,12 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 					return (HttpRequestResult){
 						.is_error = true,
 						.value = { .error =
-						               (HttpRequestError){
-						                   .is_advanced = true,
-						                   .value = { .advanced =
-						                                  "not implemented for method CONNECT: "
-						                                  "authority or normal request" } } }
+						               (HttpRequestError){ .is_advanced = true,
+						                                   .value = { .advanced =
+						                                                  "not implemented for "
+						                                                  "method CONNECT: "
+						                                                  "authority or normal "
+						                                                  "request" } } }
 
 					};
 				}
@@ -988,7 +1048,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 	if(reader->content.type == HTTPContentTypeV1) {
 
-		// TODO: use eof, but that has problems, as some clients only close, after we have close
+		// TODO: use eof, but that has problems, as some clients only close, after we have
+		// close
 		//  try to figure out, what the best solution would be
 		// see also finish_buffered_reader()
 
@@ -1045,9 +1106,9 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 				};
 			}
 
-			// this clear the buffer until the current cursor, everything we references from that is
-			// long dead now (hopefully xD, http2 or http1 keepalive state should not hold onto
-			// strings from there)
+			// this clear the buffer until the current cursor, everything we references from
+			// that is long dead now (hopefully xD, http2 or http1 keepalive state should not
+			// hold onto strings from there)
 			buffered_reader_invalidate_old_data(reader->reader);
 
 			return parse_next_http_request(reader);

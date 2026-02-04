@@ -301,7 +301,7 @@ struct SendDataImpl {
 		SingleFile* file;
 		MultipleFiles* multiple_files;
 		RawData data;
-	} data;
+	} value;
 };
 
 NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode send_mode) {
@@ -323,11 +323,11 @@ NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode
 			break;
 		}
 		case SendTypeMultipleFiles: {
-			original_data_count = data->data.multiple_files->count;
+			original_data_count = data->value.multiple_files->count;
 			break;
 		}
 		case SendTypeRawData: {
-			original_data_count = data->data.data.size;
+			original_data_count = data->value.data.size;
 			break;
 		}
 		default: break;
@@ -685,7 +685,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 			free(data);
 			return NULL;
 		}
-		data->data.multiple_files = files;
+		data->value.multiple_files = files;
 	} else {
 		data->type = SendTypeFile;
 		SingleFile* file = get_metadata_for_single_file(path, format);
@@ -695,7 +695,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 			return NULL;
 		}
 
-		data->data.file = file;
+		data->value.file = file;
 	}
 
 	return data;
@@ -722,7 +722,7 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 	RawData raw_data = { .data = file_data, .size = file_size };
 
 	data->type = SendTypeRawData;
-	data->data.data = raw_data;
+	data->value.data = raw_data;
 
 	return data;
 }
@@ -918,10 +918,10 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 			break;
 		}
 		case SendTypeMultipleFiles: {
-			FileWithMetadata* value = data->data.multiple_files->files[progress->data.sent_count];
+			FileWithMetadata* value = data->value.multiple_files->files[progress->data.sent_count];
 
 			StringBuilder* string_builder = format_file_line(
-			    value, data->data.multiple_files->sizes, data->data.multiple_files->format);
+			    value, data->value.multiple_files->sizes, data->value.multiple_files->format);
 
 			if(!string_builder) {
 				return false;
@@ -938,7 +938,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		}
 
 		case SendTypeRawData: {
-			RawData raw_data = data->data.data;
+			RawData raw_data = data->value.data;
 
 			size_t offset = progress->data.sent_count;
 
