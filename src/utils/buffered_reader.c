@@ -61,17 +61,17 @@ static bool buffered_reader_is_safe_to_read(BufferedReader* const reader) {
 
 #define BUFFERED_READER_CHUNK_SIZE 512
 
-static void buffered_reader_get_more_data_exact(BufferedReader* const reader, size_t amount) {
+static size_t buffered_reader_get_more_data_partially(BufferedReader* const reader, size_t amount) {
 
 	if(!buffered_reader_is_safe_to_read(reader)) {
-		return;
+		return 0;
 	}
 
 	void* new_buffer = realloc(reader->data.data.data, reader->data.data.size + amount);
 
 	if(!new_buffer) {
 		reader->state = StreamStateError;
-		return;
+		return 0;
 	}
 
 	void* buffer = (Byte*)new_buffer + reader->data.data.size;
@@ -83,22 +83,35 @@ static void buffered_reader_get_more_data_exact(BufferedReader* const reader, si
 
 	if(res.type == ReadResultTypeEOF) {
 		reader->state = StreamStateClosed;
-		return;
+		return 0;
 	}
 
 	if(res.type == ReadResultTypeError) {
 		reader->state = StreamStateError;
-		return;
-	}
-
-	const size_t read_data = res.data.bytes_read;
-
-	if(read_data != amount) {
-		reader->state = StreamStateError;
-		return;
+		return 0;
 	}
 
 	reader->state = StreamStateOpen;
+	return res.data.bytes_read;
+}
+
+static void buffered_reader_get_more_data_exact(BufferedReader* const reader, size_t amount) {
+	const size_t data_read = buffered_reader_get_more_data_partially(reader, amount);
+
+	if(reader->state == StreamStateOpen && data_read != amount) {
+		reader->state = StreamStateError;
+		return;
+	}
+}
+
+static void buffered_reader_get_more_data_at_least_some(BufferedReader* const reader,
+                                                        size_t amount) {
+	const size_t data_read = buffered_reader_get_more_data_partially(reader, amount);
+
+	if(reader->state == StreamStateOpen && data_read < 1) {
+		reader->state = StreamStateError;
+		return;
+	}
 }
 
 NODISCARD static size_t get_available_data_length(BufferedReader* const reader) {
@@ -141,8 +154,8 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader,
 	const size_t start_cursor = reader->data.cursor;
 
 	while(true) {
-		if(reader->data.cursor < reader->data.data.size) {
-			buffered_reader_get_more_data_exact(reader, BUFFERED_READER_CHUNK_SIZE);
+		if(reader->data.cursor >= reader->data.data.size) {
+			buffered_reader_get_more_data_at_least_some(reader, BUFFERED_READER_CHUNK_SIZE);
 
 			if(reader->state != StreamStateOpen) {
 				return (BufferedReadResult){
@@ -336,7 +349,7 @@ NODISCARD bool buffered_reader_is_eof(BufferedReader* const reader) {
 		return false;
 	}
 
-	buffered_reader_get_more_data_exact(reader, 1);
+	buffered_reader_get_more_data_at_least_some(reader, 1);
 
 	if(reader->state == StreamStateClosed) {
 		return true;
