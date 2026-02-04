@@ -27,6 +27,9 @@ NODISCARD SizedBuffer get_empty_sized_buffer(void);
  */
 NODISCARD SizedBuffer sized_buffer_get_exact_clone(SizedBuffer buffer);
 
+
+NODISCARD int sized_buffer_cmp(SizedBuffer buf1, SizedBuffer buf2);
+
 #ifdef __cplusplus
 }
 #endif
