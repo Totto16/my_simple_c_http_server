@@ -3,6 +3,8 @@
 #pragma once
 
 #include "./account.h"
+#include "generic/ip.h"
+
 #include <netinet/in.h>
 
 /**
@@ -62,7 +64,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FtpDataModeActive,
 } FTPDataMode;
 
-typedef uint32_t FTPAddrField;
+typedef IPV4Address FTPAddrField;
 typedef uint16_t FTPPortField;
 
 /**

@@ -130,29 +130,23 @@ char* make_address_port_desc(FTPConnectAddr addr) {
 	uint8_t port2 =
 	    port & 0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	FTPAddrField address = addr.addr;
+	// TODO: add explictely named host or network byte order to the functions and check if it is
+	// correct
 
-	uint8_t host1 =
-	    (address >> 24); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	uint8_t host2 =
-	    (address >> 16) & // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	    0xFF;             // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	uint8_t host3 =
-	    (address >> 8) & // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	    0xFF;            // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	uint8_t host4 =
-	    address & 0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	IPV4RawBytes raw_ipv4_bytes = get_raw_bytes_as_host_bytes_from_ipv4_address(addr.addr);
 
 	char* result = NULL;
-	FORMAT_STRING(&result, return NULL;
-	              , "(%d,%d,%d,%d,%d,%d)", host1, host2, host3, host4, port1, port2);
+	FORMAT_STRING(&result, return NULL;, "(%d,%d,%d,%d,%d,%d)", raw_ipv4_bytes.bytes[0],
+	                                   raw_ipv4_bytes.bytes[1], raw_ipv4_bytes.bytes[2],
+	                                   raw_ipv4_bytes.bytes[3], port1, port2);
 
 	return result;
 }
 
 NODISCARD FTPPortInformation get_port_info_from_sockaddr(struct sockaddr_in addr) {
 
-	FTPPortInformation info = { .addr = ntohl(addr.sin_addr.s_addr), .port = ntohs(addr.sin_port) };
+	FTPPortInformation info = { .addr = (IPV4Address){ .underlying = addr.sin_addr },
+		                        .port = ntohs(addr.sin_port) };
 
 	return info;
 }

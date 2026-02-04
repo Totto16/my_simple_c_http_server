@@ -12,7 +12,9 @@ src_files += files(
     'sem.c',
     'sem.h',
     'send.c',
-    'send.c',
+    'send.h',
+    'ip.h',
+    'ip.c',
     'signal_fd.c',
     'signal_fd.h',
 )
