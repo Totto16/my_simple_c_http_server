@@ -8,12 +8,12 @@ TVEC_IMPLEMENT_VEC_TYPE(CompressionEntry)
 
 NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 	switch(method) {
-		case HTTPRequestMethodGet: return "Get";
-		case HTTPRequestMethodPost: return "Post";
-		case HTTPRequestMethodHead: return "Head";
-		case HTTPRequestMethodOptions: return "Options";
-		case HTTPRequestMethodConnect: return "Connect";
-		case HTTPRequestMethodPRI: return "Pri";
+		case HTTPRequestMethodGet: return "GET";
+		case HTTPRequestMethodPost: return "POST";
+		case HTTPRequestMethodHead: return "HEAD";
+		case HTTPRequestMethodOptions: return "OPTIONS";
+		case HTTPRequestMethodConnect: return "CONNECT";
+		case HTTPRequestMethodPRI: return "PRI";
 		default: return "<Unknown>";
 	}
 }
