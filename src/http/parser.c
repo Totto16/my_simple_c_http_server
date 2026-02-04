@@ -492,6 +492,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRequestLengthTypeClose,
 	HTTPRequestLengthTypeContentLength,
 	HTTPRequestLengthTypeTransferEncoded,
+	HTTPRequestLengthTypeNoBody
 } HTTPRequestLengthType;
 
 /**
@@ -604,6 +605,14 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 		}
 	}
 
+	// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3
+	// 7. If this is a request message and none of the above are true, then the message body length
+	// is zero (no message body is present).
+	if(analyze_result.length.type == HTTPRequestLengthTypeUnknown &&
+	   http_request.head.request_line.method != HTTPRequestMethodPost) {
+		analyze_result.length.type = HTTPRequestLengthTypeNoBody;
+	}
+
 	analyze_result.settings = get_request_settings(http_request);
 
 	return (HTTPAnalyzeHeadersResult){
@@ -664,6 +673,12 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 			return (HttpBodyReadResult){
 				.is_error = true,
 				.data = { .error = "transfer encoding not yet implemented" },
+			};
+		}
+		case HTTPRequestLengthTypeNoBody: {
+			return (HttpBodyReadResult){
+				.is_error = false,
+				.data = { .body = (SizedBuffer){ .data = NULL, .size = 0 } },
 			};
 		}
 		default: {
