@@ -652,7 +652,7 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 
 			return (HttpBodyReadResult){
 				.is_error = false,
-				.data = { .body = res.value.data },
+				.data = { .body = sized_buffer_dup(res.value.data) },
 			};
 		}
 

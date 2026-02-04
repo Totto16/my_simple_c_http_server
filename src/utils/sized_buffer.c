@@ -20,3 +20,24 @@ NODISCARD int sized_buffer_cmp(SizedBuffer buf1, SizedBuffer buf2) {
 
 	return memcmp(buf1.data, buf2.data, buf1.size);
 }
+
+NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer) {
+
+	if(buffer.data == NULL) {
+		return buffer;
+	}
+
+	if(buffer.size == 0) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	void* new_data = malloc(buffer.size);
+
+	if(new_data == NULL) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	memcpy(new_data, buffer.data, buffer.size);
+
+	return (SizedBuffer){ .data = new_data, .size = buffer.size };
+}

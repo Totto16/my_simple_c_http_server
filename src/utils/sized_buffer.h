@@ -30,6 +30,9 @@ NODISCARD SizedBuffer sized_buffer_get_exact_clone(SizedBuffer buffer);
 
 NODISCARD int sized_buffer_cmp(SizedBuffer buf1, SizedBuffer buf2);
 
+NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer);
+
+
 #ifdef __cplusplus
 }
 #endif
