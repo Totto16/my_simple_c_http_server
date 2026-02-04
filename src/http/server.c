@@ -382,8 +382,14 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					} else if(http_request.head.request_line.method == HTTPRequestMethodHead) {
 						body = http_response_body_empty();
 
-						add_http_header_field_by_double_str(&additional_headers,
-						                                    "x-shutdown\0true");
+						{
+							char* x_shutdown_buffer = NULL;
+							FORMAT_STRING(&x_shutdown_buffer, return NULL;
+							              , "%s%c%s", "x-shutdown", '\0', "true");
+
+							add_http_header_field_by_double_str(&additional_headers,
+							                                    x_shutdown_buffer);
+						}
 
 					} else {
 
