@@ -51,6 +51,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 		string_builder_append_single(string_builder, "Bad Request: ");
 
+		string_builder_append_single(string_builder, error.value.advanced);
+
 		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
 			                           .body = http_response_body_from_string_builder(
 			                               &string_builder, send_body),

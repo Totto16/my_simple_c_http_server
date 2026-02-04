@@ -690,12 +690,10 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 	// TODO: don't use libc parse function that operate on strings, use parser ones, that
 	// operate on slices of bytes
 
-	bool headers_finished = false;
-
 	char* current_pos = start;
 
 	// parse headers
-	do {
+	while(true) {
 
 		Byte* line_end = parser_get_until_delimiter(state, HTTP_LINE_SEPERATORS);
 
@@ -711,7 +709,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 		*line_end = '\0';
 
 		if(strlen(current_pos) == 0) {
-			headers_finished = true;
+			break;
 		}
 
 		char* header_start = current_pos;
@@ -745,8 +743,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 			auto _ = TVEC_PUSH(HttpHeaderField, &(request.head.header_fields), field);
 			UNUSED(_);
 		}
-
-	} while(!headers_finished);
+	}
 
 	const HTTPAnalyzeHeadersResult analyze_result = http_analyze_headers(request);
 
