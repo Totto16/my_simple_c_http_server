@@ -1,4 +1,6 @@
 src_files += files(
+    'common_log.c',
+    'common_log.h',
     'compression.c',
     'compression.h',
     'debug.c',

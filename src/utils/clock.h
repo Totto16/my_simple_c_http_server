@@ -54,6 +54,7 @@ NODISCARD double time_diff_in_exact_seconds(Time time1, Time time2);
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	TimeFormatFTP = 0,
 	TimeFormatHTTP1Dot1,
+	TimeFormatCommonLog,
 } TimeFormat;
 
 /**

@@ -1,5 +1,6 @@
 
 #include "./routes.h"
+#include "./common_log.h"
 #include "./debug.h"
 #include "./header.h"
 #include "./protocol.h"
@@ -11,6 +12,8 @@ TVEC_IMPLEMENT_VEC_TYPE(HTTPRoute)
 
 TVEC_IMPLEMENT_VEC_TYPE(HTTPFreeFn)
 
+TVEC_IMPLEMENT_VEC_TYPE(HTTPRequestProxy)
+
 struct RouteManagerImpl {
 	HTTPRoutes* routes;
 	const AuthenticationProviders* auth_providers;
@@ -19,7 +22,7 @@ struct RouteManagerImpl {
 static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
                                                      const HttpRequest http_request,
                                                      const ConnectionContext* const context,
-                                                     ParsedURLPath path) {
+                                                     ParsedURLPath path, void* /* data */) {
 
 	UNUSED(path);
 
@@ -49,12 +52,60 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 	return result;
 }
 
+static HTTPResponseToSend
+well_known_folder_fn_extended(SendSettings /* send_settings */, const HttpRequest http_request,
+                              const ConnectionContext* const /* context */, ParsedURLPath path,
+                              void* data) {
+
+	LogCollector* collector = (LogCollector*)data;
+
+	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
+
+	if(strcmp(path.path, "/.well-known/access.log") == 0) {
+
+		StringBuilder* builder = log_collector_to_string_builder(collector);
+
+		if(!builder) {
+
+			HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
+				                           .body = http_response_body_from_static_string(
+				                               "Internal Server Error: 71", send_body),
+				                           .mime_type = MIME_TYPE_TEXT,
+				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
+
+			return to_send;
+		}
+
+		HTTPResponseToSend to_send = { .status = HttpStatusOk,
+			                           .body = http_response_body_from_string_builder(&builder,
+			                                                                          send_body),
+			                           .mime_type = MIME_TYPE_TEXT,
+			                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
+
+		return to_send;
+	}
+
+	HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
+		                           .body = http_response_body_from_static_string(
+		                               "Well Known entry not found", send_body),
+		                           .mime_type = MIME_TYPE_TEXT,
+		                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
+
+	return to_send;
+}
+
+static void log_collector_collect_fn(const HttpRequest http_request,
+                                     const HTTPResponseToSend response, IPAddress address,
+                                     void* data) {
+	LogCollector* collector = (LogCollector*)data;
+
+	log_collector_collect(collector, address, http_request, response);
+}
+
 static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
                                                     const HttpRequest http_request,
                                                     const ConnectionContext* const context,
-                                                    ParsedURLPath path) {
-
-	UNUSED(path);
+                                                    ParsedURLPath /* path */, void* /* data */) {
 
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
@@ -70,9 +121,7 @@ static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
 	return result;
 }
 
-static HTTPResponseToSend static_executor_fn(ParsedURLPath path, bool send_body) {
-
-	UNUSED(path);
+static HTTPResponseToSend static_executor_fn(ParsedURLPath /* path */, bool send_body) {
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
 		                          .body = http_response_body_from_static_string("{\"static\":true}",
@@ -246,10 +295,8 @@ static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_b
 	return result;
 }
 
-static HTTPResponseToSend auth_executor_fn(ParsedURLPath path, AuthUserWithContext user,
+static HTTPResponseToSend auth_executor_fn(ParsedURLPath /* path */, AuthUserWithContext user,
                                            const bool send_body) {
-
-	UNUSED(path);
 
 	StringBuilder* string_builder = string_builder_init();
 
@@ -281,6 +328,7 @@ HTTPRoutes* get_default_routes(void) {
 	*routes = (HTTPRoutes){
 		.routes = TVEC_EMPTY(HTTPRoute),
 		.free_fns = TVEC_EMPTY(HTTPFreeFn),
+		.proxies = TVEC_EMPTY(HTTPRequestProxy),
 	};
 
 	{
@@ -318,9 +366,12 @@ HTTPRoutes* get_default_routes(void) {
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
 			        .value = { .normal =
-			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorExtended,
-			                                     .fn = { .executor_extended =
-			                                                 index_executor_fn_extended } } } },
+			                       (HTTPRouteFn){
+			                           .type = HTTPRouteFnTypeExecutorExtended,
+			                           .value = { .extended_data = { .executor_extended =
+			                                                             index_executor_fn_extended,
+			                                                         .data = NULL } },
+			                       } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
@@ -362,9 +413,11 @@ HTTPRoutes* get_default_routes(void) {
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
 			        .value = { .normal =
-			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorExtended,
-			                                     .fn = { .executor_extended =
-			                                                 json_executor_fn_extended } } } },
+			                       (HTTPRouteFn){
+			                           .type = HTTPRouteFnTypeExecutorExtended,
+			                           .value = { .extended_data = { .executor_extended =
+			                                                             json_executor_fn_extended,
+			                                                         .data = NULL } } } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
@@ -385,9 +438,9 @@ HTTPRoutes* get_default_routes(void) {
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
-			        .value = { .normal =
-			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
-			                                     .fn = { .executor = static_executor_fn } } } },
+			        .value = { .normal = (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
+			                                            .value = { .fn_executor =
+			                                                           static_executor_fn } } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
@@ -409,7 +462,8 @@ HTTPRoutes* get_default_routes(void) {
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
 			        .value = { .normal = (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
-			                                           .fn = { .executor = huge_executor_fn } } } },
+			                                            .value = { .fn_executor =
+			                                                           huge_executor_fn } } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
@@ -430,9 +484,9 @@ HTTPRoutes* get_default_routes(void) {
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
-			        .value = { .normal =
-			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorAuth,
-			                                     .fn = { .executor_auth = auth_executor_fn } } } },
+			        .value = { .normal = (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorAuth,
+			                                            .value = { .fn_executor_auth =
+			                                                           auth_executor_fn } } } },
 			.auth = { .type = HTTPAuthorizationTypeSimple }
 		};
 
@@ -453,6 +507,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 	*routes = (HTTPRoutes){
 		.routes = TVEC_EMPTY(HTTPRoute),
 		.free_fns = TVEC_EMPTY(HTTPFreeFn),
+		.proxies = TVEC_EMPTY(HTTPRequestProxy),
 	};
 
 	{
@@ -474,6 +529,57 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 
 		auto _ = TVEC_PUSH(HTTPRoute, &routes->routes, shutdown);
 		UNUSED(_);
+	}
+
+	// logs collector
+
+	LogCollector* log_collector = initialize_log_collector();
+
+	if(!log_collector) {
+		LOG_MESSAGE(LogLevelWarn, "Failed to initialize log collector: %s\n", "<unknown error>")
+	} else {
+
+		HTTPRequestProxy logs_collector_proxy = { .type = HTTPRequestProxyTypePost,
+			                                      .value = {
+			                                          .post = log_collector_collect_fn,
+			                                      },
+												.data = log_collector };
+
+		auto _ = TVEC_PUSH(HTTPRequestProxy, &routes->proxies, logs_collector_proxy);
+		UNUSED(_);
+
+		HTTPFreeFn free_route = { .data = log_collector, .fn = (FreeFnImpl)free_log_collector };
+
+		auto _1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
+		UNUSED(_1);
+
+		// logs folder
+		// in the "/.well-known/" folder
+		// see https://www.rfc-editor.org/rfc/rfc8615
+
+		HTTPRoute well_known_folder = {
+			.method = HTTPRequestRouteMethodGet,
+			.path =
+			    (HTTPRoutePath){
+			        .type = HTTPRoutePathTypeStartsWith,
+			        .data = "/.well-known/",
+			    },
+			.data =
+			    (HTTPRouteData){
+			        .type = HTTPRouteTypeSpecial,
+			        .value = { .normal =
+			                       (HTTPRouteFn){
+			                           .type = HTTPRouteFnTypeExecutorExtended,
+			                           .value = { .extended_data = { .executor_extended =
+			                                                             well_known_folder_fn_extended,
+			                                                         .data = log_collector } },
+
+			                       } } },
+			.auth = { .type = HTTPAuthorizationTypeNone }
+		};
+
+		auto _2 = TVEC_PUSH(HTTPRoute, &routes->routes, well_known_folder);
+		UNUSED(_2);
 	}
 
 	// note, as routes get checked in order, this works, even if / gets mapped to the server_folder!
@@ -506,10 +612,10 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			    },
 			.data = (HTTPRouteData){ .type = HTTPRouteTypeServeFolder,
 			                         .value = { .serve_folder =
-			                                       (HTTPRouteServeFolder){
-			                                           .type = HTTPRouteServeFolderTypeRelative,
-			                                           .folder_path = folder_path_resolved,
-			                                       } } },
+			                                        (HTTPRouteServeFolder){
+			                                            .type = HTTPRouteServeFolderTypeRelative,
+			                                            .folder_path = folder_path_resolved,
+			                                        } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
@@ -549,6 +655,8 @@ static void free_routes(HTTPRoutes* routes) {
 	}
 
 	TVEC_FREE(HTTPFreeFn, &routes->free_fns);
+
+	TVEC_FREE(HTTPRequestProxy, &routes->proxies);
 
 	free(routes);
 }
@@ -1073,7 +1181,7 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 
 	switch(route.type) {
 		case HTTPRouteFnTypeExecutor: {
-			response = route.fn.executor(path, send_body);
+			response = route.value.fn_executor(path, send_body);
 
 			break;
 		}
@@ -1090,12 +1198,13 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 				break;
 			}
 
-			response = route.fn.executor_auth(path, *auth_user, send_body);
+			response = route.value.fn_executor_auth(path, *auth_user, send_body);
 
 			break;
 		}
 		case HTTPRouteFnTypeExecutorExtended: {
-			response = route.fn.executor_extended(send_settings, http_request, context, path);
+			response = route.value.extended_data.executor_extended(
+			    send_settings, http_request, context, path, route.value.extended_data.data);
 			break;
 		}
 		default: {

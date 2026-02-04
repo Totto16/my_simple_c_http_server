@@ -89,3 +89,5 @@ NODISCARD char* get_parsed_authority_as_string(ParsedAuthority authority);
 NODISCARD char* get_uri_as_string(ParsedURI uri);
 
 NODISCARD char* get_request_uri_as_string(ParsedRequestURI uri);
+
+NODISCARD ParsedRequestURI duplicate_request_uri(ParsedRequestURI uri);

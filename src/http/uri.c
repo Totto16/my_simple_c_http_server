@@ -11,7 +11,7 @@ NODISCARD static ParsedURLPath parse_url_path(char* const path) {
 	char* search_path = strchr(path, '?');
 
 	ParsedURLPath result = { .search_path = {
-		                         .hash_map = TMAP_INIT(ParsedSearchPathHashMap),
+		                         .hash_map = TMAP_EMPTY(ParsedSearchPathHashMap),
 		                     } ,.fragment = NULL};
 
 	if(search_path == NULL) {
@@ -502,6 +502,107 @@ NODISCARD char* get_request_uri_as_string(ParsedRequestURI uri) {
 		}
 		default: {
 			return NULL;
+		}
+	}
+}
+
+
+static ParsedAuthority duplicate_authority(const ParsedAuthority authority) {
+
+	ParsedAuthority result = { .user_info = { .username = NULL, .password = NULL },
+		                       .host = NULL,
+		                       .port = 0 };
+
+	if(authority.user_info.username != NULL) {
+		result.user_info.username = strdup(authority.user_info.username);
+	}
+
+	if(authority.user_info.password != NULL) {
+		result.user_info.password = strdup(authority.user_info.password);
+	}
+
+	if(authority.host != NULL) {
+		result.host = strdup(authority.host);
+	}
+
+	result.port = authority.port;
+
+	return result;
+}
+
+static ParsedURLPath duplicate_path(const ParsedURLPath path) {
+
+	ParsedURLPath result = {
+		.path = NULL,
+		.search_path = { .hash_map = TMAP_EMPTY(ParsedSearchPathHashMap), }
+		,.fragment = NULL,
+	};
+
+	if(path.path != NULL) {
+		result.path = strdup(path.path);
+	}
+
+	TMAP_TYPENAME_ITER(ParsedSearchPathHashMap)
+	iter = TMAP_ITER_INIT(ParsedSearchPathHashMap, &path.search_path.hash_map);
+
+	TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap) value;
+
+	while(TMAP_ITER_NEXT(ParsedSearchPathHashMap, &iter, &value)) {
+
+		char* value_dup = strdup(value.value.value);
+		char* key_dup = strdup(value.key);
+
+		const ParsedSearchPathValue value_entry = { .value = value_dup };
+
+		const TmapInsertResult insert_result = TMAP_INSERT(
+		    ParsedSearchPathHashMap, &(result.search_path.hash_map), key_dup, value_entry, false);
+
+		assert(insert_result == TmapInsertResultOk);
+	}
+
+	if(path.fragment != NULL) {
+		result.fragment = strdup(path.fragment);
+	}
+
+	return result;
+}
+
+static ParsedURI duplicate_uri(const ParsedURI uri) {
+
+	ParsedURI result = { .scheme = NULL, .authority = { 0 }, .path = { 0 } };
+
+	if(uri.scheme != NULL) {
+		result.scheme = strdup(uri.scheme);
+	}
+
+	result.authority = duplicate_authority(uri.authority);
+
+	result.path = duplicate_path(uri.path);
+
+	return result;
+}
+
+NODISCARD ParsedRequestURI duplicate_request_uri(const ParsedRequestURI uri) {
+
+	switch(uri.type) {
+		case ParsedURITypeAsterisk: {
+			return uri;
+		}
+		case ParsedURITypeAbsoluteURI: {
+			return (ParsedRequestURI){ .type = ParsedURITypeAbsoluteURI,
+				                       .data = { .uri = duplicate_uri(uri.data.uri) } };
+		}
+		case ParsedURITypeAbsPath: {
+			return (ParsedRequestURI){ .type = ParsedURITypeAbsPath,
+				                       .data = { .path = duplicate_path(uri.data.path) } };
+		}
+		case ParsedURITypeAuthority: {
+			return (
+			    ParsedRequestURI){ .type = ParsedURITypeAuthority,
+				                   .data = { .authority = duplicate_authority(uri.data.authority) } };
+		}
+		default: {
+			UNREACHABLE();
 		}
 	}
 }

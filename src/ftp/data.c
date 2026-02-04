@@ -548,7 +548,7 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 	// has Little Endian
 	connect_addr->sin_port = htons(addr.port);
 
-	connect_addr->sin_addr.s_addr = htonl(addr.addr);
+	connect_addr->sin_addr = addr.addr.underlying;
 
 	active_conn_data->is_connected = false;
 
@@ -570,7 +570,7 @@ NODISCARD static bool nts_internal_addr_eq(FTPConnectAddr addr1, FTPConnectAddr 
 		return false;
 	}
 
-	return addr1.addr == addr2.addr;
+	return addr1.addr.underlying.s_addr == addr2.addr.underlying.s_addr;
 }
 
 NODISCARD static bool nts_internal_conn_identifier_eq(ConnectionTypeIdentifier ident1,

@@ -7,6 +7,7 @@
 #include "generic/authentication.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
+#include "generic/ip.h"
 
 #include <tvec.h>
 
@@ -23,22 +24,26 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 typedef HTTPResponseToSend (*HTTPRouteFnExecutor)(ParsedURLPath path, bool send_body);
 
-typedef HTTPResponseToSend (*HTTPRouteFnExecutorAuth)(ParsedURLPath path, AuthUserWithContext user, bool send_body);
+typedef HTTPResponseToSend (*HTTPRouteFnExecutorAuth)(ParsedURLPath path, AuthUserWithContext user,
+                                                      bool send_body);
 
 typedef HTTPResponseToSend (*HTTPRouteFnExecutorExtended)(SendSettings send_settings,
                                                           const HttpRequest http_request,
                                                           const ConnectionContext* const context,
-                                                          ParsedURLPath path);
+                                                          ParsedURLPath path, void* data);
 
-// TODO(Totto): add support for file routes, that e.g. just resolve to a file and retrieve the
-// mime-type from it and send it, for e.g. static file serving
+typedef struct {
+	void* data;
+	HTTPRouteFnExecutorExtended executor_extended;
+} HTTPRouteFnExecutorExtendedData;
+
 typedef struct {
 	HTTPRouteFnType type;
 	union {
-		HTTPRouteFnExecutor executor;
-		HTTPRouteFnExecutorExtended executor_extended;
-		HTTPRouteFnExecutorAuth executor_auth;
-	} fn;
+		HTTPRouteFnExecutor fn_executor;
+		HTTPRouteFnExecutorExtendedData extended_data;
+		HTTPRouteFnExecutorAuth fn_executor_auth;
+	} value;
 } HTTPRouteFn;
 
 /**
@@ -174,8 +179,37 @@ TVEC_DEFINE_VEC_TYPE(HTTPFreeFn)
 
 typedef TVEC_TYPENAME(HTTPFreeFn) HTTPFreeFns;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HTTPRequestProxyTypePre = 0,
+	HTTPRequestProxyTypePost,
+} HTTPRequestProxyType;
+
+typedef void (*HTTPRequestProxyPreFn)(const HttpRequest http_request, IPAddress address,
+                                      void* data);
+
+typedef void (*HTTPRequestProxyPostFn)(const HttpRequest http_request,
+                                       const HTTPResponseToSend response, IPAddress address,
+                                       void* data);
+
+typedef struct {
+	HTTPRequestProxyType type;
+	union {
+		HTTPRequestProxyPreFn pre;
+		HTTPRequestProxyPostFn post;
+	} value;
+	void* data;
+} HTTPRequestProxy;
+
+TVEC_DEFINE_VEC_TYPE(HTTPRequestProxy)
+
+typedef TVEC_TYPENAME(HTTPRequestProxy) HTTPRequestProxies;
+
 typedef struct {
 	HTTPRoutesArray routes;
+	HTTPRequestProxies proxies;
 	HTTPFreeFns free_fns;
 } HTTPRoutes;
 

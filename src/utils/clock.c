@@ -216,6 +216,8 @@ static locale_t get_http_locale(void) {
 // IMF-fixdate from https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.1.1
 #define HTTP1_1_RFC_7231_TIME_FORMAT "%a, %d %b %Y %H:%M:%S GMT"
 
+#define COMMON_LOG_TIME_FORMAT "%d/%b/%Y:%H:%M:%S %z"
+
 NODISCARD char* get_date_string(Time time, TimeFormat format) {
 
 	const char* format_str = NULL;
@@ -242,6 +244,15 @@ NODISCARD char* get_date_string(Time time, TimeFormat format) {
 			format_str = HTTP1_1_RFC_7231_TIME_FORMAT;
 			locale_to_use = get_http_locale();
 			use_utc = true;
+			// just a guess, should suffice
+			max_bytes = 64;
+			break;
+		}
+		case TimeFormatCommonLog: {
+			// see: https://en.wikipedia.org/wiki/Common_Log_Format
+			format_str = COMMON_LOG_TIME_FORMAT;
+			locale_to_use = (locale_t)0;
+			use_utc = false;
 			// just a guess, should suffice
 			max_bytes = 64;
 			break;
