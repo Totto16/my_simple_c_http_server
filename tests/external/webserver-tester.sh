@@ -28,7 +28,7 @@ python3 ./main.py localhost:8080 cs531a1
 # python3 ./main.py localhost:8080
 
 PASS:
-python3 ./main.py localhost:8080 cs531a1 test_url_get_ok &
+python3 ./main.py localhost:8080 cs531a1 test_url_get_ok
 python3 ./main.py localhost:8080 cs531a1 test_url_head_ok
 python3 ./main.py localhost:8080 cs531a1 test_path_head_ok
 python3 ./main.py localhost:8080 cs531a1 test_path_options_ok
