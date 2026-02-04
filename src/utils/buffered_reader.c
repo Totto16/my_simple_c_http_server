@@ -1,6 +1,7 @@
 
 
 #include "./buffered_reader.h"
+#include "utils/log.h"
 
 typedef struct {
 	size_t cursor;
@@ -327,4 +328,15 @@ void buffered_reader_invalidate_old_data(BufferedReader* const reader) {
 
 void free_buffered_reader(BufferedReader* const reader) {
 	free_sized_buffer(reader->data.data);
+}
+
+bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* const context,
+                            bool allow_reuse) {
+
+	int result = close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
+	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", { return false; });
+
+	free_buffered_reader(reader);
+
+	return true;
 }

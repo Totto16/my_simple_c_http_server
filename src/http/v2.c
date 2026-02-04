@@ -182,7 +182,7 @@ static_assert((sizeof(HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE) /
               SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE);
 
 NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
-                                                   ParseState* state) {
+                                                   BufferedReader* reader) {
 
 	if(request_line.protocol_version != HTTPProtocolVersion2) {
 		return Http2PrefaceStatusErr;
@@ -196,16 +196,18 @@ NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
 		return Http2PrefaceStatusErr;
 	}
 
-	size_t remaining_size = state->data.size - state->cursor;
+	BufferedReadResult res =
+	    buffered_reader_get_amount(reader, SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE);
 
-	if(remaining_size < SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE) {
+	if(res.type != BufferedReadResultTypeOk) {
 		return Http2PrefaceStatusNotEnoughData;
 	}
 
-	if(memcmp(state->data.data, HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE,
-	          SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE) == 0) {
+	if(sized_buffer_cmp(
+	       res.value.data,
+	       (SizedBuffer){ .data = HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE,
+	                      .size = SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE }) == 0) {
 
-		state->cursor += SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE;
 		return Http2PrefaceStatusOk;
 	}
 

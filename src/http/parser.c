@@ -3,7 +3,7 @@
 #include "./header.h"
 #include "./v2.h"
 #include "generic/read.h"
-#include "utils/parse.h"
+#include "utils/buffered_reader.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -68,16 +68,15 @@ NODISCARD static HTTPProtocolVersion get_protocol_version_from_string(const char
 }
 
 // parse in string form, for http 1
-NODISCARD static HttpRequestLine parse_http1_request_line(ParseState* state,
+NODISCARD static HttpRequestLine parse_http1_request_line(BufferedReader* const reader,
                                                           OUT_PARAM(bool) success) {
 
 	HttpRequestLine result = {};
 
-	char* const start = (char*)state->data.data + state->cursor;
+	BufferedReadResult read_result =
+	    buffered_reader_get_until_delimiter(reader, HTTP_LINE_SEPERATORS);
 
-	Byte* line_end = parser_get_until_delimiter(state, HTTP_LINE_SEPERATORS);
-
-	if(line_end == NULL) {
+	if(read_result.type != BufferedReadResultTypeOk) {
 		*success = false;
 		return result;
 	}
@@ -86,7 +85,10 @@ NODISCARD static HttpRequestLine parse_http1_request_line(ParseState* state,
 	// slices of bytes
 
 	// make this string parseable by the libc functions
-	*line_end = '\0';
+	SizedBuffer request_line = read_result.value.data;
+
+	char* const start = (char*)request_line.data;
+	*(start + request_line.size) = '\0';
 
 	char* method = NULL;
 	char* path = NULL;
@@ -169,11 +171,10 @@ typedef struct {
 } HTTPContent;
 
 struct HTTPReaderImpl {
-	ConnectionDescriptor* descriptor;
 	ProtocolSelected protocol;
 	//
+	BufferedReader* reader;
 	HTTPReaderState state;
-	ParseState parser;
 	HTTPContent content;
 };
 
@@ -186,17 +187,19 @@ initialize_http_reader_from_connection(ConnectionDescriptor* const descriptor) {
 		return NULL;
 	}
 
+	BufferedReader* buffered_reader = get_buffered_reader(descriptor);
+
+	if(!buffered_reader) {
+		free(reader);
+		return NULL;
+	}
+
 	ProtocolSelected protocol = get_selected_protocol(descriptor);
 
 	*reader = (HTTPReader){
-		.descriptor = descriptor,
 		.protocol = protocol,
 		.state = HTTPReaderStateEmpty,
-		.parser =
-		    (ParseState){
-		        .cursor = 0,
-		        .data = (SizedBuffer){ .data = NULL, .size = 0 },
-		    },
+		.reader = buffered_reader,
 		.content = { .type = HTTPContentTypeV1 },
 	};
 
@@ -636,27 +639,29 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 		case HTTPRequestLengthTypeUnknown:
 		case HTTPRequestLengthTypeClose: {
 
-			const SizedBuffer res = parser_get_until_end(&(reader->parser));
+			const BufferedReadResult res = buffered_reader_get_until_end(reader->reader);
 
-			if(res.data == NULL) {
+			if(res.type != BufferedReadResultTypeOk) {
 				return (HttpBodyReadResult){
 					.is_error = true,
 					.data = { .error = "read failed" },
 				};
 			}
 
+			reader->state = HTTPReaderStateEnd;
+
 			return (HttpBodyReadResult){
 				.is_error = false,
-				.data = { .body = res },
+				.data = { .body = res.value.data },
 			};
 		}
 
 		case HTTPRequestLengthTypeContentLength: {
 
-			const SizedBuffer res =
-			    parser_get_until(&(reader->parser), analyze.length.value.length);
+			const BufferedReadResult res =
+			    buffered_reader_get_amount(reader->reader, analyze.length.value.length);
 
-			if(res.data == NULL) {
+			if(res.type != BufferedReadResultTypeOk) {
 				return (HttpBodyReadResult){
 					.is_error = true,
 					.data = { .error = "read failed" },
@@ -665,7 +670,7 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 
 			return (HttpBodyReadResult){
 				.is_error = false,
-				.data = { .body = res },
+				.data = { .body = res.value.data },
 			};
 		}
 		case HTTPRequestLengthTypeTransferEncoded: {
@@ -698,21 +703,16 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 		.body = (SizedBuffer){ .data = NULL, .size = 0 },
 	};
 
-	ParseState* state = &(reader->parser);
-
-	char* const start = (char*)state->data.data + state->cursor;
-
 	// TODO: don't use libc parse function that operate on strings, use parser ones, that
 	// operate on slices of bytes
-
-	char* current_pos = start;
 
 	// parse headers
 	while(true) {
 
-		Byte* line_end = parser_get_until_delimiter(state, HTTP_LINE_SEPERATORS);
+		BufferedReadResult read_result =
+		    buffered_reader_get_until_delimiter(reader->reader, HTTP_LINE_SEPERATORS);
 
-		if(line_end == NULL) {
+		if(read_result.type != BufferedReadResultTypeOk) {
 			return (
 			    HttpRequestResult){ .is_error = true,
 				                    .value = { .error = (HttpRequestError){
@@ -721,14 +721,16 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 				                                                  "Failed to parse headers" } } } };
 		}
 
-		*line_end = '\0';
+		SizedBuffer header_line = read_result.value.data;
+
+		char* const current_pos = (char*)header_line.data;
+		*(current_pos + header_line.size) = '\0';
 
 		if(strlen(current_pos) == 0) {
 			break;
 		}
 
 		char* header_start = current_pos;
-		current_pos = (char*)state->data.data + state->cursor;
 
 		{ // parse the single header
 
@@ -841,7 +843,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 	// only possible in the first request, as also http2 must send a valid http1 request line
 	// (the preface)
-	HttpRequestLine request_line = parse_http1_request_line(&(reader->parser), &success);
+	HttpRequestLine request_line = parse_http1_request_line(reader->reader, &success);
 
 	if(!success) {
 		return (HttpRequestResult){
@@ -879,7 +881,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				// error if it matches the data after the reader cursors position is already the
 				// http2 request!
 				const Http2PrefaceStatus http2_preface_status =
-				    analyze_http2_preface(request_line, &(reader->parser));
+				    analyze_http2_preface(request_line, reader->reader);
 
 				if(http2_preface_status != Http2PrefaceStatusOk) {
 					return (HttpRequestResult){
@@ -891,6 +893,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 						                                  HttpRequestErrorTypeInvalidHttp2Preface } } }
 					};
 				}
+
+				reader->content.type = HTTPContentTypeV2;
 
 				return parse_http2_request(reader);
 			}
@@ -988,7 +992,22 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		}
 	}
 
-	return parse_http1_request(request_line, reader);
+	const HttpRequestResult result = parse_http1_request(request_line, reader);
+
+	if(result.is_error) {
+		reader->state = HTTPReaderStateError;
+	}
+
+	if(reader->content.type == HTTPContentTypeV1) {
+
+		if(buffered_reader_is_eof(reader->reader)) {
+			reader->state = HTTPReaderStateEnd;
+		} else {
+			reader->state = HTTPReaderStateError;
+		}
+	}
+
+	return result;
 }
 
 NODISCARD static HttpRequestResult parse_next_http_request(HTTPReader* const reader) {
@@ -1008,27 +1027,23 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 
 	switch(reader->state) {
 		case HTTPReaderStateEmpty: {
-			SizedBuffer buffer = read_buffer_from_connection(reader->descriptor);
 
-			if(buffer.data == NULL) {
-				reader->state = HTTPReaderStateError;
+			reader->state = HTTPReaderStateReading;
+
+			return parse_first_http_request(reader);
+		}
+		case HTTPReaderStateReading: {
+			if(reader->content.type == HTTPContentTypeV1) {
 				return (HttpRequestResult){
 					.is_error = true,
 					.value = { .error =
 					               (HttpRequestError){
 					                   .is_advanced = true,
-					                   .value = { .advanced =
-					                                  "HTTP reader state was invalid" } } }
+					                   .value = { .advanced = "HTTP reader tried to read more than "
+					                                          "one request on a non compatible "
+					                                          "connection" } } }
 				};
 			}
-			// TODO: if we fail to parse something, because not delimiter could be found, we
-			// should just try to read more!
-			reader->state = HTTPReaderStateReading;
-			reader->parser.data = buffer;
-
-			return parse_first_http_request(reader);
-		}
-		case HTTPReaderStateReading: {
 
 			return parse_next_http_request(reader);
 		}
@@ -1073,11 +1088,11 @@ static void free_reader_content(HTTPContent content) {
 bool finish_reader(HTTPReader* reader, ConnectionContext* context) {
 
 	// finally close the connection
-	int result =
-	    close_connection_descriptor_advanced(reader->descriptor, context, SUPPORT_KEEPALIVE);
-	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", { return false; });
 
-	free_parser(reader->parser);
+	if(!finish_buffered_reader(reader->reader, context, SUPPORT_KEEPALIVE)) {
+		return false;
+	}
+
 	free_reader_content(reader->content);
 	free(reader);
 

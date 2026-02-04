@@ -58,6 +58,7 @@ The documentation for each library:
 - HTTP 1.1 Spec 1: [rfc7230](https://datatracker.ietf.org/doc/html/rfc7230)
 - HTTP 1.1 Spec 2: [rfc7231](https://datatracker.ietf.org/doc/html/rfc7231)
 - HTTP 1.1 Spec 3: [rfc9110](https://datatracker.ietf.org/doc/html/rfc9110)
+- HTTP 1.1 Spec 4: [rfc2068](https://datatracker.ietf.org/doc/html/rfc2068)
 - HTTP 2 Spec: [rfc7540](https://datatracker.ietf.org/doc/html/rfc7540)
 - HTTP 3 Spec. [rfc9114](https://datatracker.ietf.org/doc/html/rfc9114)
 

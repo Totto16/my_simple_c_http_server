@@ -169,6 +169,8 @@ NODISCARD static WebSocketRawMessageResult
 read_raw_message(WebSocketConnection* connection,
                  ExtensionReceivePipelineSettings pipeline_settings) {
 
+//TODO: replace usage of read_exact_bytes with the buffered_reader (blocking as well?)
+
 	uint8_t* header_bytes =
 	    (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
 	if(!header_bytes) {

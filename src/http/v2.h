@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "utils/parse.h"
+#include "utils/buffered_reader.h"
 #include "utils/utils.h"
 #include "./protocol.h"
 
@@ -58,4 +58,4 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	Http2PrefaceStatusNotEnoughData
 } Http2PrefaceStatus;
 
-NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line, ParseState* state);
+NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line, BufferedReader* reader);

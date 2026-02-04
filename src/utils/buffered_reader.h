@@ -61,3 +61,6 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* reader, 
 void buffered_reader_invalidate_old_data(BufferedReader* reader);
 
 void free_buffered_reader(BufferedReader* reader);
+
+NODISCARD bool finish_buffered_reader(BufferedReader* reader, ConnectionContext* context,
+                                      bool allow_reuse);
