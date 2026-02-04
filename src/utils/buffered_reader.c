@@ -364,6 +364,7 @@ NODISCARD bool buffered_reader_is_eof(BufferedReader* const reader) {
 
 void free_buffered_reader(BufferedReader* const reader) {
 	free_sized_buffer(reader->data.data);
+	free(reader);
 }
 
 bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* const context,

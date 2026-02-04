@@ -35,9 +35,10 @@ static void free_http_request_line(HttpRequestLine line) {
 static void free_request_head(HttpRequestHead head) {
 	free_http_request_line(head.request_line);
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, head.header_fields); ++i) {
-		// same elegant freeing but two at once :)
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, head.header_fields, i);
+
 		free(entry.key);
+		free(entry.value);
 	}
 	TVEC_FREE(HttpHeaderField, &head.header_fields);
 }
