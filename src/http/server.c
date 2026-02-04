@@ -221,7 +221,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 NODISCARD static JobError
 process_http_request(const HttpRequest http_request, ConnectionDescriptor* const descriptor,
                      const RouteManager* const route_manager, HTTPConnectionArgument* argument,
-                     const WorkerInfo worker_info, const RequestSettings request_settings) {
+                     const WorkerInfo worker_info, const RequestSettings request_settings,
+                     const IPAddress address) {
 
 	ConnectionContext* context =
 	    TVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
@@ -239,7 +240,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 	HttpRequestProperties http_properties = request_settings.http_properties;
 
 	SelectedRoute* selected_route =
-	    route_manager_get_route_for_request(route_manager, http_properties, http_request);
+	    route_manager_get_route_for_request(route_manager, http_properties, http_request, address);
 
 	if(selected_route == NULL) {
 
@@ -547,9 +548,9 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 		case HTTPRouteTypeNormal: {
 
-			result = route_manager_execute_route(route_data.value.normal, descriptor, send_settings,
-			                                     http_request, context, selected_route_data.path,
-			                                     selected_route_data.auth_user);
+			result = route_manager_execute_route(
+			    route_manager, route_data.value.normal, descriptor, send_settings, http_request,
+			    context, selected_route_data.path, selected_route_data.auth_user, address);
 
 			break;
 		}
@@ -929,8 +930,9 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 		const HTTPResultOk http_result = http_request_result.value.result;
 		const HttpRequest http_request = http_result.request;
 
-		JobError process_error = process_http_request(http_request, descriptor, route_manager,
-		                                              argument, worker_info, http_result.settings);
+		JobError process_error =
+		    process_http_request(http_request, descriptor, route_manager, argument, worker_info,
+		                         http_result.settings, argument->address);
 
 		free_http_request_result(http_result);
 
@@ -1038,10 +1040,15 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 			continue;
 		}
 
+		struct sockaddr_in client_addr;
+		socklen_t addr_len = sizeof(client_addr);
+
 		// would be better to set cancel state in the right places!!
-		int connection_fd = accept(argument.socket_fd, NULL, NULL);
+		int connection_fd = accept(argument.socket_fd, (struct sockaddr*)&client_addr, &addr_len);
 		CHECK_FOR_ERROR(connection_fd, "While Trying to accept a socket",
 		                return LISTENER_ERROR_ACCEPT;);
+
+		IPAddress address = from_ipv4(client_addr.sin_addr);
 
 		HTTPConnectionArgument* connection_argument =
 		    (HTTPConnectionArgument*)malloc(sizeof(HTTPConnectionArgument));
@@ -1058,6 +1065,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		connection_argument->listener_thread = pthread_self();
 		connection_argument->web_socket_manager = argument.web_socket_manager;
 		connection_argument->route_manager = argument.route_manager;
+		connection_argument->address = address;
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections

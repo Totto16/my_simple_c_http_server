@@ -1139,13 +1139,21 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 NODISCARD SelectedRoute*
 route_manager_get_route_for_request(const RouteManager* const route_manager,
                                     HttpRequestProperties http_properties,
-                                    const HttpRequest request) {
+                                    const HttpRequest request, const IPAddress address) {
 
 	if(http_properties.type != HTTPPropertyTypeNormal) {
 		return NULL;
 	}
 
 	const ParsedURLPath normal_data = http_properties.data.normal;
+
+	for(size_t i = 0; i < TVEC_LENGTH(HTTPRequestProxy, route_manager->routes->proxies); ++i) {
+		HTTPRequestProxy proxy = TVEC_AT(HTTPRequestProxy, route_manager->routes->proxies, i);
+
+		if(proxy.type == HTTPRequestProxyTypePre) {
+			proxy.value.pre(request, address, proxy.data);
+		}
+	}
 
 	for(size_t i = 0; i < TVEC_LENGTH(HTTPRoute, route_manager->routes->routes); ++i) {
 		HTTPRoute route = TVEC_AT(HTTPRoute, route_manager->routes->routes, i);
@@ -1170,10 +1178,11 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const r
 }
 
 NODISCARD
-int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* const descriptor,
+int route_manager_execute_route(const RouteManager* const route_manager, HTTPRouteFn route,
+                                const ConnectionDescriptor* const descriptor,
                                 SendSettings send_settings, const HttpRequest http_request,
                                 const ConnectionContext* const context, ParsedURLPath path,
-                                AuthUserWithContext* auth_user) {
+                                AuthUserWithContext* auth_user, IPAddress address) {
 
 	HTTPResponseToSend response = {};
 
@@ -1215,6 +1224,14 @@ int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* c
 
 	if(http_request.head.request_line.method == HTTPRequestMethodHead) {
 		response.body.send_body_data = false;
+	}
+
+	for(size_t i = 0; i < TVEC_LENGTH(HTTPRequestProxy, route_manager->routes->proxies); ++i) {
+		HTTPRequestProxy proxy = TVEC_AT(HTTPRequestProxy, route_manager->routes->proxies, i);
+
+		if(proxy.type == HTTPRequestProxyTypePost) {
+			proxy.value.post(http_request, response, address, proxy.data);
+		}
 	}
 
 	int result = send_http_message_to_connection(descriptor, response, send_settings);

@@ -5,9 +5,9 @@
 #include "./protocol.h"
 #include "./send.h"
 #include "generic/authentication.h"
+#include "generic/ip.h"
 #include "generic/secure.h"
 #include "utils/utils.h"
-#include "generic/ip.h"
 
 #include <tvec.h>
 
@@ -228,11 +228,13 @@ void free_selected_route(SelectedRoute* selected_route);
 
 NODISCARD SelectedRoute* route_manager_get_route_for_request(const RouteManager* route_manager,
                                                              HttpRequestProperties http_properties,
-                                                             HttpRequest request);
+                                                             HttpRequest request,
+                                                             IPAddress address);
 
 NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* route);
 
-NODISCARD int route_manager_execute_route(HTTPRouteFn route, const ConnectionDescriptor* descriptor,
+NODISCARD int route_manager_execute_route(const RouteManager* route_manager, HTTPRouteFn route,
+                                          const ConnectionDescriptor* descriptor,
                                           SendSettings send_settings, HttpRequest http_request,
                                           const ConnectionContext* context, ParsedURLPath path,
-                                          AuthUserWithContext* auth_user);
+                                          AuthUserWithContext* auth_user, IPAddress address);

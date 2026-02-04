@@ -43,6 +43,7 @@ typedef struct {
 	int connection_fd;
 	WebSocketThreadManager* web_socket_manager;
 	const RouteManager* route_manager;
+	IPAddress address;
 } HTTPConnectionArgument;
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
