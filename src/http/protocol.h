@@ -94,7 +94,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HTTPProtocolVersion1,
+	HTTPProtocolVersion1Dot0,
 	HTTPProtocolVersion1Dot1,
 	HTTPProtocolVersion2,
 } HTTPProtocolVersion;

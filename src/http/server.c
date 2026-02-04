@@ -172,19 +172,38 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 			return send_http_message_to_connection(descriptor, to_send, send_settings);
 		}
 		case HttpRequestErrorTypeInvalidHttp2Preface: {
+			// TODO
+			//  HTTPResponse2ToSend to_send = { .type = GOAWAY, status = PROCOL_ERROR };
+
+			//	return send_http2_message_to_connection(descriptor, to_send, send_settings);
 			UNREACHABLE();
 			break;
 		}
 		case HttpRequestErrorTypeLengthRequired: {
-			UNREACHABLE();
-			break;
+			HTTPResponseToSend to_send = { .status = HttpStatusLengthRequired,
+				                           .body = http_response_body_empty(),
+				                           .mime_type = MIME_TYPE_TEXT,
+				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
+
+			return send_http_message_to_connection(descriptor, to_send, send_settings);
 		}
 		case HttpRequestErrorTypeProtocolError: {
-			UNREACHABLE();
-			break;
+			HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
+				                           .body = http_response_body_from_static_string(
+				                               "Protocol Error", send_body),
+				                           .mime_type = MIME_TYPE_TEXT,
+				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
+
+			return send_http_message_to_connection(descriptor, to_send, send_settings);
 		}
 		case HttpRequestErrorTypeNotSupported: {
-			UNREACHABLE();
+			HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
+				                           .body = http_response_body_from_static_string(
+				                               "Not Supported", send_body),
+				                           .mime_type = MIME_TYPE_TEXT,
+				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
+
+			return send_http_message_to_connection(descriptor, to_send, send_settings);
 			break;
 		}
 		default: {

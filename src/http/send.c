@@ -252,5 +252,5 @@ NODISCARD HTTPResponseBody http_response_body_from_data(void* data, size_t size,
 }
 
 NODISCARD HTTPResponseBody http_response_body_empty(void) {
-	return (HTTPResponseBody){ .body = get_empty_sized_buffer(), .send_body_data = true };
+	return (HTTPResponseBody){ .body = get_empty_sized_buffer(), .send_body_data = false };
 }

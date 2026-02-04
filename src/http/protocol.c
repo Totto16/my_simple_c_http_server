@@ -21,7 +21,7 @@ NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version) {
 
 	switch(protocol_version) {
-		case HTTPProtocolVersion1: return "HTTP/1.0";
+		case HTTPProtocolVersion1Dot0: return "HTTP/1.0";
 		case HTTPProtocolVersion1Dot1: return "HTTP/1.1";
 		case HTTPProtocolVersion2: return "HTTP/2";
 		default: return "<Unknown>";

@@ -50,7 +50,7 @@ NODISCARD static HTTPProtocolVersion get_protocol_version_from_string(const char
 
 	if(strcmp(protocol_version, "HTTP/1.0") == 0) {
 		*success = true;
-		return HTTPProtocolVersion1;
+		return HTTPProtocolVersion1Dot0;
 	}
 
 	if(strcmp(protocol_version, "HTTP/1.1") == 0) {
@@ -64,7 +64,7 @@ NODISCARD static HTTPProtocolVersion get_protocol_version_from_string(const char
 	}
 
 	*success = false;
-	return HTTPProtocolVersion1;
+	return HTTPProtocolVersion1Dot0;
 }
 
 // parse in string form, for http 1
@@ -491,11 +491,10 @@ NODISCARD static HttpRequestResult parse_http2_request(HTTPReader* const reader)
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HTTPRequestLengthTypeUnknown = 0,
+	HTTPRequestLengthTypeNoBody = 0,
 	HTTPRequestLengthTypeClose,
 	HTTPRequestLengthTypeContentLength,
 	HTTPRequestLengthTypeTransferEncoded,
-	HTTPRequestLengthTypeNoBody
 } HTTPRequestLengthType;
 
 /**
@@ -538,7 +537,7 @@ typedef struct {
 NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest http_request) {
 
 	HTTPAnalyzeHeaders analyze_result = {
-		.length = { .type = HTTPRequestLengthTypeUnknown },
+		.length = { .type = HTTPRequestLengthTypeNoBody },
 	};
 
 	// the body length is determined as given by this rfc entry:
@@ -548,7 +547,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
 		if(strcasecmp(header.key, HTTP_HEADER_NAME(content_length)) == 0) {
-			if(analyze_result.length.type != HTTPRequestLengthTypeUnknown) {
+			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
 
 				return (HTTPAnalyzeHeadersResult){
@@ -573,7 +572,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(transfer_encoding)) == 0) {
 
-			if(analyze_result.length.type != HTTPRequestLengthTypeUnknown) {
+			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
 
 				return (HTTPAnalyzeHeadersResult){
@@ -611,11 +610,9 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 		}
 	}
 
-	// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3
-	// 7. If this is a request message and none of the above are true, then the message body length
-	// is zero (no message body is present).
-	if(analyze_result.length.type == HTTPRequestLengthTypeUnknown &&
-	   http_request.head.request_line.method != HTTPRequestMethodPost) {
+	// only allow HTTPRequestLengthTypeClose on http/1.0
+	if(analyze_result.length.type == HTTPRequestLengthTypeClose &&
+	   http_request.head.request_line.protocol_version != HTTPProtocolVersion1Dot0) {
 		analyze_result.length.type = HTTPRequestLengthTypeNoBody;
 	}
 
@@ -639,7 +636,6 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
                                                   const HTTPAnalyzeHeaders analyze) {
 
 	switch(analyze.length.type) {
-		case HTTPRequestLengthTypeUnknown:
 		case HTTPRequestLengthTypeClose: {
 
 			const BufferedReadResult res = buffered_reader_get_until_end(reader->reader);
@@ -792,17 +788,6 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 	}
 
 	const HTTPAnalyzeHeaders analyze = analyze_result.data.result;
-
-	if(analyze.length.type == HTTPRequestLengthTypeUnknown &&
-	   request_line.protocol_version != HTTPProtocolVersion1) {
-		return (HttpRequestResult){
-			.is_error = true,
-			.value = { .error =
-			               (HttpRequestError){
-			                   .is_advanced = false,
-			                   .value = { .enum_value = HttpRequestErrorTypeLengthRequired } } }
-		};
-	}
 
 	const HttpBodyReadResult body_result = get_http_body(reader, analyze);
 
@@ -1006,7 +991,15 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		if(buffered_reader_is_eof(reader->reader)) {
 			reader->state = HTTPReaderStateEnd;
 		} else {
+			// if we are not in a keepalive situation, any presence of a body is an error
 			reader->state = HTTPReaderStateError;
+			return (HttpRequestResult){
+				.is_error = true,
+				.value = { .error =
+				               (HttpRequestError){
+				                   .is_advanced = false,
+				                   .value = { .enum_value = HttpRequestErrorTypeLengthRequired } } }
+			};
 		}
 	}
 
