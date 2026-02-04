@@ -5,7 +5,7 @@
 TMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, char*, MimeTypeEntryHashMap)
 
 MimeTypeMappings g_mime_type_mappings = {
-	.entries = TMAP_EMPTY_MAP(MimeTypeEntryHashMap),
+	.entries = TMAP_EMPTY(MimeTypeEntryHashMap),
 };
 
 #define TMAP_INSERT_AND_ASSERT(Typename, map, key, value) \
@@ -94,16 +94,16 @@ void global_initialize_mime_map(void) {
 }
 
 void global_free_mime_map(void) {
-	size_t hm_total_length = TMAP_CAPACITY(g_mime_type_mappings.entries);
 
-	for(size_t i = 0; i < hm_total_length; ++i) {
-		const TMAP_TYPENAME_ENTRY(MimeTypeEntryHashMap)* hm_entry =
-		    TMAP_GET_ENTRY_AT(MimeTypeEntryHashMap, &g_mime_type_mappings.entries, i);
+	TMAP_TYPENAME_ITER(MimeTypeEntryHashMap)
+	iter = TMAP_ITER_INIT(MimeTypeEntryHashMap, &g_mime_type_mappings.entries);
 
-		if(hm_entry != NULL && hm_entry != TMAP_NO_ELEMENT_HERE) {
-			free(hm_entry->value);
-			free(hm_entry->key);
-		}
+	TMAP_TYPENAME_ENTRY(MimeTypeEntryHashMap) value;
+
+	while(TMAP_ITER_NEXT(MimeTypeEntryHashMap, &iter, &value)) {
+
+		free(value.value);
+		free(value.key);
 	}
 
 	TMAP_FREE(MimeTypeEntryHashMap, &g_mime_type_mappings.entries);
@@ -111,7 +111,7 @@ void global_free_mime_map(void) {
 
 NODISCARD const char* get_mime_type_for_ext(const char* ext) {
 
-	if(TMAP_IS_EMPTY(g_mime_type_mappings.entries)) {
+	if(TMAP_IS_EMPTY(MimeTypeEntryHashMap, &g_mime_type_mappings.entries)) {
 		initialize_mime_type_mappings();
 	}
 

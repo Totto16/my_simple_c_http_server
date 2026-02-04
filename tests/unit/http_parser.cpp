@@ -300,7 +300,7 @@ TEST_CASE("testing the parsing of the http request") {
 
 			REQUIRE_EQ(path_comp, "/");
 
-			REQUIRE_EQ(TMAP_SIZE(path.search_path.hash_map), 0);
+			REQUIRE_EQ(TMAP_SIZE(ParsedSearchPathHashMap, &path.search_path.hash_map), 0);
 		}
 
 		SUBCASE("real path url") {
@@ -315,7 +315,7 @@ TEST_CASE("testing the parsing of the http request") {
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
-			REQUIRE_EQ(TMAP_SIZE(path.search_path.hash_map), 0);
+			REQUIRE_EQ(TMAP_SIZE(ParsedSearchPathHashMap, &path.search_path.hash_map), 0);
 		}
 
 		SUBCASE("path url with search parameters") {
@@ -332,7 +332,7 @@ TEST_CASE("testing the parsing of the http request") {
 
 			const ParsedSearchPath search_path = path.search_path;
 
-			REQUIRE_EQ(TMAP_SIZE(search_path.hash_map), 3);
+			REQUIRE_EQ(TMAP_SIZE(ParsedSearchPathHashMap, &search_path.hash_map), 3);
 
 			{
 
@@ -388,7 +388,7 @@ TEST_CASE("testing the parsing of the http request") {
 
 			const ParsedSearchPath search_path = path.search_path;
 
-			REQUIRE_EQ(TMAP_SIZE(search_path.hash_map), 3);
+			REQUIRE_EQ(TMAP_SIZE(ParsedSearchPathHashMap, &search_path.hash_map), 3);
 
 			{
 

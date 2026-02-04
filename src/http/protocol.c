@@ -83,7 +83,7 @@ typedef struct {
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath search_path,
                                                        const char* key) {
 
-	if(TMAP_IS_EMPTY(search_path.hash_map)) {
+	if(TMAP_IS_EMPTY(ParsedSearchPathHashMap,&search_path.hash_map)) {
 		return NULL;
 	}
 

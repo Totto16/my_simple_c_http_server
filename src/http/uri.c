@@ -338,19 +338,14 @@ NODISCARD ParsedRequestURIResult parse_request_uri(char* const path) {
 static void free_parsed_url_path(ParsedURLPath path) {
 	free(path.path);
 
-	size_t hm_total_length = TMAP_CAPACITY(path.search_path.hash_map);
+	TMAP_TYPENAME_ITER(ParsedSearchPathHashMap)
+	iter = TMAP_ITER_INIT(ParsedSearchPathHashMap, &path.search_path.hash_map);
 
-	for(size_t i = 0; i < hm_total_length; ++i) {
+	TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap) value;
 
-		const TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
-		    TMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &(path.search_path.hash_map), i);
-
-		if(hm_entry == NULL || hm_entry == TMAP_NO_ELEMENT_HERE) {
-			continue;
-		}
-
-		free(hm_entry->key);
-		free(hm_entry->value.value);
+	while(TMAP_ITER_NEXT(ParsedSearchPathHashMap, &iter, &value)) {
+		free(value.key);
+		free(value.value.value);
 	}
 
 	TMAP_FREE(ParsedSearchPathHashMap, &(path.search_path.hash_map));
@@ -416,35 +411,31 @@ NODISCARD char* get_parsed_url_as_string(ParsedURLPath path) {
 
 	string_builder_append_single(string_builder, path.path);
 
-	if(!TMAP_IS_EMPTY(path.search_path.hash_map)) {
+	if(!TMAP_IS_EMPTY(ParsedSearchPathHashMap, &path.search_path.hash_map)) {
 
 		string_builder_append_single(string_builder, "?");
 
-		size_t search_path_total_length = TMAP_CAPACITY(path.search_path.hash_map);
+		TMAP_TYPENAME_ITER(ParsedSearchPathHashMap)
+		iter = TMAP_ITER_INIT(ParsedSearchPathHashMap, &path.search_path.hash_map);
 
-		size_t added = 0;
+		TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap) value;
 
-		for(size_t i = 0; i < search_path_total_length; ++i) {
+		bool start = true;
 
-			const TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap)* hm_entry =
-			    TMAP_GET_ENTRY_AT(ParsedSearchPathHashMap, &path.search_path.hash_map, i);
+		while(TMAP_ITER_NEXT(ParsedSearchPathHashMap, &iter, &value)) {
 
-			if(hm_entry == NULL || hm_entry == TMAP_NO_ELEMENT_HERE) {
-				continue;
-			}
-
-			if(added > 0) {
+			if(!start) {
 				string_builder_append_single(string_builder, "&");
 			}
 
-			++added;
+			start = true;
 
-			string_builder_append_single(string_builder, hm_entry->key);
+			string_builder_append_single(string_builder, value.key);
 
-			if(hm_entry->value.value != NULL && strlen(hm_entry->value.value) != 0) {
+			if(value.value.value != NULL && strlen(value.value.value) != 0) {
 				string_builder_append_single(string_builder, "=");
 
-				string_builder_append_single(string_builder, hm_entry->value.value);
+				string_builder_append_single(string_builder, value.value.value);
 			}
 		}
 	}
