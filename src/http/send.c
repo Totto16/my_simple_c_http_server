@@ -22,7 +22,8 @@ send_concatted_response_to_connection(const ConnectionDescriptor* const descript
 	return result;
 }
 
-static bool construct_headers_for_request(HttpResponse* response, const char* mime_type,
+static bool construct_headers_for_request(SendSettings send_settings, HttpResponse* response,
+                                          const char* mime_type,
                                           HttpHeaderFields additional_headers,
                                           CompressionType compression_format) {
 
@@ -50,6 +51,22 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		              , "%s%c%ld", HTTP_HEADER_NAME(content_length), '\0', response->body.size);
 
 		add_http_header_field_by_double_str(&response->head.header_fields, content_length_buffer);
+	}
+
+	{
+
+		// Eventual Connection header
+
+		// TODO. once we support http1.1 keepalive, remove this
+
+		if(send_settings.protocol_to_use == HTTPProtocolVersion2) {
+
+			char* connection_buffer = NULL;
+			FORMAT_STRING(&connection_buffer, return NULL;
+			              , "%s%c%s", HTTP_HEADER_NAME(connection), '\0', "close");
+
+			add_http_header_field_by_double_str(&response->head.header_fields, connection_buffer);
+		}
 	}
 
 	{
@@ -165,8 +182,8 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 		format_used = CompressionTypeNone;
 	}
 
-	if(!construct_headers_for_request(response, to_send.mime_type, to_send.additional_headers,
-	                                  format_used)) {
+	if(!construct_headers_for_request(send_settings, response, to_send.mime_type,
+	                                  to_send.additional_headers, format_used)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
 	}
