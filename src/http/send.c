@@ -59,7 +59,7 @@ static bool construct_headers_for_request(SendSettings send_settings, HttpRespon
 
 		// TODO. once we support http1.1 keepalive, remove this
 
-		if(send_settings.protocol_to_use == HTTPProtocolVersion2) {
+		if(send_settings.protocol_to_use != HTTPProtocolVersion2) {
 
 			char* connection_buffer = NULL;
 			FORMAT_STRING(&connection_buffer, return NULL;

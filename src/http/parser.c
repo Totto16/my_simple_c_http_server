@@ -595,7 +595,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(connection)) == 0) {
 			// see https://datatracker.ietf.org/doc/html/rfc7230#section-6.1
-			if(strcasecmp(header.value, "close") != 0) {
+			if(strcasecmp(header.value, "close") == 0) {
 				analyze_result.length.type = HTTPRequestLengthTypeClose;
 			}
 
