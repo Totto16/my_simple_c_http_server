@@ -5,7 +5,7 @@
 
 typedef struct {
 	size_t cursor;
-	SizedBuffer data;
+	SizedBuffer buffer;
 } BufferedData;
 
 /**
@@ -38,7 +38,7 @@ BufferedReader* get_buffered_reader(ConnectionDescriptor* descriptor) {
 	*reader = (BufferedReader){ .descriptor = descriptor,
 		                        .state = StreamStateOpen,
 		                        .data = (BufferedData){ .cursor = 0,
-		                                                .data = (SizedBuffer){
+		                                                .buffer = (SizedBuffer){
 		                                                    .data = NULL,
 		                                                    .size = 0,
 		                                                } } };
@@ -51,7 +51,7 @@ static bool buffered_reader_is_safe_to_read(BufferedReader* const reader) {
 		return false;
 	}
 
-	if(reader->data.cursor > reader->data.data.size) {
+	if(reader->data.cursor > reader->data.buffer.size) {
 		reader->state = StreamStateError;
 		return false;
 	}
@@ -67,16 +67,16 @@ static size_t buffered_reader_get_more_data_partially(BufferedReader* const read
 		return 0;
 	}
 
-	void* new_buffer = realloc(reader->data.data.data, reader->data.data.size + amount);
+	void* new_buffer = realloc(reader->data.buffer.data, reader->data.buffer.size + amount);
 
 	if(!new_buffer) {
 		reader->state = StreamStateError;
 		return 0;
 	}
 
-	void* buffer = (Byte*)new_buffer + reader->data.data.size;
+	void* buffer = (Byte*)new_buffer + reader->data.buffer.size;
 
-	reader->data.data.data = new_buffer;
+	reader->data.buffer.data = new_buffer;
 
 	ReadResult res = read_from_descriptor(reader->descriptor, buffer, amount);
 
@@ -94,7 +94,7 @@ static size_t buffered_reader_get_more_data_partially(BufferedReader* const read
 
 	const size_t bytes_read = res.data.bytes_read;
 
-	reader->data.data.size += bytes_read;
+	reader->data.buffer.size += bytes_read;
 	return bytes_read;
 }
 
@@ -123,7 +123,7 @@ NODISCARD static size_t get_available_data_length(BufferedReader* const reader) 
 		return 0;
 	}
 
-	return reader->data.data.size - reader->data.cursor;
+	return reader->data.buffer.size - reader->data.cursor;
 }
 
 static void buffered_reader_get_data_until(BufferedReader* const reader, size_t amount) {
@@ -157,7 +157,7 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader,
 	const size_t start_cursor = reader->data.cursor;
 
 	while(true) {
-		if(reader->data.cursor >= reader->data.data.size) {
+		if(reader->data.cursor >= reader->data.buffer.size) {
 			buffered_reader_get_more_data_at_least_some(reader, BUFFERED_READER_CHUNK_SIZE);
 
 			if(reader->state != StreamStateOpen) {
@@ -169,7 +169,7 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader,
 			}
 		}
 
-		const Byte data_byte = ((Byte*)reader->data.data.data)[reader->data.cursor];
+		const Byte data_byte = ((Byte*)reader->data.buffer.data)[reader->data.cursor];
 
 		const Byte delimiter_byte = delimiter_bytes[delimiter_index];
 
@@ -181,7 +181,7 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader,
 				++reader->data.cursor;
 
 				SizedBuffer data = {
-					.data = (Byte*)reader->data.data.data + start_cursor,
+					.data = (Byte*)reader->data.buffer.data + start_cursor,
 					.size = (reader->data.cursor - start_cursor - delimiter.size),
 				};
 
@@ -255,11 +255,11 @@ NODISCARD BufferedReadResult buffered_reader_get_until_end(BufferedReader* const
 break_while_outer:
 
 	SizedBuffer data = {
-		.data = (Byte*)reader->data.data.data + start_cursor,
+		.data = (Byte*)reader->data.buffer.data + start_cursor,
 		.size = (reader->data.cursor - start_cursor),
 	};
 
-	reader->data.cursor = reader->data.data.size;
+	reader->data.cursor = reader->data.buffer.size;
 	reader->state = StreamStateClosed;
 
 	return (BufferedReadResult){ .type = BufferedReadResultTypeOk, .value = { .data = data } };
@@ -299,11 +299,11 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const re
 	assert(size == amount);
 
 	SizedBuffer data = {
-		.data = (Byte*)reader->data.data.data + start_cursor,
+		.data = (Byte*)reader->data.buffer.data + start_cursor,
 		.size = size,
 	};
 
-	reader->data.cursor = reader->data.data.size;
+	reader->data.cursor = reader->data.buffer.size;
 	reader->state = StreamStateClosed;
 
 	return (BufferedReadResult){ .type = BufferedReadResultTypeOk, .value = { .data = data } };
@@ -315,7 +315,7 @@ void buffered_reader_invalidate_old_data(BufferedReader* const reader) {
 		return;
 	}
 
-	void* current_data = reader->data.data.data;
+	void* current_data = reader->data.buffer.data;
 
 	const size_t offset = reader->data.cursor;
 
@@ -323,7 +323,7 @@ void buffered_reader_invalidate_old_data(BufferedReader* const reader) {
 
 	if(available_length == 0) {
 		free(current_data);
-		reader->data.data = (SizedBuffer){ .data = NULL, .size = 0 };
+		reader->data.buffer = (SizedBuffer){ .data = NULL, .size = 0 };
 		reader->data.cursor = 0;
 		return;
 	}
@@ -338,7 +338,7 @@ void buffered_reader_invalidate_old_data(BufferedReader* const reader) {
 
 	free(current_data);
 
-	reader->data.data = (SizedBuffer){ .data = new_data, .size = available_length };
+	reader->data.buffer = (SizedBuffer){ .data = new_data, .size = available_length };
 	reader->data.cursor = 0;
 }
 
@@ -348,7 +348,7 @@ NODISCARD bool buffered_reader_has_more_data(const BufferedReader* const reader)
 		return true;
 	}
 
-	if(reader->data.cursor < reader->data.data.size) {
+	if(reader->data.cursor < reader->data.buffer.size) {
 		return false;
 	}
 
@@ -356,14 +356,15 @@ NODISCARD bool buffered_reader_has_more_data(const BufferedReader* const reader)
 }
 
 void free_buffered_reader(BufferedReader* const reader) {
-	free_sized_buffer(reader->data.data);
+	free_sized_buffer(reader->data.buffer);
 	free(reader);
 }
 
 bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* const context,
                             bool allow_reuse) {
 
-//TODO: maybe half close the tcp connection and check if more data is given, that woudl be a client error!
+	// TODO: maybe half close the tcp connection and check if more data is given, that woudl be a
+	// client error!
 
 	int result = close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
 	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", { return false; });

@@ -20,13 +20,15 @@ struct SecureDataImpl {
 	SSL_CTX* ssl_context;
 };
 
+typedef struct {
+	SSL* ssl_structure;
+	const SecureOptions* options;
+} SecureDataForContext;
+
 struct ConnectionContextImpl {
 	SecureOptionsType type;
 	union {
-		struct {
-			SSL* ssl_structure;
-			const SecureOptions* options;
-		} data;
+		SecureDataForContext secure;
 	} data;
 };
 
@@ -277,7 +279,7 @@ SecureOptions* initialize_secure_options(bool secure, const char* const public_c
 		return NULL;
 	}
 
-	options->data.data = data;
+	options->value.data = data;
 
 	return options;
 #endif
@@ -294,7 +296,7 @@ void free_secure_options(SecureOptions* const options) {
 	UNREACHABLE();
 #else
 
-	free_secure_data(options->data.data);
+	free_secure_data(options->value.data);
 	free(options);
 #endif
 }
@@ -340,7 +342,7 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 
 	context->type = SecureOptionsTypeSecure;
 
-	SecureData* data = options->data.data;
+	SecureData* data = options->value.data;
 
 	SSL* ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
 
@@ -349,8 +351,8 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 		return NULL;
 	}
 
-	context->data.data.ssl_structure = ssl_structure;
-	context->data.data.options = options;
+	context->data.secure.ssl_structure = ssl_structure;
+	context->data.secure.options = options;
 
 	return context;
 #endif
@@ -377,9 +379,9 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 
 	context->type = SecureOptionsTypeSecure;
 
-	const SecureOptions* const options = old_context->data.data.options;
+	const SecureOptions* const options = old_context->data.secure.options;
 
-	SecureData* data = options->data.data;
+	SecureData* data = options->value.data;
 
 	SSL* ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
 
@@ -388,8 +390,8 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 		return NULL;
 	}
 
-	context->data.data.ssl_structure = ssl_structure;
-	context->data.data.options = options;
+	context->data.secure.ssl_structure = ssl_structure;
+	context->data.secure.options = options;
 
 	return context;
 #endif
@@ -406,7 +408,7 @@ void free_connection_context(ConnectionContext* context) {
 	UNREACHABLE();
 #else
 
-	SSL_free(context->data.data.ssl_structure);
+	SSL_free(context->data.secure.ssl_structure);
 
 	free(context);
 #endif
@@ -440,7 +442,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 
 	descriptor->type = SecureOptionsTypeSecure;
 
-	SSL* ssl_structure = context->data.data.ssl_structure;
+	SSL* ssl_structure = context->data.secure.ssl_structure;
 
 	int result = SSL_set_fd(ssl_structure, native_fd);
 
@@ -499,8 +501,8 @@ int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
                                          ConnectionContext* const context, bool allow_reuse) {
 
 	if(!is_secure_descriptor(descriptor)) {
-		//TODO: we use shutdown in the ssl variant, shoudl we use it here too?
-		// shutdown(fd, SHUT_WR); 
+		// TODO: we use shutdown in the ssl variant, shoudl we use it here too?
+		//  shutdown(fd, SHUT_WR);
 		int result = close(descriptor->data.normal.fd);
 		free(descriptor);
 		return result;
@@ -570,11 +572,11 @@ int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
 
 		// if context is NULL; we don't allow reallocating of the new context
 		if(context != NULL) {
-			assert(context->data.data.ssl_structure == ssl_structure);
-			context->data.data.ssl_structure =
-			    new_ssl_structure_from_ctx(context->data.data.options->data.data->ssl_context);
+			assert(context->data.secure.ssl_structure == ssl_structure);
+			context->data.secure.ssl_structure =
+			    new_ssl_structure_from_ctx(context->data.secure.options->value.data->ssl_context);
 
-			if(context->data.data.ssl_structure == NULL) {
+			if(context->data.secure.ssl_structure == NULL) {
 				errno = ESSL;
 				return -1;
 			}
@@ -643,7 +645,7 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const desc
 		case SSL_ERROR_SSL:
 		default: {
 			// TODO: what is the best solution here? the err functions in openssl are powerfull,
-			// butz depeden on global (thread local?) state, and so they are not really safe to use
+			// but depends on global (thread local?) state, and so they are not really safe to use
 			// after this call returns, so we need to store the errors somehow...
 			ssl_error = ERR_get_error();
 			break;

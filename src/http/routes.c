@@ -296,7 +296,7 @@ HTTPRoutes* get_default_routes(void) {
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeSpecial,
-			        .data = { .special = { .type = HTTPRouteSpecialDataTypeShutdown } } },
+			        .value = { .special = { .type = HTTPRouteSpecialDataTypeShutdown } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
@@ -317,7 +317,7 @@ HTTPRoutes* get_default_routes(void) {
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal =
+			        .value = { .normal =
 			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorExtended,
 			                                     .fn = { .executor_extended =
 			                                                 index_executor_fn_extended } } } },
@@ -340,7 +340,7 @@ HTTPRoutes* get_default_routes(void) {
 			    },
 			.data =
 			    (HTTPRouteData){ .type = HTTPRouteTypeSpecial,
-			                     .data = { .special = { .type = HTTPRouteSpecialDataTypeWs } } },
+			                     .value = { .special = { .type = HTTPRouteSpecialDataTypeWs } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
@@ -361,7 +361,7 @@ HTTPRoutes* get_default_routes(void) {
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal =
+			        .value = { .normal =
 			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorExtended,
 			                                     .fn = { .executor_extended =
 			                                                 json_executor_fn_extended } } } },
@@ -385,7 +385,7 @@ HTTPRoutes* get_default_routes(void) {
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal =
+			        .value = { .normal =
 			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
 			                                     .fn = { .executor = static_executor_fn } } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
@@ -408,7 +408,7 @@ HTTPRoutes* get_default_routes(void) {
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal = (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
+			        .value = { .normal = (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutor,
 			                                           .fn = { .executor = huge_executor_fn } } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
@@ -430,7 +430,7 @@ HTTPRoutes* get_default_routes(void) {
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeNormal,
-			        .data = { .normal =
+			        .value = { .normal =
 			                      (HTTPRouteFn){ .type = HTTPRouteFnTypeExecutorAuth,
 			                                     .fn = { .executor_auth = auth_executor_fn } } } },
 			.auth = { .type = HTTPAuthorizationTypeSimple }
@@ -468,7 +468,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			.data =
 			    (HTTPRouteData){
 			        .type = HTTPRouteTypeSpecial,
-			        .data = { .special = { .type = HTTPRouteSpecialDataTypeShutdown } } },
+			        .value = { .special = { .type = HTTPRouteSpecialDataTypeShutdown } } },
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
@@ -505,7 +505,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			        .data = "/",
 			    },
 			.data = (HTTPRouteData){ .type = HTTPRouteTypeServeFolder,
-			                         .data = { .serve_folder =
+			                         .value = { .serve_folder =
 			                                       (HTTPRouteServeFolder){
 			                                           .type = HTTPRouteServeFolderTypeRelative,
 			                                           .folder_path = folder_path_resolved,
@@ -943,7 +943,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 					                           .additional_headers = additional_headers };
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-					                         .data = { .internal = { .send = to_send } } };
+					                         .value = { .internal = { .send = to_send } } };
 				return selected_route_from_data(route_data, route.path.data, normal_data,
 				                                auth_user);
 			}
@@ -959,7 +959,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 						                               TVEC_EMPTY(HttpHeaderField) };
 
 					HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-						                         .data = { .internal = { .send = to_send } } };
+						                         .value = { .internal = { .send = to_send } } };
 					return selected_route_from_data(route_data, route.path.data, normal_data,
 					                                auth_user);
 				}
@@ -983,7 +983,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				};
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-					                         .data = { .internal = { .send = to_send } } };
+					                         .value = { .internal = { .send = to_send } } };
 				return selected_route_from_data(route_data, route.path.data, normal_data,
 				                                auth_user);
 			}
@@ -1002,7 +1002,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				};
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-					                         .data = { .internal = { .send = to_send } } };
+					                         .value = { .internal = { .send = to_send } } };
 				return selected_route_from_data(route_data, route.path.data, normal_data,
 				                                auth_user);
 			}
@@ -1017,7 +1017,7 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				};
 
 				HTTPRouteData route_data = { .type = HTTPRouteTypeInternal,
-					                         .data = { .internal = { .send = to_send } } };
+					                         .value = { .internal = { .send = to_send } } };
 				return selected_route_from_data(route_data, route.path.data, normal_data,
 				                                auth_user);
 			}

@@ -121,7 +121,7 @@ typedef struct {
 		HTTPRouteInternal internal;
 		HTTPRouteFn normal;
 		HTTPRouteServeFolder serve_folder;
-	} data;
+	} value;
 } HTTPRouteData;
 
 typedef struct {

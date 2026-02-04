@@ -23,7 +23,7 @@ typedef struct {
 	SecureOptionsType type;
 	union {
 		SecureData* data;
-	} data;
+	} value;
 } SecureOptions;
 
 typedef struct ConnectionContextImpl ConnectionContext;

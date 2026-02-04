@@ -390,7 +390,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 	switch(route_data.type) {
 		case HTTPRouteTypeSpecial: {
 
-			switch(route_data.data.special.type) {
+			switch(route_data.value.special.type) {
 				case HTTPRouteSpecialDataTypeShutdown: {
 
 					HTTPResponseBody body;
@@ -547,19 +547,19 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 		case HTTPRouteTypeNormal: {
 
-			result = route_manager_execute_route(route_data.data.normal, descriptor, send_settings,
+			result = route_manager_execute_route(route_data.value.normal, descriptor, send_settings,
 			                                     http_request, context, selected_route_data.path,
 			                                     selected_route_data.auth_user);
 
 			break;
 		}
 		case HTTPRouteTypeInternal: {
-			result = send_http_message_to_connection(descriptor, route_data.data.internal.send,
+			result = send_http_message_to_connection(descriptor, route_data.value.internal.send,
 			                                         send_settings);
 			break;
 		}
 		case HTTPRouteTypeServeFolder: {
-			const HTTPRouteServeFolder data = route_data.data.serve_folder;
+			const HTTPRouteServeFolder data = route_data.value.serve_folder;
 
 			ServeFolderResult* serve_folder_result =
 			    get_serve_folder_content(http_properties, data, selected_route_data, send_body);
@@ -1256,7 +1256,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
 						                   "Normal ");
 
-						const HTTPRouteFn data = route.data.data.normal;
+						const HTTPRouteFn data = route.data.value.normal;
 
 						switch(data.type) {
 							case HTTPRouteFnTypeExecutor: {
@@ -1291,7 +1291,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 						LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
 						                   "Special: ");
 
-						const HTTPRouteSpecialData data = route.data.data.special;
+						const HTTPRouteSpecialData data = route.data.value.special;
 
 						switch(data.type) {
 							case HTTPRouteSpecialDataTypeShutdown: {
@@ -1323,7 +1323,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 					}
 					case HTTPRouteTypeServeFolder: {
 
-						const HTTPRouteServeFolder data = route.data.data.serve_folder;
+						const HTTPRouteServeFolder data = route.data.value.serve_folder;
 
 						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
 						            "Serve Folder: %s\n", data.folder_path);
