@@ -326,6 +326,29 @@ void buffered_reader_invalidate_old_data(BufferedReader* const reader) {
 	reader->data.cursor = 0;
 }
 
+NODISCARD bool buffered_reader_is_eof(BufferedReader* const reader) {
+
+	if(reader->state == StreamStateClosed) {
+		return true;
+	}
+
+	if(reader->data.cursor < reader->data.data.size) {
+		return false;
+	}
+
+	buffered_reader_get_more_data_exact(reader, 1);
+
+	if(reader->state == StreamStateClosed) {
+		return true;
+	}
+
+	if(reader->data.cursor < reader->data.data.size) {
+		return false;
+	}
+
+	return true;
+}
+
 void free_buffered_reader(BufferedReader* const reader) {
 	free_sized_buffer(reader->data.data);
 }

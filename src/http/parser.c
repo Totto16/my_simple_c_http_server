@@ -1045,6 +1045,11 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 				};
 			}
 
+			// this clear the buffer until the current cursor, everything we references from that is
+			// long dead now (hopefully xD, http2 or http1 keepalive state should not hold onto
+			// strings from there)
+			buffered_reader_invalidate_old_data(reader->reader);
+
 			return parse_next_http_request(reader);
 		}
 		case HTTPReaderStateEnd:
