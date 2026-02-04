@@ -988,7 +988,11 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 	if(reader->content.type == HTTPContentTypeV1) {
 
-		if(buffered_reader_is_eof(reader->reader)) {
+		// TODO: use eof, but that has problems, as some clients only close, after we have close
+		//  try to figure out, what the best solution would be
+		// see also finish_buffered_reader()
+
+		if(buffered_reader_has_more_data(reader->reader)) {
 			reader->state = HTTPReaderStateEnd;
 		} else {
 			// if we are not in a keepalive situation, any presence of a body is an error

@@ -342,17 +342,7 @@ void buffered_reader_invalidate_old_data(BufferedReader* const reader) {
 	reader->data.cursor = 0;
 }
 
-NODISCARD bool buffered_reader_is_eof(BufferedReader* const reader) {
-
-	if(reader->state == StreamStateClosed) {
-		return true;
-	}
-
-	if(reader->data.cursor < reader->data.data.size) {
-		return false;
-	}
-
-	buffered_reader_get_more_data_at_least_some(reader, 1);
+NODISCARD bool buffered_reader_has_more_data(const BufferedReader* const reader) {
 
 	if(reader->state == StreamStateClosed) {
 		return true;
@@ -372,6 +362,8 @@ void free_buffered_reader(BufferedReader* const reader) {
 
 bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* const context,
                             bool allow_reuse) {
+
+//TODO: maybe half close the tcp connection and check if more data is given, that woudl be a client error!
 
 	int result = close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
 	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", { return false; });

@@ -60,7 +60,7 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* reader, 
  */
 void buffered_reader_invalidate_old_data(BufferedReader* reader);
 
-NODISCARD bool buffered_reader_is_eof(BufferedReader* reader);
+NODISCARD bool buffered_reader_has_more_data(const BufferedReader* reader);
 
 void free_buffered_reader(BufferedReader* reader);
 

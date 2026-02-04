@@ -499,6 +499,8 @@ int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
                                          ConnectionContext* const context, bool allow_reuse) {
 
 	if(!is_secure_descriptor(descriptor)) {
+		//TODO: we use shutdown in the ssl variant, shoudl we use it here too?
+		// shutdown(fd, SHUT_WR); 
 		int result = close(descriptor->data.normal.fd);
 		free(descriptor);
 		return result;
