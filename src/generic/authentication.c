@@ -201,7 +201,7 @@ void free_authentication_provider(AuthenticationProvider* auth_provider) {
 
 void free_authentication_providers(AuthenticationProviders* auth_providers) {
 
-	for(size_t i = 0; i < TVEC_LENGTH(auth_providers->providers); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AuthenticationProviderPtr, auth_providers->providers); ++i) {
 		AuthenticationProvider** auth_provider =
 		    TVEC_GET_AT_MUT(AuthenticationProviderPtr, &(auth_providers->providers), i);
 		free_authentication_provider(*auth_provider);
@@ -684,7 +684,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 
 	TVEC_TYPENAME(AuthenticationFindResult) results = TVEC_EMPTY(AuthenticationFindResult);
 
-	for(size_t i = 0; i < TVEC_LENGTH(auth_providers->providers); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(AuthenticationProviderPtr, auth_providers->providers); ++i) {
 		AuthenticationProvider* provider =
 		    TVEC_AT(AuthenticationProviderPtr, auth_providers->providers, i);
 
@@ -735,7 +735,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		UNUSED(_);
 	}
 
-	size_t results_length = TVEC_LENGTH(results);
+	size_t results_length = TVEC_LENGTH(AuthenticationFindResult, results);
 
 	AuthenticationFindResult best_result = (AuthenticationFindResult){
 		.validity = AuthenticationValidityError,

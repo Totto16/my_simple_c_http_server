@@ -574,7 +574,7 @@ void free_ftp_command_array(FTPCommandArray* array) {
 		return;
 	}
 
-	for(size_t i = 0; i < TVEC_LENGTH(*array); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(FTPCommandPtr, *array); ++i) {
 		free_ftp_command(TVEC_AT(FTPCommandPtr, *array, i));
 	}
 

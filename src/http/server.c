@@ -1140,9 +1140,9 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		return EXIT_FAILURE;
 	}
 
-	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", TVEC_LENGTH(routes->routes));
+	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", TVEC_LENGTH(HTTPRoute, routes->routes));
 	if(log_should_log(LogLevelTrace)) {
-		for(size_t i = 0; i < TVEC_LENGTH(routes->routes); ++i) {
+		for(size_t i = 0; i < TVEC_LENGTH(HTTPRoute, routes->routes); ++i) {
 			HTTPRoute route = TVEC_AT(HTTPRoute, routes->routes, i);
 
 			LOG_MESSAGE(LogLevelTrace, "Route %zu:\n", i);

@@ -37,7 +37,7 @@ static int string_builder_append_string_impl(StringBuilder* string_builder, cons
 		return -1;
 	}
 
-	size_t current_size = TVEC_LENGTH(string_builder->value);
+	size_t current_size = TVEC_LENGTH(char, string_builder->value);
 
 	// allocate 0 byte at the end, if needed
 	size_t new_size = current_size + size + (current_size == 0 ? 1 : 0);
@@ -119,7 +119,7 @@ NODISCARD size_t string_builder_get_string_size(StringBuilder* string_builder) {
 		return 0;
 	}
 
-	size_t current_size = TVEC_LENGTH(string_builder->value);
+	size_t current_size = TVEC_LENGTH(char, string_builder->value);
 
 	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
 	return current_string_size;
@@ -135,7 +135,7 @@ NODISCARD SizedBuffer string_builder_release_into_sized_buffer(StringBuilder** s
 		return get_empty_sized_buffer();
 	}
 
-	size_t current_size = TVEC_LENGTH((*string_builder)->value);
+	size_t current_size = TVEC_LENGTH(char, (*string_builder)->value);
 
 	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
 

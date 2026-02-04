@@ -202,7 +202,7 @@ static void free_folder_info_entry(ServeFolderFolderEntry folder_info_entry) {
 
 static void free_folder_info(ServeFolderFolderInfo folder_info) {
 
-	for(size_t i = 0; i < TVEC_LENGTH(folder_info.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(ServeFolderFolderEntry, folder_info.entries); ++i) {
 
 		const ServeFolderFolderEntry entry =
 		    TVEC_AT(ServeFolderFolderEntry, folder_info.entries, i);
@@ -594,7 +594,7 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 		}
 	}
 
-	for(size_t i = 0; i < TVEC_LENGTH(folder_info.entries); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(ServeFolderFolderEntry, folder_info.entries); ++i) {
 
 		ServeFolderFolderEntry entry = TVEC_AT(ServeFolderFolderEntry, folder_info.entries, i);
 

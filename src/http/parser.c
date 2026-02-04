@@ -540,7 +540,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	// the body length is determined as given by this rfc entry:
 	// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3
 
-	for(size_t i = 0; i < TVEC_LENGTH(http_request.head.header_fields); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
 		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
 		if(strcasecmp(header.key, HTTP_HEADER_NAME(content_length)) == 0) {

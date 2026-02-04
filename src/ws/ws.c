@@ -127,7 +127,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const descriptor,
                                               SendSettings send_settings, WSExtensions extensions) {
 
-	size_t extension_length = TVEC_LENGTH(extensions);
+	size_t extension_length = TVEC_LENGTH(WSExtension, extensions);
 
 	if(extension_length == 0) {
 		return 0;
@@ -193,7 +193,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 	char* sec_key = NULL;
 	bool from_browser = false;
 
-	for(size_t i = 0; i < TVEC_LENGTH(http_request.head.header_fields); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
 		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
 		if(strcasecmp(header.key, HTTP_HEADER_NAME(host)) == 0) {

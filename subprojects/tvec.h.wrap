@@ -2,7 +2,7 @@
 directory = tvec.h
 url = https://github.com/Totto16/tvec.h.git
 # future branch
-revision = fe2b5b1947d1790a4986520a0e57d37228db2372
+revision = 71e659a0384a0e8c16701ca6217426336cce2686
 depth = 1
 
 [provide]

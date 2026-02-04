@@ -79,9 +79,9 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		}
 	}
 
-	size_t current_array_size = TVEC_LENGTH(response->head.header_fields);
+	size_t current_array_size = TVEC_LENGTH(HttpHeaderField, response->head.header_fields);
 
-	size_t additional_headers_size = TVEC_LENGTH(additional_headers);
+	size_t additional_headers_size = TVEC_LENGTH(HttpHeaderField, additional_headers);
 
 	auto _ = TVEC_RESERVE(HttpHeaderField, &response->head.header_fields,
 	                      current_array_size + additional_headers_size);

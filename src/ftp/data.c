@@ -792,7 +792,7 @@ NODISCARD static bool nts_internal_close_connection(DataController* data_control
 	ConnectionsToClose* connections_to_close =
 	    nts_internal_data_connections_to_close(data_controller, connection);
 
-	if(TVEC_LENGTH(*connections_to_close) > 1) {
+	if(TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close) > 1) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		                   "ASSERT: maximal one connection should be closed, if we set a filter\n");
 
@@ -800,7 +800,7 @@ NODISCARD static bool nts_internal_close_connection(DataController* data_control
 		return false;
 	}
 
-	for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close); ++i) {
 		ConnectionDescriptor* connection_to_close =
 		    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 		close_connection_descriptor(connection_to_close);

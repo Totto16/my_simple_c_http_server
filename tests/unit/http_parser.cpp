@@ -115,7 +115,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionSettingsCpp compression_settings = CompressionSettingsCpp(http_header_fields);
 
-		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 0);
 	}
@@ -124,7 +124,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" compress, gzip");
 
-		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 2);
 
@@ -151,7 +151,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionSettingsCpp compression_settings = CompressionSettingsCpp("");
 
-		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 0);
 	}
@@ -160,7 +160,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 		CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" *");
 
-		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 1);
 
@@ -177,7 +177,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 		CompressionSettingsCpp compression_settings =
 		    CompressionSettingsCpp(" deflate;q=0.5, br;q=1.0");
 
-		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 2);
 
@@ -204,7 +204,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 		CompressionSettingsCpp compression_settings =
 		    CompressionSettingsCpp(" zstd;q=1.0, identity; q=0.5, *;q=0");
 
-		size_t entries_length = TVEC_LENGTH(compression_settings.entries());
+		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
 		REQUIRE_EQ(entries_length, 3);
 

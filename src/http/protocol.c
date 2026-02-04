@@ -34,7 +34,7 @@ static void free_http_request_line(HttpRequestLine line) {
 
 static void free_request_head(HttpRequestHead head) {
 	free_http_request_line(head.request_line);
-	for(size_t i = 0; i < TVEC_LENGTH(head.header_fields); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, head.header_fields); ++i) {
 		// same elegant freeing but two at once :)
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, head.header_fields, i);
 		free(entry.key);
@@ -83,7 +83,7 @@ typedef struct {
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath search_path,
                                                        const char* key) {
 
-	if(TMAP_IS_EMPTY(ParsedSearchPathHashMap,&search_path.hash_map)) {
+	if(TMAP_IS_EMPTY(ParsedSearchPathHashMap, &search_path.hash_map)) {
 		return NULL;
 	}
 
@@ -151,7 +151,7 @@ const char* get_status_message(HttpStatusCode status_code) {
 
 NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
 
-	for(size_t i = 0; i < TVEC_LENGTH(array); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, array); ++i) {
 		HttpHeaderField* header = TVEC_GET_AT_MUT(HttpHeaderField, &array, i);
 		if(strcasecmp(header->key, key) == 0) {
 			return header;
@@ -206,7 +206,7 @@ SendSettings get_send_settings(const RequestSettings request_settings) {
 
 	CompressionEntries entries = request_settings.compression_settings.entries;
 
-	size_t entries_length = TVEC_LENGTH(entries);
+	size_t entries_length = TVEC_LENGTH(CompressionEntry, entries);
 
 	if(entries_length == 0) {
 		return result;
@@ -247,7 +247,7 @@ break_for:
 }
 
 void free_http_header_fields(HttpHeaderFields* header_fields) {
-	for(size_t i = 0; i < TVEC_LENGTH(*header_fields); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, *header_fields); ++i) {
 		// same elegant freeing but two at once :)
 
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, *header_fields, i);
@@ -301,7 +301,7 @@ HttpConcattedResponse* http_response_concat(HttpResponse* response) {
 	                       response->head.response_line.status_code,
 	                       response->head.response_line.status_message, HTTP_LINE_SEPERATORS);
 
-	for(size_t i = 0; i < TVEC_LENGTH(response->head.header_fields); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, response->head.header_fields); ++i) {
 
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, response->head.header_fields, i);
 

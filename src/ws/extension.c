@@ -8,7 +8,6 @@
 
 TVEC_IMPLEMENT_VEC_TYPE(WSExtension)
 
-
 #define DEFAULT_MAX_WINDOW_BITS 15
 
 #define MIN_MAX_WINDOW_BITS 8
@@ -279,7 +278,7 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 		return NULL;
 	}
 
-	size_t extensions_length = TVEC_LENGTH(extensions);
+	size_t extensions_length = TVEC_LENGTH(WSExtension, extensions);
 
 	for(size_t i = 0; i < extensions_length; ++i) {
 		WSExtension extension = TVEC_AT(WSExtension, extensions, i);
@@ -339,7 +338,7 @@ struct ExtensionMessageReceiveStateImpl {
 NODISCARD static ExtensionReceivePipelineSettings get_pipeline_settings(WSExtensions extensions) {
 	ExtensionReceivePipelineSettings settings = { .allowed_rsv_bytes = 0 };
 
-	for(size_t i = 0; i < TVEC_LENGTH(extensions); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(WSExtension, extensions); ++i) {
 		WSExtension extension = TVEC_AT(WSExtension, extensions, i);
 
 		switch(extension.type) {
@@ -387,7 +386,7 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 
 	const ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
 
-	size_t process_arg_length = TVEC_LENGTH(*process_arg);
+	size_t process_arg_length = TVEC_LENGTH(WsProcessFn, *process_arg);
 
 	if(process_arg_length == 0) {
 		return NULL;
@@ -412,7 +411,7 @@ static char* array_process_send_fn(WebSocketMessage* message,
 
 	ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
 
-	for(size_t i = 0; i < TVEC_LENGTH(*process_arg); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(WsProcessFn, *process_arg); ++i) {
 		WsProcessFn process_fn = TVEC_AT(WsProcessFn, *process_arg, i);
 
 		char* error = process_fn.send_fn(message, message_state, process_fn.arg);
@@ -545,7 +544,7 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 	extension_pipeline->settings = get_pipeline_settings(extensions);
 	extension_pipeline->extension_mask = WsExtensionMaskNone;
 
-	size_t extension_length = TVEC_LENGTH(extensions);
+	size_t extension_length = TVEC_LENGTH(WSExtension, extensions);
 	extension_pipeline->active_extensions = extension_length;
 
 	if(extension_length == 0) {

@@ -195,7 +195,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 			continue;
 		}
 
-		for(size_t i = 0; i < TVEC_LENGTH(*ftp_commands); ++i) {
+		for(size_t i = 0; i < TVEC_LENGTH(FTPCommandPtr, *ftp_commands); ++i) {
 			FTPCommand* command = TVEC_AT(FTPCommandPtr, *ftp_commands, i);
 			bool successfull = ftp_process_command(descriptor, server_addr, argument, command);
 			if(!successfull) {
@@ -689,7 +689,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
+				for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
@@ -882,7 +883,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
+				for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
@@ -1103,7 +1105,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
+				for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
@@ -1583,7 +1586,8 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument.data_controller);
 
-				for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
+				for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 					close_connection_descriptor(connection_to_close);
@@ -1644,7 +1648,8 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			ConnectionsToClose* connections_to_close =
 			    data_connections_to_close(argument.data_controller);
 
-			for(size_t i = 0; i < TVEC_LENGTH(*connections_to_close); ++i) {
+			for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+			    ++i) {
 				ConnectionDescriptor* connection_to_close =
 				    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 				close_connection_descriptor(connection_to_close);
@@ -1882,8 +1887,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
 		ConnectionContext* context = get_connection_context(final_options);
 
-		auto _ = TVEC_SET_AT(ConnectionContextPtr, &control_contexts,
-		                              i, context);
+		auto _ = TVEC_SET_AT(ConnectionContextPtr, &control_contexts, i, context);
 		UNUSED(_);
 	}
 

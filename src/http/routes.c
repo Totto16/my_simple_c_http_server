@@ -543,7 +543,7 @@ static void free_routes(HTTPRoutes* routes) {
 
 	TVEC_FREE(HTTPRoute, &routes->routes);
 
-	for(size_t i = 0; i < TVEC_LENGTH(routes->free_fns); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(HTTPFreeFn, routes->free_fns); ++i) {
 		HTTPFreeFn free_fn = TVEC_AT(HTTPFreeFn, routes->free_fns, i);
 		free_fn.fn(free_fn.data);
 	}
@@ -1039,7 +1039,7 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 
 	const ParsedURLPath normal_data = http_properties.data.normal;
 
-	for(size_t i = 0; i < TVEC_LENGTH(route_manager->routes->routes); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(HTTPRoute, route_manager->routes->routes); ++i) {
 		HTTPRoute route = TVEC_AT(HTTPRoute, route_manager->routes->routes, i);
 
 		if(is_matching(route.method, request.head.request_line.method)) {
