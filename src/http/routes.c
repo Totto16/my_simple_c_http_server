@@ -65,7 +65,7 @@ well_known_folder_fn_extended(SendSettings /* send_settings */, const HttpReques
 
 		StringBuilder* builder = log_collector_to_string_builder(collector);
 
-		if(!builder) {
+		if(builder == NULL) {
 
 			HTTPResponseToSend to_send = { .status = HttpStatusInternalServerError,
 				                           .body = http_response_body_from_static_string(
@@ -566,7 +566,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			    },
 			.data =
 			    (HTTPRouteData){
-			        .type = HTTPRouteTypeSpecial,
+			        .type = HTTPRouteTypeNormal,
 			        .value = { .normal =
 			                       (HTTPRouteFn){
 			                           .type = HTTPRouteFnTypeExecutorExtended,

@@ -102,11 +102,10 @@ NODISCARD char* string_builder_release_into_string(StringBuilder** string_builde
 		return NULL;
 	}
 
-	// note, the stbds_array header is before this, so we need to duplicate the value only and free
-	// that array later
-	char* value = strdup((*string_builder)->value.data);
+	// getting the data and then just free the container around, this is safe to do with the TVEC
+	char* value = (*string_builder)->value.data;
 
-	free_string_builder(*string_builder);
+	free(*string_builder);
 
 	*string_builder = NULL;
 
@@ -135,13 +134,18 @@ NODISCARD SizedBuffer string_builder_release_into_sized_buffer(StringBuilder** s
 		return get_empty_sized_buffer();
 	}
 
+	if((*string_builder)->value.data == NULL) {
+		return get_empty_sized_buffer();
+	}
+
 	size_t current_size = TVEC_LENGTH(char, (*string_builder)->value);
 
 	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
 
 	// note, the stbds_array header is before this, so we need to duplicate the value only and free
 	// that array later
-	SizedBuffer result = { .data = strdup((*string_builder)->value.data),
+	SizedBuffer result = { .data = strndup((*string_builder)->value.data,
+		                                   (*string_builder)->value.length),
 		                   .size = current_string_size };
 
 	free_string_builder(*string_builder);
