@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <pthread.h>
 
+TVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionDescriptor*, ConnectionDescriptorPtr)
+
 // the timeout is 30 seconds
 #define DATA_CONNECTION_WAIT_FOR_INTERNAL_NEGOTIATION_TIMEOUT_S_D 30.0
 
@@ -48,7 +50,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } DataConnectionControlState;
 
 typedef struct {
-	bool active;
+	bool is_active;
 	union {
 		FTPPortField port;
 		FTPConnectAddr addr;
@@ -65,7 +67,7 @@ typedef struct {
 } ActiveConnectedDataImpl;
 
 typedef struct {
-	bool connected;
+	bool is_connected;
 	union {
 		ActiveResumeDataImpl resume_data;
 		ActiveConnectedDataImpl conn_data;
@@ -158,8 +160,8 @@ NODISCARD static bool nts_internal_set_last_change_to_now(DataConnection* connec
 	bool clock_result = get_monotonic_time(&current_time);
 
 	if(!clock_result) {
-		LOG_MESSAGE(LogLevelError | LogPrintLocation, "Getting the time failed: %s\n",
-		            strerror(errno));
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "Getting the time failed: %s\n", strerror(errno));
 		return false;
 	}
 
@@ -191,7 +193,7 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 
 			DataConnection* current_conn = data_controller->connections[i];
 
-			if(!current_conn->identifier.active &&
+			if(!current_conn->identifier.is_active &&
 			   current_conn->identifier.data.port == port_metadata->port) {
 				connection = current_conn;
 
@@ -212,7 +214,7 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 
 			// NOTE: no check is performed, if this is a duplicate
 
-			connection->identifier.active = false;
+			connection->identifier.is_active = false;
 			connection->identifier.data.port = port_metadata->port;
 			connection->state = DataConnectionStateEmpty;
 			connection->descriptor = NULL;
@@ -227,6 +229,9 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 			if(port_metadata->associated_connection == NULL) {
 				port_metadata->associated_connection = connection;
 			}
+
+			// TODO: we have many places, where raw ararys instead of ZVEc are used, fix that,
+			// search for realloc for that!
 
 			data_controller->connections_size++;
 			DataConnection** new_conns = (DataConnection**)realloc(
@@ -352,13 +357,14 @@ NODISCARD static bool nts_internal_should_close_connection(DataConnection* conne
 	return false;
 }
 
-NODISCARD static ConnectionsToClose
+NODISCARD static ConnectionsToClose*
 nts_internal_data_connections_to_close(DataController* data_controller, DataConnection* filter) {
-	ConnectionsToClose connections = STBDS_ARRAY_EMPTY;
+	ConnectionsToClose* connections = malloc(sizeof(ConnectionsToClose));
 
-	if(!connections) {
+	if(connections == NULL) {
 		goto cleanup;
 	}
+	*connections = TVEC_EMPTY(ConnectionDescriptorPtr);
 
 	{
 
@@ -372,7 +378,7 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 			       current_conn) &&
 			   (filter == NULL || current_conn == filter)) {
 
-				if(!current_conn->identifier.active) {
+				if(!current_conn->identifier.is_active) {
 					// dealloc port
 
 					bool port_found = false;
@@ -395,8 +401,8 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 					}
 				}
 
-				stbds_arrput( // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
-				    connections, current_conn->descriptor);
+				auto _ = TVEC_PUSH(ConnectionDescriptorPtr, connections, current_conn->descriptor);
+				UNUSED(_);
 			} else {
 
 				data_controller->connections[current_keep_index] = current_conn;
@@ -427,13 +433,13 @@ cleanup:
 	return connections;
 }
 
-ConnectionsToClose data_connections_to_close(DataController* data_controller) {
+ConnectionsToClose* data_connections_to_close(DataController* data_controller) {
 	int result = pthread_mutex_lock(&data_controller->mutex);
 	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to lock the mutex for the data_controller",
 	    return NULL;);
 
-	ConnectionsToClose connections = nts_internal_data_connections_to_close(data_controller, NULL);
+	ConnectionsToClose* connections = nts_internal_data_connections_to_close(data_controller, NULL);
 
 	result = pthread_mutex_unlock(&data_controller->mutex);
 	// TODO(Totto): better report error
@@ -449,15 +455,16 @@ nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 
 	switch(settings.mode) {
 		case FtpDataModeActive: {
-			return (ConnectionTypeIdentifier){ .active = true, .data = { .addr = settings.addr } };
+			return (ConnectionTypeIdentifier){ .is_active = true,
+				                               .data = { .addr = settings.addr } };
 		}
 		case FtpDataModePassive: {
-			return (ConnectionTypeIdentifier){ .active = false,
+			return (ConnectionTypeIdentifier){ .is_active = false,
 				                               .data = { .port = settings.addr.port } };
 		}
 		case FtpDataModeNone:
 		default: {
-			return (ConnectionTypeIdentifier){ .active = false, .data = { .port = 0 } };
+			return (ConnectionTypeIdentifier){ .is_active = false, .data = { .port = 0 } };
 		}
 	}
 }
@@ -465,7 +472,7 @@ nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 NODISCARD static bool
 nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* active_conn_data) {
 
-	if(active_conn_data->connected) {
+	if(active_conn_data->is_connected) {
 		return true;
 	}
 
@@ -502,7 +509,7 @@ nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* active_
 
 connected:
 
-	active_conn_data->connected = true;
+	active_conn_data->is_connected = true;
 
 	active_conn_data->data.conn_data.sock_fd = resume_data->sock_fd;
 	free(resume_data->connect_addr);
@@ -541,9 +548,9 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 	// has Little Endian
 	connect_addr->sin_port = htons(addr.port);
 
-	connect_addr->sin_addr.s_addr = htonl(addr.addr);
+	connect_addr->sin_addr = addr.addr.underlying;
 
-	active_conn_data->connected = false;
+	active_conn_data->is_connected = false;
 
 	active_conn_data->data.resume_data.sock_fd = sock_fd;
 	active_conn_data->data.resume_data.connect_addr = connect_addr;
@@ -563,17 +570,17 @@ NODISCARD static bool nts_internal_addr_eq(FTPConnectAddr addr1, FTPConnectAddr 
 		return false;
 	}
 
-	return addr1.addr == addr2.addr;
+	return addr1.addr.underlying.s_addr == addr2.addr.underlying.s_addr;
 }
 
 NODISCARD static bool nts_internal_conn_identifier_eq(ConnectionTypeIdentifier ident1,
                                                       ConnectionTypeIdentifier ident2) {
 
-	if(ident1.active != ident2.active) {
+	if(ident1.is_active != ident2.is_active) {
 		return false;
 	}
 
-	if(ident1.active) {
+	if(ident1.is_active) {
 		return nts_internal_addr_eq(ident1.data.addr, ident2.data.addr);
 	}
 
@@ -595,7 +602,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 		ConnectionTypeIdentifier identifier = nts_internal_conn_identifier_from_settings(settings);
 
-		if(!identifier.active && identifier.data.port == 0) {
+		if(!identifier.is_active && identifier.data.port == 0) {
 			goto cleanup;
 		}
 
@@ -635,7 +642,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 				}
 
 				if(current_conn // NOLINT(readability-implicit-bool-conversion)
-				       ->identifier.active &&
+				       ->identifier.is_active &&
 				   current_conn->active_data != NULL) {
 
 					if(!nts_internal_try_if_active_connection_is_connected(
@@ -643,7 +650,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 						goto cleanup;
 					}
 
-					if(current_conn->active_data->connected) {
+					if(current_conn->active_data->is_connected) {
 						connection = current_conn;
 						connection->state = DataConnectionStateHasBoth;
 						connection->control_state = DataConnectionControlStateRetrieved;
@@ -705,7 +712,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 			data_controller->connections[data_controller->connections_size - 1] = new_connection;
 			connection = NULL;
 
-			if(identifier.active) {
+			if(identifier.is_active) {
 
 				// setup connect_data
 
@@ -718,7 +725,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 				new_connection->active_data = active_data;
 
-				if(new_connection->active_data->connected) {
+				if(new_connection->active_data->is_connected) {
 					connection = new_connection;
 					connection->state = DataConnectionStateHasBoth;
 					connection->control_state = DataConnectionControlStateRetrieved;
@@ -779,26 +786,27 @@ cleanup:
 	return descriptor;
 }
 
-NODISCARD bool nts_internal_close_connection(DataController* data_controller,
-                                             DataConnection* connection) {
+NODISCARD static bool nts_internal_close_connection(DataController* data_controller,
+                                                    DataConnection* connection) {
 
-	ConnectionsToClose connections_to_close =
+	ConnectionsToClose* connections_to_close =
 	    nts_internal_data_connections_to_close(data_controller, connection);
 
-	if(stbds_arrlenu(connections_to_close) > 1) {
-		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+	if(TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close) > 1) {
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		                   "ASSERT: maximal one connection should be closed, if we set a filter\n");
 
-		stbds_arrfree(connections_to_close);
+		TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 		return false;
 	}
 
-	for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-		ConnectionDescriptor* connection_to_close = connections_to_close[i];
+	for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close); ++i) {
+		ConnectionDescriptor* connection_to_close =
+		    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
 		close_connection_descriptor(connection_to_close);
 	}
 
-	stbds_arrfree(connections_to_close);
+	TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 	return true;
 }
 

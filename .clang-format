@@ -13,4 +13,4 @@ PointerAlignment: Left
 SpaceBeforeParens: Never
 TabWidth: 4
 UseTab: ForIndentation
-
+IndentPPDirectives: BeforeHash

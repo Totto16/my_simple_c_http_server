@@ -41,6 +41,8 @@ void print_job_error(JobError error) {
 		error_str = "GetSockName";
 	} else if(error == JOB_ERROR_CONNECTION_ADD) {
 		error_str = "ConnectionAdd";
+	} else if(error == JOB_ERROR_CLEANUP_CONNECTION) {
+		error_str = "CleanupConnection";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Job Error: %s\n", error_str);

@@ -5,17 +5,17 @@
 
 #if defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_GZIP) || \
     defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE)
-#include <zlib.h>
+	#include <zlib.h>
 #endif
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
-#include <brotli/encode.h>
+	#include <brotli/encode.h>
 #endif
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
-#include <zstd.h>
+	#include <zstd.h>
 #endif
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS
-#include <buffer.h>
-#include <compressor/main.h>
+	#include <buffer.h>
+	#include <compressor/main.h>
 #endif
 
 bool is_compression_supported(CompressionType format) {
@@ -77,12 +77,12 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	ZlibModeDeflateRaw,
 } ZlibMode;
 
-#define Z_MEMORY_USAGE_LEVEL 8 // 1-9
+	#define Z_MEMORY_USAGE_LEVEL 8 // 1-9
 
-#define Z_MIN_WINDOW_BITS 8
-#define Z_MAX_WINDOW_BITS 15
+	#define Z_MIN_WINDOW_BITS 8
+	#define Z_MAX_WINDOW_BITS 15
 
-#define Z_GZIP_ENCODING 16 // not inside the zlib header, unfortunately
+	#define Z_GZIP_ENCODING 16 // not inside the zlib header, unfortunately
 
 // see https://zlib.net/manual.html
 NODISCARD static SizedBuffer
@@ -199,7 +199,7 @@ compress_buffer_with_zlib_impl(SizedBuffer buffer,
 	return result_buffer;
 }
 
-#define Z_DEFAULT_WINDOW_SIZE 15 // 8-15
+	#define Z_DEFAULT_WINDOW_SIZE 15 // 8-15
 
 NODISCARD static SizedBuffer compress_buffer_with_zlib_compat(SizedBuffer buffer, bool gzip) {
 
@@ -209,7 +209,7 @@ NODISCARD static SizedBuffer compress_buffer_with_zlib_compat(SizedBuffer buffer
 	    Z_DEFAULT_WINDOW_SIZE, Z_FINISH);
 }
 
-#define WS_FLUSH_MODE Z_SYNC_FLUSH
+	#define WS_FLUSH_MODE Z_SYNC_FLUSH
 
 NODISCARD SizedBuffer compress_buffer_with_zlib_for_ws(SizedBuffer buffer, size_t max_window_bits) {
 	return compress_buffer_with_zlib_impl(buffer, ZlibModeDeflateRaw, max_window_bits,
@@ -351,8 +351,8 @@ static SizedBuffer compress_buffer_with_deflate(SizedBuffer buffer) {
 
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_BR
 
-#define BROTLI_QUALITY 11     // 0-11
-#define BROTLI_WINDOW_SIZE 15 // 10-24
+	#define BROTLI_QUALITY 11     // 0-11
+	#define BROTLI_WINDOW_SIZE 15 // 10-24
 
 static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 
@@ -441,9 +441,9 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_ZSTD
 
-#define ZSTD_COMPRESSION_LEVEL 10 // 1-22
+	#define ZSTD_COMPRESSION_LEVEL 10 // 1-22
 
-#define ZSTD_CHUNK_SIZE 15 // not a windows size, just the chunk size
+	#define ZSTD_CHUNK_SIZE 15 // not a windows size, just the chunk size
 
 static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 
@@ -520,13 +520,13 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 
 #ifdef _SIMPLE_SERVER_COMPRESSION_SUPPORT_COMPRESS
 
-#ifdef NDEBUG
-#define COMPRESS_QUIET true
-#else
-#define COMPRESS_QUIET false
-#endif
+	#ifdef NDEBUG
+		#define COMPRESS_QUIET true
+	#else
+		#define COMPRESS_QUIET false
+	#endif
 
-#define COMPRESS_WINDOWS_SIZE 13
+	#define COMPRESS_WINDOWS_SIZE 13
 
 NODISCARD static const char* get_lzws_error(int error) {
 	switch(error) {

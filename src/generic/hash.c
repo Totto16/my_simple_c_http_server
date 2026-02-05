@@ -4,7 +4,7 @@
 #include "utils/log.h"
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
-#include <bcrypt.h>
+	#include <bcrypt.h>
 #endif
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
@@ -13,9 +13,10 @@ struct HashSaltResultTypeImpl {
 	char hash[BCRYPT_HASHSIZE];
 };
 
-NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* string) {
+NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings,
+                                               const char* const string) {
 
-	char* password_to_use = string;
+	const char* password_to_use = string;
 
 	if(settings.use_sha512) {
 
@@ -125,14 +126,14 @@ void free_hash_salted_result(HashSaltResultType* hash_salted_string) {
 
 // see: https://docs.openssl.org/3.5/man3/
 
-#ifdef _SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS
+	#ifdef _SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS
 
-#include <openssl/sha.h>
+		#include <openssl/sha.h>
 
 SizedBuffer get_sha1_from_string(const char* string) {
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+		#pragma GCC diagnostic push
+		#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 	SHA_CTX sha_context;
 
@@ -151,13 +152,14 @@ SizedBuffer get_sha1_from_string(const char* string) {
 	uint8_t* sha1_result = malloc(SHA_DIGEST_LENGTH * sizeof(uint8_t));
 
 	if(!sha1_result) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return get_empty_sized_buffer();
 	}
 
 	result = SHA1_Final(sha1_result, &sha_context);
 
-#pragma GCC diagnostic pop
+		#pragma GCC diagnostic pop
 
 	if(result != 1) {
 		return get_empty_sized_buffer();
@@ -166,9 +168,9 @@ SizedBuffer get_sha1_from_string(const char* string) {
 	return (SizedBuffer){ .data = sha1_result, .size = SHA_DIGEST_LENGTH };
 }
 
-#else
+	#else
 
-#include <openssl/evp.h>
+		#include <openssl/evp.h>
 
 SizedBuffer get_sha1_from_string(const char* string) {
 
@@ -191,7 +193,8 @@ SizedBuffer get_sha1_from_string(const char* string) {
 	uint8_t* sha1_result = malloc(EVP_MAX_MD_SIZE * sizeof(uint8_t));
 
 	if(!sha1_result) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return get_empty_sized_buffer();
 	}
 
@@ -210,13 +213,13 @@ SizedBuffer get_sha1_from_string(const char* string) {
 	return (SizedBuffer){ .data = sha1_result, .size = hash_len };
 }
 
-#endif
+	#endif
 
 #else
 
-#define SHA1_LEN 20
+	#define SHA1_LEN 20
 
-#include <sha1/sha1.h>
+	#include <sha1/sha1.h>
 
 SizedBuffer get_sha1_from_string(const char* string) {
 
@@ -229,7 +232,8 @@ SizedBuffer get_sha1_from_string(const char* string) {
 	uint8_t* sha1_result = malloc(SHA1_LEN * sizeof(uint8_t));
 
 	if(!sha1_result) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return get_empty_sized_buffer();
 	}
 
@@ -242,9 +246,9 @@ SizedBuffer get_sha1_from_string(const char* string) {
 
 #ifdef _SIMPLE_SERVER_USE_OPENSSL_FOR_HASHING
 
-#include <openssl/bio.h>
-#include <openssl/buffer.h>
-#include <openssl/evp.h> //NOLINT(readability-duplicate-include)
+	#include <openssl/bio.h>
+	#include <openssl/buffer.h>
+	#include <openssl/evp.h> //NOLINT(readability-duplicate-include)
 
 NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 
@@ -273,7 +277,7 @@ NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 	return result;
 }
 
-#define B64_CHUNCK_SIZE 512
+	#define B64_CHUNCK_SIZE 512
 
 NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 	if(input_buffer.size == 0) {
@@ -327,7 +331,7 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 
 #else
 
-#include <b64/b64.h>
+	#include <b64/b64.h>
 
 NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 	return b64_encode(input_buffer.data, input_buffer.size);
@@ -344,12 +348,12 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 
 NODISCARD const char* get_sha1_provider(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL_FOR_HASHING
-#ifdef _SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS
+	#ifdef _SIMPLE_SERVER_USE_DEPRECATED_OPENSSL_SHA_FUNCTIONS
 
 	return "openssl (Deprecated)";
-#else
+	#else
 	return "openssl (EVP)";
-#endif
+	#endif
 #else
 	return "thirdparty";
 #endif
@@ -365,9 +369,9 @@ NODISCARD const char* get_base64_provider(void) {
 
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
 
-#include <openssl/conf.h>
-#include <openssl/crypto.h>
-#include <openssl/err.h>
+	#include <openssl/conf.h>
+	#include <openssl/crypto.h>
+	#include <openssl/err.h>
 
 void openssl_initialize_crypto_thread_state(void) {
 	uint64_t options = 0;

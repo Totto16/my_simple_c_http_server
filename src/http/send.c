@@ -2,6 +2,8 @@
 
 #include "./send.h"
 #include "generic/send.h"
+#include "http/header.h"
+#include "http/mime.h"
 
 NODISCARD static int
 send_concatted_response_to_connection(const ConnectionDescriptor* const descriptor,
@@ -20,11 +22,12 @@ send_concatted_response_to_connection(const ConnectionDescriptor* const descript
 	return result;
 }
 
-static bool construct_headers_for_request(HttpResponse* response, const char* mime_type,
+static bool construct_headers_for_request(SendSettings send_settings, HttpResponse* response,
+                                          const char* mime_type,
                                           HttpHeaderFields additional_headers,
                                           CompressionType compression_format) {
 
-	response->head.header_fields = STBDS_ARRAY_EMPTY;
+	response->head.header_fields = TVEC_EMPTY(HttpHeaderField);
 
 	// add standard fields
 
@@ -34,7 +37,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		// add the standard ones, using %c with '\0' to use the trick, described above
 		char* content_type_buffer = NULL;
 		FORMAT_STRING(&content_type_buffer, return NULL;
-		              , "%s%c%s", "Content-Type", '\0',
+		              , "%s%c%s", HTTP_HEADER_NAME(content_type), '\0',
 		              mime_type == NULL ? DEFAULT_MIME_TYPE : mime_type);
 
 		add_http_header_field_by_double_str(&response->head.header_fields, content_type_buffer);
@@ -45,9 +48,26 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 
 		char* content_length_buffer = NULL;
 		FORMAT_STRING(&content_length_buffer, return NULL;
-		              , "%s%c%ld", "Content-Length", '\0', response->body.size);
+		              , "%s%c%ld", HTTP_HEADER_NAME(content_length), '\0', response->body.size);
 
 		add_http_header_field_by_double_str(&response->head.header_fields, content_length_buffer);
+	}
+
+	{
+
+		// Eventual Connection header
+
+		// TODO. once we support http1.1 keepalive, remove this
+
+		/* if(send_settings.protocol_to_use != HTTPProtocolVersion2) {
+
+		    char* connection_buffer = NULL;
+		    FORMAT_STRING(&connection_buffer, return NULL;
+		                  , "%s%c%s", HTTP_HEADER_NAME(connection), '\0', "close");
+
+		    add_http_header_field_by_double_str(&response->head.header_fields, connection_buffer);
+		} */
+		UNUSED(send_settings);
 	}
 
 	{
@@ -55,7 +75,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 
 		char* server_buffer = NULL;
 		FORMAT_STRING(&server_buffer, return NULL;
-		              , "%s%c%s", "Server", '\0',
+		              , "%s%c%s", HTTP_HEADER_NAME(server), '\0',
 		              "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
 		add_http_header_field_by_double_str(&response->head.header_fields, server_buffer);
@@ -69,7 +89,7 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 			// add the standard ones, using %c with '\0' to use the trick, described above
 			char* content_encoding_buffer = NULL;
 			FORMAT_STRING(&content_encoding_buffer, return NULL;
-			              , "%s%c%s", "Content-Encoding", '\0',
+			              , "%s%c%s", HTTP_HEADER_NAME(content_encoding), '\0',
 			              get_string_for_compress_format(compression_format));
 
 			add_http_header_field_by_double_str(&response->head.header_fields,
@@ -77,22 +97,25 @@ static bool construct_headers_for_request(HttpResponse* response, const char* mi
 		}
 	}
 
-	size_t current_array_size = stbds_arrlenu(response->head.header_fields);
+	size_t current_array_size = TVEC_LENGTH(HttpHeaderField, response->head.header_fields);
 
-	size_t header_size = stbds_arrlenu(additional_headers);
+	size_t additional_headers_size = TVEC_LENGTH(HttpHeaderField, additional_headers);
 
-	stbds_arrsetcap(response->head.header_fields, current_array_size + header_size);
+	auto _ = TVEC_RESERVE(HttpHeaderField, &response->head.header_fields,
+	                      current_array_size + additional_headers_size);
+	UNUSED(_);
 
-	for(size_t i = 0; i < header_size; ++i) {
+	for(size_t i = 0; i < additional_headers_size; ++i) {
 
-		HttpHeaderField field = additional_headers[i];
+		HttpHeaderField field = TVEC_AT(HttpHeaderField, additional_headers, i);
 
-		stbds_arrput(response->head.header_fields, field);
+		auto _1 = TVEC_PUSH(HttpHeaderField, &response->head.header_fields, field);
+		UNUSED(_1);
 	}
 
 	// if additional Headers are specified free them now
-	if(header_size > 0) {
-		stbds_arrfree(additional_headers);
+	if(additional_headers_size > 0) {
+		TVEC_FREE(HttpHeaderField, &additional_headers);
 	}
 
 	return true;
@@ -105,16 +128,22 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 
 	HttpResponse* response = (HttpResponse*)malloc_with_memset(sizeof(HttpResponse), true);
 
-	if(!response) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+	if(response == NULL) {
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return NULL;
 	}
 
-	// using the same trick as before, \0 in the malloced string :)
-	const char* protocol_version = get_http_protocol_version_string(HTTPProtocolVersion1Dot1);
+	// TODO(Totto): switch on to_send.protocol
+
+	HTTPProtocolVersion version_to_use = send_settings.protocol_to_use;
+
+	const char* protocol_version = get_http_protocol_version_string(version_to_use);
+
 	size_t protocol_length = strlen(protocol_version);
 	const char* status_message = get_status_message(to_send.status);
 
+	// using the same trick as before, \0 in the malloced string :)
 	char* response_line_buffer = NULL;
 	FORMAT_STRING(&response_line_buffer, return NULL;
 	              , "%s%c%d%c%s", protocol_version, '\0', to_send.status, '\0', status_message);
@@ -154,8 +183,8 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 		format_used = CompressionTypeNone;
 	}
 
-	if(!construct_headers_for_request(response, to_send.mime_type, to_send.additional_headers,
-	                                  format_used)) {
+	if(!construct_headers_for_request(send_settings, response, to_send.mime_type,
+	                                  to_send.additional_headers, format_used)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
 	}
@@ -198,40 +227,30 @@ int send_http_message_to_connection(const ConnectionDescriptor* const descriptor
 	return send_message_to_connection(descriptor, to_send, send_settings);
 }
 
-NODISCARD int send_http_message_to_connection_advanced(const ConnectionDescriptor* descriptor,
-                                                       HTTPResponseToSend to_send,
-                                                       SendSettings send_settings,
-                                                       HttpRequestHead request_head) {
-
-	if(request_head.request_line.method == HTTPRequestMethodHead) {
-		to_send.body.send_body_data = false;
-	}
-
-	return send_http_message_to_connection(descriptor, to_send, send_settings);
-}
-
-NODISCARD HTTPResponseBody http_response_body_from_static_string(const char* static_string) {
+NODISCARD HTTPResponseBody http_response_body_from_static_string(const char* static_string,
+                                                                 bool send_body) {
 	char* malloced_string = strdup(static_string);
 
-	return http_response_body_from_string(malloced_string);
+	return http_response_body_from_string(malloced_string, send_body);
 }
 
-NODISCARD HTTPResponseBody http_response_body_from_string(char* string) {
-	return http_response_body_from_data(string, strlen(string));
+NODISCARD HTTPResponseBody http_response_body_from_string(char* string, bool send_body) {
+	return http_response_body_from_data(string, strlen(string), send_body);
 }
 
-NODISCARD HTTPResponseBody http_response_body_from_string_builder(StringBuilder** string_builder) {
+NODISCARD HTTPResponseBody http_response_body_from_string_builder(StringBuilder** string_builder,
+                                                                  bool send_body) {
 	SizedBuffer string_builder_buffer = string_builder_release_into_sized_buffer(string_builder);
-	HTTPResponseBody result =
-	    http_response_body_from_data(string_builder_buffer.data, string_builder_buffer.size);
+	HTTPResponseBody result = http_response_body_from_data(string_builder_buffer.data,
+	                                                       string_builder_buffer.size, send_body);
 	return result;
 }
 
-NODISCARD HTTPResponseBody http_response_body_from_data(void* data, size_t size) {
+NODISCARD HTTPResponseBody http_response_body_from_data(void* data, size_t size, bool send_body) {
 	return (HTTPResponseBody){ .body = (SizedBuffer){ .data = data, .size = size },
-		                       .send_body_data = true };
+		                       .send_body_data = send_body };
 }
 
 NODISCARD HTTPResponseBody http_response_body_empty(void) {
-	return (HTTPResponseBody){ .body = get_empty_sized_buffer(), .send_body_data = true };
+	return (HTTPResponseBody){ .body = get_empty_sized_buffer(), .send_body_data = false };
 }

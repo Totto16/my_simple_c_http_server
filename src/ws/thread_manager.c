@@ -20,11 +20,11 @@
 #include <time.h>
 
 #ifdef __APPLE__
-#include <machine/endian.h>
+	#include <machine/endian.h>
 
-#include "./macos_endian_compat.h"
+	#include "./macos_endian_compat.h"
 #else
-#include <endian.h>
+	#include <endian.h>
 #endif
 
 typedef struct ConnectionNodeImpl ConnectionNode;
@@ -77,7 +77,7 @@ typedef struct {
 	WebSocketThreadManager* manager;
 } WebSocketListenerArg;
 
-void thread_manager_thread_startup_function(void) {
+static void thread_manager_thread_startup_function(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
 	openssl_initialize_crypto_thread_state();
 #endif
@@ -85,7 +85,7 @@ void thread_manager_thread_startup_function(void) {
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running startup function for ws thread\n");
 }
 
-void thread_manager_thread_shutdown_function(void) {
+static void thread_manager_thread_shutdown_function(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
 	openssl_cleanup_crypto_thread_state();
 #endif
@@ -168,6 +168,8 @@ NODISCARD static bool is_control_op_code(WsOpcode op_code) {
 NODISCARD static WebSocketRawMessageResult
 read_raw_message(WebSocketConnection* connection,
                  ExtensionReceivePipelineSettings pipeline_settings) {
+
+	// TODO: replace usage of read_exact_bytes with the buffered_reader (blocking as well?)
 
 	uint8_t* header_bytes =
 	    (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
@@ -285,7 +287,8 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 	uint8_t* resulting_frame = (uint8_t*)malloc(size);
 
 	if(resulting_frame == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return -1;
 	}
 
@@ -313,11 +316,14 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 
 	if(payload_additional_len == 2) {
 		// in network byte order
-		*((uint16_t*)(resulting_frame + 2)) = htons((uint16_t)(raw_message.payload_len));
+		uint16_t temp_value = htons((uint16_t)(raw_message.payload_len));
+		memcpy(resulting_frame + 2, &temp_value, sizeof(temp_value));
+
 	} else if(payload_additional_len ==
 	          8) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		// in network byte order (alias big endian = be)
-		*((uint64_t*)(resulting_frame + 2)) = htobe64(raw_message.payload_len);
+		uint64_t temp_value = htobe64(raw_message.payload_len);
+		memcpy(resulting_frame + 2, &temp_value, sizeof(temp_value));
 	}
 
 	if(raw_message.payload_len != 0) {
@@ -328,8 +334,8 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 
 		uint32_t mask_byte = get_random_byte();
 
-		*((uint32_t*)(resulting_frame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len)) =
-		    mask_byte;
+		memcpy(resulting_frame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len, &mask_byte,
+		       sizeof(mask_byte));
 
 		for(size_t i = 0; i < raw_message.payload_len; ++i) {
 			(resulting_frame + header_offset)[i] =
@@ -502,6 +508,12 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 	return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 }
 
+typedef C_23_ENUM_TYPE(uint16_t) CloseCodeEnumType;
+
+#define CLOSE_CODE_CUSTOM(c) (CloseCode)((CloseCodeEnumType)(c))
+
+#define CLOSE_CODE_ZERO CLOSE_CODE_CUSTOM(0)
+
 /**
  * @enum value
  * @see https://datatracker.ietf.org/doc/html/rfc6455#section-11.7
@@ -521,7 +533,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 
 typedef struct {
 	CloseCode code; // as uint16_t
-	char* message;
+	const char* message;
 	int16_t message_len; // max length is 123 bytes
 } CloseReason;
 
@@ -535,7 +547,8 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 	if(raw_message.op_code != WsOpcodeClose) {
 		return (CloseReasonResult){
 			.success = false,
-			.reason = { .code = 0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			.reason = { .code =
+			                CLOSE_CODE_ZERO, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			            .message = NULL,
 			            .message_len = 0 }
 		};
@@ -546,7 +559,8 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 	if(payload_len < 2) {
 		return (CloseReasonResult){
 			.success = false,
-			.reason = { .code = 0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			.reason = { .code =
+			                CLOSE_CODE_ZERO, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			            .message = NULL,
 			            .message_len = 0 }
 		};
@@ -563,7 +577,8 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 	if(payload_len > MAX_CONTROL_FRAME_PAYLOAD) {
 		return (CloseReasonResult){
 			.success = false,
-			.reason = { .code = 0, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			.reason = { .code =
+			                CLOSE_CODE_ZERO, // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			            .message = NULL,
 			            .message_len = 0 }
 		};
@@ -638,7 +653,8 @@ NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* con
 	uint8_t* payload = (uint8_t*)malloc(payload_len);
 
 	if(payload == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return -1;
 	}
 
@@ -728,9 +744,9 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 		FREE_ADDITIONALLY(); \
 	} while(false)
 
-	bool result = setup_sigpipe_signal_handler();
+	bool sigpipe_result = setup_sigpipe_signal_handler();
 
-	if(!result) {
+	if(!sigpipe_result) {
 		FREE_AT_END_ONE();
 		return NULL;
 	}
@@ -1536,8 +1552,8 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	return connection;
 }
 
-static void free_connection_args(WsConnectionArgs args) {
-	stbds_arrfree(args.extensions);
+static void free_connection_args(WsConnectionArgs* args) {
+	TVEC_FREE(WSExtension, &(args->extensions));
 }
 
 static void free_connection(WebSocketConnection* connection, bool send_go_away) {
@@ -1557,7 +1573,7 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 	close_connection_descriptor_advanced(connection->descriptor, connection->context,
 	                                     WS_ALLOW_SSL_CONTEXT_REUSE);
 	free_connection_context(connection->context);
-	free_connection_args(connection->args);
+	free_connection_args(&(connection->args));
 	free(connection);
 }
 
@@ -1627,8 +1643,8 @@ bool thread_manager_remove_all_connections(WebSocketThreadManager* manager) {
 			break;
 		}
 
-		// TODO(Totto): shut down connections, if they are still running e.g. in the case of GET to
-		// /shutdown
+		// TODO(Totto): shut down connections, if they are still running e.g. in the case of GET
+		// to /shutdown
 
 		WebSocketConnection* connection = current_node->connection;
 

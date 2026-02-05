@@ -4,9 +4,9 @@
 #include <stdbool.h>
 
 #ifdef _USE_BSD_QUEUE
-#include "bsd/sys/queue.h"
+	#include "bsd/sys/queue.h"
 #else
-#include <sys/queue.h>
+	#include <sys/queue.h>
 #endif
 
 #include "generic/sem.h"

@@ -3,9 +3,9 @@
 #include "generic/secure.h"
 #include "http/server.h"
 #include "utils/log.h"
+#include "utils/path.h"
 
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -23,6 +23,7 @@ static void print_http_server_usage(bool is_subcommand) {
 	printf(IDENT1 "options:\n");
 	printf(IDENT2 "-s, --secure <public_cert_file> <private_cert_file>: Use a secure connection "
 	              "(https), you have to provide the public and private certificates\n");
+	printf(IDENT2 "-r, --route <route_name>: Use a certain route mapping\n");
 	printf(IDENT2 "-l, --loglevel <loglevel>: Set the log level for the application\n");
 }
 
@@ -106,8 +107,8 @@ NODISCARD static bool is_version_string(const char* str) {
 }
 
 typedef struct {
-	char* username;
-	char* password;
+	const char* username;
+	const char* password;
 	UserRole role;
 } SimpleUserEntry;
 
@@ -161,6 +162,14 @@ NODISCARD static AuthenticationProviders* initialize_default_authentication_prov
 	return auth_providers;
 }
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	RouteIdentifierDefault = 0,
+	RouteIdentifierTestSuiteWebserverTester,
+} RouteIdentifier;
+
 NODISCARD static int subcommand_http(const char* program_name, int argc, const char* argv[]) {
 
 	if(argc < 1) {
@@ -181,6 +190,8 @@ NODISCARD static int subcommand_http(const char* program_name, int argc, const c
 	bool secure = false;
 	const char* public_cert_file = "";
 	const char* private_cert_file = "";
+
+	RouteIdentifier route_identifier = RouteIdentifierDefault;
 
 	LogLevel log_level =
 #ifdef NDEBUG
@@ -233,6 +244,28 @@ NODISCARD static int subcommand_http(const char* program_name, int argc, const c
 			log_level = parsed_level;
 
 			processed_args += 2;
+		} else if((strcmp(arg, "-r") == 0) || (strcmp(arg, "--route") == 0)) {
+			if(processed_args + 2 > argc) {
+				fprintf(stderr, "Not enough arguments for the 'route' option\n");
+				print_usage(argv[0], UsageCommandHttp);
+				return EXIT_FAILURE;
+			}
+
+			const char* route_name = argv[processed_args + 1];
+
+			if((strcmp(route_name, "default") == 0)) {
+				route_identifier = RouteIdentifierDefault;
+			} else if((strcmp(route_name, "webserver_tester") == 0)) {
+				route_identifier = RouteIdentifierTestSuiteWebserverTester;
+			} else {
+				fprintf(stderr,
+				        "Wrong option for the 'route' option, unrecognized route name: %s\n",
+				        route_name);
+				print_usage(argv[0], UsageCommandHttp);
+				return EXIT_FAILURE;
+			}
+
+			processed_args += 2;
 		} else {
 			fprintf(stderr, "Unrecognized option: %s\n", arg);
 			print_usage(argv[0], UsageCommandHttp);
@@ -266,7 +299,29 @@ NODISCARD static int subcommand_http(const char* program_name, int argc, const c
 		return EXIT_FAILURE;
 	}
 
-	return start_http_server(port, options, auth_providers);
+	HTTPRoutes* routes = NULL;
+
+	switch(route_identifier) {
+		case RouteIdentifierDefault: {
+			routes = get_default_routes();
+			break;
+		}
+		case RouteIdentifierTestSuiteWebserverTester: {
+			routes = get_webserver_test_routes();
+			break;
+		}
+		default: {
+			routes = NULL;
+			break;
+		}
+	}
+
+	if(routes == NULL) {
+		fprintf(stderr, "Couldn't initialize routes\n");
+		return EXIT_FAILURE;
+	}
+
+	return start_http_server(port, options, auth_providers, routes);
 }
 
 NODISCARD static int subcommand_ftp(const char* program_name, int argc, const char* argv[]) {
@@ -360,28 +415,9 @@ NODISCARD static int subcommand_ftp(const char* program_name, int argc, const ch
 		}
 	}
 
-	char* folder = realpath(folder_to_resolve, NULL);
+	char* folder = get_serve_folder(folder_to_resolve);
 
 	if(folder == NULL) {
-		fprintf(stderr, "Couldn't resolve folder '%s': %s\n", folder_to_resolve, strerror(errno));
-		return EXIT_FAILURE;
-	}
-
-	struct stat stat_result;
-	int result = stat(folder, &stat_result);
-
-	if(result != 0) {
-		fprintf(stderr, "Couldn't stat folder '%s': %s\n", folder, strerror(errno));
-		return EXIT_FAILURE;
-	}
-
-	if(!(S_ISDIR(stat_result.st_mode))) {
-		fprintf(stderr, "Folder '%s' is not a directory\n", folder);
-		return EXIT_FAILURE;
-	}
-
-	if(access(folder, R_OK) != 0) {
-		fprintf(stderr, "Can read from folder '%s': %s\n", folder, strerror(errno));
 		return EXIT_FAILURE;
 	}
 

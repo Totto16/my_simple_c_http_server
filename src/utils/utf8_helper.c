@@ -14,7 +14,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
 
 	utf8proc_ssize_t result = utf8proc_decompose(
 	    data, size, buffer, size,
-	    0); // NOLINT(cppcoreguidelines-narrowing-conversions,clang-analyzer-optin.core.EnumCastOutOfRange)
+	    (utf8proc_option_t)0); // NOLINT(cppcoreguidelines-narrowing-conversions,clang-analyzer-optin.core.EnumCastOutOfRange)
 
 	if(result < 0) {
 		free(buffer);
