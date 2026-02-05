@@ -35,10 +35,14 @@ python3 ./main.py localhost:8080 cs531a1 test_path_options_ok
 python3 ./main.py localhost:8080 cs531a1 test_get_missing
 python3 ./main.py localhost:8080 cs531a1 test_get_duplicate_path_prefix
 python3 ./main.py localhost:8080 cs531a1 test_unsupported_version
+python3 ./main.py localhost:8080 cs531a1 test_get_jpeg_image
+python3 ./main.py localhost:8080 cs531a1 test_get_case_sensitive_file_extension
+python3 ./main.py localhost:8080 cs531a1 test_get_empty_text_file
+python3 ./main.py localhost:8080 cs531a1 test_get_empty_unknown_file_directory
+python3 ./main.py localhost:8080 cs531a1 test_get_filename_with_many_dots
+python3 ./main.py localhost:8080 cs531a1 test_get_magic_cookie_of_a_binary_file
 
 ERROR:
-
-UNTESTED:
 
 python3 ./main.py localhost:8080 cs531a1 test_invalid_request
 python3 ./main.py localhost:8080 cs531a1 test_missing_host_header
@@ -46,10 +50,7 @@ python3 ./main.py localhost:8080 cs531a1 test_post_not_implemented
 python3 ./main.py localhost:8080 cs531a1 test_trace_echoback
 python3 ./main.py localhost:8080 cs531a1 test_get_escaped_file_name
 python3 ./main.py localhost:8080 cs531a1 test_get_escape_escaping_character
-python3 ./main.py localhost:8080 cs531a1 test_get_jpeg_image
-python3 ./main.py localhost:8080 cs531a1 test_get_case_sensitive_file_extension
-python3 ./main.py localhost:8080 cs531a1 test_get_empty_text_file
-python3 ./main.py localhost:8080 cs531a1 test_get_empty_unknown_file_directory
-python3 ./main.py localhost:8080 cs531a1 test_get_filename_with_many_dots
-python3 ./main.py localhost:8080 cs531a1 test_get_magic_cookie_of_a_binary_file
+
+UNTESTED:
+
 python3 ./main.py localhost:8080 cs531a1 test_access_log_as_virtual_uri
