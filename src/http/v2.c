@@ -158,7 +158,7 @@ NODISCARD Http2Request* parse_http2_request_TODO(SizedBuffer raw_http_request) {
 
 	} while(remaining_data != 0);
 
-	assert(false && "TODO");
+	UNREACHABLE();
 	// TODO
 	// return frames;
 }
