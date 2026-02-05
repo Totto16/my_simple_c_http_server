@@ -5,6 +5,8 @@ src_files += files(
     'hash.h',
     'helper.c',
     'helper.h',
+    'ip.c',
+    'ip.h',
     'read.c',
     'read.h',
     'secure.c',
@@ -13,8 +15,6 @@ src_files += files(
     'sem.h',
     'send.c',
     'send.h',
-    'ip.h',
-    'ip.c',
     'signal_fd.c',
     'signal_fd.h',
 )
