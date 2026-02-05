@@ -189,6 +189,8 @@ deps += cc.find_library(
 
 internal_c_args = []
 
+
+
 internal_c_args += cc.get_supported_arguments(
     '-Wassign-enum',
     '-Wenum-conversion',
@@ -261,7 +263,7 @@ http_server_lib = library(
 http_server_dep = declare_dependency(
     link_with: http_server_lib,
     include_directories: inc_dirs,
-    compile_args: [compile_flags, internal_c_args],
+    compile_args: [compile_flags],
     dependencies: deps,
     version: meson.project_version(),
 )

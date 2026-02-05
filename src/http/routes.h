@@ -154,7 +154,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 typedef struct {
 	HTTPRoutePathType type;
-	char* data;
+	const char* data;
 } HTTPRoutePath;
 
 typedef struct {

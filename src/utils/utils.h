@@ -11,13 +11,18 @@
 // see https://clang.llvm.org/docs/AttributeReference.html#nullability-attributes
 
 #if defined(__GNUC__) || defined(__clang__)
-	#define NULLABLE _Nullable
-	#define NON_NULLABLE _Nonnull
-	#define NO_NULLABLE_INFO _Null_unspecified
+	#if defined(__clang__)
+		#define NULLABLE _Nullable
+		#define NON_NULLABLE _Nonnull
+		#define NO_NULLABLE_INFO _Null_unspecified
+	#else
+		#define NULLABLE
+		#define NON_NULLABLE
+		#define NO_NULLABLE_INFO
+	#endif
 
 	#define OUT_PARAM(type) type* NON_NULLABLE
 	#define DEFAULT_PARAM(type) type* NO_NULLABLE_INFO
-
 #elif defined(_MSC_VER)
 	#define NULLABLE
 	#define NON_NULLABLE

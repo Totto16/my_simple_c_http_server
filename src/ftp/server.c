@@ -148,8 +148,8 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		return JOB_ERROR_DESC;
 	}
 
-	int hello_result = send_ftp_message_to_connection(
-	    descriptor, FtpReturnCodeSrvcReady, "Simple FTP Server", ConnectionSendFlagsUnMalloced);
+	int hello_result = send_ftp_message_to_connection_single(descriptor, FtpReturnCodeSrvcReady,
+	                                                         "Simple FTP Server");
 	if(hello_result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending hello message\n");
 		goto cleanup;
@@ -162,10 +162,9 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		char* raw_ftp_commands = read_string_from_connection(descriptor);
 
 		if(!raw_ftp_commands) {
-			int result = send_ftp_message_to_connection(
+			int result = send_ftp_message_to_connection_single(
 			    descriptor, FtpReturnCodeSyntaxError,
-			    "Request couldn't be read, a connection error occurred!",
-			    ConnectionSendFlagsUnMalloced);
+			    "Request couldn't be read, a connection error occurred!");
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -182,9 +181,8 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		// ftp_commands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
 		if(ftp_commands == NULL) {
-			int result = send_ftp_message_to_connection(descriptor, FtpReturnCodeSyntaxError,
-			                                            "Invalid Command Sequence",
-			                                            ConnectionSendFlagsUnMalloced);
+			int result = send_ftp_message_to_connection_single(descriptor, FtpReturnCodeSyntaxError,
+			                                                   "Invalid Command Sequence");
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -225,8 +223,7 @@ cleanup:
 
 #define SEND_RESPONSE_WITH_ERROR_CHECK(code, msg) \
 	do { \
-		int send_result = \
-		    send_ftp_message_to_connection(descriptor, code, msg, ConnectionSendFlagsUnMalloced); \
+		int send_result = send_ftp_message_to_connection_single(descriptor, code, msg); \
 		if(send_result < 0) { \
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
 			                   "Error in sending response\n"); \

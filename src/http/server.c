@@ -99,12 +99,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = additional_headers };
 
-			int result = send_http_message_to_connection(descriptor, to_send, send_settings);
-
-			if(result) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
-			}
+			return send_http_message_to_connection(descriptor, to_send, send_settings);
 		}
 		case HttpRequestErrorTypeMethodNotSupported: {
 
@@ -753,7 +748,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						break;
 					}
 
-					const auto normal_data = http_properties.data.normal;
+					auto const normal_data = http_properties.data.normal;
 
 					StringBuilder* html_string_builder =
 					    folder_content_to_html(folder_info, normal_data.path);
