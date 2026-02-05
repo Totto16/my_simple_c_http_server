@@ -13,9 +13,10 @@ struct HashSaltResultTypeImpl {
 	char hash[BCRYPT_HASHSIZE];
 };
 
-NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* string) {
+NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings,
+                                               const char* const string) {
 
-	char* password_to_use = string;
+	const char* password_to_use = string;
 
 	if(settings.use_sha512) {
 

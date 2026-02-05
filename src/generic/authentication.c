@@ -117,8 +117,8 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
     AuthenticationProvider* simple_authentication_provider,
-    char* username, // NOLINT(bugprone-easily-swappable-parameters)
-    char* password, UserRole role) {
+    const char* username, // NOLINT(bugprone-easily-swappable-parameters)
+    const char* password, UserRole role) {
 
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 	UNUSED(simple_authentication_provider);
@@ -142,7 +142,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
-    AuthenticationProvider* simple_authentication_provider, char* username,
+    AuthenticationProvider* simple_authentication_provider, const char* username,
     HashSaltResultType* hash_salted_password, UserRole role) {
 
 	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {

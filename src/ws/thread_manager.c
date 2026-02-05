@@ -533,7 +533,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 
 typedef struct {
 	CloseCode code; // as uint16_t
-	char* message;
+	const char* message;
 	int16_t message_len; // max length is 123 bytes
 } CloseReason;
 

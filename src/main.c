@@ -107,8 +107,8 @@ NODISCARD static bool is_version_string(const char* str) {
 }
 
 typedef struct {
-	char* username;
-	char* password;
+	const char* username;
+	const char* password;
 	UserRole role;
 } SimpleUserEntry;
 

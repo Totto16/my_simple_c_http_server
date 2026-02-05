@@ -10,7 +10,7 @@
 /**
  * @enum MASK / FLAGS
  */
-typedef enum ENUM_IS_MASK C_23_NARROW_ENUM_TO(uint16_t){
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	FtpTransmissionTypeNone = 0,
 	//
 	FtpTransmissionTypeAscii = 0x1,     // ASCII

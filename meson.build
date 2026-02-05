@@ -247,6 +247,12 @@ internal_c_args += cc.get_supported_arguments(
     '-Wno-nullability-completeness',
 )
 
+if cc.get_id() == 'gcc'
+    internal_c_args += cc.get_supported_arguments(
+        '-Wno-format-nonliteral'
+    )
+endif
+
 src_files = []
 inc_dirs = []
 

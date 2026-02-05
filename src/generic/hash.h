@@ -19,7 +19,7 @@ typedef struct {
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 	#include <bcrypt.h>
 
-NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, char* string);
+NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings, const char* string);
 
 NODISCARD bool is_string_equal_to_hash_salted_string(HashSaltSettings settings, char* string,
                                                      HashSaltResultType* hash_salted_string);
