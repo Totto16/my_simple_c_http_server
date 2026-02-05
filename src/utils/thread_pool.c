@@ -5,9 +5,9 @@
 #include "utils/log.h"
 
 #ifdef _DONT_HAVE_SYS_SYSINFO
-#include <unistd.h>
+	#include <unistd.h>
 #else
-#include <sys/sysinfo.h>
+	#include <sys/sysinfo.h>
 #endif
 
 #define THREAD_SHUTDOWN_JOB_INTERNAL 0x02

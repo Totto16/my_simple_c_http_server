@@ -7,9 +7,9 @@
 #define HTTP_MIME_TYPE_NAME(name) g_mime_type_##name
 
 #ifdef HTTP_MIME_TYPE_IMPL
-#define HTTP_MIME_TYPE_MAKE(name, content) const char* const HTTP_MIME_TYPE_NAME(name) = content
+	#define HTTP_MIME_TYPE_MAKE(name, content) const char* const HTTP_MIME_TYPE_NAME(name) = content
 #else
-#define HTTP_MIME_TYPE_MAKE(name, content) extern const char* const HTTP_MIME_TYPE_NAME(name)
+	#define HTTP_MIME_TYPE_MAKE(name, content) extern const char* const HTTP_MIME_TYPE_NAME(name)
 #endif
 
 // some Default Mime Type Definitions:

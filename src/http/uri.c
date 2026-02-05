@@ -506,7 +506,6 @@ NODISCARD char* get_request_uri_as_string(ParsedRequestURI uri) {
 	}
 }
 
-
 static ParsedAuthority duplicate_authority(const ParsedAuthority authority) {
 
 	ParsedAuthority result = { .user_info = { .username = NULL, .password = NULL },
@@ -597,9 +596,9 @@ NODISCARD ParsedRequestURI duplicate_request_uri(const ParsedRequestURI uri) {
 				                       .data = { .path = duplicate_path(uri.data.path) } };
 		}
 		case ParsedURITypeAuthority: {
-			return (
-			    ParsedRequestURI){ .type = ParsedURITypeAuthority,
-				                   .data = { .authority = duplicate_authority(uri.data.authority) } };
+			return (ParsedRequestURI){ .type = ParsedURITypeAuthority,
+				                       .data = { .authority =
+				                                     duplicate_authority(uri.data.authority) } };
 		}
 		default: {
 			UNREACHABLE();

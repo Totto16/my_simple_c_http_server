@@ -5,7 +5,6 @@
 #include "./hash.h"
 #include "utils/utils.h"
 
-
 typedef struct AuthenticationProvidersImpl AuthenticationProviders;
 
 typedef struct AuthenticationProviderImpl AuthenticationProvider;

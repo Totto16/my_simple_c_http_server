@@ -20,11 +20,11 @@
 #include <time.h>
 
 #ifdef __APPLE__
-#include <machine/endian.h>
+	#include <machine/endian.h>
 
-#include "./macos_endian_compat.h"
+	#include "./macos_endian_compat.h"
 #else
-#include <endian.h>
+	#include <endian.h>
 #endif
 
 typedef struct ConnectionNodeImpl ConnectionNode;
@@ -169,7 +169,7 @@ NODISCARD static WebSocketRawMessageResult
 read_raw_message(WebSocketConnection* connection,
                  ExtensionReceivePipelineSettings pipeline_settings) {
 
-//TODO: replace usage of read_exact_bytes with the buffered_reader (blocking as well?)
+	// TODO: replace usage of read_exact_bytes with the buffered_reader (blocking as well?)
 
 	uint8_t* header_bytes =
 	    (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);

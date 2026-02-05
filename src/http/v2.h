@@ -2,13 +2,13 @@
 
 #pragma once
 
+#include "./protocol.h"
 #include "utils/buffered_reader.h"
 #include "utils/utils.h"
-#include "./protocol.h"
 
 #include <stdint.h>
-#include <utils/sized_buffer.h>
 #include <tvec.h>
+#include <utils/sized_buffer.h>
 
 // spec link:
 // https://datatracker.ietf.org/doc/html/rfc7540
@@ -58,4 +58,5 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	Http2PrefaceStatusNotEnoughData
 } Http2PrefaceStatus;
 
-NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line, BufferedReader* reader);
+NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
+                                                   BufferedReader* reader);
