@@ -21,12 +21,23 @@ add_languages(
     native: false,
 )
 
+cpp = meson.get_compiler('cpp')
+
+
+
+internal_cpp_args = []
+
+internal_cpp_args += cc.get_supported_arguments(
+internal_c_args
+)
+
 
 tests = executable(
     'tests',
     test_src,
     include_directories: test_inc_dirs,
     dependencies: [test_deps, http_server_dep],
+    cpp_args: internal_cpp_args,
     override_options: {
         'warning_level': '3',
         'werror': true,
