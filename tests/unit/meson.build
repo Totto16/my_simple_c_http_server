@@ -21,14 +21,24 @@ add_languages(
     native: false,
 )
 
-cpp = meson.get_compiler('cpp')
+correct_cpp_args = []
 
+foreach internal_c_arg: internal_c_args
+
+# cpp.get_supported_arguments reports true, but it is not really
+if internal_c_arg not in ['-Werror=implicit', '-Werror=pointer-to-int-cast'] 
+    correct_cpp_args += internal_c_arg
+endif
+
+endforeach
+
+cpp = meson.get_compiler('cpp')
 
 
 internal_cpp_args = []
 
-internal_cpp_args += cc.get_supported_arguments(
-internal_c_args
+internal_cpp_args += cpp.get_supported_arguments(
+correct_cpp_args
 )
 
 
