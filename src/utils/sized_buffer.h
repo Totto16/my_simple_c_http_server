@@ -29,6 +29,8 @@ NODISCARD SizedBuffer sized_buffer_get_exact_clone(SizedBuffer buffer);
 
 NODISCARD int sized_buffer_cmp(SizedBuffer buf1, SizedBuffer buf2);
 
+NODISCARD int sized_buffer_cmp_with_data(SizedBuffer buf1, const void* data, size_t size);
+
 NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer);
 
 #ifdef __cplusplus

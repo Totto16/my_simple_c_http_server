@@ -203,10 +203,8 @@ NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
 		return Http2PrefaceStatusNotEnoughData;
 	}
 
-	if(sized_buffer_cmp(
-	       res.value.data,
-	       (SizedBuffer){ .data = HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE,
-	                      .size = SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE }) == 0) {
+	if(sized_buffer_cmp_with_data(res.value.data, HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE,
+	                              SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE) == 0) {
 
 		return Http2PrefaceStatusOk;
 	}

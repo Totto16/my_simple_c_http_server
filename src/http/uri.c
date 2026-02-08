@@ -568,7 +568,14 @@ static ParsedURLPath duplicate_path(const ParsedURLPath path) {
 
 static ParsedURI duplicate_uri(const ParsedURI uri) {
 
-	ParsedURI result = { .scheme = NULL, .authority = { 0 }, .path = { 0 } };
+	ParsedURI result = { .scheme = NULL,
+		                 .authority = { .user_info = { .username = NULL, .password = NULL },
+		                                .host = NULL,
+		                                .port = 0 },
+		                 .path = {
+		                     .path = NULL,
+		                     .search_path = { .hash_map = TMAP_EMPTY(ParsedSearchPathHashMap) },
+		                     .fragment = NULL } };
 
 	if(uri.scheme != NULL) {
 		result.scheme = strdup(uri.scheme);
