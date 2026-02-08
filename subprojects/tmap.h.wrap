@@ -1,8 +1,7 @@
 [wrap-git]
 directory = tmap.h
 url = https://github.com/Totto16/tmap.h.git
-# future branch
-revision = 1c965b94983c4693db0e972cc92588720c571712
+revision = 39df61e1324dc32bd2f0e863bb461bce36b76235
 depth = 1
 
 [provide]

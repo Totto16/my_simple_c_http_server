@@ -4,9 +4,19 @@
 
 TMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, char*, MimeTypeEntryHashMap)
 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
 MimeTypeMappings g_mime_type_mappings = {
 	.entries = TMAP_EMPTY(MimeTypeEntryHashMap),
 };
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 
 #define TMAP_INSERT_AND_ASSERT(Typename, map, key, value) \
 	do { \
