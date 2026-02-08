@@ -583,7 +583,7 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 
 	if(folder_info.has_valid_parent) {
 		ServeFolderFolderEntry parent = {
-			.file_name = "..",
+			.file_name = strdup(".."),
 			.dir = true,
 			.date = empty_time(),
 			.size = 0,
