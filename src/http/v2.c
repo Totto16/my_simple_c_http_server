@@ -240,6 +240,9 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(const HTTP2State* const
                                                          BufferedReader* const reader,
                                                          Http2RawHeader http2_raw_header) {
 
+	// TODO(Totto): use or remove from signature
+	UNUSED(state);
+
 	if((http2_raw_header.flags & Http2DataFrameFlagsAllowed) != http2_raw_header.flags) {
 		const char* error = "invalid data frame flags";
 		int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
@@ -366,34 +369,69 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2State* const stat
 	switch(http2_raw_header.type) {
 		case Http2FrameTypeData: {
 			return parse_http2_data_frame(state, reader, http2_raw_header);
-			break;
 		}
 		case Http2FrameTypeHeaders: {
-			break;
+			const char* error = "Not Implemented";
+			int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
+			                                      Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		case Http2FrameTypePriority: {
-			break;
+			const char* error = "Not Implemented";
+			int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
+			                                      Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		case Http2FrameTypeRstStream: {
-			break;
+			const char* error = "Not Implemented";
+			int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
+			                                      Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		case Http2FrameTypeSettings: {
-			break;
+			const char* error = "Not Implemented";
+			int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
+			                                      Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		case Http2FrameTypePushPromise: {
-			break;
+			const char* error = "Not Implemented";
+			int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
+			                                      Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		case Http2FrameTypePing: {
-			break;
+			const char* error = "Not Implemented";
+			int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
+			                                      Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		case Http2FrameTypeGoaway: {
-			break;
+			const char* error = "Not Implemented";
+			int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
+			                                      Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		case Http2FrameTypeWindowUpdate: {
-			break;
+			const char* error = "Not Implemented";
+			int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
+			                                      Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		case Http2FrameTypeContinuation: {
-			break;
+			const char* error = "Not Implemented";
+			int _ = http2_close_stream_with_error(buffered_reader_get_connection_descriptor(reader),
+			                                      Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		default: {
 			const char* error = "Unrecognized frame type";
