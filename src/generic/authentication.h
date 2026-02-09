@@ -42,8 +42,8 @@ void free_authentication_provider(AuthenticationProvider* auth_provider);
 NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void);
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
-    AuthenticationProvider* simple_authentication_provider, const char* username, const char* password,
-    UserRole role);
+    AuthenticationProvider* simple_authentication_provider, const char* username,
+    const char* password, UserRole role);
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
     AuthenticationProvider* simple_authentication_provider, const char* username,
