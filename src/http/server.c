@@ -11,6 +11,7 @@
 #include "http/header.h"
 #include "http/mime.h"
 #include "http/parser.h"
+#include "http/v2.h"
 #include "utils/clock.h"
 #include "utils/errors.h"
 #include "utils/log.h"
@@ -167,12 +168,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 			return send_http_message_to_connection(descriptor, to_send, send_settings);
 		}
 		case HttpRequestErrorTypeInvalidHttp2Preface: {
-			// TODO
-			//  HTTPResponse2ToSend to_send = { .type = GOAWAY, status = PROCOL_ERROR };
-
-			//	return send_http2_message_to_connection(descriptor, to_send, send_settings);
-			UNREACHABLE();
-			break;
+			return http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
+			                               "invalid http2 preface");
 		}
 		case HttpRequestErrorTypeLengthRequired: {
 			HTTPResponseToSend to_send = { .status = HttpStatusLengthRequired,

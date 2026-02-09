@@ -23,7 +23,7 @@ NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion proto
 	switch(protocol_version) {
 		case HTTPProtocolVersion1Dot0: return "HTTP/1.0";
 		case HTTPProtocolVersion1Dot1: return "HTTP/1.1";
-		case HTTPProtocolVersion2: return "HTTP/2";
+		case HTTPProtocolVersion2: return "HTTP/2.0";
 		default: return "<Unknown>";
 	}
 }
@@ -268,52 +268,4 @@ void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* 
 
 	auto _ = TVEC_PUSH(HttpHeaderField, header_fields, field);
 	UNUSED(_);
-}
-
-// free the HttpResponse, just freeing everything necessary
-void free_http_response(HttpResponse* response) {
-	// elegantly freeing three at once :)
-	free(response->head.response_line.protocol_version);
-	free_http_header_fields(&response->head.header_fields);
-
-	free_sized_buffer(response->body);
-
-	free(response);
-}
-
-// makes a string_builder + a sized body from the HttpResponse, just does the opposite of parsing
-// a Request, but with some slight modification
-HttpConcattedResponse* http_response_concat(HttpResponse* response) {
-	HttpConcattedResponse* concatted_response =
-	    (HttpConcattedResponse*)malloc_with_memset(sizeof(HttpConcattedResponse), true);
-
-	if(response == NULL) {
-		return NULL;
-	}
-
-	if(concatted_response == NULL) {
-		return NULL;
-	}
-
-	StringBuilder* result = string_builder_init();
-
-	STRING_BUILDER_APPENDF(result, return NULL;
-	                       , "%s %s %s%s", response->head.response_line.protocol_version,
-	                       response->head.response_line.status_code,
-	                       response->head.response_line.status_message, HTTP_LINE_SEPERATORS);
-
-	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, response->head.header_fields); ++i) {
-
-		HttpHeaderField entry = TVEC_AT(HttpHeaderField, response->head.header_fields, i);
-
-		STRING_BUILDER_APPENDF(result, return NULL;
-		                       , "%s: %s%s", entry.key, entry.value, HTTP_LINE_SEPERATORS);
-	}
-
-	string_builder_append_single(result, HTTP_LINE_SEPERATORS);
-
-	concatted_response->headers = result;
-	concatted_response->body = response->body;
-
-	return concatted_response;
 }

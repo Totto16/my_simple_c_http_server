@@ -58,7 +58,7 @@ NODISCARD static HTTPProtocolVersion get_protocol_version_from_string(const char
 		return HTTPProtocolVersion1Dot1;
 	}
 
-	if(strcmp(protocol_version, "HTTP/2") == 0) {
+	if(strcmp(protocol_version, "HTTP/2.0") == 0) {
 		*success = true;
 		return HTTPProtocolVersion2;
 	}
@@ -950,10 +950,31 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 		// check if the method makes sense
 
+		if(request_line.protocol_version == HTTPProtocolVersion2) {
+			// the first request was already a http2 request
+
+			const Http2PrefaceStatus http2_preface_status =
+			    analyze_http2_preface(request_line, reader->reader);
+
+			if(http2_preface_status != Http2PrefaceStatusOk) {
+				return (HttpRequestResult){
+					.is_error = true,
+					.value = { .error =
+					               (HttpRequestError){
+					                   .is_advanced = false,
+					                   .value = { .enum_value =
+					                                  HttpRequestErrorTypeInvalidHttp2Preface } } }
+				};
+			}
+
+			reader->content.type = HTTPContentTypeV2;
+			reader->content.data.v2 = http2_default_state();
+
+			return parse_http2_request(&(reader->content.data.v2), reader->reader);
+		}
+
 		if(request_line.method == HTTPRequestMethodPRI) {
-			// this makes no sense here, if we use tls, the h2 alpn case would be checked
-			// earlier, if we use no tls, the first request has to be http 1.1 and must
-			// negotiate an upgrade, after the successfull upgrade, we can use http2
+			// this makes no sense here, as this can be only used with an http2 preface
 			return (HttpRequestResult){
 				.is_error = true,
 				.value = { .error =
@@ -961,18 +982,6 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				                   .is_advanced = false,
 				                   .value = { .enum_value =
 				                                  HttpRequestErrorTypeInvalidHttp2Preface } } }
-			};
-		}
-
-		// same as above (PRI method), http2 is not allwed in this path
-		if(request_line.protocol_version == HTTPProtocolVersion2) {
-			return (HttpRequestResult){
-				.is_error = true,
-				.value = { .error =
-				               (HttpRequestError){
-				                   .is_advanced = false,
-				                   .value = { .enum_value =
-				                                  HttpRequestErrorTypeInvalidHttpVersion } } }
 			};
 		}
 

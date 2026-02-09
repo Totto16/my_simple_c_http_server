@@ -224,11 +224,6 @@ typedef struct {
 	} value;
 } HttpRequestResult;
 
-typedef struct {
-	HttpResponseHead head;
-	SizedBuffer body;
-} HttpResponse;
-
 // frees the HttpRequest, taking care of Null Pointer, this is needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
 void free_http_request(HttpRequest request);
@@ -254,18 +249,6 @@ NODISCARD SendSettings get_send_settings(RequestSettings request_settings);
 void free_http_header_fields(HttpHeaderFields* header_fields);
 
 void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str);
-
-// free the HttpResponse, just freeing everything necessary
-void free_http_response(HttpResponse* response);
-
-typedef struct {
-	StringBuilder* headers;
-	SizedBuffer body;
-} HttpConcattedResponse;
-
-// makes a string_builder from the HttpResponse, just does the opposite of parsing A Request, but
-// with some slight modification
-NODISCARD HttpConcattedResponse* http_response_concat(HttpResponse* response);
 
 #define HTTP_LINE_SEPERATORS "\r\n"
 

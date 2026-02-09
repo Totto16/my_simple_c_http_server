@@ -254,9 +254,11 @@ NODISCARD BufferedReadResult buffered_reader_get_until_end(BufferedReader* const
 
 break_while_outer:
 
+	assert(reader->data.cursor == start_cursor && "check if old wrong behaviour is fixed");
+
 	SizedBuffer data = {
-		.data = (Byte*)reader->data.buffer.data + start_cursor,
-		.size = (reader->data.cursor - start_cursor),
+		.data = (Byte*)reader->data.buffer.data +  reader->data.cursor,
+		.size = (reader->data.buffer.size - reader->data.cursor),
 	};
 
 	reader->data.cursor = reader->data.buffer.size;
@@ -295,16 +297,21 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const re
 		}
 	}
 
-	const size_t size = (reader->data.cursor - start_cursor);
-	assert(size == amount);
+	assert(reader->data.cursor == start_cursor && "check if old wrong behaviour is fixed");
+	const size_t size = get_available_data_length(reader);
+
+	if(size < amount) {
+		return (
+		    BufferedReadResult){ .type = BufferedReadResultTypeErr,
+			                     .value = { .error = "Failed to get more data in get amount" } };
+	}
 
 	SizedBuffer data = {
-		.data = (Byte*)reader->data.buffer.data + start_cursor,
-		.size = size,
+		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
+		.size = amount,
 	};
 
-	reader->data.cursor = reader->data.buffer.size;
-	reader->state = StreamStateClosed;
+	reader->data.cursor += amount;
 
 	return (BufferedReadResult){ .type = BufferedReadResultTypeOk, .value = { .data = data } };
 }

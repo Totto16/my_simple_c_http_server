@@ -4,10 +4,17 @@
 #include "generic/send.h"
 #include "http/header.h"
 #include "http/mime.h"
+#include "http/v2.h"
+
+typedef struct {
+	StringBuilder* headers;
+	SizedBuffer body;
+} Http1ConcattedResponse;
 
 NODISCARD static int
-send_concatted_response_to_connection(const ConnectionDescriptor* const descriptor,
-                                      HttpConcattedResponse* concatted_response) {
+send_concatted_http1_response_to_connection(const ConnectionDescriptor* const descriptor,
+
+                                            Http1ConcattedResponse* concatted_response) {
 	int result = send_string_builder_to_connection(descriptor, &concatted_response->headers);
 	if(result < 0) {
 		return result;
@@ -22,10 +29,15 @@ send_concatted_response_to_connection(const ConnectionDescriptor* const descript
 	return result;
 }
 
-static bool construct_headers_for_request(SendSettings send_settings, HttpResponse* response,
-                                          const char* mime_type,
-                                          HttpHeaderFields additional_headers,
-                                          CompressionType compression_format) {
+typedef struct {
+	HttpResponseHead head;
+	SizedBuffer body;
+} Http1Response;
+
+static bool construct_http1_headers_for_request(SendSettings send_settings, Http1Response* response,
+                                                const char* mime_type,
+                                                HttpHeaderFields additional_headers,
+                                                CompressionType compression_format) {
 
 	response->head.header_fields = TVEC_EMPTY(HttpHeaderField);
 
@@ -123,18 +135,16 @@ static bool construct_headers_for_request(SendSettings send_settings, HttpRespon
 
 // simple http Response constructor using string builder, headers can be NULL, when header_size is
 // also null!
-NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_send,
-                                                       SendSettings send_settings) {
+NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_send,
+                                                         SendSettings send_settings) {
 
-	HttpResponse* response = (HttpResponse*)malloc_with_memset(sizeof(HttpResponse), true);
+	Http1Response* response = (Http1Response*)malloc_with_memset(sizeof(Http1Response), true);
 
 	if(response == NULL) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return NULL;
 	}
-
-	// TODO(Totto): switch on to_send.protocol
 
 	HTTPProtocolVersion version_to_use = send_settings.protocol_to_use;
 
@@ -183,8 +193,8 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 		format_used = CompressionTypeNone;
 	}
 
-	if(!construct_headers_for_request(send_settings, response, to_send.mime_type,
-	                                  to_send.additional_headers, format_used)) {
+	if(!construct_http1_headers_for_request(send_settings, response, to_send.mime_type,
+	                                        to_send.additional_headers, format_used)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
 	}
@@ -199,23 +209,120 @@ NODISCARD static HttpResponse* construct_http_response(HTTPResponseToSend to_sen
 	return response;
 }
 
-NODISCARD static inline int send_message_to_connection(const ConnectionDescriptor* descriptor,
-                                                       HTTPResponseToSend to_send,
-                                                       SendSettings send_settings) {
+// makes a string_builder + a sized body from the HttpResponse, just does the opposite of parsing
+// a Request, but with some slight modification
+NODISCARD static Http1ConcattedResponse* http1_response_concat(Http1Response* response) {
+	Http1ConcattedResponse* concatted_response =
+	    (Http1ConcattedResponse*)malloc_with_memset(sizeof(Http1ConcattedResponse), true);
 
-	HttpResponse* http_response = construct_http_response(to_send, send_settings);
+	if(response == NULL) {
+		return NULL;
+	}
 
-	HttpConcattedResponse* concatted_response = http_response_concat(http_response);
+	if(concatted_response == NULL) {
+		return NULL;
+	}
+
+	StringBuilder* result = string_builder_init();
+
+	STRING_BUILDER_APPENDF(result, return NULL;
+	                       , "%s %s %s%s", response->head.response_line.protocol_version,
+	                       response->head.response_line.status_code,
+	                       response->head.response_line.status_message, HTTP_LINE_SEPERATORS);
+
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, response->head.header_fields); ++i) {
+
+		HttpHeaderField entry = TVEC_AT(HttpHeaderField, response->head.header_fields, i);
+
+		STRING_BUILDER_APPENDF(result, return NULL;
+		                       , "%s: %s%s", entry.key, entry.value, HTTP_LINE_SEPERATORS);
+	}
+
+	string_builder_append_single(result, HTTP_LINE_SEPERATORS);
+
+	concatted_response->headers = result;
+	concatted_response->body = response->body;
+
+	return concatted_response;
+}
+
+// free the HttpResponse, just freeing everything necessary
+static void free_http1_response(Http1Response* response) {
+	// elegantly freeing three at once :)
+	free(response->head.response_line.protocol_version);
+	free_http_header_fields(&response->head.header_fields);
+
+	free_sized_buffer(response->body);
+
+	free(response);
+}
+
+NODISCARD static inline int send_message_to_connection_http1(const ConnectionDescriptor* descriptor,
+                                                             HTTPResponseToSend to_send,
+                                                             SendSettings send_settings) {
+
+	Http1Response* http_response = construct_http1_response(to_send, send_settings);
+
+	Http1ConcattedResponse* concatted_response = http1_response_concat(http_response);
 
 	if(!concatted_response) {
 		// TODO(Totto): refactor error codes into an enum!
 		return -7; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
-	int result = send_concatted_response_to_connection(descriptor, concatted_response);
+	int result = send_concatted_http1_response_to_connection(descriptor, concatted_response);
 	// body gets freed
-	free_http_response(http_response);
+	free_http1_response(http_response);
 	return result;
+}
+
+NODISCARD static inline int send_message_to_connection_http2(const ConnectionDescriptor* descriptor,
+                                                             HTTPResponseToSend to_send,
+                                                             SendSettings send_settings) {
+
+	// TODO: send proper http2 response
+
+	Http1Response* http_response = construct_http1_response(to_send, send_settings);
+
+	Http1ConcattedResponse* concatted_response = http1_response_concat(http_response);
+
+	if(!concatted_response) {
+		// TODO(Totto): refactor error codes into an enum!
+		return -7; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	}
+
+	SizedBuffer header_buffer =
+	    string_builder_release_into_sized_buffer(&concatted_response->headers);
+
+	size_t length = header_buffer.size + concatted_response->body.size;
+
+	SizedBuffer debug_data = allocate_sized_buffer(length);
+
+	if(debug_data.data == NULL) {
+		return -11;
+	}
+
+	memcpy(debug_data.data, header_buffer.data, header_buffer.size);
+	memcpy(((uint8_t*)debug_data.data) + header_buffer.size, concatted_response->body.data,
+	       concatted_response->body.size);
+
+	int result =
+	    http2_send_stream_error_with_data(descriptor, Http2ErrorCodeInternalError, debug_data);
+
+	free_sized_buffer(header_buffer);
+	free_http1_response(http_response);
+	return result;
+}
+
+NODISCARD static inline int send_message_to_connection(const ConnectionDescriptor* descriptor,
+                                                       HTTPResponseToSend to_send,
+                                                       SendSettings send_settings) {
+
+	if(send_settings.protocol_to_use == HTTPProtocolVersion2) {
+		return send_message_to_connection_http2(descriptor, to_send, send_settings);
+	}
+
+	return send_message_to_connection_http1(descriptor, to_send, send_settings);
 }
 
 // sends a http message to the connection, takes status and if that special status needs some
