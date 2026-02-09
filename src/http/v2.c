@@ -108,34 +108,34 @@ NODISCARD Http2Request* parse_http2_request_TODO(SizedBuffer raw_http_request) {
 		Http2Frame* frame = NULL;
 
 		switch(http2_raw_header.type) {
-			case Http2FrameType_DATA: {
+			case Http2FrameTypeData: {
 				break;
 			}
-			case Http2FrameType_HEADERS: {
+			case Http2FrameTypeHeaders: {
 				break;
 			}
-			case Http2FrameType_PRIORITY: {
+			case Http2FrameTypePriority: {
 				break;
 			}
-			case Http2FrameType_RST_STREAM: {
+			case Http2FrameTypeRstStream: {
 				break;
 			}
-			case Http2FrameType_SETTINGS: {
+			case Http2FrameTypeSettings: {
 				break;
 			}
-			case Http2FrameType_PUSH_PROMISE: {
+			case Http2FrameTypePushPromise: {
 				break;
 			}
-			case Http2FrameType_PING: {
+			case Http2FrameTypePing: {
 				break;
 			}
-			case Http2FrameType_GOAWAY: {
+			case Http2FrameTypeGoaway: {
 				break;
 			}
-			case Http2FrameType_WINDOW_UPDATE: {
+			case Http2FrameTypeWindowUpdate: {
 				break;
 			}
-			case Http2FrameType_CONTINUATION: {
+			case Http2FrameTypeContinuation: {
 				break;
 			}
 			default: {
