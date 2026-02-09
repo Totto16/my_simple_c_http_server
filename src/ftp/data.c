@@ -230,7 +230,7 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 				port_metadata->associated_connection = connection;
 			}
 
-			// TODO(Totto): we have many places, where raw arrays instead of ZVEc are used, fix
+			// TODO(Totto): we have many places, where raw arrays instead of ZVEC are used, fix
 			// that, search for realloc for that!
 
 			data_controller->connections_size++;

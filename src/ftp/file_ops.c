@@ -278,17 +278,15 @@ typedef struct {
 	size_t size;
 } MaxSize;
 
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(FileWithMetadata*, FileWithMetadataPtr)
+
+typedef TVEC_TYPENAME(FileWithMetadataPtr) FilesWithMetadata;
+
 typedef struct {
-	FileWithMetadata** files;
-	size_t count;
+	FilesWithMetadata files;
 	MaxSize sizes;
 	FileSendFormat format;
 } MultipleFiles;
-
-typedef struct {
-	void* data;
-	size_t size;
-} RawData;
 
 typedef struct {
 	FileWithMetadata* file;
@@ -300,7 +298,7 @@ struct SendDataImpl {
 	union {
 		SingleFile* file;
 		MultipleFiles* multiple_files;
-		RawData data;
+		SizedBuffer raw_data;
 	} value;
 };
 
@@ -323,11 +321,12 @@ NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode
 			break;
 		}
 		case SendTypeMultipleFiles: {
-			original_data_count = data->value.multiple_files->count;
+			original_data_count =
+			    TVEC_LENGTH(FileWithMetadataPtr, data->value.multiple_files->files);
 			break;
 		}
 		case SendTypeRawData: {
-			original_data_count = data->value.data.size;
+			original_data_count = data->value.raw_data.size;
 			break;
 		}
 		default: break;
@@ -400,7 +399,7 @@ NODISCARD static FileWithMetadata* get_metadata_for_file_abs(char* const absolut
 
 	char* name_ptr = absolute_path;
 
-	// TODO. factor out  into helper function or use cwalk
+	// TODO(Totto). factor out  into helper function or use cwalk
 	while(true) {
 		char* result = strstr(name_ptr, "/");
 
@@ -576,6 +575,18 @@ static void internal_update_max_size(MaxSize* sizes, FileWithMetadata* metadata)
 	}
 }
 
+static void free_multiple_files(MultipleFiles* files) {
+
+	for(size_t i = 0; i < TVEC_LENGTH(FileWithMetadataPtr, files->files); ++i) {
+
+		FileWithMetadata* entry = TVEC_AT(FileWithMetadataPtr, files->files, i);
+
+		free_file_metadata(entry);
+	}
+
+	free(files);
+}
+
 NODISCARD static MultipleFiles* get_files_in_folder(const char* const folder,
                                                     FileSendFormat format) {
 
@@ -585,8 +596,7 @@ NODISCARD static MultipleFiles* get_files_in_folder(const char* const folder,
 		return NULL;
 	}
 
-	result->count = 0;
-	result->files = NULL;
+	result->files = TVEC_EMPTY(FileWithMetadataPtr);
 	result->sizes = (MaxSize){ .link = 0, .user = 0, .group = 0, .size = 0 };
 	result->format = format;
 
@@ -626,32 +636,21 @@ NODISCARD static MultipleFiles* get_files_in_folder(const char* const folder,
 			goto error;
 		}
 
-		result->count++;
+		TvecResult push_result = TVEC_PUSH(FileWithMetadataPtr, &(result->files), metadata);
 
-		// TODO: we have many places, where raw ararys instead of ZVEc are used, fix that,
-		// search for realloc for that!
-
-		FileWithMetadata** new_array = (FileWithMetadata**)realloc(
-		    (void*)result->files, sizeof(FileWithMetadata*) * result->count);
-
-		if(!new_array) {
+		if(push_result != TvecResultOk) {
 			free(metadata);
 			goto error;
 		}
 
-		result->files = new_array;
-
-		result->files[result->count - 1] = metadata;
 		internal_update_max_size(&result->sizes, metadata);
 	}
 
 error:
 
-	if(result->files != NULL) {
-		for(size_t i = 0; i < result->count; ++i) {
-			free_file_metadata(result->files[i]);
-		}
-	}
+	free_multiple_files(result);
+	result = NULL;
+
 success:
 
 	int close_res = closedir(dir);
@@ -719,10 +718,10 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 		return NULL;
 	}
 
-	RawData raw_data = { .data = file_data, .size = file_size };
+	SizedBuffer raw_data = { .data = file_data, .size = file_size };
 
 	data->type = SendTypeRawData;
-	data->value.data = raw_data;
+	data->value.raw_data = raw_data;
 
 	return data;
 }
@@ -918,7 +917,8 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 			break;
 		}
 		case SendTypeMultipleFiles: {
-			FileWithMetadata* value = data->value.multiple_files->files[progress->data.sent_count];
+			FileWithMetadata* value = TVEC_AT(
+			    FileWithMetadataPtr, data->value.multiple_files->files, progress->data.sent_count);
 
 			StringBuilder* string_builder = format_file_line(
 			    value, data->value.multiple_files->sizes, data->value.multiple_files->format);
@@ -938,7 +938,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		}
 
 		case SendTypeRawData: {
-			RawData raw_data = data->value.data;
+			SizedBuffer raw_data = data->value.raw_data;
 
 			size_t offset = progress->data.sent_count;
 
@@ -970,9 +970,33 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 	return true;
 }
 
+static void free_single_file(SingleFile* file) {
+
+	free_file_metadata(file->file);
+	free(file);
+}
+
 void free_send_data(SendData* data) {
-	// TODO(Totto): dataement
-	UNUSED(data);
+
+	switch(data->type) {
+		case SendTypeFile: {
+			free_single_file(data->value.file);
+			break;
+		}
+		case SendTypeMultipleFiles: {
+			free_multiple_files(data->value.multiple_files);
+			break;
+		}
+		case SendTypeRawData: {
+			free_sized_buffer(data->value.raw_data);
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+
+	free(data);
 }
 
 NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
