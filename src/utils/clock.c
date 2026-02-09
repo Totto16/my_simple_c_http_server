@@ -7,6 +7,10 @@
 #include <locale.h>
 #include <string.h>
 
+#ifdef __APPLE__
+	#include <xlocale.h>
+#endif
+
 // y2k -> 2038 bug avoidance
 static_assert(sizeof(time_t) == sizeof(uint64_t));
 
