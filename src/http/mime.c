@@ -2,7 +2,9 @@
 
 #include "./mime.h"
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 TMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, char*, MimeTypeEntryHashMap)
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 #if defined(__GNUC__) && !defined(__clang__)
 	#pragma GCC diagnostic push
@@ -26,8 +28,8 @@ MimeTypeMappings
 	} while(false)
 
 #define TMAP_INSERT_AND_ASSERT_MIME_ENTRY(key, value) \
-	TMAP_INSERT_AND_ASSERT(MimeTypeEntryHashMap, &g_mime_type_mappings.entries, strdup(key), \
-	                       strdup(value))
+	/*NOLINT(clang-analyzer-unix.Malloc)*/ TMAP_INSERT_AND_ASSERT( \
+	    MimeTypeEntryHashMap, &g_mime_type_mappings.entries, strdup(key), strdup(value))
 
 static void initialize_mime_type_mappings(void) {
 
