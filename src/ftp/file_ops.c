@@ -638,7 +638,7 @@ NODISCARD static MultipleFiles* get_files_in_folder(const char* const folder,
 
 		TvecResult push_result = TVEC_PUSH(FileWithMetadataPtr, &(result->files), metadata);
 
-		if(push_result != TvecResultOk) {
+		if(push_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 			free(metadata);
 			goto error;
 		}

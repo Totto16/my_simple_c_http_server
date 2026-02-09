@@ -19,11 +19,14 @@ typedef struct {
 	bool reserved;
 } PortMetadata;
 
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(DataConnection*, DataConnectionPtr)
+
+typedef TVEC_TYPENAME(DataConnectionPtr) DataConnections;
+
 struct DataControllerImpl {
 	pthread_mutex_t mutex;
 	// connections
-	DataConnection** connections;
-	size_t connections_size;
+	DataConnections connections;
 	// (passive)ports
 	PortMetadata* ports;
 	size_t port_amount;
@@ -71,7 +74,7 @@ typedef struct {
 	union {
 		ActiveResumeDataImpl resume_data;
 		ActiveConnectedDataImpl conn_data;
-	} data;
+	} value;
 } ActiveConnectionData;
 
 struct DataConnectionImpl {
@@ -87,6 +90,41 @@ struct DataConnectionImpl {
 	pthread_t associated_thread;
 };
 
+static void free_active_data(ActiveConnectionData* data) {
+
+	if(data == NULL) {
+		return;
+	}
+
+	if(!data->is_connected) {
+		free(data->value.resume_data.connect_addr);
+	}
+
+	free(data);
+}
+
+static void free_data_connection(DataConnection* connection) {
+
+	if(connection == NULL) {
+		return;
+	}
+
+	if(connection->identifier.is_active) {
+		free_active_data(connection->active_data);
+		//
+	}
+
+	free(connection);
+}
+
+static void free_data_connections(DataConnections connections) {
+
+	for(size_t i = 0; i < TVEC_LENGTH(DataConnectionPtr, connections); ++i) {
+		DataConnection* entry = TVEC_AT(DataConnectionPtr, connections, i);
+		free_data_connection(entry);
+	}
+}
+
 DataController* initialize_data_controller(size_t passive_port_amount) {
 
 	DataController* controller = malloc(sizeof(DataController));
@@ -101,8 +139,7 @@ DataController* initialize_data_controller(size_t passive_port_amount) {
 	    free(controller);
 	    return NULL;);
 
-	controller->connections = NULL;
-	controller->connections_size = 0;
+	controller->connections = TVEC_EMPTY(DataConnectionPtr);
 
 	controller->port_amount = passive_port_amount;
 	PortMetadata* ports = (PortMetadata*)malloc(sizeof(PortMetadata) * passive_port_amount);
@@ -189,9 +226,10 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 
 		PortMetadata* port_metadata = &data_controller->ports[port_index];
 
-		for(size_t i = 0; i < data_controller->connections_size; ++i) {
+		for(size_t i = 0; i < TVEC_LENGTH(DataConnectionPtr, data_controller->connections); ++i) {
 
-			DataConnection* current_conn = data_controller->connections[i];
+			DataConnection* current_conn =
+			    TVEC_AT(DataConnectionPtr, data_controller->connections, i);
 
 			if(!current_conn->identifier.is_active &&
 			   current_conn->identifier.data.port == port_metadata->port) {
@@ -230,23 +268,15 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 				port_metadata->associated_connection = connection;
 			}
 
-			// TODO(Totto): we have many places, where raw arrays instead of ZVEC are used, fix
-			// that, search for realloc for that!
+			TvecResult res =
+			    TVEC_PUSH(DataConnectionPtr, &data_controller->connections, connection);
 
-			data_controller->connections_size++;
-			DataConnection** new_conns = (DataConnection**)realloc(
-			    (void*)data_controller->connections,
-			    data_controller->connections_size * sizeof(DataConnection*));
-
-			if(new_conns == NULL) {
-				data_controller->connections_size--;
-				free(connection);
+			if(res != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
+				free_data_connection(connection);
+				free_data_connections(data_controller->connections);
 				connection = NULL;
 				goto cleanup;
 			}
-
-			data_controller->connections = new_conns;
-			data_controller->connections[data_controller->connections_size - 1] = connection;
 		}
 	}
 
@@ -358,21 +388,25 @@ NODISCARD static bool nts_internal_should_close_connection(DataConnection* conne
 }
 
 NODISCARD static ConnectionsToClose*
-nts_internal_data_connections_to_close(DataController* data_controller, DataConnection* filter) {
-	ConnectionsToClose* connections = malloc(sizeof(ConnectionsToClose));
+nts_internal_data_connections_to_close(DataController* const data_controller,
+                                       DataConnection* filter) {
+	ConnectionsToClose* connections_to_close = malloc(sizeof(ConnectionsToClose));
 
-	if(connections == NULL) {
+	if(connections_to_close == NULL) {
 		goto cleanup;
 	}
-	*connections = TVEC_EMPTY(ConnectionDescriptorPtr);
+	*connections_to_close = TVEC_EMPTY(ConnectionDescriptorPtr);
+
+	const DataConnections old_connections = data_controller->connections;
+
+	DataConnections new_connections = TVEC_EMPTY(DataConnectionPtr);
 
 	{
 
-		size_t current_keep_index = 0;
+		for(size_t i = 0; i < TVEC_LENGTH(DataConnectionPtr, old_connections); ++i) {
 
-		for(size_t i = 0; i < data_controller->connections_size; ++i) {
-
-			DataConnection* current_conn = data_controller->connections[i];
+			DataConnection* current_conn =
+			    TVEC_AT(DataConnectionPtr, data_controller->connections, i);
 
 			if(nts_internal_should_close_connection( // NOLINT(readability-implicit-bool-conversion)
 			       current_conn) &&
@@ -401,36 +435,23 @@ nts_internal_data_connections_to_close(DataController* data_controller, DataConn
 					}
 				}
 
-				auto _ = TVEC_PUSH(ConnectionDescriptorPtr, connections, current_conn->descriptor);
+				auto _ = TVEC_PUSH(ConnectionDescriptorPtr, connections_to_close,
+				                   current_conn->descriptor);
 				UNUSED(_);
 			} else {
 
-				data_controller->connections[current_keep_index] = current_conn;
+				auto _ = TVEC_PUSH(DataConnectionPtr, &new_connections, current_conn);
 
-				current_keep_index++;
+				UNUSED(_);
 			}
 		}
 
-		data_controller->connections_size = current_keep_index;
-		if(current_keep_index == 0) {
-			free((void*)data_controller->connections);
-			data_controller->connections = NULL;
-		} else {
-
-			DataConnection** new_conns = (DataConnection**)realloc(
-			    (void*)data_controller->connections,
-			    data_controller->connections_size * sizeof(DataConnection*));
-
-			if(new_conns == NULL) {
-				// just ignore, the array memory area might be to big but it'S no hard error
-			} else {
-				data_controller->connections = new_conns;
-			}
-		}
+		free_data_connections(old_connections);
+		data_controller->connections = new_connections;
 	}
 
 cleanup:
-	return connections;
+	return connections_to_close;
 }
 
 ConnectionsToClose* data_connections_to_close(DataController* data_controller) {
@@ -476,7 +497,7 @@ nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* active_
 		return true;
 	}
 
-	ActiveResumeDataImpl* resume_data = &active_conn_data->data.resume_data;
+	ActiveResumeDataImpl* resume_data = &active_conn_data->value.resume_data;
 
 	int result = connect(resume_data->sock_fd, (struct sockaddr*)resume_data->connect_addr,
 	                     sizeof(*resume_data->connect_addr));
@@ -511,7 +532,7 @@ connected:
 
 	active_conn_data->is_connected = true;
 
-	active_conn_data->data.conn_data.sock_fd = resume_data->sock_fd;
+	active_conn_data->value.conn_data.sock_fd = resume_data->sock_fd;
 	free(resume_data->connect_addr);
 
 	return true;
@@ -552,8 +573,8 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 
 	active_conn_data->is_connected = false;
 
-	active_conn_data->data.resume_data.sock_fd = sock_fd;
-	active_conn_data->data.resume_data.connect_addr = connect_addr;
+	active_conn_data->value.resume_data.sock_fd = sock_fd;
+	active_conn_data->value.resume_data.connect_addr = connect_addr;
 
 	if(!nts_internal_try_if_active_connection_is_connected(active_conn_data)) {
 		free(active_conn_data);
@@ -606,9 +627,10 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 			goto cleanup;
 		}
 
-		for(size_t i = 0; i < data_controller->connections_size; ++i) {
+		for(size_t i = 0; i < TVEC_LENGTH(DataConnectionPtr, data_controller->connections); ++i) {
 
-			DataConnection* current_conn = data_controller->connections[i];
+			DataConnection* current_conn =
+			    TVEC_AT(DataConnectionPtr, data_controller->connections, i);
 
 			if(nts_internal_conn_identifier_eq(current_conn->identifier, identifier)) {
 				connection = current_conn;
@@ -663,7 +685,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 						ConnectionContext* context = get_connection_context(options);
 
 						ConnectionDescriptor* const descriptor = get_connection_descriptor(
-						    context, connection->active_data->data.conn_data.sock_fd);
+						    context, connection->active_data->value.conn_data.sock_fd);
 
 						connection->descriptor = descriptor;
 						// TODO(Totto): free appropriately
@@ -690,26 +712,24 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 			new_connection->descriptor = NULL;
 			new_connection->control_state = DataConnectionControlStateMissing;
 			new_connection->associated_thread = pthread_self();
+			new_connection->active_data = NULL;
+
 			if(!nts_internal_set_last_change_to_now(new_connection)) {
 				free(new_connection);
 				new_connection = NULL;
 				goto cleanup;
 			}
 
-			data_controller->connections_size++;
-			DataConnection** new_conns = (DataConnection**)realloc(
-			    (void*)data_controller->connections,
-			    data_controller->connections_size * sizeof(DataConnection*));
+			TvecResult res =
+			    TVEC_PUSH(DataConnectionPtr, &data_controller->connections, new_connection);
 
-			if(new_conns == NULL) {
-				data_controller->connections_size--;
-				free(new_connection);
+			if(res != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
+				free_data_connection(new_connection);
+				free_data_connections(data_controller->connections);
 				new_connection = NULL;
 				goto cleanup;
 			}
 
-			data_controller->connections = new_conns;
-			data_controller->connections[data_controller->connections_size - 1] = new_connection;
 			connection = NULL;
 
 			if(identifier.is_active) {
