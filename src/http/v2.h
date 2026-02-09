@@ -64,11 +64,47 @@ typedef struct {
 	SizedBuffer additional_debug_data;
 } Http2GoawayFrame;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
+	Http2SettingsFrameIdentifierHeaderTableSize = 0x1,
+	Http2SettingsFrameIdentifierEnablePush = 0x2,
+	Http2SettingsFrameIdentifierMaxConcurrentStreams = 0x3,
+	Http2SettingsFrameIdentifierInitialWindowSize = 0x4,
+	Http2SettingsFrameIdentifierMaxFrameSize = 0x5,
+	Http2SettingsFrameIdentifierMaxHeaderListSize = 0x6,
+} Http2SettingsFrameIdentifier;
+
+STATIC_ASSERT(sizeof(Http2SettingsFrameIdentifier) == sizeof(uint16_t),
+              "Http2SettingsFrameIdentifier has to be 16 bits long!");
+
+typedef struct {
+	Http2SettingsFrameIdentifier identifier;
+	uint32_t value;
+} Http2SettingSingleValue;
+
+TVEC_DEFINE_VEC_TYPE(Http2SettingSingleValue)
+
+typedef TVEC_TYPENAME(Http2SettingSingleValue) Http2SettingValues;
+
+typedef struct {
+	Http2SettingValues entries;
+} Http2SettingsFrame;
+
 typedef struct {
 	Http2FrameType type;
 	union {
 		Http2DataFrame data;
+		int headers;
+		int priority;
+		int rst_stream;
+		Http2SettingsFrame settings;
+		int push_promise;
+		int ping;
 		Http2GoawayFrame goaway;
+		int window_update;
+		int continuation;
 	} value;
 } Http2Frame;
 
@@ -77,7 +113,12 @@ TVEC_DEFINE_VEC_TYPE(Http2Frame)
 typedef TVEC_TYPENAME(Http2Frame) Http2Frames;
 
 typedef struct {
-	size_t max_frame_size;
+	uint32_t header_table_size;
+	bool enable_push;
+	uint32_t max_concurrent_streams;
+	uint32_t initial_window_size;
+	uint32_t max_frame_size;
+	uint32_t max_header_list_size;
 } Http2Settings;
 
 typedef struct {

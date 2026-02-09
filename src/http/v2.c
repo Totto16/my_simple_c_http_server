@@ -5,6 +5,8 @@
 
 TVEC_IMPLEMENT_VEC_TYPE(Http2Frame)
 
+TVEC_IMPLEMENT_VEC_TYPE(Http2SettingSingleValue)
+
 #define HTTP2_HEADER_SIZE 9
 
 typedef struct {
@@ -59,15 +61,29 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	Http2FrameFlagPriority = 0x20,
 } Http2FrameFlag;
 
+#define UINT32_T_MAX 0xFFFFFFFF
+
+#define DEFAULT_HEADER_TABLE_SIZE 4096
+#define DEFAULT_MAX_CONCURRENT_STREAMS UINT32_T_MAX
+#define DEFAULT_INITIAL_WINDOW_SIZE 65535         // 2^16-1 (65,535)
 #define DEFAULT_SETTINGS_MAX_FRAME_SIZE (1 << 14) // 2^14
+#define DEFAULT_MAX_HEADER_LIST_SIZE UINT32_T_MAX
+
+NODISCARD static Http2Settings http2_default_settings(void) {
+	return (Http2Settings){
+		.header_table_size = DEFAULT_HEADER_TABLE_SIZE,
+		.enable_push = true,
+		.max_concurrent_streams = DEFAULT_MAX_CONCURRENT_STREAMS,
+		.initial_window_size = DEFAULT_INITIAL_WINDOW_SIZE,
+		.max_frame_size = DEFAULT_SETTINGS_MAX_FRAME_SIZE,
+		.max_header_list_size = DEFAULT_MAX_HEADER_LIST_SIZE,
+	};
+}
 
 NODISCARD HTTP2State http2_default_state(void) {
 
 	return (HTTP2State){
-		.settings =
-		    (Http2Settings){
-		        .max_frame_size = DEFAULT_SETTINGS_MAX_FRAME_SIZE,
-		    },
+		.settings = http2_default_settings(),
 		.requests = TMAP_EMPTY(Http2PartialRequestMap),
 	};
 }
@@ -139,10 +155,7 @@ NODISCARD static int http2_send_raw_frame(const ConnectionDescriptor* const desc
 
 	result = send_sized_buffer_to_connection(descriptor, data);
 
-	if(result < 0) {
-		free_sized_buffer(header_buffer);
-		return result;
-	}
+	free_sized_buffer(header_buffer);
 
 	return result;
 }
@@ -330,6 +343,138 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(const HTTP2State* const
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 }
 
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2SettingsFrameFlagAck = 0x1,
+	// all allowed flags or-ed together
+	Http2SettingsFrameFlagsAllowed = Http2SettingsFrameFlagAck
+} Http2SettingsFrameFlag;
+
+#define MAX_FLOW_CONTROL_WINDOW_SIZE ((1ULL << 31ULL) - 1) // 2^31-1
+
+#define MAX_MAX_FRAME_SIZE 16777215ULL // 2^24-1 or 16,777,215
+
+NODISCARD static Http2FrameResult parse_http2_settings_frame(const HTTP2State* const state,
+                                                             BufferedReader* const reader,
+                                                             Http2RawHeader http2_raw_header) {
+
+	// TODO(Totto): use or remove from signature
+	UNUSED(state);
+
+	if((http2_raw_header.flags & Http2SettingsFrameFlagsAllowed) != http2_raw_header.flags) {
+		const char* error = "invalid settings frame flags";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeProtocolError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	if(http2_raw_header.length % 6 != 0) {
+		const char* error = "invalid settings frame length, not a multiple of 6";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeFrameSizeError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	Http2SettingsFrame settings_frame = {
+		.entries = TVEC_EMPTY(Http2SettingSingleValue),
+	};
+
+	if(http2_raw_header.length > 0) {
+
+		BufferedReadResult read_result =
+		    buffered_reader_get_amount(reader, http2_raw_header.length);
+
+		if(read_result.type != BufferedReadResultTypeOk) {
+			const char* error = "Failed to read enough data for the frame data";
+			int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+			                                Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		}
+
+		SizedBuffer frame_data = read_result.value.data;
+
+		uint8_t* data = (uint8_t*)frame_data.data;
+
+		for(size_t i = 0; i < http2_raw_header.length; i += 6) {
+			// this is big endian!
+			uint16_t identifier = (data[i] << 8) | (data[i + 1]);
+
+			// this is big endian!
+			uint32_t value = ((uint32_t)(data[i + 2]) << 24) | ((uint32_t)data[i + 3] << 16) |
+			                 ((uint32_t)data[i + 4] << 8) | ((uint32_t)data[i + 5]);
+
+			switch(identifier) {
+				case Http2SettingsFrameIdentifierHeaderTableSize: {
+					break;
+				}
+				case Http2SettingsFrameIdentifierEnablePush: {
+					if(value != 0 && value != 1) {
+						const char* error = "Invalid SETTINGS_ENABLE_PUSH settings value";
+						int _ = http2_send_stream_error(
+						    buffered_reader_get_connection_descriptor(reader),
+						    Http2ErrorCodeProtocolError, error);
+						UNUSED(_);
+						return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+					}
+					break;
+				}
+				case Http2SettingsFrameIdentifierMaxConcurrentStreams: {
+					break;
+				}
+				case Http2SettingsFrameIdentifierInitialWindowSize: {
+
+					if(value > MAX_FLOW_CONTROL_WINDOW_SIZE) {
+						const char* error = "Invalid SETTINGS_INITIAL_WINDOW_SIZE settings value";
+						int _ = http2_send_stream_error(
+						    buffered_reader_get_connection_descriptor(reader),
+						    Http2ErrorCodeFlowControlError, error);
+						UNUSED(_);
+						return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+					}
+					break;
+				}
+				case Http2SettingsFrameIdentifierMaxFrameSize: {
+					if(value > MAX_MAX_FRAME_SIZE + 1 || value < DEFAULT_SETTINGS_MAX_FRAME_SIZE) {
+						const char* error = "Invalid SETTINGS_MAX_FRAME_SIZE settings value";
+						int _ = http2_send_stream_error(
+						    buffered_reader_get_connection_descriptor(reader),
+						    Http2ErrorCodeProtocolError, error);
+						UNUSED(_);
+						return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+					}
+					break;
+				}
+				case Http2SettingsFrameIdentifierMaxHeaderListSize: {
+
+					break;
+				}
+				default: {
+					// An endpoint that receives a SETTINGS frame with any unknown or
+					// unsupported identifier MUST ignore that setting.
+					continue;
+				}
+			}
+
+			Http2SettingSingleValue entry = { .identifier = identifier, .value = value };
+
+			auto _ = TVEC_PUSH(Http2SettingSingleValue, &settings_frame.entries, entry);
+			UNUSED(_);
+		}
+	}
+
+	Http2Frame frame = { .type = Http2FrameTypeSettings,
+		                 .value = {
+		                     .settings = settings_frame,
+		                 } };
+
+	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+}
+
 NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2State* const state,
                                                     BufferedReader* const reader) {
 
@@ -389,11 +534,7 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2State* const stat
 			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 		case Http2FrameTypeSettings: {
-			const char* error = "Not Implemented";
-			int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
-			                                Http2ErrorCodeInternalError, error);
-			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return parse_http2_settings_frame(state, reader, http2_raw_header);
 		}
 		case Http2FrameTypePushPromise: {
 			const char* error = "Not Implemented";
@@ -445,9 +586,6 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2State* const state,
 
 	Http2Frames frames = TVEC_EMPTY(Http2Frame);
 
-	// TODO: Support the SETTINGS_MAX_FRAME_SIZE setting, in some cases, the settings header
-	// needs to be sent as first, or in h2c cases, it is required to supply it  via a http 1
-	// header
 	while(true) {
 		Http2FrameResult frame_result = parse_http2_frame(state, reader);
 		// process the frame, if possible, otherwise do it later (e.g. when the headers end)
