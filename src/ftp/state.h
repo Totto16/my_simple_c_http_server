@@ -24,9 +24,12 @@ typedef enum ENUM_IS_MASK C_23_NARROW_ENUM_TO(uint16_t){
 } FtpTransmissionType;
 
 // MASKS
-#define FtpTransmissionTypeMaskLb ((FtpTransmissionType)0xFF00)
-#define FtpTransmissionTypeMaskBase ((FtpTransmissionType)0x0F)
-#define FtpTransmissionTypeMaskExt ((FtpTransmissionType)0xF0)
+#define FtpTransmissionTypeMaskLb /*NOLINT(readability-identifier-naming)*/ \
+	((FtpTransmissionType)0xFF00)
+#define FtpTransmissionTypeMaskBase /*NOLINT(readability-identifier-naming)*/ \
+	((FtpTransmissionType)0x0F)
+#define FtpTransmissionTypeMaskExt /*NOLINT(readability-identifier-naming)*/ \
+	((FtpTransmissionType)0xF0)
 
 /**
  * @enum value

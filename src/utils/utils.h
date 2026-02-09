@@ -131,7 +131,8 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 // to annotate which type the really represent
 #define ANY void*
 
-#define ANY_TYPE(type) /* Type helper for readability */ ANY
+// Type helper for readability
+#define ANY_TYPE(type) ANY
 
 // simple malloc Wrapper, using also memset to set everything to 0
 NODISCARD void* malloc_with_memset(size_t size, bool initialize_with_zeros);
@@ -156,8 +157,8 @@ NODISCARD void* malloc_with_memset(size_t size, bool initialize_with_zeros);
 		} \
 		int written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \
 		if(written >= toWrite) { \
-			logger_fn("Snprint did write more bytes then it had space in the buffer, available " \
-			          "space:'%d', actually written:'%d'!\n", \
+			logger_fn("snprintf did write more bytes then it had space in the buffer, available " \
+			          "space: '%d', actually written: '%d'!\n", \
 			          (toWrite) - 1, written); \
 			free(internalBuffer); \
 			statement \
@@ -182,16 +183,6 @@ NODISCARD void* realloc_with_memset(void* previous_ptr, size_t old_size, size_t 
                                     bool initialize_with_zeros);
 
 NODISCARD float parse_float(char* value);
-
-#define FREE_ARRAY_AND_ENTRIES(ARRAY) \
-	do { \
-		if(ARRAY) { \
-			for(size_t array_idx = 0; array_idx < stbds_arrlenu(ARRAY); ++array_idx) { \
-				free((ARRAY)[array_idx]); \
-			} \
-			stbds_arrfree(ARRAY); \
-		} \
-	} while(false)
 
 NODISCARD uint32_t get_random_byte(void);
 
