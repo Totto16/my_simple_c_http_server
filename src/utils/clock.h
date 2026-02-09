@@ -8,10 +8,10 @@
 
 typedef struct timespec UnderlyingTimeValue;
 
-typedef time_t time_nano_t;
+typedef time_t NanoTime;
 
 typedef struct {
-	UnderlyingTimeValue _impl_value;
+	UnderlyingTimeValue _impl_value; // NOLINT(readability-identifier-naming)
 } Time;
 
 // helpful macro for e.g sleeping
@@ -26,7 +26,7 @@ typedef struct {
 
 NODISCARD Time time_from_struct(UnderlyingTimeValue value);
 
-NODISCARD Time time_from_details(time_t seconds, time_nano_t nanocseconds);
+NODISCARD Time time_from_details(time_t seconds, NanoTime nanocseconds);
 
 NODISCARD Time empty_time(void);
 

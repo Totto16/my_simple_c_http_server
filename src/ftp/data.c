@@ -230,8 +230,8 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 				port_metadata->associated_connection = connection;
 			}
 
-			// TODO: we have many places, where raw ararys instead of ZVEc are used, fix that,
-			// search for realloc for that!
+			// TODO(Totto): we have many places, where raw arrays instead of ZVEc are used, fix
+			// that, search for realloc for that!
 
 			data_controller->connections_size++;
 			DataConnection** new_conns = (DataConnection**)realloc(
@@ -786,6 +786,11 @@ cleanup:
 	return descriptor;
 }
 
+static void free_connections_to_close(ConnectionsToClose* connections_to_close) {
+	TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+	free(connections_to_close);
+}
+
 NODISCARD static bool nts_internal_close_connection(DataController* data_controller,
                                                     DataConnection* connection) {
 
@@ -796,7 +801,7 @@ NODISCARD static bool nts_internal_close_connection(DataController* data_control
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		                   "ASSERT: maximal one connection should be closed, if we set a filter\n");
 
-		TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+		free_connections_to_close(connections_to_close);
 		return false;
 	}
 
@@ -806,7 +811,7 @@ NODISCARD static bool nts_internal_close_connection(DataController* data_control
 		close_connection_descriptor(connection_to_close);
 	}
 
-	TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
+	free_connections_to_close(connections_to_close);
 	return true;
 }
 

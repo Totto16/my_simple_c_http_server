@@ -11,13 +11,13 @@
 static_assert(sizeof(time_t) == sizeof(uint64_t));
 
 // consistency check
-static_assert(sizeof(typeof(((struct timespec*)0)->tv_nsec)) == sizeof(time_nano_t));
+static_assert(sizeof(typeof(((struct timespec*)0)->tv_nsec)) == sizeof(NanoTime));
 
 NODISCARD Time time_from_struct(UnderlyingTimeValue value) {
 	return (Time){ ._impl_value = value };
 }
 
-NODISCARD Time time_from_details(time_t seconds, time_nano_t nanocseconds) {
+NODISCARD Time time_from_details(time_t seconds, NanoTime nanocseconds) {
 	return (Time){ ._impl_value = {
 		               .tv_sec = seconds,
 		               .tv_nsec = nanocseconds,
