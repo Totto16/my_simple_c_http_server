@@ -92,12 +92,12 @@ static const unsigned char g_alpn_protos[] = {
 // inspired by the docs and
 // https://github.com/openssl/openssl/blob/master/demos/guide/quic-server-block.c#L95
 static int alpn_select_cb(SSL* /* ssl */, const unsigned char** out, unsigned char* outlen,
-                          const unsigned char* in, unsigned int inlen, void* /* arg */) {
+                          const unsigned char* in_buf, unsigned int inlen, void* /* arg */) {
 
 	// check if the clinet support one of our protocols, if so, this fn return
 	// OPENSSL_NPN_NEGOTIATED and sets out and outlen, so the exact thing the cb function expects,
 	// so nothing to except return OK
-	if(SSL_select_next_proto((unsigned char**)out, outlen, g_alpn_protos, sizeof(g_alpn_protos), in,
+	if(SSL_select_next_proto((unsigned char**)out, outlen, g_alpn_protos, sizeof(g_alpn_protos), in_buf,
 	                         inlen) == OPENSSL_NPN_NEGOTIATED) {
 		return SSL_TLSEXT_ERR_OK;
 	}
@@ -162,7 +162,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 
 		// NOTE: this might introduce some error in the login in
 		// close_connection_descriptor_advanced
-		// TODO: check if that is true
+		// TODO(Totto): check if that is true
 
 		/*
 		 * Block potential CPU-exhaustion attacks by clients that request frequent
@@ -176,8 +176,8 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 
 		// set by default in new openssl versions: SSL_OP_NO_COMPRESSION
 
-		uint64_t _new_opts = SSL_CTX_set_options(ssl_context, opts);
-		UNUSED(_new_opts);
+		uint64_t new_opts = SSL_CTX_set_options(ssl_context, opts);
+		UNUSED(new_opts);
 	}
 
 	result = SSL_CTX_use_certificate_file(ssl_context, public_cert_file, SSL_FILETYPE_PEM);
@@ -479,7 +479,10 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 			if(proto_len == 2 && memcmp(proto, ALPN_PROTO_H2, H2_PROTO_SIZE) == 0) {
 				// HTTP/2 selected
 				secure_data.protocol = ProtocolSelectedHttp2;
-			} else if(proto_len == 8 && memcmp(proto, ALPN_PROTO_H1_1, H1_1_PROTO_SIZE) == 0) {
+			} else if(
+			    proto_len ==
+			        8 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			    && memcmp(proto, ALPN_PROTO_H1_1, H1_1_PROTO_SIZE) == 0) {
 				// HTTP/1.1 selected
 				secure_data.protocol = ProtocolSelectedHttp1Dot1;
 			}
@@ -501,7 +504,7 @@ int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
                                          ConnectionContext* const context, bool allow_reuse) {
 
 	if(!is_secure_descriptor(descriptor)) {
-		// TODO: we use shutdown in the ssl variant, shoudl we use it here too?
+		// TODO(Totto): we use shutdown in the ssl variant, should we use it here too?
 		//  shutdown(fd, SHUT_WR);
 		int result = close(descriptor->data.normal.fd);
 		free(descriptor);
@@ -644,9 +647,9 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const desc
 		case SSL_ERROR_SYSCALL:
 		case SSL_ERROR_SSL:
 		default: {
-			// TODO: what is the best solution here? the err functions in openssl are powerfull,
-			// but depends on global (thread local?) state, and so they are not really safe to use
-			// after this call returns, so we need to store the errors somehow...
+			// TODO(Totto): what is the best solution here? the err functions in openssl are
+			// powerfull, but depend on global (thread local?) state, and so they are not really
+			// safe to use after this call returns, so we need to store the errors somehow...
 			ssl_error = ERR_get_error();
 			break;
 		}

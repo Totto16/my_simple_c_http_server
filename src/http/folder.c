@@ -16,8 +16,8 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
                                  ParsedURLPath request_path) {
 
 	// Note: check that some of these have trailing slashes, atm i normalize them after adding a
-	// slash after each of them, but that is no entirley correct
-	// TODO: redirect /dir requests to /dir/ with 310 or 302!
+	// slash after each of them, but that is no entirely correct
+	// TODO(Totto): redirect /dir requests to /dir/ with 310 or 302!
 
 	size_t data_len = strlen(data.folder_path);
 	size_t request_len = strlen(request_path.path);
@@ -111,7 +111,7 @@ static ServeFolderResult get_serve_folder_content_for_file(const char* const fin
 
 	const char* name_ptr = final_path;
 
-	// TODO. factor out  into helper function or use cwalk
+	// TODO(Totto): factor out  into helper function or use cwalk
 	while(true) {
 		char* str_result = strstr(name_ptr, "/");
 
@@ -122,7 +122,7 @@ static ServeFolderResult get_serve_folder_content_for_file(const char* const fin
 		name_ptr = str_result + 1;
 	}
 
-	const char* ext = "";
+	const char* ext = NULL;
 
 	{
 
@@ -243,7 +243,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 
 	new_name[name_len] = '\0';
 
-	// TODO: shoudl some files be hidden, like e.g. symlinks, block devices etc?
+	// TODO(totto): should some files be hidden, like e.g. symlinks, block devices etc?
 
 	const bool is_dir = (stat_result.st_mode & S_IFMT) == S_IFDIR;
 
@@ -349,7 +349,7 @@ get_serve_folder_content_for_folder(const char* const folder_path, bool has_vali
 
 		TvecResult push_res = TVEC_PUSH(ServeFolderFolderEntry, &folder_info.entries, metadata);
 
-		if(push_res != TvecResultOk) {
+		if(push_res != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 
 			free_folder_info_entry(metadata);
 
@@ -358,14 +358,16 @@ get_serve_folder_content_for_folder(const char* const folder_path, bool has_vali
 	}
 
 error:
-
 	free_folder_info(folder_info);
+
 success:
 
 	int close_res = closedir(dir);
-	if(close_res != 0) {
 
+	if(close_res != 0) {
 		result.type = ServeFolderResultTypeServerError;
+
+		free_folder_info(folder_info);
 		return result;
 	}
 
@@ -374,13 +376,13 @@ success:
 	return result;
 }
 
-NODISCARD static inline uint64_t abs_i64(int64_t a) {
-	if(a < 0) {
+NODISCARD static inline uint64_t abs_i64(int64_t value) {
+	if(value < 0) {
 		// handles overflow in then - MIN_I64 is bigger than MAX_I64 by one
-		return ((uint64_t)(-(a + 1))) + 1;
+		return ((uint64_t)(-(value + 1))) + 1;
 	}
 
-	return (uint64_t)a;
+	return (uint64_t)value;
 }
 
 /**
@@ -504,7 +506,9 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 
 	if(is_folder) {
 
-		const bool has_valid_parent = !is_the_same_path(final_path, data.folder_path);
+		const bool has_valid_parent =
+		    !is_the_same_path( // NOLINT(readability-implicit-bool-conversion)
+		        final_path, data.folder_path);
 
 		*result = get_serve_folder_content_for_folder(final_path, has_valid_parent);
 	} else {
@@ -557,7 +561,7 @@ void free_serve_folder_result(ServeFolderResult* serve_folder_result) {
 NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
                                                          ServeFolderFolderEntry entry) {
 
-	// TODO: better format it, add link / a for folder or file, better format date!
+	// TODO(Totto): better format it, add link / a for folder or file, better format date!
 
 	const uint64_t time_in_ms = get_time_in_milli_seconds(entry.date);
 
@@ -588,16 +592,23 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 	string_builder_append_single(body, "<div id=\"content\">");
 
 	if(folder_info.has_valid_parent) {
+		char* file_name_dup = strdup("..");
+
 		ServeFolderFolderEntry parent = {
-			.file_name = strdup(".."),
+			.file_name = file_name_dup,
 			.dir = true,
 			.date = empty_time(),
 			.size = 0,
 		};
 
 		if(!folder_content_add_entry(body, parent)) {
+
+			free_string_builder(body);
+			free(file_name_dup);
 			return NULL;
 		}
+
+		free(file_name_dup);
 	}
 
 	for(size_t i = 0; i < TVEC_LENGTH(ServeFolderFolderEntry, folder_info.entries); ++i) {

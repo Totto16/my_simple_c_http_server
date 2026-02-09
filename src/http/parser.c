@@ -696,7 +696,7 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 			};
 		}
 		case HTTPRequestLengthTypeTransferEncoded: {
-			// TODO. implement
+			// TODO(Totto): implement
 			return (HttpBodyReadResult){
 				.is_error = true,
 				.data = { .error = "transfer encoding not yet implemented" },
@@ -996,7 +996,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 				} else {
 
-					// TODO. implement further, search for todo_options
+					// TODO(Totto): implement further, search for todo_options
 					return (HttpRequestResult){ .is_error = true,
 						                        .value = { .error = (HttpRequestError){
 						                                       .is_advanced = true,
@@ -1023,7 +1023,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 				} else {
 
-					// TODO. implement further, search for todo_options
+					// TODO(Totto): implement further, search for todo_options
 					return (HttpRequestResult){
 						.is_error = true,
 						.value = { .error =

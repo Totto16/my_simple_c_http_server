@@ -9,9 +9,11 @@ TMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, char*, MimeTypeEntryHashMap)
 	#pragma GCC diagnostic ignored "-Wpedantic"
 #endif
 
-MimeTypeMappings g_mime_type_mappings = {
-	.entries = TMAP_EMPTY(MimeTypeEntryHashMap),
-};
+MimeTypeMappings
+    g_mime_type_mappings = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    {
+	    .entries = TMAP_EMPTY(MimeTypeEntryHashMap),
+    };
 
 #if defined(__GNUC__) && !defined(__clang__)
 	#pragma GCC diagnostic pop

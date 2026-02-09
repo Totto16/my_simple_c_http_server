@@ -57,7 +57,7 @@ static bool construct_headers_for_request(SendSettings send_settings, HttpRespon
 
 		// Eventual Connection header
 
-		// TODO. once we support http1.1 keepalive, remove this
+		// TODO(Totto): once we support http1.1 keepalive, remove this
 
 		/* if(send_settings.protocol_to_use != HTTPProtocolVersion2) {
 

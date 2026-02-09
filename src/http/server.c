@@ -604,7 +604,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						}
 					}
 
-					// TODO. send a info page
+					// TODO(Totto): send a info page
 					HTTPResponseToSend to_send = { .status = HttpStatusNotFound,
 						                           .body = http_response_body_empty(),
 						                           .mime_type = MIME_TYPE_TEXT,
@@ -944,8 +944,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 
 cleanup:
 
-	// TODO. shoudl we log, if the reader had an error or what the reason for the exit of the loop
-	// was?
+	// TODO(Totto): should we log, if the reader had an error or what the reason for the exit of the
+	// loop was?
 
 	bool finished_cleanly = finish_reader(http_reader, context);
 

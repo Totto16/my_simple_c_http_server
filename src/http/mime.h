@@ -44,7 +44,7 @@ typedef struct {
 	TMAP_TYPENAME_MAP(MimeTypeEntryHashMap) entries;
 } MimeTypeMappings;
 
-extern MimeTypeMappings g_mime_type_mappings;
+extern MimeTypeMappings g_mime_type_mappings; //NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 NODISCARD const char* get_mime_type_for_ext(const char* ext);
 

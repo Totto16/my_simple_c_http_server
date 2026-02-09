@@ -103,8 +103,8 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 
 		const ParsedRequestURI request_uri = request.head.request_line.uri;
 
-		// TODO. factor out some things, like e.g. NULL means not present, port == 0 means default
-		// etc
+		// TODO(Totto): factor out some things, like e.g. NULL means not present, port == 0 means
+		// default etc
 		switch(request_uri.type) {
 			case ParsedURITypeAsterisk: {
 				string_builder_append_single(body, "\"type\": \"asterisk\"");
