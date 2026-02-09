@@ -826,7 +826,7 @@ NODISCARD static StringBuilder* format_file_line_in_eplf_format(FileWithMetadata
 
 		// last mod time in UNIX epoch seconds
 		STRING_BUILDER_APPENDF(string_builder, return NULL;
-		                       , "m%lu,", get_time_in_seconds(file->last_mod));
+		                       , "m%" PRIu64 " ,", get_time_in_seconds(file->last_mod));
 
 		// unique identifier (dev.ino)
 		STRING_BUILDER_APPENDF(string_builder, return NULL;, "i" DEV_FMT "." INO_FMT ",",
