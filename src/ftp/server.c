@@ -734,7 +734,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 							return true;
 						}
 
-						// TODO. check all 3 locations, is this correct like this?
+						// TODO(Totto): check all 3 locations, is this correct like this?
 						g_usr1_signal_received = 0;
 					}
 
@@ -1031,6 +1031,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
+#define FREE_AT_END() \
+	do { \
+	} while(false)
+
 		// permission model: everybody that is logged in can use LIST
 		case FtpCommandList: {
 
@@ -1038,6 +1042,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
+				FREE_AT_END();
 				return true;
 			}
 
@@ -1046,14 +1051,15 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    FtpReturnCodeFileActionNotTaken,
 				    "No data conenction mode specified, specify either PASSIVE or ACTIVE");
 
+				FREE_AT_END();
 				return true;
 			}
 
-			char* arg = command->data.string;
+			const char* arg = command->data.string;
 
 			if(arg == NULL) {
 				// A null argument implies the user's current working or default directory.
-				arg = strdup(".");
+				arg = ".";
 			}
 
 			char* final_file_path = resolve_path_in_cwd(state, arg);
@@ -1065,10 +1071,18 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
+#undef FREE_AT_END
+#define FREE_AT_END() \
+	do { \
+		free(final_file_path); \
+	} while(false)
+
 			struct stat stat_result;
 			int stat_ret = stat(final_file_path, &stat_result);
 
 			if(stat_ret != 0) {
+				FREE_AT_END();
+
 				if(errno == ENOENT) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 					                               "No such file / dir");
@@ -1091,6 +1105,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				SEND_RESPONSE_WITH_ERROR_CHECK_F(FtpReturnCodeFileActionNotTaken,
 				                                 "Access to %s denied", file_type_str);
 
+				FREE_AT_END();
 				return true;
 			}
 
@@ -1129,6 +1144,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					            "time() failed: %s\n", strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 					                               "Internal error 15");
+
+					FREE_AT_END();
 					return true;
 				}
 
@@ -1147,6 +1164,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						if(sleep_result != 0 && errno != EINTR) {
 							SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 							                               "Internal error 16");
+
+							FREE_AT_END();
 							return true;
 						}
 
@@ -1161,6 +1180,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 						                               "Internal  17");
+
+						FREE_AT_END();
 						return true;
 					}
 
@@ -1170,6 +1191,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeDataConnectionOpenError,
 						                               "Timeout on waiting for data connection");
 
+						FREE_AT_END();
 						return true;
 					}
 
@@ -1202,6 +1224,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(descriptor == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 					                               "Internal error 17");
+
+					FREE_AT_END();
 					return true;
 				}
 
@@ -1210,6 +1234,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(send_mode == SendModeUnsupported) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 					                               "Unsupported send mode");
+
+					FREE_AT_END();
 					return true;
 				}
 
@@ -1219,6 +1245,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 					                               "Internal error 18");
+
+					FREE_AT_END();
 					return true;
 				}
 
@@ -1234,6 +1262,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 						                               "Internal send error");
+
+						FREE_AT_END();
 						return true;
 					}
 				}
@@ -1244,6 +1274,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(!data_connection_close(argument->data_controller, data_connection)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 					                               "Internal error 19");
+
+					FREE_AT_END();
 					return true;
 				}
 
@@ -1251,8 +1283,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				                               "Success. Closing Data Connection");
 			}
 
+			FREE_AT_END();
 			return true;
 		}
+
+#undef FREE_AT_END
 
 		case FtpCommandType: {
 
@@ -1869,7 +1904,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	const TvecResult allocate_result = TVEC_ALLOCATE_UNINITIALIZED(
 	    ConnectionContextPtr, &control_contexts, control_pool.worker_threads_amount);
 
-	if(allocate_result == TvecResultErr) {
+	if(allocate_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;

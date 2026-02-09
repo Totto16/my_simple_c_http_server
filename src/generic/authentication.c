@@ -29,7 +29,7 @@ struct AuthenticationProviderImpl {
 	} data;
 };
 
-// TODO: do we really need to store ptrs here
+// TODO(Totto): do we really need to store ptrs here
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(AuthenticationProvider*, AuthenticationProviderPtr)
 
 struct AuthenticationProvidersImpl {
@@ -106,13 +106,10 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 		return false;
 	}
 
-	TvecResult zvec_result =
+	const TvecResult zvec_result =
 	    TVEC_PUSH(AuthenticationProviderPtr, &auth_providers->providers, provider);
 
-	if(zvec_result != TvecResultOk) {
-		return false;
-	}
-	return true;
+	return zvec_result == TvecResultOk; // NOLINT(readability-implicit-bool-conversion)
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
@@ -142,7 +139,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
-    AuthenticationProvider* simple_authentication_provider, const char* username,
+    AuthenticationProvider* simple_authentication_provider, const char* const username,
     HashSaltResultType* hash_salted_password, UserRole role) {
 
 	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
@@ -153,10 +150,13 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 
 	SimpleAccountEntry entry = { .hash_salted_password = hash_salted_password, .role = role };
 
+	char* username_dup = strdup(username);
+
 	TmapInsertResult insert_result =
-	    TMAP_INSERT(SimpleAccountEntryHashMap, &(data->entries), strdup(username), entry, false);
+	    TMAP_INSERT(SimpleAccountEntryHashMap, &(data->entries), username_dup, entry, false);
 
 	if(insert_result != TmapInsertResultOk) {
+		free(username_dup);
 		return false;
 	}
 
@@ -730,7 +730,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 			            result.data.error.error_message);
 		}
 
-		// TODO
+		// TODO(Totto): remove all auto_ = things, properly return in that cases
 		auto _ = TVEC_PUSH(AuthenticationFindResult, &results, result);
 		UNUSED(_);
 	}

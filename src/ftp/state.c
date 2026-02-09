@@ -130,8 +130,8 @@ char* make_address_port_desc(FTPConnectAddr addr) {
 	uint8_t port2 =
 	    port & 0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	// TODO: add explictely named host or network byte order to the functions and check if it is
-	// correct
+	// TODO(Totto): add explicitly named host or network byte order to the functions and check if it
+	// is correct
 
 	IPV4RawBytes raw_ipv4_bytes = get_raw_bytes_as_host_bytes_from_ipv4_address(addr.addr);
 
