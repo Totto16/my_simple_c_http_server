@@ -53,19 +53,19 @@ NODISCARD static HashSaltResultType* hash_salt_string_sha512_impl(HashSaltSettin
 		return NULL;
 	}
 
-	char* new_char = malloc(BCRYPT_512BITS_BASE64_SIZE + 1);
+	char* new_string = malloc(BCRYPT_512BITS_BASE64_SIZE + 1);
 
-	if(!new_char) {
+	if(!new_string) {
 		return NULL;
 	}
 
-	new_char[BCRYPT_512BITS_BASE64_SIZE] = '\0';
+	new_string[BCRYPT_512BITS_BASE64_SIZE] = '\0';
 
-	memcpy(new_char, result_digest, BCRYPT_512BITS_BASE64_SIZE);
+	memcpy(new_string, result_digest, BCRYPT_512BITS_BASE64_SIZE);
 
-	HashSaltResultType* result = hash_salt_string_impl(settings, new_char);
+	HashSaltResultType* result = hash_salt_string_impl(settings, new_string);
 
-	free(new_char);
+	free(new_string);
 
 	return result;
 }
@@ -77,7 +77,7 @@ NODISCARD HashSaltResultType* hash_salt_string(HashSaltSettings settings,
 		return hash_salt_string_sha512_impl(settings, string);
 	}
 
-	return hash_salt_string_sha512_impl(settings, string);
+	return hash_salt_string_impl(settings, string);
 }
 
 NODISCARD static bool
@@ -104,19 +104,19 @@ NODISCARD static bool is_string_equal_to_hash_salted_string_sha512_impl(
 		return NULL;
 	}
 
-	char* new_char = malloc(BCRYPT_512BITS_BASE64_SIZE + 1);
+	char* new_string = malloc(BCRYPT_512BITS_BASE64_SIZE + 1);
 
-	if(!new_char) {
+	if(!new_string) {
 		return NULL;
 	}
 
-	new_char[BCRYPT_512BITS_BASE64_SIZE] = '\0';
+	new_string[BCRYPT_512BITS_BASE64_SIZE] = '\0';
 
-	memcpy(new_char, input_digest, BCRYPT_512BITS_BASE64_SIZE);
+	memcpy(new_string, input_digest, BCRYPT_512BITS_BASE64_SIZE);
 
-	bool result = is_string_equal_to_hash_salted_string_impl(new_char, hash_salted_string);
+	bool result = is_string_equal_to_hash_salted_string_impl(new_string, hash_salted_string);
 
-	free(new_char);
+	free(new_string);
 
 	return result;
 }

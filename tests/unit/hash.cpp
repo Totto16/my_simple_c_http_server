@@ -483,33 +483,24 @@ TEST_CASE("testing password hashing with bcrypt") {
 
 		SUBCASE(test_case.name) {
 
-			char* password_temp = strdup(test_case.password.c_str());
-
-			HashSaltResultType* result = hash_salt_string(test_case.settings, password_temp);
-
-			free(password_temp);
+			HashSaltResultType* result =
+			    hash_salt_string(test_case.settings, test_case.password.c_str());
 
 			REQUIRE_NE(result, nullptr);
 
 			{
-				char* temp = strdup(test_case.password.c_str());
 
-				bool matches =
-				    is_string_equal_to_hash_salted_string(test_case.settings, temp, result);
-
-				free(temp);
+				bool matches = is_string_equal_to_hash_salted_string(
+				    test_case.settings, test_case.password.c_str(), result);
 
 				REQUIRE(matches);
 			}
 
 			{
 				std::string not_my_password = "not my password";
-				char* temp = strdup(not_my_password.c_str());
 
-				bool matches2 =
-				    is_string_equal_to_hash_salted_string(test_case.settings, temp, result);
-
-				free(temp);
+				bool matches2 = is_string_equal_to_hash_salted_string(
+				    test_case.settings, not_my_password.c_str(), result);
 
 				REQUIRE_FALSE(matches2);
 			}
@@ -519,12 +510,8 @@ TEST_CASE("testing password hashing with bcrypt") {
 				HashSaltSettings wrong_seettings = { .work_factor = test_case.settings.work_factor,
 					                                 .use_sha512 = !test_case.settings.use_sha512 };
 
-				char* temp = strdup(test_case.password.c_str());
-
-				bool matches3 =
-				    is_string_equal_to_hash_salted_string(wrong_seettings, temp, result);
-
-				free(temp);
+				bool matches3 = is_string_equal_to_hash_salted_string(
+				    wrong_seettings, test_case.password.c_str(), result);
 
 				REQUIRE_FALSE(matches3);
 			}
