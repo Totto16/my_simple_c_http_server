@@ -828,7 +828,8 @@ NODISCARD static bool nts_internal_close_connection(DataController* data_control
 	for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close); ++i) {
 		ConnectionDescriptor* connection_to_close =
 		    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-		close_connection_descriptor(connection_to_close);
+		int _ = close_connection_descriptor(connection_to_close);
+		UNUSED(_);
 	}
 
 	free_connections_to_close(connections_to_close);

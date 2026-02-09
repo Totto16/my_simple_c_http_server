@@ -373,3 +373,13 @@ bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* con
 
 	return true;
 }
+
+NODISCARD ConnectionDescriptor*
+buffered_reader_get_connection_descriptor(BufferedReader* const reader) {
+	return reader->descriptor;
+}
+
+NODISCARD const ConnectionDescriptor*
+buffered_reader_get_connection_descriptor_const(const BufferedReader* const reader) {
+	return reader->descriptor;
+}

@@ -97,8 +97,8 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 	}
 
-	// TODO(Totto): don't use libc parse function that operate on strings, use parser ones, that operate on
-	// slices of bytes
+	// TODO(Totto): don't use libc parse function that operate on strings, use parser ones, that
+	// operate on slices of bytes
 
 	// make this string parseable by the libc functions
 	SizedBuffer request_line = read_result.value.data;
@@ -189,7 +189,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 typedef struct {
 	HTTPContentType type;
 	union {
-		int todo;
+		HTTP2State v2;
 	} data;
 } HTTPContent;
 
@@ -503,11 +503,6 @@ NODISCARD static RequestSettings get_request_settings(const HttpRequest http_req
 	// TODO(Totto): body encoding
 
 	return request_settings;
-}
-
-NODISCARD static HttpRequestResult parse_http2_request(HTTPReader* const reader) {
-	UNUSED(reader);
-	UNREACHABLE();
 }
 
 /**
@@ -943,8 +938,9 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				}
 
 				reader->content.type = HTTPContentTypeV2;
+				reader->content.data.v2 = http2_default_state();
 
-				return parse_http2_request(reader);
+				return parse_http2_request(&(reader->content.data.v2), reader->reader);
 			}
 			case ProtocolSelectedNone:
 			default: {

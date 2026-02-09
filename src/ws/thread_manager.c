@@ -1570,8 +1570,10 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 		}
 	}
 
-	close_connection_descriptor_advanced(connection->descriptor, connection->context,
-	                                     WS_ALLOW_SSL_CONTEXT_REUSE);
+	int _ = close_connection_descriptor_advanced(connection->descriptor, connection->context,
+	                                             WS_ALLOW_SSL_CONTEXT_REUSE);
+	UNUSED(_);
+
 	free_connection_context(connection->context);
 	free_connection_args(&(connection->args));
 	free(connection);

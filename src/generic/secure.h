@@ -52,9 +52,9 @@ void free_connection_context(ConnectionContext* context);
 NODISCARD ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* context,
                                                           int native_fd);
 
-int close_connection_descriptor(ConnectionDescriptor* descriptor);
+NODISCARD int close_connection_descriptor(ConnectionDescriptor* descriptor);
 
-int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
+NODISCARD int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
                                          ConnectionContext* context, bool allow_reuse);
 
 /**

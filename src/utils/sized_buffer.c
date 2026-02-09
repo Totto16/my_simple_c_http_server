@@ -9,6 +9,21 @@ NODISCARD SizedBuffer get_empty_sized_buffer(void) {
 	return (SizedBuffer){ .data = NULL, .size = 0 };
 }
 
+NODISCARD SizedBuffer allocate_sized_buffer(size_t size) {
+
+	void* data = malloc(size);
+
+	if(data == NULL) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	return (SizedBuffer){ .data = data, .size = size };
+}
+
+NODISCARD SizedBuffer sized_buffer_from_cstr(const char* const value) {
+	return (SizedBuffer){ .data = (void*)value, .size = strlen(value) };
+}
+
 NODISCARD SizedBuffer sized_buffer_get_exact_clone(SizedBuffer buffer) {
 	return (SizedBuffer){ .data = buffer.data, .size = buffer.size };
 }

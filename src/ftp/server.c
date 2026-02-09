@@ -690,7 +690,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					close_connection_descriptor(connection_to_close);
+					int _ = close_connection_descriptor(connection_to_close);
+					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
@@ -884,7 +885,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					close_connection_descriptor(connection_to_close);
+					int _ = close_connection_descriptor(connection_to_close);
+					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
@@ -1121,7 +1123,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					close_connection_descriptor(connection_to_close);
+					int _ = close_connection_descriptor(connection_to_close);
+					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
@@ -1622,7 +1625,8 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					close_connection_descriptor(connection_to_close);
+					int _ = close_connection_descriptor(connection_to_close);
+					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
@@ -1684,7 +1688,8 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			    ++i) {
 				ConnectionDescriptor* connection_to_close =
 				    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-				close_connection_descriptor(connection_to_close);
+				int _ = close_connection_descriptor(connection_to_close);
+				UNUSED(_);
 			}
 			TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 		}

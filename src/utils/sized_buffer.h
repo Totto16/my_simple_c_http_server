@@ -18,6 +18,10 @@ void free_sized_buffer(SizedBuffer buffer);
 
 NODISCARD SizedBuffer get_empty_sized_buffer(void);
 
+NODISCARD SizedBuffer allocate_sized_buffer(size_t size);
+
+NODISCARD SizedBuffer sized_buffer_from_cstr(const char* value);
+
 /**
  * @brief Get the exact clone object, note, that both pointers reference the same value, no deep
  * clone is performed

@@ -66,3 +66,7 @@ void free_buffered_reader(BufferedReader* reader);
 
 NODISCARD bool finish_buffered_reader(BufferedReader* reader, ConnectionContext* context,
                                       bool allow_reuse);
+
+NODISCARD ConnectionDescriptor* buffered_reader_get_connection_descriptor(BufferedReader* reader);
+
+NODISCARD const ConnectionDescriptor* buffered_reader_get_connection_descriptor_const(const BufferedReader* reader);

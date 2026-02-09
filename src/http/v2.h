@@ -13,10 +13,6 @@
 // spec link:
 // https://datatracker.ietf.org/doc/html/rfc7540
 
-typedef struct {
-	int todo;
-} Http2Request;
-
 // see: https://datatracker.ietf.org/doc/html/rfc7540#section-6
 /**
  * @enum value
@@ -38,16 +34,68 @@ typedef struct {
 	SizedBuffer content;
 } Http2DataFrame;
 
+// see: https://datatracker.ietf.org/doc/html/rfc7540#section-7
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint32_t) {
+	Http2ErrorCodeNoError = 0x0,
+	Http2ErrorCodeProtocolError = 0x1,
+	Http2ErrorCodeInternalError = 0x2,
+	Http2ErrorCodeFlowControlError = 0x3,
+	Http2ErrorCodeSettingsRimeout = 0x4,
+	Http2ErrorCodeStreamClosed = 0x5,
+	Http2ErrorCodeFrameSizeError = 0x6,
+	Http2ErrorCodeRefusedStream = 0x7,
+	Http2ErrorCodeCancel = 0x8,
+	Http2ErrorCodeCompressionError = 0x9,
+	Http2ErrorCodeConnectError = 0xa,
+	Http2ErrorCodeEnhanceYourCalm = 0xb,
+	Http2ErrorCodeInadequateSecurity = 0xc,
+	Http2ErrorCodeHttp1Dot1Required = 0xd,
+} Http2ErrorCode;
+
+STATIC_ASSERT(sizeof(Http2ErrorCode) == sizeof(uint32_t), "Http2ErrorCode has to be 32 bits long!");
+
+typedef struct {
+	bool _reserved : 1; // for padding
+	uint32_t last_stream_id : 31;
+	Http2ErrorCode error_code;
+	SizedBuffer additional_debug_data;
+} Http2GoawayFrame;
+
 typedef struct {
 	Http2FrameType type;
 	union {
 		Http2DataFrame data;
+		Http2GoawayFrame goaway;
 	} value;
 } Http2Frame;
 
 TVEC_DEFINE_VEC_TYPE(Http2Frame)
 
-NODISCARD Http2Request* parse_http2_request_TODO(SizedBuffer raw_http_request);
+typedef TVEC_TYPENAME(Http2Frame) Http2Frames;
+
+typedef struct {
+	size_t max_frame_size;
+} Http2Settings;
+
+typedef struct {
+	int todo;
+} Http2PartialRequest;
+
+TMAP_DEFINE_MAP_TYPE(size_t, Integer, Http2PartialRequest, Http2PartialRequestMap)
+
+typedef TMAP_TYPENAME_MAP(Http2PartialRequestMap) Http2PartialRequestMap;
+
+typedef struct {
+	Http2Settings settings;
+	Http2PartialRequestMap requests;
+} HTTP2State;
+
+NODISCARD HTTP2State http2_default_state(void);
+
+NODISCARD HttpRequestResult parse_http2_request(HTTP2State* state, BufferedReader* reader);
 
 /**
  * @enum value
