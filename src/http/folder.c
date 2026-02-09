@@ -251,7 +251,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 	result.file_name = new_name;
 
 #ifdef __APPLE__
-	result.date = stat_result.st_mtimespec;
+	result.date = time_from_struct(stat_result.st_mtimespec);
 #else
 	result.date = time_from_struct(stat_result.st_mtim);
 #endif
@@ -548,6 +548,12 @@ void free_serve_folder_result(ServeFolderResult* serve_folder_result) {
 	free(serve_folder_result);
 }
 
+#ifdef __APPLE__
+	#define TIME_FORMAT "%llu"
+#else
+	#define TIME_FORMAT "%zu"
+#endif
+
 NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
                                                          ServeFolderFolderEntry entry) {
 
@@ -565,7 +571,7 @@ NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
 	    body, return NULL;
 	    ,
 	    "<div class=\"entry\"> <div class=\"name\"><a href=\"%s%s\">%s%s</a></div> <div "
-	    "class=\"date\">%zu</div> <div class=\"size\">%zu</div> </div> <br>",
+	    "class=\"date\">" TIME_FORMAT "</div> <div class=\"size\">%zu</div> </div> <br>",
 	    entry.file_name, dir_delim, entry.file_name, dir_delim, time_in_ms, entry.size);
 
 	return body;
