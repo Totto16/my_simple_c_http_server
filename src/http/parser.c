@@ -97,7 +97,7 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 	}
 
-	// TODO: don't use libc parse function that operate on strings, use parser ones, that operate on
+	// TODO(Totto): don't use libc parse function that operate on strings, use parser ones, that operate on
 	// slices of bytes
 
 	// make this string parseable by the libc functions
@@ -500,7 +500,7 @@ NODISCARD static RequestSettings get_request_settings(const HttpRequest http_req
 
 	request_settings.http_properties = get_http_properties(http_request);
 
-	// TODO: body encoding
+	// TODO(Totto): body encoding
 
 	return request_settings;
 }
@@ -525,7 +525,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPEncodingChunked = 0,
-	// TODO: also support compressions with chunked
+	// TODO(Totto): also support compressions with chunked
 } HTTPEncoding;
 
 typedef struct {
@@ -606,7 +606,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 			analyze_result.length.type = HTTPRequestLengthTypeTransferEncoded;
 
-			// TODO: support more than chunked, as also compressionc an be used with chunked!
+			// TODO(Totto): support more than chunked, as also compression can be used with chunked!
 			if(strcasecmp(header.value, "chunked") != 0) {
 				return (HTTPAnalyzeHeadersResult){
 					.is_error = true,
@@ -621,14 +621,14 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 				analyze_result.length.type = HTTPRequestLengthTypeClose;
 			}
 
-			// TODO: handle keepalive
+			// TODO(Totto): handle keepalive
 
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(connection)) == 0) {
 			// see: https://datatracker.ietf.org/doc/html/rfc7230#section-6.7
 
 			// char* value = strdup(header.value);
 
-			// TODO
+			// TODO(Totto): implement
 			LOG_MESSAGE_SIMPLE(LogLevelWarn, "TODO: implement h2 upgrade check\n");
 		}
 	}
@@ -725,7 +725,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 		.body = (SizedBuffer){ .data = NULL, .size = 0 },
 	};
 
-	// TODO: don't use libc parse function that operate on strings, use parser ones, that
+	// TODO(Totto): don't use libc parse function that operate on strings, use parser ones, that
 	// operate on slices of bytes
 
 	// parse headers
@@ -993,19 +993,17 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 						                                          "with method: path '*' is only "
 						                                          "supported with OPTIONS" } } }
 					};
-
-				} else {
-
-					// TODO(Totto): implement further, search for todo_options
-					return (HttpRequestResult){ .is_error = true,
-						                        .value = { .error = (HttpRequestError){
-						                                       .is_advanced = true,
-						                                       .value = { .advanced =
-						                                                      "not implemented for "
-						                                                      "method OPTIONS: "
-						                                                      "asterisk or normal "
-						                                                      "request" } } } };
 				}
+
+				// TODO(Totto): implement further, search for todo_options
+				return (
+				    HttpRequestResult){ .is_error = true,
+					                    .value = { .error = (HttpRequestError){
+					                                   .is_advanced = true,
+					                                   .value = { .advanced = "not implemented for "
+					                                                          "method OPTIONS: "
+					                                                          "asterisk or normal "
+					                                                          "request" } } } };
 			}
 
 			if(request_line.uri.type == ParsedURITypeAuthority) {
@@ -1020,22 +1018,19 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 						                                          "with method: path '*' is only "
 						                                          "supported with OPTIONS" } } }
 					};
-
-				} else {
-
-					// TODO(Totto): implement further, search for todo_options
-					return (HttpRequestResult){
-						.is_error = true,
-						.value = { .error =
-						               (HttpRequestError){ .is_advanced = true,
-						                                   .value = { .advanced =
-						                                                  "not implemented for "
-						                                                  "method CONNECT: "
-						                                                  "authority or normal "
-						                                                  "request" } } }
-
-					};
 				}
+
+				// TODO(Totto): implement further, search for todo_options
+				return (HttpRequestResult){
+					.is_error = true,
+					.value = { .error =
+					               (HttpRequestError){ .is_advanced = true,
+					                                   .value = { .advanced = "not implemented for "
+					                                                          "method CONNECT: "
+					                                                          "authority or normal "
+					                                                          "request" } } }
+
+				};
 			}
 		}
 	}
@@ -1048,8 +1043,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 	if(reader->content.type == HTTPContentTypeV1) {
 
-		// TODO: use eof, but that has problems, as some clients only close, after we have
-		// close
+		// TODO(Totto): use eof, but that has problems, as some clients only close, after we have
+		// closed
 		//  try to figure out, what the best solution would be
 		// see also finish_buffered_reader()
 
@@ -1142,11 +1137,11 @@ NODISCARD bool http_reader_more_available(const HTTPReader* const reader) {
 }
 
 static void free_reader_content(HTTPContent content) {
-	// TODO
+	// TODO(Totto): implement
 	UNUSED(content);
 }
 
-// TODO: the reader should tell us now if we have http 1.1 keepalive or http/2, but how does
+// TODO(Totto): the reader should tell us now if we have http 1.1 keepalive or http/2, but how does
 // http/1.1 vs http/2 behave, do they close the connection, otherwise this can be false always?,
 // investigate
 #define SUPPORT_KEEPALIVE false

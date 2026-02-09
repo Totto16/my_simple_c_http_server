@@ -22,16 +22,16 @@ typedef struct {
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	Http2FrameType_DATA = 0x00,
-	Http2FrameType_HEADERS = 0x01,
-	Http2FrameType_PRIORITY = 0x02,
-	Http2FrameType_RST_STREAM = 0x03,
-	Http2FrameType_SETTINGS = 0x04,
-	Http2FrameType_PUSH_PROMISE = 0x05,
-	Http2FrameType_PING = 0x06,
-	Http2FrameType_GOAWAY = 0x07,
-	Http2FrameType_WINDOW_UPDATE = 0x08,
-	Http2FrameType_CONTINUATION = 0x09,
+	Http2FrameTypeData = 0x00,
+	Http2FrameTypeHeaders = 0x01,
+	Http2FrameTypePriority = 0x02,
+	Http2FrameTypeRstStream = 0x03,
+	Http2FrameTypeSettings = 0x04,
+	Http2FrameTypePushPromise = 0x05,
+	Http2FrameTypePing = 0x06,
+	Http2FrameTypeGoaway = 0x07,
+	Http2FrameTypeWindowUpdate = 0x08,
+	Http2FrameTypeContinuation = 0x09,
 } Http2FrameType;
 
 typedef struct {
