@@ -93,18 +93,6 @@ typedef struct {
 	Http2StreamIdentifier identifier;
 } Http2RstStreamFrame;
 
-typedef struct {
-	bool ack;
-	SizedBuffer opaque_data;
-} Http2PingFrame;
-
-typedef struct {
-	bool _reserved : 1; // for padding
-	uint32_t last_stream_id : 31;
-	Http2ErrorCode error_code;
-	SizedBuffer additional_debug_data;
-} Http2GoawayFrame;
-
 /**
  * @enum value
  */
@@ -143,6 +131,24 @@ typedef struct {
 } Http2PushPromiseFrame;
 
 typedef struct {
+	bool ack;
+	SizedBuffer opaque_data;
+} Http2PingFrame;
+
+typedef struct {
+	bool _reserved : 1; // for padding
+	uint32_t last_stream_id : 31;
+	Http2ErrorCode error_code;
+	SizedBuffer additional_debug_data;
+} Http2GoawayFrame;
+
+typedef struct {
+	bool _reserved : 1; // for padding
+	uint32_t window_size_increment : 31;
+	Http2StreamIdentifier identifier;
+} Http2WindowUpdateFrame;
+
+typedef struct {
 	Http2FrameType type;
 	union {
 		Http2DataFrame data;
@@ -153,7 +159,7 @@ typedef struct {
 		Http2PushPromiseFrame push_promise;
 		Http2PingFrame ping;
 		Http2GoawayFrame goaway;
-		int window_update;
+		Http2WindowUpdateFrame window_update;
 		int continuation;
 	} value;
 } Http2Frame;
