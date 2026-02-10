@@ -1115,6 +1115,16 @@ NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const r
 
 	SizedBuffer opaque_data = read_result.value.data;
 
+	opaque_data = sized_buffer_dup(opaque_data);
+
+	if(opaque_data.data == NULL) {
+		const char* error = "Failed allocate frame data content buffer";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeInternalError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
 	Http2PingFrame ping_frame = {
 		.ack = (http2_raw_header.flags & Http2PingFrameFlagAck) != 0,
 		.opaque_data = opaque_data,
@@ -1200,7 +1210,15 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 
-		additional_debug_data = read_result2.value.data;
+		additional_debug_data = sized_buffer_dup(read_result2.value.data);
+
+		if(additional_debug_data.data == NULL) {
+			const char* error = "Failed allocate frame data content buffer";
+			int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+			                                Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		}
 	}
 
 	Http2GoawayFrame goaway_frame = {
@@ -1452,9 +1470,45 @@ static void free_http2_data_frame(Http2DataFrame frame) {
 	free_sized_buffer(frame.content);
 }
 
-static void free_http2_settings_frame(Http2SettingsFrame frame) {
+static void free_http2_headers_frame(Http2HeadersFrame frame) {
+	free_sized_buffer(frame.block_fragment);
+}
 
+static inline void free_http2_priority_frame(Http2PriorityFrame frame) {
+	// noop
+	UNUSED(frame);
+}
+
+static inline void free_http2_rst_stream_frame(Http2RstStreamFrame frame) {
+	// noop
+	UNUSED(frame);
+}
+
+static void free_http2_settings_frame(Http2SettingsFrame frame) {
 	TVEC_FREE(Http2SettingSingleValue, &frame.entries);
+}
+
+static void free_http2_push_promise_frame(Http2PushPromiseFrame frame) {
+	free_sized_buffer(frame.block_fragment);
+}
+
+static void free_http2_ping_frame(Http2PingFrame frame) {
+	free_sized_buffer(frame.opaque_data);
+}
+
+static void free_http2_goaway_frame(Http2GoawayFrame frame) {
+	if(frame.additional_debug_data.size > 0) {
+		free_sized_buffer(frame.additional_debug_data);
+	}
+}
+
+static inline void free_http2_window_update_frame(Http2WindowUpdateFrame frame) {
+	// noop
+	UNUSED(frame);
+}
+
+static void free_http2_continuation_frame(Http2ContinuationFrame frame) {
+	free_sized_buffer(frame.block_fragment);
 }
 
 static void free_http2_frame(Http2Frame frame) {
@@ -1464,20 +1518,40 @@ static void free_http2_frame(Http2Frame frame) {
 			free_http2_data_frame(frame.value.data);
 			break;
 		}
-		case Http2FrameTypeHeaders:
-		case Http2FrameTypePriority:
+		case Http2FrameTypeHeaders: {
+			free_http2_headers_frame(frame.value.headers);
+			break;
+		}
+		case Http2FrameTypePriority: {
+			free_http2_priority_frame(frame.value.priority);
+			break;
+		}
 		case Http2FrameTypeRstStream: {
+			free_http2_rst_stream_frame(frame.value.rst_stream);
 			break;
 		}
 		case Http2FrameTypeSettings: {
 			free_http2_settings_frame(frame.value.settings);
 			break;
 		}
-		case Http2FrameTypePushPromise:
-		case Http2FrameTypePing:
-		case Http2FrameTypeGoaway:
-		case Http2FrameTypeWindowUpdate:
+		case Http2FrameTypePushPromise: {
+			free_http2_push_promise_frame(frame.value.push_promise);
+			break;
+		}
+		case Http2FrameTypePing: {
+			free_http2_ping_frame(frame.value.ping);
+			break;
+		}
+		case Http2FrameTypeGoaway: {
+			free_http2_goaway_frame(frame.value.goaway);
+			break;
+		}
+		case Http2FrameTypeWindowUpdate: {
+			free_http2_window_update_frame(frame.value.window_update);
+			break;
+		}
 		case Http2FrameTypeContinuation: {
+			free_http2_continuation_frame(frame.value.continuation);
 			break;
 		}
 		default: {
