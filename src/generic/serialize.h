@@ -26,8 +26,6 @@ NODISCARD uint16_t deserialize_u16_be_to_host(const uint8_t* bytes);
 
 NODISCARD uint32_t deserialize_u32_be_to_host(const uint8_t* bytes);
 
-NODISCARD uint32_t deserialize_u32_be_to_host_advanced(const uint8_t* bytes, uint8_t size);
-
 typedef struct {
 	uint8_t bytes[4];
 } SerializeResult32;

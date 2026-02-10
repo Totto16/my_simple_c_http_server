@@ -95,20 +95,6 @@ NODISCARD uint32_t deserialize_u32_be_to_host(const uint8_t* const bytes) {
 	return BE_TO_HOST_32(raw_value);
 }
 
-NODISCARD uint32_t deserialize_u32_be_to_host_advanced(const uint8_t* const bytes,
-                                                       const uint8_t size) {
-	assert(size <= 4);
-
-	if(size == 0) {
-		return 0ULL;
-	}
-
-	uint32_t raw_value = 0;
-	memcpy(&raw_value, bytes, size);
-
-	return BE_TO_HOST_32(raw_value);
-}
-
 // serialize
 
 NODISCARD static inline SerializeResult32 serialize_u32_host_to_host(const uint32_t bytes) {

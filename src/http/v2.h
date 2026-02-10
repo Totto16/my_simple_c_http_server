@@ -35,6 +35,28 @@ typedef struct {
 	bool is_end;
 } Http2DataFrame;
 
+typedef struct {
+	bool exclusive;
+	uint32_t dependency_identifier : 31;
+	uint8_t weight;
+} Http2FrameDependency;
+
+typedef struct {
+	bool has_dependency;
+	Http2FrameDependency dependency;
+} Http2FrameDependencyOptional;
+
+typedef struct {
+	Http2FrameDependencyOptional dependency_opt;
+	SizedBuffer block_fragment;
+	bool end_stream;
+	bool end_headers;
+} Http2HeadersFrame;
+
+typedef struct {
+	Http2FrameDependency dependency;
+} Http2PriorityFrame;
+
 // see: https://datatracker.ietf.org/doc/html/rfc7540#section-7
 /**
  * @enum value
@@ -98,7 +120,7 @@ typedef struct {
 	Http2FrameType type;
 	union {
 		Http2DataFrame data;
-		int headers;
+		Http2HeadersFrame headers;
 		int priority;
 		int rst_stream;
 		Http2SettingsFrame settings;
