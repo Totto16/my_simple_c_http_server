@@ -149,6 +149,12 @@ typedef struct {
 } Http2WindowUpdateFrame;
 
 typedef struct {
+	SizedBuffer block_fragment;
+	Http2StreamIdentifier identifier;
+	bool end_headers;
+} Http2ContinuationFrame;
+
+typedef struct {
 	Http2FrameType type;
 	union {
 		Http2DataFrame data;
@@ -160,7 +166,7 @@ typedef struct {
 		Http2PingFrame ping;
 		Http2GoawayFrame goaway;
 		Http2WindowUpdateFrame window_update;
-		int continuation;
+		Http2ContinuationFrame continuation;
 	} value;
 } Http2Frame;
 

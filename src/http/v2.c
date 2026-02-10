@@ -430,6 +430,8 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 }
 
+#define HTTP2_DEPENDENCY_INFO_SIZE ((32 + 8) / 8)
+
 NODISCARD static Http2FrameDependency
 get_http2_dependency_info_from_raw_data(const SizedBuffer raw_data) {
 	uint8_t* dependency_data_raw = (uint8_t*)raw_data.data;
@@ -464,8 +466,6 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	                                Http2HeadersFrameFlagEndHeaders | Http2HeadersFrameFlagPadded |
 	                                Http2HeadersFrameFlagPriority
 } Http2HeadersFrameFlag;
-
-#define HTTP2_DEPENDENCY_INFO_SIZE ((32 + 8) / 8)
 
 NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* const reader,
                                                             Http2RawHeader http2_raw_header) {
@@ -1276,6 +1276,74 @@ NODISCARD static Http2FrameResult parse_http2_window_update_frame(BufferedReader
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 }
 
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2ContinuationFrameFlagEndHeaders = Http2FrameFlagEndHeaders,
+	// all allowed flags or-ed together
+	Http2ContinuationFrameFlagsAllowed = Http2ContinuationFrameFlagEndHeaders
+} Http2ContinuationFrameFlag;
+
+NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader* const reader,
+                                                                 Http2RawHeader http2_raw_header) {
+
+	if(http2_raw_header.stream_identifier == 0) {
+		const char* error = "Continuation Frame doesn't allow stream id 0";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeProtocolError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	if((http2_raw_header.flags & Http2ContinuationFrameFlagsAllowed) != http2_raw_header.flags) {
+		const char* error = "invalid continuation frame flags";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeProtocolError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	const size_t payload_length = http2_raw_header.length;
+
+	BufferedReadResult read_result = buffered_reader_get_amount(reader, payload_length);
+
+	if(read_result.type != BufferedReadResultTypeOk) {
+		const char* error = "Failed to read enough data for the frame data";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeInternalError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	SizedBuffer block_fragment = read_result.value.data;
+
+	if(block_fragment.size == 0) {
+		block_fragment.data = NULL;
+	} else {
+		block_fragment = sized_buffer_dup(block_fragment);
+
+		if(block_fragment.data == NULL) {
+			const char* error = "Failed allocate headers block fragment buffer";
+			int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+			                                Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		}
+	}
+
+	Http2ContinuationFrame continuation_frame = {
+		.block_fragment = block_fragment,
+		.identifier = { .stream_identifier = http2_raw_header.stream_identifier },
+		.end_headers = (http2_raw_header.flags & Http2ContinuationFrameFlagEndHeaders) != 0,
+	};
+
+	Http2Frame frame = { .type = Http2FrameTypeContinuation,
+		                 .value = { .continuation = continuation_frame } };
+
+	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+}
+
 NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2State* const state,
                                                     BufferedReader* const reader) {
 
@@ -1330,11 +1398,7 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2State* const stat
 			return parse_http2_window_update_frame(reader, http2_raw_header);
 		}
 		case Http2FrameTypeContinuation: {
-			const char* error = "Not Implemented";
-			int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
-			                                Http2ErrorCodeInternalError, error);
-			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return parse_http2_continuation_frame(reader, http2_raw_header);
 		}
 		default: {
 			const char* error = "Unrecognized frame type";
