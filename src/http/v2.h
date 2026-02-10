@@ -121,7 +121,7 @@ typedef struct {
 	union {
 		Http2DataFrame data;
 		Http2HeadersFrame headers;
-		int priority;
+		Http2PriorityFrame priority;
 		int rst_stream;
 		Http2SettingsFrame settings;
 		int push_promise;
