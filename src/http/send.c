@@ -17,6 +17,7 @@ send_concatted_http1_response_to_connection(const ConnectionDescriptor* const de
                                             Http1ConcattedResponse* concatted_response) {
 	int result = send_string_builder_to_connection(descriptor, &concatted_response->headers);
 	if(result < 0) {
+		free(concatted_response);
 		return result;
 	}
 
