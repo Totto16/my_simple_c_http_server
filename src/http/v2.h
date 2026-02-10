@@ -133,6 +133,7 @@ typedef TMAP_TYPENAME_MAP(Http2PartialRequestMap) Http2PartialRequestMap;
 typedef struct {
 	Http2Settings settings;
 	Http2PartialRequestMap requests;
+	Http2Frames frames;
 } HTTP2State;
 
 NODISCARD HTTP2State http2_default_state(void);
@@ -158,3 +159,5 @@ NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
 
 NODISCARD int http2_send_stream_error_with_data(const ConnectionDescriptor* descriptor,
                                                 Http2ErrorCode error_code, SizedBuffer debug_data);
+
+void free_http2_state(HTTP2State state);

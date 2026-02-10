@@ -85,6 +85,7 @@ NODISCARD HTTP2State http2_default_state(void) {
 	return (HTTP2State){
 		.settings = http2_default_settings(),
 		.requests = TMAP_EMPTY(Http2PartialRequestMap),
+		.frames = TVEC_EMPTY(Http2Frame),
 	};
 }
 
@@ -368,8 +369,6 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(const HTTP2State* const
 		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 	}
 
-	SizedBuffer frame_data = read_result.value.data;
-
 	if(padding_length != 0) {
 		BufferedReadResult read_result2 = buffered_reader_get_amount(reader, payload_length);
 
@@ -392,6 +391,22 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(const HTTP2State* const
 				UNUSED(_);
 				return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 			}
+		}
+	}
+
+	SizedBuffer frame_data = read_result.value.data;
+
+	if(frame_data.size == 0) {
+		frame_data.data = NULL;
+	} else {
+		frame_data = sized_buffer_dup(frame_data);
+
+		if(frame_data.data == NULL) {
+			const char* error = "Failed allocate frame data content buffer";
+			int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+			                                Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 	}
 
@@ -685,10 +700,46 @@ static void http2_apply_settings_frame(Http2Settings* const settings,
 	}
 }
 
+static void free_http2_data_frame(Http2DataFrame frame) {
+	free_sized_buffer(frame.content);
+}
+
+static void free_http2_settings_frame(Http2SettingsFrame frame) {
+
+	TVEC_FREE(Http2SettingSingleValue, &frame.entries);
+}
+
+static void free_http2_frame(Http2Frame frame) {
+
+	switch(frame.type) {
+		case Http2FrameTypeData: {
+			free_http2_data_frame(frame.value.data);
+			break;
+		}
+		case Http2FrameTypeHeaders:
+		case Http2FrameTypePriority:
+		case Http2FrameTypeRstStream: {
+			break;
+		}
+		case Http2FrameTypeSettings: {
+			free_http2_settings_frame(frame.value.settings);
+			break;
+		}
+		case Http2FrameTypePushPromise:
+		case Http2FrameTypePing:
+		case Http2FrameTypeGoaway:
+		case Http2FrameTypeWindowUpdate:
+		case Http2FrameTypeContinuation: {
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+}
+
 NODISCARD HttpRequestResult parse_http2_request(HTTP2State* const state,
                                                 BufferedReader* const reader) {
-
-	Http2Frames frames = TVEC_EMPTY(Http2Frame);
 
 	while(true) {
 		Http2FrameResult frame_result = parse_http2_frame(state, reader);
@@ -749,9 +800,14 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2State* const state,
 		}
 
 		if(frame_must_be_preserved) {
-			auto _ = TVEC_PUSH(Http2Frame, &frames, frame);
+			auto _ = TVEC_PUSH(Http2Frame, &(state->frames), frame);
 			UNUSED(_);
+		} else {
+			free_http2_frame(frame);
 		}
+
+		// after the parsing of the frame, we can discard that data
+		buffered_reader_invalidate_old_data(reader);
 	}
 	//
 
@@ -820,4 +876,25 @@ NODISCARD int http2_send_preface(const ConnectionDescriptor* const descriptor) {
 	int result = http2_send_settings_frame(descriptor, frame_to_send);
 
 	return result;
+}
+
+static void free_http2_requests(Http2PartialRequestMap requests) {
+	// TODO
+	UNUSED(requests);
+}
+
+static void free_http2_frames(Http2Frames frames) {
+	for(size_t i = 0; i < TVEC_LENGTH(Http2Frame, frames); ++i) {
+		const Http2Frame entry = TVEC_AT(Http2Frame, frames, i);
+
+		free_http2_frame(entry);
+	}
+
+	TVEC_FREE(Http2Frame, &frames);
+}
+
+void free_http2_state(HTTP2State state) {
+
+	free_http2_requests(state.requests);
+	free_http2_frames(state.frames);
 }

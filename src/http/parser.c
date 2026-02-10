@@ -1149,8 +1149,20 @@ NODISCARD bool http_reader_more_available(const HTTPReader* const reader) {
 }
 
 static void free_reader_content(HTTPContent content) {
-	// TODO(Totto): implement
-	UNUSED(content);
+
+	switch(content.type) {
+		case HTTPContentTypeV1:
+		case HTTPContentTypeV1Keepalive: {
+			break;
+		}
+		case HTTPContentTypeV2: {
+			free_http2_state(content.data.v2);
+			break;
+		}
+		default: {
+			break;
+		}
+	}
 }
 
 // TODO(Totto): the reader should tell us now if we have http 1.1 keepalive or http/2, but how does
