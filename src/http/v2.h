@@ -151,6 +151,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
                                                    BufferedReader* reader);
 
+NODISCARD int http2_send_preface(const ConnectionDescriptor* descriptor);
+
 NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
                                       Http2ErrorCode error_code, const char* error);
 

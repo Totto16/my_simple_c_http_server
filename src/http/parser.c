@@ -940,6 +940,10 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				reader->content.type = HTTPContentTypeV2;
 				reader->content.data.v2 = http2_default_state();
 
+				int _ =
+				    http2_send_preface(buffered_reader_get_connection_descriptor(reader->reader));
+				UNUSED(_);
+
 				return parse_http2_request(&(reader->content.data.v2), reader->reader);
 			}
 			case ProtocolSelectedNone:
@@ -969,6 +973,9 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 			reader->content.type = HTTPContentTypeV2;
 			reader->content.data.v2 = http2_default_state();
+
+			int _ = http2_send_preface(buffered_reader_get_connection_descriptor(reader->reader));
+			UNUSED(_);
 
 			return parse_http2_request(&(reader->content.data.v2), reader->reader);
 		}

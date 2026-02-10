@@ -722,12 +722,12 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2State* const state,
 			case Http2FrameTypeSettings: {
 				if(!frame.value.settings.ack) {
 					http2_apply_settings_frame(&(state->settings), frame.value.settings);
+					Http2SettingsFrame frame_to_send = {
+						.ack = true,
+						.entries = TVEC_EMPTY(Http2SettingSingleValue),
+					};
 					int _ = http2_send_settings_frame(
-					    buffered_reader_get_connection_descriptor(reader),
-					    (Http2SettingsFrame){
-					        .ack = true,
-					        .entries = TVEC_EMPTY(Http2SettingSingleValue),
-					    });
+					    buffered_reader_get_connection_descriptor(reader), frame_to_send);
 					UNUSED(_);
 				}
 				frame_must_be_preserved = false;
@@ -807,4 +807,17 @@ NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
 	}
 
 	return Http2PrefaceStatusErr;
+}
+
+NODISCARD int http2_send_preface(const ConnectionDescriptor* const descriptor) {
+
+	// TODO(Totto): select the best settings, we should send
+	Http2SettingsFrame frame_to_send = {
+		.ack = false,
+		.entries = TVEC_EMPTY(Http2SettingSingleValue),
+	};
+
+	int result = http2_send_settings_frame(descriptor, frame_to_send);
+
+	return result;
 }
