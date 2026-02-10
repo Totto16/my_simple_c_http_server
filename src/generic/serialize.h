@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "utils/utils.h"
 
 /**
@@ -32,7 +36,6 @@ NODISCARD SerializeResult32 serialize_u32_no_to_host(uint32_t bytes);
 
 NODISCARD SerializeResult32 serialize_u32_host_to_be(uint32_t bytes);
 
-
 typedef struct {
 	uint8_t bytes[2];
 } SerializeResult16;
@@ -40,3 +43,7 @@ typedef struct {
 NODISCARD SerializeResult16 serialize_u16_no_to_host(uint16_t bytes);
 
 NODISCARD SerializeResult16 serialize_u16_host_to_be(uint16_t bytes);
+
+#ifdef __cplusplus
+}
+#endif

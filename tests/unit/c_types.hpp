@@ -24,7 +24,7 @@ constexpr const size_t buffer_max_for_printing_content = 40;
 	return oss.str();
 }
 
-std::ostream& operator<<(std::ostream& os, const SizedBuffer& buffer) {
+[[maybe_unused]] std::ostream& operator<<(std::ostream& os, const SizedBuffer& buffer) {
 	if(buffer.data == NULL || buffer.size > buffer_max_for_printing_content) {
 		os << "SizedBuffer{data=" << buffer.data << ", size=" << buffer.size << "}";
 	} else {
@@ -42,38 +42,4 @@ std::ostream& operator<<(std::ostream& os, const SizedBuffer& buffer) {
 
 doctest::String toString(const SizedBuffer& buffer);
 
-doctest::String toString(const SizedBuffer& buffer) {
-	std::stringstream str{};
-	str << buffer;
-	std::string string = str.str();
-	return doctest::String{ string.c_str(),
-		                    static_cast<doctest::String::size_type>(string.size()) };
-}
-
 NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs);
-
-NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs) {
-
-	if(lhs.size != rhs.size) {
-		return false;
-	}
-
-	if(lhs.data == NULL && rhs.data == NULL) {
-		return true;
-	}
-
-	if(lhs.data == NULL || rhs.data == NULL) {
-		return false;
-	}
-
-	auto* lhs_ptr = static_cast<std::uint8_t*>(lhs.data);
-	auto* rhs_ptr = static_cast<std::uint8_t*>(rhs.data);
-
-	for(size_t i = 0; i < lhs.size; ++i) {
-		if(lhs_ptr[i] != rhs_ptr[i]) {
-			return false;
-		}
-	}
-
-	return true;
-}

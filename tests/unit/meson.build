@@ -14,7 +14,14 @@ test_deps += dependency(
 
 test_inc_dirs += include_directories('.')
 
-test_src += files('c_types.hpp', 'hash.cpp', 'http_parser.cpp', 'main.cpp')
+test_src += files(
+    'c_types.cpp',
+    'c_types.hpp',
+    'hash.cpp',
+    'http_parser.cpp',
+    'main.cpp',
+    'serialize.cpp',
+)
 
 add_languages(
     'cpp',
