@@ -3,6 +3,7 @@
 #include "./command.h"
 #include "generic/ip.h"
 #include "utils/utils.h"
+#include "generic/serialize.h"
 
 #include <string.h>
 
@@ -149,12 +150,9 @@ static FTPPortInformation* parse_ftp_command_port_info(char* arg) {
 		currently_at = resulting_index + 1;
 	}
 
-	IPV4Address addr = get_ipv4_address_from_host_bytes(
-	    (IPV4RawBytes){ .bytes = { result[0], result[1], result[2], result[3] } });
+	IPV4Address addr = get_ipv4_address_from_host_bytes(result);
 
-	uint16_t port = result[4];
-	port = (port << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	       result[5];    // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	const uint16_t port = deserialize_u16_le_to_host(result + 4);
 
 	info->addr = addr;
 	info->port = port;

@@ -2,6 +2,7 @@
 
 #include "./v2.h"
 #include "generic/send.h"
+#include "generic/serialize.h"
 
 TVEC_IMPLEMENT_VEC_TYPE(Http2Frame)
 
@@ -23,13 +24,9 @@ NODISCARD static Http2RawHeader parse_http2_raw_header(const uint8_t* const head
 
 	uint8_t flags = header_data[4];
 
-	// this is big endian!
-	uint32_t length = (header_data[0] << 16) | (header_data[1] << 8) | (header_data[2]);
+	uint32_t length = deserialize_u32_be_to_host_advanced(header_data, 3);
 
-	// this is big endian!
-	uint32_t stream_identifier = ((uint32_t)(header_data[5] & 0x7f) << 24) |
-	                             ((uint32_t)header_data[6] << 16) |
-	                             ((uint32_t)header_data[7] << 8) | ((uint32_t)header_data[8]);
+	uint32_t stream_identifier = deserialize_u32_be_to_host(header_data + 5) & 0x7fffffffULL;
 
 	// MUST be ignored in receiving
 	// bool reserved = ((stream_identifier_raw >> 31) & 1) == 1;
@@ -110,21 +107,23 @@ NODISCARD static SizedBuffer serialize_http2_frame_header(const Http2RawHeader h
 
 		uint8_t* data = (uint8_t*)header_data.data;
 
-		/* Length: 24 bits, big endian */
-		data[i++] = (header.length >> 16) & 0xff;
-		data[i++] = (header.length >> 8) & 0xff;
-		data[i++] = header.length & 0xff;
+		const SerializeResult32 length_res = serialize_u32_host_to_be(header.length);
+
+		data[i++] = length_res.bytes[1];
+		data[i++] = length_res.bytes[2];
+		data[i++] = length_res.bytes[3];
 
 		data[i++] = header.type;
 
 		data[i++] = header.flags;
 
-		/* Stream-ID (reserved bit cleared) */
-		size_t stream_id = header.stream_identifier & 0x7fffffff;
-		data[i++] = (stream_id >> 24) & 0xff;
-		data[i++] = (stream_id >> 16) & 0xff;
-		data[i++] = (stream_id >> 8) & 0xff;
-		data[i++] = stream_id & 0xff;
+		const SerializeResult32 stream_id_res =
+		    serialize_u32_host_to_be(header.stream_identifier & 0x7fffffff);
+
+		data[i++] = stream_id_res.bytes[0];
+		data[i++] = stream_id_res.bytes[1];
+		data[i++] = stream_id_res.bytes[2];
+		data[i++] = stream_id_res.bytes[3];
 
 		assert(i == header_data.size && "implemented http2 frame header serialization incorrectly");
 	}
@@ -186,18 +185,20 @@ NODISCARD static int http2_send_goaway_frame(const ConnectionDescriptor* const d
 
 		uint8_t* data = (uint8_t*)frame_as_data.data;
 
-		/* Last-Stream-ID (reserved bit cleared) */
-		size_t last_stream_id = frame.last_stream_id & 0x7fffffff;
-		data[i++] = (last_stream_id >> 24) & 0xff;
-		data[i++] = (last_stream_id >> 16) & 0xff;
-		data[i++] = (last_stream_id >> 8) & 0xff;
-		data[i++] = last_stream_id & 0xff;
+		const SerializeResult32 last_stream_id_res =
+		    serialize_u32_host_to_be(frame.last_stream_id & 0x7fffffff);
 
-		/* Error Code */
-		data[i++] = (frame.error_code >> 24) & 0xff;
-		data[i++] = (frame.error_code >> 16) & 0xff;
-		data[i++] = (frame.error_code >> 8) & 0xff;
-		data[i++] = frame.error_code & 0xff;
+		data[i++] = last_stream_id_res.bytes[0];
+		data[i++] = last_stream_id_res.bytes[1];
+		data[i++] = last_stream_id_res.bytes[2];
+		data[i++] = last_stream_id_res.bytes[3];
+
+		const SerializeResult32 error_code_res = serialize_u32_host_to_be(frame.error_code);
+
+		data[i++] = error_code_res.bytes[0];
+		data[i++] = error_code_res.bytes[1];
+		data[i++] = error_code_res.bytes[2];
+		data[i++] = error_code_res.bytes[3];
 
 		/* Optional debug data */
 		if(frame.additional_debug_data.size > 0) {
@@ -257,13 +258,17 @@ NODISCARD static int http2_send_settings_frame(const ConnectionDescriptor* const
 			const Http2SettingSingleValue entry =
 			    TVEC_AT(Http2SettingSingleValue, frame.entries, i);
 
-			data[i] = (entry.identifier >> 8) & 0xff;
-			data[i + 1] = entry.identifier & 0xff;
+			const SerializeResult16 identifier_res = serialize_u16_host_to_be(entry.identifier);
 
-			data[i + 2] = (entry.value >> 24) & 0xff;
-			data[i + 3] = (entry.value >> 16) & 0xff;
-			data[i + 4] = (entry.value >> 8) & 0xff;
-			data[i + 5] = entry.value & 0xff;
+			data[i] = identifier_res.bytes[0];
+			data[i + 1] = identifier_res.bytes[1];
+
+			const SerializeResult32 value_res = serialize_u32_host_to_be(entry.value);
+
+			data[i + 2] = value_res.bytes[0];
+			data[i + 3] = value_res.bytes[1];
+			data[i + 4] = value_res.bytes[2];
+			data[i + 5] = value_res.bytes[3];
 		}
 	}
 
@@ -482,12 +487,9 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(const HTTP2State* c
 		uint8_t* data = (uint8_t*)frame_data.data;
 
 		for(size_t i = 0; i < http2_raw_header.length; i += 6) {
-			// this is big endian!
-			uint16_t identifier = (data[i] << 8) | (data[i + 1]);
+			uint16_t identifier = deserialize_u16_be_to_host(data + i);
 
-			// this is big endian!
-			uint32_t value = ((uint32_t)(data[i + 2]) << 24) | ((uint32_t)data[i + 3] << 16) |
-			                 ((uint32_t)data[i + 4] << 8) | ((uint32_t)data[i + 5]);
+			uint32_t value = deserialize_u32_be_to_host(data + i + 2);
 
 			switch(identifier) {
 				case Http2SettingsFrameIdentifierHeaderTableSize: {

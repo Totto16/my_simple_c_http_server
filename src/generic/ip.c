@@ -2,6 +2,8 @@
 
 #include <arpa/inet.h>
 
+#include "generic/serialize.h"
+
 NODISCARD IPAddress from_ipv4(struct in_addr address) {
 
 	return (IPAddress){ .version = IPProtocolVersionV4,
@@ -70,35 +72,23 @@ NODISCARD char* ipv_to_string(IPAddress address) {
 	}
 }
 
-NODISCARD IPV4Address get_ipv4_address_from_host_bytes(IPV4RawBytes bytes) {
-	uint32_t addr = bytes.bytes[0];
-	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	       bytes.bytes[1];
-	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	       bytes.bytes[2];
-	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	       bytes.bytes[3];
+NODISCARD IPV4Address get_ipv4_address_from_host_bytes(const uint8_t* bytes) {
 
-	struct in_addr value = { .s_addr = htonl(addr) };
+	uint32_t addr = deserialize_u32_le_to_no(bytes);
+
+	struct in_addr value = { .s_addr = addr };
 
 	return (IPV4Address){ .underlying = value };
 }
 
 NODISCARD IPV4RawBytes get_raw_bytes_as_host_bytes_from_ipv4_address(IPV4Address address) {
 
-	uint32_t network_order_addr = address.underlying.s_addr;
+	SerializeResult32 result = serialize_u32_no_to_host(address.underlying.s_addr);
 
-	uint8_t host1 = (network_order_addr >>
-	                 24); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	uint8_t host2 =
-	    (network_order_addr >>
-	     16) & // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	    0xFF;  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	uint8_t host3 = (network_order_addr >>
-	                 8) & // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	                0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	uint8_t host4 = network_order_addr &
-	                0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-
-	return (IPV4RawBytes){ .bytes = { host4, host3, host2, host1 } };
+	return (IPV4RawBytes){ .bytes = {
+		                       result.bytes[0],
+		                       result.bytes[1],
+		                       result.bytes[2],
+		                       result.bytes[3],
+		                   } };
 }

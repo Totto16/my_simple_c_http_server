@@ -1833,7 +1833,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	                return EXIT_FAILURE;);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
-	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
+	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
 	struct sockaddr_in* control_addr =

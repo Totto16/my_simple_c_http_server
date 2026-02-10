@@ -44,6 +44,6 @@ typedef struct {
 	uint8_t bytes[4];
 } IPV4RawBytes;
 
-NODISCARD IPV4Address get_ipv4_address_from_host_bytes(IPV4RawBytes bytes);
+NODISCARD IPV4Address get_ipv4_address_from_host_bytes(const uint8_t* bytes);
 
 NODISCARD IPV4RawBytes get_raw_bytes_as_host_bytes_from_ipv4_address(IPV4Address address);

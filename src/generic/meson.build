@@ -17,6 +17,8 @@ src_files += files(
     'send.h',
     'signal_fd.c',
     'signal_fd.h',
+    'serialize.c',
+    'serialize.h',
 )
 
 

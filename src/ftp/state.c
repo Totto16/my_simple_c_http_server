@@ -1,6 +1,7 @@
 
 
 #include "./state.h"
+#include "generic/serialize.h"
 #include "utils/log.h"
 
 #include <stdlib.h>
@@ -123,22 +124,14 @@ char* make_address_port_desc(FTPConnectAddr addr) {
 
 	// Format (h1,h2,h3,h4,p1,p2)
 
-	FTPPortField port = addr.port;
-
-	uint8_t port1 =
-	    port >> 8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	uint8_t port2 =
-	    port & 0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-
-	// TODO(Totto): add explicitly named host or network byte order to the functions and check if it
-	// is correct
+	SerializeResult16 port = serialize_u16_no_to_host(addr.port);
 
 	IPV4RawBytes raw_ipv4_bytes = get_raw_bytes_as_host_bytes_from_ipv4_address(addr.addr);
 
 	char* result = NULL;
 	FORMAT_STRING(&result, return NULL;, "(%d,%d,%d,%d,%d,%d)", raw_ipv4_bytes.bytes[0],
 	                                   raw_ipv4_bytes.bytes[1], raw_ipv4_bytes.bytes[2],
-	                                   raw_ipv4_bytes.bytes[3], port1, port2);
+	                                   raw_ipv4_bytes.bytes[3], port.bytes[0], port.bytes[1]);
 
 	return result;
 }
