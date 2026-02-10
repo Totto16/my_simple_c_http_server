@@ -681,6 +681,67 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 }
 
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	// all allowed flags or-ed together
+	Http2RestStreamFrameFlagsAllowed = 0
+} Http2RestStreamFrameFlag;
+
+#define HTTP2_RST_STREAM_SIZE (32 / 8)
+
+NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* const reader,
+                                                               Http2RawHeader http2_raw_header) {
+
+	if(http2_raw_header.stream_identifier == 0) {
+		const char* error = "Rst stream Frame doesn't allow stream id 0";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeProtocolError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	if((http2_raw_header.flags & Http2RestStreamFrameFlagsAllowed) != http2_raw_header.flags) {
+		const char* error = "invalid rst stream frame flags";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeProtocolError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	const size_t payload_length = http2_raw_header.length;
+
+	if(payload_length != HTTP2_RST_STREAM_SIZE) {
+		const char* error = "not enough frame data for rst stream data";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeFrameSizeError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	BufferedReadResult read_result = buffered_reader_get_amount(reader, HTTP2_RST_STREAM_SIZE);
+
+	if(read_result.type != BufferedReadResultTypeOk) {
+		const char* error = "Failed to read enough data for the frame header";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeInternalError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	SizedBuffer dependency_data = read_result.value.data;
+
+	const uint32_t error_code = deserialize_u32_be_to_host((uint8_t*)dependency_data.data);
+
+	Http2RstStreamFrame rst_stream_frame = { .error_code = error_code };
+
+	Http2Frame frame = { .type = Http2FrameTypeRstStream,
+		                 .value = { .rst_stream = rst_stream_frame } };
+
+	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+}
+
 #define MAX_FLOW_CONTROL_WINDOW_SIZE ((1ULL << 31ULL) - 1) // 2^31-1
 
 #define MAX_MAX_FRAME_SIZE 16777215ULL // 2^24-1 or 16,777,215
@@ -947,11 +1008,7 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2State* const stat
 			return parse_http2_priority_frame(reader, http2_raw_header);
 		}
 		case Http2FrameTypeRstStream: {
-			const char* error = "Not Implemented";
-			int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
-			                                Http2ErrorCodeInternalError, error);
-			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return parse_http2_rst_stream_frame(reader, http2_raw_header);
 		}
 		case Http2FrameTypeSettings: {
 			return parse_http2_settings_frame(reader, http2_raw_header);

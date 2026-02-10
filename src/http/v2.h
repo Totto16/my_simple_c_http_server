@@ -81,6 +81,10 @@ typedef enum C_23_NARROW_ENUM_TO(uint32_t) {
 STATIC_ASSERT(sizeof(Http2ErrorCode) == sizeof(uint32_t), "Http2ErrorCode has to be 32 bits long!");
 
 typedef struct {
+	Http2ErrorCode error_code;
+} Http2RstStreamFrame;
+
+typedef struct {
 	bool _reserved : 1; // for padding
 	uint32_t last_stream_id : 31;
 	Http2ErrorCode error_code;
@@ -122,7 +126,7 @@ typedef struct {
 		Http2DataFrame data;
 		Http2HeadersFrame headers;
 		Http2PriorityFrame priority;
-		int rst_stream;
+		Http2RstStreamFrame rst_stream;
 		Http2SettingsFrame settings;
 		int push_promise;
 		int ping;
