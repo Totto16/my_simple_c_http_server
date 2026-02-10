@@ -25,8 +25,10 @@ struct TestCaseDeserialize32 {
 
 	if constexpr(std::endian::native == std::endian::little) {
 		return LE_value;
-	} else {
+	} else if constexpr(std::endian::native == std::endian::big) {
 		return BE_value;
+	} else {
+		assert(false && "unreachable");
 	}
 }
 
@@ -34,8 +36,10 @@ struct TestCaseDeserialize32 {
 
 	if constexpr(std::endian::native == std::endian::little) {
 		return LE_value;
-	} else {
+	} else if constexpr(std::endian::native == std::endian::big) {
 		return BE_value;
+	} else {
+		assert(false && "unreachable");
 	}
 }
 

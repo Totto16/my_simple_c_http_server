@@ -32,6 +32,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 typedef struct {
 	SizedBuffer content;
+	bool is_end;
 } Http2DataFrame;
 
 // see: https://datatracker.ietf.org/doc/html/rfc7540#section-7
