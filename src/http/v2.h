@@ -31,8 +31,14 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } Http2FrameType;
 
 typedef struct {
+	bool _reserved : 1;
+	uint32_t stream_identifier : 31; // only 31 bits!
+} Http2StreamIdentifier;
+
+typedef struct {
 	SizedBuffer content;
 	bool is_end;
+	Http2StreamIdentifier identifier;
 } Http2DataFrame;
 
 typedef struct {
@@ -49,12 +55,14 @@ typedef struct {
 typedef struct {
 	Http2FrameDependencyOptional dependency_opt;
 	SizedBuffer block_fragment;
+	Http2StreamIdentifier identifier;
 	bool end_stream;
 	bool end_headers;
 } Http2HeadersFrame;
 
 typedef struct {
 	Http2FrameDependency dependency;
+	Http2StreamIdentifier identifier;
 } Http2PriorityFrame;
 
 // see: https://datatracker.ietf.org/doc/html/rfc7540#section-7
@@ -82,6 +90,7 @@ STATIC_ASSERT(sizeof(Http2ErrorCode) == sizeof(uint32_t), "Http2ErrorCode has to
 
 typedef struct {
 	Http2ErrorCode error_code;
+	Http2StreamIdentifier identifier;
 } Http2RstStreamFrame;
 
 typedef struct {
@@ -121,6 +130,14 @@ typedef struct {
 } Http2SettingsFrame;
 
 typedef struct {
+	bool _reserved : 1;
+	uint32_t promised_stream_identifier : 31;
+	SizedBuffer block_fragment;
+	Http2StreamIdentifier identifier;
+	bool end_headers;
+} Http2PushPromiseFrame;
+
+typedef struct {
 	Http2FrameType type;
 	union {
 		Http2DataFrame data;
@@ -128,7 +145,7 @@ typedef struct {
 		Http2PriorityFrame priority;
 		Http2RstStreamFrame rst_stream;
 		Http2SettingsFrame settings;
-		int push_promise;
+		Http2PushPromiseFrame push_promise;
 		int ping;
 		Http2GoawayFrame goaway;
 		int window_update;
