@@ -94,6 +94,11 @@ typedef struct {
 } Http2RstStreamFrame;
 
 typedef struct {
+	bool ack;
+	SizedBuffer opaque_data;
+} Http2PingFrame;
+
+typedef struct {
 	bool _reserved : 1; // for padding
 	uint32_t last_stream_id : 31;
 	Http2ErrorCode error_code;
@@ -146,7 +151,7 @@ typedef struct {
 		Http2RstStreamFrame rst_stream;
 		Http2SettingsFrame settings;
 		Http2PushPromiseFrame push_promise;
-		int ping;
+		Http2PingFrame ping;
 		Http2GoawayFrame goaway;
 		int window_update;
 		int continuation;

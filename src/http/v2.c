@@ -777,8 +777,8 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 	}
 
 	Http2SettingsFrame settings_frame = {
-		.entries = TVEC_EMPTY(Http2SettingSingleValue),
 		.ack = (http2_raw_header.flags & Http2SettingsFrameFlagAck) != 0,
+		.entries = TVEC_EMPTY(Http2SettingSingleValue),
 	};
 
 	if(settings_frame.ack) {
@@ -1063,6 +1063,71 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const Http2Sett
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 }
 
+#define HTTP2_PING_FRAME_SIZE (8)
+
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2PingFrameFlagAck = 0x1,
+	// all allowed flags or-ed together
+	Http2PingFrameFlagsAllowed = Http2PingFrameFlagAck
+} Http2PingFrameFlag;
+
+NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const reader,
+                                                         Http2RawHeader http2_raw_header) {
+
+	if(http2_raw_header.stream_identifier != 0) {
+		const char* error = "The ping Frame only allows stream id 0";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeProtocolError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	if((http2_raw_header.flags & Http2PingFrameFlagsAllowed) != http2_raw_header.flags) {
+		const char* error = "invalid ping frame flags";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeProtocolError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	const size_t payload_length = http2_raw_header.length;
+
+	if(payload_length != HTTP2_PING_FRAME_SIZE) {
+		const char* error = "not enough frame data for ping data";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeFrameSizeError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	BufferedReadResult read_result = buffered_reader_get_amount(reader, HTTP2_PING_FRAME_SIZE);
+
+	if(read_result.type != BufferedReadResultTypeOk) {
+		const char* error = "Failed to read enough data for the frame header";
+		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
+		                                Http2ErrorCodeInternalError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	SizedBuffer opaque_data = read_result.value.data;
+
+	Http2PingFrame ping_frame = {
+		.ack = (http2_raw_header.flags & Http2PingFrameFlagAck) != 0,
+		.opaque_data = opaque_data,
+	};
+
+	Http2Frame frame = {
+		.type = Http2FrameTypePing,
+		.value = { .ping = ping_frame },
+	};
+
+	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+}
+
 /**
  * @enum MASK / FLAGS
  */
@@ -1197,11 +1262,7 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2State* const stat
 			return parse_http2_push_promise_frame(state->settings, reader, http2_raw_header);
 		}
 		case Http2FrameTypePing: {
-			const char* error = "Not Implemented";
-			int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
-			                                Http2ErrorCodeInternalError, error);
-			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return parse_http2_ping_frame(reader, http2_raw_header);
 		}
 		case Http2FrameTypeGoaway: {
 			return parse_http2_goaway_frame(reader, http2_raw_header);
