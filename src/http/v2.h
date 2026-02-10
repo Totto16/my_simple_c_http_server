@@ -89,6 +89,7 @@ TVEC_DEFINE_VEC_TYPE(Http2SettingSingleValue)
 typedef TVEC_TYPENAME(Http2SettingSingleValue) Http2SettingValues;
 
 typedef struct {
+	bool ack;
 	Http2SettingValues entries;
 } Http2SettingsFrame;
 
