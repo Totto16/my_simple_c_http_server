@@ -6,6 +6,17 @@ TVEC_IMPLEMENT_VEC_TYPE(Http2Frame)
 
 TVEC_IMPLEMENT_VEC_TYPE(Http2SettingSingleValue)
 
+TMAP_IMPLEMENT_MAP_TYPE(Http2Identifier, StreamIdentifier, Http2Stream, Http2StreamMap)
+
+TMAP_HASH_FUNC_SIG(Http2Identifier, StreamIdentifier) {
+	const uint32_t value = key.identifier;
+	return TMAP_HASH_SCALAR(value);
+}
+
+TMAP_COMPARE_FUNC_SIG(Http2Identifier, StreamIdentifier) {
+	return (int32_t)(key1.identifier) - ((int32_t)key2.identifier);
+}
+
 #define HTTP2_HEADER_SIZE 9
 
 typedef struct {
@@ -1582,7 +1593,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } Http2ProcessFrameResultType;
 
 typedef struct {
-	bool _unused;
+	Http2Identifier identifier;
 } Http2ProcessFrameFinishedRequest;
 
 typedef struct {
@@ -1593,38 +1604,196 @@ typedef struct {
 	} value;
 } Http2ProcessFrameResult;
 
+typedef struct {
+	bool is_associated_with_stream;
+	union {
+		Http2Identifier stream_identifier;
+	} value;
+} Http2FrameCategory;
+
+NODISCARD static Http2FrameCategory get_http2_frame_category(const Http2Frame frame) {
+	switch(frame.type) {
+		case Http2FrameTypeData: {
+			const Http2DataFrame data_frame = frame.value.data;
+
+			return (Http2FrameCategory){ .is_associated_with_stream = true,
+				                         .value = { .stream_identifier = data_frame.identifier } };
+		}
+		case Http2FrameTypeHeaders: {
+			const Http2HeadersFrame headers_frame = frame.value.headers;
+
+			return (
+			    Http2FrameCategory){ .is_associated_with_stream = true,
+				                     .value = { .stream_identifier = headers_frame.identifier } };
+		}
+		case Http2FrameTypePriority: {
+			const Http2PriorityFrame priority_frame = frame.value.priority;
+
+			return (
+			    Http2FrameCategory){ .is_associated_with_stream = true,
+				                     .value = { .stream_identifier = priority_frame.identifier } };
+		}
+		case Http2FrameTypeRstStream: {
+			const Http2RstStreamFrame rst_stream_frame = frame.value.rst_stream;
+
+			return (Http2FrameCategory){ .is_associated_with_stream = true,
+				                         .value = { .stream_identifier =
+				                                        rst_stream_frame.identifier } };
+		}
+		case Http2FrameTypeSettings: {
+			return (Http2FrameCategory){ .is_associated_with_stream = false };
+		}
+		case Http2FrameTypePushPromise: {
+			const Http2PushPromiseFrame push_promise_frame = frame.value.push_promise;
+
+			return (Http2FrameCategory){ .is_associated_with_stream = true,
+				                         .value = { .stream_identifier =
+				                                        push_promise_frame.identifier } };
+		}
+		case Http2FrameTypePing:
+		case Http2FrameTypeGoaway: {
+			return (Http2FrameCategory){ .is_associated_with_stream = false };
+		}
+		case Http2FrameTypeWindowUpdate: {
+			const Http2WindowUpdateFrame window_update_frame = frame.value.window_update;
+
+			if(window_update_frame.identifier.identifier == 0) {
+				return (Http2FrameCategory){ .is_associated_with_stream = false };
+			}
+
+			return (Http2FrameCategory){ .is_associated_with_stream = true,
+				                         .value = { .stream_identifier =
+				                                        window_update_frame.identifier } };
+		}
+		case Http2FrameTypeContinuation: {
+			const Http2ContinuationFrame continuation_frame = frame.value.continuation;
+
+			return (Http2FrameCategory){ .is_associated_with_stream = true,
+				                         .value = { .stream_identifier =
+				                                        continuation_frame.identifier } };
+		}
+	}
+}
+
+NODISCARD static Http2StreamState get_http2_stream_state(HTTP2Context* const context,
+                                                         const Http2Identifier stream_identifier) {
+
+	const Http2Stream* stream = TMAP_GET(Http2StreamMap, &context->streams, stream_identifier);
+
+	if(stream == NULL) {
+		return Http2StreamStateIdle;
+	}
+
+	return stream->state;
+}
+
 NODISCARD static Http2ProcessFrameResult
-process_http2_frame(HTTP2Context* const context, const Http2Frame frame,
-                    ConnectionDescriptor* const descriptor) {
+process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Context* const context,
+                               const Http2Frame frame, ConnectionDescriptor* const descriptor) {
+
 	// TODO: http2 state management, first frame must be settings frame etc.
 
 	// TODO: handle stream states: https://datatracker.ietf.org/doc/html/rfc7540#section-5.1
+
+	const Http2StreamState stream_state = get_http2_stream_state(context, stream_identifier);
+	UNUSED(stream_state);
+	UNUSED(descriptor);
 
 	switch(frame.type) {
 		case Http2FrameTypeData: {
 			// TODO: process
 			const Http2DataFrame data_frame = frame.value.data;
 			UNUSED(data_frame);
-			break;
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
 		}
 		case Http2FrameTypeHeaders: {
 			// TODO: process
 			const Http2HeadersFrame headers_frame = frame.value.headers;
 			UNUSED(headers_frame);
-			break;
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
 		}
 		case Http2FrameTypePriority: {
 			// TODO: process
 			const Http2PriorityFrame priority_frame = frame.value.priority;
 			UNUSED(priority_frame);
-			break;
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
 		}
 		case Http2FrameTypeRstStream: {
 			// TODO: process
 			const Http2RstStreamFrame rst_stream_frame = frame.value.rst_stream;
 			UNUSED(rst_stream_frame);
-			break;
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
 		}
+
+		case Http2FrameTypePushPromise: {
+			// TODO: process
+			const Http2PushPromiseFrame push_promise_frame = frame.value.push_promise;
+			UNUSED(push_promise_frame);
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
+		}
+		case Http2FrameTypeWindowUpdate: {
+			// TODO: process
+			const Http2WindowUpdateFrame window_update_frame = frame.value.window_update;
+			UNUSED(window_update_frame);
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
+		}
+		case Http2FrameTypeContinuation: {
+			// TODO: process
+			const Http2ContinuationFrame continuation_frame = frame.value.continuation;
+			UNUSED(continuation_frame);
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
+		}
+		case Http2FrameTypeSettings:
+		case Http2FrameTypePing:
+		case Http2FrameTypeGoaway: {
+			return (
+			    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                          .value = {
+				                              .error = "invalid frame type to process for a stream",
+				                          } };
+		}
+		default: {
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "unkown frame type to process",
+				                              } };
+		}
+	}
+}
+
+NODISCARD static Http2ProcessFrameResult
+process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame frame,
+                                   ConnectionDescriptor* const descriptor) {
+	switch(frame.type) {
+
 		case Http2FrameTypeSettings: {
 			const Http2SettingsFrame settings_frame = frame.value.settings;
 
@@ -1637,37 +1806,55 @@ process_http2_frame(HTTP2Context* const context, const Http2Frame frame,
 				int _ = http2_send_settings_frame(descriptor, frame_to_send);
 				UNUSED(_);
 			}
-			break;
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
 		}
-		case Http2FrameTypePushPromise: {
-			// TODO: process
-			const Http2PushPromiseFrame push_promise_frame = frame.value.push_promise;
-			UNUSED(push_promise_frame);
-			break;
-		}
+
 		case Http2FrameTypePing: {
 			// TODO: process
 			const Http2PingFrame ping_frame = frame.value.ping;
 			UNUSED(ping_frame);
-			break;
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
 		}
 		case Http2FrameTypeGoaway: {
 			// TODO: process
 			const Http2GoawayFrame goaway_frame = frame.value.goaway;
 			UNUSED(goaway_frame);
-			break;
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
 		}
 		case Http2FrameTypeWindowUpdate: {
 			// TODO: process
 			const Http2WindowUpdateFrame window_update_frame = frame.value.window_update;
 			UNUSED(window_update_frame);
-			break;
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "not implemented yet",
+				                              } };
 		}
+		case Http2FrameTypeData:
+		case Http2FrameTypeHeaders:
+		case Http2FrameTypePriority:
+		case Http2FrameTypeRstStream:
+		case Http2FrameTypePushPromise:
 		case Http2FrameTypeContinuation: {
-			// TODO: process
-			const Http2ContinuationFrame continuation_frame = frame.value.continuation;
-			UNUSED(continuation_frame);
-			break;
+			return (
+			    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                          .value = {
+				                              .error =
+				                                  "invalid frame type to process for a connection",
+				                          } };
 		}
 		default: {
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
@@ -1676,14 +1863,23 @@ process_http2_frame(HTTP2Context* const context, const Http2Frame frame,
 				                              } };
 		}
 	}
+}
+
+NODISCARD static Http2ProcessFrameResult
+process_http2_frame(HTTP2Context* const context, const Http2Frame frame,
+                    ConnectionDescriptor* const descriptor) {
+
+	const Http2FrameCategory frame_category = get_http2_frame_category(frame);
+
+	const Http2ProcessFrameResult process_result =
+	    frame_category.is_associated_with_stream // NOLINT(readability-implicit-bool-conversion)
+	        ? process_http2_frame_for_stream(frame_category.value.stream_identifier, context, frame,
+	                                         descriptor)
+	        : process_http2_frame_for_connection(context, frame, descriptor);
 
 	free_http2_frame(frame);
 
-	// TODO: if we have a request ready, return it!
-
-	return (Http2ProcessFrameResult){
-		.type = Http2ProcessFrameResultTypeOk,
-	};
+	return process_result;
 }
 
 NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
@@ -1713,8 +1909,6 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 		const Http2ProcessFrameResult process_result =
 		    process_http2_frame(context, frame, buffered_reader_get_connection_descriptor(reader));
 
-		// TODO: if we have a request ready, return it!
-
 		switch(process_result.type) {
 			case Http2ProcessFrameResultTypeError: {
 				return (HttpRequestResult){ .is_error = true,
@@ -1728,8 +1922,16 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 				                        } };
 			}
 			case Http2ProcessFrameResultTypeNewFinishedRequest: {
+				const Http2ProcessFrameFinishedRequest request = process_result.value.request;
+
 				// TODO
-				break;
+				UNUSED(request);
+				const HTTPResultOk result = { 0 };
+
+				return (HttpRequestResult){ .is_error = false,
+					                        .value = {
+					                            .result = result,
+					                        } };
 			}
 			case Http2ProcessFrameResultTypeOk: {
 				break;

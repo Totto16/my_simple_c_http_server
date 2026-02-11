@@ -212,7 +212,7 @@ typedef struct {
 //  also, keep track of the last stream id in the state, so that creating and sending a new one is
 //  easy
 
-TMAP_DEFINE_MAP_TYPE(uint32_t, StreamIdentifier, Http2Stream, Http2StreamMap)
+TMAP_DEFINE_MAP_TYPE(Http2Identifier, StreamIdentifier, Http2Stream, Http2StreamMap)
 
 typedef TMAP_TYPENAME_MAP(Http2StreamMap) Http2StreamMap;
 
