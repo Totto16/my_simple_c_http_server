@@ -511,6 +511,16 @@ get_http2_dependency_info_from_raw_data(const SizedBuffer raw_data) {
 	return dependency;
 }
 
+// See: https://datatracker.ietf.org/doc/html/rfc7540#section-5.3.5
+#define DEFAULT_STREAM_DEPENDENCY_WEIGHT 16
+
+#define DEFAULT_STREAM_DEPENDENCY_EXT(identifier) \
+	((Http2FrameDependency){ .exclusive = false, \
+	                         .dependency_identifier = (identifier), \
+	                         .weight = DEFAULT_STREAM_DEPENDENCY_WEIGHT })
+
+#define DEFAULT_STREAM_DEPENDENCY DEFAULT_STREAM_DEPENDENCY_EXT(0x00)
+
 /**
  * @enum MASK / FLAGS
  */
@@ -585,7 +595,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 
 	Http2FrameDependencyOptional dependency_opt = {
 		.has_dependency = (http2_raw_header.flags & Http2HeadersFrameFlagPadded) != 0,
-		.dependency = { .exclusive = false, .dependency_identifier = 0, .weight = 0 }
+		.dependency = DEFAULT_STREAM_DEPENDENCY
 	};
 
 	if(dependency_opt.has_dependency) {
@@ -1858,7 +1868,12 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 					.headers = EMPTY_STREAM_HEADERS,
 					.content = EMPTY_STREAM_CONTENT,
 					.end_stream = headers_frame->end_stream,
+					.dependency = DEFAULT_STREAM_DEPENDENCY,
 				};
+
+				if(headers_frame->dependency_opt.has_dependency) {
+					new_stream.dependency = headers_frame->dependency_opt.dependency;
+				}
 
 				if(!add_new_http2_stream(context, stream_identifier, new_stream)) {
 					return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
@@ -1885,6 +1900,10 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				stream->end_stream =
 				    stream->end_stream ||      // NOLINT(readability-implicit-bool-conversion)
 				    headers_frame->end_stream; // NOLINT(readability-implicit-bool-conversion)
+
+				if(headers_frame->dependency_opt.has_dependency) {
+					stream->dependency = headers_frame->dependency_opt.dependency;
+				}
 
 				if(stream->headers.finished) {
 					const char* error =
@@ -1929,14 +1948,31 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypePriority: {
-			// TODO: process
 			const Http2PriorityFrame priority_frame = frame->value.priority;
-			UNUSED(priority_frame);
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "not implemented yet",
-				                              } };
+			Http2Stream* stream = get_http2_stream(context, stream_identifier);
+
+			if(stream == NULL) {
+
+				Http2Stream new_stream = {
+					.state = Http2StreamStateIdle,
+					.headers = EMPTY_STREAM_HEADERS,
+					.content = EMPTY_STREAM_CONTENT,
+					.end_stream = false,
+					.dependency = priority_frame.dependency,
+				};
+
+				if(!add_new_http2_stream(context, stream_identifier, new_stream)) {
+					return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+						                              .value = {
+						                                  .error = "stream insert error",
+						                              } };
+				}
+			} else {
+				stream->dependency = priority_frame.dependency;
+			}
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeRstStream: {
 			// TODO: process
@@ -1968,6 +2004,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				.headers = EMPTY_STREAM_HEADERS,
 				.content = EMPTY_STREAM_CONTENT,
 				.end_stream = false,
+				.dependency = DEFAULT_STREAM_DEPENDENCY_EXT(stream_identifier.identifier),
 			};
 
 			if(push_promise_frame->block_fragment.size > 0) {

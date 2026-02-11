@@ -42,7 +42,7 @@ typedef struct {
 } Http2DataFrame;
 
 typedef struct {
-	bool exclusive;
+	bool exclusive : 1;
 	uint32_t dependency_identifier : 31;
 	uint8_t weight;
 } Http2FrameDependency;
@@ -212,6 +212,7 @@ typedef struct {
 	Http2StreamHeaders headers;
 	Http2StreamContent content;
 	bool end_stream;
+	Http2FrameDependency dependency;
 } Http2Stream;
 
 // TODO: => v
