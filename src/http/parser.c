@@ -189,7 +189,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 typedef struct {
 	HTTPContentType type;
 	union {
-		HTTP2State v2;
+		HTTP2Context v2;
 	} data;
 } HTTPContent;
 
@@ -938,11 +938,21 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				}
 
 				reader->content.type = HTTPContentTypeV2;
-				reader->content.data.v2 = http2_default_state();
+				reader->content.data.v2 = http2_default_context();
 
-				int _ =
-				    http2_send_preface(buffered_reader_get_connection_descriptor(reader->reader));
-				UNUSED(_);
+				const Http2StartResult start_result =
+				    http2_send_and_receive_preface(&reader->content.data.v2, reader->reader);
+
+				if(start_result.is_error) {
+					return (HttpRequestResult){
+						.is_error = true,
+						.value = { .error =
+						               (HttpRequestError){
+						                   .is_advanced = false,
+						                   .value = { .enum_value =
+						                                  HttpRequestErrorTypeInvalidHttp2Preface } } }
+					};
+				}
 
 				return parse_http2_request(&(reader->content.data.v2), reader->reader);
 			}
@@ -972,10 +982,21 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 			}
 
 			reader->content.type = HTTPContentTypeV2;
-			reader->content.data.v2 = http2_default_state();
+			reader->content.data.v2 = http2_default_context();
 
-			int _ = http2_send_preface(buffered_reader_get_connection_descriptor(reader->reader));
-			UNUSED(_);
+			const Http2StartResult start_result =
+			    http2_send_and_receive_preface(&reader->content.data.v2, reader->reader);
+
+			if(start_result.is_error) {
+				return (HttpRequestResult){
+					.is_error = true,
+					.value = { .error =
+					               (HttpRequestError){
+					                   .is_advanced = false,
+					                   .value = { .enum_value =
+					                                  HttpRequestErrorTypeInvalidHttp2Preface } } }
+				};
+			}
 
 			return parse_http2_request(&(reader->content.data.v2), reader->reader);
 		}
@@ -1156,7 +1177,7 @@ static void free_reader_content(HTTPContent content) {
 			break;
 		}
 		case HTTPContentTypeV2: {
-			free_http2_state(content.data.v2);
+			free_http2_context(content.data.v2);
 			break;
 		}
 		default: {

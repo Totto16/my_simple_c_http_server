@@ -183,23 +183,56 @@ typedef struct {
 	uint32_t max_header_list_size;
 } Http2Settings;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
+	Http2StreamStateIdle = 0,
+	Http2StreamStateReserved,
+	Http2StreamStateOpen,
+	Http2StreamStateHalfClosed,
+	Http2StreamStateClosed
+} Http2StreamState;
+
 typedef struct {
-	int todo;
-} Http2PartialRequest;
+	int vec_of_header_blocks;
+} Http2StreamHeaders;
 
-TMAP_DEFINE_MAP_TYPE(size_t, Integer, Http2PartialRequest, Http2PartialRequestMap)
+typedef struct {
+	int vec_of_data_blocks;
+} Http2StreamContent;
 
-typedef TMAP_TYPENAME_MAP(Http2PartialRequestMap) Http2PartialRequestMap;
+typedef struct {
+	Http2StreamState state;
+	// data, depending on state,is always there, but may be empty
+	Http2StreamHeaders headers;
+	Http2StreamContent content;
+} Http2Stream;
+
+// TODO: => v
+//  Http2Stream is either a rec or send request, depending if th identifier is odd or even,
+//  also, keep track of the last stream id in the state, so that creating and sending a new one is
+//  easy
+
+TMAP_DEFINE_MAP_TYPE(uint32_t, StreamIdentifier, Http2Stream, Http2StreamMap)
+
+typedef TMAP_TYPENAME_MAP(Http2StreamMap) Http2StreamMap;
+
+typedef struct {
+	bool _unused : 1;
+	uint32_t last_stream_id : 31;
+} Http2State;
 
 typedef struct {
 	Http2Settings settings;
-	Http2PartialRequestMap requests;
+	Http2StreamMap streams;
 	Http2Frames frames;
-} HTTP2State;
+	Http2State state;
+} HTTP2Context;
 
-NODISCARD HTTP2State http2_default_state(void);
+NODISCARD HTTP2Context http2_default_context(void);
 
-NODISCARD HttpRequestResult parse_http2_request(HTTP2State* state, BufferedReader* reader);
+NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* context, BufferedReader* reader);
 
 /**
  * @enum value
@@ -213,7 +246,15 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
                                                    BufferedReader* reader);
 
-NODISCARD int http2_send_preface(const ConnectionDescriptor* descriptor);
+typedef struct {
+	bool is_error;
+	union {
+		const char* error;
+	} value;
+} Http2StartResult;
+
+NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* context,
+                                                          BufferedReader* reader);
 
 NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
                                       Http2ErrorCode error_code, const char* error);
@@ -221,4 +262,4 @@ NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
 NODISCARD int http2_send_stream_error_with_data(const ConnectionDescriptor* descriptor,
                                                 Http2ErrorCode error_code, SizedBuffer debug_data);
 
-void free_http2_state(HTTP2State state);
+void free_http2_context(HTTP2Context context);
