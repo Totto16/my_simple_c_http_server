@@ -9,6 +9,8 @@ src_files += files(
     'folder.h',
     'header.c',
     'header.h',
+    'hpack.c',
+    'hpack.h',
     'mime.c',
     'mime.h',
     'parser.c',
