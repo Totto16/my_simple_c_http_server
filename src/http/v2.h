@@ -192,12 +192,18 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	Http2StreamStateClosed
 } Http2StreamState;
 
+TVEC_DEFINE_VEC_TYPE(SizedBuffer)
+
+typedef TVEC_TYPENAME(SizedBuffer) DataBlocks;
+
 typedef struct {
-	int vec_of_header_blocks;
+	bool finished;
+	DataBlocks header_blocks;
 } Http2StreamHeaders;
 
 typedef struct {
-	int vec_of_data_blocks;
+	bool finished;
+	DataBlocks data_blocks;
 } Http2StreamContent;
 
 typedef struct {
