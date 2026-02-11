@@ -211,6 +211,7 @@ typedef struct {
 	// data, depending on state,is always there, but may be empty
 	Http2StreamHeaders headers;
 	Http2StreamContent content;
+	bool end_stream;
 } Http2Stream;
 
 // TODO: => v

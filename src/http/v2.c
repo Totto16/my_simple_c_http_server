@@ -1871,6 +1871,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				.state = Http2StreamStateReserved,
 				.headers = EMPTY_STREAM_HEADERS,
 				.content = EMPTY_STREAM_CONTENT,
+				.end_stream = false,
 			};
 
 			if(push_promise_frame->block_fragment.size > 0) {
@@ -1893,6 +1894,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 					                              } };
 			}
 
+			// NOTE: push promises can newer end a stream!
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeWindowUpdate: {
@@ -1970,6 +1972,19 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 					                              } };
 			}
 
+			// NOTE. continuation frames can end a stream, if the starting header frame has set the
+			// end_stream flag set and this continuation frame has the end_headers flag set!
+			if(stream->end_stream &&       // NOLINT(readability-implicit-bool-conversion)
+			   stream->headers.finished) { // NOLINT(readability-implicit-bool-conversion)
+				// TODO: maybe set some special flag or state in the stream?
+				return (Http2ProcessFrameResult){ .type =
+					                                  Http2ProcessFrameResultTypeNewFinishedRequest,
+					                              .value = {
+					                                  .request =
+					                                      (Http2ProcessFrameFinishedRequest){
+					                                          .identifier = stream_identifier },
+					                              } };
+			}
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeSettings:
