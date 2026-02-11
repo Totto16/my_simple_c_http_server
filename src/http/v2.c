@@ -1823,14 +1823,110 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				                              } };
 		}
 		case Http2FrameTypeHeaders: {
-			// TODO: process
-			const Http2HeadersFrame headers_frame = frame->value.headers;
-			UNUSED(headers_frame);
+			Http2HeadersFrame* headers_frame = &(frame->value.headers);
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "not implemented yet",
-				                              } };
+			if(stream_state == Http2StreamStateClosed) {
+				const char* error = "Headers frame send on a stream in an invalid state";
+				int _ = http2_send_connection_error(descriptor, Http2ErrorCodeProtocolError, error);
+				UNUSED(_);
+
+				return (Http2ProcessFrameResult){
+					.type = Http2ProcessFrameResultTypeError,
+					.value = { .error = error },
+				};
+			}
+
+			// TODO(Totto): support trailers, only those can be send on non idle state
+			if(stream_state != Http2StreamStateIdle) {
+				const char* error = "Headers frame send on a stream in an invalid state (trailers "
+				                    "not supported yet)";
+				int _ = http2_send_connection_error(descriptor, Http2ErrorCodeProtocolError, error);
+				UNUSED(_);
+
+				return (Http2ProcessFrameResult){
+					.type = Http2ProcessFrameResultTypeError,
+					.value = { .error = error },
+				};
+			}
+
+			Http2Stream* stream = get_http2_stream(context, stream_identifier);
+
+			if(stream == NULL) {
+
+				Http2Stream new_stream = {
+					.state = Http2StreamStateOpen,
+					.headers = EMPTY_STREAM_HEADERS,
+					.content = EMPTY_STREAM_CONTENT,
+					.end_stream = headers_frame->end_stream,
+				};
+
+				if(!add_new_http2_stream(context, stream_identifier, new_stream)) {
+					return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+						                              .value = {
+						                                  .error = "stream insert error",
+						                              } };
+				}
+
+				stream = get_http2_stream(context, stream_identifier);
+
+				if(stream == NULL) {
+					const char* error = "Implementation error, stream not found (after insert)";
+					int _ =
+					    http2_send_connection_error(descriptor, Http2ErrorCodeInternalError, error);
+					UNUSED(_);
+
+					return (Http2ProcessFrameResult){
+						.type = Http2ProcessFrameResultTypeError,
+						.value = { .error = error },
+					};
+				}
+			} else {
+				// TODO(Totto): should a stream in the idle state even exist?
+				stream->end_stream =
+				    stream->end_stream ||      // NOLINT(readability-implicit-bool-conversion)
+				    headers_frame->end_stream; // NOLINT(readability-implicit-bool-conversion)
+
+				if(stream->headers.finished) {
+					const char* error =
+					    "Headers already finished but still received a headers frame";
+					int _ = http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
+					                                stream_identifier);
+					UNUSED(_);
+
+					http2_close_stream(stream);
+
+					return (Http2ProcessFrameResult){
+						.type = Http2ProcessFrameResultTypeError,
+						.value = { .error = error },
+					};
+				}
+			}
+
+			// this pushes the block, sets it in the frame to NULL, so that the frame freeing
+			// doesn't clear the buffer!
+			if(!http2_stream_add_header_block(stream, &(headers_frame->block_fragment),
+			                                  headers_frame->end_headers)) {
+				return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+					                              .value = {
+					                                  .error = "stream header block add error",
+					                              } };
+			}
+
+			// NOTE: headers frames can end a stream, if this header frame has set the
+			// end_stream and the end_headers flag!
+			if(stream->end_stream &&       // NOLINT(readability-implicit-bool-conversion)
+			   stream->headers.finished) { // NOLINT(readability-implicit-bool-conversion)
+				// TODO: maybe set some special flag or state in the stream?
+				return (Http2ProcessFrameResult){ .type =
+					                                  Http2ProcessFrameResultTypeNewFinishedRequest,
+					                              .value = {
+					                                  .request =
+					                                      (Http2ProcessFrameFinishedRequest){
+					                                          .identifier = stream_identifier },
+					                              } };
+			}
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypePriority: {
 			// TODO: process
@@ -1936,7 +2032,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 			if(stream->headers.finished) {
 				const char* error =
-				    "Headers already finished but still received continuation frame";
+				    "Headers already finished but still received a continuation frame";
 				int _ = http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
 				                                stream_identifier);
 				UNUSED(_);
@@ -1972,8 +2068,8 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 					                              } };
 			}
 
-			// NOTE. continuation frames can end a stream, if the starting header frame has set the
-			// end_stream flag set and this continuation frame has the end_headers flag set!
+			// NOTE: continuation frames can end a stream, if the starting header frame has set the
+			// end_stream flag and this continuation frame has the end_headers flag set!
 			if(stream->end_stream &&       // NOLINT(readability-implicit-bool-conversion)
 			   stream->headers.finished) { // NOLINT(readability-implicit-bool-conversion)
 				// TODO: maybe set some special flag or state in the stream?
@@ -1985,6 +2081,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 					                                          .identifier = stream_identifier },
 					                              } };
 			}
+
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeSettings:
