@@ -488,38 +488,38 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 }
 
-#define HTTP2_DEPENDENCY_INFO_SIZE ((32 + 8) / 8)
+#define HTTP2_PRIORITY_INFO_SIZE ((32 + 8) / 8)
 
-NODISCARD static Http2FrameDependency
-get_http2_dependency_info_from_raw_data(const SizedBuffer raw_data) {
-	uint8_t* dependency_data_raw = (uint8_t*)raw_data.data;
+NODISCARD static Http2FramePriority
+get_http2_priority_info_from_raw_data(const SizedBuffer raw_data) {
+	uint8_t* priority_data_raw = (uint8_t*)raw_data.data;
 
-	uint32_t stream_dependency_identifier_raw = deserialize_u32_be_to_host(dependency_data_raw);
+	uint32_t stream_dependency_identifier_raw = deserialize_u32_be_to_host(priority_data_raw);
 
 	uint32_t dependency_identifier = stream_dependency_identifier_raw & 0x7FFFFFFF;
 
 	bool exclusive = (stream_dependency_identifier_raw >> 31) != 0;
 
-	uint8_t weight = dependency_data_raw[4];
+	uint8_t weight = priority_data_raw[4];
 
-	Http2FrameDependency dependency = {
+	Http2FramePriority priority = {
 		.exclusive = exclusive,
 		.dependency_identifier = dependency_identifier,
 		.weight = weight,
 	};
 
-	return dependency;
+	return priority;
 }
 
 // See: https://datatracker.ietf.org/doc/html/rfc7540#section-5.3.5
-#define DEFAULT_STREAM_DEPENDENCY_WEIGHT 16
+#define DEFAULT_STREAM_PRIORITY_WEIGHT 16
 
-#define DEFAULT_STREAM_DEPENDENCY_EXT(identifier) \
-	((Http2FrameDependency){ .exclusive = false, \
-	                         .dependency_identifier = (identifier), \
-	                         .weight = DEFAULT_STREAM_DEPENDENCY_WEIGHT })
+#define DEFAULT_STREAM_PRIORITY_EXT(identifier) \
+	((Http2FramePriority){ .exclusive = false, \
+	                       .dependency_identifier = (identifier), \
+	                       .weight = DEFAULT_STREAM_PRIORITY_WEIGHT })
 
-#define DEFAULT_STREAM_DEPENDENCY DEFAULT_STREAM_DEPENDENCY_EXT(0x00)
+#define DEFAULT_STREAM_PRIORITY DEFAULT_STREAM_PRIORITY_EXT(0x00)
 
 /**
  * @enum MASK / FLAGS
@@ -593,13 +593,12 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 		payload_length = payload_length - 1 - padding_length;
 	}
 
-	Http2FrameDependencyOptional dependency_opt = {
-		.has_dependency = (http2_raw_header.flags & Http2HeadersFrameFlagPadded) != 0,
-		.dependency = DEFAULT_STREAM_DEPENDENCY
-	};
+	Http2FramePriorityOptional priority_opt = { .has_priority = (http2_raw_header.flags &
+		                                                         Http2HeadersFrameFlagPadded) != 0,
+		                                        .priority = DEFAULT_STREAM_PRIORITY };
 
-	if(dependency_opt.has_dependency) {
-		if(payload_length < HTTP2_DEPENDENCY_INFO_SIZE) {
+	if(priority_opt.has_priority) {
+		if(payload_length < HTTP2_PRIORITY_INFO_SIZE) {
 			const char* error = "not enough frame data for priority info";
 			int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                    Http2ErrorCodeProtocolError, error);
@@ -607,10 +606,10 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 
-		payload_length = payload_length - HTTP2_DEPENDENCY_INFO_SIZE;
+		payload_length = payload_length - HTTP2_PRIORITY_INFO_SIZE;
 
 		BufferedReadResult read_result =
-		    buffered_reader_get_amount(reader, HTTP2_DEPENDENCY_INFO_SIZE);
+		    buffered_reader_get_amount(reader, HTTP2_PRIORITY_INFO_SIZE);
 
 		if(read_result.type != BufferedReadResultTypeOk) {
 			const char* error = "Failed to read enough data for the frame header";
@@ -620,11 +619,11 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 		}
 
-		SizedBuffer dependency_data = read_result.value.data;
+		SizedBuffer priority_data = read_result.value.data;
 
-		Http2FrameDependency dependency = get_http2_dependency_info_from_raw_data(dependency_data);
+		Http2FramePriority priority = get_http2_priority_info_from_raw_data(priority_data);
 
-		dependency_opt.dependency = dependency;
+		priority_opt.priority = priority;
 	}
 
 	BufferedReadResult read_result = buffered_reader_get_amount(reader, payload_length);
@@ -680,7 +679,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 	}
 
 	Http2HeadersFrame headers_frame = {
-		.dependency_opt = dependency_opt,
+		.priority_opt = priority_opt,
 		.block_fragment = block_fragment,
 		.identifier = http2_raw_header.stream_identifier,
 		.end_stream = (http2_raw_header.flags & Http2HeadersFrameFlagEndStream) != 0,
@@ -721,7 +720,7 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 
 	const size_t payload_length = http2_raw_header.length;
 
-	if(payload_length != HTTP2_DEPENDENCY_INFO_SIZE) {
+	if(payload_length != HTTP2_PRIORITY_INFO_SIZE) {
 		const char* error = "not enough frame data for priority info";
 		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 		                                    Http2ErrorCodeFrameSizeError, error);
@@ -729,7 +728,7 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 	}
 
-	BufferedReadResult read_result = buffered_reader_get_amount(reader, HTTP2_DEPENDENCY_INFO_SIZE);
+	BufferedReadResult read_result = buffered_reader_get_amount(reader, HTTP2_PRIORITY_INFO_SIZE);
 
 	if(read_result.type != BufferedReadResultTypeOk) {
 		const char* error = "Failed to read enough data for the frame header";
@@ -739,12 +738,12 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 	}
 
-	SizedBuffer dependency_data = read_result.value.data;
+	SizedBuffer priority_data = read_result.value.data;
 
-	Http2FrameDependency dependency = get_http2_dependency_info_from_raw_data(dependency_data);
+	Http2FramePriority priority = get_http2_priority_info_from_raw_data(priority_data);
 
 	Http2PriorityFrame priority_frame = {
-		.dependency = dependency,
+		.priority = priority,
 		.identifier = http2_raw_header.stream_identifier,
 	};
 
@@ -803,9 +802,9 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 	}
 
-	SizedBuffer dependency_data = read_result.value.data;
+	SizedBuffer error_code_data = read_result.value.data;
 
-	const uint32_t error_code = deserialize_u32_be_to_host((uint8_t*)dependency_data.data);
+	const uint32_t error_code = deserialize_u32_be_to_host((uint8_t*)error_code_data.data);
 
 	Http2RstStreamFrame rst_stream_frame = {
 		.error_code = error_code,
@@ -1868,11 +1867,11 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 					.headers = EMPTY_STREAM_HEADERS,
 					.content = EMPTY_STREAM_CONTENT,
 					.end_stream = headers_frame->end_stream,
-					.dependency = DEFAULT_STREAM_DEPENDENCY,
+					.priority = DEFAULT_STREAM_PRIORITY,
 				};
 
-				if(headers_frame->dependency_opt.has_dependency) {
-					new_stream.dependency = headers_frame->dependency_opt.dependency;
+				if(headers_frame->priority_opt.has_priority) {
+					new_stream.priority = headers_frame->priority_opt.priority;
 				}
 
 				if(!add_new_http2_stream(context, stream_identifier, new_stream)) {
@@ -1901,8 +1900,8 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				    stream->end_stream ||      // NOLINT(readability-implicit-bool-conversion)
 				    headers_frame->end_stream; // NOLINT(readability-implicit-bool-conversion)
 
-				if(headers_frame->dependency_opt.has_dependency) {
-					stream->dependency = headers_frame->dependency_opt.dependency;
+				if(headers_frame->priority_opt.has_priority) {
+					stream->priority = headers_frame->priority_opt.priority;
 				}
 
 				if(stream->headers.finished) {
@@ -1959,7 +1958,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 					.headers = EMPTY_STREAM_HEADERS,
 					.content = EMPTY_STREAM_CONTENT,
 					.end_stream = false,
-					.dependency = priority_frame.dependency,
+					.priority = priority_frame.priority,
 				};
 
 				if(!add_new_http2_stream(context, stream_identifier, new_stream)) {
@@ -1969,7 +1968,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 						                              } };
 				}
 			} else {
-				stream->dependency = priority_frame.dependency;
+				stream->priority = priority_frame.priority;
 			}
 
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
@@ -2004,7 +2003,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				.headers = EMPTY_STREAM_HEADERS,
 				.content = EMPTY_STREAM_CONTENT,
 				.end_stream = false,
-				.dependency = DEFAULT_STREAM_DEPENDENCY_EXT(stream_identifier.identifier),
+				.priority = DEFAULT_STREAM_PRIORITY_EXT(stream_identifier.identifier),
 			};
 
 			if(push_promise_frame->block_fragment.size > 0) {

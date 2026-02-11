@@ -45,15 +45,15 @@ typedef struct {
 	bool exclusive : 1;
 	uint32_t dependency_identifier : 31;
 	uint8_t weight;
-} Http2FrameDependency;
+} Http2FramePriority;
 
 typedef struct {
-	bool has_dependency;
-	Http2FrameDependency dependency;
-} Http2FrameDependencyOptional;
+	bool has_priority;
+	Http2FramePriority priority;
+} Http2FramePriorityOptional;
 
 typedef struct {
-	Http2FrameDependencyOptional dependency_opt;
+	Http2FramePriorityOptional priority_opt;
 	SizedBuffer block_fragment;
 	Http2Identifier identifier;
 	bool end_stream;
@@ -61,7 +61,7 @@ typedef struct {
 } Http2HeadersFrame;
 
 typedef struct {
-	Http2FrameDependency dependency;
+	Http2FramePriority priority;
 	Http2Identifier identifier;
 } Http2PriorityFrame;
 
@@ -212,7 +212,7 @@ typedef struct {
 	Http2StreamHeaders headers;
 	Http2StreamContent content;
 	bool end_stream;
-	Http2FrameDependency dependency;
+	Http2FramePriority priority;
 } Http2Stream;
 
 // TODO: => v
