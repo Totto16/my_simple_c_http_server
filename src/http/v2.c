@@ -2574,8 +2574,17 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 }
 
 static void free_http2_streams(Http2StreamMap streams) {
-	// TODO
-	UNUSED(streams);
+
+	TMAP_TYPENAME_ITER(Http2StreamMap)
+	iter = TMAP_ITER_INIT(Http2StreamMap, &streams);
+
+	TMAP_TYPENAME_ENTRY(Http2StreamMap) value;
+
+	while(TMAP_ITER_NEXT(Http2StreamMap, &iter, &value)) {
+		free_http2_stream(&value.value);
+	}
+
+	TMAP_FREE(Http2StreamMap, &streams);
 }
 
 static void free_http2_frames(Http2Frames frames) {

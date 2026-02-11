@@ -219,6 +219,7 @@ typedef struct {
 //  Http2Stream is either a rec or send request, depending if th identifier is odd or even,
 //  also, keep track of the last stream id in the state, so that creating and sending a new one is
 //  easy
+// TODO: make sure that the new send identifier are even and the received are odd!
 
 TMAP_DEFINE_MAP_TYPE(Http2Identifier, StreamIdentifier, Http2Stream, Http2StreamMap)
 
