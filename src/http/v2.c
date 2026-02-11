@@ -90,7 +90,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 #define DEFAULT_SETTINGS_MAX_FRAME_SIZE (1 << 14) // 2^14
 #define DEFAULT_MAX_HEADER_LIST_SIZE UINT32_T_MAX
 
-NODISCARD static Http2Settings http2_default_settings(void) {
+NODISCARD inline static Http2Settings http2_default_settings(void) {
 	return (Http2Settings){
 		.header_table_size = DEFAULT_HEADER_TABLE_SIZE,
 		.enable_push = true,
@@ -101,14 +101,19 @@ NODISCARD static Http2Settings http2_default_settings(void) {
 	};
 }
 
+NODISCARD inline static Http2ContextState http2_default_context_state(void) {
+	return (Http2ContextState){
+		.last_stream_id = { .identifier = 0 },
+		.state = (Http2State){ .type = Http2StateTypeOpen },
+	};
+}
+
 NODISCARD HTTP2Context http2_default_context(void) {
 
 	return (HTTP2Context){ .settings = http2_default_settings(),
 		                   .streams = TMAP_EMPTY(Http2StreamMap),
 		                   .frames = TVEC_EMPTY(Http2Frame),
-		                   .state = (Http2State){
-		                       .last_stream_id = 0,
-		                   } };
+		                   .state = http2_default_context_state() };
 }
 
 typedef struct {
@@ -2328,14 +2333,24 @@ process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeGoaway: {
-			// TODO: process
 			const Http2GoawayFrame goaway_frame = frame->value.goaway;
-			UNUSED(goaway_frame);
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "not implemented yet",
-				                              } };
+			context->state.state =
+			    (Http2State){ .type = Http2StateTypeClosed,
+				              .value = { .closed_reason = goaway_frame.error_code } };
+
+			if(goaway_frame.error_code != Http2ErrorCodeNoError) {
+
+				LOG_MESSAGE(LogLevelWarn, "Received goaway error code: %d\n",
+				            goaway_frame.error_code);
+				if(goaway_frame.additional_debug_data.size > 0) {
+					LOG_MESSAGE(LogLevelWarn, "Additional data:\n%.*s\n",
+					            (int)goaway_frame.additional_debug_data.size,
+					            (char*)goaway_frame.additional_debug_data.data);
+				}
+			}
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeWindowUpdate: {
 			const Http2WindowUpdateFrame window_update_frame = frame->value.window_update;

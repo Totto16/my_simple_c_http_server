@@ -224,15 +224,31 @@ TMAP_DEFINE_MAP_TYPE(Http2Identifier, StreamIdentifier, Http2Stream, Http2Stream
 
 typedef TMAP_TYPENAME_MAP(Http2StreamMap) Http2StreamMap;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
+	Http2StateTypeOpen = 0,
+	Http2StateTypeClosed,
+} Http2StateType;
+
+typedef struct {
+	Http2StateType type;
+	union {
+		Http2ErrorCode closed_reason;
+	} value;
+} Http2State;
+
 typedef struct {
 	Http2Identifier last_stream_id;
-} Http2State;
+	Http2State state;
+} Http2ContextState;
 
 typedef struct {
 	Http2Settings settings;
 	Http2StreamMap streams;
 	Http2Frames frames;
-	Http2State state;
+	Http2ContextState state;
 } HTTP2Context;
 
 NODISCARD HTTP2Context http2_default_context(void);
