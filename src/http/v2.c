@@ -2152,14 +2152,12 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeWindowUpdate: {
-			// TODO: process
 			const Http2WindowUpdateFrame window_update_frame = frame->value.window_update;
+			// TODO(Totto): use this frame (it is for an identifier, as window updates can be also
+			// for the entire connection)
 			UNUSED(window_update_frame);
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "not implemented yet",
-				                              } };
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeContinuation: {
 			Http2ContinuationFrame* continuation_frame = &(frame->value.continuation);
@@ -2308,14 +2306,13 @@ process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame
 				                              } };
 		}
 		case Http2FrameTypeWindowUpdate: {
-			// TODO: process
 			const Http2WindowUpdateFrame window_update_frame = frame->value.window_update;
 			UNUSED(window_update_frame);
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "not implemented yet",
-				                              } };
+			// TODO(Totto): use this frame (it is for the entire connection)
+			UNUSED(window_update_frame);
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeData:
 		case Http2FrameTypeHeaders:
