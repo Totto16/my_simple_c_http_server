@@ -53,19 +53,13 @@ NODISCARD static HashSaltResultType* hash_salt_string_sha512_impl(HashSaltSettin
 		return NULL;
 	}
 
-	char* new_string = malloc(BCRYPT_512BITS_BASE64_SIZE + 1);
-
-	if(!new_string) {
-		return NULL;
-	}
+	char new_string[BCRYPT_512BITS_BASE64_SIZE + 1] = { 0 };
 
 	new_string[BCRYPT_512BITS_BASE64_SIZE] = '\0';
 
 	memcpy(new_string, result_digest, BCRYPT_512BITS_BASE64_SIZE);
 
 	HashSaltResultType* result = hash_salt_string_impl(settings, new_string);
-
-	free(new_string);
 
 	return result;
 }
@@ -104,19 +98,13 @@ NODISCARD static bool is_string_equal_to_hash_salted_string_sha512_impl(
 		return NULL;
 	}
 
-	char* new_string = malloc(BCRYPT_512BITS_BASE64_SIZE + 1);
-
-	if(!new_string) {
-		return NULL;
-	}
+	char new_string[BCRYPT_512BITS_BASE64_SIZE + 1] = { 0 };
 
 	new_string[BCRYPT_512BITS_BASE64_SIZE] = '\0';
 
 	memcpy(new_string, input_digest, BCRYPT_512BITS_BASE64_SIZE);
 
 	bool result = is_string_equal_to_hash_salted_string_impl(new_string, hash_salted_string);
-
-	free(new_string);
 
 	return result;
 }

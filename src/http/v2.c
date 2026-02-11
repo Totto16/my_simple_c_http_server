@@ -119,42 +119,6 @@ typedef struct {
 	} data;
 } Http2FrameResult;
 
-NODISCARD static SizedBuffer serialize_http2_frame_header(const Http2RawHeader header) {
-
-	SizedBuffer header_data = allocate_sized_buffer(HTTP2_HEADER_SIZE);
-
-	if(header_data.data == NULL) {
-		return header_data;
-	}
-
-	{
-		size_t i = 0;
-
-		uint8_t* data = (uint8_t*)header_data.data;
-
-		const SerializeResult32 length_res = serialize_u32_host_to_be(header.length);
-
-		data[i++] = length_res.bytes[1];
-		data[i++] = length_res.bytes[2];
-		data[i++] = length_res.bytes[3];
-
-		data[i++] = header.type;
-
-		data[i++] = header.flags;
-
-		const SerializeResult32 stream_id_res = serialize_identifier(header.stream_identifier);
-
-		data[i++] = stream_id_res.bytes[0];
-		data[i++] = stream_id_res.bytes[1];
-		data[i++] = stream_id_res.bytes[2];
-		data[i++] = stream_id_res.bytes[3];
-
-		assert(i == header_data.size && "implemented http2 frame header serialization incorrectly");
-	}
-
-	return header_data;
-}
-
 NODISCARD static int http2_send_raw_frame(const ConnectionDescriptor* const descriptor,
                                           const Http2RawHeader header, const SizedBuffer data) {
 
@@ -164,22 +128,41 @@ NODISCARD static int http2_send_raw_frame(const ConnectionDescriptor* const desc
 		return -71;
 	}
 
-	SizedBuffer header_buffer = serialize_http2_frame_header(header);
+	uint8_t header_buffer[HTTP2_HEADER_SIZE] = { 0 };
 
-	if(header_buffer.data == NULL) {
-		return -72;
+	{
+		size_t i = 0;
+
+		uint8_t* header_buffer_data = (uint8_t*)header_buffer;
+
+		const SerializeResult32 length_res = serialize_u32_host_to_be(header.length);
+
+		header_buffer_data[i++] = length_res.bytes[1];
+		header_buffer_data[i++] = length_res.bytes[2];
+		header_buffer_data[i++] = length_res.bytes[3];
+
+		header_buffer_data[i++] = header.type;
+
+		header_buffer_data[i++] = header.flags;
+
+		const SerializeResult32 stream_id_res = serialize_identifier(header.stream_identifier);
+
+		header_buffer_data[i++] = stream_id_res.bytes[0];
+		header_buffer_data[i++] = stream_id_res.bytes[1];
+		header_buffer_data[i++] = stream_id_res.bytes[2];
+		header_buffer_data[i++] = stream_id_res.bytes[3];
+
+		assert(i == HTTP2_HEADER_SIZE &&
+		       "implemented http2 frame header serialization incorrectly");
 	}
 
-	int result = send_sized_buffer_to_connection(descriptor, header_buffer);
+	int result = send_data_to_connection(descriptor, header_buffer, HTTP2_HEADER_SIZE);
 
 	if(result < 0) {
-		free_sized_buffer(header_buffer);
 		return result;
 	}
 
 	result = send_sized_buffer_to_connection(descriptor, data);
-
-	free_sized_buffer(header_buffer);
 
 	return result;
 }
@@ -254,16 +237,12 @@ NODISCARD static int http2_send_rst_stream_frame(const ConnectionDescriptor* con
 		.stream_identifier = frame.identifier,
 	};
 
-	SizedBuffer frame_as_data = allocate_sized_buffer(HTTP2_RST_STREAM_SIZE);
-
-	if(frame_as_data.data == NULL) {
-		return -1;
-	}
+	uint8_t frame_as_data_raw[HTTP2_RST_STREAM_SIZE] = { 0 };
 
 	{
 		size_t i = 0;
 
-		uint8_t* data = (uint8_t*)frame_as_data.data;
+		uint8_t* data = (uint8_t*)frame_as_data_raw;
 
 		const SerializeResult32 error_code_res = serialize_u32_host_to_be(frame.error_code);
 
@@ -275,9 +254,9 @@ NODISCARD static int http2_send_rst_stream_frame(const ConnectionDescriptor* con
 		assert(i == HTTP2_RST_STREAM_SIZE && "implemented rst stream serialization incorrectly");
 	}
 
-	const int result = http2_send_raw_frame(descriptor, header, frame_as_data);
+	SizedBuffer frame_as_data = { .data = frame_as_data_raw, .size = HTTP2_RST_STREAM_SIZE };
 
-	free_sized_buffer(frame_as_data);
+	const int result = http2_send_raw_frame(descriptor, header, frame_as_data);
 
 	return result;
 }
