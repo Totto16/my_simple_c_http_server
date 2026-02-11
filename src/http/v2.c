@@ -1772,6 +1772,25 @@ NODISCARD static bool http2_stream_add_header_block(Http2Stream* const stream,
 	return true;
 }
 
+NODISCARD static bool http2_stream_add_content_block(Http2Stream* const stream,
+                                                     SizedBuffer* const content_block,
+                                                     bool end_stream) {
+
+	if(stream->end_stream) {
+		return false;
+	}
+
+	TvecResult result = TVEC_PUSH(SizedBuffer, &(stream->content.data_blocks), *content_block);
+	if(result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
+		return false;
+	}
+
+	*content_block = (SizedBuffer){ .data = NULL, .size = 0 };
+	stream->end_stream = end_stream;
+
+	return true;
+}
+
 static void free_http2_stream_headers(Http2StreamHeaders* const headers) {
 
 	for(size_t i = 0; i < TVEC_LENGTH(SizedBuffer, headers->header_blocks); ++i) {
@@ -1814,22 +1833,93 @@ NODISCARD static Http2ProcessFrameResult
 process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Context* const context,
                                Http2Frame* frame, ConnectionDescriptor* const descriptor) {
 
-	// TODO: http2 state management, first frame must be settings frame etc.
-
-	// TODO: handle stream states: https://datatracker.ietf.org/doc/html/rfc7540#section-5.1
+	// this handles stream states, see: https://datatracker.ietf.org/doc/html/rfc7540#section-5.1
 
 	const Http2StreamState stream_state = get_http2_stream_state(context, stream_identifier);
 
 	switch(frame->type) {
 		case Http2FrameTypeData: {
-			// TODO: process
-			const Http2DataFrame data_frame = frame->value.data;
-			UNUSED(data_frame);
+			Http2DataFrame* data_frame = &(frame->value.data);
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "not implemented yet",
-				                              } };
+			if(stream_state != Http2StreamStateOpen && stream_state != Http2StreamStateHalfClosed) {
+				const char* error = "Data frame send on a stream in an invalid state";
+				int _ = http2_send_stream_error(descriptor, Http2ErrorCodeStreamClosed,
+				                                stream_identifier);
+				UNUSED(_);
+
+				return (Http2ProcessFrameResult){
+					.type = Http2ProcessFrameResultTypeError,
+					.value = { .error = error },
+				};
+			}
+
+			Http2Stream* stream = get_http2_stream(context, stream_identifier);
+
+			if(stream == NULL) {
+				const char* error = "Implementation error, stream not found";
+				int _ = http2_send_connection_error(descriptor, Http2ErrorCodeInternalError, error);
+				UNUSED(_);
+
+				return (Http2ProcessFrameResult){
+					.type = Http2ProcessFrameResultTypeError,
+					.value = { .error = error },
+				};
+			}
+
+			if(stream->end_stream) {
+				const char* error = "Stream already finished but still received a data frame";
+				int _ = http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
+				                                stream_identifier);
+				UNUSED(_);
+
+				http2_close_stream(stream);
+
+				return (Http2ProcessFrameResult){
+					.type = Http2ProcessFrameResultTypeError,
+					.value = { .error = error },
+				};
+			}
+
+			if(!stream->headers.finished) {
+				const char* error =
+				    "Stream headers not finished, but already received a data frame";
+				int _ = http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
+				                                stream_identifier);
+				UNUSED(_);
+
+				http2_close_stream(stream);
+
+				return (Http2ProcessFrameResult){
+					.type = Http2ProcessFrameResultTypeError,
+					.value = { .error = error },
+				};
+			}
+
+			// this pushes the block, sets it in the frame to NULL, so that the frame freeing
+			// doesn't clear the buffer!
+			if(!http2_stream_add_content_block(stream, &(data_frame->content),
+			                                   data_frame->is_end)) {
+				return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+					                              .value = {
+					                                  .error = "stream content block add error",
+					                              } };
+			}
+
+			if(stream->end_stream) {
+
+				// TODO: maybe set some special flag or state in the stream?
+				stream->state = Http2StreamStateHalfClosed;
+
+				return (Http2ProcessFrameResult){ .type =
+					                                  Http2ProcessFrameResultTypeNewFinishedRequest,
+					                              .value = {
+					                                  .request =
+					                                      (Http2ProcessFrameFinishedRequest){
+					                                          .identifier = stream_identifier },
+					                              } };
+			}
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeHeaders: {
 			Http2HeadersFrame* headers_frame = &(frame->value.headers);
@@ -1934,7 +2024,10 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			// end_stream and the end_headers flag!
 			if(stream->end_stream &&       // NOLINT(readability-implicit-bool-conversion)
 			   stream->headers.finished) { // NOLINT(readability-implicit-bool-conversion)
+
 				// TODO: maybe set some special flag or state in the stream?
+				stream->state = Http2StreamStateHalfClosed;
+
 				return (Http2ProcessFrameResult){ .type =
 					                                  Http2ProcessFrameResultTypeNewFinishedRequest,
 					                              .value = {
@@ -2108,7 +2201,10 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			// end_stream flag and this continuation frame has the end_headers flag set!
 			if(stream->end_stream &&       // NOLINT(readability-implicit-bool-conversion)
 			   stream->headers.finished) { // NOLINT(readability-implicit-bool-conversion)
+
 				// TODO: maybe set some special flag or state in the stream?
+				stream->state = Http2StreamStateHalfClosed;
+
 				return (Http2ProcessFrameResult){ .type =
 					                                  Http2ProcessFrameResultTypeNewFinishedRequest,
 					                              .value = {
