@@ -74,7 +74,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint32_t) {
 	Http2ErrorCodeProtocolError = 0x1,
 	Http2ErrorCodeInternalError = 0x2,
 	Http2ErrorCodeFlowControlError = 0x3,
-	Http2ErrorCodeSettingsRimeout = 0x4,
+	Http2ErrorCodeSettingsTimeout = 0x4,
 	Http2ErrorCodeStreamClosed = 0x5,
 	Http2ErrorCodeFrameSizeError = 0x6,
 	Http2ErrorCodeRefusedStream = 0x7,
@@ -259,10 +259,14 @@ typedef struct {
 NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* context,
                                                           BufferedReader* reader);
 
-NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
-                                      Http2ErrorCode error_code, const char* error);
+NODISCARD int http2_send_connection_error(const ConnectionDescriptor* descriptor,
+                                          Http2ErrorCode error_code, const char* error);
 
-NODISCARD int http2_send_stream_error_with_data(const ConnectionDescriptor* descriptor,
-                                                Http2ErrorCode error_code, SizedBuffer debug_data);
+NODISCARD int http2_send_connection_error_with_data(const ConnectionDescriptor* descriptor,
+                                                    Http2ErrorCode error_code,
+                                                    SizedBuffer debug_data);
+
+NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
+                                      Http2ErrorCode error_code, Http2Identifier stream_identifier);
 
 void free_http2_context(HTTP2Context context);

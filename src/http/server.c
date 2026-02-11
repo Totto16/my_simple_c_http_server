@@ -168,8 +168,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 			return send_http_message_to_connection(descriptor, to_send, send_settings);
 		}
 		case HttpRequestErrorTypeInvalidHttp2Preface: {
-			return http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
-			                               "invalid http2 preface");
+			return http2_send_connection_error(descriptor, Http2ErrorCodeProtocolError,
+			                                   "invalid http2 preface");
 		}
 		case HttpRequestErrorTypeLengthRequired: {
 			HTTPResponseToSend to_send = { .status = HttpStatusLengthRequired,

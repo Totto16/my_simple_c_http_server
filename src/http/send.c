@@ -308,7 +308,7 @@ NODISCARD static inline int send_message_to_connection_http2(const ConnectionDes
 	       concatted_response->body.size);
 
 	int result =
-	    http2_send_stream_error_with_data(descriptor, Http2ErrorCodeInternalError, debug_data);
+	    http2_send_connection_error_with_data(descriptor, Http2ErrorCodeInternalError, debug_data);
 
 	free_sized_buffer(header_buffer);
 	free_http1_response(http_response);
