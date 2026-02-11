@@ -1100,8 +1100,15 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 }
 
 NODISCARD static HttpRequestResult parse_next_http_request(HTTPReader* const reader) {
-	UNUSED(reader);
-	UNREACHABLE();
+
+	if(reader->content.type == HTTPContentTypeV2) {
+		return parse_http2_request(&(reader->content.data.v2), reader->reader);
+	}
+
+	return (HttpRequestResult){ .is_error = true,
+		                        .value = { .error = (HttpRequestError){
+		                                       .is_advanced = true,
+		                                       .value = { .advanced = "Not yet supported" } } } };
 }
 
 HttpRequestResult get_http_request(HTTPReader* const reader) {

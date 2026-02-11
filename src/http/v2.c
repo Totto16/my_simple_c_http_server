@@ -1,4 +1,5 @@
 #include "./v2.h"
+#include "./hpack.h"
 #include "generic/send.h"
 #include "generic/serialize.h"
 
@@ -2405,6 +2406,110 @@ process_http2_frame(HTTP2Context* const context, MOVED(Http2Frame) frame,
 	return process_result;
 }
 
+NODISCARD static SizedBuffer http2_concat_data_blocks(const DataBlocks data_blocks) {
+
+	size_t size = 0;
+
+	for(size_t i = 0; i < TVEC_LENGTH(SizedBuffer, data_blocks); ++i) {
+		SizedBuffer entry = TVEC_AT(SizedBuffer, data_blocks, i);
+
+		size += entry.size;
+	}
+
+	if(size == 0) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	SizedBuffer result = allocate_sized_buffer(size);
+
+	if(result.data == NULL) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	const uint8_t* const result_ptr = (uint8_t*)result.data;
+
+	size_t current_offset = 0;
+
+	for(size_t i = 0; i < TVEC_LENGTH(SizedBuffer, data_blocks); ++i) {
+		SizedBuffer entry = TVEC_AT(SizedBuffer, data_blocks, i);
+
+		memcpy((void*)(result_ptr + current_offset), entry.data, entry.size);
+
+		current_offset += entry.size;
+	}
+
+	return result;
+}
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2RequestHeadersResultTypeOk = 0,
+	Http2RequestHeadersResultTypeError,
+} Http2RequestHeadersResultType;
+
+typedef struct {
+	Http2RequestHeadersResultType type;
+	union {
+		HttpRequestHead result;
+	} data;
+} Http2RequestHeadersResult;
+
+NODISCARD static Http2RequestHeadersResult parse_http2_headers(const Http2StreamHeaders headers) {
+
+	// TODO
+
+	const SizedBuffer header_value = http2_concat_data_blocks(headers.header_blocks);
+
+	if(header_value.data == NULL) {
+		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError };
+	}
+
+	const SizedBuffer header_result = http2_hpack_decompress_data(header_value);
+
+	// TODO
+	UNUSED(header_result);
+
+	// TODO
+	return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError };
+}
+
+NODISCARD static HttpRequestResult
+get_http2_request_from_finished_stream(const Http2Stream* const stream) {
+
+	const Http2RequestHeadersResult headers_result = parse_http2_headers(stream->headers);
+
+	if(headers_result.type != Http2RequestHeadersResultTypeOk) {
+		return (HttpRequestResult){ .is_error = true,
+				                        .value = {
+				                            .error =
+				                                (HttpRequestError){
+				                                    .is_advanced = true,
+				                                    .value = { .advanced = "parse error in parsing http2 headers" ,}
+
+				                                },
+				                        } };
+	}
+
+	const HttpRequestHead head = headers_result.data.result;
+
+	// TODO
+	const SizedBuffer body = { 0 };
+
+	const HttpRequest request = { .head = head, .body = body };
+
+	// TODO
+	const RequestSettings settings = { 0 };
+
+	const HTTPResultOk result = { .request = request, .settings = settings };
+
+	return (HttpRequestResult){ .is_error = false,
+		                        .value = {
+		                            .result = result,
+		                        } };
+}
+
 NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
                                                 BufferedReader* const reader) {
 
@@ -2447,14 +2552,27 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 			case Http2ProcessFrameResultTypeNewFinishedRequest: {
 				const Http2ProcessFrameFinishedRequest request = process_result.value.request;
 
-				// TODO
-				UNUSED(request);
-				const HTTPResultOk result = { 0 };
+				const Http2Stream* const stream = get_http2_stream(context, request.identifier);
 
-				return (HttpRequestResult){ .is_error = false,
-					                        .value = {
-					                            .result = result,
-					                        } };
+				if(stream == NULL) {
+					const char* error = "Implementation error, stream not found";
+					int _ = http2_send_connection_error(
+					    buffered_reader_get_connection_descriptor(reader),
+					    Http2ErrorCodeInternalError, error);
+					UNUSED(_);
+
+					return (HttpRequestResult){ .is_error = true,
+						                        .value = {
+						                            .error =
+						                                (HttpRequestError){
+						                                    .is_advanced = true,
+						                                    .value = { .advanced = error }
+
+						                                },
+						                        } };
+				}
+
+				return get_http2_request_from_finished_stream(stream);
 			}
 			case Http2ProcessFrameResultTypeOk: {
 				break;
