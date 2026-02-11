@@ -2067,16 +2067,45 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeRstStream: {
-			// TODO: process
 			const Http2RstStreamFrame rst_stream_frame = frame->value.rst_stream;
-			UNUSED(rst_stream_frame);
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "not implemented yet",
-				                              } };
+			if(rst_stream_frame.error_code != Http2ErrorCodeNoError) {
+				LOG_MESSAGE(LogLevelWarn, "Received rst stream error code: %d\n",
+				            rst_stream_frame.error_code);
+			}
+
+			if(stream_state == Http2StreamStateIdle) {
+				const char* error = "Rst Stream frame send on a stream in an invalid state";
+				int _ = http2_send_connection_error(descriptor, Http2ErrorCodeProtocolError, error);
+				UNUSED(_);
+
+				return (Http2ProcessFrameResult){
+					.type = Http2ProcessFrameResultTypeError,
+					.value = { .error = error },
+				};
+			}
+
+			Http2Stream* stream = get_http2_stream(context, stream_identifier);
+
+			if(stream == NULL) {
+				const char* error = "Implementation error, stream not found";
+				int _ = http2_send_connection_error(descriptor, Http2ErrorCodeInternalError, error);
+				UNUSED(_);
+
+				return (Http2ProcessFrameResult){
+					.type = Http2ProcessFrameResultTypeError,
+					.value = { .error = error },
+				};
+			}
+
+			if(stream->state == Http2StreamStateHalfClosed) {
+				http2_close_stream(stream);
+			} else {
+				stream->state = Http2StreamStateHalfClosed;
+			}
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
-
 		case Http2FrameTypePushPromise: {
 			Http2PushPromiseFrame* push_promise_frame = &(frame->value.push_promise);
 
