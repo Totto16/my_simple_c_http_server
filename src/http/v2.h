@@ -32,13 +32,13 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 typedef struct {
 	bool _reserved : 1;
-	uint32_t stream_identifier : 31; // only 31 bits!
-} Http2StreamIdentifier;
+	uint32_t identifier : 31; // only 31 bits!
+} Http2Identifier;
 
 typedef struct {
 	SizedBuffer content;
 	bool is_end;
-	Http2StreamIdentifier identifier;
+	Http2Identifier identifier;
 } Http2DataFrame;
 
 typedef struct {
@@ -55,14 +55,14 @@ typedef struct {
 typedef struct {
 	Http2FrameDependencyOptional dependency_opt;
 	SizedBuffer block_fragment;
-	Http2StreamIdentifier identifier;
+	Http2Identifier identifier;
 	bool end_stream;
 	bool end_headers;
 } Http2HeadersFrame;
 
 typedef struct {
 	Http2FrameDependency dependency;
-	Http2StreamIdentifier identifier;
+	Http2Identifier identifier;
 } Http2PriorityFrame;
 
 // see: https://datatracker.ietf.org/doc/html/rfc7540#section-7
@@ -90,7 +90,7 @@ STATIC_ASSERT(sizeof(Http2ErrorCode) == sizeof(uint32_t), "Http2ErrorCode has to
 
 typedef struct {
 	Http2ErrorCode error_code;
-	Http2StreamIdentifier identifier;
+	Http2Identifier identifier;
 } Http2RstStreamFrame;
 
 /**
@@ -123,10 +123,9 @@ typedef struct {
 } Http2SettingsFrame;
 
 typedef struct {
-	bool _reserved : 1;
-	uint32_t promised_stream_identifier : 31;
+	Http2Identifier promised_stream_identifier;
 	SizedBuffer block_fragment;
-	Http2StreamIdentifier identifier;
+	Http2Identifier identifier;
 	bool end_headers;
 } Http2PushPromiseFrame;
 
@@ -136,8 +135,7 @@ typedef struct {
 } Http2PingFrame;
 
 typedef struct {
-	bool _reserved : 1; // for padding
-	uint32_t last_stream_id : 31;
+	Http2Identifier last_stream_id;
 	Http2ErrorCode error_code;
 	SizedBuffer additional_debug_data;
 } Http2GoawayFrame;
@@ -145,12 +143,12 @@ typedef struct {
 typedef struct {
 	bool _reserved : 1; // for padding
 	uint32_t window_size_increment : 31;
-	Http2StreamIdentifier identifier;
+	Http2Identifier identifier;
 } Http2WindowUpdateFrame;
 
 typedef struct {
 	SizedBuffer block_fragment;
-	Http2StreamIdentifier identifier;
+	Http2Identifier identifier;
 	bool end_headers;
 } Http2ContinuationFrame;
 
@@ -219,8 +217,7 @@ TMAP_DEFINE_MAP_TYPE(uint32_t, StreamIdentifier, Http2Stream, Http2StreamMap)
 typedef TMAP_TYPENAME_MAP(Http2StreamMap) Http2StreamMap;
 
 typedef struct {
-	bool _unused : 1;
-	uint32_t last_stream_id : 31;
+	Http2Identifier last_stream_id;
 } Http2State;
 
 typedef struct {

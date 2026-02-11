@@ -1,5 +1,3 @@
-
-
 #include "./v2.h"
 #include "generic/send.h"
 #include "generic/serialize.h"
@@ -14,9 +12,22 @@ typedef struct {
 	uint32_t length : 24; // size without this header
 	uint8_t type;
 	uint8_t flags;
-	bool _reserved : 1;              // padding for alignment
-	uint32_t stream_identifier : 31; // only 31 bits!
+	Http2Identifier stream_identifier;
 } Http2RawHeader;
+
+NODISCARD static Http2Identifier deserialize_identifier(const uint8_t* const bytes) {
+
+	const uint32_t identifier = deserialize_u32_be_to_host(bytes) & 0x7fffffffULL;
+
+	return (Http2Identifier){ .identifier = identifier };
+}
+
+NODISCARD static SerializeResult32 serialize_identifier(const Http2Identifier identifier) {
+
+	const SerializeResult32 result = serialize_u32_host_to_be(identifier.identifier & 0x7fffffff);
+
+	return result;
+}
 
 NODISCARD static Http2RawHeader parse_http2_raw_header(const uint8_t* const header_data) {
 
@@ -26,7 +37,7 @@ NODISCARD static Http2RawHeader parse_http2_raw_header(const uint8_t* const head
 
 	uint32_t length = deserialize_u32_be_to_host(header_data) & 0x00ffffffULL;
 
-	uint32_t stream_identifier = deserialize_u32_be_to_host(header_data + 5) & 0x7fffffffULL;
+	Http2Identifier stream_identifier = deserialize_identifier(header_data + 5);
 
 	// MUST be ignored in receiving
 	// bool reserved = ((stream_identifier_raw >> 31) & 1) == 1;
@@ -118,8 +129,7 @@ NODISCARD static SizedBuffer serialize_http2_frame_header(const Http2RawHeader h
 
 		data[i++] = header.flags;
 
-		const SerializeResult32 stream_id_res =
-		    serialize_u32_host_to_be(header.stream_identifier & 0x7fffffff);
+		const SerializeResult32 stream_id_res = serialize_identifier(header.stream_identifier);
 
 		data[i++] = stream_id_res.bytes[0];
 		data[i++] = stream_id_res.bytes[1];
@@ -163,6 +173,8 @@ NODISCARD static int http2_send_raw_frame(const ConnectionDescriptor* const desc
 
 #define HTTP2_FRAME_GOAWAY_BASE_SIZE ((32 + 32) / 8)
 
+#define HTTP2_CONNECTION_STREAM_IDENTIFIER ((Http2Identifier){ .identifier = 0 })
+
 NODISCARD static int http2_send_goaway_frame(const ConnectionDescriptor* const descriptor,
                                              Http2GoawayFrame frame) {
 
@@ -172,7 +184,7 @@ NODISCARD static int http2_send_goaway_frame(const ConnectionDescriptor* const d
 		.length = length,
 		.type = Http2FrameTypeGoaway,
 		.flags = 0,
-		.stream_identifier = 0,
+		.stream_identifier = HTTP2_CONNECTION_STREAM_IDENTIFIER,
 	};
 
 	SizedBuffer frame_as_data = allocate_sized_buffer(length);
@@ -186,8 +198,7 @@ NODISCARD static int http2_send_goaway_frame(const ConnectionDescriptor* const d
 
 		uint8_t* data = (uint8_t*)frame_as_data.data;
 
-		const SerializeResult32 last_stream_id_res =
-		    serialize_u32_host_to_be(frame.last_stream_id & 0x7fffffff);
+		const SerializeResult32 last_stream_id_res = serialize_identifier(frame.last_stream_id);
 
 		data[i++] = last_stream_id_res.bytes[0];
 		data[i++] = last_stream_id_res.bytes[1];
@@ -238,7 +249,7 @@ NODISCARD static int http2_send_settings_frame(const ConnectionDescriptor* const
 		.length = length,
 		.type = Http2FrameTypeSettings,
 		.flags = flags,
-		.stream_identifier = 0,
+		.stream_identifier = HTTP2_CONNECTION_STREAM_IDENTIFIER,
 	};
 
 	if(frame.ack && length != 0) {
@@ -294,7 +305,7 @@ NODISCARD int http2_send_stream_error_with_data(const ConnectionDescriptor* cons
 
 	// TODO: set last_stream_id correctly
 	Http2GoawayFrame frame = {
-		.last_stream_id = 0,
+		.last_stream_id = HTTP2_CONNECTION_STREAM_IDENTIFIER,
 		.error_code = error_code,
 		.additional_debug_data = debug_data,
 	};
@@ -315,7 +326,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const reader,
                                                          Http2RawHeader http2_raw_header) {
 
-	if(http2_raw_header.stream_identifier == 0) {
+	if(http2_raw_header.stream_identifier.identifier == 0) {
 		const char* error = "Data Frame doesn't allow stream id 0";
 		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
 		                                Http2ErrorCodeProtocolError, error);
@@ -423,7 +434,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 	const Http2DataFrame data_frame = {
 		.content = frame_data,
 		.is_end = (http2_raw_header.flags & Http2DataFrameFlagEndStream) != 0,
-		.identifier = { .stream_identifier = http2_raw_header.stream_identifier },
+		.identifier = http2_raw_header.stream_identifier,
 	};
 
 	Http2Frame frame = { .type = Http2FrameTypeData, .value = { .data = data_frame } };
@@ -471,7 +482,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* const reader,
                                                             Http2RawHeader http2_raw_header) {
 
-	if(http2_raw_header.stream_identifier == 0) {
+	if(http2_raw_header.stream_identifier.identifier == 0) {
 		const char* error = "Headers Frame doesn't allow stream id 0";
 		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
 		                                Http2ErrorCodeProtocolError, error);
@@ -614,7 +625,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 	Http2HeadersFrame headers_frame = {
 		.dependency_opt = dependency_opt,
 		.block_fragment = block_fragment,
-		.identifier = { .stream_identifier = http2_raw_header.stream_identifier },
+		.identifier = http2_raw_header.stream_identifier,
 		.end_stream = (http2_raw_header.flags & Http2HeadersFrameFlagEndStream) != 0,
 		.end_headers = (http2_raw_header.flags & Http2HeadersFrameFlagEndHeaders) != 0,
 	};
@@ -635,7 +646,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* const reader,
                                                              Http2RawHeader http2_raw_header) {
 
-	if(http2_raw_header.stream_identifier == 0) {
+	if(http2_raw_header.stream_identifier.identifier == 0) {
 		const char* error = "Priority Frame doesn't allow stream id 0";
 		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
 		                                Http2ErrorCodeProtocolError, error);
@@ -677,7 +688,7 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 
 	Http2PriorityFrame priority_frame = {
 		.dependency = dependency,
-		.identifier = { .stream_identifier = http2_raw_header.stream_identifier },
+		.identifier = http2_raw_header.stream_identifier,
 	};
 
 	Http2Frame frame = {
@@ -701,7 +712,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* const reader,
                                                                Http2RawHeader http2_raw_header) {
 
-	if(http2_raw_header.stream_identifier == 0) {
+	if(http2_raw_header.stream_identifier.identifier == 0) {
 		const char* error = "Rst stream Frame doesn't allow stream id 0";
 		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
 		                                Http2ErrorCodeProtocolError, error);
@@ -743,7 +754,7 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 
 	Http2RstStreamFrame rst_stream_frame = {
 		.error_code = error_code,
-		.identifier = { .stream_identifier = http2_raw_header.stream_identifier },
+		.identifier = http2_raw_header.stream_identifier,
 	};
 
 	Http2Frame frame = {
@@ -761,7 +772,7 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* const reader,
                                                              Http2RawHeader http2_raw_header) {
 
-	if(http2_raw_header.stream_identifier != 0) {
+	if(http2_raw_header.stream_identifier.identifier != 0) {
 		const char* error = "Settings Frame only allows stream id 0";
 		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
 		                                Http2ErrorCodeProtocolError, error);
@@ -910,7 +921,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const Http2Sett
                                                                  BufferedReader* const reader,
                                                                  Http2RawHeader http2_raw_header) {
 
-	if(http2_raw_header.stream_identifier != 0) {
+	if(http2_raw_header.stream_identifier.identifier != 0) {
 		const char* error = "Push promise Frame only allows stream id 0";
 		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
 		                                Http2ErrorCodeProtocolError, error);
@@ -995,8 +1006,8 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const Http2Sett
 
 	SizedBuffer promised_stream_identifier_data = read_result2.value.data;
 
-	const uint32_t promised_stream_identifier =
-	    deserialize_u32_be_to_host((uint8_t*)promised_stream_identifier_data.data) & 0x7fffffffULL;
+	const Http2Identifier promised_stream_identifier =
+	    deserialize_identifier((uint8_t*)promised_stream_identifier_data.data);
 
 	BufferedReadResult read_result = buffered_reader_get_amount(reader, payload_length);
 
@@ -1052,7 +1063,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const Http2Sett
 	Http2PushPromiseFrame push_promise_frame = {
 		.promised_stream_identifier = promised_stream_identifier,
 		.block_fragment = block_fragment,
-		.identifier = { .stream_identifier = http2_raw_header.stream_identifier },
+		.identifier = http2_raw_header.stream_identifier,
 		.end_headers = (http2_raw_header.flags & Http2PushPromiseFrameFlagEndHeaders) != 0,
 	};
 
@@ -1078,7 +1089,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const reader,
                                                          Http2RawHeader http2_raw_header) {
 
-	if(http2_raw_header.stream_identifier != 0) {
+	if(http2_raw_header.stream_identifier.identifier != 0) {
 		const char* error = "The ping Frame only allows stream id 0";
 		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
 		                                Http2ErrorCodeProtocolError, error);
@@ -1152,7 +1163,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const reader,
                                                            Http2RawHeader http2_raw_header) {
 
-	if(http2_raw_header.stream_identifier != 0) {
+	if(http2_raw_header.stream_identifier.identifier != 0) {
 		const char* error = "The goaway Frame only allows stream id 0";
 		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
 		                                Http2ErrorCodeProtocolError, error);
@@ -1193,7 +1204,7 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 
 	uint8_t* data = (uint8_t*)frame_data.data;
 
-	const uint32_t last_stream_id = deserialize_u32_be_to_host(data) & 0x7fffffffULL;
+	const Http2Identifier last_stream_id = deserialize_identifier(data);
 
 	uint32_t error_code = deserialize_u32_be_to_host(data + sizeof(last_stream_id));
 
@@ -1284,7 +1295,7 @@ NODISCARD static Http2FrameResult parse_http2_window_update_frame(BufferedReader
 
 	Http2WindowUpdateFrame window_update_frame = {
 		.window_size_increment = window_size_increment,
-		.identifier = { .stream_identifier = http2_raw_header.stream_identifier },
+		.identifier = http2_raw_header.stream_identifier,
 	};
 
 	Http2Frame frame = { .type = Http2FrameTypeWindowUpdate,
@@ -1307,7 +1318,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader* const reader,
                                                                  Http2RawHeader http2_raw_header) {
 
-	if(http2_raw_header.stream_identifier == 0) {
+	if(http2_raw_header.stream_identifier.identifier == 0) {
 		const char* error = "Continuation Frame doesn't allow stream id 0";
 		int _ = http2_send_stream_error(buffered_reader_get_connection_descriptor(reader),
 		                                Http2ErrorCodeProtocolError, error);
@@ -1353,7 +1364,7 @@ NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader*
 
 	Http2ContinuationFrame continuation_frame = {
 		.block_fragment = block_fragment,
-		.identifier = { .stream_identifier = http2_raw_header.stream_identifier },
+		.identifier = http2_raw_header.stream_identifier,
 		.end_headers = (http2_raw_header.flags & Http2ContinuationFrameFlagEndHeaders) != 0,
 	};
 
@@ -1561,10 +1572,24 @@ static void free_http2_frame(Http2Frame frame) {
 	}
 }
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2ProcessFrameResultTypeOk = 0,
+	Http2ProcessFrameResultTypeNewFinishedRequest,
+	Http2ProcessFrameResultTypeError
+} Http2ProcessFrameResultType;
+
 typedef struct {
-	bool is_error;
+	bool _unused;
+} Http2ProcessFrameFinishedRequest;
+
+typedef struct {
+	Http2ProcessFrameResultType type;
 	union {
 		const char* error;
+		Http2ProcessFrameFinishedRequest request;
 	} value;
 } Http2ProcessFrameResult;
 
@@ -1645,7 +1670,7 @@ process_http2_frame(HTTP2Context* const context, const Http2Frame frame,
 			break;
 		}
 		default: {
-			return (Http2ProcessFrameResult){ .is_error = true,
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
 				                              .value = {
 				                                  .error = "unkown frame type to process",
 				                              } };
@@ -1654,8 +1679,10 @@ process_http2_frame(HTTP2Context* const context, const Http2Frame frame,
 
 	free_http2_frame(frame);
 
+	// TODO: if we have a request ready, return it!
+
 	return (Http2ProcessFrameResult){
-		.is_error = false,
+		.type = Http2ProcessFrameResultTypeOk,
 	};
 }
 
@@ -1686,8 +1713,11 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 		const Http2ProcessFrameResult process_result =
 		    process_http2_frame(context, frame, buffered_reader_get_connection_descriptor(reader));
 
-		if(process_result.is_error) {
-			return (HttpRequestResult){ .is_error = true,
+		// TODO: if we have a request ready, return it!
+
+		switch(process_result.type) {
+			case Http2ProcessFrameResultTypeError: {
+				return (HttpRequestResult){ .is_error = true,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){
@@ -1696,9 +1726,26 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 
 				                                },
 				                        } };
-		}
+			}
+			case Http2ProcessFrameResultTypeNewFinishedRequest: {
+				// TODO
+				break;
+			}
+			case Http2ProcessFrameResultTypeOk: {
+				break;
+			}
+			default: {
+				return (HttpRequestResult){ .is_error = true,
+				                        .value = {
+				                            .error =
+				                                (HttpRequestError){
+				                                    .is_advanced = true,
+				                                    .value = { .advanced = "invalid process frame result type" ,}
 
-		// TODO: if we have a request ready, return it!
+				                                },
+				                        } };
+			}
+		}
 	}
 }
 
@@ -1790,9 +1837,12 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 	const Http2ProcessFrameResult process_result =
 	    process_http2_frame(context, frame, buffered_reader_get_connection_descriptor(reader));
 
-	if(process_result.is_error) {
-		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = process_result.value.error } };
+	if(process_result.type != Http2ProcessFrameResultTypeOk) {
+		const char* error =
+		    process_result.type == Http2ProcessFrameResultTypeError
+		        ? process_result.value.error
+		        : "error: implementation error (settings frame can't result in a request)";
+		return (Http2StartResult){ .is_error = true, .value = { .error = error } };
 	}
 
 	return (Http2StartResult){ .is_error = false };
