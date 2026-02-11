@@ -323,6 +323,49 @@ NODISCARD static int http2_send_settings_frame(const ConnectionDescriptor* const
 	return result;
 }
 
+#define HTTP2_PING_FRAME_SIZE (8)
+
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2PingFrameFlagAck = 0x1,
+	// all allowed flags or-ed together
+	Http2PingFrameFlagsAllowed = Http2PingFrameFlagAck
+} Http2PingFrameFlag;
+
+NODISCARD static int http2_send_ping_frame(const ConnectionDescriptor* const descriptor,
+                                           Http2PingFrame frame) {
+
+	uint8_t flags = frame.ack ? Http2PingFrameFlagAck : 0;
+
+	Http2RawHeader header = {
+		.length = HTTP2_PING_FRAME_SIZE,
+		.type = Http2FrameTypePing,
+		.flags = flags,
+		.stream_identifier = HTTP2_CONNECTION_STREAM_IDENTIFIER,
+	};
+
+	if(frame.opaque_data.size != HTTP2_PING_FRAME_SIZE) {
+		return -12;
+	}
+
+	uint8_t frame_as_data_raw[HTTP2_PING_FRAME_SIZE] = { 0 };
+
+	{
+
+		uint8_t* data = (uint8_t*)frame_as_data_raw;
+
+		memcpy(data, &frame.opaque_data, HTTP2_PING_FRAME_SIZE);
+	}
+
+	SizedBuffer frame_as_data = { .data = frame_as_data_raw, .size = HTTP2_PING_FRAME_SIZE };
+
+	const int result = http2_send_raw_frame(descriptor, header, frame_as_data);
+
+	return result;
+}
+
 NODISCARD int http2_send_connection_error(const ConnectionDescriptor* const descriptor,
                                           Http2ErrorCode error_code, const char* error) {
 
@@ -1129,17 +1172,6 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const Http2Sett
 
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 }
-
-#define HTTP2_PING_FRAME_SIZE (8)
-
-/**
- * @enum MASK / FLAGS
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	Http2PingFrameFlagAck = 0x1,
-	// all allowed flags or-ed together
-	Http2PingFrameFlagsAllowed = Http2PingFrameFlagAck
-} Http2PingFrameFlag;
 
 NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const reader,
                                                          Http2RawHeader http2_raw_header) {
@@ -2279,21 +2311,21 @@ process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame
 				UNUSED(_);
 			}
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "not implemented yet",
-				                              } };
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 
 		case Http2FrameTypePing: {
-			// TODO: process
 			const Http2PingFrame ping_frame = frame->value.ping;
-			UNUSED(ping_frame);
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "not implemented yet",
-				                              } };
+			if(!ping_frame.ack) {
+				Http2PingFrame frame_to_send = { .ack = true,
+					                             .opaque_data = ping_frame.opaque_data };
+
+				int _ = http2_send_ping_frame(descriptor, frame_to_send);
+				UNUSED(_);
+			}
+
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
 		}
 		case Http2FrameTypeGoaway: {
 			// TODO: process
