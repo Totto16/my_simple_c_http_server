@@ -1231,6 +1231,10 @@ function utf8_tests_to_cpp(cases: EncodedHuffmanGeneric[]): string[] {
 function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string, map: HuffmanEncodingMap): void {
 
     const test_cases: string[] = [
+        "www.example.com",
+        "no-cache",
+        "custom-key",
+        "custom-value",
         "hello world",
         "sadsafipefbsafpidsbafabhfkjagfka",
         "my test",

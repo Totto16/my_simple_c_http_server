@@ -87,7 +87,11 @@ TEST_CASE("testing hpack deserializing - from hpack spec") {
 
 			const auto expected_result = buffer_from_str(test_case.str);
 
-			INFO("the encoded string: ", test_case.str);
+			const std::string actual_result_str =
+			    std::string{ (char*)actual_result.data, actual_result.size };
+
+			INFO("the actual encoded string: ", test_case.str);
+			INFO("the decoded string: ", actual_result_str);
 			REQUIRE_EQ(actual_result, expected_result);
 		}
 	}
@@ -128,7 +132,11 @@ TEST_CASE("testing hpack deserializing (ascii) - generated") {
 
 			const auto expected_result = buffer_from_str(test_case.str);
 
-			INFO("the encoded string: ", test_case.str);
+			const std::string actual_result_str =
+			    std::string{ (char*)actual_result.data, actual_result.size };
+
+			INFO("the actual encoded string: ", test_case.str);
+			INFO("the decoded string: ", actual_result_str);
 			REQUIRE_EQ(actual_result, expected_result);
 		}
 	}
