@@ -1047,9 +1047,29 @@ class EncodedHuffman {
         this.values = values
     }
 
+    toArray(): Uint8ClampedArray {
+        //
+        return [0]
+    }
+
 }
 
-function encode_normal_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffman {
+interface EncodedHuffmanAscii {
+    type: "ascii",
+    value: string,
+    encoded: EncodedHuffman
+}
+
+interface EncodedHuffmanUtf8 {
+    type: "utf-8",
+    value: Uint8Array<ArrayBuffer>,
+    encoded: EncodedHuffman
+}
+
+type EncodedHuffmanGeneric = EncodedHuffmanAscii | EncodedHuffmanUtf8
+
+
+function encode_normal_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanAscii {
 
     const values: EncodedHuffmanValues[] = []
 
@@ -1073,7 +1093,9 @@ function encode_normal_string_with_huffman(map: HuffmanEncodingMap, text: string
         values.push(val)
     }
 
-    return new EncodedHuffman(values)
+    const result: EncodedHuffmanAscii = { type: "ascii", value: text, encoded: new EncodedHuffman(values) }
+
+    return result;
 }
 
 function is_utf8_string(text: string): boolean {
@@ -1087,7 +1109,7 @@ function is_utf8_string(text: string): boolean {
     return false;
 }
 
-function encode_uft8_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffman {
+function encode_uft8_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanUtf8 {
 
     const array = new TextEncoder().encode(text)
 
@@ -1107,23 +1129,54 @@ function encode_uft8_string_with_huffman(map: HuffmanEncodingMap, text: string):
 
     }
 
-    return new EncodedHuffman(values)
+    const result: EncodedHuffmanUtf8 = { type: "utf-8", value: array, encoded: new EncodedHuffman(values) }
+
+    return result;
 }
 
-function encode_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffman {
+function encode_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanGeneric {
 
     if (!is_utf8_string(text)) {
         return encode_normal_string_with_huffman(map, text);
     }
 
     return encode_uft8_string_with_huffman(map, text)
+}
+
+
+function toHexString(num: number): string {
+
+    return `0x${num.toString(16).padStart(2, "0")}`
+}
+
+function normal_test_to_cpp(caze: EncodedHuffmanAscii): string {
+
+    const arr: number[] = Array.from(caze.encoded.toArray());
+
+    return `\t\tTestCase{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
 }
 
 
-interface TestCase {
-    original: string,
-    encoded: EncodedHuffman
+function normal_tests_to_cpp(cases: EncodedHuffmanGeneric[]): string[] {
+    return cases.filter(a => {
+        return (a.type === "ascii")
+    }).map(a => normal_test_to_cpp(a))
+}
+
+function utf8_test_to_cpp(caze: EncodedHuffmanUtf8): string {
+
+    const arr: number[] = Array.from(caze.encoded.toArray());
+
+    return `\t\tTestCaseUtf8{ .value = std::vector<std::uint8_t>{${Array.from(caze.value).map((a) => toHexString(a)).join(", ")}}, .encoded =  std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
+
+}
+
+
+function utf8_tests_to_cpp(cases: EncodedHuffmanGeneric[]): string[] {
+    return cases.filter(a => {
+        return (a.type === "utf-8")
+    }).map(a => utf8_test_to_cpp(a))
 }
 
 function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string, map: HuffmanEncodingMap): void {
@@ -1136,30 +1189,58 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
         "mreallylongtextthat goes on and on, on and on, like this",
         "aeiaeiaeiaeiaeiaei", // really short encoding
         "012012012012012", // really short encoding
-        "UTF-8: üöäß `´eè 🤌🏼 😁 🙈 🫳🏿" // utf8
+        "UTF-8: üöäß ", // utf8
+        "UTF-8: `´eè ",// utf8
+        "UTF-8: 🤌🏼 😁 🙈 🫳🏿",// utf8
+        "UTF-8: üöäß `´eè 🤌🏼 😁 🙈 🫳🏿",// utf8
     ]
 
-    const final_test_case: TestCase[] = test_cases.map((original) => {
+    const final_test_case: EncodedHuffmanGeneric[] = test_cases.map((original) => {
         const encoded = encode_string_with_huffman(map, original)
-        return { original, encoded }
+        return encoded;
     });
 
-console.log(final_test_case)
+    const cpp_data = `
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+namespace tests {
+
+\tstruct TestCase {
+\t\tstd::string str;
+\t\tstd::vector<std::uint8_t> encoded;
+\t};
+
+\tstruct TestCaseUtf8 {
+\t\tstd::vector<std::uint8_t> value;
+\t\tstd::vector<std::uint8_t> encoded;
+\t};
+
+\tconst std::vector<TestCase> test_cases = {
+${normal_tests_to_cpp(final_test_case).join(",\n")}
+\t}; 
+
+\tconst std::vector<TestCaseUtf8> test_cases_utf8 = {
+${utf8_tests_to_cpp(final_test_case).join(",\n")}
+\t}; 
+
+} // namespace tests
+`
+
+    fs.writeFileSync(generated_hpack_test_cases_file, cpp_data)
 
 }
 
 function generate_c_code(basedir: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
 
     const generated_hpack_file = path.join(basedir, "generated_hpack.c")
-
     generated_hpack_code_c(generated_hpack_file, tree_result)
 
-    const generated_hpack_test_cases_file = path.join(basedir, "..", "..", "tests", "unit", "generated", "generated_hpack_tests.cpp")
-
+    const generated_hpack_test_cases_file = path.join(basedir, "..", "..", "tests", "unit", "generated", "generated_hpack_tests.hpp")
     generated_hpack_test_cases_cpp(generated_hpack_test_cases_file, map)
-
-
-
 }
 
 function main(): void {
