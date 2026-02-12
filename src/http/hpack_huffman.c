@@ -34,7 +34,8 @@ NODISCARD SizedBuffer apply_huffman_code(const HuffManTree* const tree, SizedBuf
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	size_t memory_size = (((input.size * 8) + 7) / MIN_HPACK_BITS_PER_CHAR);
+	size_t memory_size =
+	    (((input.size * 8) + (MIN_HPACK_BITS_PER_CHAR - 1)) / MIN_HPACK_BITS_PER_CHAR);
 
 	uint8_t* const values = malloc(memory_size + 1);
 
