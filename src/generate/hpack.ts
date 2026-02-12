@@ -585,7 +585,7 @@ function get_bit_array_from_bits(bits: string, bit_len: number, hex_value: strin
         throw new Error("not a valid bits string")
     }
 
-    const size = (values.length - 1) * 8 + values.at(-1).length;
+    const size = (values.length - 1) * 8 + values.at(-1)!.length;
 
     if (bit_len != size) {
         throw new Error("not a valid bits string")
@@ -658,6 +658,9 @@ function check_and_map_raw_code(code: RawHuffmanCode): HuffmanCode {
     const bytes: BitArray = get_bit_array_from_bits(code.bits, code.bit_len, code.hex);
 
 
+    if (!Number.isInteger(code.sym)) {
+        throw new Error("invalid raw huffman code, not an integer")
+    }
 
     if (code.sym < 0) {
         throw new Error("invalid raw huffman code")
@@ -685,191 +688,324 @@ interface HuffManNodeNodeNode {
     bit_1: HuffManNode;
 }
 
-interface HuffManNodeNode {
+class HuffManNodeBasic {
+    id: null | bigint
+
+    constructor(id: null | bigint) {
+        this.id = id;
+    }
+}
+
+class HuffManNodeNode extends HuffManNodeBasic {
     type: "node"
     node: HuffManNodeNodeNode;
+
+    constructor(node: HuffManNodeNodeNode | null) {
+        super(null);
+
+        this.type = "node";
+        this.node = node === null ? { bit_0: new HuffManNodeEnd(null), bit_1: new HuffManNodeEnd(null) } : node;
+    }
 }
 
-interface HuffManNodeEnd {
+type EndValue = bigint | "EOS"
+
+class HuffManNodeEnd extends HuffManNodeBasic {
     type: "end"
-    value: bigint
+    value: EndValue | null
+
+    constructor(value: EndValue | null) {
+        super(null);
+
+        this.type = "end";
+        this.value = value
+    }
 }
 
-
-interface HuffManNodeError {
-    type: "error"
-    error: string;
-}
-
-
-type HuffManNode = HuffManNodeNode | HuffManNodeEnd | HuffManNodeError
+type HuffManNode = HuffManNodeNode | HuffManNodeEnd
 
 interface HuffmanTree {
     root: HuffManNode;
 }
 
-function final_node(code: HuffmanCode): HuffManNode {
-
-    if (code.type == "normal") {
-        return { type: "end", value: code.value }
+function getValue(code: HuffmanCode): EndValue {
+    if (code.type === "normal") {
+        return code.value
     }
 
-    return { type: "error", error: code.special }
+    if (code.special === "EOS") {
+        return "EOS"
+    }
+
+    throw new Error("Error")
+}
+
+function check_valid_root(root: HuffManNode): void {
+
+    if (root.id === null) {
+        throw new Error("NULL id on node")
+    }
+
+    if (root.type === "end") {
+        if (root.value === null) {
+            throw new Error("NULL end node")
+        }
+        return;
+    }
+
+    const node = root.node
+
+    check_valid_root(node.bit_0)
+    check_valid_root(node.bit_1)
 
 }
 
-function codes_to_tree(codes: HuffmanCode[]): HuffmanTree {
+interface TreeResult {
+    tree: HuffmanTree
+    node_amount: bigint
+}
 
-    const codes_map: Record<number, HuffmanCode[] | undefined> = {}
+function codes_to_tree(codes: HuffmanCode[]): TreeResult {
+
+    const root: HuffManNode = new HuffManNodeNode(null)
 
     for (const code of codes) {
-        let codes = codes_map[code.bytes.size]
+        let currentNode: HuffManNode = root
 
-        if (codes === undefined) {
-            codes = []
-        }
+        for (let i = 0; i < code.bytes.size; ++i) {
+            const bit = code.bytes.get(i);
 
-        codes.push(code)
+            const final = i == code.bytes.size - 1;
 
-        codes_map[code.bytes.size] = codes
+            if (final) {
+                if (currentNode.type != "node") {
+                    console.error(currentNode)
+                    throw new Error("Error")
+                }
 
-    }
-
-    const root: HuffManNode = {
-        type: "node",
-        node: {
-            bit_0: { type: "error", error: "TODO" },
-            bit_1: { type: "error", error: "TODO" },
-        }
-    }
-
-
-    for (let i = 0; ; ++i) {
-
-        const codes = codes_map[i]
-
-        if (Object.entries(codes_map).length == 0) {
-            break;
-        }
-
-        if (codes === undefined) {
-            continue;
-        } else {
-            for (const code of codes) {
-
-                let currentNode: HuffManNode = root as HuffManNode
-
-                for (let j = 0; j < i; ++j) {
-
-                    if (currentNode.type === "end") {
-                        throw new Error("try to branch of end node")
-                    } else if (currentNode.type === "error") {
-                        if (currentNode.error === "TODO") {
-                            currentNode = {
-                                type: "node",
-                                node: {
-                                    bit_0: { type: "error", error: "TODO" },
-                                    bit_1: { type: "error", error: "TODO" },
-                                }
-                            }
-                        } else {
-                            throw new Error("try to branch of final error")
+                if (bit) {
+                    if (currentNode.node.bit_1 === null) {
+                        currentNode.node.bit_1 = new HuffManNodeEnd(getValue(code))
+                    } else if (currentNode.node.bit_1.type == "end") {
+                        if (currentNode.node.bit_1.value != null) {
+                            console.error(currentNode.node.bit_1)
+                            throw new Error("Error")
                         }
+
+                        currentNode.node.bit_1 = new HuffManNodeEnd(getValue(code))
                     }
-
-
-                    const bit = code.bytes.get(j);
-
-                    const final = j === i - 1;
-
-                    let nextNode: HuffManNode = bit ? currentNode.node.bit_1 : currentNode.node.bit_0;
-
-                    if (final) {
-                        if (nextNode.type == "node") {
-                            throw new Error("try to set final on node")
-                        }
-                        else if (nextNode.type === "error") {
-                            if (nextNode.error === "TODO") {
-                                nextNode = final_node(code)
-                            } else {
-                                throw new Error("try to set final on final error node")
-                            }
-                        } else {
-                            throw new Error("try to set final on alredy end node")
+                } else {
+                    if (currentNode.node.bit_0 === null) {
+                        currentNode.node.bit_0 = new HuffManNodeEnd(getValue(code))
+                    } else if (currentNode.node.bit_0.type == "end") {
+                        if (currentNode.node.bit_0.value != null) {
+                            console.error(currentNode.node.bit_0)
+                            throw new Error("Error")
                         }
 
-                    } else {
-
-                        if (nextNode.type === "end") {
-                            throw new Error("try to branch of end node")
-                        } else if (nextNode.type === "error") {
-                            if (nextNode.error === "TODO") {
-                                nextNode = {
-                                    type: "node",
-                                    node: {
-                                        bit_0: { type: "error", error: "TODO" },
-                                        bit_1: { type: "error", error: "TODO" },
-                                    }
-                                }
-                            } else {
-                                throw new Error("try to branch of final error")
-                            }
-                        }
-
-
+                        currentNode.node.bit_0 = new HuffManNodeEnd(getValue(code))
                     }
+                }
 
-                    currentNode = nextNode;
+            } else {
+
+                if (currentNode.type != "node") {
+                    console.error(currentNode)
+                    throw new Error("Error")
 
                 }
 
+                if (bit) {
+                    if (currentNode.node.bit_1 === null) {
+                        currentNode.node.bit_1 = new HuffManNodeNode(null)
+                    } else if (currentNode.node.bit_1.type == "end") {
+                        if (currentNode.node.bit_1.value != null) {
+                            console.error(currentNode.node.bit_1)
+                            throw new Error("Error")
+                        }
+
+                        currentNode.node.bit_1 = new HuffManNodeNode(null)
+                    }
+
+                    currentNode = currentNode.node.bit_1;
+                } else {
+                    if (currentNode.node.bit_0 === null) {
+                        currentNode.node.bit_0 = new HuffManNodeNode(null)
+                    } else if (currentNode.node.bit_0.type == "end") {
+                        if (currentNode.node.bit_0.value != null) {
+                            console.error(currentNode.node.bit_0)
+                            throw new Error("Error")
+                        }
+
+                        currentNode.node.bit_0 = new HuffManNodeNode(null)
+                    }
+
+                    currentNode = currentNode.node.bit_0;
+                }
+
+
+
             }
 
-            delete codes_map[i];
 
+
+        }
+
+
+    }
+
+    const nodes: HuffManNode[] = [root]
+
+    let id: bigint = 0n;
+
+    // make an id for each node
+    while (nodes.length != 0) {
+
+        const node = nodes.pop()!;
+
+        node.id = id;
+        ++id;
+
+        if (node.type != "end") {
+            nodes.push(node.node.bit_0)
+            nodes.push(node.node.bit_1)
         }
 
     }
 
+    check_valid_root(root)
 
     const tree: HuffmanTree = { root: root }
 
-    return tree;
+    return { tree, node_amount: id };
+
+}
+
+
+function to_c_node(node: HuffManNode, nodes_array_value: string): string {
+
+    if (node.type == "end") {
+
+        if (node.value === "EOS") {
+
+            return `
+            ((HuffManNode){ .type = HuffManNodeTypeError, .data = { .error = "EOS received" } })`
+
+
+        }
+
+        if (node.value === null) {
+            throw new Error("invalid node value")
+        }
+
+        if (node.value < 0 || node.value > 255) {
+            throw new Error("invalid node value")
+        }
+
+        return `
+            ((HuffManNode){ .type = HuffManNodeTypeEnd, .data = { .end = ${node.value.toString()} } })`
+
+    }
+
+
+    return `
+            ((HuffManNode){ .type = HuffManNodeTypeNode, .data = { .node = (HuffManNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id}) } } })`
+
+
+}
+
+function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value: string): string[] {
+
+    const values: string[] = new Array(Number(node_amount)).fill(undefined);
+
+    function set_array_at(index: bigint | null, value: string) {
+
+        if (index === null) {
+            throw new Error("Invalid value")
+        }
+
+        if (index < 0) {
+            throw new Error("Out of bounds")
+        }
+
+        if (index >= node_amount) {
+            throw new Error("Out of bounds")
+        }
+
+        values[Number(index)] = value
+
+    }
+
+    const nodes: HuffManNode[] = [tree.root]
+
+    // traverse all nodes
+    while (nodes.length != 0) {
+
+        const node = nodes.pop()!;
+
+        set_array_at(node.id, to_c_node(node, nodes_array_value));
+
+        if (node.type != "end") {
+            nodes.push(node.node.bit_0)
+            nodes.push(node.node.bit_1)
+        }
+
+    }
+
+    return values;
 
 }
 
 function generate_c_code(file: string, codes: HuffmanCode[]): void {
 
+    const { tree, node_amount } = codes_to_tree(codes)
 
-    const tree = codes_to_tree(codes)
+    const nodes_array_value = "nodes_array"
+
+    const nodes = tree_to_nodes(tree, node_amount, nodes_array_value)
 
 
     const c_data = `
 #include "http/hpack_huffman.h"
 
+#define HUFFMAN_NODE_AMOUNT ${node_amount.toString()}
+
 NODISCARD HuffManTree* get_hpack_huffman_tree(void){
 
-    HuffManTree* tree = malloc(sizeof(HuffManTree)),
+    HuffManTree* tree = malloc(sizeof(HuffManTree));
 
     if(tree == NULL){
         return NULL;
     }
 
-    ${JSON.stringify(tree)}
+    HuffManNode* ${nodes_array_value} = malloc(sizeof(HuffManNode) * HUFFMAN_NODE_AMOUNT);
 
-    *tree = (HuffManNode){.root = root};
+    if(${nodes_array_value} == NULL){
+        free(tree);
+        return NULL;
+    }
+
+    {
+    
+${nodes.map((val, i) => {
+
+        return `    ${nodes_array_value}[${i}] = ${val};`;
+    }).join("\n")}
+
+    }
+
+
+    *tree = (HuffManNode){ .root = root, .memory = (void*)${nodes_array_value} };
 
     return tree;
-//TODO
 }
 
 void free_hpack_huffman_tree(HuffManTree* tree){
-//TODO
+    free(tree->memory);
+    free(tree);
 }
 
 `
-
-
 
     fs.writeFileSync(file, c_data)
 
