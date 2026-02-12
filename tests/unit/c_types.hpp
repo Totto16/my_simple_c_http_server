@@ -29,7 +29,7 @@ constexpr const size_t buffer_max_for_printing_content = 40;
 	if(buffer.data == NULL || buffer.size > buffer_max_for_printing_content) {
 		os << "SizedBuffer{data=" << buffer.data << ", size=" << buffer.size << "}";
 	} else {
-		os << "SizedBuffer{content='";
+		os << "SizedBuffer{content='0x";
 		auto* buffer_ptr = static_cast<std::uint8_t*>(buffer.data);
 		for(size_t i = 0; i < buffer.size; ++i) {
 			os << get_hex_value_for_u8(buffer_ptr[i]);
@@ -45,4 +45,3 @@ doctest::String toString(const SizedBuffer& buffer);
 
 NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs);
 
-NODISCARD bool operator==(const SizedBuffer& lhs, const std::vector<std::uint8_t>& rhs);
