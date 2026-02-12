@@ -83,12 +83,14 @@ static void parse_hpack_literal_header_field_without_indexing(const uint8_t byte
 	UNREACHABLE();
 }
 
-NODISCARD static SizedBuffer http2_hpack_decompress_data_impl(const SizedBuffer input) {
+NODISCARD static Http2HpackDecompressResult http2_hpack_decompress_data_impl(const SizedBuffer input) {
 
 	size_t pos = 0;
 	const size_t size = input.size;
 
 	const uint8_t* const data = (uint8_t*)input.data;
+
+	HttpHeaderFields result = TVEC_EMPTY(HttpHeaderField);
 
 	while(pos < size) {
 		uint8_t byte = data[pos];
@@ -148,9 +150,32 @@ NODISCARD static SizedBuffer http2_hpack_decompress_data_impl(const SizedBuffer 
 			parse_hpack_literal_header_field_without_indexing(byte & 0x0f, &pos, size, data);
 		}
 	}
+
+	return result;
 }
 
-NODISCARD SizedBuffer http2_hpack_decompress_data(const SizedBuffer input) {
+NODISCARD HpackState* get_default_hpack_state(void) {
+
+	HpackState* state = malloc(sizeof(HpackState));
+
+	if(state == NULL) {
+		return NULL,
+	}
+
+	// TODO
+	*state = (HpackState){ .todo_dynamic_table = 1111 };
+
+	return state;
+}
+
+NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackState* const state,
+                                                                 const SizedBuffer input) {
+
+	if(state == NULL) {
+		return (Http2HpackDecompressResult) {
+			.is_error = true, .data = { .error = "state is NULL" }
+		}
+	}
 
 	return http2_hpack_decompress_data_impl(input)
 }
