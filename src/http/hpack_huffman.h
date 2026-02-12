@@ -29,7 +29,7 @@ struct HuffManNodeImpl {
 };
 
 struct HuffManTreeImpl {
-	HuffManNode root;
+	HuffManNode* root;
     void* memory;
 };
 

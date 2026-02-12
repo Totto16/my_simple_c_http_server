@@ -11,6 +11,8 @@ src_files += files(
     'header.h',
     'hpack.c',
     'hpack.h',
+    'hpack_huffman.c',
+    'hpack_huffman.h',
     'mime.c',
     'mime.h',
     'parser.c',

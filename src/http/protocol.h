@@ -123,12 +123,12 @@ typedef TVEC_TYPENAME(HttpHeaderField) HttpHeaderFields;
 
 typedef struct {
 	HttpRequestLine request_line;
-	TVEC_TYPENAME(HttpHeaderField) header_fields;
+	HttpHeaderFields header_fields;
 } HttpRequestHead;
 
 typedef struct {
 	HttpResponseLine response_line;
-	TVEC_TYPENAME(HttpHeaderField) header_fields;
+	HttpHeaderFields header_fields;
 } HttpResponseHead;
 
 typedef struct {
@@ -236,8 +236,7 @@ NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, co
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);
 
-NODISCARD HttpHeaderField* find_header_by_key(TVEC_TYPENAME(HttpHeaderField) array,
-                                              const char* key);
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key);
 
 typedef struct {
 	CompressionType compression_to_use;

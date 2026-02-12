@@ -2,6 +2,7 @@
 #include <signal.h>
 
 #include "./folder.h"
+#include "./hpack.h"
 #include "./send.h"
 #include "./server.h"
 #include "generic/helper.h"
@@ -1535,9 +1536,11 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 void global_initialize_http_global_data(void) {
 	global_initialize_mime_map();
 	global_initialize_locale_for_http();
+	global_initialize_http2_hpack_data();
 }
 
 void global_free_http_global_data(void) {
 	global_free_mime_map();
 	global_free_locale_for_http();
+	global_free_http2_hpack_data();
 }
