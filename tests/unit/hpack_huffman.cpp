@@ -69,8 +69,6 @@ TEST_CASE("testing hpack deserializing - from hpack spec") {
 
 		SUBCASE(case_name) {
 
-			const auto raw_value = test_case.str;
-
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
 			const auto result = apply_huffman_code(tree, input);
@@ -103,7 +101,7 @@ TEST_CASE("testing hpack deserializing (ascii) - generated") {
 
 	REQUIRE_NE(tree, nullptr);
 
-	const auto test_cases = generated::tests::test_cases;
+	const auto test_cases = generated::tests::test_cases_ascii;
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
@@ -113,8 +111,6 @@ TEST_CASE("testing hpack deserializing (ascii) - generated") {
 		doctest::String case_name = doctest::String{ case_str.c_str() };
 
 		SUBCASE(case_name) {
-
-			const auto raw_value = test_case.str;
 
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
@@ -137,6 +133,46 @@ TEST_CASE("testing hpack deserializing (ascii) - generated") {
 
 			INFO("the actual encoded string: ", test_case.str);
 			INFO("the decoded string: ", actual_result_str);
+			REQUIRE_EQ(actual_result, expected_result);
+		}
+	}
+}
+
+
+
+TEST_CASE("testing hpack deserializing (utf8) - generated") {
+
+	const auto* const tree = get_hpack_huffman_tree();
+
+	REQUIRE_NE(tree, nullptr);
+
+	const auto test_cases = generated::tests::test_cases_utf8;
+
+	for(size_t i = 0; i < test_cases.size(); ++i) {
+
+		const auto test_case = test_cases.at(i);
+
+		const auto case_str = std::string{ "Case " } + std::to_string(i);
+		doctest::String case_name = doctest::String{ case_str.c_str() };
+
+		SUBCASE(case_name) {
+
+			const auto input = buffer_from_raw_data(test_case.encoded);
+
+			const auto result = apply_huffman_code(tree, input);
+
+			const char* error = nullptr;
+
+			if(result.is_error) {
+				error = result.data.error;
+			}
+
+			REQUIRE_EQ(error, nullptr);
+
+			const auto actual_result = result.data.result;
+
+			const auto expected_result = buffer_from_raw_data(test_case.value);
+
 			REQUIRE_EQ(actual_result, expected_result);
 		}
 	}

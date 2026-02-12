@@ -1230,7 +1230,7 @@ function normal_test_to_cpp(caze: EncodedHuffmanAscii): string {
 
     const arr: number[] = caze.encoded.toNumArray();
 
-    return `\t\tTestCase{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
+    return `\t\TestCaseAscii{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
 }
 
@@ -1388,7 +1388,7 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
 
 namespace generated::tests {
 
-\tstruct TestCase {
+\tstruct TestCaseAscii {
 \t\tstd::string str;
 \t\tstd::vector<std::uint8_t> encoded;
 \t};
@@ -1398,7 +1398,7 @@ namespace generated::tests {
 \t\tstd::vector<std::uint8_t> encoded;
 \t};
 
-\tconst std::vector<TestCase> test_cases = {
+\tconst std::vector<TestCaseAscii> test_cases_ascii = {
 ${normal_tests_to_cpp(final_test_case).join(",\n")}
 \t}; 
 
