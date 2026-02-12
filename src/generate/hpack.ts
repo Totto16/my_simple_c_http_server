@@ -549,8 +549,8 @@ class BitArray {
             throw new Error("Out of bounds set")
         }
 
-        const byteIndex = index >> 3;       // divide by 8
-        const bitIndex = 7 - (index & 7);         // mod 8
+        const byteIndex = index >> 3;
+        const bitIndex = 7 - (index & 7);
 
         if (value) {
             this.bytes[byteIndex] |= (1 << bitIndex);
@@ -565,7 +565,7 @@ class BitArray {
         }
 
         const byteIndex = index >> 3;
-        const bitIndex = index & 7;
+        const bitIndex = 7 - (index & 7);
 
 
         return ((this.bytes[byteIndex] >> bitIndex) & 1) != 0;
@@ -830,6 +830,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
                     } else if (currentNode.node.bit_0.type == "end") {
                         if (currentNode.node.bit_0.value != null) {
                             console.error(currentNode.node.bit_0)
+                            console.log(code)
                             throw new Error("Error")
                         }
 
