@@ -573,6 +573,10 @@ class BitArray {
     get size(): number {
         return this._size;
     }
+
+    toNumberArray(): number[] {
+        return Array.from(this.bytes)
+    }
 }
 
 function get_bit_array_from_bits(bits: string, bit_len: number, hex_value: string): BitArray {
@@ -654,7 +658,6 @@ type HuffmanCode = HuffmanCodeNormal | HuffmanCodeSpecial
 function check_and_map_raw_code(code: RawHuffmanCode): HuffmanCode {
 
     const bytes: BitArray = get_bit_array_from_bits(code.bits, code.bit_len, code.hex);
-
 
     if (!Number.isInteger(code.sym)) {
         throw new Error("invalid raw huffman code, not an integer")
@@ -1047,9 +1050,55 @@ class EncodedHuffman {
         this.values = values
     }
 
-    toArray(): Uint8ClampedArray {
-        //
-        return [0]
+    toArray(): BitArray {
+
+        let size: number = 0;
+
+        for (const value of this.values) {
+            size += value.bytes.size;
+        }
+
+        if (size % 8 != 0) {
+            size += 8 - (size % 8);
+        }
+
+        const result = new BitArray(size);
+
+        let index = 0;
+
+        for (const value of this.values) {
+
+            const b_size = value.bytes.size;
+            for (let i = 0; i < b_size; ++i) [
+                result.set(index + i, value.bytes.get(i))
+            ]
+
+            index += b_size;
+        }
+
+        // set EOS bits
+        for (let i = index; i < size; ++i) [
+            result.set(i, true)
+        ]
+
+
+        return result
+    }
+
+    toNumArray(): number[] {
+
+        const arr = this.toArray()
+
+        if (arr.size % 8 != 0) {
+            console.error(arr.size, arr.size % 8)
+            throw new Error("Encoding error")
+        }
+
+        const array = arr.toNumberArray()
+
+
+        return array;
+
     }
 
 }
@@ -1151,7 +1200,7 @@ function toHexString(num: number): string {
 
 function normal_test_to_cpp(caze: EncodedHuffmanAscii): string {
 
-    const arr: number[] = Array.from(caze.encoded.toArray());
+    const arr: number[] = caze.encoded.toNumArray();
 
     return `\t\tTestCase{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
@@ -1166,7 +1215,7 @@ function normal_tests_to_cpp(cases: EncodedHuffmanGeneric[]): string[] {
 
 function utf8_test_to_cpp(caze: EncodedHuffmanUtf8): string {
 
-    const arr: number[] = Array.from(caze.encoded.toArray());
+    const arr: number[] = caze.encoded.toNumArray();
 
     return `\t\tTestCaseUtf8{ .value = std::vector<std::uint8_t>{${Array.from(caze.value).map((a) => toHexString(a)).join(", ")}}, .encoded =  std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
