@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "./hpack.h"
 #include "./protocol.h"
 #include "utils/buffered_reader.h"
 #include "utils/utils.h"
@@ -243,6 +244,7 @@ typedef struct {
 typedef struct {
 	Http2Identifier last_stream_id;
 	Http2State state;
+	HpackState* hpack_state;
 } Http2ContextState;
 
 typedef struct {

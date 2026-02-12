@@ -12,13 +12,21 @@ static void parse_hpack_indexed_header_field(const uint8_t byte, size_t* pos, co
 	//  +---+---------------------------+
 
 	// TODO
+	UNUSED(byte);
+	UNUSED(pos);
+	UNUSED(size);
+	UNUSED(data);
+
+	// TODO
+	decode_integer(data, pos, 1);
+
 	UNREACHABLE();
 }
 
-static void parse_hpack_literal_header_field_with_incremental_indexing(const uint8_t byte,
-                                                                       size_t* pos,
-                                                                       const size_t size,
-                                                                       const uint8_t* const data) {
+static int parse_hpack_literal_header_field_with_incremental_indexing(const uint8_t byte,
+                                                                      size_t* pos,
+                                                                      const size_t size,
+                                                                      const uint8_t* const data) {
 	// Literal Header Field with Incremental Indexing:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.1
 	//   0   1   2   3   4   5   6   7
@@ -31,11 +39,16 @@ static void parse_hpack_literal_header_field_with_incremental_indexing(const uin
 	// +-------------------------------+
 
 	// TODO
+	UNUSED(byte);
+	UNUSED(pos);
+	UNUSED(size);
+	UNUSED(data);
+
 	UNREACHABLE();
 }
 
-static void parse_hpack_dynamic_table_size_update(const uint8_t byte, size_t* pos,
-                                                  const size_t size, const uint8_t* const data) {
+static int parse_hpack_dynamic_table_size_update(const uint8_t byte, size_t* pos, const size_t size,
+                                                 const uint8_t* const data) {
 	// Dynamic Table Size Update:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.3
 	//   0   1   2   3   4   5   6   7
@@ -44,12 +57,17 @@ static void parse_hpack_dynamic_table_size_update(const uint8_t byte, size_t* po
 	// +---+---------------------------+
 
 	// TODO
+	UNUSED(byte);
+	UNUSED(pos);
+	UNUSED(size);
+	UNUSED(data);
+
 	UNREACHABLE();
 }
 
-static void parse_hpack_literal_header_field_never_indexed(const uint8_t byte, size_t* pos,
-                                                           const size_t size,
-                                                           const uint8_t* const data) {
+static int parse_hpack_literal_header_field_never_indexed(const uint8_t byte, size_t* pos,
+                                                          const size_t size,
+                                                          const uint8_t* const data) {
 	// Literal Header Field Never Indexed:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
 	//   0   1   2   3   4   5   6   7
@@ -62,12 +80,17 @@ static void parse_hpack_literal_header_field_never_indexed(const uint8_t byte, s
 	// +-------------------------------+
 
 	// TODO
+	UNUSED(byte);
+	UNUSED(pos);
+	UNUSED(size);
+	UNUSED(data);
+
 	UNREACHABLE();
 }
 
-static void parse_hpack_literal_header_field_without_indexing(const uint8_t byte, size_t* pos,
-                                                              const size_t size,
-                                                              const uint8_t* const data) {
+static int parse_hpack_literal_header_field_without_indexing(const uint8_t byte, size_t* pos,
+                                                             const size_t size,
+                                                             const uint8_t* const data) {
 	// Literal Header Field without Indexing:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.2
 	//   0   1   2   3   4   5   6   7
@@ -80,10 +103,16 @@ static void parse_hpack_literal_header_field_without_indexing(const uint8_t byte
 	// +-------------------------------+
 
 	// TODO
+	UNUSED(byte);
+	UNUSED(pos);
+	UNUSED(size);
+	UNUSED(data);
+
 	UNREACHABLE();
 }
 
-NODISCARD static Http2HpackDecompressResult http2_hpack_decompress_data_impl(const SizedBuffer input) {
+NODISCARD static Http2HpackDecompressResult
+http2_hpack_decompress_data_impl(const SizedBuffer input) {
 
 	size_t pos = 0;
 	const size_t size = input.size;
@@ -151,7 +180,10 @@ NODISCARD static Http2HpackDecompressResult http2_hpack_decompress_data_impl(con
 		}
 	}
 
-	return result;
+	return (Http2HpackDecompressResult){ .is_error = false,
+		                                 .data = {
+		                                     .result = result,
+		                                 } };
 }
 
 NODISCARD HpackState* get_default_hpack_state(void) {
@@ -159,7 +191,7 @@ NODISCARD HpackState* get_default_hpack_state(void) {
 	HpackState* state = malloc(sizeof(HpackState));
 
 	if(state == NULL) {
-		return NULL,
+		return NULL;
 	}
 
 	// TODO
@@ -168,14 +200,32 @@ NODISCARD HpackState* get_default_hpack_state(void) {
 	return state;
 }
 
+void free_hpack_state(HpackState* state) {
+
+	// TODO: free vector
+	if(state->todo_dynamic_table == 124324) {
+		free(&(state->todo_dynamic_table));
+	}
+
+	free(state);
+}
+
 NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackState* const state,
                                                                  const SizedBuffer input) {
 
 	if(state == NULL) {
-		return (Http2HpackDecompressResult) {
-			.is_error = true, .data = { .error = "state is NULL" }
-		}
+		return (Http2HpackDecompressResult){ .is_error = true,
+			                                 .data = { .error = "state is NULL" } };
 	}
 
-	return http2_hpack_decompress_data_impl(input)
+	return http2_hpack_decompress_data_impl(input);
+}
+
+
+void global_initialize_http2_hpack_data(void){
+	global_initialize_http2_hpack_huffman_data();
+}
+
+void global_free_http2_hpack_data(void){
+	global_free_http2_hpack_huffman_data();
 }

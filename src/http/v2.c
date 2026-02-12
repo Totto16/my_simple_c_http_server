@@ -106,6 +106,7 @@ NODISCARD inline static Http2ContextState http2_default_context_state(void) {
 	return (Http2ContextState){
 		.last_stream_id = { .identifier = 0 },
 		.state = (Http2State){ .type = Http2StateTypeOpen },
+		.hpack_state = get_default_hpack_state(),
 	};
 }
 
@@ -2456,7 +2457,8 @@ typedef struct {
 	} data;
 } Http2RequestHeadersResult;
 
-NODISCARD static Http2RequestHeadersResult parse_http2_headers(const Http2StreamHeaders headers) {
+NODISCARD static Http2RequestHeadersResult parse_http2_headers(HpackState* const hpack_state,
+                                                               const Http2StreamHeaders headers) {
 
 	// TODO
 
@@ -2466,7 +2468,8 @@ NODISCARD static Http2RequestHeadersResult parse_http2_headers(const Http2Stream
 		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError };
 	}
 
-	const HttpHeaderFields header_result = http2_hpack_decompress_data(header_value);
+	const Http2HpackDecompressResult header_result =
+	    http2_hpack_decompress_data(hpack_state, header_value);
 
 	// TODO
 	UNUSED(header_result);
@@ -2476,9 +2479,11 @@ NODISCARD static Http2RequestHeadersResult parse_http2_headers(const Http2Stream
 }
 
 NODISCARD static HttpRequestResult
-get_http2_request_from_finished_stream(const Http2Stream* const stream) {
+get_http2_request_from_finished_stream(Http2ContextState* const state,
+                                       const Http2Stream* const stream) {
 
-	const Http2RequestHeadersResult headers_result = parse_http2_headers(stream->headers);
+	const Http2RequestHeadersResult headers_result =
+	    parse_http2_headers(state->hpack_state, stream->headers);
 
 	if(headers_result.type != Http2RequestHeadersResultTypeOk) {
 		return (HttpRequestResult){ .is_error = true,
@@ -2572,7 +2577,7 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 						                        } };
 				}
 
-				return get_http2_request_from_finished_stream(stream);
+				return get_http2_request_from_finished_stream((&context->state), stream);
 			}
 			case Http2ProcessFrameResultTypeOk: {
 				break;
@@ -2715,8 +2720,13 @@ static void free_http2_frames(Http2Frames frames) {
 	TVEC_FREE(Http2Frame, &frames);
 }
 
+static void free_http2_context_state(Http2ContextState state) {
+	free_hpack_state(state.hpack_state);
+}
+
 void free_http2_context(HTTP2Context context) {
 
+	free_http2_context_state(context.state);
 	free_http2_streams(context.streams);
 	free_http2_frames(context.frames);
 }

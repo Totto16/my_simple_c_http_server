@@ -1256,7 +1256,7 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
 #include <string>
 #include <vector>
 
-namespace tests {
+namespace generated::tests {
 
 \tstruct TestCase {
 \t\tstd::string str;
@@ -1276,7 +1276,7 @@ ${normal_tests_to_cpp(final_test_case).join(",\n")}
 ${utf8_tests_to_cpp(final_test_case).join(",\n")}
 \t}; 
 
-} // namespace tests
+} // namespace generated::tests
 `
 
     fs.writeFileSync(generated_hpack_test_cases_file, cpp_data)

@@ -9,6 +9,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <utils/sized_buffer.h>
 
@@ -43,3 +44,5 @@ constexpr const size_t buffer_max_for_printing_content = 40;
 doctest::String toString(const SizedBuffer& buffer);
 
 NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs);
+
+NODISCARD bool operator==(const SizedBuffer& lhs, const std::vector<std::uint8_t>& rhs);

@@ -10,6 +10,8 @@ typedef struct HpackStateImpl HpackState;
 
 NODISCARD HpackState* get_default_hpack_state(void);
 
+void free_hpack_state(HpackState* state);
+
 typedef struct {
 	bool is_error;
 	union {

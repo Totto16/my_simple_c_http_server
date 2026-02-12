@@ -1,8 +1,6 @@
 
 
-
 #include "./c_types.hpp"
-
 
 doctest::String toString(const SizedBuffer& buffer) {
 	std::stringstream str{};
@@ -12,6 +10,10 @@ doctest::String toString(const SizedBuffer& buffer) {
 		                    static_cast<doctest::String::size_type>(string.size()) };
 }
 
+NODISCARD bool operator==(const SizedBuffer& lhs, const std::vector<std::uint8_t>& rhs) {
+	const SizedBuffer temp = { .data = (void*)rhs.data(), .size = rhs.size() };
+	return lhs == temp;
+}
 
 NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs) {
 

@@ -21,7 +21,10 @@ test_src += files(
     'http_parser.cpp',
     'main.cpp',
     'serialize.cpp',
+    'hpack_huffman.cpp'
 )
+
+subdir('generated')
 
 add_languages(
     'cpp',
