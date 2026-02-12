@@ -24,14 +24,14 @@ static void bit_pos_inc(BitPos* const bit_pos) {
 	}
 }
 
-NODISCARD SizedBuffer apply_huffman_code(const HuffManTree* const tree, SizedBuffer input) {
+NODISCARD HuffmanResult apply_huffman_code(const HuffManTree* const tree, SizedBuffer input) {
 
 	if(tree == NULL) {
-		return (SizedBuffer){ .data = NULL, .size = 0 };
+		return (HuffmanResult){ .is_error = true, .data = { .error = "tree is NULL" } };
 	}
 
 	if(input.size == 0 || input.data == NULL) {
-		return (SizedBuffer){ .data = NULL, .size = 0 };
+		return (HuffmanResult){ .is_error = true, .data = { .error = "input is NULL or empty" } };
 	}
 
 	size_t memory_size =
@@ -40,7 +40,7 @@ NODISCARD SizedBuffer apply_huffman_code(const HuffManTree* const tree, SizedBuf
 	uint8_t* const values = malloc(memory_size + 1);
 
 	if(values == NULL) {
-		return (SizedBuffer){ .data = NULL, .size = 0 };
+		return (HuffmanResult){ .is_error = true, .data = { .error = "failed malloc" } };
 	}
 
 	memset(values, '\0', memory_size);
@@ -68,9 +68,8 @@ NODISCARD SizedBuffer apply_huffman_code(const HuffManTree* const tree, SizedBuf
 		    bit ? current_node->data.node.bit_1 : current_node->data.node.bit_0;
 
 		if(next_node->type == HuffManNodeTypeError) {
-			// TODO: log error
 			free(values);
-			return (SizedBuffer){ .data = NULL, .size = 0 };
+			return (HuffmanResult){ .is_error = true, .data = { .error = next_node->data.error } };
 		}
 
 		if(next_node->type == HuffManNodeTypeEnd) {
@@ -80,7 +79,8 @@ NODISCARD SizedBuffer apply_huffman_code(const HuffManTree* const tree, SizedBuf
 			if(values_idx >= memory_size) {
 				// out of bounds on output
 				free(values);
-				return (SizedBuffer){ .data = NULL, .size = 0 };
+				return (HuffmanResult){ .is_error = true,
+					                    .data = { .error = "result memory overflow" } };
 			}
 
 			current_node = tree->root;
@@ -98,7 +98,9 @@ NODISCARD SizedBuffer apply_huffman_code(const HuffManTree* const tree, SizedBuf
 	if(current_node == tree->root) {
 		// we have encoded it until the last bit, it is valid
 
-		return (SizedBuffer){ .data = values, .size = values_idx };
+		return (HuffmanResult){ .is_error = false,
+			                    .data = { .result = (SizedBuffer){ .data = values,
+			                                                       .size = values_idx } } };
 	}
 
 	// we have some bytes / bits left
@@ -106,31 +108,41 @@ NODISCARD SizedBuffer apply_huffman_code(const HuffManTree* const tree, SizedBuf
 	if(size >= last_pos.pos) {
 		// no bits left, but should be caught by the previous if
 
-		return (SizedBuffer){ .data = values, .size = values_idx };
+		return (HuffmanResult){ .is_error = false,
+			                    .data = { .result = (SizedBuffer){ .data = values,
+			                                                       .size = values_idx } } };
 	}
 
 	size_t bytes_not_decoded = size - last_pos.pos;
 
 	if(bytes_not_decoded > 1) {
 		// more than one byte not decoded, invalid decoding
-		return (SizedBuffer){ .data = NULL, .size = 0 };
+		return (HuffmanResult){ .is_error = true,
+			                    .data = {
+			                        .error = "more than one byte not decoded, invalid decoding" } };
 	}
 
 	size_t bits_not_decoded = 8 - last_pos.bits_pos;
 
 	if(bits_not_decoded >= 8) {
 		// 8 bits not decoded, is also invalid
-		return (SizedBuffer){ .data = NULL, .size = 0 };
+		return (HuffmanResult){
+			.is_error = true, .data = { .error = "8 or more bits not decoded, is also invalid" }
+		};
 	}
 
 	uint8_t bits_mask = ((1 << bits_not_decoded) - 1);
 
 	if((data[last_pos.pos] & bits_mask) != (EOS_BYTE & bits_mask)) {
 		// last not decoded bits are not the eos bytes
-		return (SizedBuffer){ .data = NULL, .size = 0 };
+		return (HuffmanResult){
+			.is_error = true, .data = { .error = "last not decoded bits are not the EOS bytes" }
+		};
 	}
 
-	return (SizedBuffer){ .data = values, .size = values_idx };
+	return (HuffmanResult){
+		.is_error = false, .data = { .result = (SizedBuffer){ .data = values, .size = values_idx } }
+	};
 }
 
 typedef struct {

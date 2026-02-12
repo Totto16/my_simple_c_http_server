@@ -30,14 +30,22 @@ struct HuffManNodeImpl {
 
 struct HuffManTreeImpl {
 	HuffManNode* root;
-    void* memory;
+	void* memory;
 };
 
 NODISCARD HuffManTree* get_hpack_huffman_tree(void);
 
 void free_hpack_huffman_tree(HuffManTree* tree);
 
-NODISCARD SizedBuffer apply_huffman_code(const HuffManTree* tree, SizedBuffer input);
+typedef struct {
+	bool is_error;
+	union {
+		SizedBuffer result;
+		const char* error;
+	} data;
+} HuffmanResult;
+
+NODISCARD HuffmanResult apply_huffman_code(const HuffManTree* tree, SizedBuffer input);
 
 void global_initialize_http2_hpack_huffman_data(void);
 
