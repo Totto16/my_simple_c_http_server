@@ -535,8 +535,6 @@ const raw_codes: RawHuffmanCode[] = [
     { "sym": 256, "bits": "11111111|11111111|11111111|111111", "hex": "3fffffff", "bit_len": 30 },
 ]
 
-
-
 class BitArray {
     private _size: number
     private bytes: Uint8ClampedArray
@@ -881,6 +879,32 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
 }
 
+type HuffmanEncodingMap = Record<string, HuffmanCodeNormal | undefined>;
+
+function codes_to_map(codes: HuffmanCode[]): HuffmanEncodingMap {
+
+    const map: HuffmanEncodingMap = {}
+
+
+    for (const code of codes) {
+
+        if (code.type == "special") {
+            continue;
+        }
+
+        const index = Number(code.value);
+
+        if (map[index] !== undefined) {
+            throw new Error("duplicate symbol")
+        }
+        map[index] = code;
+
+    }
+
+    return map
+
+}
+
 
 function to_c_node(node: HuffManNode, nodes_array_value: string): string {
 
@@ -956,13 +980,13 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
 
 }
 
-function generate_c_code(file: string, codes: HuffmanCode[]): void {
+function generated_hpack_code_c(generated_hpack_file: string, tree_result: TreeResult): void {
 
-    const { tree, node_amount } = codes_to_tree(codes)
+    const { node_amount, tree } = tree_result
 
     const nodes_array_value = "nodes_array"
 
-    const nodes = tree_to_nodes(tree, node_amount, nodes_array_value)
+    const nodes: string[] = tree_to_nodes(tree, node_amount, nodes_array_value)
 
 
     const c_data = `
@@ -1007,7 +1031,133 @@ void free_hpack_huffman_tree(HuffManTree* tree) {
 }
 `
 
-    fs.writeFileSync(file, c_data)
+    fs.writeFileSync(generated_hpack_file, c_data)
+
+
+}
+
+interface EncodedHuffmanValues {
+    bytes: BitArray,
+}
+
+class EncodedHuffman {
+    private values: EncodedHuffmanValues[]
+
+    constructor(values: EncodedHuffmanValues[]) {
+        this.values = values
+    }
+
+}
+
+function encode_normal_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffman {
+
+    const values: EncodedHuffmanValues[] = []
+
+    for (const char of text) {
+
+        if (char.length != 1) {
+            throw new Error("Invalid decoding, use TextEncoder to encode it in bytes and not utf8");
+        }
+
+        const charValue = char.charCodeAt(0)
+
+        const value = map[charValue]
+
+        if (value === undefined) {
+            console.error(charValue)
+            throw new Error("Invalid decoding, use TextEncoder to encode it in bytes and not utf8");
+        }
+
+        const val: EncodedHuffmanValues = { bytes: value.bytes }
+
+        values.push(val)
+    }
+
+    return new EncodedHuffman(values)
+}
+
+function is_utf8_string(text: string): boolean {
+
+    for (const char of text) {
+        if (char.length != 1) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function encode_uft8_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffman {
+
+    const array = new TextEncoder().encode(text)
+
+    const values: EncodedHuffmanValues[] = []
+
+    for (const char of array) {
+        const value = map[char]
+
+        if (value === undefined) {
+            console.error(char)
+            throw new Error("Implementation error, or the number was out of bound of a char");
+        }
+
+        const val: EncodedHuffmanValues = { bytes: value.bytes }
+
+        values.push(val)
+
+    }
+
+    return new EncodedHuffman(values)
+}
+
+function encode_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffman {
+
+    if (!is_utf8_string(text)) {
+        return encode_normal_string_with_huffman(map, text);
+    }
+
+    return encode_uft8_string_with_huffman(map, text)
+
+}
+
+
+interface TestCase {
+    original: string,
+    encoded: EncodedHuffman
+}
+
+function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string, map: HuffmanEncodingMap): void {
+
+    const test_cases: string[] = [
+        "hello world",
+        "sadsafipefbsafpidsbafabhfkjagfka",
+        "my test",
+        "somespecial-things1212*#*!!!##$%&/()[]{}",
+        "mreallylongtextthat goes on and on, on and on, like this",
+        "aeiaeiaeiaeiaeiaei", // really short encoding
+        "012012012012012", // really short encoding
+        "UTF-8: üöäß `´eè 🤌🏼 😁 🙈 🫳🏿" // utf8
+    ]
+
+    const final_test_case: TestCase[] = test_cases.map((original) => {
+        const encoded = encode_string_with_huffman(map, original)
+        return { original, encoded }
+    });
+
+console.log(final_test_case)
+
+}
+
+function generate_c_code(basedir: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
+
+    const generated_hpack_file = path.join(basedir, "generated_hpack.c")
+
+    generated_hpack_code_c(generated_hpack_file, tree_result)
+
+    const generated_hpack_test_cases_file = path.join(basedir, "..", "..", "tests", "unit", "generated", "generated_hpack_tests.cpp")
+
+    generated_hpack_test_cases_cpp(generated_hpack_test_cases_file, map)
+
 
 
 }
@@ -1016,9 +1166,11 @@ function main(): void {
 
     const codes: HuffmanCode[] = raw_codes.map(code => check_and_map_raw_code(code))
 
-    const file_base = path.join(path.resolve(__dirname), "generated_hpack.c")
+    const tree_result = codes_to_tree(codes)
 
-    generate_c_code(file_base, codes)
+    const map = codes_to_map(codes)
+
+    generate_c_code(path.resolve(__dirname), tree_result, map)
 
 }
 
