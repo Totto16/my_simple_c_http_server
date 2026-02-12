@@ -550,7 +550,7 @@ class BitArray {
         }
 
         const byteIndex = index >> 3;       // divide by 8
-        const bitIndex = index & 7;         // mod 8
+        const bitIndex = 7 - (index & 7);         // mod 8
 
         if (value) {
             this.bytes[byteIndex] |= (1 << bitIndex);
@@ -567,6 +567,7 @@ class BitArray {
         const byteIndex = index >> 3;
         const bitIndex = index & 7;
 
+
         return ((this.bytes[byteIndex] >> bitIndex) & 1) != 0;
     }
 
@@ -575,8 +576,36 @@ class BitArray {
     }
 
     toNumberArray(): number[] {
+
         return Array.from(this.bytes)
     }
+}
+
+
+function test_bitarray() {
+
+    const values: [number, number, number[]][] = [[0b10101011, 8, [0b10101011]], [0xFF, 8, [0xFF]], [0xA8, 8, [0xA8]], [0x56F1, 16, [0x56, 0xF1]]]
+
+
+    for (const [value, value_sz, value_arr] of values) {
+
+        const temp = new BitArray(value_sz)
+
+        for (let i = 0; i < value_sz; ++i) {
+
+            const val = ((value >> (value_sz - i - 1)) & 0x1) != 0;
+
+            temp.set(i, val)
+        }
+
+        const temp_res = temp.toNumberArray();
+
+        if (!num_array_is_eq(temp_res, value_arr)) {
+            throw new Error(`The bitarray doesn't work as expected: ${temp_res} - ${value_arr}`)
+        }
+
+    }
+
 }
 
 function get_bit_array_from_bits(bits: string, bit_len: number, hex_value: string): BitArray {
@@ -1062,6 +1091,8 @@ class EncodedHuffman {
             size += 8 - (size % 8);
         }
 
+        console.assert((size % 8) == 0, "implementation error")
+
         const result = new BitArray(size);
 
         let index = 0;
@@ -1228,13 +1259,104 @@ function utf8_tests_to_cpp(cases: EncodedHuffmanGeneric[]): string[] {
     }).map(a => utf8_test_to_cpp(a))
 }
 
+type ManualTest = [number, number]
+
+function get_manual_test_arr(manual_test_arr: ManualTest[]): number[] {
+
+    let size = 0;
+
+
+    for (const man of manual_test_arr) {
+        size += man[1]
+    }
+
+
+    if (size % 8 != 0) {
+        size += 8 - (size % 8);
+    }
+
+    console.assert((size % 8) == 0, "implementation error")
+
+    const result = new BitArray(size);
+
+
+    let offset = 0;
+
+    for (const man of manual_test_arr) {
+
+        const local_size = man[1];
+
+        for (let i = 0; i < local_size; ++i) {
+
+            const value = ((man[0] >> (local_size - 1 - i)) & 0x1) != 0;
+
+            result.set(offset + i, value)
+
+        }
+
+
+        offset += local_size
+    }
+
+
+    // set EOS bits
+    for (let i = offset; i < size; ++i) [
+        result.set(i, true)
+    ]
+
+
+    return result.toNumberArray();
+
+}
+
+function num_array_is_eq(arr1: number[], arr2: number[]): boolean {
+
+    if (arr1.length != arr2.length) {
+        return false;
+    }
+
+    for (let i = 0; i < arr1.length; ++i) {
+        if (arr1[i] != arr2[i]) {
+            return false;
+        }
+    }
+
+
+    return true;
+
+}
+
 function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string, map: HuffmanEncodingMap): void {
+
+    {
+        const test_test_result = encode_normal_string_with_huffman(map, "307");
+
+        const test_test_arr = test_test_result.encoded.toNumArray()
+
+        // from the hpack spec examples
+        const test_test_arr_expected = [0x64, 0x0e, 0xff]
+
+        // manually constructed for "307"
+        const test_test_arr_manual = get_manual_test_arr([[0b011001, 6], [0b00000, 5], [0b011101, 6]])
+
+        if (!num_array_is_eq(test_test_arr_manual, test_test_arr_expected)) {
+            throw new Error(`The manual encoding is not done correctly, as the manual and the expected array differ: ${test_test_arr_manual} - ${test_test_arr_expected}`)
+        }
+
+        if (!num_array_is_eq(test_test_arr, test_test_arr_expected)) {
+            throw new Error(`The js encoding is not done correctly, as the js encoded and the expected array differ: ${test_test_arr} - ${test_test_arr_expected}`)
+        }
+
+    }
+
+
 
     const test_cases: string[] = [
         "www.example.com",
         "no-cache",
         "custom-key",
         "custom-value",
+        "307",
         "hello world",
         "sadsafipefbsafpidsbafabhfkjagfka",
         "my test",
@@ -1297,6 +1419,8 @@ function generate_c_code(basedir: string, tree_result: TreeResult, map: HuffmanE
 }
 
 function main(): void {
+
+    test_bitarray();
 
     const codes: HuffmanCode[] = raw_codes.map(code => check_and_map_raw_code(code))
 
