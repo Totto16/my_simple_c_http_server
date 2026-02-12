@@ -2466,7 +2466,7 @@ NODISCARD static Http2RequestHeadersResult parse_http2_headers(const Http2Stream
 		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError };
 	}
 
-	const SizedBuffer header_result = http2_hpack_decompress_data(header_value);
+	const HttpHeaderFields header_result = http2_hpack_decompress_data(header_value);
 
 	// TODO
 	UNUSED(header_result);
