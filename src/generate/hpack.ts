@@ -970,41 +970,41 @@ function generate_c_code(file: string, codes: HuffmanCode[]): void {
 
 #define HUFFMAN_NODE_AMOUNT ${node_amount.toString()}
 
-NODISCARD HuffManTree* get_hpack_huffman_tree(void){
+NODISCARD HuffManTree* get_hpack_huffman_tree(void) {
 
-    HuffManTree* tree = malloc(sizeof(HuffManTree));
+\tHuffManTree* tree = malloc(sizeof(HuffManTree));
 
-    if(tree == NULL){
-        return NULL;
-    }
+\tif(tree == NULL) {
+\t\treturn NULL;
+\t}
 
-    HuffManNode* ${nodes_array_value} = malloc(sizeof(HuffManNode) * HUFFMAN_NODE_AMOUNT);
+\tHuffManNode* ${nodes_array_value} = malloc(sizeof(HuffManNode) * HUFFMAN_NODE_AMOUNT);
 
-    if(${nodes_array_value} == NULL){
-        free(tree);
-        return NULL;
-    }
+\tif(${nodes_array_value} == NULL) {
+\t\tfree(tree);
+\t\treturn NULL;
+\t}
 
-    {
-    
+\t{
+\t
 ${nodes.map((val, i) => {
 
-        return `    ${nodes_array_value}[${i}] = ${val};`;
+        return `\t${nodes_array_value}[${i}] = ${val};`;
     }).join("\n")}
 
-    }
+\t}
 
+\tHuffManNode* root = (${nodes_array_value} + ${tree.root.id});
 
-    *tree = (HuffManNode){ .root = root, .memory = (void*)${nodes_array_value} };
+\t*tree = (HuffManTree){ .root = root, .memory = (void*)${nodes_array_value} };
 
-    return tree;
+\treturn tree;
 }
 
-void free_hpack_huffman_tree(HuffManTree* tree){
-    free(tree->memory);
-    free(tree);
+void free_hpack_huffman_tree(HuffManTree* tree) {
+\tfree(tree->memory);
+\tfree(tree);
 }
-
 `
 
     fs.writeFileSync(file, c_data)

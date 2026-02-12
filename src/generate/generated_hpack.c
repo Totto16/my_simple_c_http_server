@@ -3,7 +3,7 @@
 
 #define HUFFMAN_NODE_AMOUNT 513
 
-NODISCARD HuffManTree* get_hpack_huffman_tree(void){
+NODISCARD HuffManTree* get_hpack_huffman_tree(void) {
 
 	HuffManTree* tree = malloc(sizeof(HuffManTree));
 
@@ -1049,13 +1049,14 @@ NODISCARD HuffManTree* get_hpack_huffman_tree(void){
 
 	}
 
+	HuffManNode* root = (nodes_array + 0);
 
-	*tree = (HuffManNode){ .root = root, .memory = (void*)nodes_array };
+	*tree = (HuffManTree){ .root = root, .memory = (void*)nodes_array };
 
 	return tree;
 }
 
-void free_hpack_huffman_tree(HuffManTree* tree){
+void free_hpack_huffman_tree(HuffManTree* tree) {
 	free(tree->memory);
 	free(tree);
 }
