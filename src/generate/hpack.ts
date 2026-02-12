@@ -568,7 +568,7 @@ class BitArray {
         const bitIndex = 7 - (index & 7);
 
 
-        return ((this.bytes[byteIndex] >> bitIndex) & 1) != 0;
+        return ((this.bytes[byteIndex] >> bitIndex) & 0x1) != 0;
     }
 
     get size(): number {
@@ -1181,13 +1181,9 @@ function encode_normal_string_with_huffman(map: HuffmanEncodingMap, text: string
 
 function is_utf8_string(text: string): boolean {
 
-    for (const char of text) {
-        if (char.length != 1) {
-            return true;
-        }
-    }
+    const array = new TextEncoder().encode(text)
 
-    return false;
+    return array.length != text.length;
 }
 
 function encode_uft8_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanUtf8 {
@@ -1329,7 +1325,7 @@ function num_array_is_eq(arr1: number[], arr2: number[]): boolean {
 
 function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string, map: HuffmanEncodingMap): void {
 
-    {
+    { // test js encoding
         const test_test_result = encode_normal_string_with_huffman(map, "307");
 
         const test_test_arr = test_test_result.encoded.toNumArray()
@@ -1351,6 +1347,13 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
     }
 
 
+
+    { // test utf8 detection
+
+        console.assert(is_utf8_string("UTF-8: üöäß "), "utf-8 string detected correctly")
+
+
+    }
 
     const test_cases: string[] = [
         "www.example.com",
