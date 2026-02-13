@@ -1176,28 +1176,28 @@ typedef struct HuffManTreeImpl HuffManTree;
 typedef struct HuffManNodeImpl HuffManNode;
 
 typedef struct {
-\tHuffManNode* bit_0;
-\tHuffManNode* bit_1;
+	HuffManNode* bit_0;
+	HuffManNode* bit_1;
 } HuffManNodeNode;
 
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-\tHuffManNodeTypeNode = 0,
-\tHuffManNodeTypeEnd,
-\tHuffManNodeTypeError
+	HuffManNodeTypeNode = 0,
+	HuffManNodeTypeEnd,
+	HuffManNodeTypeError
 } HuffManNodeType;
 
 struct HuffManNodeImpl {
-\tHuffManNodeType type;
-\tunion {
-\t\tHuffManNodeNode node;
-\t\tuint8_t end;
-\t\tconst char* error;
-\t} data;
+	HuffManNodeType type;
+	union {
+		HuffManNodeNode node;
+		uint8_t end;
+		const char* error;
+	} data;
 };
 
 struct HuffManTreeImpl {
-\tHuffManNode* root;
-\tvoid* memory;
+	HuffManNode* root;
+	void* memory;
 };
 
 
@@ -1222,39 +1222,39 @@ void free_hpack_huffman_tree(HuffManTree* tree);
 
 NODISCARD HuffManTree* get_hpack_huffman_tree(void) {
 
-\tHuffManTree* tree = malloc(sizeof(HuffManTree));
+	HuffManTree* tree = malloc(sizeof(HuffManTree));
 
-\tif(tree == NULL) {
-\t\treturn NULL;
-\t}
+	if(tree == NULL) {
+		return NULL;
+	}
 
-\t//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
-\tHuffManNode* ${nodes_array_value} = malloc(sizeof(HuffManNode) * HUFFMAN_NODE_AMOUNT);
+	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
+	HuffManNode* ${nodes_array_value} = malloc(sizeof(HuffManNode) * HUFFMAN_NODE_AMOUNT);
 
-\tif(${nodes_array_value} == NULL) {
-\t\tfree(tree);
-\t\treturn NULL;
-\t}
+	if(${nodes_array_value} == NULL) {
+		free(tree);
+		return NULL;
+	}
 
-\t{
-\t
+	{
+	
 ${nodes.map((val, i) => {
 
-        return `\t\t${nodes_array_value}[${i}] = ${val};`;
+        return `		${nodes_array_value}[${i}] = ${val};`;
     }).join("\n")}
 
-\t}
+	}
 
-\tHuffManNode* root = (${nodes_array_value} + ${tree.root.id});
+	HuffManNode* root = (${nodes_array_value} + ${tree.root.id});
 
-\t*tree = (HuffManTree){ .root = root, .memory = (void*)${nodes_array_value} };
+	*tree = (HuffManTree){ .root = root, .memory = (void*)${nodes_array_value} };
 
-\treturn tree;
+	return tree;
 }
 
 void free_hpack_huffman_tree(HuffManTree* const tree) {
-\tfree(tree->memory);
-\tfree(tree);
+	free(tree->memory);
+	free(tree);
 }
 `
 
@@ -1319,8 +1319,8 @@ function generated_hpack_headerable_code_h(generated_hpack_header_table_h: strin
 #define HPACK_HEADER_TABLE_SIZE ${max_size}
 
 typedef struct {
-\tconst char* key;
-\tconst char* value;
+	const char* key;
+	const char* value;
 } HpackHeaderEntry;
 
 NODISCARD HpackHeaderEntry* get_hpack_static_header_table_entries(void);
@@ -1337,28 +1337,28 @@ void free_hpack_static_header_table_entries(HpackHeaderEntry* entries);
 
 NODISCARD HpackHeaderEntry* get_hpack_static_header_table_entries(void){
 
-\t//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
-\tHpackHeaderEntry* ${header_nodes_value} = malloc(sizeof(HpackHeaderEntry) * HPACK_HEADER_TABLE_SIZE);
+	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
+	HpackHeaderEntry* ${header_nodes_value} = malloc(sizeof(HpackHeaderEntry) * HPACK_HEADER_TABLE_SIZE);
 
-\tif(${header_nodes_value} == NULL) {
-\t\treturn NULL;
-\t}
+	if(${header_nodes_value} == NULL) {
+		return NULL;
+	}
 
-\t{
-\t
+	{
+	
 ${headers.map((val, i) => {
 
-        return `\t\t${header_nodes_value}[${i}] = ${val};`;
+        return `		${header_nodes_value}[${i}] = ${val};`;
     }).join("\n")}
 
-\t}
+	}
 
-\treturn ${header_nodes_value};
+	return ${header_nodes_value};
 
 }
 
 void free_hpack_static_header_table_entries(HpackHeaderEntry* const entries){
-\tfree(entries);
+	free(entries);
 }
 `
 
@@ -1532,7 +1532,7 @@ function normal_test_to_cpp(caze: EncodedHuffmanAscii): string {
 
     const arr: number[] = caze.encoded.toNumArray();
 
-    return `\t\tTestCaseAscii{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
+    return `		TestCaseAscii{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
 }
 
@@ -1547,7 +1547,7 @@ function utf8_test_to_cpp(caze: EncodedHuffmanUtf8): string {
 
     const arr: number[] = caze.encoded.toNumArray();
 
-    return `\t\tTestCaseUtf8{ .value = std::vector<std::uint8_t>{${Array.from(caze.value).map((a) => toHexString(a)).join(", ")}}, .encoded =  std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
+    return `		TestCaseUtf8{ .value = std::vector<std::uint8_t>{${Array.from(caze.value).map((a) => toHexString(a)).join(", ")}}, .encoded =  std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
 }
 
@@ -1692,23 +1692,23 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
 
 namespace generated::tests {
 
-\tstruct TestCaseAscii {
-\t\tstd::string str;
-\t\tstd::vector<std::uint8_t> encoded;
-\t};
+	struct TestCaseAscii {
+		std::string str;
+		std::vector<std::uint8_t> encoded;
+	};
 
-\tstruct TestCaseUtf8 {
-\t\tstd::vector<std::uint8_t> value;
-\t\tstd::vector<std::uint8_t> encoded;
-\t};
+	struct TestCaseUtf8 {
+		std::vector<std::uint8_t> value;
+		std::vector<std::uint8_t> encoded;
+	};
 
-\tconst std::vector<TestCaseAscii> test_cases_ascii = {
+	const std::vector<TestCaseAscii> test_cases_ascii = {
 ${normal_tests_to_cpp(final_test_case).join(",\n")}
-\t}; 
+	}; 
 
-\tconst std::vector<TestCaseUtf8> test_cases_utf8 = {
+	const std::vector<TestCaseUtf8> test_cases_utf8 = {
 ${utf8_tests_to_cpp(final_test_case).join(",\n")}
-\t}; 
+	}; 
 
 } // namespace generated::tests
 `
