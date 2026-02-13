@@ -4,7 +4,7 @@
 
 #include <http/hpack_huffman.h>
 
-#include "./generated/generated_hpack_tests.hpp"
+#include "generated_hpack_tests.hpp"
 
 #include "./c_types.hpp"
 

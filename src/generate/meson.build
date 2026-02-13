@@ -36,12 +36,8 @@ endif
 generated_hpack_file_c = custom_target(
     'generated_hpack.c',
     command: [
-        pnpm,
-        '--dir',
-        '@CURRENT_SOURCE_DIR@',
-        'exec',
        node,
-        'hpack.ts',
+        '@CURRENT_SOURCE_DIR@/hpack.ts',
         '--type',
         'c',
         '-o',
@@ -56,12 +52,8 @@ src_files += generated_hpack_file_c
 generated_hpack_file_cpp = custom_target(
     'generated_hpack_tests.hpp',
     command: [
-        pnpm,
-        '--dir',
-        '@CURRENT_SOURCE_DIR@',
-        'exec',
         node,
-        'hpack.ts',
+        '@CURRENT_SOURCE_DIR@/hpack.ts',
         '--type',
         'cpp_tests',
         '-o',
