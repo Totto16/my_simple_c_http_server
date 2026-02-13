@@ -383,7 +383,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 
 NODISCARD static int parse_hpack_dynamic_table_size_update(size_t* pos, const size_t size,
                                                            const uint8_t* const data,
-                                                           HttpHeaderFields* const headers) {
+                                                           HpackState* const state) {
 	// Dynamic Table Size Update:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.3
 	//   0   1   2   3   4   5   6   7
@@ -391,13 +391,17 @@ NODISCARD static int parse_hpack_dynamic_table_size_update(size_t* pos, const si
 	// | 0 | 0 | 1 |   Max size (5+)   |
 	// +---+---------------------------+
 
-	// TODO
-	UNUSED(pos);
-	UNUSED(size);
-	UNUSED(data);
-	UNUSED(headers);
+	const HpackVariableIntegerResult new_size = decode_hpack_variable_integer(pos, size, data, 5);
 
-	UNREACHABLE();
+	if(new_size.is_error) {
+		return -1;
+	}
+
+	// TODO(Totto): this can#tr be greater than the http2 setting, but this is mostly used for
+	// setting it to 0, to evict things, so not a priority to check that right now
+	set_hpack_state_setting(state, new_size.value);
+
+	return 0;
 }
 
 NODISCARD static int parse_hpack_literal_header_field_never_indexed(
@@ -491,7 +495,7 @@ http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer inpu
 			// +---+---+---+---+---+---+---+---+
 			// | 0 | 0 | 1 |   Max size (5+)   |
 			// +---+---------------------------+
-			const int res = parse_hpack_dynamic_table_size_update(&pos, size, data, &result);
+			const int res = parse_hpack_dynamic_table_size_update(&pos, size, data, state);
 			if(res < 0) {
 				error = "error in parsing dynamic table size update";
 				goto return_error;
@@ -565,6 +569,25 @@ NODISCARD HpackState* get_default_hpack_state(size_t max_dynamic_table_byte_size
 void set_hpack_state_setting(HpackState* const state, size_t max_dynamic_table_byte_size) {
 
 	state->max_dynamic_table_byte_size = max_dynamic_table_byte_size;
+
+	if(max_dynamic_table_byte_size == 0) {
+
+		// free the entire table
+
+		for(size_t i = 0; i < TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table); ++i) {
+			HpackHeaderDynamicEntry entry =
+			    TVEC_POP_GET(HpackHeaderDynamicEntry, &(state->dynamic_table));
+
+			free_dynamic_entry(entry);
+		}
+
+		TVEC_FREE(HpackHeaderDynamicEntry, &(state->dynamic_table));
+
+		state->dynamic_table = TVEC_EMPTY(HpackHeaderDynamicEntry);
+		state->current_dynamic_table_byte_size = 0;
+
+		return;
+	}
 
 	for(size_t i = TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table);
 	    (state->current_dynamic_table_byte_size > state->max_dynamic_table_byte_size) && (i != 0);
