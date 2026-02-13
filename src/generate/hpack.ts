@@ -1083,8 +1083,7 @@ function to_c_node(node: HuffManNode, nodes_array_value: string): string {
 
         if (node.value === "EOS") {
 
-            return `
-            ((HuffManNode){ .type = HuffManNodeTypeError, .data = { .error = "EOS received" } })`
+            return `((HuffManNode){ .type = HuffManNodeTypeError, .data = { .error = "EOS received" } })`
 
 
         }
@@ -1097,14 +1096,12 @@ function to_c_node(node: HuffManNode, nodes_array_value: string): string {
             throw new Error("invalid node value")
         }
 
-        return `
-            ((HuffManNode){ .type = HuffManNodeTypeEnd, .data = { .end = ${node.value.toString()} } })`
+        return `((HuffManNode){ .type = HuffManNodeTypeEnd, .data = { .end = ${node.value.toString()} } })`
 
     }
 
 
-    return `
-            ((HuffManNode){ .type = HuffManNodeTypeNode, .data = { .node = (HuffManNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id}) } } })`
+    return `((HuffManNode){ .type = HuffManNodeTypeNode, .data = { .node = (HuffManNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id}) } } })`
 
 
 }
@@ -1188,7 +1185,7 @@ NODISCARD HuffManTree* get_hpack_huffman_tree(void) {
 \t\treturn NULL;
 \t}
 
-\t//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp  and non http code doesn't really need it, it can be initialized based on the need!
+\t//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
 \tHuffManNode* ${nodes_array_value} = malloc(sizeof(HuffManNode) * HUFFMAN_NODE_AMOUNT);
 
 \tif(${nodes_array_value} == NULL) {
@@ -1200,7 +1197,7 @@ NODISCARD HuffManTree* get_hpack_huffman_tree(void) {
 \t
 ${nodes.map((val, i) => {
 
-        return `\t${nodes_array_value}[${i}] = ${val};`;
+        return `\t\t${nodes_array_value}[${i}] = ${val};`;
     }).join("\n")}
 
 \t}
@@ -1294,7 +1291,7 @@ void free_hpack_static_header_table_entries(HpackHeaderEntry* entries);
 
 NODISCARD HpackHeaderEntry* get_hpack_static_header_table_entries(void){
 
-\t//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp  and non http code doesn't really need it, it can be initialized based on the need!
+\t//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
 \tHpackHeaderEntry* ${header_nodes_value} = malloc(sizeof(HpackHeaderEntry) * HPACK_HEADER_TABLE_SIZE);
 
 \tif(${header_nodes_value} == NULL) {
@@ -1310,7 +1307,7 @@ ${headers.map((val, i) => {
 
 \t}
 
-return ${header_nodes_value};
+\treturn ${header_nodes_value};
 
 }
 
