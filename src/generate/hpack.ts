@@ -1316,7 +1316,7 @@ function generated_hpack_headerable_code_h(generated_hpack_header_table_h: strin
 
 #include "utils/utils.h"
 
-#define HPACK_HEADER_TABLE_SIZE ${max_size}
+#define HPACK_STATIC_HEADER_TABLE_SIZE ${max_size}
 
 typedef struct {
 	const char* key;
@@ -1338,7 +1338,7 @@ void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* entries);
 NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void){
 
 	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
-	HpackHeaderStaticEntry* ${header_nodes_value} = malloc(sizeof(HpackHeaderStaticEntry) * HPACK_HEADER_TABLE_SIZE);
+	HpackHeaderStaticEntry* ${header_nodes_value} = malloc(sizeof(HpackHeaderStaticEntry) * HPACK_STATIC_HEADER_TABLE_SIZE);
 
 	if(${header_nodes_value} == NULL) {
 		return NULL;

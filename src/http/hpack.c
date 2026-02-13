@@ -76,15 +76,52 @@ typedef struct {
 	HpackHeaderDynamicEntry value;
 } HpackHeaderEntryResult;
 
-NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(size_t value) {
+typedef struct {
+	HpackHeaderStaticEntry* static_header_table;
+} GlobalHpackData;
+
+GlobalHpackData g_hpack_static_data = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    { .static_header_table = NULL };
+
+static void global_initialize_hpack_static_header_table_data() {
+	g_hpack_static_data.static_header_table = get_hpack_static_header_table_entries();
+}
+
+static void global_free_hpack_static_header_table_data() {
+	free_hpack_static_header_table_entries(g_hpack_static_data.static_header_table);
+}
+
+NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackState* const state,
+                                                                 size_t value) {
 
 	if(value == 0) {
 		return (HpackHeaderEntryResult){ .is_error = true };
 	}
 
-	// TODO, check for static table and then for the dynamic one
+	if(value <= HPACK_STATIC_HEADER_TABLE_SIZE) {
+		assert(g_hpack_static_data.static_header_table != NULL);
 
-	return (HpackHeaderEntryResult){ .is_error = true };
+		HpackHeaderStaticEntry static_entry = g_hpack_static_data.static_header_table[value - 1];
+
+		return (HpackHeaderEntryResult){ .is_error = false,
+			                             .value = (HpackHeaderDynamicEntry){
+			                                 .key = strdup(static_entry.key),
+			                                 .value = strdup(static_entry.value) } };
+	}
+
+	const size_t dynamic_index = value - HPACK_STATIC_HEADER_TABLE_SIZE - 1;
+
+	if(TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table) <= dynamic_index) {
+		return (HpackHeaderEntryResult){ .is_error = true };
+	}
+
+	const HpackHeaderDynamicEntry dynamic_entry =
+	    TVEC_AT(HpackHeaderDynamicEntry, state->dynamic_table, dynamic_index);
+
+	return (HpackHeaderEntryResult){ .is_error = false,
+		                             .value = (HpackHeaderDynamicEntry){
+		                                 .key = strdup(dynamic_entry.key),
+		                                 .value = strdup(dynamic_entry.value) } };
 }
 
 static inline void free_dynamic_entry(const HpackHeaderDynamicEntry entry) {
@@ -94,7 +131,8 @@ static inline void free_dynamic_entry(const HpackHeaderDynamicEntry entry) {
 
 NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t size,
                                                       const uint8_t* const data,
-                                                      HttpHeaderFields* const headers) {
+                                                      HttpHeaderFields* const headers,
+                                                      const HpackState* const state) {
 	// Indexed Header Field:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.1
 	//    0   1   2   3   4   5   6   7
@@ -112,7 +150,7 @@ NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t 
 		return -2;
 	}
 
-	const HpackHeaderEntryResult entry = hpack_get_table_entry_at(index.value);
+	const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index.value);
 
 	if(entry.is_error) {
 		return -3;
@@ -216,7 +254,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 }
 
 NODISCARD static Http2HpackDecompressResult
-http2_hpack_decompress_data_impl(const SizedBuffer input) {
+http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer input) {
 
 	size_t pos = 0;
 	const size_t size = input.size;
@@ -236,7 +274,7 @@ http2_hpack_decompress_data_impl(const SizedBuffer input) {
 			//  +---+---+---+---+---+---+---+---+
 			//  | 1 |        Index (7+)         |
 			//  +---+---------------------------+
-			const int res = parse_hpack_indexed_header_field(&pos, size, data, &result);
+			const int res = parse_hpack_indexed_header_field(&pos, size, data, &result, state);
 			if(res < 0) {
 				error = "error in parsing indexed header field";
 				goto return_error;
@@ -381,22 +419,7 @@ NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackState* con
 			                                 .data = { .error = "state is NULL" } };
 	}
 
-	return http2_hpack_decompress_data_impl(input);
-}
-
-typedef struct {
-	HpackHeaderStaticEntry* static_header_table;
-} GlobalHpackData;
-
-GlobalHpackData g_hpack_static_data = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-    { .static_header_table = NULL };
-
-static void global_initialize_hpack_static_header_table_data() {
-	g_hpack_static_data.static_header_table = get_hpack_static_header_table_entries();
-}
-
-static void global_free_hpack_static_header_table_data() {
-	free_hpack_static_header_table_entries(g_hpack_static_data.static_header_table);
+	return http2_hpack_decompress_data_impl(state, input);
 }
 
 void global_initialize_http2_hpack_data(void) {
