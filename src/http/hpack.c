@@ -168,8 +168,129 @@ NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t 
 	return 0;
 }
 
+NODISCARD static char* parse_literal_string_value(size_t* pos, const size_t size,
+                                                  const uint8_t* const data) {
+	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.2
+
+	if(*pos >= size) {
+		return NULL;
+	}
+
+	const uint8_t byte = data[*pos];
+
+	(*pos)++;
+
+	const bool is_hufffman = (byte & 0x80) != 0;
+
+	const HpackVariableIntegerResult length_res = decode_hpack_variable_integer(pos, size, data, 7);
+
+	if(length_res.is_error) {
+		return NULL;
+	}
+
+	const size_t length = length_res.value;
+
+	if(*pos >= size) {
+		return NULL;
+	}
+
+	if(((*pos) + length) >= size) {
+		return NULL;
+	}
+
+	(*pos) += length;
+
+	const SizedBuffer raw_bytes = {
+		.data = (void*)(data + (*pos)),
+		.size = length,
+	};
+
+	if(is_hufffman) {
+		const HuffmanResult huffman_res = decode_bytes_huffman_with_global_data_setup(raw_bytes);
+
+		if(huffman_res.is_error) {
+			return NULL;
+		}
+
+		return strndup(huffman_res.data.result.data, huffman_res.data.result.size);
+	}
+
+	char* value = malloc(length + 1);
+
+	if(value == NULL) {
+		return NULL;
+	}
+
+	value[length] = 0;
+	memcpy(value, raw_bytes.data, raw_bytes.size);
+
+	return value;
+}
+
+NODISCARD static size_t get_dynamic_entry_size(const HpackHeaderDynamicEntry entry) {
+	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-4.1
+
+	// The size of an entry is the sum of its name's length in octets its value's length in octets,
+	// and 32.
+
+	return strlen(entry.key) + strlen(entry.value) + 32;
+}
+
+static void insert_entry_into_dynamic_table(HpackState* const state,
+                                            const HpackHeaderDynamicEntry new_entry) {
+
+	const size_t new_size = get_dynamic_entry_size(new_entry);
+
+	if(new_size > state->max_dynamic_table_byte_size) {
+
+		// free the entire table, this is not per se an error
+
+		for(size_t i = 0; i < TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table); ++i) {
+			HpackHeaderDynamicEntry entry =
+			    TVEC_POP_GET(HpackHeaderDynamicEntry, &(state->dynamic_table));
+
+			free_dynamic_entry(entry);
+		}
+
+		TVEC_FREE(HpackHeaderDynamicEntry, &(state->dynamic_table));
+
+		state->dynamic_table = TVEC_EMPTY(HpackHeaderDynamicEntry);
+		state->current_dynamic_table_byte_size = 0;
+
+		return;
+	}
+
+	// clean until we have space
+	for(size_t i = TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table);
+	    (state->current_dynamic_table_byte_size + new_size > state->max_dynamic_table_byte_size) &&
+	    (i != 0);
+	    --i) {
+
+		HpackHeaderDynamicEntry entry =
+		    TVEC_POP_GET(HpackHeaderDynamicEntry, &(state->dynamic_table));
+
+		const size_t entry_size = get_dynamic_entry_size(entry);
+		free_dynamic_entry(entry);
+		state->current_dynamic_table_byte_size -= entry_size;
+	}
+
+	// finally insert the entry
+
+	const HpackHeaderDynamicEntry new_entry_dup = { .key = strdup(new_entry.key),
+		                                            .value = strdup(new_entry.value) };
+
+	TvecResult res = TVEC_PUSH(HpackHeaderDynamicEntry, &(state->dynamic_table), new_entry_dup);
+
+	if(res != TvecResultOk) {
+		return;
+	}
+
+	state->current_dynamic_table_byte_size += new_size;
+}
+
 NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
-    size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers) {
+    size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers,
+    HpackState* const state) {
 	// Literal Header Field with Incremental Indexing:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.1
 	//   0   1   2   3   4   5   6   7
@@ -181,13 +302,83 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	// | Value String (Length octets)  |
 	// +-------------------------------+
 
-	// TODO
-	UNUSED(pos);
-	UNUSED(size);
-	UNUSED(data);
-	UNUSED(headers);
+	// or
+	//   0   1   2   3   4   5   6   7
+	// +---+---+---+---+---+---+---+---+
+	// | 0 | 1 |           0           |
+	// +---+---+-----------------------+
+	// | H |     Name Length (7+)      |
+	// +---+---------------------------+
+	// |  Name String (Length octets)  |
+	// +---+---------------------------+
+	// | H |     Value Length (7+)     |
+	// +---+---------------------------+
+	// | Value String (Length octets)  |
+	// +-------------------------------+
 
-	UNREACHABLE();
+	const HpackVariableIntegerResult index = decode_hpack_variable_integer(pos, size, data, 6);
+
+	if(index.is_error) {
+		return -1;
+	}
+
+	// the name is the value from a table or a literal value
+	char* header_key = NULL;
+
+	if(index.value == 0) {
+		// second variant
+
+		char* string_literal_result = parse_literal_string_value(pos, size, data);
+
+		if(string_literal_result == NULL) {
+			return -5;
+		}
+
+		header_key = string_literal_result;
+
+	} else {
+		// first variant
+
+		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index.value);
+
+		if(entry.is_error) {
+			return -3;
+		}
+
+		header_key = entry.value.key;
+		free(entry.value.value);
+	}
+
+	if(*pos >= size) {
+		return -8;
+	}
+
+	char* header_value = parse_literal_string_value(pos, size, data);
+
+	if(header_value == NULL) {
+		return -6;
+	}
+
+	const HttpHeaderField header_field = {
+		.key = header_key,
+		.value = header_value,
+	};
+
+	const auto insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
+
+	if(insert_result != TvecResultOk) {
+		free_http_header_field(header_field);
+		return -3;
+	}
+
+	const HpackHeaderDynamicEntry entry = {
+		.key = header_key,
+		.value = header_value,
+	};
+
+	insert_entry_into_dynamic_table(state, entry);
+
+	return 0;
 }
 
 NODISCARD static int parse_hpack_dynamic_table_size_update(size_t* pos, const size_t size,
@@ -288,7 +479,7 @@ http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer inpu
 			// +---+---+-----------------------+
 			// ...
 			const int res = parse_hpack_literal_header_field_with_incremental_indexing(
-			    &pos, size, data, &result);
+			    &pos, size, data, &result, state);
 			if(res < 0) {
 				error = "error in parsing literal header field with incremental indexing";
 				goto return_error;
@@ -371,21 +562,13 @@ NODISCARD HpackState* get_default_hpack_state(size_t max_dynamic_table_byte_size
 	return state;
 }
 
-NODISCARD static size_t get_dynamic_entry_size(const HpackHeaderDynamicEntry entry) {
-	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-4.1
-
-	// The size of an entry is the sum of its name's length in octets its value's length in octets,
-	// and 32.
-
-	return strlen(entry.key) + strlen(entry.value) + 32;
-}
-
 void set_hpack_state_setting(HpackState* const state, size_t max_dynamic_table_byte_size) {
 
 	state->max_dynamic_table_byte_size = max_dynamic_table_byte_size;
 
 	for(size_t i = TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table);
-	    (state->current_dynamic_table_byte_size > max_dynamic_table_byte_size) && (i != 0); --i) {
+	    (state->current_dynamic_table_byte_size > state->max_dynamic_table_byte_size) && (i != 0);
+	    --i) {
 
 		HpackHeaderDynamicEntry entry =
 		    TVEC_POP_GET(HpackHeaderDynamicEntry, &(state->dynamic_table));

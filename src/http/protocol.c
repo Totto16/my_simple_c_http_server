@@ -247,13 +247,18 @@ break_for:
 	return result;
 }
 
+void free_http_header_field(const HttpHeaderField field) {
+	free(field.key);
+	free(field.value);
+}
+
 void free_http_header_fields(HttpHeaderFields* header_fields) {
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, *header_fields); ++i) {
 		// same elegant freeing but two at once :)
 
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, *header_fields, i);
 
-		free(field.key);
+		free_http_header_field(field);
 	}
 	TVEC_FREE(HttpHeaderField, header_fields);
 	*header_fields = TVEC_EMPTY(HttpHeaderField);

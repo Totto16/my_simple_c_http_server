@@ -71,7 +71,7 @@ TEST_CASE("testing hpack deserializing - from hpack spec") {
 
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
-			const auto result = apply_huffman_code(tree, input);
+			const auto result = decode_bytes_huffman(tree, input);
 
 			const char* error = nullptr;
 
@@ -114,7 +114,7 @@ TEST_CASE("testing hpack deserializing (ascii) - generated") {
 
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
-			const auto result = apply_huffman_code(tree, input);
+			const auto result = decode_bytes_huffman(tree, input);
 
 			const char* error = nullptr;
 
@@ -159,7 +159,7 @@ TEST_CASE("testing hpack deserializing (utf8) - generated") {
 
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
-			const auto result = apply_huffman_code(tree, input);
+			const auto result = decode_bytes_huffman(tree, input);
 
 			const char* error = nullptr;
 

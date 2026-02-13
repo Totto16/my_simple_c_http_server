@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
+#include "generated_hpack_huffman.h"
 #include "utils/sized_buffer.h"
 #include "utils/utils.h"
-#include "generated_hpack_huffman.h"
 
 typedef struct {
 	bool is_error;
@@ -17,7 +17,9 @@ typedef struct {
 	} data;
 } HuffmanResult;
 
-NODISCARD HuffmanResult apply_huffman_code(const HuffManTree* tree, SizedBuffer input);
+NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* tree, SizedBuffer input);
+
+NODISCARD HuffmanResult decode_bytes_huffman_with_global_data_setup(SizedBuffer input);
 
 void global_initialize_http2_hpack_huffman_data(void);
 

@@ -245,6 +245,8 @@ typedef struct {
 
 NODISCARD SendSettings get_send_settings(RequestSettings request_settings);
 
+void free_http_header_field(HttpHeaderField field);
+
 void free_http_header_fields(HttpHeaderFields* header_fields);
 
 void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str);

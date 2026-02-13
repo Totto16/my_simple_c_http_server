@@ -24,7 +24,7 @@ static void bit_pos_inc(BitPos* const bit_pos) {
 	}
 }
 
-NODISCARD HuffmanResult apply_huffman_code(const HuffManTree* const tree, SizedBuffer input) {
+NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree, const SizedBuffer input) {
 
 	if(tree == NULL) {
 		return (HuffmanResult){ .is_error = true, .data = { .error = "tree is NULL" } };
@@ -159,4 +159,13 @@ void global_initialize_http2_hpack_huffman_data(void) {
 
 void global_free_http2_hpack_huffman_data(void) {
 	free_hpack_huffman_tree(g_huffman_tree_data.tree);
+}
+
+NODISCARD HuffmanResult decode_bytes_huffman_with_global_data_setup(const SizedBuffer input) {
+	if(g_huffman_tree_data.tree == NULL) {
+		return (HuffmanResult){ .is_error = true,
+			                    .data = { .error = "global tree is not initialized" } };
+	}
+
+	return decode_bytes_huffman(g_huffman_tree_data.tree, input);
 }
