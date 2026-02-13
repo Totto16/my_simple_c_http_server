@@ -17,37 +17,56 @@ pnpm = find_program(
 
 hpack_script_depend_files = files('hpack.ts', 'package.json', 'tsconfig.json')
 
-type_check_hpack_ts = run_command(
-    pnpm,
-    '--dir',
-    meson.current_source_dir(),
-    'exec',
-    npx,
-    'tsc',
-    '-p',
-    'tsconfig.json',
-    check: true,
-)
-
-if type_check_hpack_ts.returncode() != 0
-    error('script didn\'t typecheck')
-endif
-
-generated_hpack_file_c = custom_target(
-    'generated_hpack.c',
+type_check_hpack_ts = custom_target(
+    'hpack.ts',
     command: [
-       node,
-        '@CURRENT_SOURCE_DIR@/hpack.ts',
-        '--type',
-        'c',
-        '-o',
-        '@OUTPUT@',
+        pnpm,
+        '--dir',
+        meson.current_source_dir(),
+        'exec',
+        npx,
+        'tsc',
+        '-p',
+        'tsconfig.json',
     ],
-    output: ['generated_hpack.c'],
+    output: ['nothing.txt'],
     depend_files: hpack_script_depend_files,
 )
 
-src_files += generated_hpack_file_c
+generated_hpack_huffman_file_c = custom_target(
+    'generated_hpack_huffman.c',
+    command: [
+        node,
+        '@CURRENT_SOURCE_DIR@/hpack.ts',
+        '--type',
+        'c_hpack_huffman',
+        '-o',
+        '@OUTPUT@',
+    ],
+    output: ['generated_hpack_huffman.c'],
+    depend_files: hpack_script_depend_files,
+    depends: [type_check_hpack_ts],
+)
+
+src_files += generated_hpack_huffman_file_c
+
+generated_hpack_header_h = custom_target(
+    'generated_hpack.h',
+    command: [
+        node,
+        '@CURRENT_SOURCE_DIR@/hpack.ts',
+        '--type',
+        'c_header_table',
+        '-o',
+        '@OUTPUT0@',
+    ],
+    output: ['generated_hpack.h', 'generated_hpack.c'],
+    depend_files: hpack_script_depend_files,
+    depends: [type_check_hpack_ts],
+)
+
+
+src_files += generated_hpack_header_h
 
 generated_hpack_file_cpp = custom_target(
     'generated_hpack_tests.hpp',
@@ -61,6 +80,7 @@ generated_hpack_file_cpp = custom_target(
     ],
     output: ['generated_hpack_tests.hpp'],
     depend_files: hpack_script_depend_files,
+    depends: [type_check_hpack_ts],
 )
 
 

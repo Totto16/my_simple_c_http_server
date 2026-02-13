@@ -265,6 +265,74 @@
 //        (255)  |11111111|11111111|11111011|10           3ffffee  [26]
 //    EOS (256)  |11111111|11111111|11111111|111111      3fffffff  [30]
 
+// static header table from https://datatracker.ietf.org/doc/html/rfc7541#appendix-A
+
+// +-------+-----------------------------+---------------+
+// | Index | Header Name                 | Header Value  |
+// +-------+-----------------------------+---------------+
+// | 1     | :authority                  |               |
+// | 2     | :method                     | GET           |
+// | 3     | :method                     | POST          |
+// | 4     | :path                       | /             |
+// | 5     | :path                       | /index.html   |
+// | 6     | :scheme                     | http          |
+// | 7     | :scheme                     | https         |
+// | 8     | :status                     | 200           |
+// | 9     | :status                     | 204           |
+// | 10    | :status                     | 206           |
+// | 11    | :status                     | 304           |
+// | 12    | :status                     | 400           |
+// | 13    | :status                     | 404           |
+// | 14    | :status                     | 500           |
+// | 15    | accept-charset              |               |
+// | 16    | accept-encoding             | gzip, deflate |
+// | 17    | accept-language             |               |
+// | 18    | accept-ranges               |               |
+// | 19    | accept                      |               |
+// | 20    | access-control-allow-origin |               |
+// | 21    | age                         |               |
+// | 22    | allow                       |               |
+// | 23    | authorization               |               |
+// | 24    | cache-control               |               |
+// | 25    | content-disposition         |               |
+// | 26    | content-encoding            |               |
+// | 27    | content-language            |               |
+// | 28    | content-length              |               |
+// | 29    | content-location            |               |
+// | 30    | content-range               |               |
+// | 31    | content-type                |               |
+// | 32    | cookie                      |               |
+// | 33    | date                        |               |
+// | 34    | etag                        |               |
+// | 35    | expect                      |               |
+// | 36    | expires                     |               |
+// | 37    | from                        |               |
+// | 38    | host                        |               |
+// | 39    | if-match                    |               |
+// | 40    | if-modified-since           |               |
+// | 41    | if-none-match               |               |
+// | 42    | if-range                    |               |
+// | 43    | if-unmodified-since         |               |
+// | 44    | last-modified               |               |
+// | 45    | link                        |               |
+// | 46    | location                    |               |
+// | 47    | max-forwards                |               |
+// | 48    | proxy-authenticate          |               |
+// | 49    | proxy-authorization         |               |
+// | 50    | range                       |               |
+// | 51    | referer                     |               |
+// | 52    | refresh                     |               |
+// | 53    | retry-after                 |               |
+// | 54    | server                      |               |
+// | 55    | set-cookie                  |               |
+// | 56    | strict-transport-security   |               |
+// | 57    | transfer-encoding           |               |
+// | 58    | user-agent                  |               |
+// | 59    | vary                        |               |
+// | 60    | via                         |               |
+// | 61    | www-authenticate            |               |
+// +-------+-----------------------------+---------------+
+
 import fs from "node:fs"
 import path from "node:path"
 
@@ -533,6 +601,76 @@ const raw_codes: RawHuffmanCode[] = [
     { "sym": 254, "bits": "11111111|11111111|11111110|000", "hex": "7fffff0", "bit_len": 27 },
     { "sym": 255, "bits": "11111111|11111111|11111011|10", "hex": "3ffffee", "bit_len": 26 },
     { "sym": 256, "bits": "11111111|11111111|11111111|111111", "hex": "3fffffff", "bit_len": 30 },
+]
+
+interface RawHeaderTable {
+    index: number,
+    key: string,
+    value: string | null
+}
+
+const raw_header_table: RawHeaderTable[] = [
+    { index: 1, key: ":authority", value: null },
+    { index: 2, key: ":method", value: "GET" },
+    { index: 3, key: ":method", value: "POST" },
+    { index: 4, key: ":path", value: "/" },
+    { index: 5, key: ":path", value: "/index.html" },
+    { index: 6, key: ":scheme", value: "http" },
+    { index: 7, key: ":scheme", value: "https" },
+    { index: 8, key: ":status", value: "200" },
+    { index: 9, key: ":status", value: "204" },
+    { index: 10, key: ":status", value: "206" },
+    { index: 11, key: ":status", value: "304" },
+    { index: 12, key: ":status", value: "400" },
+    { index: 13, key: ":status", value: "404" },
+    { index: 14, key: ":status", value: "500" },
+    { index: 15, key: "accept-charset", value: null },
+    { index: 16, key: "accept-encoding", value: "gzip, deflate" },
+    { index: 17, key: "accept-language", value: null },
+    { index: 18, key: "accept-ranges", value: null },
+    { index: 19, key: "accept", value: null },
+    { index: 20, key: "access-control-allow-origin", value: null },
+    { index: 21, key: "age", value: null },
+    { index: 22, key: "allow", value: null },
+    { index: 23, key: "authorization", value: null },
+    { index: 24, key: "cache-control", value: null },
+    { index: 25, key: "content-disposition", value: null },
+    { index: 26, key: "content-encoding", value: null },
+    { index: 27, key: "content-language", value: null },
+    { index: 28, key: "content-length", value: null },
+    { index: 29, key: "content-location", value: null },
+    { index: 30, key: "content-range", value: null },
+    { index: 31, key: "content-type", value: null },
+    { index: 32, key: "cookie", value: null },
+    { index: 33, key: "date", value: null },
+    { index: 34, key: "etag", value: null },
+    { index: 35, key: "expect", value: null },
+    { index: 36, key: "expires", value: null },
+    { index: 37, key: "from", value: null },
+    { index: 38, key: "host", value: null },
+    { index: 39, key: "if-match", value: null },
+    { index: 40, key: "if-modified-since", value: null },
+    { index: 41, key: "if-none-match", value: null },
+    { index: 42, key: "if-range", value: null },
+    { index: 43, key: "if-unmodified-since", value: null },
+    { index: 44, key: "last-modified", value: null },
+    { index: 45, key: "link", value: null },
+    { index: 46, key: "location", value: null },
+    { index: 47, key: "max-forwards", value: null },
+    { index: 48, key: "proxy-authenticate", value: null },
+    { index: 49, key: "proxy-authorization", value: null },
+    { index: 50, key: "range", value: null },
+    { index: 51, key: "referer", value: null },
+    { index: 52, key: "refresh", value: null },
+    { index: 53, key: "retry-after", value: null },
+    { index: 54, key: "server", value: null },
+    { index: 55, key: "set-cookie", value: null },
+    { index: 56, key: "strict-transport-security", value: null },
+    { index: 57, key: "transfer-encoding", value: null },
+    { index: 58, key: "user-agent", value: null },
+    { index: 59, key: "vary", value: null },
+    { index: 60, key: "via", value: null },
+    { index: 61, key: "www-authenticate", value: null },
 ]
 
 class BitArray {
@@ -1027,14 +1165,15 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
 
 }
 
-function generated_hpack_code_c(generated_hpack_file: string, tree_result: TreeResult): void {
+function generated_hpack_huffman_code_c(generated_hpack_huffman_file: string, tree_result: TreeResult): void {
+
+    console.assert(path.extname(generated_hpack_huffman_file) == ".c", "hpack huffman file has to end in .c")
 
     const { node_amount, tree } = tree_result
 
     const nodes_array_value = "nodes_array"
 
     const nodes: string[] = tree_to_nodes(tree, node_amount, nodes_array_value)
-
 
     const c_data = `
 #include "http/hpack_huffman.h"
@@ -1049,6 +1188,7 @@ NODISCARD HuffManTree* get_hpack_huffman_tree(void) {
 \t\treturn NULL;
 \t}
 
+\t//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp  and non http code doesn't really need it, it can be initialized based on the need!
 \tHuffManNode* ${nodes_array_value} = malloc(sizeof(HuffManNode) * HUFFMAN_NODE_AMOUNT);
 
 \tif(${nodes_array_value} == NULL) {
@@ -1078,10 +1218,115 @@ void free_hpack_huffman_tree(HuffManTree* tree) {
 }
 `
 
-    writeFileAndDirs(generated_hpack_file, c_data)
+    writeFileAndDirs(generated_hpack_huffman_file, c_data)
 
 
 }
+
+
+interface HeaderTable {
+    key: string,
+    value: string | null
+}
+
+function header_to_c_value(header: HeaderTable): string {
+
+    const value: string = header.value === null ? "NULL" : `"${header.value}"`
+
+    return `(HpackHeaderEntry){ .key = "${header.key}", .value = ${value} }`
+}
+
+function generated_hpack_headerable_code_h(generated_hpack_header_table_h: string): void {
+
+    console.assert(path.extname(generated_hpack_header_table_h) == ".h", "hpack header table file has to end in .h")
+
+
+    const header_map: Record<number, HeaderTable> = {}
+
+    let max_size: number = -Infinity;
+
+    for (const header of raw_header_table) {
+        if (header_map[header.index] !== undefined) {
+            throw new Error("Duplicate header table index")
+        }
+
+        header_map[header.index] = { key: header.key, value: header.value }
+        max_size = Math.max(header.index, max_size)
+    }
+
+    const headers: string[] = []
+
+    for (let i = 0; i < max_size; ++i) {
+        const value = header_map[i + 1];
+        if (value === undefined) {
+            throw new Error("Missing header table index")
+        }
+
+        console.assert(headers.length == i, "insertion is linear")
+        headers.push(header_to_c_value(value))
+    }
+
+
+
+    const h_data = `
+#pragma once
+
+#include "utils/utils.h"
+
+#define HPACK_HEADER_TABLE_SIZE ${max_size}
+
+typedef struct {
+\tconst char* key;
+\tconst char* value;
+} HpackHeaderEntry;
+
+NODISCARD HpackHeaderEntry* get_hpack_static_header_table_entries(void);
+
+void free_hpack_static_header_table_entries(HpackHeaderEntry* entries);
+`
+
+    writeFileAndDirs(generated_hpack_header_table_h, h_data)
+
+    const header_nodes_value = "local_entries_impl"
+
+    const c_data = `
+#include "./${path.basename(generated_hpack_header_table_h)}"
+
+NODISCARD HpackHeaderEntry* get_hpack_static_header_table_entries(void){
+
+\t//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp  and non http code doesn't really need it, it can be initialized based on the need!
+\tHpackHeaderEntry* ${header_nodes_value} = malloc(sizeof(HpackHeaderEntry) * HPACK_HEADER_TABLE_SIZE);
+
+\tif(${header_nodes_value} == NULL) {
+\t\treturn NULL;
+\t}
+
+\t{
+\t
+${headers.map((val, i) => {
+
+        return `\t\t${header_nodes_value}[${i}] = ${val};`;
+    }).join("\n")}
+
+\t}
+
+return ${header_nodes_value};
+
+}
+
+void free_hpack_static_header_table_entries(HpackHeaderEntry* const entries){
+\tfree(entries);
+}
+`
+
+    const generated_hpack_header_table_c = path.join(path.dirname(generated_hpack_header_table_h), path.basename(generated_hpack_header_table_h).replace(".h", ".c"))
+
+    writeFileAndDirs(generated_hpack_header_table_c, c_data)
+
+
+
+}
+
 
 interface EncodedHuffmanValues {
     bytes: BitArray,
@@ -1244,7 +1489,7 @@ function normal_test_to_cpp(caze: EncodedHuffmanAscii): string {
 
     const arr: number[] = caze.encoded.toNumArray();
 
-    return `\t\TestCaseAscii{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
+    return `\t\tTestCaseAscii{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
 }
 
@@ -1338,6 +1583,8 @@ function num_array_is_eq(arr1: number[], arr2: number[]): boolean {
 }
 
 function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string, map: HuffmanEncodingMap): void {
+
+    console.assert(path.extname(generated_hpack_test_cases_file) == ".hpp", "hpack huffman test file has to end in .hpp")
 
     { // test js encoding
         const test_test_result = encode_normal_string_with_huffman(map, "307");
@@ -1435,9 +1682,13 @@ function generateFile(options: GenerateOptions): void {
 
     const codes: HuffmanCode[] = raw_codes.map(code => check_and_map_raw_code(code))
 
-    if (options.type === "c") {
+    if (options.type === "c_hpack_huffman") {
         const tree_result = codes_to_tree(codes)
-        generated_hpack_code_c(options.output, tree_result)
+        generated_hpack_huffman_code_c(options.output, tree_result)
+        return;
+    } else if (options.type === "c_header_table") {
+        const tree_result = codes_to_tree(codes)
+        generated_hpack_headerable_code_h(options.output)
         return;
     } else if (options.type === "cpp_tests") {
         const map = codes_to_map(codes)
@@ -1450,7 +1701,7 @@ function generateFile(options: GenerateOptions): void {
 
 }
 
-type GenerateType = "cpp_tests" | "c"
+type GenerateType = "cpp_tests" | "c_hpack_huffman" | "c_header_table"
 
 interface GenerateOptions {
     output: string,
@@ -1500,9 +1751,9 @@ function main(): void {
 
             const typeRaw = process.argv[i + 1]!
 
-            if (typeRaw !== "c" && typeRaw !== "cpp_tests") {
+            if (typeRaw !== "c_hpack_huffman" && typeRaw !== "c_header_table" && typeRaw !== "cpp_tests") {
                 throw new Error(
-                    `Invaldi type: ${typeRaw}`
+                    `Invalid type: ${typeRaw}`
                 )
             }
 
