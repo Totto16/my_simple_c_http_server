@@ -24,7 +24,7 @@ test_src += files(
     'hpack_huffman.cpp'
 )
 
-subdir('generated')
+test_src += generated_cpp_hpack_tests
 
 add_languages(
     'cpp',

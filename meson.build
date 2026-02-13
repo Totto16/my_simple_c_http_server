@@ -254,6 +254,8 @@ endif
 src_files = []
 inc_dirs = []
 
+generated_cpp_hpack_tests = []
+
 subdir('src')
 
 http_server_lib = library(

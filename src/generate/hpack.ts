@@ -553,9 +553,9 @@ class BitArray {
         const bitIndex = 7 - (index & 7);
 
         if (value) {
-            this.bytes[byteIndex] |= (1 << bitIndex);
+            this.bytes[byteIndex]! |= (1 << bitIndex);
         } else {
-            this.bytes[byteIndex] &= ~(1 << bitIndex);
+            this.bytes[byteIndex]! &= ~(1 << bitIndex);
         }
     }
 
@@ -568,7 +568,7 @@ class BitArray {
         const bitIndex = 7 - (index & 7);
 
 
-        return ((this.bytes[byteIndex] >> bitIndex) & 0x1) != 0;
+        return ((this.bytes[byteIndex]! >> bitIndex) & 0x1) != 0;
     }
 
     get size(): number {
@@ -633,7 +633,7 @@ function get_bit_array_from_bits(bits: string, bit_len: number, hex_value: strin
     const result = new BitArray(size)
 
     for (let i = 0; i < values.length; ++i) {
-        const value = values[i]
+        const value = values[i]!
         if (i != values.length - 1) {
             if (value.length != 8) {
                 throw new Error("not a valid bits string")
@@ -971,6 +971,20 @@ function to_c_node(node: HuffManNode, nodes_array_value: string): string {
 
 }
 
+function writeFileAndDirs(file: string, content: string): void {
+
+    const dir = path.dirname(file)
+
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+    }
+
+    fs.writeFileSync(file, content)
+
+
+}
+
+
 function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value: string): string[] {
 
     const values: string[] = new Array(Number(node_amount)).fill(undefined);
@@ -1064,7 +1078,7 @@ void free_hpack_huffman_tree(HuffManTree* tree) {
 }
 `
 
-    fs.writeFileSync(generated_hpack_file, c_data)
+    writeFileAndDirs(generated_hpack_file, c_data)
 
 
 }
@@ -1409,31 +1423,111 @@ ${utf8_tests_to_cpp(final_test_case).join(",\n")}
 } // namespace generated::tests
 `
 
-    fs.writeFileSync(generated_hpack_test_cases_file, cpp_data)
+    writeFileAndDirs(generated_hpack_test_cases_file, cpp_data)
 
 }
 
-function generate_c_code(basedir: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
 
-    const generated_hpack_file = path.join(basedir, "generated_hpack.c")
-    generated_hpack_code_c(generated_hpack_file, tree_result)
 
-    const generated_hpack_test_cases_file = path.join(basedir, "..", "..", "tests", "unit", "generated", "generated_hpack_tests.hpp")
-    generated_hpack_test_cases_cpp(generated_hpack_test_cases_file, map)
-}
-
-function main(): void {
+function generateFile(options: GenerateOptions): void {
 
     test_bitarray();
 
     const codes: HuffmanCode[] = raw_codes.map(code => check_and_map_raw_code(code))
 
-    const tree_result = codes_to_tree(codes)
+    if (options.type === "c") {
+        const tree_result = codes_to_tree(codes)
+        generated_hpack_code_c(options.output, tree_result)
+        return;
+    } else if (options.type === "cpp_tests") {
+        const map = codes_to_map(codes)
+        generated_hpack_test_cases_cpp(options.output, map)
+        return;
+    }
 
-    const map = codes_to_map(codes)
+    throw new Error(`Unrecognized type: ${options.type}`)
 
-    generate_c_code(path.resolve(__dirname), tree_result, map)
 
+}
+
+type GenerateType = "cpp_tests" | "c"
+
+interface GenerateOptions {
+    output: string,
+    type: GenerateType
+}
+
+function main(): void {
+    const options: Partial<GenerateOptions> = {
+    }
+
+    for (let i = 0; i < process.argv.length; ++i) {
+        const value = process.argv[i]!
+
+        if (value.endsWith('node')) {
+            continue
+        }
+
+        if (value.endsWith('.js')) {
+            continue
+        }
+
+        if (value.endsWith('.ts')) {
+            continue
+        }
+
+        if (value == '-o' || value == '--output') {
+            if (i + 1 >= process.argv.length) {
+                throw new Error(
+                    `Expected another argument for the output argument`
+                )
+            }
+
+
+            const output = path.resolve(process.argv[i + 1]!)
+
+            options.output = output
+            ++i
+            continue
+        }
+
+        if (value == '-t' || value == '--type') {
+            if (i + 1 >= process.argv.length) {
+                throw new Error(
+                    `Expected another argument for the type argument`
+                )
+            }
+
+            const typeRaw = process.argv[i + 1]!
+
+            if (typeRaw !== "c" && typeRaw !== "cpp_tests") {
+                throw new Error(
+                    `Invaldi type: ${typeRaw}`
+                )
+            }
+
+            options.type = typeRaw
+
+            ++i
+            continue
+        }
+
+        if (value == '--ignore-after') {
+            break
+        }
+
+        throw new Error(`Unrecognized argument: ${value}`)
+    }
+
+    if (!options.type) {
+        throw new Error(`No type given`)
+    }
+
+    if (!options.output) {
+        throw new Error(`No output given`)
+    }
+
+    generateFile(options as GenerateOptions)
 }
 
 

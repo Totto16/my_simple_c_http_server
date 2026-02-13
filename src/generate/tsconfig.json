@@ -1,0 +1,36 @@
+{
+	"extends": "@tsconfig/strictest/tsconfig.json",
+	"compilerOptions": {
+		"noPropertyAccessFromIndexSignature": false,
+		"noImplicitOverride": true,
+		"noEmit": true,
+		"noImplicitAny": true,
+		"module": "es2022",
+		"baseUrl": ".",
+		"target": "es2022",
+		"lib": [
+			"ES2022",
+		],
+		"sourceMap": false,
+		"checkJs": false,
+		"allowJs": false,
+		"strict": true,
+		"strictNullChecks": true,
+		"moduleResolution": "node",
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"noUnusedLocals": false,
+	},
+	"exclude": [
+		"node_modules/"
+	],
+	"files": [
+		"hpack.ts"
+	],
+	"ts-node": {
+		"compilerOptions": {
+			"module": "CommonJS",
+		},
+		"files": true
+	}
+}
