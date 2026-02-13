@@ -1162,18 +1162,61 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
 
 }
 
-function generated_hpack_huffman_code_c(generated_hpack_huffman_file: string, tree_result: TreeResult): void {
+function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult): void {
 
-    console.assert(path.extname(generated_hpack_huffman_file) == ".c", "hpack huffman file has to end in .c")
+    console.assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
 
-    const { node_amount, tree } = tree_result
+    const h_data = `
+#pragma once
+
+#include "utils/utils.h"
+
+typedef struct HuffManTreeImpl HuffManTree;
+
+typedef struct HuffManNodeImpl HuffManNode;
+
+typedef struct {
+\tHuffManNode* bit_0;
+\tHuffManNode* bit_1;
+} HuffManNodeNode;
+
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+\tHuffManNodeTypeNode = 0,
+\tHuffManNodeTypeEnd,
+\tHuffManNodeTypeError
+} HuffManNodeType;
+
+struct HuffManNodeImpl {
+\tHuffManNodeType type;
+\tunion {
+\t\tHuffManNodeNode node;
+\t\tuint8_t end;
+\t\tconst char* error;
+\t} data;
+};
+
+struct HuffManTreeImpl {
+\tHuffManNode* root;
+\tvoid* memory;
+};
+
+
+
+NODISCARD HuffManTree* get_hpack_huffman_tree(void);
+
+void free_hpack_huffman_tree(HuffManTree* tree);
+`
+
+    writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
 
     const nodes_array_value = "nodes_array"
+
+    const { node_amount, tree } = tree_result
 
     const nodes: string[] = tree_to_nodes(tree, node_amount, nodes_array_value)
 
     const c_data = `
-#include "http/hpack_huffman.h"
+#include "./${path.basename(generated_hpack_huffman_file_h)}"
 
 #define HUFFMAN_NODE_AMOUNT ${node_amount.toString()}
 
@@ -1209,13 +1252,16 @@ ${nodes.map((val, i) => {
 \treturn tree;
 }
 
-void free_hpack_huffman_tree(HuffManTree* tree) {
+void free_hpack_huffman_tree(HuffManTree* const tree) {
 \tfree(tree->memory);
 \tfree(tree);
 }
 `
 
-    writeFileAndDirs(generated_hpack_huffman_file, c_data)
+    const generated_hpack_huffman_file_c = path.join(path.dirname(generated_hpack_huffman_file_h), path.basename(generated_hpack_huffman_file_h).replace(".h", ".c"))
+
+    writeFileAndDirs(generated_hpack_huffman_file_c, c_data)
+
 
 
 }
