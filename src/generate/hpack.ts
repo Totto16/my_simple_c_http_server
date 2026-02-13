@@ -1547,7 +1547,7 @@ function utf8_test_to_cpp(caze: EncodedHuffmanUtf8): string {
 
     const arr: number[] = caze.encoded.toNumArray();
 
-    return `		TestCaseUtf8{ .value = std::vector<std::uint8_t>{${Array.from(caze.value).map((a) => toHexString(a)).join(", ")}}, .encoded =  std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
+    return `		TestCaseUtf8{ .value = std::vector<std::uint8_t>{${Array.from(caze.value).map((a) => toHexString(a)).join(", ")}}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
 }
 
