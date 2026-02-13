@@ -26,6 +26,21 @@ struct ThirdPartyHpackTestCase {
 	std::string name;
 };
 
+struct HpackGlobalHandle {
+
+	HpackGlobalHandle() { global_initialize_http2_hpack_data(); }
+
+	HpackGlobalHandle(HpackGlobalHandle&&) = delete;
+
+	HpackGlobalHandle(const HpackGlobalHandle&) = delete;
+
+	HpackGlobalHandle& operator=(const HpackGlobalHandle&) = delete;
+
+	HpackGlobalHandle operator=(HpackGlobalHandle&&) = delete;
+
+	~HpackGlobalHandle() { global_free_http2_hpack_data(); }
+};
+
 } // namespace
 
 [[nodiscard]] static SizedBuffer buffer_from_raw_data(const std::vector<std::uint8_t>& data) {
@@ -96,7 +111,7 @@ parse_headers_map(const nlohmann::json& value) {
 
 	size_t seqno = value["seqno"].get<size_t>();
 
-	const std::string raw_wire_data = value["ir"].get<std::string>();
+	const std::string raw_wire_data = value["wire"].get<std::string>();
 
 	const auto wire_data = parse_wire_data(raw_wire_data);
 
@@ -194,6 +209,8 @@ get_cpp_headers(const HttpHeaderFields& fields) {
 
 TEST_CASE("testing hpack deserializing - external tests (nghttp2)") {
 
+	const auto hpack_cpp_global_handle = HpackGlobalHandle();
+
 	const auto test_cases = get_thirdparty_hpack_test_cases("nghttp2");
 
 	for(const auto& test_case : test_cases) {
@@ -215,7 +232,7 @@ TEST_CASE("testing hpack deserializing - external tests (nghttp2)") {
 				doctest::String case_name2 = doctest::String{ case_str2.c_str() };
 
 				INFO("the sequential number of that hpack packet has to be the same as the index: ",
-				     single_case.seqno, i);
+				     single_case.seqno, " | ", i);
 				REQUIRE_EQ(single_case.seqno, i);
 
 				SUBCASE(case_name2) {
@@ -224,13 +241,13 @@ TEST_CASE("testing hpack deserializing - external tests (nghttp2)") {
 
 					const auto result = http2_hpack_decompress_data(state, input);
 
-					const char* error = nullptr;
-
+					std::string error = "";
 					if(result.is_error) {
-						error = result.data.error;
+						error = std::string{ result.data.error };
 					}
 
-					REQUIRE_EQ(error, nullptr);
+					INFO("Error occurred: ", error);
+					REQUIRE_FALSE(result.is_error);
 
 					const auto actual_result = result.data.result;
 

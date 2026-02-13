@@ -91,6 +91,14 @@ static void global_free_hpack_static_header_table_data() {
 	free_hpack_static_header_table_entries(g_hpack_static_data.static_header_table);
 }
 
+NODISCARD static char* strdup_null_agnostic(const char* const value) {
+	if(value == NULL) {
+		return NULL;
+	}
+
+	return strdup(value);
+}
+
 NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackState* const state,
                                                                  size_t value) {
 
@@ -106,7 +114,7 @@ NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackStat
 		return (HpackHeaderEntryResult){ .is_error = false,
 			                             .value = (HpackHeaderDynamicEntry){
 			                                 .key = strdup(static_entry.key),
-			                                 .value = strdup(static_entry.value) } };
+			                                 .value = strdup_null_agnostic(static_entry.value) } };
 	}
 
 	const size_t dynamic_index = value - HPACK_STATIC_HEADER_TABLE_SIZE - 1;
@@ -121,7 +129,7 @@ NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackStat
 	return (HpackHeaderEntryResult){ .is_error = false,
 		                             .value = (HpackHeaderDynamicEntry){
 		                                 .key = strdup(dynamic_entry.key),
-		                                 .value = strdup(dynamic_entry.value) } };
+		                                 .value = strdup_null_agnostic(dynamic_entry.value) } };
 }
 
 static inline void free_dynamic_entry(const HpackHeaderDynamicEntry entry) {
@@ -277,7 +285,7 @@ static void insert_entry_into_dynamic_table(HpackState* const state,
 	// finally insert the entry
 
 	const HpackHeaderDynamicEntry new_entry_dup = { .key = strdup(new_entry.key),
-		                                            .value = strdup(new_entry.value) };
+		                                            .value = strdup_null_agnostic(new_entry.value) };
 
 	TvecResult res = TVEC_PUSH(HpackHeaderDynamicEntry, &(state->dynamic_table), new_entry_dup);
 
