@@ -1276,7 +1276,7 @@ function header_to_c_value(header: HeaderTable): string {
 
     const value: string = header.value === null ? "NULL" : `"${header.value}"`
 
-    return `(HpackHeaderEntry){ .key = "${header.key}", .value = ${value} }`
+    return `(HpackHeaderStaticEntry){ .key = "${header.key}", .value = ${value} }`
 }
 
 function generated_hpack_headerable_code_h(generated_hpack_header_table_h: string): void {
@@ -1321,11 +1321,11 @@ function generated_hpack_headerable_code_h(generated_hpack_header_table_h: strin
 typedef struct {
 	const char* key;
 	const char* value;
-} HpackHeaderEntry;
+} HpackHeaderStaticEntry;
 
-NODISCARD HpackHeaderEntry* get_hpack_static_header_table_entries(void);
+NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void);
 
-void free_hpack_static_header_table_entries(HpackHeaderEntry* entries);
+void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* entries);
 `
 
     writeFileAndDirs(generated_hpack_header_table_h, h_data)
@@ -1335,10 +1335,10 @@ void free_hpack_static_header_table_entries(HpackHeaderEntry* entries);
     const c_data = `
 #include "./${path.basename(generated_hpack_header_table_h)}"
 
-NODISCARD HpackHeaderEntry* get_hpack_static_header_table_entries(void){
+NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void){
 
 	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
-	HpackHeaderEntry* ${header_nodes_value} = malloc(sizeof(HpackHeaderEntry) * HPACK_HEADER_TABLE_SIZE);
+	HpackHeaderStaticEntry* ${header_nodes_value} = malloc(sizeof(HpackHeaderStaticEntry) * HPACK_HEADER_TABLE_SIZE);
 
 	if(${header_nodes_value} == NULL) {
 		return NULL;
@@ -1357,7 +1357,7 @@ ${headers.map((val, i) => {
 
 }
 
-void free_hpack_static_header_table_entries(HpackHeaderEntry* const entries){
+void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* const entries){
 	free(entries);
 }
 `

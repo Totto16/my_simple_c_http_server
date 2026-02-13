@@ -8,7 +8,7 @@
 
 typedef struct HpackStateImpl HpackState;
 
-NODISCARD HpackState* get_default_hpack_state(void);
+NODISCARD HpackState* get_default_hpack_state(size_t max_dynamic_table_byte_size);
 
 void free_hpack_state(HpackState* state);
 
@@ -22,6 +22,8 @@ typedef struct {
 
 NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackState* state,
                                                                  SizedBuffer input);
+
+void set_hpack_state_setting(HpackState* state, size_t max_dynamic_table_byte_size);
 
 void global_initialize_http2_hpack_data(void);
 

@@ -325,7 +325,7 @@ NODISCARD HpackState* get_default_hpack_state(size_t max_dynamic_table_byte_size
 	}
 
 	*state = (HpackState){
-		.dynamic_table = TVEC_EMPTY(HpackHeaderEntry),
+		.dynamic_table = TVEC_EMPTY(HpackHeaderDynamicEntry),
 		.current_dynamic_table_byte_size = 0,
 		.max_dynamic_table_byte_size = max_dynamic_table_byte_size,
 	};
@@ -333,28 +333,42 @@ NODISCARD HpackState* get_default_hpack_state(size_t max_dynamic_table_byte_size
 	return state;
 }
 
+NODISCARD static size_t get_dynamic_entry_size(const HpackHeaderDynamicEntry entry) {
+	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-4.1
+
+	// The size of an entry is the sum of its name's length in octets its value's length in octets,
+	// and 32.
+
+	return strlen(entry.key) + strlen(entry.value) + 32;
+}
+
 void set_hpack_state_setting(HpackState* const state, size_t max_dynamic_table_byte_size) {
 
 	state->max_dynamic_table_byte_size = max_dynamic_table_byte_size;
 
-	if(state->current_dynamic_table_byte_size > max_dynamic_table_byte_size) {
+	for(size_t i = TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table);
+	    (state->current_dynamic_table_byte_size > max_dynamic_table_byte_size) && (i != 0); --i) {
 
-		for(size_t i = TVEC_LENGTH(HpackHeaderEntry, state->dynamic_table); i != 0; --i) {
-			//
-		}
+		HpackHeaderDynamicEntry entry =
+		    TVEC_POP_GET(HpackHeaderDynamicEntry, &(state->dynamic_table));
+
+		const size_t entry_size = get_dynamic_entry_size(entry);
+		free_dynamic_entry(entry);
+		state->current_dynamic_table_byte_size -= entry_size;
 	}
 }
 
 void free_hpack_state(HpackState* state) {
 
-	for(size_t i = 0; i < TVEC_LENGTH(HpackHeaderEntry, state->dynamic_table); ++i) {
+	for(size_t i = 0; i < TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table); ++i) {
 
-		const HpackHeaderEntry entry = TVEC_AT(HpackHeaderEntry, state->dynamic_table, i);
+		const HpackHeaderDynamicEntry entry =
+		    TVEC_AT(HpackHeaderDynamicEntry, state->dynamic_table, i);
 
 		free_dynamic_entry(entry);
 	}
 
-	TVEC_FREE(HpackHeaderEntry, &(state->dynamic_table));
+	TVEC_FREE(HpackHeaderDynamicEntry, &(state->dynamic_table));
 
 	free(state);
 }

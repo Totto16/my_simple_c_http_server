@@ -106,7 +106,7 @@ NODISCARD inline static Http2ContextState http2_default_context_state(void) {
 	return (Http2ContextState){
 		.last_stream_id = { .identifier = 0 },
 		.state = (Http2State){ .type = Http2StateTypeOpen },
-		.hpack_state = get_default_hpack_state(),
+		.hpack_state = get_default_hpack_state(DEFAULT_HEADER_TABLE_SIZE),
 	};
 }
 
@@ -1534,7 +1534,7 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2Context* const co
 	}
 }
 
-static void http2_apply_settings_frame(Http2Settings* const settings,
+static void http2_apply_settings_frame(HTTP2Context* const context,
                                        const Http2SettingsFrame frame) {
 
 	for(size_t i = 0; i < TVEC_LENGTH(Http2SettingSingleValue, frame.entries); ++i) {
@@ -1542,27 +1542,28 @@ static void http2_apply_settings_frame(Http2Settings* const settings,
 
 		switch(entry.identifier) {
 			case Http2SettingsFrameIdentifierHeaderTableSize: {
-				settings->header_table_size = entry.value;
+				context->settings.header_table_size = entry.value;
+				set_hpack_state_setting(context->state.hpack_state, entry.value);
 				break;
 			}
 			case Http2SettingsFrameIdentifierEnablePush: {
-				settings->enable_push = entry.value != 0;
+				context->settings.enable_push = entry.value != 0;
 				break;
 			}
 			case Http2SettingsFrameIdentifierMaxConcurrentStreams: {
-				settings->max_concurrent_streams = entry.value;
+				context->settings.max_concurrent_streams = entry.value;
 				break;
 			}
 			case Http2SettingsFrameIdentifierInitialWindowSize: {
-				settings->initial_window_size = entry.value;
+				context->settings.initial_window_size = entry.value;
 				break;
 			}
 			case Http2SettingsFrameIdentifierMaxFrameSize: {
-				settings->max_frame_size = entry.value;
+				context->settings.max_frame_size = entry.value;
 				break;
 			}
 			case Http2SettingsFrameIdentifierMaxHeaderListSize: {
-				settings->max_header_list_size = entry.value;
+				context->settings.max_header_list_size = entry.value;
 				break;
 			}
 			default: {
@@ -2309,7 +2310,7 @@ process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame
 			const Http2SettingsFrame settings_frame = frame->value.settings;
 
 			if(!settings_frame.ack) {
-				http2_apply_settings_frame(&(context->settings), settings_frame);
+				http2_apply_settings_frame(context, settings_frame);
 				Http2SettingsFrame frame_to_send = {
 					.ack = true,
 					.entries = TVEC_EMPTY(Http2SettingSingleValue),
