@@ -12,6 +12,8 @@ test_deps += dependency(
     fallback: ['doctest', 'doctest_dep'],
 )
 
+test_deps += dependency('nlohmann_json')
+
 test_inc_dirs += include_directories('.')
 
 test_src += files(
@@ -21,7 +23,8 @@ test_src += files(
     'http_parser.cpp',
     'main.cpp',
     'serialize.cpp',
-    'hpack_huffman.cpp'
+    'hpack_huffman.cpp',
+    'hpack.cpp'
 )
 
 test_src += generated_cpp_hpack_tests

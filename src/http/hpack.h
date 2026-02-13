@@ -2,6 +2,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "http/protocol.h"
 #include "utils/sized_buffer.h"
 #include "utils/utils.h"
@@ -28,3 +32,7 @@ void set_hpack_state_setting(HpackState* state, size_t max_dynamic_table_byte_si
 void global_initialize_http2_hpack_data(void);
 
 void global_free_http2_hpack_data(void);
+
+#ifdef __cplusplus
+}
+#endif

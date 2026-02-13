@@ -23,7 +23,7 @@ struct TestCaseManual {
 	std::string str;
 };
 
-TEST_CASE("testing hpack deserializing - from hpack spec") {
+TEST_CASE("testing hpack huffman deserializing - from hpack spec") {
 
 	const auto* const tree = get_hpack_huffman_tree();
 
@@ -95,7 +95,7 @@ TEST_CASE("testing hpack deserializing - from hpack spec") {
 	}
 }
 
-TEST_CASE("testing hpack deserializing (ascii) - generated") {
+TEST_CASE("testing hpack huffman deserializing (ascii) - generated") {
 
 	const auto* const tree = get_hpack_huffman_tree();
 
@@ -138,9 +138,7 @@ TEST_CASE("testing hpack deserializing (ascii) - generated") {
 	}
 }
 
-
-
-TEST_CASE("testing hpack deserializing (utf8) - generated") {
+TEST_CASE("testing hpack huffman deserializing (utf8) - generated") {
 
 	const auto* const tree = get_hpack_huffman_tree();
 
