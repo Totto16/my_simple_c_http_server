@@ -303,6 +303,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	// +-------------------------------+
 
 	// or
+
 	//   0   1   2   3   4   5   6   7
 	// +---+---+---+---+---+---+---+---+
 	// | 0 | 1 |           0           |
@@ -397,15 +398,17 @@ NODISCARD static int parse_hpack_dynamic_table_size_update(size_t* pos, const si
 		return -1;
 	}
 
-	// TODO(Totto): this can#tr be greater than the http2 setting, but this is mostly used for
+	// TODO(Totto): this can't be greater than the http2 setting, but this is mostly used for
 	// setting it to 0, to evict things, so not a priority to check that right now
 	set_hpack_state_setting(state, new_size.value);
 
 	return 0;
 }
 
-NODISCARD static int parse_hpack_literal_header_field_never_indexed(
-    size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers) {
+NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos, const size_t size,
+                                                                    const uint8_t* const data,
+                                                                    HttpHeaderFields* const headers,
+                                                                    const HpackState* const state) {
 	// Literal Header Field Never Indexed:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
 	//   0   1   2   3   4   5   6   7
@@ -417,17 +420,82 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 	// | Value String (Length octets)  |
 	// +-------------------------------+
 
-	// TODO
-	UNUSED(pos);
-	UNUSED(size);
-	UNUSED(data);
-	UNUSED(headers);
+	// or
 
-	UNREACHABLE();
+	//    0   1   2   3   4   5   6   7
+	// +---+---+---+---+---+---+---+---+
+	// | 0 | 0 | 0 | 1 |       0       |
+	// +---+---+-----------------------+
+	// | H |     Name Length (7+)      |
+	// +---+---------------------------+
+	// |  Name String (Length octets)  |
+	// +---+---------------------------+
+	// | H |     Value Length (7+)     |
+	// +---+---------------------------+
+	// | Value String (Length octets)  |
+	// +-------------------------------+
+
+	const HpackVariableIntegerResult index = decode_hpack_variable_integer(pos, size, data, 4);
+
+	if(index.is_error) {
+		return -1;
+	}
+
+	// the name is the value from a table or a literal value
+	char* header_key = NULL;
+
+	if(index.value == 0) {
+		// second variant
+
+		char* string_literal_result = parse_literal_string_value(pos, size, data);
+
+		if(string_literal_result == NULL) {
+			return -5;
+		}
+
+		header_key = string_literal_result;
+
+	} else {
+		// first variant
+
+		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index.value);
+
+		if(entry.is_error) {
+			return -3;
+		}
+
+		header_key = entry.value.key;
+		free(entry.value.value);
+	}
+
+	if(*pos >= size) {
+		return -8;
+	}
+
+	char* header_value = parse_literal_string_value(pos, size, data);
+
+	if(header_value == NULL) {
+		return -6;
+	}
+
+	const HttpHeaderField header_field = {
+		.key = header_key,
+		.value = header_value,
+	};
+
+	const auto insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
+
+	if(insert_result != TvecResultOk) {
+		free_http_header_field(header_field);
+		return -3;
+	}
+
+	return 0;
 }
 
 NODISCARD static int parse_hpack_literal_header_field_without_indexing(
-    size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers) {
+    size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers,
+    const HpackState* const state) {
 	// Literal Header Field without Indexing:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.2
 	//   0   1   2   3   4   5   6   7
@@ -439,13 +507,77 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	// | Value String (Length octets)  |
 	// +-------------------------------+
 
-	// TODO
-	UNUSED(pos);
-	UNUSED(size);
-	UNUSED(data);
-	UNUSED(headers);
+	// or
 
-	UNREACHABLE();
+	//   0   1   2   3   4   5   6   7
+	// +---+---+---+---+---+---+---+---+
+	// | 0 | 0 | 0 | 0 |       0       |
+	// +---+---+-----------------------+
+	// | H |     Name Length (7+)      |
+	// +---+---------------------------+
+	// |  Name String (Length octets)  |
+	// +---+---------------------------+
+	// | H |     Value Length (7+)     |
+	// +---+---------------------------+
+	// | Value String (Length octets)  |
+	// +-------------------------------+
+
+	const HpackVariableIntegerResult index = decode_hpack_variable_integer(pos, size, data, 4);
+
+	if(index.is_error) {
+		return -1;
+	}
+
+	// the name is the value from a table or a literal value
+	char* header_key = NULL;
+
+	if(index.value == 0) {
+		// second variant
+
+		char* string_literal_result = parse_literal_string_value(pos, size, data);
+
+		if(string_literal_result == NULL) {
+			return -5;
+		}
+
+		header_key = string_literal_result;
+
+	} else {
+		// first variant
+
+		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index.value);
+
+		if(entry.is_error) {
+			return -3;
+		}
+
+		header_key = entry.value.key;
+		free(entry.value.value);
+	}
+
+	if(*pos >= size) {
+		return -8;
+	}
+
+	char* header_value = parse_literal_string_value(pos, size, data);
+
+	if(header_value == NULL) {
+		return -6;
+	}
+
+	const HttpHeaderField header_field = {
+		.key = header_key,
+		.value = header_value,
+	};
+
+	const auto insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
+
+	if(insert_result != TvecResultOk) {
+		free_http_header_field(header_field);
+		return -3;
+	}
+
+	return 0;
 }
 
 NODISCARD static Http2HpackDecompressResult
@@ -509,7 +641,7 @@ http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer inpu
 			// +---+---+-----------------------+
 			// ...
 			const int res =
-			    parse_hpack_literal_header_field_never_indexed(&pos, size, data, &result);
+			    parse_hpack_literal_header_field_never_indexed(&pos, size, data, &result, state);
 			if(res < 0) {
 				error = "error in parsing literal header field never indexed";
 				goto return_error;
@@ -527,7 +659,7 @@ http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer inpu
 			// +---+---+-----------------------+
 			// ...
 			const int res =
-			    parse_hpack_literal_header_field_without_indexing(&pos, size, data, &result);
+			    parse_hpack_literal_header_field_without_indexing(&pos, size, data, &result, state);
 			if(res < 0) {
 				error = "error in parsing literal header field without indexing";
 				goto return_error;
