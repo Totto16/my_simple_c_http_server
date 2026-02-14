@@ -20,10 +20,9 @@ struct HpackStateImpl {
 	size_t current_dynamic_table_byte_size;
 };
 
-
- HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size_t size,
-                                                                const uint8_t* const data,
-                                                                uint8_t prefix_bits) {
+HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size_t size,
+                                                         const uint8_t* const data,
+                                                         uint8_t prefix_bits) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1
 
 	uint8_t mask = (1 << prefix_bits) - 1;
@@ -49,7 +48,7 @@ struct HpackStateImpl {
 		const uint8_t byte = data[*pos];
 		(*pos)++;
 
-		if(amount >= sizeof(HpackVariableInteger) - 1) {
+		if((amount / 8) >= sizeof(HpackVariableInteger) - 1) {
 			// to many bytes, the index should not be larger than a uint64_t
 			return (HpackVariableIntegerResult){ .is_error = true, .value = 0 };
 		}
@@ -279,7 +278,8 @@ static void insert_entry_into_dynamic_table(HpackState* const state,
 	// finally insert the entry
 
 	const HpackHeaderDynamicEntry new_entry_dup = { .key = strdup(new_entry.key),
-		                                            .value = strdup_null_agnostic(new_entry.value) };
+		                                            .value =
+		                                                strdup_null_agnostic(new_entry.value) };
 
 	TvecResult res = TVEC_PUSH(HpackHeaderDynamicEntry, &(state->dynamic_table), new_entry_dup);
 

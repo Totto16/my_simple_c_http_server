@@ -69,7 +69,8 @@ TEST_CASE("testing hpack deserializing - integer tests") {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.1
 	const std::vector<IntegerTest> test_cases = {
-		{ .values = { 0b01010 }, .prefix_bits = 5, .result = 10 }
+		{ .values = { 0b01010 }, .prefix_bits = 5, .result = 10 },
+		{ .values = { 0b11111, 0b10011010, 0b00001010 }, .prefix_bits = 5, .result = 1337 }
 	};
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
@@ -88,6 +89,7 @@ TEST_CASE("testing hpack deserializing - integer tests") {
 			const auto result = decode_hpack_variable_integer(
 			    &pos, input.size, (std::uint8_t*)input.data, test_case.prefix_bits);
 
+			INFO("decoding bytes: ", input);
 			REQUIRE_FALSE(result.is_error);
 
 			const auto actual_result = result.value;
@@ -95,6 +97,8 @@ TEST_CASE("testing hpack deserializing - integer tests") {
 			const auto& expected_result = test_case.result;
 
 			REQUIRE_EQ(actual_result, expected_result);
+
+			REQUIRE_EQ(pos, input.size);
 		}
 	}
 }
