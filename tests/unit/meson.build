@@ -14,6 +14,9 @@ test_deps += dependency(
 
 test_deps += dependency('nlohmann_json')
 
+test_deps += dependency('libtappp')
+
+
 test_inc_dirs += include_directories('.')
 
 test_src += files(
@@ -91,9 +94,10 @@ foreach test_file : test_files
     test(
         test_name,
         this_test,
-        protocol: 'exitcode',
+        protocol: 'tap',
         workdir: meson.project_source_root() / 'tests' / 'unit' / 'files',
         is_parallel: true,
+        args: ['--reporters="tap"']
     )
 
 endforeach

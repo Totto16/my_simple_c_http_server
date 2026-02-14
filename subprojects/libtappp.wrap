@@ -1,0 +1,8 @@
+[wrap-git]
+directory = libtappp
+url = https://github.com/cbab/libtappp.git
+revision = 6056074a103139c162c054555d9ec523178eceda
+depth = 1
+patch_directory = libtappp
+[provide]
+libtappp = libtappp_dep

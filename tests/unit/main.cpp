@@ -1,3 +1,5 @@
+#include "./tap_reporter.hpp"
+
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest.h>
 
@@ -20,7 +22,10 @@ static void setup_library() {
 	set_thread_name("main thread");
 }
 
+REGISTER_REPORTER("tap", 1, TapReporter);
+
 int main(int argc, char** argv) {
+
 	setup_library();
 	return doctest::Context(argc, argv).run();
 }
