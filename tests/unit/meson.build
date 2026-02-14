@@ -14,9 +14,6 @@ test_deps += dependency(
 
 test_deps += dependency('nlohmann_json')
 
-test_deps += dependency('libtappp')
-
-
 test_inc_dirs += include_directories('.')
 
 test_src += files(
@@ -72,6 +69,9 @@ test_files = [
     'hpack/swift-nio-hpack-plain-text.cpp',
 ]
 
+
+workdir = meson.project_source_root() / 'tests' / 'unit' / 'files'
+
 foreach test_file : test_files
 
     test_name = test_file.replace('.cpp', '').replace('/', '_')
@@ -94,10 +94,25 @@ foreach test_file : test_files
     test(
         test_name,
         this_test,
-        protocol: 'tap',
-        workdir: meson.project_source_root() / 'tests' / 'unit' / 'files',
+        protocol: 'exitcode',
+        workdir: workdir,
         is_parallel: true,
-        args: ['--reporters="tap"']
     )
 
 endforeach
+
+
+all_tests = executable(
+    'all_tests',
+    test_src,
+    files(test_files),
+    include_directories: test_inc_dirs,
+    dependencies: [test_deps, http_server_dep],
+    cpp_args: internal_cpp_args,
+    override_options: {
+        'warning_level': '3',
+        'werror': true,
+        'b_coverage': false,
+        'cpp_std': ['c++23', 'c++latest', 'c++20'],
+    },
+)
