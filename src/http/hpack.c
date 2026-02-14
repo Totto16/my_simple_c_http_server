@@ -20,14 +20,8 @@ struct HpackStateImpl {
 	size_t current_dynamic_table_byte_size;
 };
 
-typedef uint64_t HpackVariableInteger;
 
-typedef struct {
-	bool is_error;
-	HpackVariableInteger value;
-} HpackVariableIntegerResult;
-
-static HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size_t size,
+ HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size_t size,
                                                                 const uint8_t* const data,
                                                                 uint8_t prefix_bits) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1

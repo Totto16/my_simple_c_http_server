@@ -22,9 +22,7 @@
 \
 				INFO("test case description: ", test_case.description); \
 \
-				std::unique_ptr<HpackState, void (*)(HpackState*)> state{ \
-					get_default_hpack_state(DEFAULT_HEADER_TABLE_SIZE), free_hpack_state \
-				}; \
+				HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE); \
 \
 				REQUIRE_NE(state.get(), nullptr); \
 \
@@ -68,5 +66,5 @@
 				} \
 			} \
 		} \
-	} \
-	\
+	}
+\

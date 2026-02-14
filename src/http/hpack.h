@@ -29,6 +29,16 @@ NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackState* sta
 
 void set_hpack_state_setting(HpackState* state, size_t max_dynamic_table_byte_size);
 
+typedef uint64_t HpackVariableInteger;
+
+typedef struct {
+	bool is_error;
+	HpackVariableInteger value;
+} HpackVariableIntegerResult;
+
+HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, size_t size,
+                                                         const uint8_t* data, uint8_t prefix_bits);
+
 void global_initialize_http2_hpack_data(void);
 
 void global_free_http2_hpack_data(void);

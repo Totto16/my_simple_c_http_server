@@ -67,6 +67,7 @@ test_files = [
     'hpack/python-hpack.cpp',
     'hpack/swift-nio-hpack-huffman.cpp',
     'hpack/swift-nio-hpack-plain-text.cpp',
+    'hpack/manual.cpp'
 ]
 
 

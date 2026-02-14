@@ -164,7 +164,7 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 	return root_tests_dir2;
 }
 
-[[nodiscard]] static std::vector<ThirdPartyHpackTestCase>
+[[nodiscard]] [[maybe_unused]] static std::vector<ThirdPartyHpackTestCase>
 get_thirdparty_hpack_test_cases(const std::string& name) {
 
 	const std::filesystem::path root_tests_dir = get_root_test_dir();
@@ -212,4 +212,11 @@ get_cpp_headers(const HttpHeaderFields& fields) {
 	}
 
 	return result;
+}
+
+using HpackStateCpp = std::unique_ptr<HpackState, void (*)(HpackState*)>;
+
+[[nodiscard]] static HpackStateCpp get_default_hpack_state_cpp(size_t max_dynamic_table_byte_size) {
+	HpackStateCpp state{ get_default_hpack_state(max_dynamic_table_byte_size), free_hpack_state };
+	return state;
 }
