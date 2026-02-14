@@ -19,8 +19,8 @@ test_inc_dirs += include_directories('.')
 test_src += files(
     'c_types.cpp',
     'c_types.hpp',
-    'main.cpp',
     'hpack/helpers.hpp',
+    'main.cpp',
 )
 
 test_src += generated_cpp_hpack_tests
@@ -48,11 +48,30 @@ internal_cpp_args = []
 
 internal_cpp_args += cpp.get_supported_arguments(correct_cpp_args)
 
-test_files = ['hash.cpp', 'http_parser.cpp', 'serialize.cpp', 'hpack/huffman.cpp', 'hpack/nghttp2.cpp']
+test_files = [
+    'hash.cpp',
+    'http_parser.cpp',
+    'serialize.cpp',
+    'hpack/huffman.cpp',
+    'hpack/go-hpack.cpp',
+    'hpack/haskell-http2-linear.cpp',
+    'hpack/haskell-http2-linear-huffman.cpp',
+    'hpack/haskell-http2-naive.cpp',
+    'hpack/haskell-http2-naive-huffman.cpp',
+    'hpack/haskell-http2-static.cpp',
+    'hpack/haskell-http2-static-huffman.cpp',
+    'hpack/nghttp2.cpp',
+    'hpack/nghttp2-16384-4096.cpp',
+    'hpack/nghttp2-change-table-size.cpp',
+    'hpack/node-http2-hpack.cpp',
+    'hpack/python-hpack.cpp',
+    'hpack/swift-nio-hpack-huffman.cpp',
+    'hpack/swift-nio-hpack-plain-text.cpp',
+]
 
 foreach test_file : test_files
 
-    test_name = test_file.replace('.cpp', '').replace('/','_')
+    test_name = test_file.replace('.cpp', '').replace('/', '_')
 
     this_test = executable(
         test_name,
@@ -74,7 +93,7 @@ foreach test_file : test_files
         this_test,
         protocol: 'exitcode',
         workdir: meson.project_source_root() / 'tests' / 'unit' / 'files',
-        is_parallel: true
+        is_parallel: true,
     )
 
 endforeach
