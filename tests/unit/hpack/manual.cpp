@@ -70,7 +70,8 @@ TEST_CASE("testing hpack deserializing - integer tests") {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.1
 	const std::vector<IntegerTest> test_cases = {
 		{ .values = { 0b01010 }, .prefix_bits = 5, .result = 10 },
-		{ .values = { 0b11111, 0b10011010, 0b00001010 }, .prefix_bits = 5, .result = 1337 }
+		{ .values = { 0b11111, 0b10011010, 0b00001010 }, .prefix_bits = 5, .result = 1337 },
+		{ .values = { 0b00101010 }, .prefix_bits = 8, .result = 42 },
 	};
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
@@ -106,5 +107,67 @@ TEST_CASE("testing hpack deserializing - integer tests") {
 
 			REQUIRE_EQ(pos, input.size);
 		}
+	}
+
+	// test possible errors
+
+	{ // case one, too much data
+		const std::vector<std::uint8_t> raw_data = { 0b01010, 0x03F };
+		const size_t prefix_bits = 5;
+
+		//
+		const auto input = buffer_from_raw_data(raw_data);
+
+		size_t pos = 0;
+
+		const auto result =
+		    decode_hpack_variable_integer(&pos, input.size, (std::uint8_t*)input.data, prefix_bits);
+
+		REQUIRE_FALSE(result.is_error);
+
+		REQUIRE_NE(pos, input.size);
+	}
+
+	{ // case two, not enough data
+		const std::vector<std::uint8_t> raw_data = { 0b11111, 0b10011010 };
+		const size_t prefix_bits = 5;
+
+		//
+		const auto input = buffer_from_raw_data(raw_data);
+
+		size_t pos = 0;
+
+		const auto result =
+		    decode_hpack_variable_integer(&pos, input.size, (std::uint8_t*)input.data, prefix_bits);
+
+		REQUIRE(result.is_error);
+
+		const std::string expected_error = "not enough bytes";
+		const std::string actual_error = result.data.error;
+
+		REQUIRE_EQ(expected_error, actual_error);
+	}
+
+	{ // case three, too much data, uint64_t  would overflow
+		const std::vector<std::uint8_t> raw_data = { 0b11111,    0b10011010, 0b10011010, 0b10011010,
+			                                         0b10011010, 0b10011010, 0b10011010, 0b10011010,
+			                                         0b10011010, 0b10011010, 0b10011010, 0b10011010,
+			                                         0b10011010, 0b10011010, 0b10011010 };
+		const size_t prefix_bits = 5;
+
+		//
+		const auto input = buffer_from_raw_data(raw_data);
+
+		size_t pos = 0;
+
+		const auto result =
+		    decode_hpack_variable_integer(&pos, input.size, (std::uint8_t*)input.data, prefix_bits);
+
+		REQUIRE(result.is_error);
+
+		const std::string expected_error = "final integer would be too big";
+		const std::string actual_error = result.data.error;
+
+		REQUIRE_EQ(expected_error, actual_error);
 	}
 }
