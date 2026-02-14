@@ -220,9 +220,13 @@ TEST_CASE("testing hpack deserializing - external tests (nghttp2)") {
 
 		SUBCASE(case_name) {
 
-			HpackState* state = get_default_hpack_state(DEFAULT_HEADER_TABLE_SIZE);
+			INFO("test case description: ", test_case.description);
 
-			REQUIRE_NE(state, nullptr);
+			std::unique_ptr<HpackState, void (*)(HpackState*)> state{
+				get_default_hpack_state(DEFAULT_HEADER_TABLE_SIZE), free_hpack_state
+			};
+
+			REQUIRE_NE(state.get(), nullptr);
 
 			for(size_t i = 0; i < test_case.cases.size(); ++i) {
 
@@ -239,14 +243,17 @@ TEST_CASE("testing hpack deserializing - external tests (nghttp2)") {
 
 					const auto input = buffer_from_raw_data(single_case.wire_data);
 
-					const auto result = http2_hpack_decompress_data(state, input);
+					const auto result = http2_hpack_decompress_data(state.get(), input);
 
 					std::string error = "";
 					if(result.is_error) {
 						error = std::string{ result.data.error };
+
+						INFO("Error occurred: ", error);
+						CHECK_FALSE(result.is_error);
+						continue;
 					}
 
-					INFO("Error occurred: ", error);
 					REQUIRE_FALSE(result.is_error);
 
 					const auto actual_result = result.data.result;
