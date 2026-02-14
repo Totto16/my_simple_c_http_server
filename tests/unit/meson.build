@@ -20,6 +20,7 @@ test_src += files(
     'c_types.cpp',
     'c_types.hpp',
     'main.cpp',
+    'hpack/helpers.hpp',
 )
 
 test_src += generated_cpp_hpack_tests
@@ -47,11 +48,11 @@ internal_cpp_args = []
 
 internal_cpp_args += cpp.get_supported_arguments(correct_cpp_args)
 
-test_files = ['hash.cpp', 'http_parser.cpp', 'serialize.cpp', 'hpack_huffman.cpp', 'hpack.cpp']
+test_files = ['hash.cpp', 'http_parser.cpp', 'serialize.cpp', 'hpack/huffman.cpp', 'hpack/nghttp2.cpp']
 
 foreach test_file : test_files
 
-    test_name = test_file.replace('.cpp', '')
+    test_name = test_file.replace('.cpp', '').replace('/','_')
 
     this_test = executable(
         test_name,
@@ -73,6 +74,7 @@ foreach test_file : test_files
         this_test,
         protocol: 'exitcode',
         workdir: meson.project_source_root() / 'tests' / 'unit' / 'files',
+        is_parallel: true
     )
 
 endforeach
