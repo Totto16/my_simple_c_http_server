@@ -19,12 +19,7 @@ test_inc_dirs += include_directories('.')
 test_src += files(
     'c_types.cpp',
     'c_types.hpp',
-    'hash.cpp',
-    'http_parser.cpp',
     'main.cpp',
-    'serialize.cpp',
-    'hpack_huffman.cpp',
-    'hpack.cpp'
 )
 
 test_src += generated_cpp_hpack_tests
@@ -52,24 +47,32 @@ internal_cpp_args = []
 
 internal_cpp_args += cpp.get_supported_arguments(correct_cpp_args)
 
+test_files = ['hash.cpp', 'http_parser.cpp', 'serialize.cpp', 'hpack_huffman.cpp', 'hpack.cpp']
 
-tests = executable(
-    'tests',
-    test_src,
-    include_directories: test_inc_dirs,
-    dependencies: [test_deps, http_server_dep],
-    cpp_args: internal_cpp_args,
-    override_options: {
-        'warning_level': '3',
-        'werror': true,
-        'b_coverage': false,
-        'cpp_std': ['c++23', 'c++latest', 'c++20'],
-    },
-)
+foreach test_file : test_files
 
-test(
-    'tests',
-    tests,
-    protocol: 'exitcode',
-    workdir: meson.project_source_root() / 'tests' / 'unit' / 'files',
-)
+    test_name = test_file.replace('.cpp', '')
+
+    this_test = executable(
+        test_name,
+        test_src,
+        files(test_file),
+        include_directories: test_inc_dirs,
+        dependencies: [test_deps, http_server_dep],
+        cpp_args: internal_cpp_args,
+        override_options: {
+            'warning_level': '3',
+            'werror': true,
+            'b_coverage': false,
+            'cpp_std': ['c++23', 'c++latest', 'c++20'],
+        },
+    )
+
+    test(
+        test_name,
+        this_test,
+        protocol: 'exitcode',
+        workdir: meson.project_source_root() / 'tests' / 'unit' / 'files',
+    )
+
+endforeach
