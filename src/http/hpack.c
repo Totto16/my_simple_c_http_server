@@ -30,8 +30,9 @@ HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size
 
 	if(first_byte < mask) {
 		(*pos)++;
-		return (HpackVariableIntegerResult){ .is_error = false,
-			                                 .value = (HpackVariableInteger)first_byte };
+		return (HpackVariableIntegerResult){
+			.is_error = false, .data = { .value = (HpackVariableInteger)first_byte }
+		};
 	}
 
 	(*pos)++;
@@ -42,7 +43,8 @@ HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size
 	while(true) {
 		if((*pos) >= size) {
 			// not more bytes available
-			return (HpackVariableIntegerResult){ .is_error = true, .value = 0 };
+			return (HpackVariableIntegerResult){ .is_error = true,
+				                                 .data = { .error = "not enough bytes" } };
 		}
 
 		const uint8_t byte = data[*pos];
@@ -50,7 +52,9 @@ HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size
 
 		if((amount / 8) >= sizeof(HpackVariableInteger) - 1) {
 			// to many bytes, the index should not be larger than a uint64_t
-			return (HpackVariableIntegerResult){ .is_error = true, .value = 0 };
+			return (HpackVariableIntegerResult){
+				.is_error = true, .data = { .error = "final integer would be too big" }
+			};
 		}
 
 		result += (byte & 0x7F) << amount;
@@ -61,7 +65,10 @@ HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size
 		amount += 7;
 	}
 
-	return (HpackVariableIntegerResult){ .is_error = false, .value = result };
+	return (HpackVariableIntegerResult){ .is_error = false,
+		                                 .data = {
+		                                     .value = result,
+		                                 } };
 }
 
 typedef struct {
@@ -141,17 +148,19 @@ NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t 
 	//  | 1 |        Index (7+)         |
 	//  +---+---------------------------+
 
-	const HpackVariableIntegerResult index = decode_hpack_variable_integer(pos, size, data, 7);
+	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 7);
 
-	if(index.is_error) {
+	if(index_res.is_error) {
 		return -1;
 	}
 
-	if(index.value == 0) {
+	const HpackVariableInteger index = index_res.data.value;
+
+	if(index == 0) {
 		return -2;
 	}
 
-	const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index.value);
+	const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
 
 	if(entry.is_error) {
 		return -3;
@@ -189,7 +198,7 @@ NODISCARD static char* parse_literal_string_value(size_t* pos, const size_t size
 		return NULL;
 	}
 
-	const size_t length = length_res.value;
+	const HpackVariableInteger length = length_res.data.value;
 
 	if(*pos >= size) {
 		return NULL;
@@ -319,16 +328,18 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	// | Value String (Length octets)  |
 	// +-------------------------------+
 
-	const HpackVariableIntegerResult index = decode_hpack_variable_integer(pos, size, data, 6);
+	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 6);
 
-	if(index.is_error) {
+	if(index_res.is_error) {
 		return -1;
 	}
+
+	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
 	char* header_key = NULL;
 
-	if(index.value == 0) {
+	if(index == 0) {
 		// second variant
 
 		char* string_literal_result = parse_literal_string_value(pos, size, data);
@@ -342,7 +353,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	} else {
 		// first variant
 
-		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index.value);
+		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
 
 		if(entry.is_error) {
 			return -3;
@@ -402,7 +413,7 @@ NODISCARD static int parse_hpack_dynamic_table_size_update(size_t* pos, const si
 
 	// TODO(Totto): this can't be greater than the http2 setting, but this is mostly used for
 	// setting it to 0, to evict things, so not a priority to check that right now
-	set_hpack_state_setting(state, new_size.value);
+	set_hpack_state_setting(state, new_size.data.value);
 
 	return 0;
 }
@@ -437,16 +448,18 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos,
 	// | Value String (Length octets)  |
 	// +-------------------------------+
 
-	const HpackVariableIntegerResult index = decode_hpack_variable_integer(pos, size, data, 4);
+	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 4);
 
-	if(index.is_error) {
+	if(index_res.is_error) {
 		return -1;
 	}
+
+	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
 	char* header_key = NULL;
 
-	if(index.value == 0) {
+	if(index == 0) {
 		// second variant
 
 		char* string_literal_result = parse_literal_string_value(pos, size, data);
@@ -460,7 +473,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos,
 	} else {
 		// first variant
 
-		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index.value);
+		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
 
 		if(entry.is_error) {
 			return -3;
@@ -524,16 +537,18 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	// | Value String (Length octets)  |
 	// +-------------------------------+
 
-	const HpackVariableIntegerResult index = decode_hpack_variable_integer(pos, size, data, 4);
+	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 4);
 
-	if(index.is_error) {
+	if(index_res.is_error) {
 		return -1;
 	}
+
+	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
 	char* header_key = NULL;
 
-	if(index.value == 0) {
+	if(index == 0) {
 		// second variant
 
 		char* string_literal_result = parse_literal_string_value(pos, size, data);
@@ -547,7 +562,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	} else {
 		// first variant
 
-		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index.value);
+		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
 
 		if(entry.is_error) {
 			return -3;

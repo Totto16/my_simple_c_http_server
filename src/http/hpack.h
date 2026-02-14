@@ -33,7 +33,10 @@ typedef uint64_t HpackVariableInteger;
 
 typedef struct {
 	bool is_error;
-	HpackVariableInteger value;
+	union {
+		HpackVariableInteger value;
+		const char* error;
+	} data;
 } HpackVariableIntegerResult;
 
 HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, size_t size,

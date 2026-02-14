@@ -89,10 +89,16 @@ TEST_CASE("testing hpack deserializing - integer tests") {
 			const auto result = decode_hpack_variable_integer(
 			    &pos, input.size, (std::uint8_t*)input.data, test_case.prefix_bits);
 
-			INFO("decoding bytes: ", input);
+			std::string error = "";
+			if(result.is_error) {
+				error = std::string{ result.data.error };
+
+				INFO("Error occurred: ", error);
+			}
+
 			REQUIRE_FALSE(result.is_error);
 
-			const auto actual_result = result.value;
+			const auto actual_result = result.data.value;
 
 			const auto& expected_result = test_case.result;
 
