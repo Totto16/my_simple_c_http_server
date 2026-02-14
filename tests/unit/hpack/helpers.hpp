@@ -8,7 +8,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 struct ThirdPartyHpackTestCaseEntry {
 	size_t seqno;
 	std::vector<std::uint8_t> wire_data;
@@ -147,11 +146,28 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 	};
 }
 
+[[nodiscard]] static std::filesystem::path get_root_test_dir() {
+	const std::filesystem::path root_tests_dir1 =
+	    std::filesystem::current_path() / ".." / "thirdparty" / "hpack-test-case";
+
+	if(std::filesystem::exists(root_tests_dir1)) {
+		return root_tests_dir1;
+	}
+
+	const std::filesystem::path root_tests_dir2 =
+	    std::filesystem::current_path() / "tests" / "unit" / "thirdparty" / "hpack-test-case";
+
+	if(std::filesystem::exists(root_tests_dir2)) {
+		return root_tests_dir2;
+	}
+
+	return root_tests_dir2;
+}
+
 [[nodiscard]] static std::vector<ThirdPartyHpackTestCase>
 get_thirdparty_hpack_test_cases(const std::string& name) {
 
-	const std::filesystem::path root_tests_dir =
-	    std::filesystem::current_path() / ".." / "thirdparty" / "hpack-test-case";
+	const std::filesystem::path root_tests_dir = get_root_test_dir();
 
 	if(!std::filesystem::exists(root_tests_dir)) {
 		throw std::runtime_error("Invalid test launch from invalid cwd!");
