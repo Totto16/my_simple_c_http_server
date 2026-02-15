@@ -56,6 +56,10 @@ internal_cpp_args += [
     '-DDOCTEST_CONFIG_USE_STD_HEADERS',
 ]
 
+if cpp.get_id() == 'gcc'
+    internal_cpp_args += cc.get_supported_arguments('-Wno-missing-braces')
+endif
+
 test_files = [
     'hash.cpp',
     'http_parser.cpp',
