@@ -1,6 +1,6 @@
 #include <generic/serialize.h>
 
-#include "./c_types.hpp"
+#include "helpers/c_types.hpp"
 
 #include <array>
 #include <functional>

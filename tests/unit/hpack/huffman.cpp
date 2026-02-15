@@ -2,8 +2,8 @@
 
 #include "generated_hpack_tests.hpp"
 
-#include "./c_types.hpp"
-#include "./cpp_types.hpp"
+#include "helpers/c_types.hpp"
+#include "helpers/cpp_types.hpp"
 
 #include <memory>
 

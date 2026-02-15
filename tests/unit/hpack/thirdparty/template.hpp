@@ -1,6 +1,6 @@
 
-#include "../../c_types.hpp"
-#include "../../cpp_types.hpp"
+#include "helpers/c_types.hpp"
+#include "helpers/cpp_types.hpp"
 #include "../helpers.hpp"
 
 #define IMPLEMENT_HPACK_TEST_CASE \

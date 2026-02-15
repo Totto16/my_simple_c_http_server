@@ -17,12 +17,12 @@ test_deps += dependency('nlohmann_json')
 test_inc_dirs += include_directories('.')
 
 test_src += files(
-    'c_types.cpp',
-    'c_types.hpp',
-    'cpp_types.cpp',
-    'cpp_types.hpp',
+    'helpers/c_types.cpp',
+    'helpers/c_types.hpp',
+    'helpers/cpp_types.cpp',
+    'helpers/cpp_types.hpp',
+    'helpers/main.cpp',
     'hpack/helpers.hpp',
-    'main.cpp',
 )
 
 test_src += generated_cpp_hpack_tests
