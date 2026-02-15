@@ -12,6 +12,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <utils/sized_buffer.h>
@@ -50,10 +51,12 @@ doctest::String toString(const SizedBuffer& buffer);
 
 NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs);
 
+namespace std {
+
 template <typename T>
 [[maybe_unused]] std::ostream& operator<<(std::ostream& os, const std::vector<T>& vector) {
 	if(vector.data == NULL || vector.size > vector_max_for_printing_content) {
-		os << "vector{data=" << vector.data << ", size=" << vector.size() << "}";
+		os << "vector{data=" << vector.data() << ", size=" << vector.size() << "}";
 	} else {
 		os << "vector{content={";
 		for(size_t i = 0; i < vector.size(); ++i) {
@@ -66,3 +69,10 @@ template <typename T>
 	}
 	return os;
 }
+
+doctest::String toString(const std::unordered_map<std::string, std::string>& string_map);
+
+[[maybe_unused]] std::ostream&
+operator<<(std::ostream& os, const std::unordered_map<std::string, std::string>& string_map);
+
+} // namespace std

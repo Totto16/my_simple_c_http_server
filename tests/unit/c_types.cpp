@@ -35,3 +35,22 @@ NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs) {
 
 	return true;
 }
+
+[[maybe_unused]] std::ostream&
+std::operator<<(std::ostream& os, const std::unordered_map<std::string, std::string>& string_map) {
+	os << "string map{\n";
+	for(const auto& val : string_map) {
+		os << val.first << ": " << val.second << "\n";
+	}
+	os << "}\n";
+
+	return os;
+}
+
+doctest::String std::toString(const std::unordered_map<std::string, std::string>& string_map) {
+	std::stringstream str{};
+	str << string_map;
+	std::string string = str.str();
+	return doctest::String{ string.c_str(),
+		                    static_cast<doctest::String::size_type>(string.size()) };
+}
