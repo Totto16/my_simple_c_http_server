@@ -47,6 +47,8 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 	size_t last_idx = (dynamic_table->start + dynamic_table->count - 1) % dynamic_table->capacity;
 
+	dynamic_table->count--;
+
 	return &(dynamic_table->entries[last_idx]);
 }
 
