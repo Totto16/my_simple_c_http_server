@@ -50,9 +50,15 @@ NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs);
 
 namespace std {
 
+template <typename A, typename B>
+[[maybe_unused]] std::ostream& operator<<(std::ostream& os, const std::pair<A, B>& pair) {
+	os << "pair{" << pair.first << ", " << pair.second << "}";
+	return os;
+}
+
 template <typename T>
 [[maybe_unused]] std::ostream& operator<<(std::ostream& os, const std::vector<T>& vector) {
-	if(vector.data == NULL || vector.size > vector_max_for_printing_content) {
+	if(vector.data() == NULL || vector.size() > vector_max_for_printing_content) {
 		os << "vector{data=" << vector.data() << ", size=" << vector.size() << "}";
 	} else {
 		os << "vector{content={";
