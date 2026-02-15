@@ -190,17 +190,10 @@ namespace cpp_forbidden_test_type_impl_DONT_USE {
 
 extern "C" {
 
-typedef struct {
-	char* key;
-	char* value;
-} HpackHeaderDynamicEntry;
-
-TVEC_DEFINE_VEC_TYPE(HpackHeaderDynamicEntry)
-
-typedef TVEC_TYPENAME(HpackHeaderDynamicEntry) HpackHeaderDynamicEntries;
+#include "http/dynamic_hpack_table.h"
 
 struct HpackStateImpl {
-	HpackHeaderDynamicEntries dynamic_table;
+	HpackHeaderDynamicTable dynamic_table;
 	size_t max_dynamic_table_byte_size;
 	size_t current_dynamic_table_byte_size;
 };
@@ -217,11 +210,10 @@ struct HpackStateImpl {
 
 	std::vector<std::pair<std::string, std::string>> entries = {};
 
-	for(size_t i = 0; i < TVEC_LENGTH(HpackHeaderDynamicEntry, state_cpp_extracted->dynamic_table);
-	    ++i) {
-		cpp_forbidden_test_type_impl_DONT_USE::HpackHeaderDynamicEntry entry =
-		    cpp_forbidden_test_type_impl_DONT_USE::TVEC_AT(HpackHeaderDynamicEntry,
-		                                                   state_cpp_extracted->dynamic_table, i);
+	for(size_t i = state_cpp_extracted->dynamic_table.start,
+	           rest_count = state_cpp_extracted->dynamic_table.count;
+	    rest_count != 0; i = (i + 1) % state_cpp_extracted->dynamic_table.capacity, rest_count--) {
+		const auto& entry = state_cpp_extracted->dynamic_table.entries[i];
 
 		entries.emplace_back(entry.key, entry.value);
 	}
