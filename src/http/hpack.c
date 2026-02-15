@@ -20,9 +20,9 @@ struct HpackStateImpl {
 	size_t current_dynamic_table_byte_size;
 };
 
-HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size_t size,
-                                                         const uint8_t* const data,
-                                                         uint8_t prefix_bits) {
+NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size_t size,
+                                                                   const uint8_t* const data,
+                                                                   uint8_t prefix_bits) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1
 
 	uint8_t mask = (1 << prefix_bits) - 1;

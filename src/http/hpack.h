@@ -39,8 +39,10 @@ typedef struct {
 	} data;
 } HpackVariableIntegerResult;
 
-HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, size_t size,
-                                                         const uint8_t* data, uint8_t prefix_bits);
+// this is only public for tests, are there better ways to only expose it for tests?
+NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, size_t size,
+                                                                   const uint8_t* data,
+                                                                   uint8_t prefix_bits);
 
 void global_initialize_http2_hpack_data(void);
 
