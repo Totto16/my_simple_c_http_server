@@ -41,6 +41,14 @@ class CompressionSettingsCpp {
 
 	[[nodiscard]] const CompressionEntries& entries() const { return this->m_settings.entries; }
 
+	CompressionSettingsCpp(CompressionSettingsCpp&&) = delete;
+
+	CompressionSettingsCpp(const CompressionSettingsCpp&) = delete;
+
+	CompressionSettingsCpp& operator=(const CompressionSettingsCpp&) = delete;
+
+	CompressionSettingsCpp operator=(CompressionSettingsCpp&&) = delete;
+
 	~CompressionSettingsCpp() { free_compression_settings(this->m_settings); }
 };
 
@@ -270,6 +278,22 @@ struct ParsedURIWrapper {
 		}
 
 		return NULL;
+	}
+
+	ParsedURIWrapper(ParsedURIWrapper&&) = delete;
+
+	ParsedURIWrapper(const ParsedURIWrapper&) = delete;
+
+	ParsedURIWrapper& operator=(const ParsedURIWrapper&) = delete;
+
+	ParsedURIWrapper operator=(ParsedURIWrapper&&) = delete;
+
+	~ParsedURIWrapper() {
+		if(m_result.is_error) {
+			return;
+		}
+
+		free_parsed_request_uri(this->m_result.value.uri);
 	}
 };
 
