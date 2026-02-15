@@ -19,6 +19,8 @@ test_inc_dirs += include_directories('.')
 test_src += files(
     'c_types.cpp',
     'c_types.hpp',
+    'cpp_types.cpp',
+    'cpp_types.hpp',
     'hpack/helpers.hpp',
     'main.cpp',
 )

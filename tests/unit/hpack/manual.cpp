@@ -1,4 +1,5 @@
 #include "../c_types.hpp"
+#include "../cpp_types.hpp"
 
 #include "./helpers.hpp"
 
@@ -318,7 +319,7 @@ TEST_CASE("testing hpack deserializing - header field tests") {
 				.size  =  0,
 			},
 			.result = {
-				{":method","GET1"}
+				{":method","GET"}
 			}
 		}
 	};

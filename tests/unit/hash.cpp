@@ -1,9 +1,9 @@
 #include <generic/hash.h>
 
 #include "./c_types.hpp"
+#include "./cpp_types.hpp"
 
 #include <vector>
-
 #include <cstdint>
 
 namespace {
