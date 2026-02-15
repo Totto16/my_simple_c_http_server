@@ -188,8 +188,6 @@ NODISCARD static char* parse_literal_string_value(size_t* pos, const size_t size
 
 	const uint8_t byte = data[*pos];
 
-	(*pos)++;
-
 	const bool is_hufffman = (byte & 0x80) != 0;
 
 	const HpackVariableIntegerResult length_res = decode_hpack_variable_integer(pos, size, data, 7);
@@ -204,16 +202,17 @@ NODISCARD static char* parse_literal_string_value(size_t* pos, const size_t size
 		return NULL;
 	}
 
-	if(((*pos) + length) >= size) {
+	// it is okay if (*pos) + length == size here, that means the string literal goes until the end!
+	if(((*pos) + length) > size) {
 		return NULL;
 	}
-
-	(*pos) += length;
 
 	const SizedBuffer raw_bytes = {
 		.data = (void*)(data + (*pos)),
 		.size = length,
 	};
+
+	(*pos) += length;
 
 	if(is_hufffman) {
 		const HuffmanResult huffman_res = decode_bytes_huffman_with_global_data_setup(raw_bytes);
