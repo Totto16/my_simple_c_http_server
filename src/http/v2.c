@@ -1756,6 +1756,9 @@ NODISCARD static Http2FrameCategory get_http2_frame_category(const Http2Frame fr
 				                         .value = { .stream_identifier =
 				                                        continuation_frame.identifier } };
 		}
+		default: {
+			UNREACHABLE();
+		}
 	}
 }
 NODISCARD static Http2Stream* get_http2_stream(HTTP2Context* const context,

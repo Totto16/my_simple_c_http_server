@@ -254,10 +254,11 @@ NODISCARD BufferedReadResult buffered_reader_get_until_end(BufferedReader* const
 
 break_while_outer:
 
+	UNUSED(start_cursor);
 	assert(reader->data.cursor == start_cursor && "check if old wrong behaviour is fixed");
 
 	SizedBuffer data = {
-		.data = (Byte*)reader->data.buffer.data +  reader->data.cursor,
+		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
 		.size = (reader->data.buffer.size - reader->data.cursor),
 	};
 
@@ -297,6 +298,7 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const re
 		}
 	}
 
+	UNUSED(start_cursor);
 	assert(reader->data.cursor == start_cursor && "check if old wrong behaviour is fixed");
 	const size_t size = get_available_data_length(reader);
 
