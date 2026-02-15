@@ -48,6 +48,12 @@ internal_cpp_args = []
 
 internal_cpp_args += cpp.get_supported_arguments(correct_cpp_args)
 
+internal_cpp_args += [
+    '-DDOCTEST_CONFIG_REQUIRE_STRINGIFICATION_FOR_ALL_USED_TYPES',
+    '-DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING',
+    '-DDOCTEST_CONFIG_USE_STD_HEADERS',
+]
+
 test_files = [
     'hash.cpp',
     'http_parser.cpp',
@@ -67,7 +73,7 @@ test_files = [
     'hpack/python-hpack.cpp',
     'hpack/swift-nio-hpack-huffman.cpp',
     'hpack/swift-nio-hpack-plain-text.cpp',
-    'hpack/manual.cpp'
+    'hpack/manual.cpp',
 ]
 
 
