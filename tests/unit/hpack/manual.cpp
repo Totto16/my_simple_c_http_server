@@ -180,7 +180,7 @@ struct DynamicTable {
 
 [[maybe_unused]] static doctest::String toString(const DynamicTable& table) {
 	std::stringstream str{};
-	str << "DynamicTable:\n" << doctest::toString(table.entries);
+	str << "DynamicTable:\n" << table.entries;
 	str << "\n" << table.size << "\n";
 
 	std::string string = str.str();

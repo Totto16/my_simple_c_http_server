@@ -42,9 +42,27 @@ constexpr const size_t buffer_max_for_printing_content = 40;
 	return os;
 }
 
+constexpr const size_t vector_max_for_printing_content = 40;
+
 } // namespace
 
 doctest::String toString(const SizedBuffer& buffer);
 
 NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs);
 
+template <typename T>
+[[maybe_unused]] std::ostream& operator<<(std::ostream& os, const std::vector<T>& vector) {
+	if(vector.data == NULL || vector.size > vector_max_for_printing_content) {
+		os << "vector{data=" << vector.data << ", size=" << vector.size() << "}";
+	} else {
+		os << "vector{content={";
+		for(size_t i = 0; i < vector.size(); ++i) {
+			if(i != 0) {
+				os << ", ";
+			}
+			os << vector.at(i);
+		}
+		os << "} }";
+	}
+	return os;
+}
