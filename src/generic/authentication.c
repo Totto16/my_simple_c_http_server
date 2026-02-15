@@ -131,6 +131,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 
 	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
 
+	//Note: this may take some time, as bcrypt takes some time, depending on work factor
 	HashSaltResultType* hash_salted_password = hash_salt_string(data->settings, password);
 
 	return add_user_to_simple_authentication_provider_data_password_hash_salted(

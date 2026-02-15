@@ -3,8 +3,8 @@
 #include "./c_types.hpp"
 #include "./cpp_types.hpp"
 
-#include <vector>
 #include <cstdint>
+#include <vector>
 
 namespace {
 
@@ -452,27 +452,32 @@ struct TestCaseBaseBcrypt {
 
 } // namespace
 
+	#define BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS 10
+
 TEST_CASE("testing password hashing with bcrypt") {
 
 	std::vector<TestCaseBaseBcrypt> test_cases = {
 		{ .name = "normal password (bcrypt)",
 		  .password = "password123",
-		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = false } },
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS,
+		                .use_sha512 = false } },
 		{ .name = "normal password (sha512)",
 		  .password = "hello world",
-		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = true } },
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS, .use_sha512 = true } },
 		{ .name = "long password (bcrypt)",
 		  .password = "hello world this is a really long password",
-		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = false } },
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS,
+		                .use_sha512 = false } },
 		{ .name = "long password (sha512)",
 		  .password = "hello world this is a really long password",
-		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = true } },
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS, .use_sha512 = true } },
 		{ .name = "utf8 password (bcrypt)",
 		  .password = R"(😎😎😎😎😎😎🌍Hello test long string)",
-		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = false } },
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS,
+		                .use_sha512 = false } },
 		{ .name = "utf8 password (sha512)",
 		  .password = R"(😎😎😎😎😎😎🌍Hello test long string)",
-		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR, .use_sha512 = true } },
+		  .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS, .use_sha512 = true } },
 	};
 
 	for(const auto& test_case : test_cases) {
