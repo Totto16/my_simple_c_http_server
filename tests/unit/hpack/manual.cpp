@@ -269,20 +269,47 @@ TEST_CASE("testing hpack deserializing - header field tests") {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.2
 	const std::vector<HeaderFieldTest> test_cases = {
-		{ .raw_data =
-
-		      parse_wire_data("400a637573746f6d2d6b65790d637573746f6d2d686561646572"),
-
-		  .dynamic_table = {
+		{ 
+			.raw_data =parse_wire_data("400a637573746f6d2d6b65790d637573746f6d2d686561646572"),
+			.dynamic_table = {
 				.entries = { {"custom-key" , "custom-header"}},
 				.size  =  55,
-		  },
-  .result = {
-				  {"custom-key" , "custom-header"}
-			  }
-		  }
-
-		};
+			},
+			.result = {
+				{"custom-key" , "custom-header"}
+			}
+		},
+		{ 
+			.raw_data =parse_wire_data("040c2f73616d706c652f70617468"),
+			.dynamic_table = {
+				.entries = { },
+				.size  =  0,
+			},
+			.result = {
+				{":path","/sample/path"}
+			}
+		},
+		{ 
+			.raw_data =parse_wire_data("100870617373776f726406736563726574"),
+			.dynamic_table = {
+				.entries = { },
+				.size  =  0,
+			},
+			.result = {
+				{"password","secret"}
+			}
+		},
+		{ 
+			.raw_data =parse_wire_data("82"),
+			.dynamic_table = {
+				.entries = { },
+				.size  =  0,
+			},
+			.result = {
+				{":method","GET"}
+			}
+		}
+	};
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
