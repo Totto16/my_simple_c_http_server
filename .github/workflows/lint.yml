@@ -27,6 +27,11 @@ jobs:
           sudo ./llvm.sh 21
           echo "CC=clang-21" >> "$GITHUB_ENV"
 
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
       - name: Prepare compile_commands.json
         run: |
           sudo apt-get update

@@ -104,6 +104,11 @@ jobs:
               run: |
                   pip install meson --break-system-packages
 
+            - name: Setup node
+              uses: actions/setup-node@v6
+              with:
+                node-version: 24
+
             - name: Install dependencies (Linux)
               if: matrix.config.os == 'ubuntu'
               run: |

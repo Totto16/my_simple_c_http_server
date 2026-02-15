@@ -38,6 +38,7 @@ endif
 node = find_program(
     'node',
     required: false,
+    version: '>=24.0.0',  # for .ts execution
 )
 
 deno = find_program(
