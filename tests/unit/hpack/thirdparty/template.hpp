@@ -18,27 +18,22 @@
 \
 			const auto case_str = std::string{ "Case " } + test_case.name; \
 			doctest::String case_name = doctest::String{ case_str.c_str() }; \
-\
-			HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE); \
-			REQUIRE_NE(state.get(), nullptr); \
-\
 			SUBCASE(case_name) { \
+				[&test_case]() -> void { \
+					HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE); \
+					REQUIRE_NE(state.get(), nullptr); \
 \
-				INFO("test case description: ", test_case.description); \
+					INFO("test case description: ", test_case.description); \
 \
-				for(size_t i = 0; i < test_case.cases.size(); ++i) { \
+					for(size_t i = 0; i < test_case.cases.size(); ++i) { \
 \
-					const auto& single_case = test_case.cases.at(i); \
+						const auto& single_case = test_case.cases.at(i); \
 \
-					const auto case_str2 = std::string{ "Subcase " } + std::to_string(i); \
-					doctest::String case_name2 = doctest::String{ case_str2.c_str() }; \
-\
-					INFO("the sequential number of that hpack packet has to be the same as the " \
-					     "index: ", \
-					     single_case.seqno, " | ", i); \
-					REQUIRE_EQ(single_case.seqno, i); \
-\
-					SUBCASE(case_name2) { \
+						INFO("the sequential number of that hpack packet has to be the same as " \
+						     "the " \
+						     "index: ", \
+						     single_case.seqno, " | ", i); \
+						REQUIRE_EQ(single_case.seqno, i); \
 \
 						const auto input = buffer_from_raw_data(single_case.wire_data); \
 \
@@ -63,7 +58,7 @@
 \
 						REQUIRE_EQ(actual_result_cpp, expected_result); \
 					} \
-				} \
+				}(); \
 			} \
 		} \
 	}

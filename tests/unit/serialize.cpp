@@ -39,7 +39,8 @@ struct TestCaseDeserialize32 {
 	}
 }
 
-TEST_SUITE_BEGIN("serialize" * doctest::description("serialize / deserialize tests") * doctest::timeout(2.0));
+TEST_SUITE_BEGIN("serialize" * doctest::description("serialize / deserialize tests") *
+                 doctest::timeout(2.0));
 
 TEST_CASE("testing deserializing u32") {
 
@@ -91,20 +92,13 @@ TEST_CASE("testing deserializing u32") {
 	for(const auto& test_case : test_cases) {
 
 		SUBCASE(test_case.name) {
-
-			for(size_t i = 0; i < test_case.values.size(); ++i) {
-				const auto value = test_case.values.at(i);
-
-				const auto case_str = std::string{ "Case " } + std::to_string(i);
-				doctest::String case_name = doctest::String{ case_str.c_str() };
-
-				SUBCASE(case_name) {
-
+			[&test_case]() -> void {
+				for(const auto& value : test_case.values) {
 					const uint32_t result = test_case.fn(value.input.data());
 
 					REQUIRE_EQ(result, value.result);
 				}
-			}
+			}();
 		}
 	}
 }
@@ -170,23 +164,16 @@ TEST_CASE("testing deserializing u16") {
 	for(const auto& test_case : test_cases) {
 
 		SUBCASE(test_case.name) {
-
-			for(size_t i = 0; i < test_case.values.size(); ++i) {
-				const auto value = test_case.values.at(i);
-
-				const auto case_str = std::string{ "Case " } + std::to_string(i);
-				doctest::String case_name = doctest::String{ case_str.c_str() };
-
-				SUBCASE(case_name) {
+			[&test_case]() -> void {
+				for(const auto& value : test_case.values) {
 
 					const uint16_t result = test_case.fn(value.input.data());
 
 					REQUIRE_EQ(result, value.result);
 				}
-			}
+			}();
 		}
 	}
 }
-
 
 TEST_SUITE_END();

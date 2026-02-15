@@ -31,93 +31,101 @@ TEST_CASE("testing hpack deserializing - integer tests") {
 		doctest::String case_name = doctest::String{ case_str.c_str() };
 
 		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				const auto input = buffer_from_raw_data(test_case.values);
 
-			const auto input = buffer_from_raw_data(test_case.values);
+				size_t pos = 0;
 
-			size_t pos = 0;
+				const auto result = decode_hpack_variable_integer(
+				    &pos, input.size, (std::uint8_t*)input.data, test_case.prefix_bits);
 
-			const auto result = decode_hpack_variable_integer(
-			    &pos, input.size, (std::uint8_t*)input.data, test_case.prefix_bits);
+				std::string error = "";
+				if(result.is_error) {
+					error = std::string{ result.data.error };
 
-			std::string error = "";
-			if(result.is_error) {
-				error = std::string{ result.data.error };
+					INFO("Error occurred: ", error);
+				}
 
-				INFO("Error occurred: ", error);
-			}
+				REQUIRE_FALSE(result.is_error);
 
-			REQUIRE_FALSE(result.is_error);
+				const auto actual_result = result.data.value;
 
-			const auto actual_result = result.data.value;
+				const auto& expected_result = test_case.result;
 
-			const auto& expected_result = test_case.result;
+				REQUIRE_EQ(actual_result, expected_result);
 
-			REQUIRE_EQ(actual_result, expected_result);
-
-			REQUIRE_EQ(pos, input.size);
+				REQUIRE_EQ(pos, input.size);
+			}();
 		}
 	}
 
 	// test possible errors
 
-	{ // case one, too much data
-		const std::vector<std::uint8_t> raw_data = { 0b01010, 0x03F };
-		const size_t prefix_bits = 5;
+	SUBCASE("too much data") { // case one, too much data
+		[]() -> void {
+			const std::vector<std::uint8_t> raw_data = { 0b01010, 0x03F };
+			const size_t prefix_bits = 5;
 
-		//
-		const auto input = buffer_from_raw_data(raw_data);
+			//
+			const auto input = buffer_from_raw_data(raw_data);
 
-		size_t pos = 0;
+			size_t pos = 0;
 
-		const auto result =
-		    decode_hpack_variable_integer(&pos, input.size, (std::uint8_t*)input.data, prefix_bits);
+			const auto result = decode_hpack_variable_integer(
+			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
 
-		REQUIRE_FALSE(result.is_error);
+			REQUIRE_FALSE(result.is_error);
 
-		REQUIRE_NE(pos, input.size);
+			REQUIRE_NE(pos, input.size);
+		}();
 	}
 
-	{ // case two, not enough data
-		const std::vector<std::uint8_t> raw_data = { 0b11111, 0b10011010 };
-		const size_t prefix_bits = 5;
+	SUBCASE("not enough data") { // case two, not enough data
+		[]() -> void {
+			const std::vector<std::uint8_t> raw_data = { 0b11111, 0b10011010 };
+			const size_t prefix_bits = 5;
 
-		//
-		const auto input = buffer_from_raw_data(raw_data);
+			//
+			const auto input = buffer_from_raw_data(raw_data);
 
-		size_t pos = 0;
+			size_t pos = 0;
 
-		const auto result =
-		    decode_hpack_variable_integer(&pos, input.size, (std::uint8_t*)input.data, prefix_bits);
+			const auto result = decode_hpack_variable_integer(
+			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
 
-		REQUIRE(result.is_error);
+			REQUIRE(result.is_error);
 
-		const std::string expected_error = "not enough bytes";
-		const std::string actual_error = result.data.error;
+			const std::string expected_error = "not enough bytes";
+			const std::string actual_error = result.data.error;
 
-		REQUIRE_EQ(expected_error, actual_error);
+			REQUIRE_EQ(expected_error, actual_error);
+		}();
 	}
 
-	{ // case three, too much data, uint64_t  would overflow
-		const std::vector<std::uint8_t> raw_data = { 0b11111,    0b10011010, 0b10011010, 0b10011010,
-			                                         0b10011010, 0b10011010, 0b10011010, 0b10011010,
-			                                         0b10011010, 0b10011010, 0b10011010, 0b10011010,
-			                                         0b10011010, 0b10011010, 0b10011010 };
-		const size_t prefix_bits = 5;
+	SUBCASE("number would overflow") { // case three, too much data, uint64_t  would overflow
+		[]() -> void {
+			const std::vector<std::uint8_t> raw_data = { 0b11111,    0b10011010, 0b10011010,
+				                                         0b10011010, 0b10011010, 0b10011010,
+				                                         0b10011010, 0b10011010, 0b10011010,
+				                                         0b10011010, 0b10011010, 0b10011010,
+				                                         0b10011010, 0b10011010, 0b10011010 };
+			const size_t prefix_bits = 5;
 
-		//
-		const auto input = buffer_from_raw_data(raw_data);
+			//
+			const auto input = buffer_from_raw_data(raw_data);
 
-		size_t pos = 0;
+			size_t pos = 0;
 
-		const auto result =
-		    decode_hpack_variable_integer(&pos, input.size, (std::uint8_t*)input.data, prefix_bits);
+			const auto result = decode_hpack_variable_integer(
+			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
 
-		REQUIRE(result.is_error);
+			REQUIRE(result.is_error);
 
-		const std::string expected_error = "final integer would be too big";
-		const std::string actual_error = result.data.error;
+			const std::string expected_error = "final integer would be too big";
+			const std::string actual_error = result.data.error;
 
-		REQUIRE_EQ(expected_error, actual_error);
+			REQUIRE_EQ(expected_error, actual_error);
+		}();
 	}
 }
 
@@ -273,42 +281,44 @@ TEST_CASE("testing hpack deserializing - header field tests") {
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
-		HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
-		REQUIRE_NE(state.get(), nullptr);
-
 		const auto& test_case = test_cases.at(i);
 
 		const auto case_str = std::string{ "Subcase " } + std::to_string(i);
 		doctest::String case_name = doctest::String{ case_str.c_str() };
 
 		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
+				REQUIRE_NE(state.get(), nullptr);
 
-			const auto input = buffer_from_raw_data(test_case.raw_data);
+				const auto input = buffer_from_raw_data(test_case.raw_data);
 
-			auto result = http2_hpack_decompress_data(state.get(), input);
-			CppDefer<Http2HpackDecompressResult> defer = { &result, free_hpack_decompress_result };
+				auto result = http2_hpack_decompress_data(state.get(), input);
+				CppDefer<Http2HpackDecompressResult> defer = { &result,
+					                                           free_hpack_decompress_result };
 
-			std::string error = "";
-			if(result.is_error) {
-				error = std::string{ result.data.error };
-			}
+				std::string error = "";
+				if(result.is_error) {
+					error = std::string{ result.data.error };
+				}
 
-			INFO("Error occurred: ", error);
-			REQUIRE_FALSE(result.is_error);
+				INFO("Error occurred: ", error);
+				REQUIRE_FALSE(result.is_error);
 
-			const auto actual_result = result.data.result;
+				const auto actual_result = result.data.result;
 
-			const auto& expected_result = test_case.result;
+				const auto& expected_result = test_case.result;
 
-			const auto actual_result_cpp = get_cpp_headers(actual_result);
+				const auto actual_result_cpp = get_cpp_headers(actual_result);
 
-			REQUIRE_EQ(actual_result_cpp, expected_result);
+				REQUIRE_EQ(actual_result_cpp, expected_result);
 
-			const auto& expected_dynamic_table = test_case.dynamic_table;
+				const auto& expected_dynamic_table = test_case.dynamic_table;
 
-			const auto actual_dynamic_table = get_dynamic_table(state);
+				const auto actual_dynamic_table = get_dynamic_table(state);
 
-			REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
+				REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
+			}();
 		}
 	}
 }
@@ -397,19 +407,14 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 		const auto case_str = std::string{ "Subcase " } + test_case.name;
 		doctest::String case_name = doctest::String{ case_str.c_str() };
 
-		HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
-		REQUIRE_NE(state.get(), nullptr);
-
 		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
+				REQUIRE_NE(state.get(), nullptr);
 
-			for(size_t i = 0; i < test_case.cases.size(); ++i) {
+				for(size_t i = 0; i < test_case.cases.size(); ++i) {
 
-				const auto& subcase = test_case.cases.at(i);
-
-				const auto case_str2 = std::string{ "Subcase " } + std::to_string(i);
-				doctest::String case_name2 = doctest::String{ case_str2.c_str() };
-
-				SUBCASE(case_name2) {
+					const auto& subcase = test_case.cases.at(i);
 
 					const auto input = buffer_from_raw_data(subcase.raw_data);
 
@@ -438,7 +443,7 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 
 					REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
 				}
-			}
+			}();
 		}
 	}
 }

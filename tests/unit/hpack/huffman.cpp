@@ -42,9 +42,6 @@ TEST_SUITE_BEGIN("hpack/huffman" * doctest::description("hpack huffman tests") *
 
 TEST_CASE("testing hpack huffman deserializing - from hpack spec") {
 
-	const auto tree = get_hpack_huffman_tree_cpp();
-	REQUIRE_NE(tree.get(), nullptr);
-
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4
 	const std::vector<TestCaseManual> test_cases = {
 		TestCaseManual{
@@ -84,38 +81,39 @@ TEST_CASE("testing hpack huffman deserializing - from hpack spec") {
 		doctest::String case_name = doctest::String{ case_str.c_str() };
 
 		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				const auto tree = get_hpack_huffman_tree_cpp();
+				REQUIRE_NE(tree.get(), nullptr);
 
-			const auto input = buffer_from_raw_data(test_case.encoded);
+				const auto input = buffer_from_raw_data(test_case.encoded);
 
-			auto result = decode_bytes_huffman(tree.get(), input);
-			CppDefer<HuffmanResult> defer = { &result, free_huffman_result };
+				auto result = decode_bytes_huffman(tree.get(), input);
+				CppDefer<HuffmanResult> defer = { &result, free_huffman_result };
 
-			const char* error = nullptr;
+				const char* error = nullptr;
 
-			if(result.is_error) {
-				error = result.data.error;
-			}
+				if(result.is_error) {
+					error = result.data.error;
+				}
 
-			REQUIRE_EQ(error, nullptr);
+				REQUIRE_EQ(error, nullptr);
 
-			const auto actual_result = result.data.result;
+				const auto actual_result = result.data.result;
 
-			const auto expected_result = buffer_from_str(test_case.str);
+				const auto expected_result = buffer_from_str(test_case.str);
 
-			const std::string actual_result_str =
-			    std::string{ (char*)actual_result.data, actual_result.size };
+				const std::string actual_result_str =
+				    std::string{ (char*)actual_result.data, actual_result.size };
 
-			INFO("the actual encoded string: ", test_case.str);
-			INFO("the decoded string: ", actual_result_str);
-			REQUIRE_EQ(actual_result, expected_result);
+				INFO("the actual encoded string: ", test_case.str);
+				INFO("the decoded string: ", actual_result_str);
+				REQUIRE_EQ(actual_result, expected_result);
+			}();
 		}
 	}
 }
 
 TEST_CASE("testing hpack huffman deserializing (ascii) - generated") {
-
-	const auto tree = get_hpack_huffman_tree_cpp();
-	REQUIRE_NE(tree.get(), nullptr);
 
 	const auto test_cases = generated::tests::test_cases_ascii;
 
@@ -127,38 +125,39 @@ TEST_CASE("testing hpack huffman deserializing (ascii) - generated") {
 		doctest::String case_name = doctest::String{ case_str.c_str() };
 
 		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				const auto tree = get_hpack_huffman_tree_cpp();
+				REQUIRE_NE(tree.get(), nullptr);
 
-			const auto input = buffer_from_raw_data(test_case.encoded);
+				const auto input = buffer_from_raw_data(test_case.encoded);
 
-			auto result = decode_bytes_huffman(tree.get(), input);
-			CppDefer<HuffmanResult> defer = { &result, free_huffman_result };
+				auto result = decode_bytes_huffman(tree.get(), input);
+				CppDefer<HuffmanResult> defer = { &result, free_huffman_result };
 
-			const char* error = nullptr;
+				const char* error = nullptr;
 
-			if(result.is_error) {
-				error = result.data.error;
-			}
+				if(result.is_error) {
+					error = result.data.error;
+				}
 
-			REQUIRE_EQ(error, nullptr);
+				REQUIRE_EQ(error, nullptr);
 
-			const auto actual_result = result.data.result;
+				const auto actual_result = result.data.result;
 
-			const auto expected_result = buffer_from_str(test_case.str);
+				const auto expected_result = buffer_from_str(test_case.str);
 
-			const std::string actual_result_str =
-			    std::string{ (char*)actual_result.data, actual_result.size };
+				const std::string actual_result_str =
+				    std::string{ (char*)actual_result.data, actual_result.size };
 
-			INFO("the actual encoded string: ", test_case.str);
-			INFO("the decoded string: ", actual_result_str);
-			REQUIRE_EQ(actual_result, expected_result);
+				INFO("the actual encoded string: ", test_case.str);
+				INFO("the decoded string: ", actual_result_str);
+				REQUIRE_EQ(actual_result, expected_result);
+			}();
 		}
 	}
 }
 
 TEST_CASE("testing hpack huffman deserializing (utf8) - generated") {
-
-	const auto tree = get_hpack_huffman_tree_cpp();
-	REQUIRE_NE(tree.get(), nullptr);
 
 	const auto test_cases = generated::tests::test_cases_utf8;
 
@@ -170,25 +169,29 @@ TEST_CASE("testing hpack huffman deserializing (utf8) - generated") {
 		doctest::String case_name = doctest::String{ case_str.c_str() };
 
 		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				const auto tree = get_hpack_huffman_tree_cpp();
+				REQUIRE_NE(tree.get(), nullptr);
 
-			const auto input = buffer_from_raw_data(test_case.encoded);
+				const auto input = buffer_from_raw_data(test_case.encoded);
 
-			auto result = decode_bytes_huffman(tree.get(), input);
-			CppDefer<HuffmanResult> defer = { &result, free_huffman_result };
+				auto result = decode_bytes_huffman(tree.get(), input);
+				CppDefer<HuffmanResult> defer = { &result, free_huffman_result };
 
-			const char* error = nullptr;
+				const char* error = nullptr;
 
-			if(result.is_error) {
-				error = result.data.error;
-			}
+				if(result.is_error) {
+					error = result.data.error;
+				}
 
-			REQUIRE_EQ(error, nullptr);
+				REQUIRE_EQ(error, nullptr);
 
-			const auto actual_result = result.data.result;
+				const auto actual_result = result.data.result;
 
-			const auto expected_result = buffer_from_raw_data(test_case.value);
+				const auto expected_result = buffer_from_raw_data(test_case.value);
 
-			REQUIRE_EQ(actual_result, expected_result);
+				REQUIRE_EQ(actual_result, expected_result);
+			}();
 		}
 	}
 }

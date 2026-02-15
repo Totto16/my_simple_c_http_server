@@ -352,15 +352,16 @@ TEST_CASE("testing sha1 generation with openssl") {
 	for(const auto& test_case : test_cases) {
 
 		SUBCASE(test_case.name) {
+			[&test_case]() -> void {
+				const SizedBuffer result = get_sha1_from_string(test_case.input.c_str());
 
-			const SizedBuffer result = get_sha1_from_string(test_case.input.c_str());
+				REQUIRE_NE(result.data, nullptr);
+				REQUIRE_NE(result.size, 0);
 
-			REQUIRE_NE(result.data, nullptr);
-			REQUIRE_NE(result.size, 0);
+				REQUIRE_EQ(result, test_case.result);
 
-			REQUIRE_EQ(result, test_case.result);
-
-			free_sized_buffer(result);
+				free_sized_buffer(result);
+			}();
 		}
 	}
 }
@@ -389,24 +390,25 @@ TEST_CASE("testing base64 decoding with openssl") {
 	for(const auto& test_case : base64_test_cases) {
 
 		SUBCASE(test_case.name) {
+			[&test_case]() -> void {
+				SizedBuffer input = buffer_from_string(test_case.base64);
 
-			SizedBuffer input = buffer_from_string(test_case.base64);
+				const SizedBuffer result = base64_decode_buffer(input);
 
-			const SizedBuffer result = base64_decode_buffer(input);
+				REQUIRE_NE(result.data, nullptr);
 
-			REQUIRE_NE(result.data, nullptr);
+				if(input.size != 0) {
+					REQUIRE_NE(result.size, 0);
+				} else {
+					REQUIRE_EQ(result.size, 0);
+				}
 
-			if(input.size != 0) {
-				REQUIRE_NE(result.size, 0);
-			} else {
-				REQUIRE_EQ(result.size, 0);
-			}
+				SizedBuffer expected_result = buffer_from_string(test_case.raw);
 
-			SizedBuffer expected_result = buffer_from_string(test_case.raw);
+				REQUIRE_EQ(result, expected_result);
 
-			REQUIRE_EQ(result, expected_result);
-
-			free_sized_buffer(result);
+				free_sized_buffer(result);
+			}();
 		}
 	}
 }
@@ -419,26 +421,27 @@ TEST_CASE("testing base64 encoding with openssl") {
 	for(const auto& test_case : base64_test_cases) {
 
 		SUBCASE(test_case.name) {
+			[&test_case]() -> void {
+				SizedBuffer input = buffer_from_string(test_case.raw);
 
-			SizedBuffer input = buffer_from_string(test_case.raw);
+				char* result = base64_encode_buffer(input);
 
-			char* result = base64_encode_buffer(input);
+				REQUIRE_NE(result, nullptr);
 
-			REQUIRE_NE(result, nullptr);
+				std::string result_str{ result };
 
-			std::string result_str{ result };
+				if(input.size != 0) {
+					REQUIRE_NE(result_str.size(), 0);
+				} else {
+					REQUIRE_EQ(result_str.size(), 0);
+				}
 
-			if(input.size != 0) {
-				REQUIRE_NE(result_str.size(), 0);
-			} else {
-				REQUIRE_EQ(result_str.size(), 0);
-			}
+				const std::string& expected_result = test_case.base64;
 
-			const std::string& expected_result = test_case.base64;
+				REQUIRE_EQ(result, expected_result);
 
-			REQUIRE_EQ(result, expected_result);
-
-			free(result);
+				free(result);
+			}();
 		}
 	}
 }
@@ -485,41 +488,44 @@ TEST_CASE("testing password hashing with bcrypt" * doctest::timeout(10.0)) {
 	for(const auto& test_case : test_cases) {
 
 		SUBCASE(test_case.name) {
+			[&test_case]() -> void {
+				HashSaltResultType* result =
+				    hash_salt_string(test_case.settings, test_case.password.c_str());
 
-			HashSaltResultType* result =
-			    hash_salt_string(test_case.settings, test_case.password.c_str());
+				REQUIRE_NE(result, nullptr);
 
-			REQUIRE_NE(result, nullptr);
+				{
 
-			{
+					bool matches = is_string_equal_to_hash_salted_string(
+					    test_case.settings, test_case.password.c_str(), result);
 
-				bool matches = is_string_equal_to_hash_salted_string(
-				    test_case.settings, test_case.password.c_str(), result);
+					REQUIRE(matches);
+				}
 
-				REQUIRE(matches);
-			}
+				{
+					std::string not_my_password = "not my password";
 
-			{
-				std::string not_my_password = "not my password";
+					bool matches2 = is_string_equal_to_hash_salted_string(
+					    test_case.settings, not_my_password.c_str(), result);
 
-				bool matches2 = is_string_equal_to_hash_salted_string(
-				    test_case.settings, not_my_password.c_str(), result);
+					REQUIRE_FALSE(matches2);
+				}
 
-				REQUIRE_FALSE(matches2);
-			}
+				{
 
-			{
+					HashSaltSettings wrong_seettings = { .work_factor =
+						                                     test_case.settings.work_factor,
+						                                 .use_sha512 =
+						                                     !test_case.settings.use_sha512 };
 
-				HashSaltSettings wrong_seettings = { .work_factor = test_case.settings.work_factor,
-					                                 .use_sha512 = !test_case.settings.use_sha512 };
+					bool matches3 = is_string_equal_to_hash_salted_string(
+					    wrong_seettings, test_case.password.c_str(), result);
 
-				bool matches3 = is_string_equal_to_hash_salted_string(
-				    wrong_seettings, test_case.password.c_str(), result);
+					REQUIRE_FALSE(matches3);
+				}
 
-				REQUIRE_FALSE(matches3);
-			}
-
-			free_hash_salted_result(result);
+				free_hash_salted_result(result);
+			}();
 		}
 	}
 }

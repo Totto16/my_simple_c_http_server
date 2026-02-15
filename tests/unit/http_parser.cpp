@@ -116,128 +116,142 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 	REQUIRE(!is_compression_supported((CompressionType)(CompressionTypeCompress + 2)));
 
 	SUBCASE("no Accept-Encoding header") {
+		[]() -> void {
+			HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
 
-		HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
+			CompressionSettingsCpp compression_settings =
+			    CompressionSettingsCpp(http_header_fields);
 
-		CompressionSettingsCpp compression_settings = CompressionSettingsCpp(http_header_fields);
+			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
-		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
-
-		REQUIRE_EQ(entries_length, 0);
+			REQUIRE_EQ(entries_length, 0);
+		}();
 	}
 
 	SUBCASE("standard simple list") {
+		[]() -> void {
+			CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" compress, gzip");
 
-		CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" compress, gzip");
+			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
-		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
+			REQUIRE_EQ(entries_length, 2);
 
-		REQUIRE_EQ(entries_length, 2);
+			CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
 
-		CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
+			CompressionEntry entry1Expected = {
+				.value = { .type = CompressionValueTypeNormalEncoding,
+				           .data = { .normal_compression = CompressionTypeCompress } },
+				.weight = 1.0F
+			};
 
-		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
-			                                           .data = { .normal_compression =
-			                                                         CompressionTypeCompress } },
-			                                .weight = 1.0F };
+			REQUIRE_EQ(entry1, entry1Expected);
 
-		REQUIRE_EQ(entry1, entry1Expected);
+			CompressionEntry entry2 = TVEC_AT(CompressionEntry, compression_settings.entries(), 1);
 
-		CompressionEntry entry2 = TVEC_AT(CompressionEntry, compression_settings.entries(), 1);
+			CompressionEntry entry2Expected = {
+				.value = { .type = CompressionValueTypeNormalEncoding,
+				           .data = { .normal_compression = CompressionTypeGzip } },
+				.weight = 1.0F
+			};
 
-		CompressionEntry entry2Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
-			                                           .data = { .normal_compression =
-			                                                         CompressionTypeGzip } },
-			                                .weight = 1.0F };
-
-		REQUIRE_EQ(entry2, entry2Expected);
+			REQUIRE_EQ(entry2, entry2Expected);
+		}();
 	}
 
 	SUBCASE("empty value") {
+		[]() -> void {
+			CompressionSettingsCpp compression_settings = CompressionSettingsCpp("");
 
-		CompressionSettingsCpp compression_settings = CompressionSettingsCpp("");
+			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
-		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
-
-		REQUIRE_EQ(entries_length, 0);
+			REQUIRE_EQ(entries_length, 0);
+		}();
 	}
 
 	SUBCASE("'*' value") {
+		[]() -> void {
+			CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" *");
 
-		CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" *");
+			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
-		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
+			REQUIRE_EQ(entries_length, 1);
 
-		REQUIRE_EQ(entries_length, 1);
+			CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
 
-		CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
+			CompressionEntry entry1Expected = {
+				.value = { .type = CompressionValueTypeAllEncodings, .data = {} }, .weight = 1.0F
+			};
 
-		CompressionEntry entry1Expected = {
-			.value = { .type = CompressionValueTypeAllEncodings, .data = {} }, .weight = 1.0F
-		};
-
-		REQUIRE_EQ(entry1, entry1Expected);
+			REQUIRE_EQ(entry1, entry1Expected);
+		}();
 	}
 
 	SUBCASE("complicated list with weights") {
-		CompressionSettingsCpp compression_settings =
-		    CompressionSettingsCpp(" deflate;q=0.5, br;q=1.0");
+		[]() -> void {
+			CompressionSettingsCpp compression_settings =
+			    CompressionSettingsCpp(" deflate;q=0.5, br;q=1.0");
 
-		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
+			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
-		REQUIRE_EQ(entries_length, 2);
+			REQUIRE_EQ(entries_length, 2);
 
-		CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
+			CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
 
-		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
-			                                           .data = { .normal_compression =
-			                                                         CompressionTypeDeflate } },
-			                                .weight = 0.5F };
+			CompressionEntry entry1Expected = {
+				.value = { .type = CompressionValueTypeNormalEncoding,
+				           .data = { .normal_compression = CompressionTypeDeflate } },
+				.weight = 0.5F
+			};
 
-		REQUIRE_EQ(entry1, entry1Expected);
+			REQUIRE_EQ(entry1, entry1Expected);
 
-		CompressionEntry entry2 = TVEC_AT(CompressionEntry, compression_settings.entries(), 1);
+			CompressionEntry entry2 = TVEC_AT(CompressionEntry, compression_settings.entries(), 1);
 
-		CompressionEntry entry2Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
-			                                           .data = { .normal_compression =
-			                                                         CompressionTypeBr } },
-			                                .weight = 1.0F };
+			CompressionEntry entry2Expected = {
+				.value = { .type = CompressionValueTypeNormalEncoding,
+				           .data = { .normal_compression = CompressionTypeBr } },
+				.weight = 1.0F
+			};
 
-		REQUIRE_EQ(entry2, entry2Expected);
+			REQUIRE_EQ(entry2, entry2Expected);
+		}();
 	}
 
 	SUBCASE("complicated list with weights and 'identity'") {
-		CompressionSettingsCpp compression_settings =
-		    CompressionSettingsCpp(" zstd;q=1.0, identity; q=0.5, *;q=0");
+		[]() -> void {
+			CompressionSettingsCpp compression_settings =
+			    CompressionSettingsCpp(" zstd;q=1.0, identity; q=0.5, *;q=0");
 
-		size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
+			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
-		REQUIRE_EQ(entries_length, 3);
+			REQUIRE_EQ(entries_length, 3);
 
-		CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
+			CompressionEntry entry1 = TVEC_AT(CompressionEntry, compression_settings.entries(), 0);
 
-		CompressionEntry entry1Expected = { .value = { .type = CompressionValueTypeNormalEncoding,
-			                                           .data = { .normal_compression =
-			                                                         CompressionTypeZstd } },
-			                                .weight = 1.0F };
+			CompressionEntry entry1Expected = {
+				.value = { .type = CompressionValueTypeNormalEncoding,
+				           .data = { .normal_compression = CompressionTypeZstd } },
+				.weight = 1.0F
+			};
 
-		REQUIRE_EQ(entry1, entry1Expected);
+			REQUIRE_EQ(entry1, entry1Expected);
 
-		CompressionEntry entry2 = TVEC_AT(CompressionEntry, compression_settings.entries(), 1);
+			CompressionEntry entry2 = TVEC_AT(CompressionEntry, compression_settings.entries(), 1);
 
-		CompressionEntry entry2Expected = {
-			.value = { .type = CompressionValueTypeNoEncoding, .data = {} }, .weight = 0.5F
-		};
+			CompressionEntry entry2Expected = {
+				.value = { .type = CompressionValueTypeNoEncoding, .data = {} }, .weight = 0.5F
+			};
 
-		REQUIRE_EQ(entry2, entry2Expected);
+			REQUIRE_EQ(entry2, entry2Expected);
 
-		CompressionEntry entry3 = TVEC_AT(CompressionEntry, compression_settings.entries(), 2);
+			CompressionEntry entry3 = TVEC_AT(CompressionEntry, compression_settings.entries(), 2);
 
-		CompressionEntry entry3Expected = {
-			.value = { .type = CompressionValueTypeAllEncodings, .data = {} }, .weight = 0.0F
-		};
+			CompressionEntry entry3Expected = {
+				.value = { .type = CompressionValueTypeAllEncodings, .data = {} }, .weight = 0.0F
+			};
 
-		REQUIRE_EQ(entry3, entry3Expected);
+			REQUIRE_EQ(entry3, entry3Expected);
+		}();
 	}
 }
 
@@ -306,12 +320,10 @@ ParsedURIWrapper parse_uri(const char* value) {
 
 } // namespace
 
-TEST_CASE("testing the parsing of the http request") {
+TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
-	SUBCASE("test url path parsing") {
-
-		SUBCASE("simple url") {
-
+	SUBCASE("simple url") {
+		[]() -> void {
 			auto parsed_path = parse_uri("/");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
@@ -323,10 +335,11 @@ TEST_CASE("testing the parsing of the http request") {
 			REQUIRE_EQ(path_comp, "/");
 
 			REQUIRE_EQ(TMAP_SIZE(ParsedSearchPathHashMap, &path.search_path.hash_map), 0);
-		}
+		}();
+	}
 
-		SUBCASE("real path url") {
-
+	SUBCASE("real path url") {
+		[]() -> void {
 			auto parsed_path = parse_uri("/test/hello");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
@@ -338,10 +351,11 @@ TEST_CASE("testing the parsing of the http request") {
 			REQUIRE_EQ(path_comp, "/test/hello");
 
 			REQUIRE_EQ(TMAP_SIZE(ParsedSearchPathHashMap, &path.search_path.hash_map), 0);
-		}
+		}();
+	}
 
-		SUBCASE("path url with search parameters") {
-
+	SUBCASE("path url with search parameters") {
+		[]() -> void {
 			auto parsed_path = parse_uri("/test/hello?param1=hello&param2&param3=");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
@@ -394,10 +408,11 @@ TEST_CASE("testing the parsing of the http request") {
 
 				REQUIRE_EQ(entry, nullptr);
 			}
-		}
+		}();
+	}
 
-		SUBCASE("path url with search parameters") {
-
+	SUBCASE("path url with search parameters") {
+		[]() -> void {
 			auto parsed_path = parse_uri("/test/hello?param1=hello&param2&param3=");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
@@ -450,7 +465,7 @@ TEST_CASE("testing the parsing of the http request") {
 
 				REQUIRE_EQ(entry, nullptr);
 			}
-		}
+		}();
 	}
 }
 
