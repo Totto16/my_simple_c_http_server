@@ -223,8 +223,6 @@ struct HpackStateImpl {
 
 TEST_CASE("testing hpack deserializing - header field tests") {
 
-	constexpr size_t DEFAULT_HEADER_TABLE_SIZE = 4096;
-
 	const auto hpack_cpp_global_handle = HpackGlobalHandle();
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.2
@@ -328,8 +326,6 @@ struct HpackManualTestCase {
 } // namespace
 
 TEST_CASE("testing hpack deserializing - manual tests") {
-
-	constexpr size_t DEFAULT_HEADER_TABLE_SIZE = 4096;
 
 	const auto hpack_cpp_global_handle = HpackGlobalHandle();
 

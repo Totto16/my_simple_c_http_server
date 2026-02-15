@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -18,6 +19,7 @@ struct ThirdPartyHpackTestCase {
 	std::string description;
 	std::vector<ThirdPartyHpackTestCaseEntry> cases;
 	std::string name;
+	size_t header_table_size;
 };
 
 struct HpackGlobalHandle {
@@ -116,6 +118,23 @@ parse_headers_map(const nlohmann::json& value) {
 	};
 }
 
+[[nodiscard]] static std::optional<size_t> get_optional_header_size(const nlohmann::json& case_) {
+
+	if(!case_.contains("header_table_size")) {
+		return std::nullopt;
+	}
+
+	const auto& header_table_size_v = case_["header_table_size"];
+
+	if(header_table_size_v.is_null()) {
+		return std::nullopt;
+	}
+
+	return header_table_size_v.get<size_t>();
+}
+
+#define DEFAULT_HEADER_TABLE_SIZE 4096
+
 [[nodiscard]] static ThirdPartyHpackTestCase
 get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 
@@ -130,7 +149,23 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 		throw std::runtime_error("json is malformed");
 	}
 
+	std::optional<size_t> header_table_size = std::nullopt;
+
 	for(const auto& case_ : data["cases"]) {
+
+		const auto local_h_size = get_optional_header_size(case_);
+
+		if(local_h_size.has_value()) {
+			if(header_table_size.has_value()) {
+				if(local_h_size.value() != header_table_size.value()) {
+					throw std::runtime_error(std::string{ "Invalid header table size value: " } +
+					                         std::to_string(local_h_size.value()) + " vs " +
+					                         std::to_string(header_table_size.value()));
+				}
+			} else {
+				header_table_size = local_h_size;
+			}
+		}
 
 		const auto case_result = get_case_from_json(case_);
 
@@ -143,6 +178,7 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 		.description = description,
 		.cases = cases,
 		.name = name,
+		.header_table_size = header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE),
 	};
 }
 
