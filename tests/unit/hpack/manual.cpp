@@ -6,60 +6,6 @@
 TEST_SUITE_BEGIN("hpack/manual" * doctest::description("manual hpack tests") *
                  doctest::timeout(2.0));
 
-TEST_CASE("testing hpack deserializing - manual tests") {
-
-	constexpr size_t DEFAULT_HEADER_TABLE_SIZE = 4096;
-
-	const auto hpack_cpp_global_handle = HpackGlobalHandle();
-
-	const std::vector<ThirdPartyHpackTestCaseEntry> test_cases = {
-
-	};
-
-	HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
-
-	REQUIRE_NE(state.get(), nullptr);
-
-	for(size_t i = 0; i < test_cases.size(); ++i) {
-
-		const auto& test_case = test_cases.at(i);
-
-		const auto case_str2 = std::string{ "Subcase " } + std::to_string(i);
-		doctest::String case_name = doctest::String{ case_str2.c_str() };
-
-		INFO("the sequential number of that hpack packet has to be the same as the "
-		     "index: ",
-		     test_case.seqno, " | ", i);
-		REQUIRE_EQ(test_case.seqno, i);
-
-		SUBCASE(case_name) {
-
-			const auto input = buffer_from_raw_data(test_case.wire_data);
-
-			const auto result = http2_hpack_decompress_data(state.get(), input);
-
-			std::string error = "";
-			if(result.is_error) {
-				error = std::string{ result.data.error };
-
-				INFO("Error occurred: ", error);
-				CHECK_FALSE(result.is_error);
-				continue;
-			}
-
-			REQUIRE_FALSE(result.is_error);
-
-			const auto actual_result = result.data.result;
-
-			const auto& expected_result = test_case.headers;
-
-			const auto actual_result_cpp = get_cpp_headers(actual_result);
-
-			REQUIRE_EQ(actual_result_cpp, expected_result);
-		}
-	}
-}
-
 struct IntegerTest {
 	std::vector<std::uint8_t> values;
 	std::uint8_t prefix_bits;
@@ -81,8 +27,8 @@ TEST_CASE("testing hpack deserializing - integer tests") {
 
 		const auto& test_case = test_cases.at(i);
 
-		const auto case_str2 = std::string{ "Subcase " } + std::to_string(i);
-		doctest::String case_name = doctest::String{ case_str2.c_str() };
+		const auto case_str = std::string{ "Subcase " } + std::to_string(i);
+		doctest::String case_name = doctest::String{ case_str.c_str() };
 
 		SUBCASE(case_name) {
 
@@ -257,7 +203,7 @@ struct HpackStateImpl {
 [[nodiscard]] test::DynamicTable get_dynamic_table(const auto& state) {
 
 	const auto* state_cpp_extracted =
-	    (cpp_forbidden_test_type_impl_DONT_USE::HpackStateImpl*)state.get();
+	    (const cpp_forbidden_test_type_impl_DONT_USE::HpackStateImpl*)state.get();
 
 	const size_t size = state_cpp_extracted->current_dynamic_table_byte_size;
 
@@ -332,8 +278,8 @@ TEST_CASE("testing hpack deserializing - header field tests") {
 
 		const auto& test_case = test_cases.at(i);
 
-		const auto case_str2 = std::string{ "Subcase " } + std::to_string(i);
-		doctest::String case_name = doctest::String{ case_str2.c_str() };
+		const auto case_str = std::string{ "Subcase " } + std::to_string(i);
+		doctest::String case_name = doctest::String{ case_str.c_str() };
 
 		SUBCASE(case_name) {
 
@@ -345,12 +291,9 @@ TEST_CASE("testing hpack deserializing - header field tests") {
 			std::string error = "";
 			if(result.is_error) {
 				error = std::string{ result.data.error };
-
-				INFO("Error occurred: ", error);
-				CHECK_FALSE(result.is_error);
-				continue;
 			}
 
+			INFO("Error occurred: ", error);
 			REQUIRE_FALSE(result.is_error);
 
 			const auto actual_result = result.data.result;
@@ -366,6 +309,136 @@ TEST_CASE("testing hpack deserializing - header field tests") {
 			const auto actual_dynamic_table = get_dynamic_table(state);
 
 			REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
+		}
+	}
+}
+
+namespace {
+
+using HpackManualTestCaseEntry = HeaderFieldTest;
+
+struct HpackManualTestCase {
+	std::string name;
+	std::string description;
+	std::vector<HpackManualTestCaseEntry> cases;
+};
+
+} // namespace
+
+TEST_CASE("testing hpack deserializing - manual tests") {
+
+	constexpr size_t DEFAULT_HEADER_TABLE_SIZE = 4096;
+
+	const auto hpack_cpp_global_handle = HpackGlobalHandle();
+
+	const std::vector<HpackManualTestCase> test_cases = {
+		// see https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3
+		HpackManualTestCase{
+			.name  = "c.3",
+			.description = "Request Examples without Huffman Coding",
+			.cases = std::vector<HpackManualTestCaseEntry>{
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.1
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("828684410f7777772e6578616d706c652e636f6d"),
+					.dynamic_table = {
+						.entries = { {":authority", "www.example.com"}},
+						.size  =  57,
+					},
+					.result = {
+						{":method","GET", },
+						{":scheme","http", },
+						{":path","/", },
+						{":authority","www.example.com", },
+					}
+				},
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.2
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("828684be58086e6f2d6361636865"),
+					.dynamic_table = {
+						.entries = { 
+							{"cache-control","no-cache"},
+							{":authority", "www.example.com"}
+						},
+						.size  =  110,
+					},
+					.result = {
+						{":method","GET", },
+						{":scheme","http", },
+						{":path","/", },
+						{":authority","www.example.com", },
+						{"cache-control","no-cache", },
+					}
+				},
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.3
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("828785bf400a637573746f6d2d6b65790c637573746f6d2d76616c7565"),
+					.dynamic_table = {
+						.entries = { 
+							{"custom-key", "custom-value", },
+							{"cache-control","no-cache"},
+							{":authority", "www.example.com"}
+						},
+						.size  =  164,
+					},
+					.result = {
+						{":method","GET", },
+						{":scheme","https", },
+						{":path","/index.html", },
+						{":authority","www.example.com", },
+						{"custom-key", "custom-value", },
+					}
+				},
+		}}
+
+	};
+
+	for(const auto& test_case : test_cases) {
+
+		const auto case_str = std::string{ "Subcase " } + test_case.name;
+		doctest::String case_name = doctest::String{ case_str.c_str() };
+
+		SUBCASE(case_name) {
+
+			HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
+
+			REQUIRE_NE(state.get(), nullptr);
+
+			for(size_t i = 0; i < test_case.cases.size(); ++i) {
+
+				const auto& subcase = test_case.cases.at(i);
+
+				const auto case_str2 = std::string{ "Subcase " } + std::to_string(i);
+				doctest::String case_name2 = doctest::String{ case_str2.c_str() };
+
+				SUBCASE(case_name2) {
+
+					const auto input = buffer_from_raw_data(subcase.raw_data);
+
+					const auto result = http2_hpack_decompress_data(state.get(), input);
+
+					std::string error = "";
+					if(result.is_error) {
+						error = std::string{ result.data.error };
+					}
+
+					INFO("Error occurred: ", error);
+					REQUIRE_FALSE(result.is_error);
+
+					const auto actual_result = result.data.result;
+
+					const auto& expected_result = subcase.result;
+
+					const auto actual_result_cpp = get_cpp_headers(actual_result);
+
+					REQUIRE_EQ(actual_result_cpp, expected_result);
+
+					const auto& expected_dynamic_table = subcase.dynamic_table;
+
+					const auto actual_dynamic_table = get_dynamic_table(state);
+
+					REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
+				}
+			}
 		}
 	}
 }
