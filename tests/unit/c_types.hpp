@@ -2,6 +2,9 @@
 
 #pragma once
 
+#define DOCTEST_CONFIG_REQUIRE_STRINGIFICATION_FOR_ALL_USED_TYPES
+#define DOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING
+#define DOCTEST_CONFIG_USE_STD_HEADERS
 #include <doctest.h>
 
 #include <cstdint>

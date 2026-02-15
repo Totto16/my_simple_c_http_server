@@ -1,6 +1,4 @@
 
-#include <doctest.h>
-
 #include "../c_types.hpp"
 #include "./helpers.hpp"
 

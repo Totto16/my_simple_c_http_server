@@ -1,6 +1,5 @@
-#include <doctest.h>
-
 #include "../c_types.hpp"
+
 #include "./helpers.hpp"
 
 TEST_CASE("testing hpack deserializing - manual tests") {
@@ -172,6 +171,8 @@ TEST_CASE("testing hpack deserializing - integer tests") {
 	}
 }
 
+namespace test {
+
 struct DynamicTable {
 	std::vector<std::pair<std::string, std::string>> entries;
 	size_t size;
@@ -210,9 +211,20 @@ NODISCARD [[maybe_unused]] static bool operator==(const DynamicTable& table1,
 	return true;
 }
 
+} // namespace test
+
+namespace {
+[[maybe_unused]] std::ostream& operator<<(std::ostream& os, const test::DynamicTable& table) {
+	os << toString(table);
+	return os;
+}
+} // namespace
+
+
+
 struct HeaderFieldTest {
 	std::vector<std::uint8_t> raw_data;
-	DynamicTable dynamic_table;
+	test::DynamicTable dynamic_table;
 	std::unordered_map<std::string, std::string> result;
 };
 
@@ -240,7 +252,7 @@ struct HpackStateImpl {
 
 } // namespace cpp_forbidden_test_type_impl_DONT_USE
 
-[[nodiscard]] DynamicTable get_dynamic_table(const auto& state) {
+[[nodiscard]] test::DynamicTable get_dynamic_table(const auto& state) {
 
 	const auto* state_cpp_extracted =
 	    (cpp_forbidden_test_type_impl_DONT_USE::HpackStateImpl*)state.get();
@@ -258,7 +270,7 @@ struct HpackStateImpl {
 		entries.emplace_back(entry.key, entry.value);
 	}
 
-	return DynamicTable{ .entries = entries, .size = size };
+	return test::DynamicTable{ .entries = entries, .size = size };
 }
 
 TEST_CASE("testing hpack deserializing - header field tests") {
@@ -306,7 +318,7 @@ TEST_CASE("testing hpack deserializing - header field tests") {
 				.size  =  0,
 			},
 			.result = {
-				{":method","GET"}
+				{":method","GET1"}
 			}
 		}
 	};

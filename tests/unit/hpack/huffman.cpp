@@ -1,7 +1,3 @@
-
-
-#include <doctest.h>
-
 #include <http/hpack_huffman.h>
 
 #include "generated_hpack_tests.hpp"

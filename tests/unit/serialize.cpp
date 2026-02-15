@@ -1,7 +1,3 @@
-
-
-#include <doctest.h>
-
 #include <generic/serialize.h>
 
 #include "./c_types.hpp"
