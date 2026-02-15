@@ -136,14 +136,11 @@ struct DynamicTable {
 	size_t size;
 };
 
-[[maybe_unused]] static doctest::String toString(const DynamicTable& table) {
-	std::stringstream str{};
-	str << "DynamicTable:\n" << table.entries;
-	str << "\n" << table.size << "\n";
-
-	std::string string = str.str();
-	return doctest::String{ string.c_str(),
-		                    static_cast<doctest::String::size_type>(string.size()) };
+[[maybe_unused]] static std::ostream& operator<<(std::ostream& os,
+                                                 const test::DynamicTable& table) {
+	os << "DynamicTable:\n" << os_stream_formattable_to_doctest(table.entries);
+	os << "\n" << table.size << "\n";
+	return os;
 }
 
 NODISCARD [[maybe_unused]] static bool operator==(const DynamicTable& table1,
@@ -170,13 +167,6 @@ NODISCARD [[maybe_unused]] static bool operator==(const DynamicTable& table1,
 }
 
 } // namespace test
-
-namespace {
-[[maybe_unused]] std::ostream& operator<<(std::ostream& os, const test::DynamicTable& table) {
-	os << toString(table);
-	return os;
-}
-} // namespace
 
 struct HeaderFieldTest {
 	std::vector<std::uint8_t> raw_data;
@@ -464,7 +454,9 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 
 					const auto input = buffer_from_raw_data(subcase.raw_data);
 
-					const auto result = http2_hpack_decompress_data(state.get(), input);
+					auto result = http2_hpack_decompress_data(state.get(), input);
+					CppDefer<Http2HpackDecompressResult> defer = { &result,
+						                                           free_hpack_decompress_result };
 
 					std::string error = "";
 					if(result.is_error) {

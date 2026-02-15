@@ -36,24 +36,34 @@ template <typename T>
 	return os;
 }
 
-doctest::String toString(const std::unordered_map<std::string, std::string>& string_map);
+std::ostream& operator<<(std::ostream& os,
+                         const std::unordered_map<std::string, std::string>& string_map);
 
-[[maybe_unused]] std::ostream&
-operator<<(std::ostream& os, const std::unordered_map<std::string, std::string>& string_map);
+template <typename T> doctest::String os_stream_formattable_to_doctest(const T& value) {
+	std::stringstream str{};
+	str << value;
+	std::string string = str.str();
+	return doctest::String{ string.c_str(),
+		                    static_cast<doctest::String::size_type>(string.size()) };
+}
 
 namespace doctest {
 template <> struct StringMaker<std::unordered_map<std::string, std::string>> {
 	static String convert(const std::unordered_map<std::string, std::string>& string_map) {
-		return toString(string_map);
+		return ::os_stream_formattable_to_doctest(string_map);
 	}
 };
 
 template <typename T> struct StringMaker<std::vector<T>> {
-	static String convert(const std::vector<T>& vec) { return toString(vec); }
+	static String convert(const std::vector<T>& vec) {
+		return ::os_stream_formattable_to_doctest(vec);
+	}
 };
 
 template <typename A, typename B> struct StringMaker<std::pair<A, B>> {
-	static String convert(const std::pair<A, B>& pair) { return toString(pair); }
+	static String convert(const std::pair<A, B>& pair) {
+		return ::os_stream_formattable_to_doctest(pair);
+	}
 };
 
 } // namespace doctest

@@ -12,6 +12,8 @@
 #include <sstream>
 #include <string>
 
+#include "helpers/cpp_types.hpp"
+
 namespace {
 class CompressionSettingsCpp {
   private:
@@ -78,21 +80,22 @@ class CompressionSettingsCpp {
 	return true;
 }
 
-std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
+} // namespace
+
+static std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
 	os << "CompressionEntry{value=" << get_representation_for_compression_value(entry.value)
 	   << ", weight=" << entry.weight << "}";
 	return os;
 }
 
-} // namespace
+namespace doctest {
+template <> struct StringMaker<CompressionEntry> {
+	static String convert(const CompressionEntry& entry) {
+		return ::os_stream_formattable_to_doctest(entry);
+	}
+};
 
-doctest::String static toString(const CompressionEntry& value) {
-	std::stringstream str{};
-	str << value;
-	std::string string = str.str();
-	return doctest::String{ string.c_str(),
-		                    static_cast<doctest::String::size_type>(string.size()) };
-}
+} // namespace doctest
 
 [[nodiscard]] static bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs) {
 

@@ -36,14 +36,6 @@ std::ostream& operator<<(std::ostream& os, const SizedBuffer& buffer) {
 	return os;
 }
 
-doctest::String toString(const SizedBuffer& buffer) {
-	std::stringstream str{};
-	str << buffer;
-	std::string string = str.str();
-	return doctest::String{ string.c_str(),
-		                    static_cast<doctest::String::size_type>(string.size()) };
-}
-
 NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs) {
 
 	if(lhs.size != rhs.size) {
