@@ -5,6 +5,8 @@ src_files += files(
     'compression.h',
     'debug.c',
     'debug.h',
+    'dynamic_hpack_table.c',
+    'dynamic_hpack_table.h',
     'folder.c',
     'folder.h',
     'header.c',

@@ -1,21 +1,13 @@
 #include "./hpack.h"
+#include "./dynamic_hpack_table.h"
 #include "./hpack_huffman.h"
 
 #include "generated_hpack.h"
 
 // see: https://datatracker.ietf.org/doc/html/rfc7541
 
-typedef struct {
-	char* key;
-	char* value;
-} HpackHeaderDynamicEntry;
-
-TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(HpackHeaderDynamicEntry)
-
-typedef TVEC_TYPENAME(HpackHeaderDynamicEntry) HpackHeaderDynamicEntries;
-
 struct HpackStateImpl {
-	HpackHeaderDynamicEntries dynamic_table;
+	HpackHeaderDynamicTable dynamic_table;
 	size_t max_dynamic_table_byte_size;
 	size_t current_dynamic_table_byte_size;
 };
@@ -119,22 +111,19 @@ NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackStat
 
 	const size_t dynamic_index = value - HPACK_STATIC_HEADER_TABLE_SIZE - 1;
 
-	if(TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table) <= dynamic_index) {
+	const size_t dynamic_table_size = state->dynamic_table.count;
+
+	if(dynamic_table_size <= dynamic_index) {
 		return (HpackHeaderEntryResult){ .is_error = true };
 	}
 
 	const HpackHeaderDynamicEntry dynamic_entry =
-	    TVEC_AT(HpackHeaderDynamicEntry, state->dynamic_table, dynamic_index);
+	    hpack_dynamic_table_at(&(state->dynamic_table), dynamic_index);
 
 	return (HpackHeaderEntryResult){ .is_error = false,
 		                             .value = (HpackHeaderDynamicEntry){
 		                                 .key = strdup(dynamic_entry.key),
 		                                 .value = strdup_null_agnostic(dynamic_entry.value) } };
-}
-
-static inline void free_dynamic_entry(const HpackHeaderDynamicEntry entry) {
-	free(entry.key);
-	free(entry.value);
 }
 
 NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t size,
@@ -247,39 +236,33 @@ NODISCARD static size_t get_dynamic_entry_size(const HpackHeaderDynamicEntry ent
 
 static void insert_entry_into_dynamic_table(HpackState* const state,
                                             const HpackHeaderDynamicEntry new_entry) {
+	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-4.4
 
 	const size_t new_size = get_dynamic_entry_size(new_entry);
 
 	if(new_size > state->max_dynamic_table_byte_size) {
 
 		// free the entire table, this is not per se an error
+		hpack_dynamic_table_free(&(state->dynamic_table));
 
-		for(size_t i = 0; i < TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table); ++i) {
-			HpackHeaderDynamicEntry entry =
-			    TVEC_POP_GET(HpackHeaderDynamicEntry, &(state->dynamic_table));
-
-			free_dynamic_entry(entry);
-		}
-
-		TVEC_FREE(HpackHeaderDynamicEntry, &(state->dynamic_table));
-
-		state->dynamic_table = TVEC_EMPTY(HpackHeaderDynamicEntry);
 		state->current_dynamic_table_byte_size = 0;
 
 		return;
 	}
 
 	// clean until we have space
-	for(size_t i = TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table);
-	    (state->current_dynamic_table_byte_size + new_size > state->max_dynamic_table_byte_size) &&
-	    (i != 0);
-	    --i) {
+	while(state->current_dynamic_table_byte_size + new_size > state->max_dynamic_table_byte_size) {
 
-		HpackHeaderDynamicEntry entry =
-		    TVEC_POP_GET(HpackHeaderDynamicEntry, &(state->dynamic_table));
+		HpackHeaderDynamicEntry* entry = hpack_dynamic_table_pop_at_end(&(state->dynamic_table));
 
-		const size_t entry_size = get_dynamic_entry_size(entry);
-		free_dynamic_entry(entry);
+		if(entry == NULL) {
+			// should not occur, if new_size doesn't fit at all, we should be able to free the
+			// dynamic table with the if condition at the start
+			break;
+		}
+
+		const size_t entry_size = get_dynamic_entry_size(*entry);
+		free_dynamic_entry(*entry);
 		state->current_dynamic_table_byte_size -= entry_size;
 	}
 
@@ -289,9 +272,9 @@ static void insert_entry_into_dynamic_table(HpackState* const state,
 		                                            .value =
 		                                                strdup_null_agnostic(new_entry.value) };
 
-	TvecResult res = TVEC_PUSH(HpackHeaderDynamicEntry, &(state->dynamic_table), new_entry_dup);
+	bool success = hpack_dynamic_table_insert_at_start(&(state->dynamic_table), new_entry_dup);
 
-	if(res != TvecResultOk) {
+	if(!success) {
 		return;
 	}
 
@@ -706,7 +689,7 @@ NODISCARD HpackState* get_default_hpack_state(size_t max_dynamic_table_byte_size
 	}
 
 	*state = (HpackState){
-		.dynamic_table = TVEC_EMPTY(HpackHeaderDynamicEntry),
+		.dynamic_table = hpack_dynamic_table_empty(),
 		.current_dynamic_table_byte_size = 0,
 		.max_dynamic_table_byte_size = max_dynamic_table_byte_size,
 	};
@@ -714,54 +697,44 @@ NODISCARD HpackState* get_default_hpack_state(size_t max_dynamic_table_byte_size
 	return state;
 }
 
-void set_hpack_state_setting(HpackState* const state, size_t max_dynamic_table_byte_size) {
+static void dynamic_table_evict_entries_on_table_change(HpackState* const state) {
+	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-4.3
 
-	state->max_dynamic_table_byte_size = max_dynamic_table_byte_size;
-
-	if(max_dynamic_table_byte_size == 0) {
+	if(state->max_dynamic_table_byte_size == 0) {
 
 		// free the entire table
+		hpack_dynamic_table_free(&(state->dynamic_table));
 
-		for(size_t i = 0; i < TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table); ++i) {
-			HpackHeaderDynamicEntry entry =
-			    TVEC_POP_GET(HpackHeaderDynamicEntry, &(state->dynamic_table));
-
-			free_dynamic_entry(entry);
-		}
-
-		TVEC_FREE(HpackHeaderDynamicEntry, &(state->dynamic_table));
-
-		state->dynamic_table = TVEC_EMPTY(HpackHeaderDynamicEntry);
 		state->current_dynamic_table_byte_size = 0;
 
 		return;
 	}
 
-	for(size_t i = TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table);
-	    (state->current_dynamic_table_byte_size > state->max_dynamic_table_byte_size) && (i != 0);
-	    --i) {
+	while(state->current_dynamic_table_byte_size > state->max_dynamic_table_byte_size) {
 
-		HpackHeaderDynamicEntry entry =
-		    TVEC_POP_GET(HpackHeaderDynamicEntry, &(state->dynamic_table));
+		HpackHeaderDynamicEntry* entry = hpack_dynamic_table_pop_at_end(&(state->dynamic_table));
 
-		const size_t entry_size = get_dynamic_entry_size(entry);
-		free_dynamic_entry(entry);
+		if(entry == NULL) {
+			// can occur if the max_dynamic_table_byte_size is smaller tan the size of the first
+			// entry (last to be popped)
+			break;
+		}
+
+		const size_t entry_size = get_dynamic_entry_size(*entry);
+		free_dynamic_entry(*entry);
 		state->current_dynamic_table_byte_size -= entry_size;
 	}
 }
 
+void set_hpack_state_setting(HpackState* const state, size_t max_dynamic_table_byte_size) {
+
+	state->max_dynamic_table_byte_size = max_dynamic_table_byte_size;
+	dynamic_table_evict_entries_on_table_change(state);
+}
+
 void free_hpack_state(HpackState* state) {
 
-	for(size_t i = 0; i < TVEC_LENGTH(HpackHeaderDynamicEntry, state->dynamic_table); ++i) {
-
-		const HpackHeaderDynamicEntry entry =
-		    TVEC_AT(HpackHeaderDynamicEntry, state->dynamic_table, i);
-
-		free_dynamic_entry(entry);
-	}
-
-	TVEC_FREE(HpackHeaderDynamicEntry, &(state->dynamic_table));
-
+	hpack_dynamic_table_free(&(state->dynamic_table));
 	free(state);
 }
 
