@@ -3,6 +3,7 @@
 #include <doctest.h>
 
 #include <cstdint>
+#include <functional>
 #include <iomanip>
 #include <ostream>
 #include <sstream>
@@ -56,3 +57,25 @@ template <typename A, typename B> struct StringMaker<std::pair<A, B>> {
 };
 
 } // namespace doctest
+
+template <typename T> struct CppDefer {
+  public:
+	using FreeFn = std::function<void(T*)>;
+
+  private:
+	T* m_state;
+	FreeFn m_free_fn;
+
+  public:
+	CppDefer(T* state, const FreeFn& free_fn) : m_state{ state }, m_free_fn{ free_fn } {}
+
+	CppDefer(CppDefer&&) = delete;
+
+	CppDefer(const CppDefer&) = delete;
+
+	CppDefer& operator=(const CppDefer&) = delete;
+
+	CppDefer operator=(CppDefer&&) = delete;
+
+	~CppDefer() { this->m_free_fn(this->m_state); }
+};

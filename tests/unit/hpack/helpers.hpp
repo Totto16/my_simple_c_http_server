@@ -220,3 +220,12 @@ using HpackStateCpp = std::unique_ptr<HpackState, void (*)(HpackState*)>;
 	HpackStateCpp state{ get_default_hpack_state(max_dynamic_table_byte_size), free_hpack_state };
 	return state;
 }
+
+[[maybe_unused]] static void free_hpack_decompress_result(Http2HpackDecompressResult* result) {
+
+	if(result->is_error) {
+		return;
+	}
+
+	free_http_header_fields(&(result->data.result));
+}

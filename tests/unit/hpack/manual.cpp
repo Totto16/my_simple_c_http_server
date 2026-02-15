@@ -221,8 +221,6 @@ namespace {
 }
 } // namespace
 
-
-
 struct HeaderFieldTest {
 	std::vector<std::uint8_t> raw_data;
 	test::DynamicTable dynamic_table;
@@ -338,7 +336,8 @@ TEST_CASE("testing hpack deserializing - header field tests") {
 
 			const auto input = buffer_from_raw_data(test_case.raw_data);
 
-			const auto result = http2_hpack_decompress_data(state.get(), input);
+			auto result = http2_hpack_decompress_data(state.get(), input);
+			CppDefer<Http2HpackDecompressResult> defer = { &result, free_hpack_decompress_result };
 
 			std::string error = "";
 			if(result.is_error) {
