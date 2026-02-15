@@ -386,8 +386,66 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 						{"custom-key", "custom-value", },
 					}
 				},
-		}}
-
+			}
+		},
+		// see https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4
+		HpackManualTestCase{
+			.name  = "c.4",
+			.description = "Request Examples with Huffman Coding",
+			.cases = std::vector<HpackManualTestCaseEntry>{
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.1
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("828684418cf1e3c2e5f23a6ba0ab90f4ff"),
+					.dynamic_table = {
+						.entries = { {":authority", "www.example.com"}},
+						.size  =  57,
+					},
+					.result = {
+						{":method","GET", },
+						{":scheme","http", },
+						{":path","/", },
+						{":authority","www.example.com", },
+					}
+				},
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.2
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("828684be5886a8eb10649cbf"),
+					.dynamic_table = {
+						.entries = { 
+							{"cache-control","no-cache"},
+							{":authority", "www.example.com"}
+						},
+						.size  =  110,
+					},
+					.result = {
+						{":method","GET", },
+						{":scheme","http", },
+						{":path","/", },
+						{":authority","www.example.com", },
+						{"cache-control","no-cache", },
+					}
+				},
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.3
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("828785bf408825a849e95ba97d7f8925a849e95bb8e8b4bf"),
+					.dynamic_table = {
+						.entries = { 
+							{"custom-key", "custom-value", },
+							{"cache-control","no-cache"},
+							{":authority", "www.example.com"}
+						},
+						.size  =  164,
+					},
+					.result = {
+						{":method","GET", },
+						{":scheme","https", },
+						{":path","/index.html", },
+						{":authority","www.example.com", },
+						{"custom-key", "custom-value", },
+					}
+				},
+			}
+		}
 	};
 
 	for(const auto& test_case : test_cases) {
