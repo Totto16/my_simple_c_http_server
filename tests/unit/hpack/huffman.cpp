@@ -3,6 +3,9 @@
 #include "generated_hpack_tests.hpp"
 
 #include "./c_types.hpp"
+#include "./cpp_types.hpp"
+
+#include <memory>
 
 [[nodiscard]] static SizedBuffer buffer_from_raw_data(const std::vector<std::uint8_t>& data) {
 	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
@@ -14,16 +17,31 @@
 	return buffer;
 }
 
+using HuffManTreeCpp = std::unique_ptr<HuffManTree, void (*)(HuffManTree*)>;
+
+[[nodiscard]] static HuffManTreeCpp get_hpack_huffman_tree_cpp() {
+	HuffManTreeCpp tree{ get_hpack_huffman_tree(), free_hpack_huffman_tree };
+	return tree;
+}
+
 struct TestCaseManual {
 	std::vector<std::uint8_t> encoded;
 	std::string str;
 };
 
+static void free_huffman_result(HuffmanResult* result) {
+	if(result->is_error) {
+		return;
+	}
+
+	free_sized_buffer(result->data.result);
+}
+
 TEST_CASE("testing hpack huffman deserializing - from hpack spec") {
 
-	const auto* const tree = get_hpack_huffman_tree();
+	const auto tree = get_hpack_huffman_tree_cpp();
 
-	REQUIRE_NE(tree, nullptr);
+	REQUIRE_NE(tree.get(), nullptr);
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4
 	const std::vector<TestCaseManual> test_cases = {
@@ -67,7 +85,8 @@ TEST_CASE("testing hpack huffman deserializing - from hpack spec") {
 
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
-			const auto result = decode_bytes_huffman(tree, input);
+			auto result = decode_bytes_huffman(tree.get(), input);
+			CppDefer<HuffmanResult> defer = { &result, free_huffman_result };
 
 			const char* error = nullptr;
 
@@ -93,9 +112,9 @@ TEST_CASE("testing hpack huffman deserializing - from hpack spec") {
 
 TEST_CASE("testing hpack huffman deserializing (ascii) - generated") {
 
-	const auto* const tree = get_hpack_huffman_tree();
+	const auto tree = get_hpack_huffman_tree_cpp();
 
-	REQUIRE_NE(tree, nullptr);
+	REQUIRE_NE(tree.get(), nullptr);
 
 	const auto test_cases = generated::tests::test_cases_ascii;
 
@@ -110,7 +129,8 @@ TEST_CASE("testing hpack huffman deserializing (ascii) - generated") {
 
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
-			const auto result = decode_bytes_huffman(tree, input);
+			auto result = decode_bytes_huffman(tree.get(), input);
+			CppDefer<HuffmanResult> defer = { &result, free_huffman_result };
 
 			const char* error = nullptr;
 
@@ -136,9 +156,9 @@ TEST_CASE("testing hpack huffman deserializing (ascii) - generated") {
 
 TEST_CASE("testing hpack huffman deserializing (utf8) - generated") {
 
-	const auto* const tree = get_hpack_huffman_tree();
+	const auto tree = get_hpack_huffman_tree_cpp();
 
-	REQUIRE_NE(tree, nullptr);
+	REQUIRE_NE(tree.get(), nullptr);
 
 	const auto test_cases = generated::tests::test_cases_utf8;
 
@@ -153,7 +173,8 @@ TEST_CASE("testing hpack huffman deserializing (utf8) - generated") {
 
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
-			const auto result = decode_bytes_huffman(tree, input);
+			auto result = decode_bytes_huffman(tree.get(), input);
+			CppDefer<HuffmanResult> defer = { &result, free_huffman_result };
 
 			const char* error = nullptr;
 
