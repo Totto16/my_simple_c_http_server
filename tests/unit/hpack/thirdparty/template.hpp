@@ -19,13 +19,12 @@
 			const auto case_str = std::string{ "Case " } + test_case.name; \
 			doctest::String case_name = doctest::String{ case_str.c_str() }; \
 \
+			HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE); \
+			REQUIRE_NE(state.get(), nullptr); \
+\
 			SUBCASE(case_name) { \
 \
 				INFO("test case description: ", test_case.description); \
-\
-				HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE); \
-\
-				REQUIRE_NE(state.get(), nullptr); \
 \
 				for(size_t i = 0; i < test_case.cases.size(); ++i) { \
 \

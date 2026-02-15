@@ -397,11 +397,10 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 		const auto case_str = std::string{ "Subcase " } + test_case.name;
 		doctest::String case_name = doctest::String{ case_str.c_str() };
 
+		HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
+		REQUIRE_NE(state.get(), nullptr);
+
 		SUBCASE(case_name) {
-
-			HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
-
-			REQUIRE_NE(state.get(), nullptr);
 
 			for(size_t i = 0; i < test_case.cases.size(); ++i) {
 
@@ -421,6 +420,7 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 						error = std::string{ result.data.error };
 					}
 
+					INFO("request number: ", i);
 					INFO("Error occurred: ", error);
 					REQUIRE_FALSE(result.is_error);
 

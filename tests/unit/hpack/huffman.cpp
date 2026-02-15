@@ -43,7 +43,6 @@ TEST_SUITE_BEGIN("hpack/huffman" * doctest::description("hpack huffman tests") *
 TEST_CASE("testing hpack huffman deserializing - from hpack spec") {
 
 	const auto tree = get_hpack_huffman_tree_cpp();
-
 	REQUIRE_NE(tree.get(), nullptr);
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4
@@ -116,7 +115,6 @@ TEST_CASE("testing hpack huffman deserializing - from hpack spec") {
 TEST_CASE("testing hpack huffman deserializing (ascii) - generated") {
 
 	const auto tree = get_hpack_huffman_tree_cpp();
-
 	REQUIRE_NE(tree.get(), nullptr);
 
 	const auto test_cases = generated::tests::test_cases_ascii;
@@ -160,7 +158,6 @@ TEST_CASE("testing hpack huffman deserializing (ascii) - generated") {
 TEST_CASE("testing hpack huffman deserializing (utf8) - generated") {
 
 	const auto tree = get_hpack_huffman_tree_cpp();
-
 	REQUIRE_NE(tree.get(), nullptr);
 
 	const auto test_cases = generated::tests::test_cases_utf8;
