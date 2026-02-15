@@ -103,6 +103,8 @@ doctest::String static toString(const CompressionEntry& value) {
 	return lhs.weight == rhs.weight;
 }
 
+TEST_SUITE_BEGIN("http_parser" * doctest::description("http parser tests") * doctest::timeout(2.0));
+
 TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	REQUIRE(is_compression_supported(CompressionTypeGzip));
@@ -451,3 +453,5 @@ TEST_CASE("testing the parsing of the http request") {
 		}
 	}
 }
+
+TEST_SUITE_END();

@@ -3,6 +3,9 @@
 
 #include "./helpers.hpp"
 
+TEST_SUITE_BEGIN("hpack/manual" * doctest::description("manual hpack tests") *
+                 doctest::timeout(2.0));
+
 TEST_CASE("testing hpack deserializing - manual tests") {
 
 	constexpr size_t DEFAULT_HEADER_TABLE_SIZE = 4096;
@@ -366,3 +369,5 @@ TEST_CASE("testing hpack deserializing - header field tests") {
 		}
 	}
 }
+
+TEST_SUITE_END();

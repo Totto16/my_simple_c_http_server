@@ -37,6 +37,9 @@ static void free_huffman_result(HuffmanResult* result) {
 	free_sized_buffer(result->data.result);
 }
 
+TEST_SUITE_BEGIN("hpack/huffman" * doctest::description("hpack huffman tests") *
+                 doctest::timeout(2.0));
+
 TEST_CASE("testing hpack huffman deserializing - from hpack spec") {
 
 	const auto tree = get_hpack_huffman_tree_cpp();
@@ -192,3 +195,5 @@ TEST_CASE("testing hpack huffman deserializing (utf8) - generated") {
 		}
 	}
 }
+
+TEST_SUITE_END();

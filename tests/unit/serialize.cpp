@@ -39,6 +39,8 @@ struct TestCaseDeserialize32 {
 	}
 }
 
+TEST_SUITE_BEGIN("serialize" * doctest::description("serialize / deserialize tests") * doctest::timeout(2.0));
+
 TEST_CASE("testing deserializing u32") {
 
 	std::vector<TestCaseDeserialize32> test_cases = {
@@ -185,3 +187,6 @@ TEST_CASE("testing deserializing u16") {
 		}
 	}
 }
+
+
+TEST_SUITE_END();

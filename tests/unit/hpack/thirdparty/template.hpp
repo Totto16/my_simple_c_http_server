@@ -1,10 +1,12 @@
 
+#include "../helpers.hpp"
 #include "helpers/c_types.hpp"
 #include "helpers/cpp_types.hpp"
-#include "../helpers.hpp"
 
 #define IMPLEMENT_HPACK_TEST_CASE \
-	TEST_CASE("testing hpack deserializing - external tests (" HPACK_TEST_CASE_VALUE ")") { \
+	TEST_CASE("testing hpack deserializing - external tests (" HPACK_TEST_CASE_VALUE ")" * \
+	          doctest::description("hpack thirdparty test case (" HPACK_TEST_CASE_VALUE ")") * \
+	          doctest::timeout(2.0) * doctest::test_suite("hpack/thirdparty")) { \
 \
 		constexpr size_t DEFAULT_HEADER_TABLE_SIZE = 4096; \
 \
