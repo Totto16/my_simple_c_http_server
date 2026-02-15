@@ -35,8 +35,9 @@ typedef struct {
 	SizedBuffer body;
 } Http1Response;
 
-static bool construct_http1_headers_for_request(SendSettings send_settings, Http1Response* response,
-                                                const char* mime_type,
+static bool construct_http1_headers_for_request(SendSettings send_settings,
+                                                Http1Response* const response,
+                                                const char* const mime_type,
                                                 HttpHeaderFields additional_headers,
                                                 CompressionType compression_format) {
 
@@ -47,23 +48,20 @@ static bool construct_http1_headers_for_request(SendSettings send_settings, Http
 	{
 		// MIME TYPE
 
-		// add the standard ones, using %c with '\0' to use the trick, described above
-		char* content_type_buffer = NULL;
-		FORMAT_STRING(&content_type_buffer, return NULL;
-		              , "%s%c%s", HTTP_HEADER_NAME(content_type), '\0',
-		              mime_type == NULL ? DEFAULT_MIME_TYPE : mime_type);
+		const char* const actual_mime_type = mime_type == NULL ? DEFAULT_MIME_TYPE : mime_type;
 
-		add_http_header_field_by_double_str(&response->head.header_fields, content_type_buffer);
+		add_http_header_field_const_key_const_value(
+		    &response->head.header_fields, HTTP_HEADER_NAME(content_type), actual_mime_type);
 	}
 
 	{
 		// CONTENT LENGTH
 
 		char* content_length_buffer = NULL;
-		FORMAT_STRING(&content_length_buffer, return NULL;
-		              , "%s%c%ld", HTTP_HEADER_NAME(content_length), '\0', response->body.size);
+		FORMAT_STRING(&content_length_buffer, return NULL;, "%ld", response->body.size);
 
-		add_http_header_field_by_double_str(&response->head.header_fields, content_length_buffer);
+		add_http_header_field_const_key_dynamic_value(
+		    &response->head.header_fields, HTTP_HEADER_NAME(content_length), content_length_buffer);
 	}
 
 	{
@@ -86,12 +84,10 @@ static bool construct_http1_headers_for_request(SendSettings send_settings, Http
 	{
 		// Server
 
-		char* server_buffer = NULL;
-		FORMAT_STRING(&server_buffer, return NULL;
-		              , "%s%c%s", HTTP_HEADER_NAME(server), '\0',
-		              "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
+		const char* const server_value = "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING);
 
-		add_http_header_field_by_double_str(&response->head.header_fields, server_buffer);
+		add_http_header_field_const_key_const_value(&response->head.header_fields,
+		                                            HTTP_HEADER_NAME(server), server_value);
 	}
 
 	{
@@ -99,14 +95,12 @@ static bool construct_http1_headers_for_request(SendSettings send_settings, Http
 		// Content-Encoding
 
 		if(compression_format != CompressionTypeNone) {
-			// add the standard ones, using %c with '\0' to use the trick, described above
-			char* content_encoding_buffer = NULL;
-			FORMAT_STRING(&content_encoding_buffer, return NULL;
-			              , "%s%c%s", HTTP_HEADER_NAME(content_encoding), '\0',
-			              get_string_for_compress_format(compression_format));
 
-			add_http_header_field_by_double_str(&response->head.header_fields,
-			                                    content_encoding_buffer);
+			const char* const content_encoding = get_string_for_compress_format(compression_format);
+
+			add_http_header_field_const_key_const_value(&response->head.header_fields,
+			                                            HTTP_HEADER_NAME(content_encoding),
+			                                            content_encoding);
 		}
 	}
 

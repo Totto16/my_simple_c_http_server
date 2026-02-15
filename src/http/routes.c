@@ -1026,22 +1026,16 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 					    TVEC_FREE(HttpHeaderField, &additional_headers);
 					    return NULL;
 				    },
-				    "%s%cBasic realm=\"%s\", charset=\"UTF-8\"", HTTP_HEADER_NAME(www_authenticate),
-				    '\0', DEFAULT_AUTH_REALM);
+				    "Basic realm=\"%s\", charset=\"UTF-8\"", DEFAULT_AUTH_REALM);
 
-				add_http_header_field_by_double_str(&additional_headers, www_authenticate_buffer);
+				add_http_header_field_const_key_dynamic_value(&additional_headers,
+				                                            HTTP_HEADER_NAME(www_authenticate),
+				                                            www_authenticate_buffer);
 
 #ifndef NDEBUG
-				char* x_special_reason_buffer = NULL;
-				FORMAT_STRING(
-				    &x_special_reason_buffer,
-				    {
-					    TVEC_FREE(HttpHeaderField, &additional_headers);
-					    return NULL;
-				    },
-				    "X-Special-Reason%c%s", '\0', auth_status.data.unauthorized.reason);
-
-				add_http_header_field_by_double_str(&additional_headers, x_special_reason_buffer);
+				add_http_header_field_const_key_const_value(&additional_headers,
+				                                            HTTP_HEADER_NAME(x_special_reason),
+				                                            auth_status.data.unauthorized.reason);
 
 #endif
 

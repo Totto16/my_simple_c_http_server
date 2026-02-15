@@ -23,16 +23,12 @@ class CompressionSettingsCpp {
 
 	CompressionSettingsCpp(CompressionSettings settings) : m_settings{ settings } {}
 
-	CompressionSettingsCpp(const char* accept_encoding_value) {
+	CompressionSettingsCpp(const char* const accept_encoding_value) {
 
 		HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
 
-		char* accept_encoding_buffer = NULL;
-		FORMAT_STRING_IMPL(&accept_encoding_buffer, throw std::runtime_error("OOM");
-		                   , IMPL_STDERR_LOGGER, "%s%c%s", HTTP_HEADER_NAME(accept_encoding), '\0',
-		                   accept_encoding_value);
-
-		add_http_header_field_by_double_str(&http_header_fields, accept_encoding_buffer);
+		add_http_header_field_const_key_dynamic_value(
+		    &http_header_fields, HTTP_HEADER_NAME(accept_encoding), strdup(accept_encoding_value));
 
 		this->m_settings = get_compression_settings(http_header_fields);
 

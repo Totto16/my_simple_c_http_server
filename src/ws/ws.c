@@ -26,17 +26,13 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 
 	HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
-	char* upgrade_header_buffer = NULL;
-	FORMAT_STRING(&upgrade_header_buffer, return false;
-	              , "%s%c%s", HTTP_HEADER_NAME(upgrade), '\0', "WebSocket");
+	{
+		add_http_header_field_const_key_const_value(&additional_headers, HTTP_HEADER_NAME(upgrade),
+		                                            "WebSocket");
 
-	add_http_header_field_by_double_str(&additional_headers, upgrade_header_buffer);
-
-	char* connection_header_buffer = NULL;
-	FORMAT_STRING(&connection_header_buffer, return false;
-	              , "%s%c%s", HTTP_HEADER_NAME(connection), '\0', "Upgrade");
-
-	add_http_header_field_by_double_str(&additional_headers, connection_header_buffer);
+		add_http_header_field_const_key_const_value(&additional_headers,
+		                                            HTTP_HEADER_NAME(connection), "Upgrade");
+	}
 
 	HTTPResponseToSend to_send = { .status = HttpStatusUpgradeRequired,
 		                           .body = http_response_body_from_string_builder(&message, true),
@@ -269,30 +265,20 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 	HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
-	char* upgrade_header_buffer = NULL;
-	FORMAT_STRING(&upgrade_header_buffer, return false;
-	              , "%s%c%s", HTTP_HEADER_NAME(upgrade), '\0', "WebSocket");
+	{
+		add_http_header_field_const_key_const_value(&additional_headers, HTTP_HEADER_NAME(upgrade),
+		                                            "WebSocket");
 
-	add_http_header_field_by_double_str(&additional_headers, upgrade_header_buffer);
-
-	char* connection_header_buffer = NULL;
-	FORMAT_STRING(&connection_header_buffer, return false;
-	              , "%s%c%s", HTTP_HEADER_NAME(connection), '\0', "Upgrade");
-
-	add_http_header_field_by_double_str(&additional_headers, connection_header_buffer);
+		add_http_header_field_const_key_const_value(&additional_headers,
+		                                            HTTP_HEADER_NAME(connection), "Upgrade");
+	}
 
 	char* key_answer = generate_key_answer(sec_key);
 
 	if(key_answer != NULL) {
 
-		char* sec_websocket_accept_header_buffer = NULL;
-		FORMAT_STRING(&sec_websocket_accept_header_buffer, return false;
-		              , "%s%c%s", HTTP_HEADER_NAME(ws_sec_websocket_accept), '\0', key_answer);
-
-		free(key_answer);
-
-		add_http_header_field_by_double_str(&additional_headers,
-		                                    sec_websocket_accept_header_buffer);
+		add_http_header_field_const_key_dynamic_value(
+		    &additional_headers, HTTP_HEADER_NAME(ws_sec_websocket_accept), key_answer);
 	}
 
 	if(!TVEC_IS_EMPTY(WSExtension, *extensions)) {
@@ -300,15 +286,9 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 		if(accepted_extensions != NULL) {
 
-			char* sec_websocket_extensions_header_buffer = NULL;
-			FORMAT_STRING(&sec_websocket_extensions_header_buffer, return false;
-			              , "%s%c%s", HTTP_HEADER_NAME(ws_sec_websocket_extensions), '\0',
-			              accepted_extensions);
-
-			free(accepted_extensions);
-
-			add_http_header_field_by_double_str(&additional_headers,
-			                                    sec_websocket_extensions_header_buffer);
+			add_http_header_field_const_key_dynamic_value(
+			    &additional_headers, HTTP_HEADER_NAME(ws_sec_websocket_extensions),
+			    accepted_extensions);
 		}
 	}
 

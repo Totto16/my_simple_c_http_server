@@ -264,13 +264,22 @@ void free_http_header_fields(HttpHeaderFields* header_fields) {
 	*header_fields = TVEC_EMPTY(HttpHeaderField);
 }
 
-void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str) {
+static void add_http_header_field_raw(HttpHeaderFields* const header_fields, char* const key,
+                                      char* const value) {
 
-	char* first_str = double_str;
-	char* second_str = double_str + strlen(double_str) + 1;
-
-	HttpHeaderField field = { .key = first_str, .value = second_str };
+	HttpHeaderField field = { .key = key, .value = value };
 
 	auto _ = TVEC_PUSH(HttpHeaderField, header_fields, field);
 	UNUSED(_);
+}
+
+void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* const header_fields,
+                                                 const char* const key, char* const value) {
+
+	add_http_header_field_raw(header_fields, strdup(key), value);
+}
+
+void add_http_header_field_const_key_const_value(HttpHeaderFields* const header_fields,
+                                                 const char* const key, const char* const value) {
+	add_http_header_field_raw(header_fields, strdup(key), strdup(value));
 }

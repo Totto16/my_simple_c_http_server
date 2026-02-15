@@ -51,3 +51,9 @@ HTTP_HEADER_MAKE(ws_sec_websocket_version, "sec-websocket-version");
 HTTP_HEADER_MAKE(ws_sec_websocket_extensions, "sec-websocket-extensions");
 
 HTTP_HEADER_MAKE(ws_sec_websocket_accept, "sec-websocket-accept");
+
+// x- special stuff
+
+HTTP_HEADER_MAKE(x_special_reason, "x-special-reason");
+
+HTTP_HEADER_MAKE(x_shutdown, "x-shutdown");

@@ -249,7 +249,11 @@ void free_http_header_field(HttpHeaderField field);
 
 void free_http_header_fields(HttpHeaderFields* header_fields);
 
-void add_http_header_field_by_double_str(HttpHeaderFields* header_fields, char* double_str);
+void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* header_fields, const char* key,
+                                                 char* value);
+
+void add_http_header_field_const_key_const_value(HttpHeaderFields* header_fields, const char* key,
+                                                 const char* value);
 
 #define HTTP_LINE_SEPERATORS "\r\n"
 

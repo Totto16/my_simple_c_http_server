@@ -78,19 +78,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				if(success) {
 					char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 					if(date_str != NULL) {
-
-						char* date_buffer = NULL;
-						FORMAT_STRING(
-						    &date_buffer,
-						    {
-							    TVEC_FREE(HttpHeaderField, &additional_headers);
-							    return -1;
-						    },
-						    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-						add_http_header_field_by_double_str(&additional_headers, date_buffer);
-
-						free(date_str);
+						add_http_header_field_const_key_dynamic_value(
+						    &additional_headers, HTTP_HEADER_NAME(date), date_str);
 					}
 				}
 			}
@@ -109,39 +98,23 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 			{
 
-				char* allowed_header_buffer = NULL;
-				// all 405 have to have a Allow filed according to spec
-				FORMAT_STRING(
-				    &allowed_header_buffer,
-				    {
-					    TVEC_FREE(HttpHeaderField, &additional_headers);
-					    FREE_AT_END();
-					    return INT_ERROR_FROM_VOID_PTR(JOB_ERROR_STRING_FORMAT);
-				    },
-				    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
+				{ // all 405 have to have a Allow filed according to spec
 
-				add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
+					add_http_header_field_const_key_const_value(
+					    &additional_headers, HTTP_HEADER_NAME(allow), SUPPORTED_HTTP_METHODS);
+				}
 
-				Time now;
+				{
+					Time now;
 
-				bool success = get_current_time(&now);
+					bool success = get_current_time(&now);
 
-				if(success) {
-					char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-					if(date_str != NULL) {
-
-						char* date_buffer = NULL;
-						FORMAT_STRING(
-						    &date_buffer,
-						    {
-							    TVEC_FREE(HttpHeaderField, &additional_headers);
-							    return -1;
-						    },
-						    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-						add_http_header_field_by_double_str(&additional_headers, date_buffer);
-
-						free(date_str);
+					if(success) {
+						char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+						if(date_str != NULL) {
+							add_http_header_field_const_key_dynamic_value(
+							    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+						}
 					}
 				}
 			}
@@ -258,39 +231,23 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 				{
 
-					char* allowed_header_buffer = NULL;
-					// all 405 have to have a Allow filed according to spec
-					FORMAT_STRING(
-					    &allowed_header_buffer,
-					    {
-						    TVEC_FREE(HttpHeaderField, &additional_headers);
-						    FREE_AT_END();
-						    return JOB_ERROR_STRING_FORMAT;
-					    },
-					    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
+					{ // all 405 have to have a Allow filed according to spec
 
-					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
+						add_http_header_field_const_key_const_value(
+						    &additional_headers, HTTP_HEADER_NAME(allow), SUPPORTED_HTTP_METHODS);
+					}
 
-					Time now;
+					{
+						Time now;
 
-					bool success = get_current_time(&now);
+						bool success = get_current_time(&now);
 
-					if(success) {
-						char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-						if(date_str != NULL) {
-
-							char* date_buffer = NULL;
-							FORMAT_STRING(
-							    &date_buffer,
-							    {
-								    TVEC_FREE(HttpHeaderField, &additional_headers);
-								    return NULL;
-							    },
-							    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-							add_http_header_field_by_double_str(&additional_headers, date_buffer);
-
-							free(date_str);
+						if(success) {
+							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+							if(date_str != NULL) {
+								add_http_header_field_const_key_dynamic_value(
+								    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+							}
 						}
 					}
 				}
@@ -309,39 +266,23 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 				{
 
-					char* allowed_header_buffer = NULL;
-					// all 405 have to have a Allow filed according to spec
-					FORMAT_STRING(
-					    &allowed_header_buffer,
-					    {
-						    TVEC_FREE(HttpHeaderField, &additional_headers);
-						    FREE_AT_END();
-						    return JOB_ERROR_STRING_FORMAT;
-					    },
-					    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', SUPPORTED_HTTP_METHODS);
+					{ // all 405 have to have a Allow filed according to spec
 
-					add_http_header_field_by_double_str(&additional_headers, allowed_header_buffer);
+						add_http_header_field_const_key_const_value(
+						    &additional_headers, HTTP_HEADER_NAME(allow), SUPPORTED_HTTP_METHODS);
+					}
 
-					Time now;
+					{
+						Time now;
 
-					bool success = get_current_time(&now);
+						bool success = get_current_time(&now);
 
-					if(success) {
-						char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-						if(date_str != NULL) {
-
-							char* date_buffer = NULL;
-							FORMAT_STRING(
-							    &date_buffer,
-							    {
-								    TVEC_FREE(HttpHeaderField, &additional_headers);
-								    return NULL;
-							    },
-							    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-							add_http_header_field_by_double_str(&additional_headers, date_buffer);
-
-							free(date_str);
+						if(success) {
+							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+							if(date_str != NULL) {
+								add_http_header_field_const_key_dynamic_value(
+								    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+							}
 						}
 					}
 				}
@@ -396,29 +337,18 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						body = http_response_body_empty();
 
 						{
-							char* x_shutdown_buffer = NULL;
-							FORMAT_STRING(&x_shutdown_buffer, return NULL;
-							              , "%s%c%s", "x-shutdown", '\0', "true");
 
-							add_http_header_field_by_double_str(&additional_headers,
-							                                    x_shutdown_buffer);
+							add_http_header_field_const_key_const_value(
+							    &additional_headers, HTTP_HEADER_NAME(x_shutdown), "true");
 						}
 
 					} else {
 
-						char* allowed_header_buffer = NULL;
-						// all 405 have to have a Allow filed according to spec
-						FORMAT_STRING(
-						    &allowed_header_buffer,
-						    {
-							    TVEC_FREE(HttpHeaderField, &additional_headers);
-							    FREE_AT_END();
-							    return JOB_ERROR_STRING_FORMAT;
-						    },
-						    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET, HEAD");
+						{ // all 405 have to have a Allow filed according to spec
 
-						add_http_header_field_by_double_str(&additional_headers,
-						                                    allowed_header_buffer);
+							add_http_header_field_const_key_const_value(
+							    &additional_headers, HTTP_HEADER_NAME(allow), "GET, HEAD");
+						}
 
 						HTTPResponseToSend to_send = {
 							.status = HttpStatusMethodNotAllowed,
@@ -459,19 +389,11 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					if(http_request.head.request_line.method != HTTPRequestMethodGet) {
 						HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
-						char* allowed_header_buffer = NULL;
-						// all 405 have to have a Allow filed according to spec
-						FORMAT_STRING(
-						    &allowed_header_buffer,
-						    {
-							    TVEC_FREE(HttpHeaderField, &additional_headers);
-							    FREE_AT_END();
-							    return JOB_ERROR_STRING_FORMAT;
-						    },
-						    "%s%c%s", HTTP_HEADER_NAME(allow), '\0', "GET");
+						{ // all 405 have to have a Allow filed according to spec
 
-						add_http_header_field_by_double_str(&additional_headers,
-						                                    allowed_header_buffer);
+							add_http_header_field_const_key_const_value(
+							    &additional_headers, HTTP_HEADER_NAME(allow), "GET");
+						}
 
 						HTTPResponseToSend to_send = {
 							.status = HttpStatusMethodNotAllowed,
@@ -585,19 +507,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
 
-								char* date_buffer = NULL;
-								FORMAT_STRING(
-								    &date_buffer,
-								    {
-									    TVEC_FREE(HttpHeaderField, &additional_headers);
-									    return NULL;
-								    },
-								    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-								add_http_header_field_by_double_str(&additional_headers,
-								                                    date_buffer);
-
-								free(date_str);
+								add_http_header_field_const_key_const_value(
+								    &additional_headers, HTTP_HEADER_NAME(date), date_str);
 							}
 						}
 					}
@@ -632,64 +543,41 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{
 
-						char* content_transfer_encoding_buffer = NULL;
-						FORMAT_STRING(
-						    &content_transfer_encoding_buffer,
-						    {
-							    TVEC_FREE(HttpHeaderField, &additional_headers);
-							    return NULL;
-						    },
-						    "%s%cbinary", HTTP_HEADER_NAME(content_transfer_encoding), '\0');
+						add_http_header_field_const_key_const_value(
+						    &additional_headers, HTTP_HEADER_NAME(content_transfer_encoding),
+						    "binary");
 
-						add_http_header_field_by_double_str(&additional_headers,
-						                                    content_transfer_encoding_buffer);
+						add_http_header_field_const_key_const_value(
+						    &additional_headers, HTTP_HEADER_NAME(content_description),
+						    "File Transfer");
 
-						char* content_description_buffer = NULL;
-						FORMAT_STRING(
-						    &content_description_buffer,
-						    {
-							    TVEC_FREE(HttpHeaderField, &additional_headers);
-							    return NULL;
-						    },
-						    "%s%cFile Transfer", HTTP_HEADER_NAME(content_description), '\0');
+						{
+							char* content_disposition_buffer = NULL;
+							FORMAT_STRING(
+							    &content_disposition_buffer,
+							    {
+								    TVEC_FREE(HttpHeaderField, &additional_headers);
+								    return NULL;
+							    },
+							    "attachment; filename=\"%s\"", file.file_name);
 
-						add_http_header_field_by_double_str(&additional_headers,
-						                                    content_description_buffer);
+							add_http_header_field_const_key_dynamic_value(
+							    &additional_headers, HTTP_HEADER_NAME(content_disposition),
+							    content_disposition_buffer);
+						}
 
-						char* content_disposition_buffer = NULL;
-						FORMAT_STRING(
-						    &content_disposition_buffer,
-						    {
-							    TVEC_FREE(HttpHeaderField, &additional_headers);
-							    return NULL;
-						    },
-						    "%s%cattachment; filename=\"%s\"",
-						    HTTP_HEADER_NAME(content_disposition), '\0', file.file_name);
+						{
+							Time now;
 
-						add_http_header_field_by_double_str(&additional_headers,
-						                                    content_disposition_buffer);
+							bool success = get_current_time(&now);
 
-						Time now;
+							if(success) {
+								char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
+								if(date_str != NULL) {
 
-						bool success = get_current_time(&now);
-
-						if(success) {
-							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
-							if(date_str != NULL) {
-
-								char* date_buffer = NULL;
-								FORMAT_STRING(
-								    &date_buffer,
-								    {
-									    TVEC_FREE(HttpHeaderField, &additional_headers);
-									    return NULL;
-								    },
-								    "%s%c%s", HTTP_HEADER_NAME(date), '\0', date_str);
-
-								add_http_header_field_by_double_str(&additional_headers,
-								                                    date_buffer);
-
-								free(date_str);
+									add_http_header_field_const_key_dynamic_value(
+									    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+								}
 							}
 						}
 					}
