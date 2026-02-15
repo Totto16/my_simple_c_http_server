@@ -1,7 +1,7 @@
 
-#include "../c_types.hpp"
-#include "../cpp_types.hpp"
-#include "./helpers.hpp"
+#include "../../c_types.hpp"
+#include "../../cpp_types.hpp"
+#include "../helpers.hpp"
 
 #define IMPLEMENT_HPACK_TEST_CASE \
 	TEST_CASE("testing hpack deserializing - external tests (" HPACK_TEST_CASE_VALUE ")") { \
