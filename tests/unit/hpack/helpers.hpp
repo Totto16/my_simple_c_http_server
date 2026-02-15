@@ -64,7 +64,8 @@ struct HpackGlobalHandle {
 	std::vector<std::uint8_t> result{};
 
 	if(raw_wire.length() % 2 != 0) {
-		throw std::runtime_error("invalid wire data");
+		throw std::runtime_error(std::string{ "invalid wire data: length is " } +
+		                         std::to_string(raw_wire.length()));
 	}
 
 	for(size_t i = 0; i < raw_wire.length(); i += 2) {

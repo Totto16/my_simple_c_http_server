@@ -504,6 +504,72 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 					}
 				},
 			}
+		},
+		// see https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6
+		HpackManualTestCase{
+			.name  = "c.6",
+			.description = "Response Examples with Huffman Coding",
+			.header_table_size = 256,
+			.cases = std::vector<HpackManualTestCaseEntry>{
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.1
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("488264025885aec3771a4b6196d07abe941054d444a8200595040b8166e082a62d1bff6e919d29ad171863c78f0b97c8e9ae82ae43d3"),
+					.dynamic_table = {
+						.entries = { 
+							{"location", "https://www.example.com"},
+							{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
+							{"cache-control", "private"},
+							{":status", "302"},
+						},
+						.size  =  222,
+					},
+					.result = {
+						{":status", "302"},
+						{"cache-control", "private"},
+						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
+						{"location", "https://www.example.com"},
+					}
+				},
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.2
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("4883640effc1c0bf"),
+					.dynamic_table = {
+						.entries = { 
+							{":status", "307"},
+							{"location", "https://www.example.com"},
+							{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
+							{"cache-control", "private"},
+						},
+						.size  =  222,
+					},
+					.result = {
+						{":status", "307"},
+						{"cache-control", "private"},
+						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
+						{"location", "https://www.example.com"},
+					}
+				},
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.3
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("88c16196d07abe941054d444a8200595040b8166e084a62d1bffc05a839bd9ab77ad94e7821dd7f2e6c7b335dfdfcd5b3960d5af27087f3672c1ab270fb5291f9587316065c003ed4ee5b1063d5007"),
+					.dynamic_table = {
+						.entries = { 
+							{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
+							{"content-encoding", "gzip"},
+							{"date", "Mon, 21 Oct 2013 20:13:22 GMT"},
+						},
+						.size  =  215,
+					},
+					.result = {
+						{":status", "200"},
+						{"cache-control", "private"},
+						{"date", "Mon, 21 Oct 2013 20:13:22 GMT"},
+						{"location", "https://www.example.com"},
+						{"content-encoding", "gzip"},
+						{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
+					}
+				},
+			}
 		}
 	};
 
