@@ -2,8 +2,15 @@
 #include "./serialize.h"
 
 #include <arpa/inet.h>
-#include <byteswap.h>
 #include <endian.h>
+
+#if defined(__APPLE__) || defined(__MACOSX__)
+	#define bswap_16 __builtin_bswap16
+	#define bswap_32 __builtin_bswap32
+	#define bswap_64 __builtin_bswap64
+#else
+	#include <byteswap.h>
+#endif
 
 /**
  * @brief Abbreviations:
