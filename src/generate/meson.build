@@ -43,7 +43,7 @@ generated_hpack_huffman_file_c = custom_target(
         '-o',
         '@OUTPUT0@',
     ],
-    output: ['generated_hpack_huffman.h','generated_hpack_huffman.c'],
+    output: ['generated_hpack_huffman.h', 'generated_hpack_huffman.c'],
     depend_files: hpack_script_depend_files,
     depends: [type_check_hpack_ts],
 )

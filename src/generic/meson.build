@@ -15,10 +15,10 @@ src_files += files(
     'sem.h',
     'send.c',
     'send.h',
-    'signal_fd.c',
-    'signal_fd.h',
     'serialize.c',
     'serialize.h',
+    'signal_fd.c',
+    'signal_fd.h',
 )
 
 
