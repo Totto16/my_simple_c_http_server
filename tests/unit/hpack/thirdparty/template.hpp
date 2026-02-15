@@ -44,8 +44,6 @@
 							error = std::string{ result.data.error }; \
 \
 							INFO("Error occurred: ", error); \
-							CHECK_FALSE(result.is_error); \
-							continue; \
 						} \
 \
 						REQUIRE_FALSE(result.is_error); \
