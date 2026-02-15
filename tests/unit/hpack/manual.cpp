@@ -310,6 +310,7 @@ using HpackManualTestCaseEntry = HeaderFieldTest;
 struct HpackManualTestCase {
 	std::string name;
 	std::string description;
+	size_t header_table_size;
 	std::vector<HpackManualTestCaseEntry> cases;
 };
 
@@ -324,6 +325,7 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 		HpackManualTestCase{
 			.name  = "c.3",
 			.description = "Request Examples without Huffman Coding",
+			.header_table_size = DEFAULT_HEADER_TABLE_SIZE,
 			.cases = std::vector<HpackManualTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.1
 				HpackManualTestCaseEntry{ 
@@ -382,6 +384,7 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 		HpackManualTestCase{
 			.name  = "c.4",
 			.description = "Request Examples with Huffman Coding",
+			.header_table_size = DEFAULT_HEADER_TABLE_SIZE,
 			.cases = std::vector<HpackManualTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.1
 				HpackManualTestCaseEntry{ 
@@ -435,6 +438,72 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 					}
 				},
 			}
+		},
+		// see https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5
+		HpackManualTestCase{
+			.name  = "c.5",
+			.description = "Response Examples without Huffman Coding",
+			.header_table_size = 256,
+			.cases = std::vector<HpackManualTestCaseEntry>{
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.1
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("4803333032580770726976617465611d4d6f6e2c203231204f637420323031332032303a31333a323120474d546e1768747470733a2f2f7777772e6578616d706c652e636f6d"),
+					.dynamic_table = {
+						.entries = { 
+							{"location", "https://www.example.com"},
+							{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
+							{"cache-control", "private"},
+							{":status", "302"},
+						},
+						.size  =  222,
+					},
+					.result = {
+						{":status", "302"},
+						{"cache-control", "private"},
+						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
+						{"location", "https://www.example.com"},
+					}
+				},
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.2
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("4803333037c1c0bf"),
+					.dynamic_table = {
+						.entries = { 
+							{":status", "307"},
+							{"location", "https://www.example.com"},
+							{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
+							{"cache-control", "private"},
+						},
+						.size  =  222,
+					},
+					.result = {
+						{":status", "307"},
+						{"cache-control", "private"},
+						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
+						{"location", "https://www.example.com"},
+					}
+				},
+				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.3
+				HpackManualTestCaseEntry{ 
+					.raw_data = parse_wire_data("88c1611d4d6f6e2c203231204f637420323031332032303a31333a323220474d54c05a04677a69707738666f6f3d4153444a4b48514b425a584f5157454f50495541585157454f49553b206d61782d6167653d333630303b2076657273696f6e3d31"),
+					.dynamic_table = {
+						.entries = { 
+							{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
+							{"content-encoding", "gzip"},
+							{"date", "Mon, 21 Oct 2013 20:13:22 GMT"},
+						},
+						.size  =  215,
+					},
+					.result = {
+						{":status", "200"},
+						{"cache-control", "private"},
+						{"date", "Mon, 21 Oct 2013 20:13:22 GMT"},
+						{"location", "https://www.example.com"},
+						{"content-encoding", "gzip"},
+						{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
+					}
+				},
+			}
 		}
 	};
 
@@ -445,7 +514,7 @@ TEST_CASE("testing hpack deserializing - manual tests") {
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				HpackStateCpp state = get_default_hpack_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
+				HpackStateCpp state = get_default_hpack_state_cpp(test_case.header_table_size);
 				REQUIRE_NE(state.get(), nullptr);
 
 				for(size_t i = 0; i < test_case.cases.size(); ++i) {
