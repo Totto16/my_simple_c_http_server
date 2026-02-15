@@ -168,7 +168,7 @@ NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t 
 
 	const HttpHeaderField entry_value = { .key = entry.value.key, .value = entry.value.value };
 
-	const auto insert_result = TVEC_PUSH(HttpHeaderField, headers, entry_value);
+	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, entry_value);
 
 	if(insert_result != TvecResultOk) {
 		free_dynamic_entry(entry.value);
@@ -377,7 +377,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 		.value = header_value,
 	};
 
-	const auto insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
+	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
 
 	if(insert_result != TvecResultOk) {
 		free_http_header_field(header_field);
@@ -497,7 +497,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos,
 		.value = header_value,
 	};
 
-	const auto insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
+	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
 
 	if(insert_result != TvecResultOk) {
 		free_http_header_field(header_field);
@@ -586,7 +586,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 		.value = header_value,
 	};
 
-	const auto insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
+	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
 
 	if(insert_result != TvecResultOk) {
 		free_http_header_field(header_field);
