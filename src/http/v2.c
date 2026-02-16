@@ -2675,13 +2675,24 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 
 	const HttpRequestHead head = headers_result.data.result;
 
-	// TODO
-	const SizedBuffer body = { 0 };
+	const SizedBuffer body = http2_concat_data_blocks(stream->content.data_blocks);
+
+	if(body.data == NULL) {
+		return (HttpRequestResult){ .is_error = true,
+				                        .value = {
+				                            .error =
+				                                (HttpRequestError){
+				                                    .is_advanced = true,
+				                                    .value = { .advanced = "error in constructing the body data" ,}
+
+				                                },
+				                        } };
+	}
 
 	const HttpRequest request = { .head = head, .body = body };
 
 	// TODO
-	const RequestSettings settings = { 0 };
+	const RequestSettings settings = get_request_settings(request);
 
 	const HTTPResultOk result = { .request = request, .settings = settings };
 

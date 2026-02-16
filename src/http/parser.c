@@ -482,7 +482,7 @@ void free_request_settings(RequestSettings request_settings) {
 	free_compression_settings(request_settings.compression_settings);
 }
 
-NODISCARD static RequestSettings get_request_settings(const HttpRequest http_request) {
+NODISCARD RequestSettings get_request_settings(const HttpRequest http_request) {
 
 	RequestSettings request_settings = {
 		.compression_settings =

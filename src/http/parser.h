@@ -28,6 +28,8 @@ void free_compression_settings(CompressionSettings compression_settings);
 
 void free_request_settings(RequestSettings request_settings);
 
+NODISCARD RequestSettings get_request_settings(HttpRequest http_request);
+
 #ifdef __cplusplus
 }
 #endif
