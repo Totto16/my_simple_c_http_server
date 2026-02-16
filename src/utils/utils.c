@@ -9,53 +9,6 @@
 #include <sys/random.h>
 #include <time.h>
 
-#//TODO: remove, as we shoudl just set all fields, not rely on zeroing them!
-// simple malloc Wrapper, using also memset to set everything to 0
-void* malloc_with_memset(const size_t size, const bool initialize_with_zeros) {
-	void* result = malloc(size);
-	if(result == NULL) {
-		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-		                   "Couldn't allocate memory!\n");
-		return NULL;
-	}
-	if(initialize_with_zeros) {
-		// yes this could be done by calloc, but if you don't need that, its overhead!
-		void* second_result = memset(result, 0, size);
-		if(result != second_result) {
-			// this shouldn't occur, but "better be safe than sorry"
-			LOG_MESSAGE_SIMPLE(LogLevelCritical, "Couldn't set the memory allocated to zeros!!\n");
-			// free not really necessary, but also not that wrong
-			free(result);
-			return NULL;
-		}
-	}
-	return result;
-}
-
-// simple realloc Wrapper, using also memset to set everything to 0
-void* realloc_with_memset(void* previous_ptr, const size_t old_size, const size_t new_size,
-                          const bool initialize_with_zeros) {
-	void* result = realloc(previous_ptr, new_size);
-	if(result == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Couldn't reallocate memory!\n");
-		return NULL;
-	}
-	if(initialize_with_zeros && // NOLINT(readability-implicit-bool-conversion)
-	   new_size > old_size) {
-		// yes this could be done by calloc, but if you don't need that, its overhead!
-		void* second_result = memset(((char*)result) + old_size, 0, new_size - old_size);
-		if(((char*)result) + old_size != second_result) {
-			// this shouldn't occur, but "better be safe than sorry"
-			LOG_MESSAGE_SIMPLE(LogLevelCritical,
-			                   "Couldn't set the memory reallocated to zeros!!\n");
-			// free not really necessary, but also not that wrong
-			free(result);
-			return NULL;
-		}
-	}
-	return result;
-}
-
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
 static long parse_long_impl(const char* to_parse, const char* description,
                             OUT_PARAM(bool) success) {

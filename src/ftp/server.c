@@ -1733,14 +1733,15 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 		                "While Trying to set a port listening socket option 'SO_REUSEPORT'",
 		                goto cont_outer;);
 
-		struct sockaddr_in* addr =
-		    (struct sockaddr_in*)malloc_with_memset(sizeof(struct sockaddr_in), true);
+		struct sockaddr_in* addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
 
 		if(!addr) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 			                   "Couldn't allocate memory!\n");
 			continue;
 		}
+
+		*addr = (struct sockaddr_in){ 0 };
 
 		addr->sin_family = AF_INET;
 		// hto functions are used for networking, since there every number is BIG ENDIAN and
@@ -1837,13 +1838,15 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
 	struct sockaddr_in* control_addr =
-	    (struct sockaddr_in*)malloc_with_memset(sizeof(struct sockaddr_in), true);
+	    (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
 
 	if(!control_addr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
 	}
+
+	*control_addr =(struct sockaddr_in){0};
 
 	control_addr->sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and

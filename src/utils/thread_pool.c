@@ -116,8 +116,8 @@ int pool_create(ThreadPool* pool, size_t size) {
 	// writing the values to the struct
 	pool->worker_threads_amount = size;
 	// allocating the worker Threads array, they are freed in destroy!
-	pool->worker_threads = (MyThreadPoolThreadInformation*)malloc_with_memset(
-	    sizeof(MyThreadPoolThreadInformation) * size, true);
+	pool->worker_threads =
+	    (MyThreadPoolThreadInformation*)malloc(sizeof(MyThreadPoolThreadInformation) * size);
 
 	pool->fns = (LifecycleFunctions){ .startup_fn = thread_pool_worker_thread_startup_function,
 		                              .shutdown_fn = thread_pool_worker_thread_shutdown_function };

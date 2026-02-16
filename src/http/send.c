@@ -185,7 +185,7 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend* con
 		                   "Couldn't allocate memory!\n");
 		return NULL;
 	}
-	// TODO: remove all malloc_with_memset usages
+
 	*response = (Http1Response){ .head = { 0 }, .body = (SizedBuffer){ .data = NULL, .size = 0 } };
 
 	HTTPProtocolVersion version_to_use = send_settings.protocol_to_use;
@@ -263,7 +263,7 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 		                   "Couldn't allocate memory!\n");
 		return NULL;
 	}
-	// TODO: remove all malloc_with_memset usages
+
 	*response = (Http2Response){ .hpack_encoded_headers = (SizedBuffer){ .data = NULL, .size = 0 },
 		                         .body = (SizedBuffer){ .data = NULL, .size = 0 } };
 
@@ -324,7 +324,7 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 // a Request, but with some slight modification
 NODISCARD static Http1ConcattedResponse* http1_response_concat(Http1Response* response) {
 	Http1ConcattedResponse* concatted_response =
-	    (Http1ConcattedResponse*)malloc_with_memset(sizeof(Http1ConcattedResponse), true);
+	    (Http1ConcattedResponse*)malloc(sizeof(Http1ConcattedResponse));
 
 	if(response == NULL) {
 		return NULL;
@@ -333,6 +333,10 @@ NODISCARD static Http1ConcattedResponse* http1_response_concat(Http1Response* re
 	if(concatted_response == NULL) {
 		return NULL;
 	}
+
+	*concatted_response =
+	    (Http1ConcattedResponse){ .headers = NULL,
+		                          .body = (SizedBuffer){ .data = NULL, .size = 0 } };
 
 	StringBuilder* result = string_builder_init();
 

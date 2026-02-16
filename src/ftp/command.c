@@ -2,8 +2,8 @@
 
 #include "./command.h"
 #include "generic/ip.h"
-#include "utils/utils.h"
 #include "generic/serialize.h"
+#include "utils/utils.h"
 
 #include <string.h>
 
@@ -168,10 +168,12 @@ NODISCARD static FTPCommand* parse_single_ftp_command(char* command_str) {
 		return NULL;
 	}
 
-	FTPCommand* command = (FTPCommand*)malloc_with_memset(sizeof(FTPCommand), true);
+	FTPCommand* command = (FTPCommand*)malloc(sizeof(FTPCommand));
 	if(!command) {
 		return NULL;
 	}
+
+	*command = (FTPCommand){ .data = { 0 }, .type = 0 };
 
 	// see https://datatracker.ietf.org/doc/html/rfc959 5.3.1
 	if(strcasecmp("CDUP", command_str) == 0) {

@@ -134,9 +134,6 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 // Type helper for readability
 #define ANY_TYPE(type) ANY
 
-// simple malloc Wrapper, using also memset to set everything to 0
-NODISCARD void* malloc_with_memset(size_t size, bool initialize_with_zeros);
-
 // uses snprintf feature with passing NULL,0 as first two arguments to automatically determine the
 // required buffer size, for more read man page
 // for variadic functions its easier to use macro
@@ -177,10 +174,6 @@ NODISCARD void* malloc_with_memset(size_t size, bool initialize_with_zeros);
 	LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation), format, __VA_ARGS__)
 
 #define IMPL_STDERR_LOGGER(format, ...) fprintf(stderr, format, __VA_ARGS__)
-
-// simple realloc Wrapper, using also memset to set everything to 0
-NODISCARD void* realloc_with_memset(void* previous_ptr, size_t old_size, size_t new_size,
-                                    bool initialize_with_zeros);
 
 NODISCARD float parse_float(char* value);
 
