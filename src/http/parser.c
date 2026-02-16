@@ -181,24 +181,24 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
  * @enum value
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HTTPContentTypeV1 = 0,
-	HTTPContentTypeV1Keepalive,
-	HTTPContentTypeV2,
-} HTTPContentType;
+	HTTPContextTypeV1 = 0,
+	HTTPContextTypeV1Keepalive,
+	HTTPContextTypeV2,
+} HTTPContextType;
 
-typedef struct {
-	HTTPContentType type;
+struct HTTPGeneralContextImpl {
+	HTTPContextType type;
 	union {
 		HTTP2Context v2;
 	} data;
-} HTTPContent;
+};
 
 struct HTTPReaderImpl {
 	ProtocolSelected protocol;
 	//
 	BufferedReader* reader;
 	HTTPReaderState state;
-	HTTPContent content;
+	HTTPGeneralContext context;
 };
 
 NODISCARD HTTPReader* NULLABLE
@@ -223,7 +223,7 @@ initialize_http_reader_from_connection(ConnectionDescriptor* const descriptor) {
 		.protocol = protocol,
 		.state = HTTPReaderStateEmpty,
 		.reader = buffered_reader,
-		.content = { .type = HTTPContentTypeV1 },
+		.context = { .type = HTTPContextTypeV1 },
 	};
 
 	return reader;
@@ -941,11 +941,11 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 					};
 				}
 
-				reader->content.type = HTTPContentTypeV2;
-				reader->content.data.v2 = http2_default_context();
+				reader->context.type = HTTPContextTypeV2;
+				reader->context.data.v2 = http2_default_context();
 
 				const Http2StartResult start_result =
-				    http2_send_and_receive_preface(&reader->content.data.v2, reader->reader);
+				    http2_send_and_receive_preface(&reader->context.data.v2, reader->reader);
 
 				if(start_result.is_error) {
 					return (HttpRequestResult){
@@ -958,7 +958,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 					};
 				}
 
-				return parse_http2_request(&(reader->content.data.v2), reader->reader);
+				return parse_http2_request(&(reader->context.data.v2), reader->reader);
 			}
 			case ProtocolSelectedNone:
 			default: {
@@ -985,11 +985,11 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				};
 			}
 
-			reader->content.type = HTTPContentTypeV2;
-			reader->content.data.v2 = http2_default_context();
+			reader->context.type = HTTPContextTypeV2;
+			reader->context.data.v2 = http2_default_context();
 
 			const Http2StartResult start_result =
-			    http2_send_and_receive_preface(&reader->content.data.v2, reader->reader);
+			    http2_send_and_receive_preface(&reader->context.data.v2, reader->reader);
 
 			if(start_result.is_error) {
 				return (HttpRequestResult){
@@ -1002,7 +1002,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				};
 			}
 
-			return parse_http2_request(&(reader->content.data.v2), reader->reader);
+			return parse_http2_request(&(reader->context.data.v2), reader->reader);
 		}
 
 		if(request_line.method == HTTPRequestMethodPRI) {
@@ -1078,7 +1078,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		reader->state = HTTPReaderStateError;
 	}
 
-	if(reader->content.type == HTTPContentTypeV1) {
+	if(reader->context.type == HTTPContextTypeV1) {
 
 		// TODO(Totto): use eof, but that has problems, as some clients only close, after we have
 		// closed
@@ -1105,8 +1105,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 NODISCARD static HttpRequestResult parse_next_http_request(HTTPReader* const reader) {
 
-	if(reader->content.type == HTTPContentTypeV2) {
-		return parse_http2_request(&(reader->content.data.v2), reader->reader);
+	if(reader->context.type == HTTPContextTypeV2) {
+		return parse_http2_request(&(reader->context.data.v2), reader->reader);
 	}
 
 	return (HttpRequestResult){ .is_error = true,
@@ -1133,7 +1133,7 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 			return parse_first_http_request(reader);
 		}
 		case HTTPReaderStateReading: {
-			if(reader->content.type == HTTPContentTypeV1) {
+			if(reader->context.type == HTTPContextTypeV1) {
 				return (HttpRequestResult){
 					.is_error = true,
 					.value = { .error =
@@ -1180,15 +1180,15 @@ NODISCARD bool http_reader_more_available(const HTTPReader* const reader) {
 	}
 }
 
-static void free_reader_content(HTTPContent content) {
+static void free_reader_general_context(HTTPGeneralContext general_context) {
 
-	switch(content.type) {
-		case HTTPContentTypeV1:
-		case HTTPContentTypeV1Keepalive: {
+	switch(general_context.type) {
+		case HTTPContextTypeV1:
+		case HTTPContextTypeV1Keepalive: {
 			break;
 		}
-		case HTTPContentTypeV2: {
-			free_http2_context(content.data.v2);
+		case HTTPContextTypeV2: {
+			free_http2_context(general_context.data.v2);
 			break;
 		}
 		default: {
@@ -1210,8 +1210,21 @@ bool finish_reader(HTTPReader* reader, ConnectionContext* context) {
 		return false;
 	}
 
-	free_reader_content(reader->content);
+	free_reader_general_context(reader->context);
 	free(reader);
 
 	return true;
+}
+
+NODISCARD HTTPGeneralContext* http_reader_get_general_context(HTTPReader* const reader) {
+	return &(reader->context);
+}
+
+NODISCARD HTTP2Context*
+http_general_context_get_http2_context(HTTPGeneralContext* const general_context) {
+	if(general_context->type != HTTPContextTypeV2) {
+		return NULL;
+	}
+
+	return &(general_context->data.v2);
 }

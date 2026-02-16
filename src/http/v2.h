@@ -291,3 +291,12 @@ NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
                                       Http2ErrorCode error_code, Http2Identifier stream_identifier);
 
 void free_http2_context(HTTP2Context context);
+
+NODISCARD int http2_send_headers(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
+                                 Http2Settings settings, SizedBuffer buffer,
+                                 bool headers_are_end_stream);
+
+NODISCARD int http2_send_data(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
+                              Http2Settings settings, SizedBuffer buffer);
+
+NODISCARD Http2Identifier get_new_http2_identifier(HTTP2Context* context);

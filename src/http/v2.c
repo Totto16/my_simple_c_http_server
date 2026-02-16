@@ -375,6 +375,96 @@ NODISCARD static int http2_send_ping_frame(const ConnectionDescriptor* const des
 	return result;
 }
 
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2DataFrameFlagEndStream = Http2FrameFlagEndStream,
+	Http2DataFrameFlagPadded = Http2FrameFlagPadded,
+	// all allowed flags or-ed together
+	Http2DataFrameFlagsAllowed = Http2DataFrameFlagEndStream | Http2DataFrameFlagPadded
+} Http2DataFrameFlag;
+
+NODISCARD static int http2_send_data_frame(const ConnectionDescriptor* const descriptor,
+                                           const Http2DataFrame frame) {
+
+	Http2RawHeader header = {
+		.length = frame.content.size,
+		.type = Http2FrameTypeData,
+		.flags = frame.is_end ? Http2DataFrameFlagEndStream : 0,
+		.stream_identifier = frame.identifier,
+	};
+
+	const int result = http2_send_raw_frame(descriptor, header, frame.content);
+
+	return result;
+}
+
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2HeadersFrameFlagEndStream = Http2FrameFlagEndStream,
+	Http2HeadersFrameFlagEndHeaders = Http2FrameFlagEndHeaders,
+	Http2HeadersFrameFlagPadded = Http2FrameFlagPadded,
+	Http2HeadersFrameFlagPriority = Http2FrameFlagPriority,
+	// all allowed flags or-ed together
+	Http2HeadersFrameFlagsAllowed = Http2HeadersFrameFlagEndStream |
+	                                Http2HeadersFrameFlagEndHeaders | Http2HeadersFrameFlagPadded |
+	                                Http2HeadersFrameFlagPriority
+} Http2HeadersFrameFlag;
+
+NODISCARD static int http2_send_headers_frame(const ConnectionDescriptor* const descriptor,
+                                              const Http2HeadersFrame frame) {
+
+	// TODO: support priority_opt
+	assert(frame.priority_opt.has_priority == false && "not yet implemented");
+
+	Http2HeadersFrameFlag flags = (Http2HeadersFrameFlag)0;
+
+	if(frame.end_stream) {
+		flags = flags | Http2HeadersFrameFlagEndStream;
+	}
+
+	if(frame.end_headers) {
+		flags = flags | Http2HeadersFrameFlagEndHeaders;
+	}
+
+	Http2RawHeader header = {
+		.length = frame.block_fragment.size,
+		.type = Http2FrameTypeHeaders,
+		.flags = flags,
+		.stream_identifier = frame.identifier,
+	};
+
+	const int result = http2_send_raw_frame(descriptor, header, frame.block_fragment);
+
+	return result;
+}
+
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2ContinuationFrameFlagEndHeaders = Http2FrameFlagEndHeaders,
+	// all allowed flags or-ed together
+	Http2ContinuationFrameFlagsAllowed = Http2ContinuationFrameFlagEndHeaders
+} Http2ContinuationFrameFlag;
+
+NODISCARD static int http2_send_continuation_frame(const ConnectionDescriptor* const descriptor,
+                                                   const Http2ContinuationFrame frame) {
+	Http2RawHeader header = {
+		.length = frame.block_fragment.size,
+		.type = Http2FrameTypeContinuation,
+		.flags = frame.end_headers ? Http2ContinuationFrameFlagEndHeaders : 0,
+		.stream_identifier = frame.identifier,
+	};
+
+	const int result = http2_send_raw_frame(descriptor, header, frame.block_fragment);
+
+	return result;
+}
+
 NODISCARD int http2_send_connection_error(const ConnectionDescriptor* const descriptor,
                                           Http2ErrorCode error_code, const char* error) {
 
@@ -409,16 +499,6 @@ NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
 
 	return http2_send_rst_stream_frame(descriptor, frame);
 }
-
-/**
- * @enum MASK / FLAGS
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	Http2DataFrameFlagEndStream = Http2FrameFlagEndStream,
-	Http2DataFrameFlagPadded = Http2FrameFlagPadded,
-	// all allowed flags or-ed together
-	Http2DataFrameFlagsAllowed = Http2DataFrameFlagEndStream | Http2DataFrameFlagPadded
-} Http2DataFrameFlag;
 
 NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const reader,
                                                          Http2RawHeader http2_raw_header) {
@@ -572,20 +652,6 @@ get_http2_priority_info_from_raw_data(const SizedBuffer raw_data) {
 	                       .weight = DEFAULT_STREAM_PRIORITY_WEIGHT })
 
 #define DEFAULT_STREAM_PRIORITY DEFAULT_STREAM_PRIORITY_EXT(0x00)
-
-/**
- * @enum MASK / FLAGS
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	Http2HeadersFrameFlagEndStream = Http2FrameFlagEndStream,
-	Http2HeadersFrameFlagEndHeaders = Http2FrameFlagEndHeaders,
-	Http2HeadersFrameFlagPadded = Http2FrameFlagPadded,
-	Http2HeadersFrameFlagPriority = Http2FrameFlagPriority,
-	// all allowed flags or-ed together
-	Http2HeadersFrameFlagsAllowed = Http2HeadersFrameFlagEndStream |
-	                                Http2HeadersFrameFlagEndHeaders | Http2HeadersFrameFlagPadded |
-	                                Http2HeadersFrameFlagPriority
-} Http2HeadersFrameFlag;
 
 NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* const reader,
                                                             Http2RawHeader http2_raw_header) {
@@ -1401,15 +1467,6 @@ NODISCARD static Http2FrameResult parse_http2_window_update_frame(BufferedReader
 
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 }
-
-/**
- * @enum MASK / FLAGS
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	Http2ContinuationFrameFlagEndHeaders = Http2FrameFlagEndHeaders,
-	// all allowed flags or-ed together
-	Http2ContinuationFrameFlagsAllowed = Http2ContinuationFrameFlagEndHeaders
-} Http2ContinuationFrameFlag;
 
 NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader* const reader,
                                                                  Http2RawHeader http2_raw_header) {
@@ -2916,4 +2973,109 @@ void free_http2_context(HTTP2Context context) {
 	free_http2_context_state(context.state);
 	free_http2_streams(context.streams);
 	free_http2_frames(context.frames);
+}
+
+#define ADDITIONAL_HEADERS_DATA_SIZE ((8 + 32 + 8) / 8)
+
+NODISCARD static size_t get_max_headers_or_continuation_contentsize(Http2Settings settings) {
+
+	const size_t max_frame_size = settings.max_frame_size;
+
+	assert(max_frame_size > ADDITIONAL_HEADERS_DATA_SIZE);
+
+	const size_t max_headers_size = max_frame_size - ADDITIONAL_HEADERS_DATA_SIZE;
+
+	// the continuation frame has no other overhead, than the payload
+
+	return max_headers_size;
+}
+
+NODISCARD static size_t get_max_data_content_size(Http2Settings settings) {
+	const size_t max_frame_size = settings.max_frame_size;
+
+	// the data frame has no other overhead, than the payload, if no padding is used
+
+	return max_frame_size;
+}
+
+NODISCARD int http2_send_headers(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
+                                 Http2Settings settings, SizedBuffer buffer,
+                                 const bool headers_are_end_stream) {
+
+	const size_t max_header_payload_size = get_max_headers_or_continuation_contentsize(settings);
+
+	for(size_t offset = 0; offset < buffer.size;) {
+
+		const size_t size = ((offset + max_header_payload_size) >= buffer.size)
+		                        ? buffer.size - offset
+		                        : max_header_payload_size;
+
+		SizedBuffer block_fragment = {
+			.data = ((uint8_t*)buffer.data) + offset,
+			.size = size,
+		};
+
+		const bool end_headers = offset + size >= buffer.size;
+
+		if(offset == 0) {
+			Http2HeadersFrame frame = {
+				.priority_opt = { .has_priority = false },
+				.end_headers = end_headers,
+				.end_stream = headers_are_end_stream,
+				.block_fragment = block_fragment,
+				.identifier = identifier,
+			};
+			int result = http2_send_headers_frame(descriptor, frame);
+			if(result < 0) {
+				return result;
+			}
+		} else {
+			Http2ContinuationFrame frame = {
+				.end_headers = end_headers,
+				.block_fragment = block_fragment,
+				.identifier = identifier,
+			};
+			int result = http2_send_continuation_frame(descriptor, frame);
+			if(result < 0) {
+				return result;
+			}
+		}
+
+		offset += size;
+	}
+
+	return 0;
+}
+
+NODISCARD int http2_send_data(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
+                              Http2Settings settings, SizedBuffer buffer) {
+
+	const size_t max_data_payload_size = get_max_data_content_size(settings);
+
+	for(size_t offset = 0; offset < buffer.size;) {
+
+		const size_t size = ((offset + max_data_payload_size) >= buffer.size)
+		                        ? buffer.size - offset
+		                        : max_data_payload_size;
+
+		SizedBuffer content = {
+			.data = ((uint8_t*)buffer.data) + offset,
+			.size = size,
+		};
+
+		const bool is_end = offset + size >= buffer.size;
+
+		Http2DataFrame frame = {
+			.content = content,
+			.identifier = identifier,
+			.is_end = is_end,
+		};
+		int result = http2_send_data_frame(descriptor, frame);
+		if(result < 0) {
+			return result;
+		}
+		offset += size;
+	}
+
+	return 0;
 }

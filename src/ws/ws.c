@@ -15,6 +15,7 @@
 
 NODISCARD static int
 send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const descriptor,
+                                               HTTPGeneralContext* general_context,
                                                SendSettings send_settings) {
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Failed WS handshake: Upgrade required\n");
@@ -39,7 +40,8 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 		                           .mime_type = MIME_TYPE_TEXT,
 		                           .additional_headers = additional_headers };
 
-	int result = send_http_message_to_connection(descriptor, to_send, send_settings);
+	int result =
+	    send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -49,6 +51,7 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 }
 
 NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* const descriptor,
+                                                   HTTPGeneralContext* general_context,
                                                    const char* error_reason,
                                                    SendSettings send_settings) {
 
@@ -66,7 +69,8 @@ NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* c
 
 	free_string_builder(message);
 
-	int result = send_http_message_to_connection(descriptor, to_send, send_settings);
+	int result =
+	    send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 
 	if(result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
@@ -121,6 +125,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } NeededHeaderForHandshake;
 
 NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const descriptor,
+                                              HTTPGeneralContext* general_context,
                                               SendSettings send_settings, WSExtensions extensions) {
 
 	size_t extension_length = TVEC_LENGTH(WSExtension, extensions);
@@ -131,8 +136,8 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 
 	// TODO(Totto): support more extensions
 	if(extension_length != 1) {
-		return send_failed_handshake_message(descriptor, "only one extension supported atm",
-		                                     send_settings);
+		return send_failed_handshake_message(descriptor, general_context,
+		                                     "only one extension supported atm", send_settings);
 	}
 
 	for(size_t i = 0; i < extension_length; ++i) {
@@ -143,7 +148,7 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 
 				if(!extension.data.deflate.client.no_context_takeover) {
 					return send_failed_handshake_message(
-					    descriptor,
+					    descriptor, general_context,
 					    "client needs to set the option no_context_takeover, takeover not "
 					    "supported",
 					    send_settings);
@@ -151,7 +156,7 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 
 				if(!extension.data.deflate.server.no_context_takeover) {
 					return send_failed_handshake_message(
-					    descriptor,
+					    descriptor, general_context,
 					    "server needs to set the option no_context_takeover, takeover not "
 					    "supported",
 					    send_settings);
@@ -167,8 +172,8 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 				break;
 			}
 			default: {
-				return send_failed_handshake_message(descriptor, "unexpected extension found",
-				                                     send_settings);
+				return send_failed_handshake_message(descriptor, general_context,
+				                                     "unexpected extension found", send_settings);
 			}
 		}
 	}
@@ -179,7 +184,8 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 static const bool send_http_upgrade_required_status_code = true;
 
 int handle_ws_handshake(const HttpRequest http_request,
-                        const ConnectionDescriptor* const descriptor, SendSettings send_settings,
+                        const ConnectionDescriptor* const descriptor,
+                        HTTPGeneralContext* general_context, SendSettings send_settings,
                         WSExtensions* extensions) {
 
 	// check if it is a valid Websocket request
@@ -197,33 +203,36 @@ int handle_ws_handshake(const HttpRequest http_request,
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(upgrade)) == 0) {
 			found_list |= HandshakeHeaderHeaderUpgrade;
 			if(strcasecontains(header.value, "websocket") < 0) {
-				return send_failed_handshake_message(
-				    descriptor, "upgrade does not contain 'websocket'", send_settings);
+				return send_failed_handshake_message(descriptor, general_context,
+				                                     "upgrade does not contain 'websocket'",
+				                                     send_settings);
 			}
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(connection)) == 0) {
 			found_list |= HandshakeHeaderHeaderConnection;
 			if(strcasecontains(header.value, HTTP_HEADER_NAME(upgrade)) < 0) {
 				if(send_http_upgrade_required_status_code) {
-					return send_failed_handshake_message_upgrade_required(descriptor,
-					                                                      send_settings);
+					return send_failed_handshake_message_upgrade_required(
+					    descriptor, general_context, send_settings);
 				}
 
-				return send_failed_handshake_message(
-				    descriptor, "connection does not contain 'upgrade'", send_settings);
+				return send_failed_handshake_message(descriptor, general_context,
+				                                     "connection does not contain 'upgrade'",
+				                                     send_settings);
 			}
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(ws_sec_websocket_key)) == 0) {
 			found_list |= HandshakeHeaderHeaderSecWebsocketKey;
 			if(is_valid_sec_key(header.value)) {
 				sec_key = header.value;
 			} else {
-				return send_failed_handshake_message(descriptor, "sec-websocket-key is invalid",
-				                                     send_settings);
+				return send_failed_handshake_message(descriptor, general_context,
+				                                     "sec-websocket-key is invalid", send_settings);
 			}
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(ws_sec_websocket_version)) == 0) {
 			found_list |= HandshakeHeaderHeaderSecWebsocketVersion;
 			if(strcmp(header.value, "13") != 0) {
-				return send_failed_handshake_message(
-				    descriptor, "sec-websocket-version has invalid value", send_settings);
+				return send_failed_handshake_message(descriptor, general_context,
+				                                     "sec-websocket-version has invalid value",
+				                                     send_settings);
 			}
 		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(ws_sec_websocket_extensions)) == 0) {
 			// TODO(Totto): this header field may be specified multiple times, but we should
@@ -252,12 +261,14 @@ int handle_ws_handshake(const HttpRequest http_request,
 	if((HandshakeHeaderHeaderAllFound & found_list) != HandshakeHeaderHeaderAllFound) {
 		if(send_http_upgrade_required_status_code && /*NOLINT(readability-implicit-bool-conversion)*/
 		   ((found_list & HandshakeHeaderHeaderUpgrade) == 0)) {
-			return send_failed_handshake_message_upgrade_required(descriptor, send_settings);
+			return send_failed_handshake_message_upgrade_required(descriptor, general_context,
+			                                                      send_settings);
 		}
-		return send_failed_handshake_message(descriptor, "missing required headers", send_settings);
+		return send_failed_handshake_message(descriptor, general_context,
+		                                     "missing required headers", send_settings);
 	}
 
-	if(are_extensions_supported(descriptor, send_settings, *extensions) < 0) {
+	if(are_extensions_supported(descriptor, general_context, send_settings, *extensions) < 0) {
 		return -1;
 	}
 
@@ -297,7 +308,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 		                           .mime_type = NULL,
 		                           .additional_headers = additional_headers };
 
-	return send_http_message_to_connection(descriptor, to_send, send_settings);
+	return send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 }
 
 NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedURLPath path) {

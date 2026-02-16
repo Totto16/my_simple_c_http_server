@@ -2,11 +2,12 @@
 
 #pragma once
 
+#include "./parser.h"
 #include "generic/secure.h"
 #include "http/protocol.h"
 
 typedef struct {
-	SizedBuffer body;
+	SizedBuffer content;
 	bool send_body_data;
 } HTTPResponseBody;
 
@@ -17,7 +18,8 @@ typedef struct {
 	HttpHeaderFields additional_headers;
 } HTTPResponseToSend;
 
-NODISCARD int send_http_message_to_connection(const ConnectionDescriptor* descriptor,
+NODISCARD int send_http_message_to_connection(HTTPGeneralContext* general_context,
+                                              const ConnectionDescriptor* descriptor,
                                               HTTPResponseToSend to_send,
                                               SendSettings send_settings);
 

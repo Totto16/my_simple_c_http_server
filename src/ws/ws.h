@@ -4,6 +4,7 @@
 #include "./extension.h"
 #include "generic/secure.h"
 #include "http/protocol.h"
+#include "http/parser.h"
 
 /**
  * @enum value
@@ -30,7 +31,8 @@ typedef struct {
 } WsConnectionArgs;
 
 NODISCARD int handle_ws_handshake(HttpRequest http_request, const ConnectionDescriptor* descriptor,
-                                  SendSettings send_settings, WSExtensions* extension);
+                                  HTTPGeneralContext* general_context, SendSettings send_settings,
+                                  WSExtensions* extension);
 
 NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
                                                          WSExtensions extensions);

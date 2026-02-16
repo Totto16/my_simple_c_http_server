@@ -27,6 +27,8 @@ typedef struct {
 NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackState* state,
                                                                  SizedBuffer input);
 
+NODISCARD SizedBuffer http2_hpack_compress_data(HpackState* state, HttpHeaderFields input);
+
 void set_hpack_state_setting(HpackState* state, size_t max_dynamic_table_byte_size);
 
 typedef uint64_t HpackVariableInteger;

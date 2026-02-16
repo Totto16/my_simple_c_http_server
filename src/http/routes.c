@@ -1029,8 +1029,8 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				    "Basic realm=\"%s\", charset=\"UTF-8\"", DEFAULT_AUTH_REALM);
 
 				add_http_header_field_const_key_dynamic_value(&additional_headers,
-				                                            HTTP_HEADER_NAME(www_authenticate),
-				                                            www_authenticate_buffer);
+				                                              HTTP_HEADER_NAME(www_authenticate),
+				                                              www_authenticate_buffer);
 
 #ifndef NDEBUG
 				add_http_header_field_const_key_const_value(&additional_headers,
@@ -1174,7 +1174,8 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const r
 NODISCARD
 int route_manager_execute_route(const RouteManager* const route_manager, HTTPRouteFn route,
                                 const ConnectionDescriptor* const descriptor,
-                                SendSettings send_settings, const HttpRequest http_request,
+                                HTTPGeneralContext* general_context, SendSettings send_settings,
+                                const HttpRequest http_request,
                                 const ConnectionContext* const context, ParsedURLPath path,
                                 AuthUserWithContext* auth_user, IPAddress address) {
 
@@ -1228,7 +1229,8 @@ int route_manager_execute_route(const RouteManager* const route_manager, HTTPRou
 		}
 	}
 
-	int result = send_http_message_to_connection(descriptor, response, send_settings);
+	int result =
+	    send_http_message_to_connection(general_context, descriptor, response, send_settings);
 
 	return result;
 }

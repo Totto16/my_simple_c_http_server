@@ -45,6 +45,7 @@ static void receive_signal(int signal_number) {
 
 NODISCARD static int process_http_error(const HttpRequestError error,
                                         ConnectionDescriptor* const descriptor,
+                                        HTTPGeneralContext* general_context,
                                         const SendSettings send_settings, const bool send_body) {
 
 	if(error.is_advanced) {
@@ -61,7 +62,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-		return send_http_message_to_connection(descriptor, to_send, send_settings);
+		return send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 	}
 
 	switch(error.value.enum_value) {
@@ -90,7 +91,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = additional_headers };
 
-			return send_http_message_to_connection(descriptor, to_send, send_settings);
+			return send_http_message_to_connection(general_context, descriptor, to_send,
+			                                       send_settings);
 		}
 		case HttpRequestErrorTypeMethodNotSupported: {
 
@@ -129,7 +131,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				.additional_headers = additional_headers
 			};
 
-			return send_http_message_to_connection(descriptor, to_send, send_settings);
+			return send_http_message_to_connection(general_context, descriptor, to_send,
+			                                       send_settings);
 		}
 		case HttpRequestErrorTypeInvalidNonEmptyBody: {
 			HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
@@ -139,7 +142,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-			return send_http_message_to_connection(descriptor, to_send, send_settings);
+			return send_http_message_to_connection(general_context, descriptor, to_send,
+			                                       send_settings);
 		}
 		case HttpRequestErrorTypeInvalidHttp2Preface: {
 			return http2_send_connection_error(descriptor, Http2ErrorCodeProtocolError,
@@ -151,7 +155,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-			return send_http_message_to_connection(descriptor, to_send, send_settings);
+			return send_http_message_to_connection(general_context, descriptor, to_send,
+			                                       send_settings);
 		}
 		case HttpRequestErrorTypeProtocolError: {
 			HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
@@ -160,7 +165,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-			return send_http_message_to_connection(descriptor, to_send, send_settings);
+			return send_http_message_to_connection(general_context, descriptor, to_send,
+			                                       send_settings);
 		}
 		case HttpRequestErrorTypeNotSupported: {
 			HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
@@ -169,7 +175,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-			return send_http_message_to_connection(descriptor, to_send, send_settings);
+			return send_http_message_to_connection(general_context, descriptor, to_send,
+			                                       send_settings);
 			break;
 		}
 		default: {
@@ -179,16 +186,17 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-			return send_http_message_to_connection(descriptor, to_send, send_settings);
+			return send_http_message_to_connection(general_context, descriptor, to_send,
+			                                       send_settings);
 		}
 	}
 }
 
 NODISCARD static JobError
 process_http_request(const HttpRequest http_request, ConnectionDescriptor* const descriptor,
-                     const RouteManager* const route_manager, HTTPConnectionArgument* argument,
-                     const WorkerInfo worker_info, const RequestSettings request_settings,
-                     const IPAddress address) {
+                     HTTPGeneralContext* general_context, const RouteManager* const route_manager,
+                     HTTPConnectionArgument* argument, const WorkerInfo worker_info,
+                     const RequestSettings request_settings, const IPAddress address) {
 
 	ConnectionContext* context =
 	    TVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
@@ -223,7 +231,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					                           .mime_type = MIME_TYPE_TEXT,
 					                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-				result = send_http_message_to_connection(descriptor, to_send, send_settings);
+				result = send_http_message_to_connection(general_context, descriptor, to_send,
+				                                         send_settings);
 				break;
 			}
 			case HTTPRequestMethodOptions: {
@@ -257,7 +266,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					                           .mime_type = NULL,
 					                           .additional_headers = additional_headers };
 
-				result = send_http_message_to_connection(descriptor, to_send, send_settings);
+				result = send_http_message_to_connection(general_context, descriptor, to_send,
+				                                         send_settings);
 
 				break;
 			}
@@ -292,7 +302,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					                           .mime_type = NULL,
 					                           .additional_headers = additional_headers };
 
-				result = send_http_message_to_connection(descriptor, to_send, send_settings);
+				result = send_http_message_to_connection(general_context, descriptor, to_send,
+				                                         send_settings);
 
 				break;
 			}
@@ -303,7 +314,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					                           .mime_type = MIME_TYPE_TEXT,
 					                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-				result = send_http_message_to_connection(descriptor, to_send, send_settings);
+				result = send_http_message_to_connection(general_context, descriptor, to_send,
+				                                         send_settings);
 				break;
 			}
 		}
@@ -358,8 +370,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							.additional_headers = additional_headers
 						};
 
-						result =
-						    send_http_message_to_connection(descriptor, to_send, send_settings);
+						result = send_http_message_to_connection(general_context, descriptor,
+						                                         to_send, send_settings);
 
 						break;
 					}
@@ -371,7 +383,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						                           .mime_type = MIME_TYPE_TEXT,
 						                           .additional_headers = additional_headers };
 
-					result = send_http_message_to_connection(descriptor, to_send, send_settings);
+					result = send_http_message_to_connection(general_context, descriptor, to_send,
+					                                         send_settings);
 
 					// just cancel the listener thread, then no new connection are accepted
 					// and the main thread cleans the pool and queue, all jobs are finished
@@ -403,16 +416,16 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							.additional_headers = additional_headers
 						};
 
-						result =
-						    send_http_message_to_connection(descriptor, to_send, send_settings);
+						result = send_http_message_to_connection(general_context, descriptor,
+						                                         to_send, send_settings);
 
 						break;
 					}
 
 					WSExtensions extensions = TVEC_EMPTY(WSExtension);
 
-					int ws_request_successful =
-					    handle_ws_handshake(http_request, descriptor, send_settings, &extensions);
+					int ws_request_successful = handle_ws_handshake(
+					    http_request, descriptor, general_context, send_settings, &extensions);
 
 					WsConnectionArgs websocket_args =
 					    get_ws_args_from_http_request(selected_route_data.path, extensions);
@@ -463,15 +476,16 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 		case HTTPRouteTypeNormal: {
 
-			result = route_manager_execute_route(
-			    route_manager, route_data.value.normal, descriptor, send_settings, http_request,
-			    context, selected_route_data.path, selected_route_data.auth_user, address);
+			result = route_manager_execute_route(route_manager, route_data.value.normal, descriptor,
+			                                     general_context, send_settings, http_request,
+			                                     context, selected_route_data.path,
+			                                     selected_route_data.auth_user, address);
 
 			break;
 		}
 		case HTTPRouteTypeInternal: {
-			result = send_http_message_to_connection(descriptor, route_data.value.internal.send,
-			                                         send_settings);
+			result = send_http_message_to_connection(general_context, descriptor,
+			                                         route_data.value.internal.send, send_settings);
 			break;
 		}
 		case HTTPRouteTypeServeFolder: {
@@ -489,7 +503,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					.additional_headers = TVEC_EMPTY(HttpHeaderField)
 				};
 
-				result = send_http_message_to_connection(descriptor, to_send, send_settings);
+				result = send_http_message_to_connection(general_context, descriptor, to_send,
+				                                         send_settings);
 				break;
 			}
 
@@ -519,7 +534,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						                           .mime_type = MIME_TYPE_TEXT,
 						                           .additional_headers = additional_headers };
 
-					result = send_http_message_to_connection(descriptor, to_send, send_settings);
+					result = send_http_message_to_connection(general_context, descriptor, to_send,
+					                                         send_settings);
 
 					break;
 				}
@@ -532,7 +548,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						                           .additional_headers =
 						                               TVEC_EMPTY(HttpHeaderField) };
 
-					result = send_http_message_to_connection(descriptor, to_send, send_settings);
+					result = send_http_message_to_connection(general_context, descriptor, to_send,
+					                                         send_settings);
 
 					break;
 				}
@@ -605,7 +622,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					ETag: "697d662e-c3f"
 					Accept-Ranges: bytes */
 
-					result = send_http_message_to_connection(descriptor, to_send, send_settings);
+					result = send_http_message_to_connection(general_context, descriptor, to_send,
+					                                         send_settings);
 
 					{ // setup the value of the file, so that it isn't freed twice, as
 					  // sending
@@ -629,8 +647,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							.additional_headers = TVEC_EMPTY(HttpHeaderField)
 						};
 
-						result =
-						    send_http_message_to_connection(descriptor, to_send, send_settings);
+						result = send_http_message_to_connection(general_context, descriptor,
+						                                         to_send, send_settings);
 						break;
 					}
 
@@ -648,8 +666,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							.additional_headers = TVEC_EMPTY(HttpHeaderField)
 						};
 
-						result =
-						    send_http_message_to_connection(descriptor, to_send, send_settings);
+						result = send_http_message_to_connection(general_context, descriptor,
+						                                         to_send, send_settings);
 					} else {
 
 						HTTPResponseBody body =
@@ -665,8 +683,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							                           .additional_headers =
 							                               TVEC_EMPTY(HttpHeaderField) };
 
-						result =
-						    send_http_message_to_connection(descriptor, to_send, send_settings);
+						result = send_http_message_to_connection(general_context, descriptor,
+						                                         to_send, send_settings);
 					}
 					break;
 				}
@@ -678,7 +696,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						                           .additional_headers =
 						                               TVEC_EMPTY(HttpHeaderField) };
 
-					result = send_http_message_to_connection(descriptor, to_send, send_settings);
+					result = send_http_message_to_connection(general_context, descriptor, to_send,
+					                                         send_settings);
 					break;
 				}
 			}
@@ -693,7 +712,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 				                               "Internal error: Implementation error", send_body),
 				                           .mime_type = MIME_TYPE_TEXT,
 				                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
-			result = send_http_message_to_connection(descriptor, to_send, send_settings);
+			result = send_http_message_to_connection(general_context, descriptor, to_send,
+			                                         send_settings);
 			break;
 		}
 	}
@@ -769,6 +789,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
 		int result = send_http_message_to_connection(
+		    NULL, // not yet available!
 		    descriptor, to_send,
 		    (SendSettings){
 		        .compression_to_use = CompressionTypeNone,
@@ -782,6 +803,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 
 		goto cleanup;
 	}
+
+	HTTPGeneralContext* general_context = http_reader_get_general_context(http_reader);
 
 	do {
 
@@ -798,7 +821,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			};
 
 			int result = process_http_error(http_request_result.value.error, descriptor,
-			                                default_send_settings, true);
+			                                general_context, default_send_settings, true);
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -812,8 +835,8 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 		const HttpRequest http_request = http_result.request;
 
 		JobError process_error =
-		    process_http_request(http_request, descriptor, route_manager, argument, worker_info,
-		                         http_result.settings, argument->address);
+		    process_http_request(http_request, descriptor, general_context, route_manager, argument,
+		                         worker_info, http_result.settings, argument->address);
 
 		free_http_request_result(http_result);
 

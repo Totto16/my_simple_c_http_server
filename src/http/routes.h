@@ -235,6 +235,7 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* route);
 
 NODISCARD int route_manager_execute_route(const RouteManager* route_manager, HTTPRouteFn route,
                                           const ConnectionDescriptor* descriptor,
+                                          HTTPGeneralContext* general_context,
                                           SendSettings send_settings, HttpRequest http_request,
                                           const ConnectionContext* context, ParsedURLPath path,
                                           AuthUserWithContext* auth_user, IPAddress address);

@@ -60,7 +60,7 @@ void log_collector_collect(LogCollector* collector, IPAddress address, HttpReque
 		    },
 
 		.result = response.status,
-		.body_size = response.body.body.size,
+		.body_size = response.body.content.size,
 	};
 
 	auto _ = TVEC_PUSH(LogEntry, &collector->entries, entry);
