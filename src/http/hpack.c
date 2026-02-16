@@ -12,12 +12,16 @@ struct HpackStateImpl {
 	size_t current_dynamic_table_byte_size;
 };
 
+// this is chosen, so that a HpackVariableInteger value can be encoded, as the max bits per byte,
+// that can be used is 7, it calculated like that
+#define MAX_HPACK_VARIABLE_INTEGER_SIZE (((sizeof(HpackVariableInteger) * 8) + 7) / 7)
+
 NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, const size_t size,
                                                                    const uint8_t* const data,
                                                                    uint8_t prefix_bits) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1
 
-	uint8_t mask = (1 << prefix_bits) - 1;
+	const uint8_t mask = (1 << prefix_bits) - 1;
 	const uint8_t first_byte = (data[*pos]) & mask;
 
 	if(first_byte < mask) {
@@ -61,6 +65,53 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 		                                 .data = {
 		                                     .value = result,
 		                                 } };
+}
+
+// note: out_bytes has to have a available size of MAX_HPACK_VARIABLE_INTEGER_SIZE
+NODISCARD static int8_t encode_hpack_variable_integer(uint8_t* const out_bytes,
+                                                      const HpackVariableInteger input,
+                                                      const uint8_t prefix_bits) {
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1
+
+	const uint8_t mask = (1 << prefix_bits) - 1;
+
+	if(input < mask) {
+		// it can be done in one value
+		out_bytes[0] = out_bytes[0] | (input & mask);
+		return 1;
+	}
+
+	// it needs more bytes
+
+	HpackVariableInteger value = input;
+	int8_t result = 0;
+
+	out_bytes[result] = out_bytes[result] | mask;
+
+	value -= mask;
+	++result;
+
+	// first byte was special, now loop
+
+	while(true) {
+		if(result > (int)(MAX_HPACK_VARIABLE_INTEGER_SIZE)) {
+			return -1;
+		}
+
+		if(value >= 0x80) {
+			// not the end
+
+			const uint8_t to_encode = value & 0x7F;
+			out_bytes[result++] = 0x80 + to_encode;
+			value /= 0x80;
+		} else {
+			out_bytes[result++] = value;
+			break;
+		}
+	}
+
+	return result;
 }
 
 typedef struct {
@@ -757,4 +808,115 @@ void global_initialize_http2_hpack_data(void) {
 void global_free_http2_hpack_data(void) {
 	global_free_http2_hpack_huffman_data();
 	global_free_hpack_static_header_table_data();
+}
+
+NODISCARD static SizedBuffer encode_single_header_field_dumb_literal(HttpHeaderField field) {
+
+	// encode the value as:
+	// Literal Header Field Never Indexed:
+	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
+
+	// variant 2:
+
+	//    0   1   2   3   4   5   6   7
+	// +---+---+---+---+---+---+---+---+
+	// | 0 | 0 | 0 | 1 |       0       |
+	// +---+---+-----------------------+
+	// | H |     Name Length (7+)      |
+	// +---+---------------------------+
+	// |  Name String (Length octets)  |
+	// +---+---------------------------+
+	// | H |     Value Length (7+)     |
+	// +---+---------------------------+
+	// | Value String (Length octets)  |
+	// +-------------------------------+
+
+	const size_t key_size = strlen(field.key);
+	const size_t value_size = strlen(field.value);
+
+	const size_t max_size = MAX_HPACK_VARIABLE_INTEGER_SIZE + MAX_HPACK_VARIABLE_INTEGER_SIZE +
+	                        key_size + value_size + 1;
+
+	SizedBuffer buffer = allocate_sized_buffer(max_size);
+
+	if(buffer.data == NULL) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	uint8_t* data = (uint8_t*)buffer.data;
+
+	size_t i = 0;
+
+	data[i++] = 0x10;
+
+	{ // encode key / name
+
+		// set Huffman to false
+		data[i] = 0x00;
+
+		int8_t result = encode_hpack_variable_integer(data + i, key_size, 7);
+
+		if(result < 1) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += result;
+
+		memcpy(data + i, field.key, key_size);
+
+		i += key_size;
+	}
+
+	{ // encode value
+
+		// set Huffman to false
+		data[i] = 0x00;
+
+		int8_t result = encode_hpack_variable_integer(data + i, value_size, 7);
+
+		if(result < 1) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += result;
+
+		memcpy(data + i, field.value, value_size);
+
+		i += key_size;
+	}
+
+	assert(i <= buffer.size && "do much data used");
+	buffer.size = i;
+
+	return buffer;
+}
+
+NODISCARD SizedBuffer http2_hpack_compress_data(HpackState* const state,
+                                                const HttpHeaderFields header_fields) {
+
+	// TODO: use more advanced methods of compression
+	//  atm I only use "Literal Header Field Never Indexed", they take up some space, but are easy
+	//  to create, as they don't require any lookup in the static or dynamic table and no huffman
+	//  encoding
+
+	// currently not using state alias the dynamic table
+	UNUSED(state);
+
+	SizedBuffer result = { .data = NULL, .size = 0 };
+
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, header_fields); ++i) {
+
+		HttpHeaderField field = TVEC_AT(HttpHeaderField, header_fields, i);
+
+		const SizedBuffer single_header_result = encode_single_header_field_dumb_literal(field);
+
+		if(single_header_result.data == NULL) {
+			free_sized_buffer(result);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+	}
+
+	return result;
 }

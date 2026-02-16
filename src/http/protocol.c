@@ -254,7 +254,6 @@ void free_http_header_field(const HttpHeaderField field) {
 
 void free_http_header_fields(HttpHeaderFields* header_fields) {
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, *header_fields); ++i) {
-		// same elegant freeing but two at once :)
 
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, *header_fields, i);
 
@@ -274,7 +273,7 @@ static void add_http_header_field_raw(HttpHeaderFields* const header_fields, cha
 }
 
 void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* const header_fields,
-                                                 const char* const key, char* const value) {
+                                                   const char* const key, char* const value) {
 
 	add_http_header_field_raw(header_fields, strdup(key), value);
 }
