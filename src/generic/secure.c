@@ -97,8 +97,8 @@ static int alpn_select_cb(SSL* /* ssl */, const unsigned char** out, unsigned ch
 	// check if the clinet support one of our protocols, if so, this fn return
 	// OPENSSL_NPN_NEGOTIATED and sets out and outlen, so the exact thing the cb function expects,
 	// so nothing to except return OK
-	if(SSL_select_next_proto((unsigned char**)out, outlen, g_alpn_protos, sizeof(g_alpn_protos), in_buf,
-	                         inlen) == OPENSSL_NPN_NEGOTIATED) {
+	if(SSL_select_next_proto((unsigned char**)out, outlen, g_alpn_protos, sizeof(g_alpn_protos),
+	                         in_buf, inlen) == OPENSSL_NPN_NEGOTIATED) {
 		return SSL_TLSEXT_ERR_OK;
 	}
 

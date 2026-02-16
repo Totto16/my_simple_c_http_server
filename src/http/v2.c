@@ -44,6 +44,12 @@ NODISCARD static SerializeResult32 serialize_identifier(const Http2Identifier id
 
 	return result;
 }
+NODISCARD static uint32_t special_impl_deserialize_u24_be_to_host(const uint8_t* bytes) {
+
+	const uint8_t actual_value[4] = { 0, bytes[0], bytes[1], bytes[2] };
+
+	return deserialize_u32_be_to_host(actual_value);
+}
 
 NODISCARD static Http2RawHeader parse_http2_raw_header(const uint8_t* const header_data) {
 
@@ -51,7 +57,7 @@ NODISCARD static Http2RawHeader parse_http2_raw_header(const uint8_t* const head
 
 	uint8_t flags = header_data[4];
 
-	uint32_t length = deserialize_u32_be_to_host(header_data) & 0x00ffffffULL;
+	uint32_t length = special_impl_deserialize_u24_be_to_host(header_data);
 
 	Http2Identifier stream_identifier = deserialize_identifier(header_data + 5);
 
@@ -981,7 +987,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 		return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 	}
 
-	if(http2_raw_header.length % 6 != 0) {
+	if((http2_raw_header.length % 6) != 0) {
 		const char* error = "invalid settings frame length, not a multiple of 6";
 		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 		                                    Http2ErrorCodeFrameSizeError, error);

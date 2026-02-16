@@ -996,9 +996,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 					.is_error = true,
 					.value = { .error =
 					               (HttpRequestError){
-					                   .is_advanced = false,
-					                   .value = { .enum_value =
-					                                  HttpRequestErrorTypeInvalidHttp2Preface } } }
+					                   .is_advanced = true,
+					                   .value = { .advanced = start_result.value.error } } }
 				};
 			}
 

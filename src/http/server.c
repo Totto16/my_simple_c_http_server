@@ -56,6 +56,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 		string_builder_append_single(string_builder, error.value.advanced);
 
+		LOG_MESSAGE(LogLevelError, "An advanced error occurred: %s\n", error.value.advanced);
+
 		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
 			                           .body = http_response_body_from_string_builder(
 			                               &string_builder, send_body),
@@ -64,6 +66,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 		return send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 	}
+
+	LOG_MESSAGE(LogLevelWarn, "An enum error occurred: %d\n", error.value.enum_value);
 
 	switch(error.value.enum_value) {
 		case HttpRequestErrorTypeInvalidHttpVersion: {
@@ -1036,8 +1040,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
-	struct sockaddr_in* addr =
-	    (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
+	struct sockaddr_in* addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
 
 	if(!addr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
@@ -1045,7 +1048,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		return EXIT_FAILURE;
 	}
 
-	*addr = (struct sockaddr_in){0};
+	*addr = (struct sockaddr_in){ 0 };
 
 	addr->sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and
