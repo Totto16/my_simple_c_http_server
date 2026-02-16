@@ -3079,3 +3079,20 @@ NODISCARD int http2_send_data(const ConnectionDescriptor* descriptor, Http2Ident
 
 	return 0;
 }
+
+NODISCARD Http2Identifier get_new_http2_identifier(HTTP2Context* const context) {
+
+	Http2Identifier current_identifier = context->state.last_stream_id;
+
+	if(current_identifier.identifier == 0) {
+		current_identifier = (Http2Identifier){ .identifier = 2 };
+	}
+
+	// server started connections must be even
+	assert((current_identifier.identifier % 2) == 0 && "implementation error");
+
+	context->state.last_stream_id =
+	    (Http2Identifier){ .identifier = current_identifier.identifier + 2 };
+
+	return current_identifier;
+}
