@@ -71,9 +71,13 @@ typedef struct {
 	} value;
 } ParsedRequestURIResult;
 
+NODISCARD ParsedURLPath parse_url_path(char* path);
+
+NODISCARD char* parse_authority(char* str, OUT_PARAM(ParsedAuthority) out_result);
+
 /**
- * @brief Get the parsed url path from raw object, it modifies the string inline and creates copies
- * for the result
+ * @brief Get the parsed url path from raw object, it modifies the string inline and creates
+ * copies for the result
  *
  * @param path
  * @return ParsedRequestURIResult

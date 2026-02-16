@@ -57,3 +57,15 @@ HTTP_HEADER_MAKE(ws_sec_websocket_accept, "sec-websocket-accept");
 HTTP_HEADER_MAKE(x_special_reason, "x-special-reason");
 
 HTTP_HEADER_MAKE(x_shutdown, "x-shutdown");
+
+// http2 pseudo header fields
+
+HTTP_HEADER_MAKE(http2_pseudo_method, ":method");
+
+HTTP_HEADER_MAKE(http2_pseudo_scheme, ":scheme");
+
+HTTP_HEADER_MAKE(http2_pseudo_authority, ":authority");
+
+HTTP_HEADER_MAKE(http2_pseudo_path, ":path");
+
+HTTP_HEADER_MAKE(http2_pseudo_status, ":status");

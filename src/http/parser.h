@@ -8,6 +8,9 @@ extern "C" {
 
 #include "./protocol.h"
 
+NODISCARD HTTPRequestMethod get_http_method_from_string(const char* method,
+                                                        OUT_PARAM(bool) success);
+
 typedef struct HTTPReaderImpl HTTPReader;
 
 NODISCARD HTTPReader* NULLABLE

@@ -2,6 +2,8 @@
 #include "./hpack.h"
 #include "generic/send.h"
 #include "generic/serialize.h"
+#include "http/header.h"
+#include "http/parser.h"
 
 TVEC_IMPLEMENT_VEC_TYPE(Http2Frame)
 
@@ -2458,28 +2460,198 @@ typedef struct {
 	Http2RequestHeadersResultType type;
 	union {
 		HttpRequestHead result;
+		const char* error;
 	} data;
 } Http2RequestHeadersResult;
+
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	PseudoHeadersForHttp2None = 0b0,
+	PseudoHeadersForHttp2Method = 0b1,
+	PseudoHeadersForHttp2Scheme = 0b10,
+	PseudoHeadersForHttp2Authority = 0b100,
+	PseudoHeadersForHttp2Path = 0b1000,
+	PseudoHeadersForHttp2Status = 0b10000,
+	//
+	PseudoHeadersForHttp2NeededForRequest = PseudoHeadersForHttp2Method |
+	                                        PseudoHeadersForHttp2Scheme | PseudoHeadersForHttp2Path,
+} PseudoHeadersForHttp2;
 
 NODISCARD static Http2RequestHeadersResult parse_http2_headers(HpackState* const hpack_state,
                                                                const Http2StreamHeaders headers) {
 
-	// TODO
-
 	const SizedBuffer header_value = http2_concat_data_blocks(headers.header_blocks);
 
 	if(header_value.data == NULL) {
-		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError };
+		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+			                                .data = {
+			                                    .error = "error in constructing the header data",
+			                                } };
 	}
 
 	const Http2HpackDecompressResult header_result =
 	    http2_hpack_decompress_data(hpack_state, header_value);
 
-	// TODO
-	UNUSED(header_result);
+	if(header_result.is_error) {
+		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+			                                .data = {
+			                                    .error = header_result.data.error,
+			                                } };
+	}
 
-	// TODO
-	return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError };
+	HttpHeaderFields http2_headers = header_result.data.result;
+
+	HttpRequestHead result = {
+		.request_line =
+		    (HttpRequestLine){
+		        .protocol_version = HTTPProtocolVersion2,
+		        .uri =
+		            (ParsedRequestURI){
+		                .type = ParsedURITypeAbsoluteURI,
+		                .data = { .uri =
+		                              (ParsedURI){
+		                                  .authority =
+		                                      (ParsedAuthority){
+		                                          .host = NULL,
+		                                          .user_info = (URIUserInfo){ .username = NULL,
+		                                                                      .password = NULL },
+		                                          .port = 0 },
+
+		                              } },
+		            } },
+		.header_fields = TVEC_EMPTY(HttpHeaderField)
+	};
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7540#section-8.1.2
+
+	bool pseudo_headers_finished = false;
+
+	PseudoHeadersForHttp2 found_pseudo_headers = PseudoHeadersForHttp2None;
+
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http2_headers); ++i) {
+		HttpHeaderField entry = TVEC_AT(HttpHeaderField, http2_headers, i);
+
+		if(strlen(entry.key) > 0 && entry.key[0] == ':') {
+			if(pseudo_headers_finished) {
+				return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+					                                .data = {
+					                                    .error = "pseudo header field after normal "
+					                                             "header fields",
+					                                } };
+			}
+
+			PseudoHeadersForHttp2 new_pseudo_header = PseudoHeadersForHttp2None;
+
+			if(strcmp(HTTP_HEADER_NAME(http2_pseudo_method), entry.key) == 0) {
+
+				bool success = false;
+
+				const HTTPRequestMethod method = get_http_method_from_string(entry.value, &success);
+
+				if(!success) {
+					return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+						                                .data = {
+						                                    .error = "invalid http method",
+						                                } };
+				}
+
+				result.request_line.method = method;
+				new_pseudo_header = PseudoHeadersForHttp2Method;
+
+			} else if(strcmp(HTTP_HEADER_NAME(http2_pseudo_scheme), entry.key) == 0) {
+
+				assert(result.request_line.uri.type == ParsedURITypeAbsoluteURI);
+				result.request_line.uri.data.uri.scheme = strdup(entry.value);
+				new_pseudo_header = PseudoHeadersForHttp2Scheme;
+
+			} else if(strcmp(HTTP_HEADER_NAME(http2_pseudo_authority), entry.key) == 0) {
+
+				ParsedAuthority authority = {};
+				char* authority_parse_result = parse_authority(entry.value, &authority);
+
+				if(authority_parse_result == NULL) {
+					return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+						                                .data = {
+						                                    .error = "Authority parse error: not a "
+						                                             "valid authority",
+						                                } };
+				}
+
+				if(*authority_parse_result != '\0') {
+
+					return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+						                                .data = {
+						                                    .error = "Authority parse error: we "
+						                                             "got more data "
+						                                             "after the authority",
+						                                } };
+				}
+
+				assert(result.request_line.uri.type == ParsedURITypeAbsoluteURI);
+				result.request_line.uri.data.uri.authority = authority;
+				new_pseudo_header = PseudoHeadersForHttp2Authority;
+
+			} else if(strcmp(HTTP_HEADER_NAME(http2_pseudo_path), entry.key) == 0) {
+
+				const ParsedURLPath path = parse_url_path(entry.value);
+
+				assert(result.request_line.uri.type == ParsedURITypeAbsoluteURI);
+				result.request_line.uri.data.uri.path = path;
+				new_pseudo_header = PseudoHeadersForHttp2Path;
+
+			} else if(strcmp(HTTP_HEADER_NAME(http2_pseudo_status), entry.key) == 0) {
+				return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+					                                .data = {
+					                                    .error = "pseudo header status not allowed "
+					                                             "in request",
+					                                } };
+			} else {
+				return (
+				    Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+					                            .data = {
+					                                .error = "pseudo header field not recognized",
+					                            } };
+			}
+
+			assert(new_pseudo_header != PseudoHeadersForHttp2None && "implementation error");
+
+			if((found_pseudo_headers & new_pseudo_header) != 0) {
+				return (
+				    Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+					                            .data = {
+					                                .error = "duplicate pseudo header field found",
+					                            } };
+			}
+
+			found_pseudo_headers = found_pseudo_headers | new_pseudo_header;
+			free_http_header_field(entry);
+
+		} else {
+			// normal header, just pass along, it is not freed, as it is reused by the new header
+			// list
+			pseudo_headers_finished = true;
+
+			auto _ = TVEC_PUSH(HttpHeaderField, &(result.header_fields), entry);
+			UNUSED(_);
+		}
+	}
+	TVEC_FREE(HttpHeaderField, &http2_headers);
+
+	if((found_pseudo_headers & PseudoHeadersForHttp2NeededForRequest) !=
+	   PseudoHeadersForHttp2NeededForRequest) {
+		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+			                                .data = {
+			                                    .error =
+			                                        "not all needed pseudo header field were found",
+			                                } };
+	}
+
+	return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeOk,
+		                                .data = {
+		                                    .result = result,
+		                                } };
 }
 
 NODISCARD static HttpRequestResult

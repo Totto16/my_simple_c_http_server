@@ -5,7 +5,7 @@
 
 TMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
 
-NODISCARD static ParsedURLPath parse_url_path(char* const path) {
+NODISCARD ParsedURLPath parse_url_path(char* const path) {
 	// precodnition:  path is not NULL and len is > 1
 
 	char* search_path = strchr(path, '?');
@@ -154,7 +154,7 @@ NODISCARD static uint16_t parse_u16(const char* to_parse, OUT_PARAM(bool) succes
 	return (uint16_t)result;
 }
 
-NODISCARD static char* parse_authority(char* const str, OUT_PARAM(ParsedAuthority) out_result) {
+NODISCARD char* parse_authority(char* const str, OUT_PARAM(ParsedAuthority) out_result) {
 
 	ParsedAuthority local_authority = {
 		.user_info = (URIUserInfo){ .username = NULL, .password = NULL }, .host = NULL, .port = 0

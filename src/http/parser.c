@@ -8,8 +8,8 @@
 #include <ctype.h>
 #include <math.h>
 
-NODISCARD static HTTPRequestMethod get_http_method_from_string(const char* const method,
-                                                               OUT_PARAM(bool) success) {
+NODISCARD HTTPRequestMethod get_http_method_from_string(const char* const method,
+                                                        OUT_PARAM(bool) success) {
 
 	if(strcmp(method, "GET") == 0) {
 		*success = true;
@@ -716,7 +716,11 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
                                                        HTTPReader* const reader) {
 
 	HttpRequest request = {
-		.head = { .request_line = request_line, .header_fields = TVEC_EMPTY(HttpHeaderField) },
+		.head =
+		    (HttpRequestHead){
+		        .request_line = request_line,
+		        .header_fields = TVEC_EMPTY(HttpHeaderField),
+		    },
 		.body = (SizedBuffer){ .data = NULL, .size = 0 },
 	};
 
