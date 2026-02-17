@@ -1081,6 +1081,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 					free_sized_buffer(old_message_buffer);
 					free_sized_buffer(raw_message.payload);
+					raw_message.payload = ((SizedBuffer){ .data = NULL, .size = 0 });
 
 					if(!raw_message.fin) {
 						continue;
@@ -1189,6 +1190,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					    WsOpcodeText;
 
 					current_message.buffer = raw_message.payload;
+					raw_message.payload = (SizedBuffer){ .data = NULL, .size = 0 };
 
 					if(!raw_message.fin) {
 						continue;
