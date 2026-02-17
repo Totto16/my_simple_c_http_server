@@ -25,7 +25,11 @@ A million repetitions of "a"
 
 #include "sha1.h"
 
-#include <endian.h>
+#if !defined(__APPLE__)
+	#include <endian.h>
+#else
+	#include <machine/endian.h>
+#endif
 
 #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
