@@ -29,10 +29,10 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 
 	{
 		add_http_header_field_const_key_const_value(&additional_headers, HTTP_HEADER_NAME(upgrade),
-		                                            "WebSocket");
+		                                            "websocket");
 
 		add_http_header_field_const_key_const_value(&additional_headers,
-		                                            HTTP_HEADER_NAME(connection), "Upgrade");
+		                                            HTTP_HEADER_NAME(connection), "upgrade");
 	}
 
 	HTTPResponseToSend to_send = { .status = HttpStatusUpgradeRequired,
@@ -278,10 +278,10 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 	{
 		add_http_header_field_const_key_const_value(&additional_headers, HTTP_HEADER_NAME(upgrade),
-		                                            "WebSocket");
+		                                            "websocket");
 
 		add_http_header_field_const_key_const_value(&additional_headers,
-		                                            HTTP_HEADER_NAME(connection), "Upgrade");
+		                                            HTTP_HEADER_NAME(connection), "upgrade");
 	}
 
 	char* key_answer = generate_key_answer(sec_key);
