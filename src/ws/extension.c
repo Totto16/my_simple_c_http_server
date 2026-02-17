@@ -431,7 +431,7 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 		return strdup("client context takeover is not supported");
 	}
 
-	SizedBuffer input_buffer = message->data;
+	SizedBuffer input_buffer = message->buffer;
 
 	// steps from: https://datatracker.ietf.org/doc/html/rfc7692#section-7.2.2
 
@@ -450,7 +450,7 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 	input_buffer.data = new_buf;
 	input_buffer.size = input_buffer.size + WS_DECOMPRESS_TAILER_LENGTH;
 
-	message->data = input_buffer;
+	message->buffer = input_buffer;
 
 	// 2. Decompress the resulting data using DEFLATE.
 	SizedBuffer result =
@@ -462,7 +462,7 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 
 	free_sized_buffer(input_buffer);
 
-	message->data = result;
+	message->buffer = result;
 
 	return NULL;
 }
@@ -474,7 +474,7 @@ static char* compress_ws_message(WebSocketMessage* message, WsDeflateOptions* op
 		return strdup("server context takeover is not supported");
 	}
 
-	SizedBuffer input_buffer = message->data;
+	SizedBuffer input_buffer = message->buffer;
 
 	// steps from: https://datatracker.ietf.org/doc/html/rfc7692#section-7.2.1
 
@@ -498,7 +498,7 @@ static char* compress_ws_message(WebSocketMessage* message, WsDeflateOptions* op
 
 	free_sized_buffer(input_buffer);
 
-	message->data = result;
+	message->buffer = result;
 
 	return NULL;
 }

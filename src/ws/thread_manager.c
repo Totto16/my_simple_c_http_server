@@ -410,7 +410,7 @@ NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connec
 	WebSocketRawMessage raw_message = {
 		.fin = true,
 		.op_code = op_code,
-		.payload = message->data,
+		.payload = message->buffer,
 		.rsv_bytes = 0b000,
 	};
 
@@ -432,17 +432,17 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 		fragment_size = WS_MINIMUM_FRAGMENT_SIZE;
 	}
 
-	if(message->data.size < fragment_size) {
+	if(message->buffer.size < fragment_size) {
 		return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 	}
 
-	for(uint64_t start = 0; start < message->data.size; start += fragment_size) {
+	for(uint64_t start = 0; start < message->buffer.size; start += fragment_size) {
 		uint64_t end = start + fragment_size;
 		bool fin = false;
 		uint64_t payload_len = fragment_size;
 
-		if(end >= message->data.size) {
-			end = message->data.size;
+		if(end >= message->buffer.size) {
+			end = message->buffer.size;
 			fin = true;
 			payload_len = end - start;
 		}
@@ -455,7 +455,7 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 		        : WsOpcodeCont;
 
 		SizedBuffer payload = {
-			.data = ((uint8_t*)message->data.data) + start,
+			.data = ((uint8_t*)message->buffer.data) + start,
 			.size = payload_len,
 		};
 
@@ -765,12 +765,17 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	do { \
 	} while(false)
 
+#define FREE_WS_MESSAGES_IMPL() \
+	do { \
+	} while(false)
+
 #define FREE_AT_END_ONE() \
 	do { \
 		unset_thread_name(); \
 		free(thread_name_buffer); \
 		free(argument); \
 		FREE_ADDITIONALLY(); \
+		FREE_WS_MESSAGES_IMPL(); \
 	} while(false)
 
 	bool sigpipe_result = setup_sigpipe_signal_handler();
@@ -828,7 +833,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 		bool has_message = false;
 		WebSocketMessage current_message = {
 			.is_text = true,
-			.data = (SizedBuffer){ .data = NULL, .size = 0 },
+			.buffer = (SizedBuffer){ .data = NULL, .size = 0 },
 		};
 		ExtensionMessageReceiveState* message_receive_state =
 		    init_extension_receive_message_state(extension_pipeline);
@@ -838,14 +843,22 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 			WebSocketRawMessageResult raw_message_result =
 			    read_raw_message(connection, pipeline_receive_settings);
 
-#define FREE_RAW_WS_MESSAGE() \
+#define FREE_WS_RAW_MESSAGE() \
+	do { \
+		free_raw_ws_message(raw_message); \
+		raw_message.payload = ((SizedBuffer){ .data = NULL, .size = 0 }); \
+	} while(false)
+
+#define FREE_WS_CURRENT_MESSAGE() \
 	do { \
 		if(has_message) /*NOLINT(bugprone-redundant-branch-condition)*/ { \
 			free_ws_message(current_message); \
-		} else { \
-			free_raw_ws_message(raw_message); \
+			current_message.buffer = ((SizedBuffer){ .data = NULL, .size = 0 }); \
 		} \
 	} while(false)
+
+#undef FREE_WS_MESSAGES_IMPL
+#define FREE_WS_MESSAGES_IMPL() FREE_WS_CURRENT_MESSAGE()
 
 			if(raw_message_result.has_error) {
 
@@ -880,6 +893,13 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				return NULL;
 			}
 
+#undef FREE_WS_MESSAGES_IMPL
+#define FREE_WS_MESSAGES_IMPL() \
+	do { \
+		FREE_WS_CURRENT_MESSAGE(); \
+		FREE_WS_RAW_MESSAGE(); \
+	} while(false)
+
 			WebSocketRawMessage raw_message = raw_message_result.data.message;
 
 			// invalidate old data, this frees up buffered reader content, the message has all
@@ -904,7 +924,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						            result);
 					}
 
-					FREE_RAW_WS_MESSAGE();
 					FREE_AT_END();
 					return NULL;
 				}
@@ -924,7 +943,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						            result);
 					}
 
-					FREE_RAW_WS_MESSAGE();
 					FREE_AT_END();
 					return NULL;
 				}
@@ -952,7 +970,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								            result);
 							}
 
-							FREE_RAW_WS_MESSAGE();
 							FREE_AT_END();
 							return NULL;
 						}
@@ -988,7 +1005,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								            result);
 							}
 
-							FREE_RAW_WS_MESSAGE();
 							FREE_AT_END();
 							return NULL;
 						}
@@ -1020,7 +1036,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							    result);
 						}
 
-						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
@@ -1045,29 +1060,26 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							    result);
 						}
 
-						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
 
-					const SizedBuffer old_message_data = current_message.data;
+					const SizedBuffer old_message_buffer = current_message.buffer;
 
-					current_message.data =
-					    allocate_sized_buffer(old_message_data.size + raw_message.payload.size);
+					current_message.buffer =
+					    allocate_sized_buffer(old_message_buffer.size + raw_message.payload.size);
 
-					current_message.data.size += raw_message.payload.size;
-
-					if(old_message_data.size != 0 && old_message_data.data != NULL) {
-						memcpy(current_message.data.data, old_message_data.data,
-						       old_message_data.size);
+					if(old_message_buffer.size != 0 && old_message_buffer.data != NULL) {
+						memcpy(current_message.buffer.data, old_message_buffer.data,
+						       old_message_buffer.size);
 					}
 
 					if(raw_message.payload.size != 0 && raw_message.payload.data != NULL) {
-						memcpy(((uint8_t*)current_message.data.data) + old_message_data.size,
+						memcpy(((uint8_t*)current_message.buffer.data) + old_message_buffer.size,
 						       raw_message.payload.data, raw_message.payload.size);
 					}
 
-					free_sized_buffer(old_message_data);
+					free_sized_buffer(old_message_buffer);
 					free_sized_buffer(raw_message.payload);
 
 					if(!raw_message.fin) {
@@ -1100,14 +1112,13 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							            result);
 						}
 
-						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
 
 					if(current_message.is_text) {
 						Utf8DataResult utf8_result = get_utf8_string(
-						    current_message.data.data, (long)current_message.data.size);
+						    current_message.buffer.data, (long)current_message.buffer.size);
 
 						if(utf8_result.has_error) {
 
@@ -1133,7 +1144,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								            result);
 							}
 
-							FREE_RAW_WS_MESSAGE();
 							FREE_AT_END();
 							return NULL;
 						}
@@ -1166,7 +1176,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							    result);
 						}
 
-						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
@@ -1179,7 +1188,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					    raw_message.op_code == // NOLINT(readability-implicit-bool-conversion)
 					    WsOpcodeText;
 
-					current_message.data = raw_message.payload;
+					current_message.buffer = raw_message.payload;
 
 					if(!raw_message.fin) {
 						continue;
@@ -1213,21 +1222,19 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							            result);
 						}
 
-						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
 
 					if(current_message.is_text) {
 						Utf8DataResult utf8_result = get_utf8_string(
-						    current_message.data.data, (long)current_message.data.size);
+						    current_message.buffer.data, (long)current_message.buffer.size);
 
 						if(utf8_result.has_error) {
 							char* error_message = NULL;
 							FORMAT_STRING(
 							    &error_message,
 							    {
-								    FREE_RAW_WS_MESSAGE();
 								    FREE_AT_END();
 								    return NULL;
 							    },
@@ -1250,7 +1257,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								            result);
 							}
 
-							FREE_RAW_WS_MESSAGE();
 							FREE_AT_END();
 							return NULL;
 						}
@@ -1294,7 +1300,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 									            result);
 								}
 
-								FREE_RAW_WS_MESSAGE();
 								FREE_AT_END();
 								return NULL;
 							}
@@ -1313,7 +1318,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						            result);
 					}
 
-					FREE_RAW_WS_MESSAGE();
 					FREE_AT_END();
 					return NULL;
 				}
@@ -1332,7 +1336,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 					int result = ws_send_message_raw_internal(connection, message_raw, false);
 
-					FREE_RAW_WS_MESSAGE();
+					FREE_WS_RAW_MESSAGE();
 
 					if(result < 0) {
 						CloseReason reason = {
@@ -1361,7 +1365,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				case WsOpcodePong: {
 					// just ignore
 
-					FREE_RAW_WS_MESSAGE();
+					FREE_WS_RAW_MESSAGE();
 
 					continue;
 				}
@@ -1383,12 +1387,17 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						            result);
 					}
 
-					FREE_RAW_WS_MESSAGE();
 					FREE_AT_END();
 					return NULL;
 				}
 			}
 		}
+
+#undef FREE_WS_MESSAGES_IMPL
+#define FREE_WS_MESSAGES_IMPL() \
+	do { \
+		FREE_WS_CURRENT_MESSAGE(); \
+	} while(false)
 
 	handle_message:
 
@@ -1423,7 +1432,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 			free_extension_send_state(extension_send_state);
 
 			// has_message = false;
-			current_message.data = (SizedBuffer){ .data = NULL, .size = 0 };
+			current_message.buffer = (SizedBuffer){ .data = NULL, .size = 0 };
 
 			if(action == WebSocketActionClose) {
 				CloseReason reason = {
@@ -1475,13 +1484,20 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	} while(false)
 	}
 
+#undef FREE_WS_MESSAGES_IMPL
+#define FREE_WS_MESSAGES_IMPL() \
+	do { \
+	} while(false)
+
 	FREE_AT_END();
 	return NULL;
 }
 
 #undef FREE_ADDITIONALLY
-#undef FREE_RAW_WS_MESSAGE
+#undef FREE_WS_RAW_MESSAGE
 
+#undef FREE_WS_MESSAGES_IMPL
+#undef FREE_AT_END_ONE
 #undef FREE_AT_END
 
 int ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
@@ -1490,7 +1506,7 @@ int ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
 }
 
 void free_ws_message(WebSocketMessage message) {
-	free_sized_buffer(message.data);
+	free_sized_buffer(message.buffer);
 }
 
 void free_raw_ws_message(WebSocketRawMessage message) {

@@ -32,7 +32,10 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
 		buffer = new_buffer;
 	}
 
-	Utf8Data utf8_data = { .size = result, .data = buffer };
+	Utf8Data utf8_data = {
+		.data = buffer,
+		.size = result,
+	};
 
 	return (Utf8DataResult){ .has_error = false, .data = { .result = utf8_data } };
 }

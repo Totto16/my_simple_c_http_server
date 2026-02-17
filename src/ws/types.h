@@ -9,7 +9,7 @@
 
 typedef struct {
 	bool is_text;
-	SizedBuffer data;
+	SizedBuffer buffer;
 } WebSocketMessage;
 
 /**
