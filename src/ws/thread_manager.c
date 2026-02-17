@@ -5,6 +5,7 @@
 #include "generic/helper.h"
 #include "generic/read.h"
 #include "generic/send.h"
+#include "generic/serialize.h"
 #include "utils/log.h"
 #include "utils/thread_helper.h"
 #include "utils/thread_pool.h"
@@ -35,7 +36,7 @@ struct WebSocketThreadManagerImpl {
 
 struct WebSocketConnectionImpl {
 	ConnectionContext* context;
-	ConnectionDescriptor* descriptor;
+	BufferedReader* reader;
 	WebSocketFunction function;
 	pthread_t thread_id;
 	WsConnectionArgs args;
@@ -45,7 +46,7 @@ struct WebSocketConnectionImpl {
 typedef struct {
 	bool fin;
 	WsOpcode op_code;
-	bool mask;
+	bool has_mask;
 	uint8_t payload_len;
 	uint8_t rsv_bytes;
 } RawHeaderOne;
@@ -131,16 +132,16 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allo
 	    header_bytes[0] &
 	    0b1111; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	bool mask = (header_bytes[1] >> // NOLINT(readability-implicit-bool-conversion)
-	             7) & // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	            0b1;  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	bool has_mask = (header_bytes[1] >> // NOLINT(readability-implicit-bool-conversion)
+	                 7) & // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	                0b1;  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	uint8_t payload_len =
 	    header_bytes[1] &
 	    0x7F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	RawHeaderOne header = { .fin = fin,
 		                    .op_code = op_code,
-		                    .mask = mask,
+		                    .has_mask = has_mask,
 		                    .payload_len = payload_len,
 		                    .rsv_bytes = rsv_bytes };
 
@@ -163,19 +164,21 @@ NODISCARD static WebSocketRawMessageResult
 read_raw_message(WebSocketConnection* connection,
                  ExtensionReceivePipelineSettings pipeline_settings) {
 
-	// TODO: replace usage of read_exact_bytes with the buffered_reader (blocking as well?)
+	BufferedReadResult header_bytes_result =
+	    buffered_reader_get_amount(connection->reader, RAW_MESSAGE_HEADER_SIZE);
 
-	uint8_t* header_bytes =
-	    (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_HEADER_SIZE);
-	if(!header_bytes) {
+	if(header_bytes_result.type != BufferedReadResultTypeOk) {
 		return (WebSocketRawMessageResult){ .has_error = true,
 			                                .data = { .error = "couldn't read header bytes (2)" } };
 	}
 
-	RawHeaderOneResult raw_header_result =
-	    get_raw_header(header_bytes, pipeline_settings.allowed_rsv_bytes);
+	const SizedBuffer header_bytes = header_bytes_result.value.data;
 
-	free(header_bytes);
+	RawHeaderOneResult raw_header_result =
+	    get_raw_header(header_bytes.data, pipeline_settings.allowed_rsv_bytes);
+
+	// no need to free header_bytes, it is held by the buffered reader and freed, once we invalidate
+	// old data!
 
 	if(raw_header_result.has_error) {
 		return (WebSocketRawMessageResult){ .has_error = true,
@@ -187,65 +190,75 @@ read_raw_message(WebSocketConnection* connection,
 	uint64_t payload_len = (uint64_t)raw_header.payload_len;
 
 	if(payload_len == EXTENDED_PAYLOAD_MAGIC_NUMBER1) {
-		uint16_t* payload_len_result =
-		    (uint16_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_1_SIZE);
-		if(!payload_len_result) {
+		BufferedReadResult payload_len_result =
+		    buffered_reader_get_amount(connection->reader, RAW_MESSAGE_PAYLOAD_1_SIZE);
+
+		if(payload_len_result.type != BufferedReadResultTypeOk) {
 			return (WebSocketRawMessageResult){
 				.has_error = true,
 				.data = { .error = "couldn't read extended payload length bytes (2)" }
 			};
 		}
-		// in network byte order
-		payload_len = (uint64_t)htons(*payload_len_result);
-		free(payload_len_result);
+
+		assert(RAW_MESSAGE_PAYLOAD_1_SIZE == sizeof(uint16_t) && "Implementation error");
+		payload_len = (uint64_t)deserialize_u16_be_to_host(payload_len_result.value.data.data);
+
 	} else if(payload_len == EXTENDED_PAYLOAD_MAGIC_NUMBER2) {
-		uint64_t* payload_len_result =
-		    (uint64_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_PAYLOAD_2_SIZE);
-		if(!payload_len_result) {
+
+		BufferedReadResult payload_len_result =
+		    buffered_reader_get_amount(connection->reader, RAW_MESSAGE_PAYLOAD_2_SIZE);
+
+		if(payload_len_result.type != BufferedReadResultTypeOk) {
 			return (WebSocketRawMessageResult){
 				.has_error = true,
 				.data = { .error = "couldn't read extended payload length bytes (8)" }
 			};
 		}
-		// in network byte order (alias big endian = be)
-		payload_len = htobe64(*payload_len_result);
-		free(payload_len_result);
+
+		assert(RAW_MESSAGE_PAYLOAD_2_SIZE == sizeof(uint64_t) && "Implementation error");
+		payload_len = deserialize_u64_be_to_host(payload_len_result.value.data.data);
 	}
 
-	uint8_t* mask_byte = NULL;
+	SizedBuffer mask_bytes = (SizedBuffer){ .data = NULL, .size = 0 };
 
-	if(raw_header.mask) {
-		mask_byte = (uint8_t*)read_exact_bytes(connection->descriptor, RAW_MESSAGE_MASK_BYTE_SIZE);
-		if(!mask_byte) {
+	if(raw_header.has_mask) {
+
+		BufferedReadResult mask_byte_result =
+		    buffered_reader_get_amount(connection->reader, RAW_MESSAGE_MASK_BYTE_SIZE);
+
+		if(mask_byte_result.type != BufferedReadResultTypeOk) {
 			return (WebSocketRawMessageResult){
 				.has_error = true, .data = { .error = "couldn't read mask bytes (4)" }
 			};
 		}
+		mask_bytes = mask_byte_result.value.data;
 	}
 
-	void* payload = NULL;
+	SizedBuffer payload = (SizedBuffer){ .data = NULL, .size = 0 };
 
 	if(payload_len != 0) {
 
-		payload = read_exact_bytes(connection->descriptor, payload_len);
-		if(!payload) {
+		BufferedReadResult payload_result =
+		    buffered_reader_get_amount(connection->reader, payload_len);
+
+		if(payload_result.type != BufferedReadResultTypeOk) {
 			return (WebSocketRawMessageResult){
 				.has_error = true, .data = { .error = "couldn't read payload bytes" }
 			};
 		}
+		payload = sized_buffer_dup(payload_result.value.data);
 	}
 
-	if(raw_header.mask) {
-		for(size_t i = 0; i < payload_len; ++i) {
-			((uint8_t*)payload)[i] = ((uint8_t*)payload)[i] ^ mask_byte[i % 4];
+	if(raw_header.has_mask) {
+		for(size_t i = 0; i < payload.size; ++i) {
+			((uint8_t*)payload.data)[i] =
+			    ((uint8_t*)payload.data)[i] ^ ((uint8_t*)mask_bytes.data)[i % 4];
 		}
-		free(mask_byte);
 	}
 
 	WebSocketRawMessage value = { .fin = raw_header.fin,
 		                          .op_code = raw_header.op_code,
 		                          .payload = payload,
-		                          .payload_len = payload_len,
 		                          .rsv_bytes = raw_header.rsv_bytes };
 
 	WebSocketRawMessageResult result = { .has_error = false, .data = { .message = value } };
@@ -254,29 +267,29 @@ read_raw_message(WebSocketConnection* connection,
 }
 
 NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connection,
-                                                  WebSocketRawMessage raw_message, bool mask) {
+                                                  WebSocketRawMessage raw_message, bool has_mask) {
 
-	if(raw_message.payload == NULL) {
-		if(raw_message.payload_len != 0) {
+	if(raw_message.payload.data == NULL) {
+		if(raw_message.payload.size != 0) {
 
 			LOG_MESSAGE_SIMPLE(LogLevelWarn, "payload and payload length have to match\n");
 			return -1;
 		}
 	}
 
-	uint8_t mask_len = mask ? 4 : 0; // NOLINT(readability-implicit-bool-conversion)
+	uint8_t mask_len = has_mask ? 4 : 0; // NOLINT(readability-implicit-bool-conversion)
 
 	uint8_t payload_additional_len =
-	    raw_message.payload_len < EXTENDED_PAYLOAD_MAGIC_NUMBER1
+	    raw_message.payload.size < EXTENDED_PAYLOAD_MAGIC_NUMBER1
 	        ? 0
-	        : (raw_message.payload_len < // NOLINT(readability-avoid-nested-conditional-operator)
+	        : (raw_message.payload.size < // NOLINT(readability-avoid-nested-conditional-operator)
 	                   0x10000 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	               ? 2
 	               : 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	uint64_t header_offset = RAW_MESSAGE_HEADER_SIZE + payload_additional_len + mask_len;
 
-	uint64_t size = header_offset + raw_message.payload_len;
+	uint64_t size = header_offset + raw_message.payload.size;
 
 	uint8_t* resulting_frame = (uint8_t*)malloc(size);
 
@@ -297,11 +310,11 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 	                                                               : EXTENDED_PAYLOAD_MAGIC_NUMBER2;
 
 	uint8_t payload_len_1 =
-	    payload_additional_len == 0 ? raw_message.payload_len : additional_payload_len_2;
+	    payload_additional_len == 0 ? raw_message.payload.size : additional_payload_len_2;
 
 	uint8_t header_two =
-	    ((mask & 0b1) // NOLINT(readability-implicit-bool-conversion)
-	     << 7) |      // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	    ((has_mask & 0b1) // NOLINT(readability-implicit-bool-conversion)
+	     << 7) |          // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	    (payload_len_1 &
 	     0x7F); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
@@ -309,31 +322,32 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 	resulting_frame[1] = header_two;
 
 	if(payload_additional_len == 2) {
-		// in network byte order
-		uint16_t temp_value = htons((uint16_t)(raw_message.payload_len));
-		memcpy(resulting_frame + 2, &temp_value, sizeof(temp_value));
+
+		SerializeResult16 payload_len_serialized =
+		    serialize_u16_host_to_be((uint16_t)(raw_message.payload.size));
+		memcpy(resulting_frame + 2, payload_len_serialized.bytes, sizeof(uint16_t));
 
 	} else if(payload_additional_len ==
 	          8) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-		// in network byte order (alias big endian = be)
-		uint64_t temp_value = htobe64(raw_message.payload_len);
-		memcpy(resulting_frame + 2, &temp_value, sizeof(temp_value));
+
+		SerializeResult64 payload_len_serialized =
+		    serialize_u64_host_to_be(raw_message.payload.size);
+		memcpy(resulting_frame + 2, payload_len_serialized.bytes, sizeof(uint64_t));
 	}
 
-	if(raw_message.payload_len != 0) {
-		memcpy(resulting_frame + header_offset, raw_message.payload, raw_message.payload_len);
+	if(raw_message.payload.size != 0) {
+		memcpy(resulting_frame + header_offset, raw_message.payload.data, raw_message.payload.size);
 	}
 
-	if(mask) {
-
+	if(has_mask) {
 		uint32_t mask_byte = get_random_byte();
 
 		memcpy(resulting_frame + RAW_MESSAGE_HEADER_SIZE + payload_additional_len, &mask_byte,
 		       sizeof(mask_byte));
 
-		for(size_t i = 0; i < raw_message.payload_len; ++i) {
+		for(size_t i = 0; i < raw_message.payload.size; ++i) {
 			(resulting_frame + header_offset)[i] =
-			    ((uint8_t*)raw_message.payload)[i] ^ ((uint8_t*)(&mask_byte))[i % 4];
+			    ((uint8_t*)raw_message.payload.data)[i] ^ ((uint8_t*)(&mask_byte))[i % 4];
 		}
 	}
 
@@ -347,18 +361,19 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 			return -2;
 		}
 
-		if(raw_message.payload_len > MAX_CONTROL_FRAME_PAYLOAD) {
+		if(raw_message.payload.size > MAX_CONTROL_FRAME_PAYLOAD) {
 			// TODO(Totto): add error message
 			LOG_MESSAGE(LogLevelDebug,
 			            "Control frame payload length is too large: %" PRIu64 " > %d\n",
-			            raw_message.payload_len, MAX_CONTROL_FRAME_PAYLOAD);
+			            raw_message.payload.size, MAX_CONTROL_FRAME_PAYLOAD);
 
 			free(resulting_frame);
 			return -3;
 		}
 	}
 
-	int result = send_data_to_connection(connection->descriptor, resulting_frame, size);
+	int result = send_data_to_connection(
+	    buffered_reader_get_connection_descriptor(connection->reader), resulting_frame, size);
 
 	free(resulting_frame);
 
@@ -373,11 +388,12 @@ NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connec
 	                       ? WsOpcodeText
 	                       : WsOpcodeBin;
 
-	WebSocketRawMessage raw_message = { .fin = true,
-		                                .op_code = op_code,
-		                                .payload = message->data,
-		                                .payload_len = message->data_len,
-		                                .rsv_bytes = 0b000 };
+	WebSocketRawMessage raw_message = {
+		.fin = true,
+		.op_code = op_code,
+		.payload = message->data,
+		.rsv_bytes = 0b000,
+	};
 
 	extension_send_pipeline_process_start_message(extension_send_state, &raw_message);
 
@@ -397,17 +413,17 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 		fragment_size = WS_MINIMUM_FRAGMENT_SIZE;
 	}
 
-	if(message->data_len < fragment_size) {
+	if(message->data.size < fragment_size) {
 		return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 	}
 
-	for(uint64_t start = 0; start < message->data_len; start += fragment_size) {
+	for(uint64_t start = 0; start < message->data.size; start += fragment_size) {
 		uint64_t end = start + fragment_size;
 		bool fin = false;
 		uint64_t payload_len = fragment_size;
 
-		if(end >= message->data_len) {
-			end = message->data_len;
+		if(end >= message->data.size) {
+			end = message->data.size;
 			fin = true;
 			payload_len = end - start;
 		}
@@ -419,13 +435,15 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 		               : WsOpcodeBin)
 		        : WsOpcodeCont;
 
-		void* payload = ((uint8_t*)message->data) + start;
+		SizedBuffer payload = { .data = ((uint8_t*)message->data.data) + start,
+			                    .size = payload_len };
 
-		WebSocketRawMessage raw_message = { .fin = fin,
-			                                .op_code = op_code,
-			                                .payload = payload,
-			                                .payload_len = payload_len,
-			                                .rsv_bytes = 0b000 };
+		WebSocketRawMessage raw_message = {
+			.fin = fin,
+			.op_code = op_code,
+			.payload = payload,
+			.rsv_bytes = 0b000,
+		};
 		if(start) {
 			extension_send_pipeline_process_start_message(extension_send_state, &raw_message);
 		} else {
@@ -464,7 +482,8 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 
 	if(args.fragment_option.type == WsFragmentOptionTypeAuto) {
 
-		int socket_fd = get_underlying_socket(connection->descriptor);
+		int socket_fd =
+		    get_underlying_socket(buffered_reader_get_connection_descriptor(connection->reader));
 
 		// the default value, if an error would occur
 		uint64_t chosen_fragment_size = DEFAULT_AUTO_FRAGMENT_SIZE - WS_MAXIMUM_HEADER_LENGTH;
@@ -548,7 +567,7 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 		};
 	}
 
-	uint64_t payload_len = raw_message.payload_len;
+	uint64_t payload_len = raw_message.payload.size;
 
 	if(payload_len < 2) {
 		return (CloseReasonResult){
@@ -560,13 +579,9 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 		};
 	}
 
-	uint8_t* message = (uint8_t*)raw_message.payload;
+	uint8_t* message = (uint8_t*)raw_message.payload.data;
 
-	uint16_t code = 0;
-
-	// in network byte order
-	((uint8_t*)(&code))[0] = message[1];
-	((uint8_t*)(&code))[1] = message[0];
+	uint16_t code = deserialize_u16_be_to_host(message);
 
 	if(payload_len > MAX_CONTROL_FRAME_PAYLOAD) {
 		return (CloseReasonResult){
@@ -644,36 +659,34 @@ NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* con
 
 	uint64_t payload_len = 2 + message_len;
 
-	uint8_t* payload = (uint8_t*)malloc(payload_len);
+	SizedBuffer payload = allocate_sized_buffer(payload_len);
 
-	if(payload == NULL) {
+	if(payload.data == NULL) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
 		return -1;
 	}
 
-	uint8_t* reason_code = (uint8_t*)(&reason.code);
-
-	// network byte order
-	payload[0] = reason_code[1];
-	payload[1] = reason_code[0];
+	const SerializeResult16 serialized_reason_code = serialize_u16_host_to_be(reason.code);
+	memcpy(payload.data, serialized_reason_code.bytes, sizeof(uint16_t));
 
 	if(reason.message) {
-		memcpy(payload + 2, reason.message, message_len);
+		memcpy(((uint8_t*)payload.data) + 2, reason.message, message_len);
 	}
 
-	WebSocketRawMessage raw_message = { .fin = true,
-		                                .op_code = WsOpcodeClose,
-		                                .payload = payload,
-		                                .payload_len = payload_len,
-		                                .rsv_bytes = 0b000 };
+	WebSocketRawMessage raw_message = {
+		.fin = true,
+		.op_code = WsOpcodeClose,
+		.payload = payload,
+		.rsv_bytes = 0b000,
+	};
 
 	// TODO(Totto): once we support extensions, that needs to be run on control message, we need to
 	// add that pipline step also here
 
 	int result = ws_send_message_raw_internal(connection, raw_message, false);
 
-	free(payload);
+	free_sized_buffer(payload);
 
 	return result;
 }
@@ -791,7 +804,10 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	} while(false)
 
 		bool has_message = false;
-		WebSocketMessage current_message = { .is_text = true, .data = NULL, .data_len = 0 };
+		WebSocketMessage current_message = {
+			.is_text = true,
+			.data = (SizedBuffer){ .data = NULL, .size = 0 },
+		};
 		ExtensionMessageReceiveState* message_receive_state =
 		    init_extension_receive_message_state(extension_pipeline);
 
@@ -867,7 +883,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					return NULL;
 				}
 
-				if(raw_message.payload_len > MAX_CONTROL_FRAME_PAYLOAD) {
+				if(raw_message.payload.size > MAX_CONTROL_FRAME_PAYLOAD) {
 					CloseReason reason = { .code = CloseCodeProtocolError,
 						                   .message = "Control frame payload to large",
 						                   .message_len = -1 };
@@ -891,10 +907,10 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				if(raw_message.op_code == WsOpcodeClose) {
 
 					// the close message MAY contain additional data
-					if(raw_message.payload_len != 0) {
+					if(raw_message.payload.size != 0) {
 						// the first two bytes are the code, so they have to be present, if size !=
 						// 0 (so either 0 or >= 2)
-						if(raw_message.payload_len < 2) {
+						if(raw_message.payload.size < 2) {
 							CloseReason reason = { .code = CloseCodeProtocolError,
 								                   .message = "Close data has invalid code, it has "
 								                              "to be at least 2 bytes long",
@@ -916,8 +932,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						}
 
 						Utf8DataResult utf8_result =
-						    get_utf8_string(((char*)(raw_message.payload)) + 2,
-						                    (long)(raw_message.payload_len - 2));
+						    get_utf8_string(((char*)(raw_message.payload.data)) + 2,
+						                    (long)(raw_message.payload.size - 2));
 
 						if(utf8_result.has_error) {
 							char* error_message = NULL;
@@ -1008,22 +1024,23 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						return NULL;
 					}
 
-					uint64_t old_length = current_message.data_len;
-					void* old_data = current_message.data;
+					uint64_t old_length = current_message.data.size;
+					SizedBuffer old_data = current_message.data;
 
-					current_message.data = malloc(old_length + raw_message.payload_len);
+					current_message.data =
+					    allocate_sized_buffer(old_length + raw_message.payload.size);
 
-					current_message.data_len += raw_message.payload_len;
+					current_message.data.size += raw_message.payload.size;
 
-					if(old_length != 0 && old_data != NULL) {
-						memcpy(current_message.data, old_data, old_length);
-						free(old_data);
+					if(old_length != 0 && old_data.data != NULL) {
+						memcpy(current_message.data.data, old_data.data, old_length);
+						free_sized_buffer(old_data);
 					}
 
-					if(raw_message.payload_len != 0 && raw_message.payload != NULL) {
-						memcpy(((uint8_t*)current_message.data) + old_length, raw_message.payload,
-						       raw_message.payload_len);
-						free(raw_message.payload);
+					if(raw_message.payload.size != 0 && raw_message.payload.data != NULL) {
+						memcpy(((uint8_t*)current_message.data.data) + old_length,
+						       raw_message.payload.data, raw_message.payload.size);
+						free_sized_buffer(raw_message.payload);
 					}
 
 					if(!raw_message.fin) {
@@ -1062,8 +1079,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					}
 
 					if(current_message.is_text) {
-						Utf8DataResult utf8_result =
-						    get_utf8_string(current_message.data, (long)current_message.data_len);
+						Utf8DataResult utf8_result = get_utf8_string(
+						    current_message.data.data, (long)current_message.data.size);
 
 						if(utf8_result.has_error) {
 
@@ -1135,7 +1152,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					    raw_message.op_code == // NOLINT(readability-implicit-bool-conversion)
 					    WsOpcodeText;
 					current_message.data = raw_message.payload;
-					current_message.data_len = raw_message.payload_len;
+					current_message.data.size = raw_message.payload.size;
 
 					if(!raw_message.fin) {
 						continue;
@@ -1173,8 +1190,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					}
 
 					if(current_message.is_text) {
-						Utf8DataResult utf8_result =
-						    get_utf8_string(current_message.data, (long)current_message.data_len);
+						Utf8DataResult utf8_result = get_utf8_string(
+						    current_message.data.data, (long)current_message.data.size);
 
 						if(utf8_result.has_error) {
 							char* error_message = NULL;
@@ -1224,7 +1241,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						                   .message = "Planned close",
 						                   .message_len = -1 };
 
-					if(raw_message.payload_len != 0) {
+					if(raw_message.payload.size != 0) {
 						CloseReasonResult reason_parse_result =
 						    maybe_parse_close_reason(raw_message, true);
 						if(reason_parse_result.success) {
@@ -1273,11 +1290,12 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				}
 
 				case WsOpcodePing: {
-					WebSocketRawMessage message_raw = { .fin = true,
-						                                .op_code = WsOpcodePong,
-						                                .payload = raw_message.payload,
-						                                .payload_len = raw_message.payload_len,
-						                                .rsv_bytes = raw_message.rsv_bytes };
+					WebSocketRawMessage message_raw = {
+						.fin = true,
+						.op_code = WsOpcodePong,
+						.payload = raw_message.payload,
+						.rsv_bytes = raw_message.rsv_bytes,
+					};
 
 					// TODO(Totto): once we support extensions, that needs to be run on control
 					// message, we need to
@@ -1286,9 +1304,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					int result = ws_send_message_raw_internal(connection, message_raw, false);
 
 					if(result < 0) {
-						CloseReason reason = { .code = CloseCodeProtocolError,
-							                   .message = "Couldn't send PONG op_code",
-							                   .message_len = -1 };
+						CloseReason reason = {
+							.code = CloseCodeProtocolError,
+							.message = "Couldn't send PONG op_code",
+							.message_len = -1,
+						};
 
 						const char* result1 =
 						    close_websocket_connection(&connection, argument->manager, reason);
@@ -1368,8 +1388,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 			free_extension_send_state(extension_send_state);
 
 			// has_message = false;
-			current_message.data = NULL;
-			current_message.data_len = 0;
+			current_message.data = (SizedBuffer){ .data = NULL, .size = 0 };
 
 			if(action == WebSocketActionClose) {
 				CloseReason reason = { .code = CloseCodeNormalClosure,
@@ -1434,11 +1453,11 @@ int ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
 }
 
 void free_ws_message(WebSocketMessage message) {
-	free(message.data);
+	free_sized_buffer(message.data);
 }
 
 void free_raw_ws_message(WebSocketRawMessage message) {
-	free(message.payload);
+	free_sized_buffer(message.payload);
 }
 
 WebSocketThreadManager* initialize_thread_manager(void) {
@@ -1462,7 +1481,7 @@ WebSocketThreadManager* initialize_thread_manager(void) {
 }
 
 WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
-                                                   ConnectionDescriptor* const descriptor,
+                                                   BufferedReader* const reader,
                                                    ConnectionContext* context,
                                                    WebSocketFunction function,
                                                    WsConnectionArgs args) {
@@ -1481,7 +1500,7 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 	}
 
 	connection->context = context;
-	connection->descriptor = descriptor;
+	connection->reader = reader;
 	connection->function = function;
 	connection->args = args;
 	connection->fns =
@@ -1564,8 +1583,9 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 		}
 	}
 
-	int _ = close_connection_descriptor_advanced(connection->descriptor, connection->context,
-	                                             WS_ALLOW_SSL_CONTEXT_REUSE);
+	bool _ =
+	    finish_buffered_reader(connection->reader, connection->context, WS_ALLOW_SSL_CONTEXT_REUSE);
+
 	UNUSED(_);
 
 	free_connection_context(connection->context);

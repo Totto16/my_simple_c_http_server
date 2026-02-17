@@ -18,4 +18,3 @@ NODISCARD char* NULLABLE read_string_from_connection(const ConnectionDescriptor*
  */
 NODISCARD SizedBuffer read_buffer_from_connection(const ConnectionDescriptor* descriptor);
 
-NODISCARD void* read_exact_bytes(const ConnectionDescriptor* descriptor, size_t n_bytes);

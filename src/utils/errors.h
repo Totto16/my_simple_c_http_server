@@ -9,6 +9,8 @@ typedef ANY JobError;
 
 #define JOB_ERROR_NONE ((JobError)0x02)
 
+#define JOB_ERROR_CONNECTION_UPGRADE ((JobError)0x04)
+
 #define JOB_ERROR_DESC ((JobError)0x20)
 #define JOB_ERROR_THREAD_CANCEL ((JobError)0x21)
 #define JOB_ERROR_MALLOC ((JobError)0x22)

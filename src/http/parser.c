@@ -1,4 +1,3 @@
-
 #include "./parser.h"
 #include "./header.h"
 #include "./v2.h"
@@ -196,9 +195,9 @@ struct HTTPGeneralContextImpl {
 struct HTTPReaderImpl {
 	ProtocolSelected protocol;
 	//
-	BufferedReader* reader;
+	BufferedReader* buffered_reader;
 	HTTPReaderState state;
-	HTTPGeneralContext context;
+	HTTPGeneralContext general_context;
 };
 
 NODISCARD HTTPReader* NULLABLE
@@ -222,8 +221,8 @@ initialize_http_reader_from_connection(ConnectionDescriptor* const descriptor) {
 	*reader = (HTTPReader){
 		.protocol = protocol,
 		.state = HTTPReaderStateEmpty,
-		.reader = buffered_reader,
-		.context = { .type = HTTPContextTypeV1 },
+		.buffered_reader = buffered_reader,
+		.general_context = (HTTPGeneralContext){ .type = HTTPContextTypeV1 },
 	};
 
 	return reader;
@@ -656,7 +655,7 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 	switch(analyze.length.type) {
 		case HTTPRequestLengthTypeClose: {
 
-			const BufferedReadResult res = buffered_reader_get_until_end(reader->reader);
+			const BufferedReadResult res = buffered_reader_get_until_end(reader->buffered_reader);
 
 			if(res.type != BufferedReadResultTypeOk) {
 				return (HttpBodyReadResult){
@@ -676,7 +675,7 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 		case HTTPRequestLengthTypeContentLength: {
 
 			const BufferedReadResult res =
-			    buffered_reader_get_amount(reader->reader, analyze.length.value.length);
+			    buffered_reader_get_amount(reader->buffered_reader, analyze.length.value.length);
 
 			if(res.type != BufferedReadResultTypeOk) {
 				return (HttpBodyReadResult){
@@ -731,7 +730,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 	while(true) {
 
 		BufferedReadResult read_result =
-		    buffered_reader_get_until_delimiter(reader->reader, HTTP_LINE_SEPERATORS);
+		    buffered_reader_get_until_delimiter(reader->buffered_reader, HTTP_LINE_SEPERATORS);
 
 		if(read_result.type != BufferedReadResultTypeOk) {
 			return (
@@ -851,7 +850,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 	// only possible in the first request, as also http2 must send a valid http1 request line
 	// (the preface)
-	HttpRequestLineResult request_line_result = parse_http1_request_line(reader->reader);
+	HttpRequestLineResult request_line_result = parse_http1_request_line(reader->buffered_reader);
 
 	switch(request_line_result.type) {
 		case HttpRequestLineResultTypeOk: {
@@ -928,7 +927,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				// error if it matches the data after the reader cursors position is already
 				// the http2 request!
 				const Http2PrefaceStatus http2_preface_status =
-				    analyze_http2_preface(request_line, reader->reader);
+				    analyze_http2_preface(request_line, reader->buffered_reader);
 
 				if(http2_preface_status != Http2PrefaceStatusOk) {
 					return (HttpRequestResult){
@@ -941,11 +940,11 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 					};
 				}
 
-				reader->context.type = HTTPContextTypeV2;
-				reader->context.data.v2 = http2_default_context();
+				reader->general_context.type = HTTPContextTypeV2;
+				reader->general_context.data.v2 = http2_default_context();
 
-				const Http2StartResult start_result =
-				    http2_send_and_receive_preface(&reader->context.data.v2, reader->reader);
+				const Http2StartResult start_result = http2_send_and_receive_preface(
+				    &reader->general_context.data.v2, reader->buffered_reader);
 
 				if(start_result.is_error) {
 					return (HttpRequestResult){
@@ -958,7 +957,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 					};
 				}
 
-				return parse_http2_request(&(reader->context.data.v2), reader->reader);
+				return parse_http2_request(&(reader->general_context.data.v2),
+				                           reader->buffered_reader);
 			}
 			case ProtocolSelectedNone:
 			default: {
@@ -972,7 +972,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 			// the first request was already a http2 request
 
 			const Http2PrefaceStatus http2_preface_status =
-			    analyze_http2_preface(request_line, reader->reader);
+			    analyze_http2_preface(request_line, reader->buffered_reader);
 
 			if(http2_preface_status != Http2PrefaceStatusOk) {
 				return (HttpRequestResult){
@@ -985,11 +985,11 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				};
 			}
 
-			reader->context.type = HTTPContextTypeV2;
-			reader->context.data.v2 = http2_default_context();
+			reader->general_context.type = HTTPContextTypeV2;
+			reader->general_context.data.v2 = http2_default_context();
 
-			const Http2StartResult start_result =
-			    http2_send_and_receive_preface(&reader->context.data.v2, reader->reader);
+			const Http2StartResult start_result = http2_send_and_receive_preface(
+			    &reader->general_context.data.v2, reader->buffered_reader);
 
 			if(start_result.is_error) {
 				return (HttpRequestResult){
@@ -1001,7 +1001,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				};
 			}
 
-			return parse_http2_request(&(reader->context.data.v2), reader->reader);
+			return parse_http2_request(&(reader->general_context.data.v2), reader->buffered_reader);
 		}
 
 		if(request_line.method == HTTPRequestMethodPRI) {
@@ -1077,14 +1077,14 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		reader->state = HTTPReaderStateError;
 	}
 
-	if(reader->context.type == HTTPContextTypeV1) {
+	if(reader->general_context.type == HTTPContextTypeV1) {
 
 		// TODO(Totto): use eof, but that has problems, as some clients only close, after we have
 		// closed
 		//  try to figure out, what the best solution would be
 		// see also finish_buffered_reader()
 
-		if(buffered_reader_has_more_data(reader->reader)) {
+		if(buffered_reader_has_more_data(reader->buffered_reader)) {
 			reader->state = HTTPReaderStateEnd;
 		} else {
 			// if we are not in a keepalive situation, any presence of a body is an error
@@ -1104,8 +1104,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 NODISCARD static HttpRequestResult parse_next_http_request(HTTPReader* const reader) {
 
-	if(reader->context.type == HTTPContextTypeV2) {
-		return parse_http2_request(&(reader->context.data.v2), reader->reader);
+	if(reader->general_context.type == HTTPContextTypeV2) {
+		return parse_http2_request(&(reader->general_context.data.v2), reader->buffered_reader);
 	}
 
 	return (HttpRequestResult){ .is_error = true,
@@ -1132,7 +1132,7 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 			return parse_first_http_request(reader);
 		}
 		case HTTPReaderStateReading: {
-			if(reader->context.type == HTTPContextTypeV1) {
+			if(reader->general_context.type == HTTPContextTypeV1) {
 				return (HttpRequestResult){
 					.is_error = true,
 					.value = { .error =
@@ -1147,7 +1147,7 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 			// this clear the buffer until the current cursor, everything we references from
 			// that is long dead now (hopefully xD, http2 or http1 keepalive state should not
 			// hold onto strings from there)
-			buffered_reader_invalidate_old_data(reader->reader);
+			buffered_reader_invalidate_old_data(reader->buffered_reader);
 
 			return parse_next_http_request(reader);
 		}
@@ -1205,18 +1205,26 @@ bool finish_reader(HTTPReader* reader, ConnectionContext* context) {
 
 	// finally close the connection
 
-	if(!finish_buffered_reader(reader->reader, context, SUPPORT_KEEPALIVE)) {
+	if(!finish_buffered_reader(reader->buffered_reader, context, SUPPORT_KEEPALIVE)) {
 		return false;
 	}
 
-	free_reader_general_context(reader->context);
+	free_reader_general_context(reader->general_context);
 	free(reader);
 
 	return true;
 }
 
 NODISCARD HTTPGeneralContext* http_reader_get_general_context(HTTPReader* const reader) {
-	return &(reader->context);
+	return &(reader->general_context);
+}
+
+NODISCARD BufferedReader* http_reader_release_buffered_reader(HTTPReader* const reader) {
+	BufferedReader* buffered_reader = reader->buffered_reader;
+
+	reader->buffered_reader = NULL;
+
+	return buffered_reader;
 }
 
 NODISCARD HTTP2Context*

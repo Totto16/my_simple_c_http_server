@@ -372,8 +372,13 @@ void free_buffered_reader(BufferedReader* const reader) {
 bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* const context,
                             bool allow_reuse) {
 
-	// TODO: maybe half close the tcp connection and check if more data is given, that woudl be a
-	// client error!
+	// the reader was reset, here we need nothing to be free or closed
+	if(reader == NULL) {
+		return true;
+	}
+
+	// TODO(Totto): maybe half close the tcp connection and check if more data is given, that would
+	// be a client error!
 
 	int result = close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
 	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", { return false; });

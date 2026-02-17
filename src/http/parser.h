@@ -21,6 +21,8 @@ typedef struct HTTPGeneralContextImpl HTTPGeneralContext;
 
 NODISCARD HTTPGeneralContext* http_reader_get_general_context(HTTPReader* reader);
 
+NODISCARD BufferedReader* http_reader_release_buffered_reader(HTTPReader* reader);
+
 NODISCARD HTTP2Context* http_general_context_get_http2_context(HTTPGeneralContext* general_context);
 
 NODISCARD HttpRequestResult get_http_request(HTTPReader* reader);

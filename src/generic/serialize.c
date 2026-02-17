@@ -1,8 +1,8 @@
 
 #include "./serialize.h"
 
-#include <arpa/inet.h>
 #include "./endian_compat.h"
+#include <arpa/inet.h>
 
 #if defined(__APPLE__) || defined(__MACOSX__)
 	#define bswap_16 __builtin_bswap16
@@ -33,6 +33,10 @@
 
 	#define HOST_TO_BE_32(bytes) bswap_32(bytes)
 	#define HOST_TO_LE_32(bytes) bytes
+// 64
+	#define BE_TO_HOST_64(bytes) bswap_64(bytes)
+
+	#define HOST_TO_BE_64(bytes) bswap_64(bytes)
 #elif BYTE_ORDER == BIG_ENDIAN
 // 16
 	#define LE_TO_HOST_16(bytes) bswap_16(bytes)
@@ -46,9 +50,21 @@
 
 	#define HOST_TO_BE_32(bytes) bytes
 	#define HOST_TO_LE_32(bytes) bswap_32(bytes)
+// 64
+	#define BE_TO_HOST_64(bytes) bytes
+
+	#define HOST_TO_BE_64(bytes) bytes
 #else
 	#error "Endianness not defined!"
 #endif
+
+NODISCARD static inline uint64_t deserialize_u64_host_to_host(const uint8_t* const bytes) {
+
+	uint64_t value;
+	memcpy(&value, bytes, sizeof(uint64_t));
+
+	return value;
+}
 
 NODISCARD static inline uint32_t deserialize_u32_host_to_host(const uint8_t* const bytes) {
 
@@ -102,7 +118,21 @@ NODISCARD uint32_t deserialize_u32_be_to_host(const uint8_t* const bytes) {
 	return BE_TO_HOST_32(raw_value);
 }
 
+NODISCARD uint64_t deserialize_u64_be_to_host(const uint8_t* const bytes) {
+	const uint64_t raw_value = deserialize_u64_host_to_host(bytes);
+
+	return BE_TO_HOST_64(raw_value);
+}
+
 // serialize
+
+NODISCARD static inline SerializeResult64 serialize_u64_host_to_host(const uint64_t bytes) {
+
+	SerializeResult64 result;
+	memcpy(&result.bytes, &bytes, sizeof(uint64_t));
+
+	return result;
+}
 
 NODISCARD static inline SerializeResult32 serialize_u32_host_to_host(const uint32_t bytes) {
 
@@ -120,6 +150,18 @@ NODISCARD static inline SerializeResult16 serialize_u16_host_to_host(const uint1
 	return result;
 }
 
+NODISCARD SerializeResult16 serialize_u16_no_to_host(const uint16_t bytes) {
+	const uint16_t raw_value = ntohs(bytes);
+
+	return serialize_u16_host_to_host(raw_value);
+}
+
+NODISCARD SerializeResult16 serialize_u16_host_to_be(const uint16_t bytes) {
+	const uint16_t raw_value = HOST_TO_BE_16(bytes);
+
+	return serialize_u16_host_to_host(raw_value);
+}
+
 NODISCARD SerializeResult32 serialize_u32_no_to_host(const uint32_t bytes) {
 	const uint32_t raw_value = ntohl(bytes);
 
@@ -132,14 +174,8 @@ NODISCARD SerializeResult32 serialize_u32_host_to_be(const uint32_t bytes) {
 	return serialize_u32_host_to_host(raw_value);
 }
 
-NODISCARD SerializeResult16 serialize_u16_no_to_host(const uint16_t bytes) {
-	const uint16_t raw_value = ntohs(bytes);
+NODISCARD SerializeResult64 serialize_u64_host_to_be(uint64_t bytes) {
+	const uint64_t raw_value = HOST_TO_BE_64(bytes);
 
-	return serialize_u16_host_to_host(raw_value);
-}
-
-NODISCARD SerializeResult16 serialize_u16_host_to_be(const uint16_t bytes) {
-	const uint16_t raw_value = HOST_TO_BE_16(bytes);
-
-	return serialize_u16_host_to_host(raw_value);
+	return serialize_u64_host_to_host(raw_value);
 }

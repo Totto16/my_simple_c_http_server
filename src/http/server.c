@@ -198,12 +198,14 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 NODISCARD static JobError
 process_http_request(const HttpRequest http_request, ConnectionDescriptor* const descriptor,
-                     HTTPGeneralContext* general_context, const RouteManager* const route_manager,
+                     HTTPReader* const http_reader, const RouteManager* const route_manager,
                      HTTPConnectionArgument* argument, const WorkerInfo worker_info,
                      const RequestSettings request_settings, const IPAddress address) {
 
 	ConnectionContext* context =
 	    TVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
+
+	HTTPGeneralContext* general_context = http_reader_get_general_context(http_reader);
 
 	// To test this error codes you can use '-X POST' with curl or
 	// '--http2' (doesn't work, since http can only be HTTP/1.1, https can be HTTP 2 or QUIC
@@ -439,13 +441,16 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						// socket thread
 						ConnectionContext* new_context = copy_connection_context(context);
 
+						BufferedReader* const buffered_reader =
+						    http_reader_release_buffered_reader(http_reader);
+
 						auto _ = TVEC_SET_AT(ConnectionContextPtr, &(argument->contexts),
 						                     worker_info.worker_index, new_context);
 						UNUSED(_);
 
-						if(!thread_manager_add_connection(argument->web_socket_manager, descriptor,
-						                                  context, websocket_function,
-						                                  websocket_args)) {
+						if(!thread_manager_add_connection(argument->web_socket_manager,
+						                                  buffered_reader, context,
+						                                  websocket_function, websocket_args)) {
 
 							TVEC_FREE(WSExtension, &extensions);
 							free_selected_route(selected_route);
@@ -459,7 +464,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						free_selected_route(selected_route);
 						FREE_AT_END();
 
-						return JOB_ERROR_NONE;
+						return JOB_ERROR_CONNECTION_UPGRADE;
 					}
 
 					// the error was already sent, just close the descriptor and free the
@@ -839,7 +844,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 		const HttpRequest http_request = http_result.request;
 
 		JobError process_error =
-		    process_http_request(http_request, descriptor, general_context, route_manager, argument,
+		    process_http_request(http_request, descriptor, http_reader, route_manager, argument,
 		                         worker_info, http_result.settings, argument->address);
 
 		free_http_request_result(http_result);
@@ -849,10 +854,19 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			goto cleanup;
 		}
 
+		if(process_error == JOB_ERROR_CONNECTION_UPGRADE) {
+
+			// we already have release the buffered reader so that it can be safely freed without
+			// closing the needed connection descriptor to early!
+			job_error = JOB_ERROR_NONE;
+			goto cleanup;
+		}
+
 		if(process_error != JOB_ERROR_NONE) {
 			job_error = process_error;
 			goto cleanup;
 		}
+
 	} while(http_reader_more_available(http_reader));
 
 cleanup:

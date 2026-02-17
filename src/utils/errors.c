@@ -7,8 +7,9 @@
 #include "utils/log.h"
 
 bool is_job_error(JobError error) {
-	return error == JOB_ERROR_NONE // NOLINT(readability-implicit-bool-conversion)
-	       || (error >= JOB_ERROR_START && error <= JOB_ERROR_END);
+	return error == JOB_ERROR_NONE || // NOLINT(readability-implicit-bool-conversion)
+	       error == JOB_ERROR_CONNECTION_UPGRADE ||
+	       (error >= JOB_ERROR_START && error <= JOB_ERROR_END);
 }
 
 void print_job_error(JobError error) {
@@ -17,6 +18,8 @@ void print_job_error(JobError error) {
 
 	if(error == JOB_ERROR_NONE) {
 		error_str = "None";
+	} else if(error == JOB_ERROR_CONNECTION_UPGRADE) {
+		error_str = "Connection Upgrade";
 	} else if(error == JOB_ERROR_DESC) {
 		error_str = "Desc";
 	} else if(error == JOB_ERROR_THREAD_CANCEL) {
