@@ -100,7 +100,7 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 	// operate on slices of bytes
 
 	// make this string parseable by the libc functions
-	SizedBuffer request_line = read_result.value.data;
+	SizedBuffer request_line = read_result.value.buffer;
 
 	char* const start = (char*)request_line.data;
 	*(start + request_line.size) = '\0';
@@ -668,7 +668,7 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 
 			return (HttpBodyReadResult){
 				.is_error = false,
-				.data = { .body = sized_buffer_dup(res.value.data) },
+				.data = { .body = sized_buffer_dup(res.value.buffer) },
 			};
 		}
 
@@ -686,7 +686,7 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 
 			return (HttpBodyReadResult){
 				.is_error = false,
-				.data = { .body = res.value.data },
+				.data = { .body = res.value.buffer },
 			};
 		}
 		case HTTPRequestLengthTypeTransferEncoded: {
@@ -741,7 +741,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 				                                                  "Failed to parse headers" } } } };
 		}
 
-		SizedBuffer header_line = read_result.value.data;
+		SizedBuffer header_line = read_result.value.buffer;
 
 		char* const current_pos = (char*)header_line.data;
 		*(current_pos + header_line.size) = '\0';

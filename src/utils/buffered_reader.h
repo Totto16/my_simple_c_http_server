@@ -23,7 +23,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 typedef struct {
 	BufferedReadResultType type;
 	union {
-		SizedBuffer data;
+		SizedBuffer buffer;
 		const char* error;
 	} value;
 } BufferedReadResult;

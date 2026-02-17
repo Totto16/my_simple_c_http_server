@@ -191,13 +191,15 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader,
 
 				++reader->data.cursor;
 
-				SizedBuffer data = {
+				SizedBuffer buffer = {
 					.data = (Byte*)reader->data.buffer.data + start_cursor,
 					.size = (reader->data.cursor - start_cursor - delimiter.size),
 				};
 
-				return (BufferedReadResult){ .type = BufferedReadResultTypeOk,
-					                         .value = { .data = data } };
+				return (BufferedReadResult){
+					.type = BufferedReadResultTypeOk,
+					.value = { .buffer = buffer },
+				};
 			}
 		} else {
 			delimiter_index = 0;
@@ -224,13 +226,15 @@ NODISCARD BufferedReadResult buffered_reader_get_until_end(BufferedReader* const
 
 		if(reader->state == StreamStateClosed) {
 
-			SizedBuffer data = {
+			SizedBuffer buffer = {
 				.data = NULL,
 				.size = 0,
 			};
 
-			return (BufferedReadResult){ .type = BufferedReadResultTypeOk,
-				                         .value = { .data = data } };
+			return (BufferedReadResult){
+				.type = BufferedReadResultTypeOk,
+				.value = { .buffer = buffer },
+			};
 		}
 
 		return (BufferedReadResult){
@@ -268,7 +272,7 @@ break_while_outer:
 	UNUSED(start_cursor);
 	assert(reader->data.cursor == start_cursor && "check if old wrong behaviour is fixed");
 
-	SizedBuffer data = {
+	SizedBuffer buffer = {
 		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
 		.size = (reader->data.buffer.size - reader->data.cursor),
 	};
@@ -276,7 +280,10 @@ break_while_outer:
 	reader->data.cursor = reader->data.buffer.size;
 	reader->state = StreamStateClosed;
 
-	return (BufferedReadResult){ .type = BufferedReadResultTypeOk, .value = { .data = data } };
+	return (BufferedReadResult){
+		.type = BufferedReadResultTypeOk,
+		.value = { .buffer = buffer },
+	};
 }
 
 NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const reader,
@@ -319,14 +326,14 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const re
 			                     .value = { .error = "Failed to get more data in get amount" } };
 	}
 
-	SizedBuffer data = {
+	SizedBuffer buffer = {
 		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
 		.size = amount,
 	};
 
 	reader->data.cursor += amount;
 
-	return (BufferedReadResult){ .type = BufferedReadResultTypeOk, .value = { .data = data } };
+	return (BufferedReadResult){ .type = BufferedReadResultTypeOk, .value = { .buffer = buffer } };
 }
 
 void buffered_reader_invalidate_old_data(BufferedReader* const reader) {
