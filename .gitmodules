@@ -1,3 +1,7 @@
 [submodule "tests/unit/thirdparty/hpack-test-case"]
 	path = tests/unit/thirdparty/hpack-test-case
 	url = https://github.com/http2jp/hpack-test-case/
+
+[submodule "tests/external/webserver-tester"]
+	path = tests/external/webserver-tester
+	url = https://github.com/ibnesayeed/webserver-tester/
