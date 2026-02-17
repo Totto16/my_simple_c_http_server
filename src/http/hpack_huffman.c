@@ -140,7 +140,7 @@ NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree,
 huffman_return_ok:
 
 	// resize the actual buffer
-	void* new_values = realloc(values, values_idx);
+	void* new_values = realloc(values, values_idx + 1);
 
 	if(new_values == NULL) {
 		return (HuffmanResult){
