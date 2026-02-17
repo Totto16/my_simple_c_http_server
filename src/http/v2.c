@@ -2474,7 +2474,12 @@ process_http2_frame(HTTP2Context* const context, MOVED(Http2Frame) frame,
 	return process_result;
 }
 
-NODISCARD static SizedBuffer http2_concat_data_blocks(const DataBlocks data_blocks) {
+typedef struct {
+	bool is_ok;
+	SizedBuffer result;
+} ConcatDataBlocksResult;
+
+NODISCARD static ConcatDataBlocksResult http2_concat_data_blocks(const DataBlocks data_blocks) {
 
 	size_t size = 0;
 
@@ -2485,13 +2490,19 @@ NODISCARD static SizedBuffer http2_concat_data_blocks(const DataBlocks data_bloc
 	}
 
 	if(size == 0) {
-		return (SizedBuffer){ .data = NULL, .size = 0 };
+		return (ConcatDataBlocksResult){
+			.is_ok = true,
+			.result = (SizedBuffer){ .data = NULL, .size = 0 },
+		};
 	}
 
 	SizedBuffer result = allocate_sized_buffer(size);
 
 	if(result.data == NULL) {
-		return (SizedBuffer){ .data = NULL, .size = 0 };
+		return (ConcatDataBlocksResult){
+			.is_ok = false,
+			.result = (SizedBuffer){ .data = NULL, .size = 0 },
+		};
 	}
 
 	const uint8_t* const result_ptr = (uint8_t*)result.data;
@@ -2506,7 +2517,10 @@ NODISCARD static SizedBuffer http2_concat_data_blocks(const DataBlocks data_bloc
 		current_offset += entry.size;
 	}
 
-	return result;
+	return (ConcatDataBlocksResult){
+		.is_ok = true,
+		.result = result,
+	};
 }
 
 /**
@@ -2543,14 +2557,15 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static Http2RequestHeadersResult parse_http2_headers(HpackState* const hpack_state,
                                                                const Http2StreamHeaders headers) {
 
-	const SizedBuffer header_value = http2_concat_data_blocks(headers.header_blocks);
+	const ConcatDataBlocksResult header_value_res = http2_concat_data_blocks(headers.header_blocks);
 
-	if(header_value.data == NULL) {
+	if(!header_value_res.is_ok) {
 		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 			                                .data = {
 			                                    .error = "error in constructing the header data",
 			                                } };
 	}
+	const SizedBuffer header_value = header_value_res.result;
 
 	const Http2HpackDecompressResult header_result =
 	    http2_hpack_decompress_data(hpack_state, header_value);
@@ -2738,9 +2753,9 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 
 	const HttpRequestHead head = headers_result.data.result;
 
-	const SizedBuffer body = http2_concat_data_blocks(stream->content.data_blocks);
+	const ConcatDataBlocksResult body_res = http2_concat_data_blocks(stream->content.data_blocks);
 
-	if(body.data == NULL) {
+	if(!body_res.is_ok) {
 		free_http_request_head(head);
 
 		return (HttpRequestResult){ .is_error = true,
@@ -2754,7 +2769,7 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 				                        } };
 	}
 
-	const HttpRequest request = { .head = head, .body = body };
+	const HttpRequest request = { .head = head, .body = body_res.result };
 
 	// TODO
 	const RequestSettings settings = get_request_settings(request);
