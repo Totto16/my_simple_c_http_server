@@ -29,12 +29,10 @@ send_concatted_http1_response_to_connection(const ConnectionDescriptor* const de
 	return result;
 }
 
-static bool construct_http1_headers_for_request(SendSettings send_settings,
-                                                HttpHeaderFields* const result_header_fields,
-                                                const char* const mime_type,
-                                                HttpHeaderFields additional_headers,
-                                                CompressionType compression_format,
-                                                const SizedBuffer body) {
+static bool construct_http1_headers_for_request(
+    SendSettings send_settings, HttpHeaderFields* const result_header_fields,
+    const char* const mime_type, HttpHeaderFields additional_headers,
+    CompressionType compression_format, const SizedBuffer body, const HttpStatusCode status) {
 
 	// add standard fields
 
@@ -65,7 +63,8 @@ static bool construct_http1_headers_for_request(SendSettings send_settings,
 
 		// TODO(Totto): once we support http1.1 keepalive, remove this
 
-		if(send_settings.protocol_to_use != HTTPProtocolVersion2) {
+		if(send_settings.protocol_to_use != HTTPProtocolVersion2 &&
+		   status != HttpStatusSwitchingProtocols) {
 
 			add_http_header_field_const_key_const_value(result_header_fields,
 			                                            HTTP_HEADER_NAME(connection), "close");
@@ -133,7 +132,8 @@ static bool construct_http2_headers_for_request(
 	    result_header_fields, HTTP_HEADER_NAME(http2_pseudo_status), status_code_buffer);
 
 	return construct_http1_headers_for_request(send_settings, result_header_fields, mime_type,
-	                                           additional_headers, compression_format, body);
+	                                           additional_headers, compression_format, body,
+	                                           status);
 }
 
 typedef struct {
@@ -243,7 +243,7 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 
 	if(!construct_http1_headers_for_request(send_settings, &(response->head.header_fields),
 	                                        to_send.mime_type, to_send.additional_headers,
-	                                        format_used, response->body)) {
+	                                        format_used, response->body,to_send.status)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
 	}
