@@ -312,6 +312,8 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 
 	response->hpack_encoded_headers = http2_hpack_compress_data(state->hpack_state, result_headers);
 
+	free_http_header_fields(&result_headers);
+
 	if(response->hpack_encoded_headers.data == NULL) {
 		return NULL;
 	}
