@@ -885,10 +885,22 @@ NODISCARD static SizedBuffer encode_single_header_field_dumb_literal(HttpHeaderF
 
 		memcpy(data + i, field.value, value_size);
 
-		i += key_size;
+		i += value_size;
 	}
 
-	assert(i <= buffer.size && "do much data used");
+	if(i > buffer.size) {
+		// NOTE: too much data used
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	void* new_data = realloc(buffer.data, i);
+
+	if(new_data == NULL) {
+		free_sized_buffer(buffer);
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	buffer.data = new_data;
 	buffer.size = i;
 
 	return buffer;
