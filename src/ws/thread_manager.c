@@ -117,14 +117,18 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allo
 
 	if(allowed_rsv_bytes == 0) {
 		if(rsv_bytes != 0) {
-			return (RawHeaderOneResult){ .has_error = true,
-				                         .data = { .error = "only 0 allowed for the rsv bytes" } };
+			return (RawHeaderOneResult){
+				.has_error = true,
+				.data = { .error = "only 0 allowed for the rsv bytes" },
+			};
 		};
 	} else {
 
 		if((rsv_bytes | allowed_rsv_bytes) != allowed_rsv_bytes) {
-			return (RawHeaderOneResult){ .has_error = true,
-				                         .data = { .error = "invalid rsv bits set" } };
+			return (RawHeaderOneResult){
+				.has_error = true,
+				.data = { .error = "invalid rsv bits set" },
+			};
 		}
 	}
 
@@ -145,7 +149,10 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allo
 		                    .payload_len = payload_len,
 		                    .rsv_bytes = rsv_bytes };
 
-	RawHeaderOneResult result = { .has_error = false, .data = { .header = header } };
+	RawHeaderOneResult result = {
+		.has_error = false,
+		.data = { .header = header },
+	};
 	return result;
 }
 
@@ -168,17 +175,20 @@ read_raw_message(WebSocketConnection* connection,
 	    buffered_reader_get_amount(connection->reader, RAW_MESSAGE_HEADER_SIZE);
 
 	if(header_bytes_result.type != BufferedReadResultTypeOk) {
-		return (WebSocketRawMessageResult){ .has_error = true,
-			                                .data = { .error = "couldn't read header bytes (2)" } };
+		return (WebSocketRawMessageResult){
+			.has_error = true,
+			.data = { .error = "couldn't read header bytes (2)" },
+		};
 	}
 
-	const SizedBuffer header_bytes = header_bytes_result.value.data;
+	const SizedBuffer header_bytes = header_bytes_result.value.buffer;
 
 	RawHeaderOneResult raw_header_result =
 	    get_raw_header(header_bytes.data, pipeline_settings.allowed_rsv_bytes);
 
 	// no need to free header_bytes, it is held by the buffered reader and freed, once we invalidate
 	// old data!
+	// free_sized_buffer(header_bytes);
 
 	if(raw_header_result.has_error) {
 		return (WebSocketRawMessageResult){ .has_error = true,
@@ -201,7 +211,10 @@ read_raw_message(WebSocketConnection* connection,
 		}
 
 		assert(RAW_MESSAGE_PAYLOAD_1_SIZE == sizeof(uint16_t) && "Implementation error");
-		payload_len = (uint64_t)deserialize_u16_be_to_host(payload_len_result.value.data.data);
+		payload_len = (uint64_t)deserialize_u16_be_to_host(payload_len_result.value.buffer.data);
+
+		// not needed, but kept for eventual leakagereasoning
+		// free_sized_buffer(payload_len_result.value.buffer.data);
 
 	} else if(payload_len == EXTENDED_PAYLOAD_MAGIC_NUMBER2) {
 
@@ -216,7 +229,10 @@ read_raw_message(WebSocketConnection* connection,
 		}
 
 		assert(RAW_MESSAGE_PAYLOAD_2_SIZE == sizeof(uint64_t) && "Implementation error");
-		payload_len = deserialize_u64_be_to_host(payload_len_result.value.data.data);
+		payload_len = deserialize_u64_be_to_host(payload_len_result.value.buffer.data);
+
+		// not needed, but kept for eventual leakagereasoning
+		// free_sized_buffer(payload_len_result.value.buffer.data);
 	}
 
 	SizedBuffer mask_bytes = (SizedBuffer){ .data = NULL, .size = 0 };
@@ -231,7 +247,7 @@ read_raw_message(WebSocketConnection* connection,
 				.has_error = true, .data = { .error = "couldn't read mask bytes (4)" }
 			};
 		}
-		mask_bytes = sized_buffer_dup(mask_byte_result.value.data);
+		mask_bytes = sized_buffer_dup(mask_byte_result.value.buffer);
 	}
 
 	SizedBuffer payload = (SizedBuffer){ .data = NULL, .size = 0 };
@@ -247,7 +263,7 @@ read_raw_message(WebSocketConnection* connection,
 				.has_error = true, .data = { .error = "couldn't read payload bytes" }
 			};
 		}
-		payload = sized_buffer_dup(payload_result.value.data);
+		payload = sized_buffer_dup(payload_result.value.buffer);
 	}
 
 	if(raw_header.has_mask) {
@@ -255,9 +271,9 @@ read_raw_message(WebSocketConnection* connection,
 			((uint8_t*)payload.data)[i] =
 			    ((uint8_t*)payload.data)[i] ^ ((uint8_t*)mask_bytes.data)[i % 4];
 		}
-	}
 
-	free_sized_buffer(mask_bytes);
+		free_sized_buffer(mask_bytes);
+	}
 
 	WebSocketRawMessage value = { .fin = raw_header.fin,
 		                          .op_code = raw_header.op_code,
@@ -438,8 +454,10 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 		               : WsOpcodeBin)
 		        : WsOpcodeCont;
 
-		SizedBuffer payload = { .data = ((uint8_t*)message->data.data) + start,
-			                    .size = payload_len };
+		SizedBuffer payload = {
+			.data = ((uint8_t*)message->data.data) + start,
+			.size = payload_len,
+		};
 
 		WebSocketRawMessage raw_message = {
 			.fin = fin,
@@ -447,6 +465,7 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 			.payload = payload,
 			.rsv_bytes = 0b000,
 		};
+
 		if(start) {
 			extension_send_pipeline_process_start_message(extension_send_state, &raw_message);
 		} else {
@@ -1031,24 +1050,25 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						return NULL;
 					}
 
-					uint64_t old_length = current_message.data.size;
-					SizedBuffer old_data = current_message.data;
+					const SizedBuffer old_message_data = current_message.data;
 
 					current_message.data =
-					    allocate_sized_buffer(old_length + raw_message.payload.size);
+					    allocate_sized_buffer(old_message_data.size + raw_message.payload.size);
 
 					current_message.data.size += raw_message.payload.size;
 
-					if(old_length != 0 && old_data.data != NULL) {
-						memcpy(current_message.data.data, old_data.data, old_length);
-						free_sized_buffer(old_data);
+					if(old_message_data.size != 0 && old_message_data.data != NULL) {
+						memcpy(current_message.data.data, old_message_data.data,
+						       old_message_data.size);
 					}
 
 					if(raw_message.payload.size != 0 && raw_message.payload.data != NULL) {
-						memcpy(((uint8_t*)current_message.data.data) + old_length,
+						memcpy(((uint8_t*)current_message.data.data) + old_message_data.size,
 						       raw_message.payload.data, raw_message.payload.size);
-						free_sized_buffer(raw_message.payload);
 					}
+
+					free_sized_buffer(old_message_data);
+					free_sized_buffer(raw_message.payload);
 
 					if(!raw_message.fin) {
 						continue;
@@ -1158,8 +1178,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					current_message.is_text =
 					    raw_message.op_code == // NOLINT(readability-implicit-bool-conversion)
 					    WsOpcodeText;
+
 					current_message.data = raw_message.payload;
-					current_message.data.size = raw_message.payload.size;
 
 					if(!raw_message.fin) {
 						continue;
@@ -1175,9 +1195,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 						free(finish_error);
 
-						CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
-							                   .message = error_message,
-							                   .message_len = -1 };
+						CloseReason reason = {
+							.code = CloseCodeInvalidFramePayloadData,
+							.message = error_message,
+							.message_len = -1,
+						};
 
 						const char* result =
 						    close_websocket_connection(&connection, argument->manager, reason);
@@ -1310,6 +1332,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 					int result = ws_send_message_raw_internal(connection, message_raw, false);
 
+					FREE_RAW_WS_MESSAGE();
+
 					if(result < 0) {
 						CloseReason reason = {
 							.code = CloseCodeProtocolError,
@@ -1327,7 +1351,6 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							            result1);
 						}
 
-						FREE_RAW_WS_MESSAGE();
 						FREE_AT_END();
 						return NULL;
 					}
@@ -1337,13 +1360,18 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 				case WsOpcodePong: {
 					// just ignore
+
+					FREE_RAW_WS_MESSAGE();
+
 					continue;
 				}
 
 				default: {
-					CloseReason reason = { .code = CloseCodeProtocolError,
-						                   .message = "Received Opcode that is not supported",
-						                   .message_len = -1 };
+					CloseReason reason = {
+						.code = CloseCodeProtocolError,
+						.message = "Received Opcode that is not supported",
+						.message_len = -1,
+					};
 
 					const char* result =
 					    close_websocket_connection(&connection, argument->manager, reason);
@@ -1398,9 +1426,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 			current_message.data = (SizedBuffer){ .data = NULL, .size = 0 };
 
 			if(action == WebSocketActionClose) {
-				CloseReason reason = { .code = CloseCodeNormalClosure,
-					                   .message = "ServerApplication requested shutdown",
-					                   .message_len = -1 };
+				CloseReason reason = {
+					.code = CloseCodeNormalClosure,
+					.message = "ServerApplication requested shutdown",
+					.message_len = -1,
+				};
 
 				const char* result =
 				    close_websocket_connection(&connection, argument->manager, reason);
