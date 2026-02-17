@@ -242,6 +242,7 @@ read_raw_message(WebSocketConnection* connection,
 		    buffered_reader_get_amount(connection->reader, payload_len);
 
 		if(payload_result.type != BufferedReadResultTypeOk) {
+			free_sized_buffer(mask_bytes);
 			return (WebSocketRawMessageResult){
 				.has_error = true, .data = { .error = "couldn't read payload bytes" }
 			};

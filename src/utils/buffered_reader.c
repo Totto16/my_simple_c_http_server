@@ -69,7 +69,7 @@ static size_t buffered_reader_get_more_data_partially(BufferedReader* const read
 
 	void* new_buffer = realloc(reader->data.buffer.data, reader->data.buffer.size + amount);
 
-	if(!new_buffer) {
+	if(new_buffer == NULL) {
 		reader->state = StreamStateError;
 		return 0;
 	}
@@ -98,12 +98,23 @@ static size_t buffered_reader_get_more_data_partially(BufferedReader* const read
 	return bytes_read;
 }
 
-static void buffered_reader_get_more_data_exact(BufferedReader* const reader, size_t amount) {
-	const size_t data_read = buffered_reader_get_more_data_partially(reader, amount);
+static void buffered_reader_get_more_data_exact(BufferedReader* const reader, const size_t amount) {
 
-	if(reader->state == StreamStateOpen && data_read != amount) {
-		reader->state = StreamStateError;
-		return;
+	size_t amount_left = amount;
+
+	while(reader->state == StreamStateOpen) {
+
+		const size_t data_read = buffered_reader_get_more_data_partially(reader, amount_left);
+		if(data_read > amount_left) {
+			reader->state = StreamStateError;
+			return;
+		}
+
+		if(data_read == amount_left) {
+			return;
+		}
+
+		amount_left -= data_read;
 	}
 }
 
@@ -275,7 +286,7 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const re
 		return (BufferedReadResult){
 			.type = reader->state == StreamStateClosed ? BufferedReadResultTypeEOF
 			                                           : BufferedReadResultTypeErr,
-			.value = { .error = "Failed to get more data in read amount" }
+			.value = { .error = "Failed to get more data in read amount at start" }
 		};
 	}
 
@@ -290,11 +301,11 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const re
 		case StreamStateClosed:
 		case StreamStateError:
 		default: {
-			return (BufferedReadResult){
-				.type = reader->state == StreamStateClosed ? BufferedReadResultTypeEOF
-				                                           : BufferedReadResultTypeErr,
-				.value = { .error = "Failed to get more data in read amount" }
-			};
+			return (BufferedReadResult){ .type = reader->state == StreamStateClosed
+				                                     ? BufferedReadResultTypeEOF
+				                                     : BufferedReadResultTypeErr,
+				                         .value = { .error = "Failed to get more data in read "
+				                                             "amount, stream not open anymore" } };
 		}
 	}
 
