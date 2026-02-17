@@ -918,14 +918,18 @@ NODISCARD SizedBuffer http2_hpack_compress_data(HpackState* const state,
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		void* new_data = realloc(result.data, result.size + single_header_result.size);
+		const size_t old_size = result.size;
+		void* new_data = realloc(result.data, old_size + single_header_result.size);
 
 		if(new_data == NULL) {
 			free_sized_buffer(result);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		memcpy(((uint8_t*)result.data) + result.size, single_header_result.data,
+		result.data = new_data;
+		result.size += single_header_result.size;
+
+		memcpy(((uint8_t*)result.data) + old_size, single_header_result.data,
 		       single_header_result.size);
 		free_sized_buffer(single_header_result);
 	}
