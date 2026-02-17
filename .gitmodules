@@ -5,3 +5,6 @@
 [submodule "tests/external/webserver-tester"]
 	path = tests/external/webserver-tester
 	url = https://github.com/ibnesayeed/webserver-tester/
+[submodule "tests/autobahn/testsuite"]
+	path = tests/autobahn/testsuite
+	url = https://github.com/crossbario/autobahn-testsuite
