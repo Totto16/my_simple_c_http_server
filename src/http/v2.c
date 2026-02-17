@@ -369,9 +369,7 @@ NODISCARD static int http2_send_ping_frame(const ConnectionDescriptor* const des
 
 	{
 
-		uint8_t* data = (uint8_t*)frame_as_data_raw;
-
-		memcpy(data, &frame.opaque_data, HTTP2_PING_FRAME_SIZE);
+		memcpy(frame_as_data_raw, frame.opaque_data.data, HTTP2_PING_FRAME_SIZE);
 	}
 
 	SizedBuffer frame_as_data = { .data = frame_as_data_raw, .size = HTTP2_PING_FRAME_SIZE };
