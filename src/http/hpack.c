@@ -260,8 +260,9 @@ NODISCARD static char* parse_literal_string_value(size_t* pos, const size_t size
 		if(huffman_res.is_error) {
 			return NULL;
 		}
-
-		return strndup(huffman_res.data.result.data, huffman_res.data.result.size);
+		// TODO: huffman can technically produce 0 bytes, but then the encoder did some bad thing,
+		// so we are just ignoring that
+		return (char*)huffman_res.data.result.data;
 	}
 
 	char* value = malloc(length + 1);

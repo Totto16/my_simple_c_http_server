@@ -24,7 +24,8 @@ static void bit_pos_inc(BitPos* const bit_pos) {
 	}
 }
 
-NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree, const SizedBuffer input) {
+NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree,
+                                             const SizedBuffer input) {
 
 	if(tree == NULL) {
 		return (HuffmanResult){ .is_error = true, .data = { .error = "tree is NULL" } };
@@ -98,9 +99,7 @@ NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree, cons
 	if(current_node == tree->root) {
 		// we have encoded it until the last bit, it is valid
 
-		return (HuffmanResult){ .is_error = false,
-			                    .data = { .result = (SizedBuffer){ .data = values,
-			                                                       .size = values_idx } } };
+		goto huffman_return_ok;
 	}
 
 	// we have some bytes / bits left
@@ -108,9 +107,7 @@ NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree, cons
 	if(size >= last_pos.pos) {
 		// no bits left, but should be caught by the previous if
 
-		return (HuffmanResult){ .is_error = false,
-			                    .data = { .result = (SizedBuffer){ .data = values,
-			                                                       .size = values_idx } } };
+		goto huffman_return_ok;
 	}
 
 	size_t bytes_not_decoded = size - last_pos.pos;
@@ -140,9 +137,21 @@ NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree, cons
 		};
 	}
 
-	return (HuffmanResult){
-		.is_error = false, .data = { .result = (SizedBuffer){ .data = values, .size = values_idx } }
-	};
+huffman_return_ok:
+
+	// resize the actual buffer
+	void* new_values = realloc(values, values_idx);
+
+	if(new_values == NULL) {
+		return (HuffmanResult){
+			.is_error = true,
+			.data = { .error = "realloc to smaller size failed, LOL, you really got unlucky xD" }
+		};
+	}
+
+	return (HuffmanResult){ .is_error = false,
+		                    .data = { .result = (SizedBuffer){ .data = new_values,
+		                                                       .size = values_idx } } };
 }
 
 typedef struct {
