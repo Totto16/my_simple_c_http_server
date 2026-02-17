@@ -19,13 +19,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#ifdef __APPLE__
-	#include <machine/endian.h>
-
-	#include "./macos_endian_compat.h"
-#else
-	#include <endian.h>
-#endif
+#include "generic/endian_compat.h"
 
 typedef struct ConnectionNodeImpl ConnectionNode;
 

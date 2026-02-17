@@ -2,7 +2,7 @@
 #include "./serialize.h"
 
 #include <arpa/inet.h>
-#include <endian.h>
+#include "./endian_compat.h"
 
 #if defined(__APPLE__) || defined(__MACOSX__)
 	#define bswap_16 __builtin_bswap16

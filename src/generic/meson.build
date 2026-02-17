@@ -1,6 +1,7 @@
 src_files += files(
     'authentication.c',
     'authentication.h',
+    'endian_compat.h',
     'hash.c',
     'hash.h',
     'helper.c',
