@@ -231,7 +231,7 @@ read_raw_message(WebSocketConnection* connection,
 				.has_error = true, .data = { .error = "couldn't read mask bytes (4)" }
 			};
 		}
-		mask_bytes = mask_byte_result.value.data;
+		mask_bytes = sized_buffer_dup(mask_byte_result.value.data);
 	}
 
 	SizedBuffer payload = (SizedBuffer){ .data = NULL, .size = 0 };
@@ -255,6 +255,8 @@ read_raw_message(WebSocketConnection* connection,
 			    ((uint8_t*)payload.data)[i] ^ ((uint8_t*)mask_bytes.data)[i % 4];
 		}
 	}
+
+	free_sized_buffer(mask_bytes);
 
 	WebSocketRawMessage value = { .fin = raw_header.fin,
 		                          .op_code = raw_header.op_code,
@@ -859,6 +861,10 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 			}
 
 			WebSocketRawMessage raw_message = raw_message_result.data.message;
+
+			// invalidate old data, this frees up buffered reader content, the message has all
+			// content duped anyways
+			buffered_reader_invalidate_old_data(connection->reader);
 
 			// some additional checks for control frames
 			if(is_control_op_code(raw_message.op_code)) {
