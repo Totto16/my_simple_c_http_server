@@ -32,11 +32,9 @@ send_concatted_http1_response_to_connection(const ConnectionDescriptor* const de
 static bool construct_http1_headers_for_request(SendSettings send_settings,
                                                 HttpHeaderFields* const result_header_fields,
                                                 const char* const mime_type,
-                                                HttpHeaderFields* additional_headers,
+                                                HttpHeaderFields additional_headers,
                                                 CompressionType compression_format,
                                                 const SizedBuffer body) {
-
-	*result_header_fields = TVEC_EMPTY(HttpHeaderField);
 
 	// add standard fields
 
@@ -99,7 +97,7 @@ static bool construct_http1_headers_for_request(SendSettings send_settings,
 
 	size_t current_array_size = TVEC_LENGTH(HttpHeaderField, *result_header_fields);
 
-	size_t additional_headers_size = TVEC_LENGTH(HttpHeaderField, *additional_headers);
+	size_t additional_headers_size = TVEC_LENGTH(HttpHeaderField, additional_headers);
 
 	auto _ = TVEC_RESERVE(HttpHeaderField, result_header_fields,
 	                      current_array_size + additional_headers_size);
@@ -107,7 +105,7 @@ static bool construct_http1_headers_for_request(SendSettings send_settings,
 
 	for(size_t i = 0; i < additional_headers_size; ++i) {
 
-		HttpHeaderField field = TVEC_AT(HttpHeaderField, *additional_headers, i);
+		HttpHeaderField field = TVEC_AT(HttpHeaderField, additional_headers, i);
 
 		auto _1 = TVEC_PUSH(HttpHeaderField, result_header_fields, field);
 		UNUSED(_1);
@@ -115,7 +113,7 @@ static bool construct_http1_headers_for_request(SendSettings send_settings,
 
 	// if additional Headers are specified free them now
 	if(additional_headers_size > 0) {
-		TVEC_FREE(HttpHeaderField, additional_headers);
+		TVEC_FREE(HttpHeaderField, &additional_headers);
 	}
 
 	return true;
@@ -123,14 +121,16 @@ static bool construct_http1_headers_for_request(SendSettings send_settings,
 
 static bool construct_http2_headers_for_request(
     SendSettings send_settings, HttpHeaderFields* const result_header_fields,
-    const char* const mime_type, HttpHeaderFields* const additional_headers,
+    const char* const mime_type, HttpHeaderFields additional_headers,
     CompressionType compression_format, const SizedBuffer body, const HttpStatusCode status) {
+
+	*result_header_fields = TVEC_EMPTY(HttpHeaderField);
 
 	char* status_code_buffer = NULL;
 	FORMAT_STRING(&status_code_buffer, return false;, "%u", status);
 
 	add_http_header_field_const_key_dynamic_value(
-	    additional_headers, HTTP_HEADER_NAME(http2_pseudo_status), status_code_buffer);
+	    result_header_fields, HTTP_HEADER_NAME(http2_pseudo_status), status_code_buffer);
 
 	return construct_http1_headers_for_request(send_settings, result_header_fields, mime_type,
 	                                           additional_headers, compression_format, body);
@@ -175,7 +175,7 @@ typedef struct {
 
 // simple http Response constructor using string builder, headers can be NULL, when header_size is
 // also null!
-NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend* const to_send,
+NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_send,
                                                          SendSettings send_settings) {
 
 	Http1Response* response = (Http1Response*)malloc(sizeof(Http1Response));
@@ -186,19 +186,25 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend* con
 		return NULL;
 	}
 
-	*response = (Http1Response){ .head = { 0 }, .body = (SizedBuffer){ .data = NULL, .size = 0 } };
+	*response = (Http1Response){ .head = {
+		.header_fields = 	TVEC_EMPTY(HttpHeaderField),
+		.response_line = {
+			.protocol_version = NULL,.status_code = 0,
+			.status_message = NULL,
+		} 
+	}, .body = (SizedBuffer){ .data = NULL, .size = 0 } };
 
 	HTTPProtocolVersion version_to_use = send_settings.protocol_to_use;
 
 	const char* protocol_version = get_http_protocol_version_string(version_to_use);
 
 	size_t protocol_length = strlen(protocol_version);
-	const char* status_message = get_status_message(to_send->status);
+	const char* status_message = get_status_message(to_send.status);
 
 	// using the same trick as before, \0 in the malloced string :)
 	char* response_line_buffer = NULL;
 	FORMAT_STRING(&response_line_buffer, return NULL;
-	              , "%s%c%d%c%s", protocol_version, '\0', to_send->status, '\0', status_message);
+	              , "%s%c%d%c%s", protocol_version, '\0', to_send.status, '\0', status_message);
 
 	response->head.response_line.protocol_version = response_line_buffer;
 	response->head.response_line.status_code = response_line_buffer + protocol_length + 1;
@@ -208,13 +214,13 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend* con
 
 	CompressionType format_used = send_settings.compression_to_use;
 
-	if(to_send->body.content.data) {
+	if(to_send.body.content.data) {
 
 		if(format_used != CompressionTypeNone) {
 
 			// here only supported protocols can be used, otherwise previous checks were wrong
 			SizedBuffer new_body =
-			    compress_buffer_with(to_send->body.content, send_settings.compression_to_use);
+			    compress_buffer_with(to_send.body.content, send_settings.compression_to_use);
 
 			if(!new_body.data) {
 				LOG_MESSAGE(
@@ -222,27 +228,27 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend* con
 				    "An error occurred while compressing the body with the compression format %s\n",
 				    get_string_for_compress_format(send_settings.compression_to_use));
 				format_used = CompressionTypeNone;
-				response->body = to_send->body.content;
+				response->body = to_send.body.content;
 			} else {
 				response->body = new_body;
-				free_sized_buffer(to_send->body.content);
+				free_sized_buffer(to_send.body.content);
 			}
 		} else {
-			response->body = to_send->body.content;
+			response->body = to_send.body.content;
 		}
 	} else {
-		response->body = to_send->body.content;
+		response->body = to_send.body.content;
 		format_used = CompressionTypeNone;
 	}
 
 	if(!construct_http1_headers_for_request(send_settings, &(response->head.header_fields),
-	                                        to_send->mime_type, &(to_send->additional_headers),
+	                                        to_send.mime_type, to_send.additional_headers,
 	                                        format_used, response->body)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
 	}
 
-	if(!to_send->body.send_body_data) {
+	if(!to_send.body.send_body_data) {
 		free_sized_buffer(response->body);
 		response->body = get_empty_sized_buffer();
 	}
@@ -253,7 +259,7 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend* con
 }
 
 NODISCARD static Http2Response* construct_http2_response(Http2ContextState* const state,
-                                                         HTTPResponseToSend* const to_send,
+                                                         HTTPResponseToSend to_send,
                                                          SendSettings send_settings) {
 
 	Http2Response* response = (Http2Response*)malloc(sizeof(Http2Response));
@@ -269,13 +275,13 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 
 	CompressionType format_used = send_settings.compression_to_use;
 
-	if(to_send->body.content.data) {
+	if(to_send.body.content.data) {
 
 		if(format_used != CompressionTypeNone) {
 
 			// here only supported protocols can be used, otherwise previous checks were wrong
 			SizedBuffer new_body =
-			    compress_buffer_with(to_send->body.content, send_settings.compression_to_use);
+			    compress_buffer_with(to_send.body.content, send_settings.compression_to_use);
 
 			if(!new_body.data) {
 				LOG_MESSAGE(
@@ -283,29 +289,29 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 				    "An error occurred while compressing the body with the compression format %s\n",
 				    get_string_for_compress_format(send_settings.compression_to_use));
 				format_used = CompressionTypeNone;
-				response->body = to_send->body.content;
+				response->body = to_send.body.content;
 			} else {
 				response->body = new_body;
-				free_sized_buffer(to_send->body.content);
+				free_sized_buffer(to_send.body.content);
 			}
 		} else {
-			response->body = to_send->body.content;
+			response->body = to_send.body.content;
 		}
 	} else {
-		response->body = to_send->body.content;
+		response->body = to_send.body.content;
 		format_used = CompressionTypeNone;
 	}
 
 	HttpHeaderFields result_headers = TVEC_EMPTY(HttpHeaderField);
 
-	if(!construct_http2_headers_for_request(send_settings, &result_headers, to_send->mime_type,
-	                                        &(to_send->additional_headers), format_used,
-	                                        response->body, to_send->status)) {
+	if(!construct_http2_headers_for_request(send_settings, &result_headers, to_send.mime_type,
+	                                        to_send.additional_headers, format_used, response->body,
+	                                        to_send.status)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
 	}
 
-	if(!to_send->body.send_body_data) {
+	if(!to_send.body.send_body_data) {
 		free_sized_buffer(response->body);
 		response->body = get_empty_sized_buffer();
 	}
@@ -385,7 +391,7 @@ NODISCARD static inline int send_message_to_connection_http1(const ConnectionDes
                                                              HTTPResponseToSend to_send,
                                                              SendSettings send_settings) {
 
-	Http1Response* http_response = construct_http1_response(&to_send, send_settings);
+	Http1Response* http_response = construct_http1_response(to_send, send_settings);
 
 	Http1ConcattedResponse* concatted_response = http1_response_concat(http_response);
 
@@ -406,7 +412,7 @@ NODISCARD static inline int send_message_to_connection_http2(HTTP2Context* const
                                                              SendSettings send_settings) {
 
 	Http2Response* http_response =
-	    construct_http2_response(&(context->state), &to_send, send_settings);
+	    construct_http2_response(&(context->state), to_send, send_settings);
 
 	if(!http_response) {
 		// TODO(Totto): refactor error codes into an enum!
