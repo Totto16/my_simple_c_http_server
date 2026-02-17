@@ -224,6 +224,8 @@ typedef struct {
 	} value;
 } HttpRequestResult;
 
+void free_http_request_head(HttpRequestHead head);
+
 // frees the HttpRequest, taking care of Null Pointer, this is needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
 void free_http_request(HttpRequest request);
@@ -250,7 +252,7 @@ void free_http_header_field(HttpHeaderField field);
 void free_http_header_fields(HttpHeaderFields* header_fields);
 
 void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* header_fields, const char* key,
-                                                 char* value);
+                                                   char* value);
 
 void add_http_header_field_const_key_const_value(HttpHeaderFields* header_fields, const char* key,
                                                  const char* value);

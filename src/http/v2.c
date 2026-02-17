@@ -2555,6 +2555,8 @@ NODISCARD static Http2RequestHeadersResult parse_http2_headers(HpackState* const
 	const Http2HpackDecompressResult header_result =
 	    http2_hpack_decompress_data(hpack_state, header_value);
 
+	free_sized_buffer(header_value);
+
 	if(header_result.is_error) {
 		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 			                                .data = {
@@ -2739,6 +2741,8 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 	const SizedBuffer body = http2_concat_data_blocks(stream->content.data_blocks);
 
 	if(body.data == NULL) {
+		free_http_request_head(head);
+
 		return (HttpRequestResult){ .is_error = true,
 				                        .value = {
 				                            .error =

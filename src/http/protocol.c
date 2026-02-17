@@ -32,7 +32,7 @@ static void free_http_request_line(HttpRequestLine line) {
 	free_parsed_request_uri(line.uri);
 }
 
-static void free_request_head(HttpRequestHead head) {
+void free_http_request_head(HttpRequestHead head) {
 	free_http_request_line(head.request_line);
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, head.header_fields); ++i) {
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, head.header_fields, i);
@@ -46,7 +46,7 @@ static void free_request_head(HttpRequestHead head) {
 // frees the HttpRequest, taking care of Null Pointer, this si needed for some corrupted requests,
 // when a corrupted request e.g was parsed partly correct
 void free_http_request(HttpRequest request) {
-	free_request_head(request.head);
+	free_http_request_head(request.head);
 	free_sized_buffer(request.body);
 }
 
