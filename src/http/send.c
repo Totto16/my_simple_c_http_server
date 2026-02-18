@@ -33,14 +33,15 @@ send_concatted_http1_response_to_connection(const ConnectionDescriptor* const de
 #define SIZE_OF_GLOBAL_ALT_SVC_DATA ((5 + 1) + 5)
 
 // support h2 alt-sv, populate it once, use it after that
-char g_alt_svc_constant_data[SIZE_OF_GLOBAL_ALT_SVC_DATA] = { 'h', '2', '=', '"', 0,   0,
-	                                                          0,   0,   0,   '"', '\0' };
+char g_alt_svc_constant_data // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    [SIZE_OF_GLOBAL_ALT_SVC_DATA] = { 'h', '2', '=', '"', 0, 0, 0, 0, 0, '"', '\0' };
 
 void global_setup_port_data(uint16_t port) {
 	size_t result =
 	    snprintf(g_alt_svc_constant_data, SIZE_OF_GLOBAL_ALT_SVC_DATA, "h2=\"%u\"", port);
 
 	assert(result <= SIZE_OF_GLOBAL_ALT_SVC_DATA);
+	UNUSED(result);
 }
 
 static bool construct_http1_headers_for_request(
