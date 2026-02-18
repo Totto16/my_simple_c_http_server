@@ -3114,6 +3114,8 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 	const Http2FrameResult settings_frame_result =
 	    parse_raw_http2_settings_frame(settings_data, reader, context, false);
 
+	free_sized_buffer(settings_data);
+
 	if(settings_frame_result.is_error) {
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
@@ -3144,6 +3146,7 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 	}
 
 	http2_apply_settings_frame(context, frame.value.settings);
+	free_http2_frame(&frame);
 
 	const Http2StartResult start_result = http2_receive_preface_with_magic(context, reader);
 
