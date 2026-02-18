@@ -589,7 +589,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 	}
 
 	if(padding_length != 0) {
-		read_result = buffered_reader_get_amount(reader, payload_length);
+		read_result = buffered_reader_get_amount(reader, padding_length);
 
 		if(read_result.type != BufferedReadResultTypeOk) {
 			const char* error = "Failed to read enough data for the padding data";
@@ -717,9 +717,10 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 		payload_length = payload_length - 1 - padding_length;
 	}
 
-	Http2FramePriorityOptional priority_opt = { .has_priority = (http2_raw_header.flags &
-		                                                         Http2HeadersFrameFlagPadded) != 0,
-		                                        .priority = DEFAULT_STREAM_PRIORITY };
+	Http2FramePriorityOptional priority_opt = {
+		.has_priority = (http2_raw_header.flags & Http2HeadersFrameFlagPriority) != 0,
+		.priority = DEFAULT_STREAM_PRIORITY
+	};
 
 	if(priority_opt.has_priority) {
 		if(payload_length < HTTP2_PRIORITY_INFO_SIZE) {
@@ -777,7 +778,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 	}
 
 	if(padding_length != 0) {
-		read_result = buffered_reader_get_amount(reader, payload_length);
+		read_result = buffered_reader_get_amount(reader, padding_length);
 
 		if(read_result.type != BufferedReadResultTypeOk) {
 			const char* error = "Failed to read enough data for the padding data";
@@ -1244,7 +1245,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 	}
 
 	if(padding_length != 0) {
-		read_result = buffered_reader_get_amount(reader, payload_length);
+		read_result = buffered_reader_get_amount(reader, padding_length);
 
 		if(read_result.type != BufferedReadResultTypeOk) {
 			const char* error = "Failed to read enough data for the padding data";
@@ -2797,6 +2798,7 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 	    parse_http2_headers(state->hpack_state, stream->headers, stream_identifier);
 
 	if(headers_result.type != Http2RequestHeadersResultTypeOk) {
+		LOG_MESSAGE(LogLevelError, "Error in headers parsing: %s\n", headers_result.data.error);
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
