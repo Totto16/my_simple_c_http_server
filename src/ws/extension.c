@@ -6,6 +6,8 @@
 
 #include <ctype.h>
 
+TVEC_IMPLEMENT_VEC_TYPE(WSExtension)
+
 #define DEFAULT_MAX_WINDOW_BITS 15
 
 #define MIN_MAX_WINDOW_BITS 8
@@ -117,7 +119,7 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params
 
 #define DEFAULT_CONTEXT_TAKEOVER_SERVER_VALUE true
 
-NODISCARD static WSExtension parse_ws_extension_value(char* value, bool* success) {
+NODISCARD static WSExtension parse_ws_extension_value(char* value, OUT_PARAM(bool) success) {
 
 	char* name = value;
 
@@ -182,7 +184,8 @@ void parse_ws_extensions(WSExtensions* extensions, const char* const value_const
 		WSExtension extension = parse_ws_extension_value(current_extension, &success);
 
 		if(success) {
-			stbds_arrput(*extensions, extension);
+			auto _ = TVEC_PUSH(WSExtension, extensions, extension);
+			UNUSED(_);
 		}
 
 		if(next_value == NULL) {
@@ -275,10 +278,10 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 		return NULL;
 	}
 
-	size_t extensions_length = stbds_arrlenu(extensions);
+	size_t extensions_length = TVEC_LENGTH(WSExtension, extensions);
 
 	for(size_t i = 0; i < extensions_length; ++i) {
-		WSExtension extension = extensions[i];
+		WSExtension extension = TVEC_AT(WSExtension, extensions, i);
 
 		bool success = append_ws_extension_as_string(string_builder, extension);
 
@@ -335,8 +338,8 @@ struct ExtensionMessageReceiveStateImpl {
 NODISCARD static ExtensionReceivePipelineSettings get_pipeline_settings(WSExtensions extensions) {
 	ExtensionReceivePipelineSettings settings = { .allowed_rsv_bytes = 0 };
 
-	for(size_t i = 0; i < stbds_arrlenu(extensions); ++i) {
-		WSExtension extension = extensions[i];
+	for(size_t i = 0; i < TVEC_LENGTH(WSExtension, extensions); ++i) {
+		WSExtension extension = TVEC_AT(WSExtension, extensions, i);
 
 		switch(extension.type) {
 			case WSExtensionTypePerMessageDeflate: {
@@ -371,15 +374,19 @@ static char* noop_process_send_fn(WebSocketMessage* message,
 	return NULL;
 }
 
-typedef STBDS_ARRAY(WsProcessFn) ArrayProcessArg;
+// TODO: do the same as ZVEC qsort with ANY_TYPE and pthread functions!
+
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(WsProcessFn)
+
+typedef TVEC_TYPENAME(WsProcessFn) ArrayProcessArg;
 
 static char* array_process_receive_fn(WebSocketMessage* message,
                                       const ExtensionMessageReceiveState* const message_state,
-                                      ANY_TYPE(ArrayProcessReceiveArg) arg) {
+                                      ANY_TYPE(ArrayProcessArg) arg) {
 
-	ArrayProcessArg process_arg = (ArrayProcessArg)arg;
+	const ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
 
-	size_t process_arg_length = stbds_arrlenu(process_arg);
+	size_t process_arg_length = TVEC_LENGTH(WsProcessFn, *process_arg);
 
 	if(process_arg_length == 0) {
 		return NULL;
@@ -388,7 +395,7 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 	// NOTE: receive extensions are run in reverse
 
 	for(size_t i = 0; i < process_arg_length; ++i) {
-		WsProcessFn process_fn = process_arg[process_arg_length - 1 - i];
+		WsProcessFn process_fn = TVEC_AT(WsProcessFn, *process_arg, process_arg_length - 1 - i);
 
 		char* error = process_fn.receive_fn(message, message_state, process_fn.arg);
 		if(error != NULL) {
@@ -400,12 +407,12 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 
 static char* array_process_send_fn(WebSocketMessage* message,
                                    const ExtensionMessageReceiveState* message_state,
-                                   ANY_TYPE(ArrayProcessReceiveArg) arg) {
+                                   ANY_TYPE(ArrayProcessArg) arg) {
 
-	ArrayProcessArg process_arg = (ArrayProcessArg)arg;
+	ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
 
-	for(size_t i = 0; i < stbds_arrlenu(process_arg); ++i) {
-		WsProcessFn process_fn = process_arg[i];
+	for(size_t i = 0; i < TVEC_LENGTH(WsProcessFn, *process_arg); ++i) {
+		WsProcessFn process_fn = TVEC_AT(WsProcessFn, *process_arg, i);
 
 		char* error = process_fn.send_fn(message, message_state, process_fn.arg);
 		if(error != NULL) {
@@ -424,7 +431,7 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 		return strdup("client context takeover is not supported");
 	}
 
-	SizedBuffer input_buffer = { .data = message->data, .size = message->data_len };
+	SizedBuffer input_buffer = message->buffer;
 
 	// steps from: https://datatracker.ietf.org/doc/html/rfc7692#section-7.2.2
 
@@ -443,8 +450,7 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 	input_buffer.data = new_buf;
 	input_buffer.size = input_buffer.size + WS_DECOMPRESS_TAILER_LENGTH;
 
-	message->data = input_buffer.data;
-	message->data_len = input_buffer.size;
+	message->buffer = input_buffer;
 
 	// 2. Decompress the resulting data using DEFLATE.
 	SizedBuffer result =
@@ -456,8 +462,7 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 
 	free_sized_buffer(input_buffer);
 
-	message->data = result.data;
-	message->data_len = result.size;
+	message->buffer = result;
 
 	return NULL;
 }
@@ -469,7 +474,7 @@ static char* compress_ws_message(WebSocketMessage* message, WsDeflateOptions* op
 		return strdup("server context takeover is not supported");
 	}
 
-	SizedBuffer input_buffer = { .data = message->data, .size = message->data_len };
+	SizedBuffer input_buffer = message->buffer;
 
 	// steps from: https://datatracker.ietf.org/doc/html/rfc7692#section-7.2.1
 
@@ -493,8 +498,7 @@ static char* compress_ws_message(WebSocketMessage* message, WsDeflateOptions* op
 
 	free_sized_buffer(input_buffer);
 
-	message->data = result.data;
-	message->data_len = result.size;
+	message->buffer = result;
 
 	return NULL;
 }
@@ -537,7 +541,7 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 	extension_pipeline->settings = get_pipeline_settings(extensions);
 	extension_pipeline->extension_mask = WsExtensionMaskNone;
 
-	size_t extension_length = stbds_arrlenu(extensions);
+	size_t extension_length = TVEC_LENGTH(WSExtension, extensions);
 	extension_pipeline->active_extensions = extension_length;
 
 	if(extension_length == 0) {
@@ -547,10 +551,16 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 		return extension_pipeline;
 	}
 
-	STBDS_ARRAY(WsProcessFn) array_fns = STBDS_ARRAY_EMPTY;
+	ArrayProcessArg* array_fns = malloc(sizeof(ArrayProcessArg));
+
+	if(array_fns == NULL) {
+		return NULL;
+	}
+
+	*array_fns = TVEC_EMPTY(WsProcessFn);
 
 	for(size_t i = 0; i < extension_length; ++i) {
-		WSExtension* extension = &(extensions[i]);
+		WSExtension* extension = TVEC_GET_AT_MUT(WSExtension, &extensions, i);
 
 		WsProcessFn process_fn = {};
 		switch(extension->type) {
@@ -564,13 +574,14 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 			}
 			default: {
 				free(extension_pipeline);
-				stbds_arrfree(array_fns);
+				TVEC_FREE(WsProcessFn, array_fns);
 				return NULL;
 				break;
 			}
 		}
 
-		stbds_arrput(array_fns, process_fn);
+		auto _ = TVEC_PUSH(WsProcessFn, array_fns, process_fn);
+		UNUSED(_);
 	}
 
 	extension_pipeline->process_fn.receive_fn = array_process_receive_fn;
@@ -586,10 +597,10 @@ void free_extension_pipeline(ExtensionPipeline* extension_pipeline) {
 
 	} else {
 
-		STBDS_ARRAY(WsProcessFn)
-		array_fns = (STBDS_ARRAY(WsProcessFn))extension_pipeline->process_fn.arg;
+		ArrayProcessArg* array_fns = ((ArrayProcessArg*)(extension_pipeline->process_fn.arg));
 
-		stbds_arrfree(array_fns);
+		TVEC_FREE(WsProcessFn, array_fns);
+		free(array_fns);
 	}
 
 	free(extension_pipeline);

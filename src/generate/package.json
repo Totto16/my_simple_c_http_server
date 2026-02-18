@@ -1,0 +1,23 @@
+{
+	"name": "c_simple_http_generator",
+	"version": "0.0.1",
+	"description": "",
+	"scripts": {},
+	"license": "MIT",
+	"devDependencies": {
+		"@tsconfig/strictest": "^2.0.8",
+		"@types/node": "^24.10.1",
+		"typescript": "^5.9.3"
+	},
+	"packageManager": "pnpm@10.23.0",
+	"engines": {
+		"node": "24.11.1"
+	},
+	"type":"module",
+	"private": true,
+	"pnpm": {
+		"onlyBuiltDependencies": [],
+		"ignoredBuiltDependencies": [],
+		"ignorePatchFailures": false
+	}
+}

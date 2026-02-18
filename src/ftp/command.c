@@ -1,8 +1,13 @@
 
 
 #include "./command.h"
+#include "generic/ip.h"
+#include "generic/serialize.h"
 #include "utils/utils.h"
+
 #include <string.h>
+
+TVEC_IMPLEMENT_VEC_TYPE_EXTENDED(FTPCommand*, FTPCommandPtr)
 
 #define MAKE_STRING_ARG(str) \
 	do { \
@@ -101,7 +106,7 @@ NODISCARD static bool parse_u8_into(char* input, uint8_t* result_addr) {
 	return true;
 }
 
-FTPPortInformation* parse_ftp_command_port_info(char* arg) {
+static FTPPortInformation* parse_ftp_command_port_info(char* arg) {
 	FTPPortInformation* info = (FTPPortInformation*)malloc(sizeof(FTPPortInformation));
 
 	if(!info) {
@@ -145,17 +150,9 @@ FTPPortInformation* parse_ftp_command_port_info(char* arg) {
 		currently_at = resulting_index + 1;
 	}
 
-	uint32_t addr = result[0];
-	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	       result[1];
-	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	       result[2];
-	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	       result[3];
+	IPV4Address addr = get_ipv4_address_from_host_bytes(result);
 
-	uint16_t port = result[4];
-	addr = (addr << 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	       result[5];    // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	const uint16_t port = deserialize_u16_le_to_host(result + 4);
 
 	info->addr = addr;
 	info->port = port;
@@ -171,10 +168,12 @@ NODISCARD static FTPCommand* parse_single_ftp_command(char* command_str) {
 		return NULL;
 	}
 
-	FTPCommand* command = (FTPCommand*)malloc_with_memset(sizeof(FTPCommand), true);
+	FTPCommand* command = (FTPCommand*)malloc(sizeof(FTPCommand));
 	if(!command) {
 		return NULL;
 	}
+
+	*command = (FTPCommand){ .data = { 0 }, .type = 0 };
 
 	// see https://datatracker.ietf.org/doc/html/rfc959 5.3.1
 	if(strcasecmp("CDUP", command_str) == 0) {
@@ -436,17 +435,27 @@ NODISCARD static FTPCommand* parse_single_ftp_command(char* command_str) {
 	return NULL;
 }
 
-FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
+#define FTP_COMMAND_SEPERATORS "\r\n"
+
+#define SIZEOF_FTP_COMMAND_SEPERATORS 2
+
+static_assert((sizeof(FTP_COMMAND_SEPERATORS) / (sizeof(FTP_COMMAND_SEPERATORS[0]))) - 1 ==
+              SIZEOF_FTP_COMMAND_SEPERATORS);
+
+FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands) {
 
 #define FREE_AT_END() \
 	do { \
 		free(raw_ftp_commands); \
 	} while(false)
 
-	FTPCommandArray array = STBDS_ARRAY_EMPTY;
+	FTPCommandArray* array = malloc(sizeof(FTPCommandArray));
 
-	const char* const separators = "\r\n";
-	size_t separators_length = strlen(separators);
+	if(!array) {
+		return NULL;
+	}
+
+	*array = TVEC_EMPTY(FTPCommandPtr);
 
 	size_t size_to_proccess = strlen(raw_ftp_commands);
 	char* currently_at = raw_ftp_commands;
@@ -457,7 +466,7 @@ FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 
 	while(size_to_proccess > 0) {
 
-		char* resulting_index = strstr(currently_at, separators);
+		char* resulting_index = strstr(currently_at, FTP_COMMAND_SEPERATORS);
 		// no"\r\n" could be found, so a parse Error occurred, a NULL signals that
 		if(resulting_index == NULL) {
 			free_ftp_command_array(array);
@@ -478,9 +487,10 @@ FTPCommandArray parse_multiple_ftp_commands(char* raw_ftp_commands) {
 			return NULL;
 		}
 
-		stbds_arrput(array, command); // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
+		auto _ = TVEC_PUSH(FTPCommandPtr, array, command);
+		UNUSED(_);
 
-		size_t actual_length = length + separators_length;
+		size_t actual_length = length + SIZEOF_FTP_COMMAND_SEPERATORS;
 		size_to_proccess -= actual_length;
 		currently_at += actual_length;
 	}
@@ -556,16 +566,17 @@ void free_ftp_command(FTPCommand* cmd) {
 	}
 }
 
-void free_ftp_command_array(FTPCommandArray array) {
+void free_ftp_command_array(FTPCommandArray* array) {
 	if(array == NULL) {
 		return;
 	}
 
-	for(size_t i = 0; i < stbds_arrlenu(array); ++i) {
-		free_ftp_command(array[i]);
+	for(size_t i = 0; i < TVEC_LENGTH(FTPCommandPtr, *array); ++i) {
+		free_ftp_command(TVEC_AT(FTPCommandPtr, *array, i));
 	}
 
-	stbds_arrfree(array);
+	TVEC_FREE(FTPCommandPtr, array);
+	free(array);
 }
 
 const char* get_command_name(const FTPCommand* const command) {

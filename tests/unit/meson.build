@@ -12,32 +12,122 @@ test_deps += dependency(
     fallback: ['doctest', 'doctest_dep'],
 )
 
+test_deps += dependency('nlohmann_json')
+
 test_inc_dirs += include_directories('.')
 
-test_src += files('c_types.hpp', 'hash.cpp', 'http_parser.cpp', 'main.cpp')
+test_src += files(
+    'helpers/c_types.cpp',
+    'helpers/c_types.hpp',
+    'helpers/cpp_types.cpp',
+    'helpers/cpp_types.hpp',
+    'helpers/main.cpp',
+    'hpack/helpers.hpp',
+)
+
+test_src += generated_cpp_hpack_tests
 
 add_languages(
     'cpp',
     native: false,
 )
 
+correct_cpp_args = []
 
-tests = executable(
-    'tests',
+foreach internal_c_arg : internal_c_args
+
+    # cpp.get_supported_arguments reports true, but it is not really
+    if internal_c_arg not in ['-Werror=implicit', '-Werror=pointer-to-int-cast']
+        correct_cpp_args += internal_c_arg
+    endif
+
+endforeach
+
+cpp = meson.get_compiler('cpp')
+
+
+internal_cpp_args = []
+
+internal_cpp_args += cpp.get_supported_arguments(correct_cpp_args)
+
+internal_cpp_args += [
+    '-DDOCTEST_CONFIG_REQUIRE_STRINGIFICATION_FOR_ALL_USED_TYPES',
+    '-DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING',
+    '-DDOCTEST_CONFIG_USE_STD_HEADERS',
+]
+
+if cpp.get_id() == 'gcc'
+    internal_cpp_args += cc.get_supported_arguments('-Wno-missing-braces')
+endif
+
+test_files = [
+    'hash.cpp',
+    'http_parser.cpp',
+    'serialize.cpp',
+    # hpack
+    'hpack/huffman.cpp',
+    'hpack/manual.cpp',
+    # thirdparty hpack
+    'hpack/thirdparty/go-hpack.cpp',
+    'hpack/thirdparty/haskell-http2-linear.cpp',
+    'hpack/thirdparty/haskell-http2-linear-huffman.cpp',
+    'hpack/thirdparty/haskell-http2-naive.cpp',
+    'hpack/thirdparty/haskell-http2-naive-huffman.cpp',
+    'hpack/thirdparty/haskell-http2-static.cpp',
+    'hpack/thirdparty/haskell-http2-static-huffman.cpp',
+    'hpack/thirdparty/nghttp2.cpp',
+    'hpack/thirdparty/nghttp2-16384-4096.cpp',
+    'hpack/thirdparty/nghttp2-change-table-size.cpp',
+    'hpack/thirdparty/node-http2-hpack.cpp',
+    'hpack/thirdparty/python-hpack.cpp',
+    'hpack/thirdparty/swift-nio-hpack-huffman.cpp',
+    'hpack/thirdparty/swift-nio-hpack-plain-text.cpp',
+]
+
+
+workdir = meson.project_source_root() / 'tests' / 'unit' / 'files'
+
+foreach test_file : test_files
+
+    test_name = test_file.replace('.cpp', '').replace('/', '_')
+
+    this_test = executable(
+        test_name,
+        test_src,
+        files(test_file),
+        include_directories: test_inc_dirs,
+        dependencies: [test_deps, http_server_dep],
+        cpp_args: internal_cpp_args,
+        override_options: {
+            'warning_level': '3',
+            'werror': true,
+            'b_coverage': false,
+            'cpp_std': ['c++23', 'c++latest', 'c++20'],
+        },
+    )
+
+    test(
+        test_name,
+        this_test,
+        protocol: 'exitcode',
+        workdir: workdir,
+        is_parallel: true,
+    )
+
+endforeach
+
+
+all_tests = executable(
+    'all_tests',
     test_src,
+    files(test_files),
     include_directories: test_inc_dirs,
     dependencies: [test_deps, http_server_dep],
+    cpp_args: internal_cpp_args,
     override_options: {
         'warning_level': '3',
         'werror': true,
         'b_coverage': false,
         'cpp_std': ['c++23', 'c++latest', 'c++20'],
     },
-)
-
-test(
-    'tests',
-    tests,
-    protocol: 'exitcode',
-    workdir: meson.project_source_root() / 'tests' / 'unit' / 'files',
 )

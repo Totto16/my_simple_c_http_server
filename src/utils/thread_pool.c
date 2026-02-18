@@ -5,9 +5,9 @@
 #include "utils/log.h"
 
 #ifdef _DONT_HAVE_SYS_SYSINFO
-#include <unistd.h>
+	#include <unistd.h>
 #else
-#include <sys/sysinfo.h>
+	#include <sys/sysinfo.h>
 #endif
 
 #define THREAD_SHUTDOWN_JOB_INTERNAL 0x02
@@ -22,7 +22,7 @@ struct JobIdImpl {
 	ANY_TYPE(JobResult) result;
 };
 
-void thread_pool_worker_thread_startup_function(void) {
+static void thread_pool_worker_thread_startup_function(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
 	openssl_initialize_crypto_thread_state();
 #endif
@@ -30,7 +30,7 @@ void thread_pool_worker_thread_startup_function(void) {
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Running startup function for http thread\n");
 }
 
-void thread_pool_worker_thread_shutdown_function(void) {
+static void thread_pool_worker_thread_shutdown_function(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
 	openssl_cleanup_crypto_thread_state();
 #endif
@@ -116,14 +116,15 @@ int pool_create(ThreadPool* pool, size_t size) {
 	// writing the values to the struct
 	pool->worker_threads_amount = size;
 	// allocating the worker Threads array, they are freed in destroy!
-	pool->worker_threads = (MyThreadPoolThreadInformation*)malloc_with_memset(
-	    sizeof(MyThreadPoolThreadInformation) * size, true);
+	pool->worker_threads =
+	    (MyThreadPoolThreadInformation*)malloc(sizeof(MyThreadPoolThreadInformation) * size);
 
 	pool->fns = (LifecycleFunctions){ .startup_fn = thread_pool_worker_thread_startup_function,
 		                              .shutdown_fn = thread_pool_worker_thread_shutdown_function };
 
 	if(!pool->worker_threads) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return CreateErrorMalloc;
 	}
 
@@ -149,7 +150,8 @@ int pool_create(ThreadPool* pool, size_t size) {
 		    (MyThreadPoolThreadArgument*)malloc(sizeof(MyThreadPoolThreadArgument));
 
 		if(!thread_argument) {
-			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+			                   "Couldn't allocate memory!\n");
 			return CreateErrorMalloc;
 		}
 
@@ -169,7 +171,7 @@ int pool_create(ThreadPool* pool, size_t size) {
 	return CreateErrorNone;
 }
 
-int get_active_cpu_core(void) {
+NODISCARD static int get_active_cpu_core(void) {
 #ifdef _DONT_HAVE_SYS_SYSINFO
 	// see https://www.unix.com/man_page/osx/3/sysconf
 	return sysconf(_SC_NPROCESSORS_ONLN);

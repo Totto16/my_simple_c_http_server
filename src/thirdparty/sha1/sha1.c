@@ -25,6 +25,12 @@ A million repetitions of "a"
 
 #include "sha1.h"
 
+#if !defined(__APPLE__)
+	#include <endian.h>
+#else
+	#include <machine/endian.h>
+#endif
+
 #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
 
 /* blk0() and blk() perform the initial expand. */

@@ -3,25 +3,25 @@
 #include "./send.h"
 #include "generic/send.h"
 
+#define FTP_COMMAND_SEPERATOR "\r\n"
+
 NODISCARD static int send_ftp_message_to_connection_malloced( // NOLINT(misc-no-recursion)
     const ConnectionDescriptor* const descriptor, FtpReturnCode status, char* body) {
 
 	if(status > InternalFtpReturnCodeMaximum || status < InternalFtpReturnCodeMinimum) {
-		return send_ftp_message_to_connection(
+		return send_ftp_message_to_connection_single(
 		    descriptor, FtpReturnCodeSyntaxError,
-		    "Internal Error while processing command: sending hardcoded invalid status",
-		    ConnectionSendFlagsUnMalloced);
+		    "Internal Error while processing command: sending hardcoded invalid status");
 	}
 
 	StringBuilder* string_builder = string_builder_init();
-	const char* const separators = "\r\n";
 
 	if(strlen(body) == 0) {
 		STRING_BUILDER_APPENDF(string_builder, free(body); return -3;
-		                       , "%03d%s", status, separators);
+		                       , "%03d%s", status, FTP_COMMAND_SEPERATOR);
 	} else {
 		STRING_BUILDER_APPENDF(string_builder, free(body); return -3;
-		                       , "%03d %s%s", status, body, separators);
+		                       , "%03d %s%s", status, body, FTP_COMMAND_SEPERATOR);
 	}
 
 	int result = send_string_builder_to_connection(descriptor, &string_builder);
@@ -30,15 +30,19 @@ NODISCARD static int send_ftp_message_to_connection_malloced( // NOLINT(misc-no-
 	return result;
 }
 
-int send_ftp_message_to_connection( // NOLINT(misc-no-recursion)
-    const ConnectionDescriptor* descriptor, FtpReturnCode status, char* body,
-    ConnectionSendFlags flags) {
-	char* final_body = body;
+int send_ftp_message_to_connection_string( // NOLINT(misc-no-recursion)
+    const ConnectionDescriptor* descriptor, FtpReturnCode status, char* const body) {
 
-	if((flags & ConnectionSendFlagsUnMalloced) != 0) {
-		if(body) {
-			final_body = strdup(body);
-		}
+	return send_ftp_message_to_connection_malloced(descriptor, status, body);
+}
+
+int send_ftp_message_to_connection_single( // NOLINT(misc-no-recursion)
+    const ConnectionDescriptor* descriptor, FtpReturnCode status, const char* const body) {
+
+	char* final_body = NULL;
+
+	if(body) {
+		final_body = strdup(body);
 	}
 
 	return send_ftp_message_to_connection_malloced(descriptor, status, final_body);
@@ -47,6 +51,6 @@ int send_ftp_message_to_connection( // NOLINT(misc-no-recursion)
 // TODO(Totto): refactor ftp messages too, so that the return things ar epavcked into a structure
 int send_ftp_message_to_connection_sb(const ConnectionDescriptor* const descriptor,
                                       FtpReturnCode status, StringBuilder* body) {
-	return send_ftp_message_to_connection(
-	    descriptor, status, string_builder_release_into_string(&body), ConnectionSendFlagsMalloced);
+	return send_ftp_message_to_connection_string(descriptor, status,
+	                                             string_builder_release_into_string(&body));
 }

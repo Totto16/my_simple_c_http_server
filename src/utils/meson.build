@@ -1,4 +1,6 @@
 src_files += files(
+    'buffered_reader.c',
+    'buffered_reader.h',
     'clock.c',
     'clock.h',
     'errors.c',
@@ -7,6 +9,8 @@ src_files += files(
     'log.h',
     'myqueue.c',
     'myqueue.h',
+    'path.c',
+    'path.h',
     'sized_buffer.c',
     'sized_buffer.h',
     'string_builder.c',
@@ -17,6 +21,7 @@ src_files += files(
     'thread_helper.h',
     'thread_pool.c',
     'thread_pool.h',
+    'tmap_common_impl.c',
     'utf8_helper.c',
     'utf8_helper.h',
     'utils.c',

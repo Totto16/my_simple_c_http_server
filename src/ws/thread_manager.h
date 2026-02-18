@@ -39,7 +39,7 @@ NODISCARD WebSocketThreadManager* initialize_thread_manager(void);
  * Thread safe
  */
 NODISCARD WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manager,
-                                                             ConnectionDescriptor* descriptor,
+                                                             BufferedReader* reader,
                                                              ConnectionContext* context,
                                                              WebSocketFunction function,
                                                              WsConnectionArgs args);

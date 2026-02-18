@@ -24,9 +24,10 @@ jobs:
                       os-version: 24.04-arm
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
               with:
                   fetch-depth: "0"
+                  submodules: "recursive"
 
             - name: Setup Clang
               run: |
@@ -36,6 +37,11 @@ jobs:
                   sudo apt-get install libc++-21* libc++abi*21* llvm-21 libclang-rt-21-dev -y --no-install-recommends
                   echo "CC=clang-21" >> "$GITHUB_ENV"
                   echo "CXX=clang++-21" >> "$GITHUB_ENV"
+
+            - name: Setup node
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24
 
             # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
             - name: Setup meson
@@ -54,7 +60,7 @@ jobs:
                   meson test -C test_build --verbose
                   ninja coverage -C test_build
             - name: Create Coverage Report
-              uses: insightsengineering/coverage-action@v2
+              uses: insightsengineering/coverage-action@v3
               with:
                   token: ${{ secrets.GITHUB_TOKEN }}
                   path: ./test_build/meson-logs/coverage.xml
@@ -65,7 +71,7 @@ jobs:
                   togglable-report: true
                   # TODO: use the diff feature of that later when we require test coverage on PR's to not go down
 
-            - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v6
               with:
                   name: test results - ${{ matrix.config.name }}
                   path: |

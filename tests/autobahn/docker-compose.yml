@@ -1,0 +1,17 @@
+services:
+    testsuite:
+        container_name: ws_autobahn_testuite
+        image: crossbario/autobahn-testsuite:latest
+        volumes:
+            - ./config:/config
+            - ./reports:/reports
+        network_mode: host
+        command:
+            [
+                "wstest",
+                "--mode",
+                "fuzzingclient",
+                "--spec",
+                "/config/fuzzingclient.json",
+                "-d"
+            ]

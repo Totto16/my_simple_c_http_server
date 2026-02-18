@@ -5,6 +5,8 @@
 
 #include "utils/utils.h"
 
+#include <tvec.h>
+
 #define ESSL 167
 
 typedef struct SecureDataImpl SecureData;
@@ -21,10 +23,14 @@ typedef struct {
 	SecureOptionsType type;
 	union {
 		SecureData* data;
-	} data;
+	} value;
 } SecureOptions;
 
 typedef struct ConnectionContextImpl ConnectionContext;
+
+TVEC_DEFINE_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
+
+typedef TVEC_TYPENAME(ConnectionContextPtr) ConnectionContextPtrs;
 
 typedef struct ConnectionDescriptorImpl ConnectionDescriptor;
 
@@ -46,15 +52,51 @@ void free_connection_context(ConnectionContext* context);
 NODISCARD ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* context,
                                                           int native_fd);
 
-int close_connection_descriptor(ConnectionDescriptor* descriptor);
+NODISCARD int close_connection_descriptor(ConnectionDescriptor* descriptor);
 
-int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
+NODISCARD int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
                                          ConnectionContext* context, bool allow_reuse);
 
-NODISCARD int read_from_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
-                                   size_t n_bytes);
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ReadResultTypeEOF = 0,
+	ReadResultTypeSuccess,
+	ReadResultTypeError,
+} ReadResultType;
+
+typedef union {
+	int errno_error;
+	unsigned long ssl_error;
+} OpaqueError;
+
+typedef struct {
+	ReadResultType type;
+	union {
+		size_t bytes_read;
+		OpaqueError opaque_error;
+	} data;
+} ReadResult;
+
+NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
+                                          size_t n_bytes);
+
+NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
+                                       OpaqueError opaque_error);
 
 NODISCARD ssize_t write_to_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
                                       size_t n_bytes);
 
 NODISCARD int get_underlying_socket(const ConnectionDescriptor* descriptor);
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ProtocolSelectedNone = 0,
+	ProtocolSelectedHttp1Dot1,
+	ProtocolSelectedHttp2,
+} ProtocolSelected;
+
+NODISCARD ProtocolSelected get_selected_protocol(const ConnectionDescriptor* descriptor);

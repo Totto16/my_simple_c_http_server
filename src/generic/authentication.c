@@ -1,21 +1,24 @@
-
-
 #include "./authentication.h"
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
-#include <bcrypt.h>
+	#include <bcrypt.h>
 #endif
 
 #include "utils/log.h"
 
+#include <tmap.h>
+#include <tvec.h>
+
 typedef struct {
-	char* key;
 	HashSaltResultType* hash_salted_password;
 	UserRole role;
 } SimpleAccountEntry;
 
+TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, SimpleAccountEntry,
+                                   SimpleAccountEntryHashMap)
+
 typedef struct {
-	STBDS_HASH_MAP(SimpleAccountEntry) entries;
+	TMAP_TYPENAME_MAP(SimpleAccountEntryHashMap) entries;
 	HashSaltSettings settings;
 } SimpleAuthenticationProviderData;
 
@@ -26,8 +29,11 @@ struct AuthenticationProviderImpl {
 	} data;
 };
 
+// TODO(Totto): do we really need to store ptrs here
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(AuthenticationProvider*, AuthenticationProviderPtr)
+
 struct AuthenticationProvidersImpl {
-	STBDS_ARRAY(AuthenticationProvider*) providers;
+	TVEC_TYPENAME(AuthenticationProviderPtr) providers;
 };
 
 NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType type) {
@@ -54,12 +60,10 @@ NODISCARD AuthenticationProviders* initialize_authentication_providers(void) {
 		return NULL;
 	}
 
-	auth_providers->providers = STBDS_ARRAY_EMPTY;
+	auth_providers->providers = TVEC_EMPTY(AuthenticationProviderPtr);
 
 	return auth_providers;
 }
-
-#define TODO_HASH_SETTINGS 20
 
 NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void) {
 
@@ -75,7 +79,7 @@ NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void
 
 	auth_provider->type = AuthenticationProviderTypeSimple;
 	auth_provider->data.simple =
-	    (SimpleAuthenticationProviderData){ .entries = STBDS_HASH_MAP_EMPTY,
+	    (SimpleAuthenticationProviderData){ .entries = TMAP_INIT(SimpleAccountEntryHashMap),
 		                                    .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
 		                                                  .use_sha512 = true } };
 
@@ -102,15 +106,16 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 		return false;
 	}
 
-	stbds_arrput( // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
-	    auth_providers->providers, provider);
-	return true;
+	const TvecResult zvec_result =
+	    TVEC_PUSH(AuthenticationProviderPtr, &auth_providers->providers, provider);
+
+	return zvec_result == TvecResultOk; // NOLINT(readability-implicit-bool-conversion)
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
     AuthenticationProvider* simple_authentication_provider,
-    char* username, // NOLINT(bugprone-easily-swappable-parameters)
-    char* password, UserRole role) {
+    const char* username, // NOLINT(bugprone-easily-swappable-parameters)
+    const char* password, UserRole role) {
 
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 	UNUSED(simple_authentication_provider);
@@ -126,6 +131,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 
 	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
 
+	//Note: this may take some time, as bcrypt takes some time, depending on work factor
 	HashSaltResultType* hash_salted_password = hash_salt_string(data->settings, password);
 
 	return add_user_to_simple_authentication_provider_data_password_hash_salted(
@@ -134,7 +140,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
-    AuthenticationProvider* simple_authentication_provider, char* username,
+    AuthenticationProvider* simple_authentication_provider, const char* const username,
     HashSaltResultType* hash_salted_password, UserRole role) {
 
 	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
@@ -143,11 +149,18 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 
 	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
 
-	SimpleAccountEntry entry = { .key = strdup(username),
-		                         .hash_salted_password = hash_salted_password,
-		                         .role = role };
+	SimpleAccountEntry entry = { .hash_salted_password = hash_salted_password, .role = role };
 
-	stbds_shputs(data->entries, entry);
+	char* username_dup = strdup(username);
+
+	TmapInsertResult insert_result =
+	    TMAP_INSERT(SimpleAccountEntryHashMap, &(data->entries), username_dup, entry, false);
+
+	if(insert_result != TmapInsertResultOk) {
+		free(username_dup);
+		return false;
+	}
+
 	return true;
 }
 
@@ -156,16 +169,18 @@ static void free_simple_authentication_provider(SimpleAuthenticationProviderData
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 	UNUSED(data);
 #else
-	size_t hm_length = stbds_shlenu(data.entries);
 
-	for(size_t i = 0; i < hm_length; ++i) {
-		SimpleAccountEntry entry = data.entries[i];
+	TMAP_TYPENAME_ITER(SimpleAccountEntryHashMap)
+	iter = TMAP_ITER_INIT(SimpleAccountEntryHashMap, &data.entries);
 
-		free_hash_salted_result(entry.hash_salted_password);
-		free(entry.key);
+	TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) value;
+
+	while(TMAP_ITER_NEXT(SimpleAccountEntryHashMap, &iter, &value)) {
+		free_hash_salted_result(value.value.hash_salted_password);
+		free(value.key);
 	}
 
-	stbds_shfree(data.entries);
+	TMAP_FREE(SimpleAccountEntryHashMap, &data.entries);
 
 #endif
 }
@@ -187,33 +202,34 @@ void free_authentication_provider(AuthenticationProvider* auth_provider) {
 
 void free_authentication_providers(AuthenticationProviders* auth_providers) {
 
-	for(size_t i = 0; i < stbds_arrlenu(auth_providers->providers); ++i) {
-		free_authentication_provider(auth_providers->providers[i]);
+	for(size_t i = 0; i < TVEC_LENGTH(AuthenticationProviderPtr, auth_providers->providers); ++i) {
+		AuthenticationProvider** auth_provider =
+		    TVEC_GET_AT_MUT(AuthenticationProviderPtr, &(auth_providers->providers), i);
+		free_authentication_provider(*auth_provider);
 	}
 
-	stbds_arrfree(auth_providers->providers);
+	TVEC_FREE(AuthenticationProviderPtr, &(auth_providers->providers));
 
 	free(auth_providers);
 }
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
-NODISCARD static SimpleAccountEntry*
-find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username) {
+NODISCARD static const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) *
+    find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username) {
 
-	if(data->entries == STBDS_HASH_MAP_EMPTY) {
-		// note: if hash_map is NULL stbds_shgeti allocates a new value, that is never populated to
-		// the original SimpleAccountEntry value, as this is a struct copy!
+	if(TMAP_IS_EMPTY(SimpleAccountEntryHashMap, &(data->entries))) {
 		return NULL;
 	}
 
-	int index = stbds_shgeti(data->entries, username);
+	const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
+	    TMAP_GET_ENTRY(SimpleAccountEntryHashMap, &(data->entries), username);
 
-	if(index < 0) {
+	if(entry == NULL) {
 		return NULL;
 	}
 
-	return &data->entries[index];
+	return entry;
 }
 
 NODISCARD static AuthenticationFindResult authentication_provider_simple_find_user_with_password(
@@ -230,7 +246,8 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 	SimpleAuthenticationProviderData* data = &auth_provider->data.simple;
 
-	SimpleAccountEntry* entry = find_user_by_name_simple(data, username);
+	const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
+	    find_user_by_name_simple(data, username);
 
 	if(!entry) {
 		return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
@@ -238,7 +255,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 	}
 
 	bool is_valid_pw = is_string_equal_to_hash_salted_string(data->settings, password,
-	                                                         entry->hash_salted_password);
+	                                                         entry->value.hash_salted_password);
 
 	if(!is_valid_pw) {
 		return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
@@ -246,7 +263,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 	}
 
 	// TODO(Totto): maybe don't allocate this?
-	AuthUser user = { .username = strdup(entry->key), .role = entry->role };
+	AuthUser user = { .username = strdup(entry->key), .role = entry->value.role };
 
 	return (AuthenticationFindResult){
 		.validity = AuthenticationValidityOk,
@@ -258,11 +275,11 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 #if defined(__linux__)
 
-#include <pwd.h>
-#include <sys/types.h>
-#include <unistd.h>
+	#include <pwd.h>
+	#include <sys/types.h>
+	#include <unistd.h>
 
-#define INITIAL_SIZE_FOR_LINUX_FUNCS 0xFF
+	#define INITIAL_SIZE_FOR_LINUX_FUNCS 0xFF
 
 NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid_t* group_id) {
 
@@ -319,7 +336,7 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid
 	}
 }
 
-#include <grp.h>
+	#include <grp.h>
 
 NODISCARD static char* get_group_name(gid_t group_id) {
 
@@ -438,10 +455,10 @@ NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* usern
 	return role;
 }
 
-#ifdef _SIMPLE_SERVER_HAVE_PAM
+	#ifdef _SIMPLE_SERVER_HAVE_PAM
 
-#include <security/pam_appl.h>
-#include <security/pam_misc.h>
+		#include <security/pam_appl.h>
+		#include <security/pam_misc.h>
 
 typedef struct {
 	const char* password;
@@ -556,21 +573,21 @@ pam_is_user_password_combo_ok(const char* username, // NOLINT(bugprone-easily-sw
 	return response;
 }
 
-#endif
+	#endif
 
 NODISCARD static AuthenticationFindResult
 authentication_provider_system_find_user_with_password_linux(
     const char* username, // NOLINT(bugprone-easily-swappable-parameters)
     const char* password) {
 
-#ifndef _SIMPLE_SERVER_HAVE_PAM
+	#ifndef _SIMPLE_SERVER_HAVE_PAM
 	UNUSED(username);
 	UNUSED(password);
 	return (AuthenticationFindResult){
 		.validity = AuthenticationValidityError,
 		.data = { .error = { .error_message = "not compiled with pam, not possible to do" } }
 	};
-#else
+	#else
 
 	gid_t group_id = 0;
 
@@ -611,7 +628,7 @@ authentication_provider_system_find_user_with_password_linux(
 		.data = { .ok = { .provider_type = AuthenticationProviderTypeSystem, .user = user } }
 	};
 
-#endif
+	#endif
 }
 
 #endif
@@ -641,7 +658,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 #endif
 }
 
-NODISCARD int get_result_value_for_auth_result(AuthenticationFindResult auth) {
+NODISCARD static int get_result_value_for_auth_result(AuthenticationFindResult auth) {
 
 	switch(auth.validity) {
 		case AuthenticationValidityNoSuchUser: return 1;
@@ -654,19 +671,23 @@ NODISCARD int get_result_value_for_auth_result(AuthenticationFindResult auth) {
 	}
 }
 
-NODISCARD int compare_auth_results(AuthenticationFindResult auth1, AuthenticationFindResult auth2) {
+NODISCARD static int compare_auth_results(AuthenticationFindResult auth1,
+                                          AuthenticationFindResult auth2) {
 	return get_result_value_for_auth_result(auth1) - get_result_value_for_auth_result(auth2);
 }
+
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AuthenticationFindResult)
 
 NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
     const AuthenticationProviders* auth_providers,
     char* username, // NOLINT(bugprone-easily-swappable-parameters)
     char* password) {
 
-	STBDS_ARRAY(AuthenticationFindResult) results = STBDS_ARRAY_EMPTY;
+	TVEC_TYPENAME(AuthenticationFindResult) results = TVEC_EMPTY(AuthenticationFindResult);
 
-	for(size_t i = 0; i < stbds_arrlenu(auth_providers->providers); ++i) {
-		AuthenticationProvider* provider = auth_providers->providers[i];
+	for(size_t i = 0; i < TVEC_LENGTH(AuthenticationProviderPtr, auth_providers->providers); ++i) {
+		AuthenticationProvider* provider =
+		    TVEC_AT(AuthenticationProviderPtr, auth_providers->providers, i);
 
 		AuthenticationFindResult result;
 
@@ -700,7 +721,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		// note: the clang analyzer is incoreect here, we return a item, that is malloced, but
 		// we free it everywhere, we use this function!
 		if(result.validity == AuthenticationValidityOk) { // NOLINT(clang-analyzer-unix.Malloc)
-			stbds_arrfree(results);
+			TVEC_FREE(AuthenticationFindResult, &results);
 			return result;
 		}
 
@@ -710,10 +731,12 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 			            result.data.error.error_message);
 		}
 
-		stbds_arrput(results, result);
+		// TODO(Totto): remove all auto_ = things, properly return in that cases
+		auto _ = TVEC_PUSH(AuthenticationFindResult, &results, result);
+		UNUSED(_);
 	}
 
-	size_t results_length = stbds_arrlenu(results);
+	size_t results_length = TVEC_LENGTH(AuthenticationFindResult, results);
 
 	AuthenticationFindResult best_result = (AuthenticationFindResult){
 		.validity = AuthenticationValidityError,
@@ -721,14 +744,14 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 	};
 
 	for(size_t i = 0; i < results_length; ++i) {
-		AuthenticationFindResult current_result = results[i];
+		AuthenticationFindResult current_result = TVEC_AT(AuthenticationFindResult, results, i);
 
 		if(compare_auth_results(best_result, current_result) <= 0) {
 			best_result = current_result;
 		}
 	}
 
-	stbds_arrfree(results);
+	TVEC_FREE(AuthenticationFindResult, &results);
 
 	return best_result;
 }

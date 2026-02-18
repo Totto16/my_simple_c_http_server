@@ -18,7 +18,7 @@
 typedef struct {
 	ThreadPool* pool;
 	Myqueue* job_ids;
-	STBDS_ARRAY(ConnectionContext*) contexts;
+	ConnectionContextPtrs contexts;
 	int socket_fd;
 	const char* const global_folder;
 	DataController* data_controller;
@@ -27,7 +27,7 @@ typedef struct {
 } FTPControlThreadArgument;
 
 typedef struct {
-	STBDS_ARRAY(ConnectionContext*) contexts;
+	ConnectionContextPtrs contexts;
 	pthread_t listener_thread;
 	int connection_fd;
 	FTPState* state;

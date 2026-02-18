@@ -13,7 +13,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
       - name: Setup Meson
@@ -26,6 +26,11 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh 21
           echo "CC=clang-21" >> "$GITHUB_ENV"
+
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
 
       - name: Prepare compile_commands.json
         run: |

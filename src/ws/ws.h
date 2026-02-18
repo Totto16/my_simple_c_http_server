@@ -3,7 +3,8 @@
 
 #include "./extension.h"
 #include "generic/secure.h"
-#include "http/http_protocol.h"
+#include "http/protocol.h"
+#include "http/parser.h"
 
 /**
  * @enum value
@@ -29,9 +30,9 @@ typedef struct {
 	bool trace;
 } WsConnectionArgs;
 
-NODISCARD int handle_ws_handshake(const HttpRequest* http_request,
-                                  const ConnectionDescriptor* descriptor,
-                                  SendSettings send_settings, WSExtensions* extension);
+NODISCARD int handle_ws_handshake(HttpRequest http_request, const ConnectionDescriptor* descriptor,
+                                  HTTPGeneralContext* general_context, SendSettings send_settings,
+                                  WSExtensions* extension);
 
 NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
                                                          WSExtensions extensions);

@@ -9,6 +9,8 @@ typedef ANY JobError;
 
 #define JOB_ERROR_NONE ((JobError)0x02)
 
+#define JOB_ERROR_CONNECTION_UPGRADE ((JobError)0x04)
+
 #define JOB_ERROR_DESC ((JobError)0x20)
 #define JOB_ERROR_THREAD_CANCEL ((JobError)0x21)
 #define JOB_ERROR_MALLOC ((JobError)0x22)
@@ -21,9 +23,10 @@ typedef ANY JobError;
 #define JOB_ERROR_SIG_HANDLER ((JobError)0x29)
 #define JOB_ERROR_GET_SOCK_NAME ((JobError)0x2A)
 #define JOB_ERROR_CONNECTION_ADD ((JobError)0x2B)
+#define JOB_ERROR_CLEANUP_CONNECTION ((JobError)0x2C)
 
 #define JOB_ERROR_START JOB_ERROR_DESC
-#define JOB_ERROR_END JOB_ERROR_CONNECTION_ADD
+#define JOB_ERROR_END JOB_ERROR_CLEANUP_CONNECTION
 
 NODISCARD bool is_job_error(JobError error);
 

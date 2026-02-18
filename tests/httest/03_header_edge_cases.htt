@@ -1,0 +1,9 @@
+CLIENT
+_REQ localhost 8080
+__GET / HTTP/1.1
+__Host localhost
+__Bad-Header
+__Another:ok
+__
+_EXPECT . "400"
+_END

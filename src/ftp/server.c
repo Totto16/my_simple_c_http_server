@@ -59,6 +59,13 @@ static volatile sig_atomic_t
     g_usr1_signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     0;
 
+// this does some ftp specific stuff, it decreases the value of the interval, so that the next call
+// can use the lower value,
+NODISCARD static int ftp_specific_time_nanosleep(Time* intervall_in_out) {
+
+	return nanosleep(&intervall_in_out->_impl_value, &intervall_in_out->_impl_value);
+}
+
 // only setting the volatile sig_atomic_t g_signal_received' in here
 static void usr1_handler(int signal_number) {
 	g_usr1_signal_received = signal_number;
@@ -84,7 +91,8 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 	// attention arg is malloced!
 	FTPControlConnectionArgument* argument = (FTPControlConnectionArgument*)arg_ign;
 
-	ConnectionContext* context = argument->contexts[worker_info.worker_index];
+	ConnectionContext* context =
+	    TVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
 	char* thread_name_buffer = NULL;
 	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
 	              , "connection handler %lu", worker_info.worker_index);
@@ -111,14 +119,16 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 	int sockname_result =
 	    getsockname(argument->connection_fd, (struct sockaddr*)&server_addr_raw, &addr_len);
 	if(sockname_result != 0) {
-		LOG_MESSAGE(LogLevelError | LogPrintLocation, "getsockname error: %s\n", strerror(errno));
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), "getsockname error: %s\n",
+		            strerror(errno));
 
 		FREE_AT_END();
 		return JOB_ERROR_GET_SOCK_NAME;
 	}
 
 	if(addr_len != sizeof(server_addr_raw)) {
-		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "getsockname has wrong addr_len\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		                   "getsockname has wrong addr_len\n");
 
 		FREE_AT_END();
 		return JOB_ERROR_GET_SOCK_NAME;
@@ -138,8 +148,8 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		return JOB_ERROR_DESC;
 	}
 
-	int hello_result = send_ftp_message_to_connection(
-	    descriptor, FtpReturnCodeSrvcReady, "Simple FTP Server", ConnectionSendFlagsUnMalloced);
+	int hello_result = send_ftp_message_to_connection_single(descriptor, FtpReturnCodeSrvcReady,
+	                                                         "Simple FTP Server");
 	if(hello_result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending hello message\n");
 		goto cleanup;
@@ -152,13 +162,13 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		char* raw_ftp_commands = read_string_from_connection(descriptor);
 
 		if(!raw_ftp_commands) {
-			int result = send_ftp_message_to_connection(
+			int result = send_ftp_message_to_connection_single(
 			    descriptor, FtpReturnCodeSyntaxError,
-			    "Request couldn't be read, a connection error occurred!",
-			    ConnectionSendFlagsUnMalloced);
+			    "Request couldn't be read, a connection error occurred!");
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
 				goto cleanup;
 			}
 
@@ -166,25 +176,25 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		}
 
 		// raw_ftp_commands gets freed in here
-		FTPCommandArray ftp_commands = parse_multiple_ftp_commands(raw_ftp_commands);
+		FTPCommandArray* ftp_commands = parse_multiple_ftp_commands(raw_ftp_commands);
 
 		// ftp_commands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
 		if(ftp_commands == NULL) {
-			int result = send_ftp_message_to_connection(descriptor, FtpReturnCodeSyntaxError,
-			                                            "Invalid Command Sequence",
-			                                            ConnectionSendFlagsUnMalloced);
+			int result = send_ftp_message_to_connection_single(descriptor, FtpReturnCodeSyntaxError,
+			                                                   "Invalid Command Sequence");
 
 			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n");
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+				                   "Error in sending response\n");
 				goto cleanup;
 			}
 
 			continue;
 		}
 
-		for(size_t i = 0; i < stbds_arrlenu(ftp_commands); ++i) {
-			FTPCommand* command = ftp_commands[i];
+		for(size_t i = 0; i < TVEC_LENGTH(FTPCommandPtr, *ftp_commands); ++i) {
+			FTPCommand* command = TVEC_AT(FTPCommandPtr, *ftp_commands, i);
 			bool successfull = ftp_process_command(descriptor, server_addr, argument, command);
 			if(!successfull) {
 				quit = true;
@@ -213,10 +223,10 @@ cleanup:
 
 #define SEND_RESPONSE_WITH_ERROR_CHECK(code, msg) \
 	do { \
-		int result = \
-		    send_ftp_message_to_connection(descriptor, code, msg, ConnectionSendFlagsUnMalloced); \
-		if(result < 0) { \
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n"); \
+		int send_result = send_ftp_message_to_connection_single(descriptor, code, msg); \
+		if(send_result < 0) { \
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
+			                   "Error in sending response\n"); \
 			return false; \
 		} \
 	} while(false)
@@ -225,9 +235,10 @@ cleanup:
 	do { \
 		StringBuilder* string_builder = string_builder_init(); \
 		STRING_BUILDER_APPENDF(string_builder, return false;, format, __VA_ARGS__); \
-		int result = send_ftp_message_to_connection_sb(descriptor, code, string_builder); \
-		if(result < 0) { \
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Error in sending response\n"); \
+		int send_result = send_ftp_message_to_connection_sb(descriptor, code, string_builder); \
+		if(send_result < 0) { \
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
+			                   "Error in sending response\n"); \
 			return false; \
 		} \
 	} while(false)
@@ -253,7 +264,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				state->account->state = AccountStateOk;
 
-				char* malloced_username = copy_cstr(command->data.string);
+				char* malloced_username = strdup(command->data.string);
 
 				if(!malloced_username) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
@@ -275,7 +286,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			state->account->state = AccountStateOnlyUser;
 
-			char* malloced_username = copy_cstr(command->data.string);
+			char* malloced_username = strdup(command->data.string);
 
 			if(!malloced_username) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
@@ -324,7 +335,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					state->account->state = AccountStateOk;
 
-					char* malloced_username = copy_cstr(username);
+					char* malloced_username = strdup(username);
 
 					if(!malloced_username) {
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
@@ -409,9 +420,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* argument = command->data.string;
+			char* cwd_argument = command->data.string;
 
-			DirChangeResult result = change_dirname_to(state, argument);
+			DirChangeResult result = change_dirname_to(state, cwd_argument);
 
 			switch(result) {
 				case DirChangeResultOk: {
@@ -452,7 +463,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
-		// permission model: everybody that is logged in can use CWD
+		// permission model: everybody that is logged in can use CDUP
 		case FtpCommandCdup: {
 
 			if(state->account->state != AccountStateOk) {
@@ -462,11 +473,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			const char* argument = "..";
+			const char* cdup_argument = "..";
 
-			DirChangeResult result = change_dirname_to(state, argument);
+			DirChangeResult dir_change_result = change_dirname_to(state, cdup_argument);
 
-			switch(result) {
+			switch(dir_change_result) {
 				case DirChangeResultOk: {
 					break;
 				}
@@ -552,7 +563,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				StringBuilder* string_builder = string_builder_init();
 
 				if(!string_builder) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending start feature response\n");
 					return false;
 				}
@@ -561,7 +572,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				                       , "%03d-Extensions supported:", FtpReturnCodeFeatureList);
 				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
 				if(send_result < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending start feature response\n");
 					return false;
 				}
@@ -572,7 +583,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				StringBuilder* string_builder = string_builder_init();
 
 				if(!string_builder) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending manual feature response\n");
 					return false;
 				}
@@ -585,7 +596,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
 				if(send_result < 0) {
-					LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending manual feature response\n");
 					return false;
 				}
@@ -672,14 +683,17 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose connections_to_close =
+				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close[i];
-					close_connection_descriptor(connection_to_close);
+				for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+				    ++i) {
+					ConnectionDescriptor* connection_to_close =
+					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+					int _ = close_connection_descriptor(connection_to_close);
+					UNUSED(_);
 				}
-				stbds_arrfree(connections_to_close);
+				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -696,23 +710,23 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				bool clock_result = get_monotonic_time(&start_time);
 
 				if(!clock_result) {
-					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
-					            strerror(errno));
+					LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+					            "time() failed: %s\n", strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 					                               "Internal error 2");
 					return true;
 				}
 
-				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
-					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
+				Time interval =
+				    time_from_details(DATA_CONNECTION_INTERVAL_S, DATA_CONNECTION_INTERVAL_NS);
 
 				// TODO(Totto): don't use intervals for active connection, use poll() for that!
 				while(true) {
 
 					if(g_usr1_signal_received == 0) {
-						int sleep_result = nanosleep(&interval, NULL);
+						int sleep_result = ftp_specific_time_nanosleep(&interval);
 
-						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's
+						// ignore EINTR errors, as we just want to sleep, if it's shorter it's
 						// not that bad, we also interrupt this thread in passive mode, so that
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
@@ -721,14 +735,15 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 							return true;
 						}
 
+						// TODO(Totto): check all 3 locations, is this correct like this?
 						g_usr1_signal_received = 0;
 					}
 
 					Time current_time;
-					bool clock_result = get_monotonic_time(&current_time);
+					bool clock_result_2 = get_monotonic_time(&current_time);
 
-					if(!clock_result) {
-						LOG_MESSAGE(LogLevelError | LogPrintLocation,
+					if(!clock_result_2) {
+						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 						                               "Internal error 4");
@@ -749,7 +764,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					if(data_connection != NULL) {
 
-						LOG_MESSAGE(LogLevelTrace | LogPrintLocation,
+						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintLocation),
 						            "Data connection established after %f s\n", diff_time);
 
 						break;
@@ -759,7 +774,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeDataConnectionAlreadyOpen,
 				                               "Ok. Sending data");
 
-				LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintLocation,
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintLocation),
 				                   "Data connection already established\n");
 			}
 
@@ -863,14 +878,17 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose connections_to_close =
+				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close[i];
-					close_connection_descriptor(connection_to_close);
+				for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+				    ++i) {
+					ConnectionDescriptor* connection_to_close =
+					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+					int _ = close_connection_descriptor(connection_to_close);
+					UNUSED(_);
 				}
-				stbds_arrfree(connections_to_close);
+				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -887,23 +905,23 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				bool clock_result = get_monotonic_time(&start_time);
 
 				if(!clock_result) {
-					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
-					            strerror(errno));
+					LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+					            "time() failed: %s\n", strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 					                               "Internal error 8");
 					return true;
 				}
 
-				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
-					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
+				Time interval =
+				    time_from_details(DATA_CONNECTION_INTERVAL_S, DATA_CONNECTION_INTERVAL_NS);
 
 				// TODO(Totto): don't use intervals for active connection, use poll() for that!
 				while(true) {
 
 					if(g_usr1_signal_received == 0) {
-						int sleep_result = nanosleep(&interval, NULL);
+						int sleep_result = ftp_specific_time_nanosleep(&interval);
 
-						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's
+						// ignore EINTR errors, as we just want to sleep, if it's shorter it's
 						// not that bad, we also interrupt this thread in passive mode, so that
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
@@ -916,10 +934,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					}
 
 					Time current_time;
-					bool clock_result = get_monotonic_time(&current_time);
+					bool clock_result_2 = get_monotonic_time(&current_time);
 
-					if(!clock_result) {
-						LOG_MESSAGE(LogLevelError | LogPrintLocation,
+					if(!clock_result_2) {
+						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 						                               "Internal error 10");
@@ -940,7 +958,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					if(data_connection != NULL) {
 
-						LOG_MESSAGE(LogLevelTrace | LogPrintLocation,
+						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintLocation),
 						            "Data connection established after %f s\n", diff_time);
 
 						break;
@@ -950,7 +968,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeDataConnectionAlreadyOpen,
 				                               "Ok. Sending data");
 
-				LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintLocation,
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintLocation),
 				                   "Data connection already established\n");
 			}
 
@@ -1015,6 +1033,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			return true;
 		}
 
+#define FREE_AT_END() \
+	do { \
+	} while(false)
+
 		// permission model: everybody that is logged in can use LIST
 		case FtpCommandList: {
 
@@ -1022,6 +1044,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
+				FREE_AT_END();
 				return true;
 			}
 
@@ -1030,10 +1053,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    FtpReturnCodeFileActionNotTaken,
 				    "No data conenction mode specified, specify either PASSIVE or ACTIVE");
 
+				FREE_AT_END();
 				return true;
 			}
 
-			char* arg = command->data.string;
+			const char* arg = command->data.string;
 
 			if(arg == NULL) {
 				// A null argument implies the user's current working or default directory.
@@ -1049,10 +1073,18 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			struct stat stat_result;
-			int result = stat(final_file_path, &stat_result);
+#undef FREE_AT_END
+#define FREE_AT_END() \
+	do { \
+		free(final_file_path); \
+	} while(false)
 
-			if(result != 0) {
+			struct stat stat_result;
+			int stat_ret = stat(final_file_path, &stat_result);
+
+			if(stat_ret != 0) {
+				FREE_AT_END();
+
 				if(errno == ENOENT) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 					                               "No such file / dir");
@@ -1075,6 +1107,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				SEND_RESPONSE_WITH_ERROR_CHECK_F(FtpReturnCodeFileActionNotTaken,
 				                                 "Access to %s denied", file_type_str);
 
+				FREE_AT_END();
 				return true;
 			}
 
@@ -1083,14 +1116,17 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose connections_to_close =
+				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument->data_controller);
 
-				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close[i];
-					close_connection_descriptor(connection_to_close);
+				for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+				    ++i) {
+					ConnectionDescriptor* connection_to_close =
+					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+					int _ = close_connection_descriptor(connection_to_close);
+					UNUSED(_);
 				}
-				stbds_arrfree(connections_to_close);
+				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			DataConnection* data_connection = get_data_connection_for_control_thread_or_add(
@@ -1107,28 +1143,32 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				bool clock_result = get_monotonic_time(&start_time);
 
 				if(!clock_result) {
-					LOG_MESSAGE(LogLevelError | LogPrintLocation, "time() failed: %s\n",
-					            strerror(errno));
+					LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+					            "time() failed: %s\n", strerror(errno));
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 					                               "Internal error 15");
+
+					FREE_AT_END();
 					return true;
 				}
 
-				const struct timespec interval = { .tv_nsec = DATA_CONNECTION_INTERVAL_NS,
-					                               .tv_sec = DATA_CONNECTION_INTERVAL_S };
+				Time interval =
+				    time_from_details(DATA_CONNECTION_INTERVAL_S, DATA_CONNECTION_INTERVAL_NS);
 
 				// TODO(Totto): don't use intervals for active connection, use poll() for that!
 				while(true) {
 
 					if(g_usr1_signal_received == 0) {
-						int sleep_result = nanosleep(&interval, NULL);
+						int sleep_result = ftp_specific_time_nanosleep(&interval);
 
-						// ignore EINTR errors, as we just want to sleep, if it'S shorter it's
+						// ignore EINTR errors, as we just want to sleep, if it's shorter it's
 						// not that bad, we also interrupt this thread in passive mode, so that
 						// we are faster, than waiting a fixed amount
 						if(sleep_result != 0 && errno != EINTR) {
 							SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 							                               "Internal error 16");
+
+							FREE_AT_END();
 							return true;
 						}
 
@@ -1136,13 +1176,15 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					}
 
 					Time current_time;
-					bool clock_result = get_monotonic_time(&current_time);
+					bool clock_result_2 = get_monotonic_time(&current_time);
 
-					if(!clock_result) {
-						LOG_MESSAGE(LogLevelError | LogPrintLocation,
+					if(!clock_result_2) {
+						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 						            "getting the time failed: %s\n", strerror(errno));
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 						                               "Internal  17");
+
+						FREE_AT_END();
 						return true;
 					}
 
@@ -1152,6 +1194,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeDataConnectionOpenError,
 						                               "Timeout on waiting for data connection");
 
+						FREE_AT_END();
 						return true;
 					}
 
@@ -1160,7 +1203,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					if(data_connection != NULL) {
 
-						LOG_MESSAGE(LogLevelTrace | LogPrintLocation,
+						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintLocation),
 						            "Data connection established after %f s\n", diff_time);
 
 						break;
@@ -1170,7 +1213,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeDataConnectionAlreadyOpen,
 				                               "Ok. Sending data");
 
-				LOG_MESSAGE_SIMPLE(LogLevelTrace | LogPrintLocation,
+				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintLocation),
 				                   "Data connection already established\n");
 			}
 
@@ -1184,6 +1227,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(descriptor == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 					                               "Internal error 17");
+
+					FREE_AT_END();
 					return true;
 				}
 
@@ -1192,6 +1237,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(send_mode == SendModeUnsupported) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 					                               "Unsupported send mode");
+
+					FREE_AT_END();
 					return true;
 				}
 
@@ -1201,6 +1248,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 					                               "Internal error 18");
+
+					FREE_AT_END();
 					return true;
 				}
 
@@ -1216,6 +1265,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 						                               "Internal send error");
+
+						FREE_AT_END();
 						return true;
 					}
 				}
@@ -1226,6 +1277,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				if(!data_connection_close(argument->data_controller, data_connection)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
 					                               "Internal error 19");
+
+					FREE_AT_END();
 					return true;
 				}
 
@@ -1233,8 +1286,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				                               "Success. Closing Data Connection");
 			}
 
+			FREE_AT_END();
 			return true;
 		}
+
+#undef FREE_AT_END
 
 		case FtpCommandType: {
 
@@ -1412,7 +1468,8 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		                return LISTENER_ERROR_ACCEPT;);
 
 		if(addr_len != sizeof(client_addr)) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Accept has wrong addr_len\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Accept has wrong addr_len\n");
 			return LISTENER_ERROR_ACCEPT;
 		}
 
@@ -1420,14 +1477,16 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		    (FTPControlConnectionArgument*)malloc(sizeof(FTPControlConnectionArgument));
 
 		if(!connection_argument) {
-			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+			                   "Couldn't allocate memory!\n");
 			return LISTENER_ERROR_MALLOC;
 		}
 
 		FTPState* connection_ftp_state = alloc_default_state(argument.global_folder);
 
 		if(!connection_ftp_state) {
-			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+			                   "Couldn't allocate memory!\n");
 			free(connection_argument);
 			return LISTENER_ERROR_MALLOC;
 		}
@@ -1498,7 +1557,8 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 	                                                     argument.port_index, argument.port);
 
 	if(!success) {
-		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Failed to set port as available\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		                   "Failed to set port as available\n");
 		return LISTENER_ERROR_DATA_CONTROLLER;
 	}
 
@@ -1531,7 +1591,8 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		while(status == 0) {
 			status = poll(poll_fds, POLL_FD_AMOUNT, POLL_INTERVALL);
 			if(status < 0) {
-				LOG_MESSAGE(LogLevelError | LogPrintLocation, "poll failed: %s\n", strerror(errno));
+				LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), "poll failed: %s\n",
+				            strerror(errno));
 				continue;
 			}
 		}
@@ -1557,14 +1618,17 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			{
 				// empty the data connections and close the ones, that are no longer required or
 				// timed out
-				ConnectionsToClose connections_to_close =
+				ConnectionsToClose* connections_to_close =
 				    data_connections_to_close(argument.data_controller);
 
-				for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-					ConnectionDescriptor* connection_to_close = connections_to_close[i];
-					close_connection_descriptor(connection_to_close);
+				for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+				    ++i) {
+					ConnectionDescriptor* connection_to_close =
+					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+					int _ = close_connection_descriptor(connection_to_close);
+					UNUSED(_);
 				}
-				stbds_arrfree(connections_to_close);
+				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 			}
 
 			continue;
@@ -1579,7 +1643,8 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		                return LISTENER_ERROR_ACCEPT;);
 
 		if(addr_len != sizeof(client_addr)) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation, "Accept has wrong addr_len\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Accept has wrong addr_len\n");
 			return LISTENER_ERROR_ACCEPT;
 		}
 
@@ -1589,7 +1654,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		    argument.data_controller, argument.port_index);
 
 		if(data_connection == NULL) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 			                   "get_data_connection_for_data_thread_or_add_passive failed\n");
 			return LISTENER_ERROR_DATA_CONTROLLER;
 		}
@@ -1603,11 +1668,11 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 
 		ConnectionDescriptor* const descriptor = get_connection_descriptor(context, connection_fd);
 
-		bool success =
+		bool add_success =
 		    data_controller_add_descriptor(argument.data_controller, data_connection, descriptor);
 
-		if(!success) {
-			LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+		if(!add_success) {
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 			                   "data_controller_add_descriptor failed\n");
 			return LISTENER_ERROR_DATA_CONTROLLER;
 		}
@@ -1616,14 +1681,17 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		{
 			// empty the data connections and close the ones, that are no longer required or
 			// timed out
-			ConnectionsToClose connections_to_close =
+			ConnectionsToClose* connections_to_close =
 			    data_connections_to_close(argument.data_controller);
 
-			for(size_t i = 0; i < stbds_arrlenu(connections_to_close); ++i) {
-				ConnectionDescriptor* connection_to_close = connections_to_close[i];
-				close_connection_descriptor(connection_to_close);
+			for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close);
+			    ++i) {
+				ConnectionDescriptor* connection_to_close =
+				    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
+				int _ = close_connection_descriptor(connection_to_close);
+				UNUSED(_);
 			}
-			stbds_arrfree(connections_to_close);
+			TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
 		}
 	}
 
@@ -1643,7 +1711,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 	    (FTPPassivePortStatus*)malloc(sizeof(FTPPassivePortStatus) * argument.port_amount);
 
 	if(local_port_status_arr == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelError | LogPrintLocation,
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		                   "Failed to setup passive port array\n");
 		return LISTENER_ERROR_DATA_CONTROLLER;
 	}
@@ -1665,13 +1733,15 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 		                "While Trying to set a port listening socket option 'SO_REUSEPORT'",
 		                goto cont_outer;);
 
-		struct sockaddr_in* addr =
-		    (struct sockaddr_in*)malloc_with_memset(sizeof(struct sockaddr_in), true);
+		struct sockaddr_in* addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
 
 		if(!addr) {
-			LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+			                   "Couldn't allocate memory!\n");
 			continue;
 		}
+
+		*addr = (struct sockaddr_in){ 0 };
 
 		addr->sin_family = AF_INET;
 		// hto functions are used for networking, since there every number is BIG ENDIAN and
@@ -1764,16 +1834,19 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	                return EXIT_FAILURE;);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
-	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
+	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
 	struct sockaddr_in* control_addr =
-	    (struct sockaddr_in*)malloc_with_memset(sizeof(struct sockaddr_in), true);
+	    (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
 
 	if(!control_addr) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
 	}
+
+	*control_addr =(struct sockaddr_in){0};
 
 	control_addr->sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and
@@ -1834,14 +1907,14 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	};
 
 	// this is an array of pointers
-	STBDS_ARRAY(ConnectionContext*)
-	control_contexts = STBDS_ARRAY_EMPTY;
+	ConnectionContextPtrs control_contexts = TVEC_EMPTY(ConnectionContextPtr);
 
-	stbds_arrsetlen( // NOLINT(bugprone-multi-level-implicit-pointer-conversion)
-	    control_contexts, control_pool.worker_threads_amount);
+	const TvecResult allocate_result = TVEC_ALLOCATE_UNINITIALIZED(
+	    ConnectionContextPtr, &control_contexts, control_pool.worker_threads_amount);
 
-	if(!control_contexts) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+	if(allocate_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
 	}
 
@@ -1852,7 +1925,10 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	        : options;
 
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
-		control_contexts[i] = get_connection_context(final_options);
+		ConnectionContext* context = get_connection_context(final_options);
+
+		auto _ = TVEC_SET_AT(ConnectionContextPtr, &control_contexts, i, context);
+		UNUSED(_);
 	}
 
 	size_t port_amount = DEFAULT_PASSIVE_PORT_AMOUNT;
@@ -1860,12 +1936,13 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	DataController* data_controller = initialize_data_controller(port_amount);
 
 	if(!data_controller) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
+		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
+		                   "Couldn't allocate memory!\n");
 
 		for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
-			free_connection_context(control_contexts[i]);
+			free_connection_context(TVEC_AT(ConnectionContextPtr, control_contexts, i));
 		}
-		free((void*)control_contexts);
+		TVEC_FREE(ConnectionContextPtr, &control_contexts);
 		return EXIT_FAILURE;
 	}
 
@@ -2000,7 +2077,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	free(ports);
 
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
-		free_connection_context(control_contexts[i]);
+		free_connection_context(TVEC_AT(ConnectionContextPtr, control_contexts, i));
 	}
 
 	free(folder);

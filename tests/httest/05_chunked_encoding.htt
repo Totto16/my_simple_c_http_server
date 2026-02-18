@@ -1,0 +1,14 @@
+CLIENT
+_REQ localhost 8080
+__POST /chunk HTTP/1.1
+__Host: localhost
+__Transfer-Encoding: chunked
+__
+__5
+__hello
+__6
+__ world
+__0
+__
+_EXPECT . "HTTP/1.1"
+_END

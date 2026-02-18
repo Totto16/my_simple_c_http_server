@@ -2,6 +2,8 @@
 
 #include "./file_ops.h"
 #include "generic/send.h"
+#include "utils/clock.h"
+#include "utils/path.h"
 #include "utils/string_builder.h"
 
 #include <cwalk.h>
@@ -11,7 +13,6 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-
 // this is a way by hdining the real struct dataementation withour using opaque pointers
 typedef struct {
 	size_t total_count;
@@ -47,13 +48,15 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 
 	// invariant check 1
 	if((global_folder[g_length - 1] == '/') || (file[f_length - 1] == '/')) {
-		LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated: %s\n", file);
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
+		            "folder invariant 1 violated: %s\n", file);
 		return NULL;
 	}
 
 	// invariant check 2
 	if(strstr(file, global_folder) != file) {
-		LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated: %s\n", file);
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
+		            "folder invariant 2 violated: %s\n", file);
 		return NULL;
 	}
 
@@ -115,16 +118,6 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 	return result;
 }
 
-static bool file_is_absolute(const char* const file) {
-	if(strlen(file) == 0) {
-		// NOTE: 0 length is the same as "." so it is not absolute
-		return false;
-	}
-
-	// TODO(Totto): check or report if upstream supports empty value here
-	return cwk_path_is_absolute(file);
-}
-
 NODISCARD static char*
 resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion)
                         const char* const user_file_input_to_sanitize, DirChangeResult* result) {
@@ -166,8 +159,8 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 		if(result) {
 			*result = DirChangeResultError;
 		} else {
-			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 1 violated: %s\n",
-			            file);
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
+			            "folder invariant 1 violated: %s\n", file);
 		}
 
 		return NULL;
@@ -178,8 +171,8 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 		if(result) {
 			*result = DirChangeResultErrorPathTraversal;
 		} else {
-			LOG_MESSAGE(LogLevelCritical | LogPrintLocation, "folder invariant 2 violated: %s\n",
-			            file);
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
+			            "folder invariant 2 violated: %s\n", file);
 		}
 
 		return NULL;
@@ -273,7 +266,7 @@ typedef struct {
 	size_t link_amount;
 	Owners owners;
 	size_t size;
-	struct timespec last_mod;
+	Time last_mod;
 	char* file_name;
 	UniqueIdentifier identifier;
 } FileWithMetadata;
@@ -285,17 +278,15 @@ typedef struct {
 	size_t size;
 } MaxSize;
 
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(FileWithMetadata*, FileWithMetadataPtr)
+
+typedef TVEC_TYPENAME(FileWithMetadataPtr) FilesWithMetadata;
+
 typedef struct {
-	FileWithMetadata** files;
-	size_t count;
+	FilesWithMetadata files;
 	MaxSize sizes;
 	FileSendFormat format;
 } MultipleFiles;
-
-typedef struct {
-	void* data;
-	size_t size;
-} RawData;
 
 typedef struct {
 	FileWithMetadata* file;
@@ -307,8 +298,8 @@ struct SendDataImpl {
 	union {
 		SingleFile* file;
 		MultipleFiles* multiple_files;
-		RawData data;
-	} data;
+		SizedBuffer raw_data;
+	} value;
 };
 
 NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode send_mode) {
@@ -330,11 +321,12 @@ NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode
 			break;
 		}
 		case SendTypeMultipleFiles: {
-			original_data_count = data->data.multiple_files->count;
+			original_data_count =
+			    TVEC_LENGTH(FileWithMetadataPtr, data->value.multiple_files->files);
 			break;
 		}
 		case SendTypeRawData: {
-			original_data_count = data->data.data.size;
+			original_data_count = data->value.raw_data.size;
 			break;
 		}
 		default: break;
@@ -369,7 +361,7 @@ void free_send_progress(SendProgress* progress) {
 	free(progress);
 }
 
-NODISCARD char get_type_from_mode(mode_t mode) {
+NODISCARD static char get_type_from_mode(mode_t mode) {
 	switch(mode & S_IFMT) {
 		case S_IFREG: return '-';
 		case S_IFBLK: return 'b';
@@ -382,7 +374,7 @@ NODISCARD char get_type_from_mode(mode_t mode) {
 	}
 }
 
-NODISCARD FilePermissions permissions_from_mode(mode_t mode) {
+NODISCARD static FilePermissions permissions_from_mode(mode_t mode) {
 
 	char special_type = get_type_from_mode(mode);
 
@@ -403,10 +395,11 @@ NODISCARD FilePermissions permissions_from_mode(mode_t mode) {
 
 NODISCARD FileWithMetadata* get_metadata_for_file(const char* absolute_path, const char* name);
 
-NODISCARD FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path) {
+NODISCARD static FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path) {
 
 	char* name_ptr = absolute_path;
 
+	// TODO(Totto). factor out  into helper function or use cwalk
 	while(true) {
 		char* result = strstr(name_ptr, "/");
 
@@ -417,7 +410,7 @@ NODISCARD FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path)
 		name_ptr = result + 1;
 	}
 
-	char* final_name = copy_cstr(name_ptr);
+	char* final_name = strdup(name_ptr);
 
 	FileWithMetadata* result = get_metadata_for_file(absolute_path, final_name);
 
@@ -426,8 +419,8 @@ NODISCARD FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path)
 	return result;
 }
 
-NODISCARD SingleFile* get_metadata_for_single_file(char* const absolute_path,
-                                                   FileSendFormat format) {
+NODISCARD static SingleFile* get_metadata_for_single_file(char* const absolute_path,
+                                                          FileSendFormat format) {
 
 	SingleFile* result = (SingleFile*)malloc(sizeof(SingleFile));
 
@@ -449,8 +442,8 @@ NODISCARD SingleFile* get_metadata_for_single_file(char* const absolute_path,
 	return result;
 }
 
-NODISCARD FileWithMetadata* get_metadata_for_file_folder(const char* const folder,
-                                                         const char* const name) {
+NODISCARD static FileWithMetadata* get_metadata_for_file_folder(const char* const folder,
+                                                                const char* const name) {
 
 	size_t folder_len = strlen(folder);
 	size_t name_len = strlen(name);
@@ -499,8 +492,8 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 	int result = stat(absolute_path, &stat_result);
 
 	if(result != 0) {
-		LOG_MESSAGE(LogLevelError | LogPrintLocation, "Couldn't stat folder '%s': %s\n",
-		            absolute_path, strerror(errno));
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "Couldn't stat folder '%s': %s\n", absolute_path, strerror(errno));
 
 		free(metadata);
 		return NULL;
@@ -526,9 +519,9 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 	metadata->owners = owners;
 	metadata->size = stat_result.st_size;
 #ifdef __APPLE__
-	metadata->last_mod = stat_result.st_mtimespec;
+	metadata->last_mod = time_from_struct(stat_result.st_mtimespec);
 #else
-	metadata->last_mod = stat_result.st_mtim;
+	metadata->last_mod = time_from_struct(stat_result.st_mtim);
 #endif
 
 	metadata->file_name = new_name;
@@ -538,7 +531,7 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 	return metadata;
 }
 
-void free_file_metadata(FileWithMetadata* metadata) {
+static void free_file_metadata(FileWithMetadata* metadata) {
 
 	free(metadata->file_name);
 	free(metadata);
@@ -549,7 +542,7 @@ static inline size_t size_for_number(size_t num) {
 	return ((size_t)(floor(log10((double)num)))) + 1;
 }
 
-NODISCARD MaxSize internal_get_size_for(FileWithMetadata* metadata) {
+NODISCARD static MaxSize internal_get_size_for(FileWithMetadata* metadata) {
 
 	MaxSize result = {};
 
@@ -561,7 +554,7 @@ NODISCARD MaxSize internal_get_size_for(FileWithMetadata* metadata) {
 	return result;
 }
 
-void internal_update_max_size(MaxSize* sizes, FileWithMetadata* metadata) {
+static void internal_update_max_size(MaxSize* sizes, FileWithMetadata* metadata) {
 
 	MaxSize size = internal_get_size_for(metadata);
 
@@ -582,7 +575,20 @@ void internal_update_max_size(MaxSize* sizes, FileWithMetadata* metadata) {
 	}
 }
 
-MultipleFiles* get_files_in_folder(const char* const folder, FileSendFormat format) {
+static void free_multiple_files(MultipleFiles* files) {
+
+	for(size_t i = 0; i < TVEC_LENGTH(FileWithMetadataPtr, files->files); ++i) {
+
+		FileWithMetadata* entry = TVEC_AT(FileWithMetadataPtr, files->files, i);
+
+		free_file_metadata(entry);
+	}
+
+	free(files);
+}
+
+NODISCARD static MultipleFiles* get_files_in_folder(const char* const folder,
+                                                    FileSendFormat format) {
 
 	MultipleFiles* result = (MultipleFiles*)malloc(sizeof(MultipleFiles));
 
@@ -590,8 +596,7 @@ MultipleFiles* get_files_in_folder(const char* const folder, FileSendFormat form
 		return NULL;
 	}
 
-	result->count = 0;
-	result->files = NULL;
+	result->files = TVEC_EMPTY(FileWithMetadataPtr);
 	result->sizes = (MaxSize){ .link = 0, .user = 0, .group = 0, .size = 0 };
 	result->format = format;
 
@@ -631,29 +636,21 @@ MultipleFiles* get_files_in_folder(const char* const folder, FileSendFormat form
 			goto error;
 		}
 
-		result->count++;
+		TvecResult push_result = TVEC_PUSH(FileWithMetadataPtr, &(result->files), metadata);
 
-		FileWithMetadata** new_array = (FileWithMetadata**)realloc(
-		    (void*)result->files, sizeof(FileWithMetadata*) * result->count);
-
-		if(!new_array) {
+		if(push_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 			free(metadata);
 			goto error;
 		}
 
-		result->files = new_array;
-
-		result->files[result->count - 1] = metadata;
 		internal_update_max_size(&result->sizes, metadata);
 	}
 
 error:
 
-	if(result->files != NULL) {
-		for(size_t i = 0; i < result->count; ++i) {
-			free_file_metadata(result->files[i]);
-		}
-	}
+	free_multiple_files(result);
+	result = NULL;
+
 success:
 
 	int close_res = closedir(dir);
@@ -687,7 +684,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 			free(data);
 			return NULL;
 		}
-		data->data.multiple_files = files;
+		data->value.multiple_files = files;
 	} else {
 		data->type = SendTypeFile;
 		SingleFile* file = get_metadata_for_single_file(path, format);
@@ -697,7 +694,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 			return NULL;
 		}
 
-		data->data.file = file;
+		data->value.file = file;
 	}
 
 	return data;
@@ -711,79 +708,28 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 		return NULL;
 	}
 
-	FILE* file = fopen(path, "rb");
+	size_t file_size = 0;
 
-	if(file == NULL) {
-		LOG_MESSAGE(LogLevelError, "Couldn't open file for reading '%s': %s\n", path,
-		            strerror(errno));
+	void* file_data = read_entire_file(path, &file_size);
 
-		free(data);
-		return NULL;
-	}
-
-	int fseek_res = fseek(file, 0, SEEK_END);
-
-	if(fseek_res != 0) {
-		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", path,
-		            strerror(errno));
+	if(file_data == NULL) {
 
 		free(data);
 		return NULL;
 	}
 
-	long file_size = ftell(file);
-	fseek_res = fseek(file, 0, SEEK_SET);
-
-	if(fseek_res != 0) {
-		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", path,
-		            strerror(errno));
-
-		free(data);
-		return NULL;
-	}
-
-	uint8_t* file_data = (uint8_t*)malloc(file_size * sizeof(uint8_t));
-
-	if(!file_data) {
-
-		fclose(file);
-		free(data);
-		return NULL;
-	}
-
-	size_t fread_result = fread(file_data, 1, file_size, file);
-
-	if(fread_result != (size_t)file_size) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't read the correct amount of bytes from file '%s': %s\n",
-		            path, strerror(errno));
-
-		fclose(file);
-		free(file_data);
-		free(data);
-		return NULL;
-	}
-
-	int fclose_result = fclose(file);
-
-	if(fclose_result != 0) {
-		LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n", path, strerror(errno));
-
-		free(file_data);
-		free(data);
-		return NULL;
-	}
-
-	RawData raw_data = { .data = file_data, .size = file_size };
+	SizedBuffer raw_data = { .data = file_data, .size = file_size };
 
 	data->type = SendTypeRawData;
-	data->data.data = raw_data;
+	data->value.raw_data = raw_data;
 
 	return data;
 }
 
 #define FORMAT_SPACES "    "
 
-NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, MaxSize sizes) {
+NODISCARD static StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file,
+                                                              MaxSize sizes) {
 
 	StringBuilder* string_builder = string_builder_init();
 
@@ -812,31 +758,11 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 		                                                   modes[1], 3, modes[2]);
 	}
 
-	size_t max_bytes =
-	    0xFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	char* date_str = (char*)malloc(max_bytes * sizeof(char));
+	char* date_str = get_date_string(file->last_mod, TimeFormatFTP);
 
-	struct tm converted_time;
-
-	struct tm* convert_result = localtime_r(&file->last_mod.tv_sec, &converted_time);
-
-	if(!convert_result) {
-		free(date_str);
+	if(date_str == NULL) {
 		return NULL;
 	}
-
-	// see filezilla source code at src/engine/directorylistingparser.cpp:1094 at
-	// CDirectoryListingParser::ParseUnixDateTime on why this exact format is used, it has the most
-	// available information, while being recognized
-
-	size_t result = strftime(date_str, max_bytes, "%Y-%m-%d %H:%M", &converted_time);
-
-	if(result == 0) {
-		free(date_str);
-		return NULL;
-	}
-
-	date_str[result] = '\0';
 
 	STRING_BUILDER_APPENDF(
 	    string_builder,
@@ -856,16 +782,16 @@ NODISCARD StringBuilder* format_file_line_in_ls_format(FileWithMetadata* file, M
 #undef FORMAT_SPACES
 
 #ifdef __APPLE__
-#define DEV_FMT "%d"
-#define INO_FMT "%llu"
+	#define DEV_FMT "%d"
+	#define INO_FMT "%llu"
 #else
-#define DEV_FMT "%lu"
-#define INO_FMT "%lu"
+	#define DEV_FMT "%lu"
+	#define INO_FMT "%lu"
 #endif
 
 #define ELPF_PRETTY_PRINT_PERMISSIONS true
 
-NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file) {
+NODISCARD static StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file) {
 
 	StringBuilder* string_builder = string_builder_init();
 
@@ -899,7 +825,8 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 		}
 
 		// last mod time in UNIX epoch seconds
-		STRING_BUILDER_APPENDF(string_builder, return NULL;, "m%lu,", file->last_mod.tv_sec);
+		STRING_BUILDER_APPENDF(string_builder, return NULL;
+		                       , "m%" PRIu64 " ,", get_time_in_seconds(file->last_mod));
 
 		// unique identifier (dev.ino)
 		STRING_BUILDER_APPENDF(string_builder, return NULL;, "i" DEV_FMT "." INO_FMT ",",
@@ -943,8 +870,8 @@ NODISCARD StringBuilder* format_file_line_in_eplf_format(FileWithMetadata* file)
 	return string_builder;
 }
 
-NODISCARD StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
-                                          FileSendFormat format) {
+NODISCARD static StringBuilder* format_file_line(FileWithMetadata* file, MaxSize sizes,
+                                                 FileSendFormat format) {
 
 	switch(format) {
 		case FileSendFormatLs: {
@@ -990,10 +917,11 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 			break;
 		}
 		case SendTypeMultipleFiles: {
-			FileWithMetadata* value = data->data.multiple_files->files[progress->data.sent_count];
+			FileWithMetadata* value = TVEC_AT(
+			    FileWithMetadataPtr, data->value.multiple_files->files, progress->data.sent_count);
 
 			StringBuilder* string_builder = format_file_line(
-			    value, data->data.multiple_files->sizes, data->data.multiple_files->format);
+			    value, data->value.multiple_files->sizes, data->value.multiple_files->format);
 
 			if(!string_builder) {
 				return false;
@@ -1010,7 +938,7 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		}
 
 		case SendTypeRawData: {
-			RawData raw_data = data->data.data;
+			SizedBuffer raw_data = data->value.raw_data;
 
 			size_t offset = progress->data.sent_count;
 
@@ -1042,9 +970,33 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 	return true;
 }
 
+static void free_single_file(SingleFile* file) {
+
+	free_file_metadata(file->file);
+	free(file);
+}
+
 void free_send_data(SendData* data) {
-	// TODO(Totto): dataement
-	UNUSED(data);
+
+	switch(data->type) {
+		case SendTypeFile: {
+			free_single_file(data->value.file);
+			break;
+		}
+		case SendTypeMultipleFiles: {
+			free_multiple_files(data->value.multiple_files);
+			break;
+		}
+		case SendTypeRawData: {
+			free_sized_buffer(data->value.raw_data);
+			break;
+		}
+		default: {
+			break;
+		}
+	}
+
+	free(data);
 }
 
 NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {

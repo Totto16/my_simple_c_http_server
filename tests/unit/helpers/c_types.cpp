@@ -1,16 +1,12 @@
 
 
-#pragma once
+#include "./c_types.hpp"
 
-#include <doctest.h>
-
+#include <cstdint>
 #include <iomanip>
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <cstdint>
-
-#include <utils/sized_buffer.h>
 
 namespace {
 
@@ -24,11 +20,13 @@ constexpr const size_t buffer_max_for_printing_content = 40;
 	return oss.str();
 }
 
+} // namespace
+
 std::ostream& operator<<(std::ostream& os, const SizedBuffer& buffer) {
 	if(buffer.data == NULL || buffer.size > buffer_max_for_printing_content) {
 		os << "SizedBuffer{data=" << buffer.data << ", size=" << buffer.size << "}";
 	} else {
-		os << "SizedBuffer{content='";
+		os << "SizedBuffer{content='0x";
 		auto* buffer_ptr = static_cast<std::uint8_t*>(buffer.data);
 		for(size_t i = 0; i < buffer.size; ++i) {
 			os << get_hex_value_for_u8(buffer_ptr[i]);
@@ -36,16 +34,6 @@ std::ostream& operator<<(std::ostream& os, const SizedBuffer& buffer) {
 		os << "'}";
 	}
 	return os;
-}
-
-} // namespace
-
-doctest::String toString(const SizedBuffer& buffer) {
-	std::stringstream str{};
-	str << buffer;
-	std::string string = str.str();
-	return doctest::String{ string.c_str(),
-		                    static_cast<doctest::String::size_type>(string.size()) };
 }
 
 NODISCARD bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs) {

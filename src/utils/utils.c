@@ -9,53 +9,9 @@
 #include <sys/random.h>
 #include <time.h>
 
-// simple malloc Wrapper, using also memset to set everything to 0
-void* malloc_with_memset(const size_t size, const bool initialize_with_zeros) {
-	void* result = malloc(size);
-	if(result == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelWarn | LogPrintLocation, "Couldn't allocate memory!\n");
-		return NULL;
-	}
-	if(initialize_with_zeros) {
-		// yes this could be done by calloc, but if you don't need that, its overhead!
-		void* second_result = memset(result, 0, size);
-		if(result != second_result) {
-			// this shouldn't occur, but "better be safe than sorry"
-			LOG_MESSAGE_SIMPLE(LogLevelCritical, "Couldn't set the memory allocated to zeros!!\n");
-			// free not really necessary, but also not that wrong
-			free(result);
-			return NULL;
-		}
-	}
-	return result;
-}
-
-// simple realloc Wrapper, using also memset to set everything to 0
-void* realloc_with_memset(void* previous_ptr, const size_t old_size, const size_t new_size,
-                          const bool initialize_with_zeros) {
-	void* result = realloc(previous_ptr, new_size);
-	if(result == NULL) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Couldn't reallocate memory!\n");
-		return NULL;
-	}
-	if(initialize_with_zeros && // NOLINT(readability-implicit-bool-conversion)
-	   new_size > old_size) {
-		// yes this could be done by calloc, but if you don't need that, its overhead!
-		void* second_result = memset(((char*)result) + old_size, 0, new_size - old_size);
-		if(((char*)result) + old_size != second_result) {
-			// this shouldn't occur, but "better be safe than sorry"
-			LOG_MESSAGE_SIMPLE(LogLevelCritical,
-			                   "Couldn't set the memory reallocated to zeros!!\n");
-			// free not really necessary, but also not that wrong
-			free(result);
-			return NULL;
-		}
-	}
-	return result;
-}
-
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-static long parse_long_impl(const char* to_parse, const char* description, bool* success) {
+static long parse_long_impl(const char* to_parse, const char* description,
+                            OUT_PARAM(bool) success) {
 	// this is just allocated, so that strtol can write an address into it,
 	// therefore it doesn't need to be initialized
 	char* endpointer = NULL;
@@ -106,9 +62,42 @@ long parse_long_safely(const char* to_parse, const char* description) {
 	return result;
 }
 
-long parse_long(const char* to_parse, bool* success) {
+NODISCARD long parse_long(const char* to_parse, OUT_PARAM(bool) success) {
 
 	return parse_long_impl(to_parse, NULL, success);
+}
+
+static_assert(sizeof(unsigned long long) == sizeof(size_t));
+
+static size_t parse_size_t_impl(const char* to_parse, OUT_PARAM(bool) success) {
+	// this is just allocated, so that strtol can write an address into it,
+	// therefore it doesn't need to be initialized
+	char* endpointer = NULL;
+	// reseting errno, since it's not guaranteed to be that, but strtol can return some values that
+	// generally are also valid, so errno is the only REAL and consistent method of checking for
+	// error
+	errno = 0;
+	// using strtol, string to long, since atoi doesn't report errors that well
+	size_t result =
+	    strtoull(to_parse, &endpointer,
+	             10); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+
+	// it isn't a number, if either errno is set or if the endpointer is not a '\0
+	if(*endpointer != '\0') {
+		*success = false;
+		return 0;
+
+	} else if(errno != 0) {
+		*success = false;
+		return 0;
+	}
+
+	*success = true;
+	return result;
+}
+
+NODISCARD size_t parse_size_t(const char* to_parse, OUT_PARAM(bool) success) {
+	return parse_size_t_impl(to_parse, success);
 }
 
 NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* description) {
@@ -131,20 +120,6 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 	}
 
 	return (uint16_t)result;
-}
-
-char* copy_cstr(char* input) {
-	size_t length = strlen(input) + 1;
-
-	char* result = malloc(length);
-
-	if(!result) {
-		return NULL;
-	}
-
-	memcpy(result, input, length);
-
-	return result;
 }
 
 NODISCARD float parse_float(char* value) {
@@ -190,7 +165,7 @@ NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max) {
 	return (value % (max - min)) + min;
 }
 
-NODISCARD int get_random_bytes(size_t size, uint8_t* out_bytes) {
+NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes) {
 
 	if(size == 0) {
 		return -1;

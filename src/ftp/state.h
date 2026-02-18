@@ -3,12 +3,14 @@
 #pragma once
 
 #include "./account.h"
+#include "generic/ip.h"
+
 #include <netinet/in.h>
 
 /**
  * @enum MASK / FLAGS
  */
-typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
+typedef enum ENUM_IS_MASK C_23_NARROW_ENUM_TO(uint16_t){
 	FtpTransmissionTypeNone = 0,
 	//
 	FtpTransmissionTypeAscii = 0x1,     // ASCII
@@ -19,11 +21,15 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	FtpTransmissionTypeFlagNp = 0x10,  // Non-print
 	FtpTransmissionTypeFlagTel = 0x20, // Telnet
 	FtpTransmissionTypeFlagAsa = 0x40, // CARRIAGE CONTROL (ASA)
-	// MASK
-	FtpTransmissionTypeMaskLb = 0xFF00,
-	FtpTransmissionTypeMaskBase = 0x0F,
-	FtpTransmissionTypeMaskExt = 0xF0
 } FtpTransmissionType;
+
+// MASKS
+#define FtpTransmissionTypeMaskLb /*NOLINT(readability-identifier-naming)*/ \
+	((FtpTransmissionType)0xFF00)
+#define FtpTransmissionTypeMaskBase /*NOLINT(readability-identifier-naming)*/ \
+	((FtpTransmissionType)0x0F)
+#define FtpTransmissionTypeMaskExt /*NOLINT(readability-identifier-naming)*/ \
+	((FtpTransmissionType)0xF0)
 
 /**
  * @enum value
@@ -61,7 +67,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FtpDataModeActive,
 } FTPDataMode;
 
-typedef uint32_t FTPAddrField;
+typedef IPV4Address FTPAddrField;
 typedef uint16_t FTPPortField;
 
 /**

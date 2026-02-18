@@ -12,7 +12,7 @@
 #include "./routes.h"
 #include "generic/authentication.h"
 #include "generic/secure.h"
-#include "http/http_protocol.h"
+#include "http/protocol.h"
 #include "utils/thread_pool.h"
 #include "ws/thread_manager.h"
 
@@ -25,26 +25,12 @@
 
 #define HTTP_MAX_QUEUE_SIZE 100
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	RequestSupported = 0,
-	RequestInvalidHttpVersion,
-	RequestMethodNotSupported,
-	RequestInvalidNonemptyBody,
-} RequestSupportStatus;
-
-// returns wether the protocol, method is supported, atm only GET and HTTP 1.1 are supported, if
-// returned an enum state, the caller has to handle errors
-NODISCARD RequestSupportStatus is_request_supported(HttpRequest* request);
-
 // structs for the listenerThread
 
 typedef struct {
 	ThreadPool* pool;
 	Myqueue* job_ids;
-	STBDS_ARRAY(ConnectionContext*) contexts;
+	ConnectionContextPtrs contexts;
 	int socket_fd;
 	WebSocketThreadManager* web_socket_manager;
 	const RouteManager* route_manager;
@@ -52,11 +38,12 @@ typedef struct {
 } HTTPThreadArgument;
 
 typedef struct {
-	STBDS_ARRAY(ConnectionContext*) contexts;
+	ConnectionContextPtrs contexts;
 	pthread_t listener_thread;
 	int connection_fd;
 	WebSocketThreadManager* web_socket_manager;
 	const RouteManager* route_manager;
+	IPAddress address;
 } HTTPConnectionArgument;
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
@@ -72,4 +59,8 @@ NODISCARD ANY_TYPE(JobError*)
 NODISCARD ANY_TYPE(NULL) http_listener_thread_function(ANY_TYPE(HTTPThreadArgument*) arg);
 
 NODISCARD int start_http_server(uint16_t port, SecureOptions* options,
-                                AuthenticationProviders* auth_providers);
+                                AuthenticationProviders* auth_providers, HTTPRoutes* routes);
+
+void global_initialize_http_global_data(void);
+
+void global_free_http_global_data(void);

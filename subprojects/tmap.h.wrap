@@ -1,0 +1,8 @@
+[wrap-git]
+directory = tmap.h
+url = https://github.com/Totto16/tmap.h.git
+revision = 1ecb803eb9b9630d61aa3666e18dfd4faa94ad4b
+depth = 1
+
+[provide]
+dependency_names = tmap.h

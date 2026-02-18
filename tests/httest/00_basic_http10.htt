@@ -1,0 +1,6 @@
+CLIENT
+_REQ localhost 8080
+__GET / HTTP/1.0
+__
+_EXPECT . "HTTP/1."
+_END
