@@ -1743,7 +1743,8 @@ static void free_http2_frame(const Http2Frame* const frame) {
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	Http2ProcessFrameResultTypeOk = 0,
 	Http2ProcessFrameResultTypeNewFinishedRequest,
-	Http2ProcessFrameResultTypeError
+	Http2ProcessFrameResultTypeError,
+	Http2ProcessFrameResultTypeCloseConnection
 } Http2ProcessFrameResultType;
 
 typedef struct {
@@ -2434,7 +2435,7 @@ process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame
 				}
 			}
 
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeCloseConnection };
 		}
 		case Http2FrameTypeWindowUpdate: {
 			const Http2WindowUpdateFrame window_update_frame = frame->value.window_update;
@@ -2769,7 +2770,7 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 	    parse_http2_headers(state->hpack_state, stream->headers, stream_identifier);
 
 	if(headers_result.type != Http2RequestHeadersResultTypeOk) {
-		return (HttpRequestResult){ .is_error = true,
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){
@@ -2787,7 +2788,7 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 	if(!body_res.is_ok) {
 		free_http_request_head(head);
 
-		return (HttpRequestResult){ .is_error = true,
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){
@@ -2803,11 +2804,14 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 	// TODO
 	const RequestSettings settings = get_request_settings(request);
 
-	const HTTPResultOk result = { .request = request, .settings = settings };
+	const HTTPResultOk result_ok = {
+		.request = request,
+		.settings = settings,
+	};
 
-	return (HttpRequestResult){ .is_error = false,
+	return (HttpRequestResult){ .type = HttpRequestResultTypeOk,
 		                        .value = {
-		                            .result = result,
+		                            .ok = result_ok,
 		                        } };
 }
 
@@ -2819,7 +2823,7 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 		// process the frame, if possible, otherwise do it later (e.g. when the headers end)
 
 		if(frame_result.is_error) {
-			return (HttpRequestResult){ .is_error = true,
+			return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){
@@ -2840,7 +2844,7 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 
 		switch(process_result.type) {
 			case Http2ProcessFrameResultTypeError: {
-				return (HttpRequestResult){ .is_error = true,
+				return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){
@@ -2862,7 +2866,7 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 					    Http2ErrorCodeInternalError, error);
 					UNUSED(_);
 
-					return (HttpRequestResult){ .is_error = true,
+					return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 						                        .value = {
 						                            .error =
 						                                (HttpRequestError){
@@ -2879,8 +2883,14 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 			case Http2ProcessFrameResultTypeOk: {
 				break;
 			}
+			case Http2ProcessFrameResultTypeCloseConnection: {
+				return (HttpRequestResult){
+					.type = HttpRequestResultTypeCloseConnection,
+					.value = {},
+				};
+			}
 			default: {
-				return (HttpRequestResult){ .is_error = true,
+				return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){

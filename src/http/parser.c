@@ -737,7 +737,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 
 		if(read_result.type != BufferedReadResultTypeOk) {
 			return (
-			    HttpRequestResult){ .is_error = true,
+			    HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                    .value = { .error = (HttpRequestError){
 				                                   .is_advanced = true,
 				                                   .value = { .advanced =
@@ -761,7 +761,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 
 			if(header_key_end == NULL) {
 				return (HttpRequestResult){
-					.is_error = true,
+					.type = HttpRequestResultTypeError,
 					.value = { .error =
 					               (HttpRequestError){
 					                   .is_advanced = true,
@@ -805,7 +805,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 			}
 		}
 
-		return (HttpRequestResult){ .is_error = true,
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 			                        .value = { .error = (HttpRequestError){
 			                                       .is_advanced = false,
 			                                       .value = { .enum_value = enum_value } } } };
@@ -817,7 +817,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 
 	if(body_result.is_error) {
 		return (HttpRequestResult){
-			.is_error = true,
+			.type = HttpRequestResultTypeError,
 			.value = { .error =
 			               (HttpRequestError){ .is_advanced = true,
 			                                   .value = { .advanced = body_result.data.error } } }
@@ -833,7 +833,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 	   request.body.size != 0) {
 
 		return (HttpRequestResult){
-			.is_error = true,
+			.type = HttpRequestResultTypeError,
 			.value = { .error =
 			               (HttpRequestError){
 			                   .is_advanced = false,
@@ -842,8 +842,8 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 		};
 	}
 
-	return (HttpRequestResult){ .is_error = false,
-		                        .value = { .result = {
+	return (HttpRequestResult){ .type = HttpRequestResultTypeOk,
+		                        .value = { .ok = {
 		                                       .request = request,
 		                                       .settings = analyze.settings,
 		                                   } } };
@@ -862,7 +862,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 		case HttpRequestLineResultTypeUnsupportedHttpVersion: {
 			return (HttpRequestResult){
-				.is_error = true,
+				.type = HttpRequestResultTypeError,
 				.value = { .error =
 				               (HttpRequestError){
 				                   .is_advanced = false,
@@ -872,7 +872,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		}
 		case HttpRequestLineResultTypeUnsupportedMethod: {
 			return (HttpRequestResult){
-				.is_error = true,
+				.type = HttpRequestResultTypeError,
 				.value = { .error =
 				               (HttpRequestError){
 				                   .is_advanced = false,
@@ -882,7 +882,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		}
 		case HttpRequestLineResultTypeUriError: {
 			return (HttpRequestResult){
-				.is_error = true,
+				.type = HttpRequestResultTypeError,
 				.value = { .error =
 				               (HttpRequestError){
 				                   .is_advanced = true,
@@ -893,7 +893,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		case HttpRequestLineResultTypeError:
 		default: {
 			return (HttpRequestResult){
-				.is_error = true,
+				.type = HttpRequestResultTypeError,
 				.value = { .error =
 				               (HttpRequestError){
 				                   .is_advanced = true,
@@ -913,7 +913,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 				if(request_line.protocol_data.version == HTTPProtocolVersion2) {
 					return (HttpRequestResult){
-						.is_error = true,
+						.type = HttpRequestResultTypeError,
 						.value = { .error =
 						               (HttpRequestError){
 						                   .is_advanced = false,
@@ -934,7 +934,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 				if(http2_preface_status != Http2PrefaceStatusOk) {
 					return (HttpRequestResult){
-						.is_error = true,
+						.type = HttpRequestResultTypeError,
 						.value = { .error =
 						               (HttpRequestError){
 						                   .is_advanced = false,
@@ -951,7 +951,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 				if(start_result.is_error) {
 					return (HttpRequestResult){
-						.is_error = true,
+						.type = HttpRequestResultTypeError,
 						.value = { .error =
 						               (HttpRequestError){
 						                   .is_advanced = false,
@@ -979,7 +979,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 			if(http2_preface_status != Http2PrefaceStatusOk) {
 				return (HttpRequestResult){
-					.is_error = true,
+					.type = HttpRequestResultTypeError,
 					.value = { .error =
 					               (HttpRequestError){
 					                   .is_advanced = false,
@@ -996,7 +996,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 			if(start_result.is_error) {
 				return (HttpRequestResult){
-					.is_error = true,
+					.type = HttpRequestResultTypeError,
 					.value = { .error =
 					               (HttpRequestError){
 					                   .is_advanced = true,
@@ -1010,7 +1010,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		if(request_line.method == HTTPRequestMethodPRI) {
 			// this makes no sense here, as this can be only used with an http2 preface
 			return (HttpRequestResult){
-				.is_error = true,
+				.type = HttpRequestResultTypeError,
 				.value = { .error =
 				               (HttpRequestError){
 				                   .is_advanced = false,
@@ -1024,7 +1024,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				if(request_line.method != HTTPRequestMethodOptions) {
 
 					return (HttpRequestResult){
-						.is_error = true,
+						.type = HttpRequestResultTypeError,
 						.value = { .error =
 						               (HttpRequestError){
 						                   .is_advanced = true,
@@ -1036,7 +1036,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 				// TODO(Totto): implement further, search for todo_options
 				return (
-				    HttpRequestResult){ .is_error = true,
+				    HttpRequestResult){ .type = HttpRequestResultTypeError,
 					                    .value = { .error = (HttpRequestError){
 					                                   .is_advanced = true,
 					                                   .value = { .advanced = "not implemented for "
@@ -1049,7 +1049,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				if(request_line.method != HTTPRequestMethodConnect) {
 
 					return (HttpRequestResult){
-						.is_error = true,
+						.type = HttpRequestResultTypeError,
 						.value = { .error =
 						               (HttpRequestError){
 						                   .is_advanced = true,
@@ -1061,7 +1061,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 				// TODO(Totto): implement further, search for todo_options
 				return (HttpRequestResult){
-					.is_error = true,
+					.type = HttpRequestResultTypeError,
 					.value = { .error =
 					               (HttpRequestError){ .is_advanced = true,
 					                                   .value = { .advanced = "not implemented for "
@@ -1076,8 +1076,19 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 	const HttpRequestResult result = parse_http1_request(request_line, reader);
 
-	if(result.is_error) {
-		reader->state = HTTPReaderStateError;
+	switch(result.type) {
+		case HttpRequestResultTypeOk: {
+			break;
+		}
+		case HttpRequestResultTypeCloseConnection: {
+			reader->state = HTTPReaderStateEnd;
+			break;
+		}
+		case HttpRequestResultTypeError:
+		default: {
+			reader->state = HTTPReaderStateError;
+			break;
+		}
 	}
 
 	if(reader->general_context.type == HTTPContextTypeV1) {
@@ -1093,7 +1104,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 			// if we are not in a keepalive situation, any presence of a body is an error
 			reader->state = HTTPReaderStateError;
 			return (HttpRequestResult){
-				.is_error = true,
+				.type = HttpRequestResultTypeError,
 				.value = { .error =
 				               (HttpRequestError){
 				                   .is_advanced = false,
@@ -1111,7 +1122,7 @@ NODISCARD static HttpRequestResult parse_next_http_request(HTTPReader* const rea
 		return parse_http2_request(&(reader->general_context.data.v2), reader->buffered_reader);
 	}
 
-	return (HttpRequestResult){ .is_error = true,
+	return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 		                        .value = { .error = (HttpRequestError){
 		                                       .is_advanced = true,
 		                                       .value = { .advanced = "Not yet supported" } } } };
@@ -1120,7 +1131,7 @@ NODISCARD static HttpRequestResult parse_next_http_request(HTTPReader* const rea
 HttpRequestResult get_http_request(HTTPReader* const reader) {
 
 	if(!reader) {
-		return (HttpRequestResult){ .is_error = true,
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 			                        .value = {
 			                            .error = (HttpRequestError){
 			                                .is_advanced = true,
@@ -1137,7 +1148,7 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 		case HTTPReaderStateReading: {
 			if(reader->general_context.type == HTTPContextTypeV1) {
 				return (HttpRequestResult){
-					.is_error = true,
+					.type = HttpRequestResultTypeError,
 					.value = { .error =
 					               (HttpRequestError){
 					                   .is_advanced = true,
@@ -1158,7 +1169,7 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 		case HTTPReaderStateError:
 		default: {
 			return (HttpRequestResult){
-				.is_error = true,
+				.type = HttpRequestResultTypeError,
 				.value = { .error =
 				               (HttpRequestError){
 				                   .is_advanced = true,

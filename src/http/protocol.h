@@ -235,10 +235,19 @@ typedef struct {
 	RequestSettings settings;
 } HTTPResultOk;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HttpRequestResultTypeOk = 0,
+	HttpRequestResultTypeError,
+	HttpRequestResultTypeCloseConnection,
+} HttpRequestResultType;
+
 typedef struct {
-	bool is_error;
+	HttpRequestResultType type;
 	union {
-		HTTPResultOk result;
+		HTTPResultOk ok;
 		HttpRequestError error;
 	} value;
 } HttpRequestResult;
