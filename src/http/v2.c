@@ -3036,12 +3036,64 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 	return (Http2StartResult){ .is_error = false };
 }
 
+NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context* const context,
+                                                                   BufferedReader* const reader) {
+
+	// get magic first, after that the client can send a settings frame
+	BufferedReadResult read_result =
+	    buffered_reader_get_amount(reader, SIZEOF_HTTP2_CLIENT_PREFACE);
+
+	if(read_result.type != BufferedReadResultTypeOk) {
+
+		return (Http2StartResult){ .is_error = true,
+			                       .value = { .error = "unable to read magic http2 preface" } };
+	}
+
+	const SizedBuffer buffer = read_result.value.buffer;
+
+	if(sized_buffer_cmp_with_data(buffer, HTTP2_CLIENT_PREFACE, SIZEOF_HTTP2_CLIENT_PREFACE) != 0) {
+
+		return (Http2StartResult){ .is_error = true,
+			                       .value = { .error = "magic http2 preface not correct" } };
+	}
+
+	Http2FrameResult frame_result = parse_http2_frame(context, reader);
+
+	if(frame_result.is_error) {
+		return (Http2StartResult){ .is_error = true,
+			                       .value = { .error = frame_result.data.error } };
+	}
+
+	Http2Frame frame = frame_result.data.frame;
+
+	if(frame.type != Http2FrameTypeSettings) {
+		return (Http2StartResult){ .is_error = true,
+			                       .value = { .error = "first frame has to be a settings frame" } };
+	}
+
+	// after the parsing of the frame, we can discard that data
+	buffered_reader_invalidate_old_data(reader);
+
+	const Http2ProcessFrameResult process_result = process_http2_frame(
+	    context, MOVE_INTO(frame), buffered_reader_get_connection_descriptor(reader));
+
+	if(process_result.type != Http2ProcessFrameResultTypeOk) {
+		const char* error =
+		    process_result.type == Http2ProcessFrameResultTypeError
+		        ? process_result.value.error
+		        : "error: implementation error (settings frame can't result in a request)";
+		return (Http2StartResult){ .is_error = true, .value = { .error = error } };
+	}
+
+	return (Http2StartResult){ .is_error = false };
+}
+
 NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const context,
                                                       BufferedReader* const reader,
                                                       const SizedBuffer settings_data,
                                                       const HttpRequest original_request) {
 
-	// send first settings frame
+	// send settings frame first:
 	const Http2SettingsFrame frame_to_send = get_start_settings_frame();
 
 	int result =
@@ -3074,33 +3126,59 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 				                        } };
 	}
 
-	Http2Frame settings_frame = settings_frame_result.data.frame;
+	Http2Frame frame = settings_frame_result.data.frame;
 
 	// apply settings
-	const Http2ProcessFrameResult process_result = process_http2_frame(
-	    context, MOVE_INTO(settings_frame), buffered_reader_get_connection_descriptor(reader));
 
-	if(process_result.type != Http2ProcessFrameResultTypeOk) {
-		const char* error =
-		    process_result.type == Http2ProcessFrameResultTypeError
-		        ? process_result.value.error
-		        : "error: implementation error (settings frame can't result in a request)";
+	if(frame.type != Http2FrameTypeSettings) {
+
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){
 				                                    .is_advanced = true,
-				                                    .value = { .advanced = error,}
+				                                    .value = { .advanced = "error: implementation error parsing settings frame didn't result in one",}
 
 				                                },
 				                        } };
 	}
 
+	http2_apply_settings_frame(context, frame.value.settings);
+
+	const Http2StartResult start_result = http2_receive_preface_with_magic(context, reader);
+
+	if(start_result.is_error) {
+		return (HttpRequestResult){
+			.type = HttpRequestResultTypeError,
+			.value = { .error =
+			               (HttpRequestError){
+			                   .is_advanced = false,
+			                   .value = { .enum_value =
+			                                  HttpRequestErrorTypeInvalidHttp2Preface } } }
+		};
+	}
+
 	HttpRequest new_http2_request = original_request;
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7540#section-3.2
-	// TODO(Totto): also setup a stream 1 in the streams map with half closed state
+
 	Http2Identifier stream_identifier = { .identifier = 1 };
+
+	Http2Stream new_stream = {
+		.state = Http2StreamStateHalfClosed,
+		.headers = EMPTY_STREAM_HEADERS,
+		.content = EMPTY_STREAM_CONTENT,
+		.end_stream = true,
+		.priority = DEFAULT_STREAM_PRIORITY,
+	};
+
+	if(!add_new_http2_stream(context, stream_identifier, new_stream)) {
+		return (
+		    HttpRequestResult){ .type = HttpRequestResultTypeError,
+			                    .value = { .error = (HttpRequestError){
+			                                   .is_advanced = true,
+			                                   .value = { .advanced = "stream insert error" } } } };
+	}
 
 	new_http2_request.head.request_line.protocol_data =
 	    (HttpProtocolData){ .version = HTTPProtocolVersion2,
