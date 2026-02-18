@@ -67,7 +67,7 @@ jobs:
                   chmod +x ./wait-for-it.sh
                   ./build/server http 8080 -l trace &
                   ./wait-for-it.sh localhost:8080 -s --timeout=120
-                  pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/fuzzingclient.json"
+                  pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec "./tests/autobahn/config/fuzzingclient.json"
                   wget http://localhost:8080/shutdown -O - -q
 
             - uses: actions/upload-artifact@v6
