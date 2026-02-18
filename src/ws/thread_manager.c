@@ -382,8 +382,7 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 
 		if(raw_message.payload.size > MAX_CONTROL_FRAME_PAYLOAD) {
 			// TODO(Totto): add error message
-			LOG_MESSAGE(LogLevelDebug,
-			            "Control frame payload length is too large: %" PRIu64 " > %d\n",
+			LOG_MESSAGE(LogLevelDebug, "Control frame payload length is too large: %zu > %d\n",
 			            raw_message.payload.size, MAX_CONTROL_FRAME_PAYLOAD);
 
 			free(resulting_frame);
