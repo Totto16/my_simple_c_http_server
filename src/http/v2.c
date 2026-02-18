@@ -949,48 +949,17 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 
 #define MAX_MAX_FRAME_SIZE 16777215ULL // 2^24-1 or 16,777,215
 
-NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* const reader,
-                                                             const HTTP2Context* const context,
-                                                             Http2RawHeader http2_raw_header) {
-
-	if(http2_raw_header.stream_identifier.identifier != 0) {
-		const char* error = "Settings Frame only allows stream id 0";
-		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
-		                                    context, Http2ErrorCodeProtocolError, error);
-		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
-	}
-
-	if((http2_raw_header.flags & Http2SettingsFrameFlagsAllowed) != http2_raw_header.flags) {
-		const char* error = "invalid settings frame flags";
-		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
-		                                    context, Http2ErrorCodeProtocolError, error);
-		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
-	}
+NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuffer input,
+                                                                 BufferedReader* const reader,
+                                                                 const HTTP2Context* const context,
+                                                                 const bool ack) {
 
 	Http2SettingsFrame settings_frame = {
-		.ack = (http2_raw_header.flags & Http2SettingsFrameFlagAck) != 0,
+		.ack = ack,
 		.entries = TVEC_EMPTY(Http2SettingSingleValue),
 	};
 
-	if(settings_frame.ack) {
-		if(http2_raw_header.length != 0) {
-			const char* error = "ack in settings frame with a non zero payload is invalid";
-			int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
-			                                    context, Http2ErrorCodeFrameSizeError, error);
-			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
-		}
-
-		Http2Frame frame = { .type = Http2FrameTypeSettings,
-			                 .value = {
-			                     .settings = settings_frame,
-			                 } };
-		return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
-	}
-
-	if((http2_raw_header.length % 6) != 0) {
+	if((input.size % 6) != 0) {
 		const char* error = "invalid settings frame length, not a multiple of 6";
 		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 		                                    context, Http2ErrorCodeFrameSizeError, error);
@@ -998,24 +967,11 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 	}
 
-	if(http2_raw_header.length > 0) {
+	if(input.size > 0) {
 
-		BufferedReadResult read_result =
-		    buffered_reader_get_amount(reader, http2_raw_header.length);
+		uint8_t* data = (uint8_t*)input.data;
 
-		if(read_result.type != BufferedReadResultTypeOk) {
-			const char* error = "Failed to read enough data for the frame data";
-			int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
-			                                    context, Http2ErrorCodeInternalError, error);
-			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
-		}
-
-		SizedBuffer frame_data = read_result.value.buffer;
-
-		uint8_t* data = (uint8_t*)frame_data.data;
-
-		for(size_t i = 0; i < http2_raw_header.length; i += 6) {
+		for(size_t i = 0; i < input.size; i += 6) {
 			uint16_t identifier = deserialize_u16_be_to_host(data + i);
 
 			uint32_t value = deserialize_u32_be_to_host(data + i + 2);
@@ -1085,6 +1041,77 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 		                 } };
 
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+}
+
+NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* const reader,
+                                                             const HTTP2Context* const context,
+                                                             Http2RawHeader http2_raw_header) {
+
+	if(http2_raw_header.stream_identifier.identifier != 0) {
+		const char* error = "Settings Frame only allows stream id 0";
+		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
+		                                    context, Http2ErrorCodeProtocolError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	if((http2_raw_header.flags & Http2SettingsFrameFlagsAllowed) != http2_raw_header.flags) {
+		const char* error = "invalid settings frame flags";
+		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
+		                                    context, Http2ErrorCodeProtocolError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	const bool ack = (http2_raw_header.flags & Http2SettingsFrameFlagAck) != 0;
+
+	if(ack) {
+		if(http2_raw_header.length != 0) {
+			const char* error = "ack in settings frame with a non zero payload is invalid";
+			int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
+			                                    context, Http2ErrorCodeFrameSizeError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		}
+
+		Http2Frame frame = { .type = Http2FrameTypeSettings,
+			                 .value = {
+			                     .settings =
+			                         (Http2SettingsFrame){
+			                             .ack = ack,
+			                             .entries = TVEC_EMPTY(Http2SettingSingleValue),
+			                         },
+			                 } };
+		return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	}
+
+	if((http2_raw_header.length % 6) != 0) {
+		const char* error = "invalid settings frame length, not a multiple of 6";
+		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
+		                                    context, Http2ErrorCodeFrameSizeError, error);
+		UNUSED(_);
+		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+	}
+
+	SizedBuffer frame_data = (SizedBuffer){ .data = NULL, .size = 0 };
+
+	if(http2_raw_header.length > 0) {
+
+		BufferedReadResult read_result =
+		    buffered_reader_get_amount(reader, http2_raw_header.length);
+
+		if(read_result.type != BufferedReadResultTypeOk) {
+			const char* error = "Failed to read enough data for the frame data";
+			int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
+			                                    context, Http2ErrorCodeInternalError, error);
+			UNUSED(_);
+			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		}
+
+		frame_data = read_result.value.buffer;
+	}
+
+	return parse_raw_http2_settings_frame(frame_data, reader, context, ack);
 }
 
 /**
@@ -1947,7 +1974,8 @@ NODISCARD static Http2ProcessFrameResult
 process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Context* const context,
                                Http2Frame* frame, ConnectionDescriptor* const descriptor) {
 
-	// this handles stream states, see: https://datatracker.ietf.org/doc/html/rfc7540#section-5.1
+	// this handles stream states, see:
+	// https://datatracker.ietf.org/doc/html/rfc7540#section-5.1
 
 	const Http2StreamState stream_state = get_http2_stream_state(context, stream_identifier);
 
@@ -2249,8 +2277,8 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			};
 
 			if(push_promise_frame->block_fragment.size > 0) {
-				// this pushes the block, sets it in the frame to NULL, so that the frame freeing
-				// doesn't clear the buffer!
+				// this pushes the block, sets it in the frame to NULL, so that the frame
+				// freeing doesn't clear the buffer!
 				if(!http2_stream_add_header_block(&new_stream, &push_promise_frame->block_fragment,
 				                                  push_promise_frame->end_headers)) {
 					return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
@@ -2273,8 +2301,8 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 		}
 		case Http2FrameTypeWindowUpdate: {
 			const Http2WindowUpdateFrame window_update_frame = frame->value.window_update;
-			// TODO(Totto): use this frame (it is for an identifier, as window updates can be also
-			// for the entire connection)
+			// TODO(Totto): use this frame (it is for an identifier, as window updates can be
+			// also for the entire connection)
 			UNUSED(window_update_frame);
 
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeOk };
@@ -2346,8 +2374,8 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 					                              } };
 			}
 
-			// NOTE: continuation frames can end a stream, if the starting header frame has set the
-			// end_stream flag and this continuation frame has the end_headers flag set!
+			// NOTE: continuation frames can end a stream, if the starting header frame has set
+			// the end_stream flag and this continuation frame has the end_headers flag set!
 			if(stream->end_stream &&       // NOLINT(readability-implicit-bool-conversion)
 			   stream->headers.finished) { // NOLINT(readability-implicit-bool-conversion)
 
@@ -2452,12 +2480,11 @@ process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame
 		case Http2FrameTypeRstStream:
 		case Http2FrameTypePushPromise:
 		case Http2FrameTypeContinuation: {
-			return (
-			    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                          .value = {
-				                              .error =
-				                                  "invalid frame type to process for a connection",
-				                          } };
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = "invalid frame type to process for "
+				                                           "a connection",
+				                              } };
 		}
 		default: {
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
@@ -2736,8 +2763,8 @@ parse_http2_headers(HpackState* const hpack_state, const Http2StreamHeaders head
 			free_http_header_field(entry);
 
 		} else {
-			// normal header, just pass along, it is not freed, as it is reused by the new header
-			// list
+			// normal header, just pass along, it is not freed, as it is reused by the new
+			// header list
 			pseudo_headers_finished = true;
 
 			auto _ = TVEC_PUSH(HttpHeaderField, &(result.header_fields), entry);
@@ -2801,7 +2828,6 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 
 	const HttpRequest request = { .head = head, .body = body_res.result };
 
-	// TODO
 	const RequestSettings settings = get_request_settings(request);
 
 	const HTTPResultOk result_ok = {
@@ -2953,14 +2979,21 @@ NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
 	return Http2PrefaceStatusErr;
 }
 
-NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const context,
-                                                          BufferedReader* const reader) {
+NODISCARD static Http2SettingsFrame get_start_settings_frame(void) {
 
 	// TODO(Totto): select the best settings, we should send
-	Http2SettingsFrame frame_to_send = {
+	Http2SettingsFrame settings_frame = {
 		.ack = false,
 		.entries = TVEC_EMPTY(Http2SettingSingleValue),
 	};
+
+	return settings_frame;
+}
+
+NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const context,
+                                                          BufferedReader* const reader) {
+
+	const Http2SettingsFrame frame_to_send = get_start_settings_frame();
 
 	int result =
 	    http2_send_settings_frame(buffered_reader_get_connection_descriptor(reader), frame_to_send);
@@ -3001,6 +3034,89 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 	}
 
 	return (Http2StartResult){ .is_error = false };
+}
+
+NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const context,
+                                                      BufferedReader* const reader,
+                                                      const SizedBuffer settings_data,
+                                                      const HttpRequest original_request) {
+
+	// send first settings frame
+	const Http2SettingsFrame frame_to_send = get_start_settings_frame();
+
+	int result =
+	    http2_send_settings_frame(buffered_reader_get_connection_descriptor(reader), frame_to_send);
+
+	if(result < 0) {
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
+				                        .value = {
+				                            .error =
+				                                (HttpRequestError){
+				                                    .is_advanced = true,
+				                                    .value = { .advanced = "error in sending settings frame (server preface)" ,}
+
+				                                },
+				                        } };
+	}
+
+	const Http2FrameResult settings_frame_result =
+	    parse_raw_http2_settings_frame(settings_data, reader, context, false);
+
+	if(settings_frame_result.is_error) {
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
+				                        .value = {
+				                            .error =
+				                                (HttpRequestError){
+				                                    .is_advanced = true,
+				                                    .value = { .advanced = settings_frame_result.data.error ,}
+
+				                                },
+				                        } };
+	}
+
+	Http2Frame settings_frame = settings_frame_result.data.frame;
+
+	// apply settings
+	const Http2ProcessFrameResult process_result = process_http2_frame(
+	    context, MOVE_INTO(settings_frame), buffered_reader_get_connection_descriptor(reader));
+
+	if(process_result.type != Http2ProcessFrameResultTypeOk) {
+		const char* error =
+		    process_result.type == Http2ProcessFrameResultTypeError
+		        ? process_result.value.error
+		        : "error: implementation error (settings frame can't result in a request)";
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
+				                        .value = {
+				                            .error =
+				                                (HttpRequestError){
+				                                    .is_advanced = true,
+				                                    .value = { .advanced = error,}
+
+				                                },
+				                        } };
+	}
+
+	HttpRequest new_http2_request = original_request;
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7540#section-3.2
+	// TODO(Totto): also setup a stream 1 in the streams map with half closed state
+	Http2Identifier stream_identifier = { .identifier = 1 };
+
+	new_http2_request.head.request_line.protocol_data =
+	    (HttpProtocolData){ .version = HTTPProtocolVersion2,
+		                    .value = { .v2 = { .stream_identifier = stream_identifier } } };
+
+	const RequestSettings settings = get_request_settings(new_http2_request);
+
+	const HTTPResultOk result_ok = {
+		.request = new_http2_request,
+		.settings = settings,
+	};
+
+	return (HttpRequestResult){ .type = HttpRequestResultTypeOk,
+		                        .value = {
+		                            .ok = result_ok,
+		                        } };
 }
 
 static void free_http2_streams(Http2StreamMap streams) {

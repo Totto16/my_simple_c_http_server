@@ -270,6 +270,10 @@ typedef struct {
 NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* context,
                                                           BufferedReader* reader);
 
+NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* context, BufferedReader* reader,
+                                                      SizedBuffer settings_data,
+                                                      HttpRequest original_request);
+
 NODISCARD int http2_send_connection_error(const ConnectionDescriptor* descriptor,
                                           const HTTP2Context* context, Http2ErrorCode error_code,
                                           const char* error);
