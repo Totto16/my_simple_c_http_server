@@ -42,6 +42,10 @@ HTTP_HEADER_MAKE(content_disposition, "content-disposition");
 
 HTTP_HEADER_MAKE(date, "date");
 
+HTTP_HEADER_MAKE(http2_settings, "http2-settings");
+
+HTTP_HEADER_MAKE(alt_svc, "alt-svc");
+
 // ws specific stuff
 
 HTTP_HEADER_MAKE(ws_sec_websocket_key, "sec-websocket-key");

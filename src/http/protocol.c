@@ -202,7 +202,7 @@ SendSettings get_send_settings(const RequestSettings request_settings) {
 
 	SendSettings result = {
 		.compression_to_use = CompressionTypeNone,
-		.protocol_to_use = request_settings.protocol_used,
+		.protocol_data = request_settings.protocol_data,
 	};
 
 	CompressionEntries entries = request_settings.compression_settings.entries;

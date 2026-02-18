@@ -1,4 +1,3 @@
-
 #include "./debug.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
@@ -12,7 +11,7 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 	const char* method = get_http_method_string(request.head.request_line.method);
 	char* request_uri = get_request_uri_as_string(request.head.request_line.uri);
 	const char* protocol_version =
-	    get_http_protocol_version_string(request.head.request_line.protocol_version);
+	    get_http_protocol_version_string(request.head.request_line.protocol_data.version);
 
 	string_builder_append_single(result, "HttpRequest:\n");
 
@@ -91,7 +90,7 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 
 	const char* method = get_http_method_string(request.head.request_line.method);
 	const char* protocol_version =
-	    get_http_protocol_version_string(request.head.request_line.protocol_version);
+	    get_http_protocol_version_string(request.head.request_line.protocol_data.version);
 
 	string_builder_append_single(body, "{\"request\":\"");
 	string_builder_append_single(body, method);
@@ -191,7 +190,7 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 	    body, return NULL;
 	    , "\"send_settings\":{\"compression\" : \"%s\", \"http_protocol\": \"%s\"} }",
 	    get_string_for_compress_format(send_settings.compression_to_use),
-	    get_http_protocol_version_string(send_settings.protocol_to_use));
+	    get_http_protocol_version_string(send_settings.protocol_data.version));
 
 	string_builder_append_single(body, "}");
 	return body;
@@ -205,7 +204,7 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 	const char* method = get_http_method_string(request.head.request_line.method);
 	char* request_uri = get_request_uri_as_string(request.head.request_line.uri);
 	const char* protocol_version =
-	    get_http_protocol_version_string(request.head.request_line.protocol_version);
+	    get_http_protocol_version_string(request.head.request_line.protocol_data.version);
 
 	string_builder_append_single(body, "<h1 id=\"title\">HttpRequest:</h1><br>");
 
@@ -242,9 +241,9 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 		STRING_BUILDER_APPENDF(body, return NULL;
 		                       , "<h3>Compression:</h3> %s",
 		                       get_string_for_compress_format(send_settings.compression_to_use));
-		STRING_BUILDER_APPENDF(body, return NULL;
-		                       , "<h3>HTTP Protocol:</h3> %s",
-		                       get_http_protocol_version_string(send_settings.protocol_to_use));
+		STRING_BUILDER_APPENDF(body, return NULL;, "<h3>HTTP Protocol:</h3> %s",
+		                                         get_http_protocol_version_string(
+		                                             send_settings.protocol_data.version));
 		string_builder_append_single(body, "</div>");
 	}
 	string_builder_append_single(body, "</div>");

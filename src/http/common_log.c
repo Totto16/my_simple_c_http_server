@@ -56,7 +56,7 @@ void log_collector_collect(LogCollector* collector, IPAddress address, HttpReque
 		    (HttpRequestLine){
 		        .method = http_request.head.request_line.method,
 		        .uri = duplicate_request_uri(http_request.head.request_line.uri),
-		        .protocol_version = http_request.head.request_line.protocol_version,
+		        .protocol_data = http_request.head.request_line.protocol_data,
 		    },
 
 		.result = response.status,
@@ -110,7 +110,8 @@ NODISCARD static bool log_entry_to_string(StringBuilder* const builder, const Lo
 
 		char* uri_str = get_request_uri_as_string(entry.request.uri);
 
-		const char* protocol_str = get_http_protocol_version_string(entry.request.protocol_version);
+		const char* protocol_str =
+		    get_http_protocol_version_string(entry.request.protocol_data.version);
 
 		if(method_str == NULL || uri_str == NULL || protocol_str == NULL) {
 			free(uri_str);
