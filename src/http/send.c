@@ -46,7 +46,7 @@ static bool construct_http1_headers_for_request(
 	}
 
 	{
-		if(send_settings.protocol_to_use != HTTPProtocolVersion2) {
+		if(send_settings.protocol_data.version != HTTPProtocolVersion2) {
 			// CONTENT LENGTH
 
 			char* content_length_buffer = NULL;
@@ -63,7 +63,7 @@ static bool construct_http1_headers_for_request(
 
 		// TODO(Totto): once we support http1.1 keepalive, remove this
 
-		if(send_settings.protocol_to_use != HTTPProtocolVersion2 &&
+		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
 		   status != HttpStatusSwitchingProtocols) {
 
 			add_http_header_field_const_key_const_value(result_header_fields,
@@ -139,6 +139,7 @@ static bool construct_http2_headers_for_request(
 typedef struct {
 	SizedBuffer hpack_encoded_headers;
 	SizedBuffer body;
+	Http2Identifier stream_identifier;
 } Http2Response;
 
 NODISCARD static int send_http2_response_to_connection(const ConnectionDescriptor* const descriptor,
@@ -148,9 +149,7 @@ NODISCARD static int send_http2_response_to_connection(const ConnectionDescripto
 
 	bool headers_are_end_stream = response->body.data == NULL;
 
-	Http2Identifier new_stream_identifier = get_new_http2_identifier(context);
-
-	int result = http2_send_headers(descriptor, new_stream_identifier, context->settings,
+	int result = http2_send_headers(descriptor, response->stream_identifier, context->settings,
 	                                response->hpack_encoded_headers, headers_are_end_stream);
 
 	if(result < 0) {
@@ -158,8 +157,8 @@ NODISCARD static int send_http2_response_to_connection(const ConnectionDescripto
 	}
 
 	if(response->body.data != NULL) {
-		result =
-		    http2_send_data(descriptor, new_stream_identifier, context->settings, response->body);
+		result = http2_send_data(descriptor, response->stream_identifier, context->settings,
+		                         response->body);
 		if(result < 0) {
 			return result;
 		}
@@ -194,7 +193,7 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 		} 
 	}, .body = (SizedBuffer){ .data = NULL, .size = 0 } };
 
-	HTTPProtocolVersion version_to_use = send_settings.protocol_to_use;
+	HTTPProtocolVersion version_to_use = send_settings.protocol_data.version;
 
 	const char* protocol_version = get_http_protocol_version_string(version_to_use);
 
@@ -243,7 +242,7 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 
 	if(!construct_http1_headers_for_request(send_settings, &(response->head.header_fields),
 	                                        to_send.mime_type, to_send.additional_headers,
-	                                        format_used, response->body,to_send.status)) {
+	                                        format_used, response->body, to_send.status)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
 	}
@@ -270,8 +269,11 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 		return NULL;
 	}
 
-	*response = (Http2Response){ .hpack_encoded_headers = (SizedBuffer){ .data = NULL, .size = 0 },
-		                         .body = (SizedBuffer){ .data = NULL, .size = 0 } };
+	*response = (Http2Response){
+		.hpack_encoded_headers = (SizedBuffer){ .data = NULL, .size = 0 },
+		.body = (SizedBuffer){ .data = NULL, .size = 0 },
+		.stream_identifier = send_settings.protocol_data.value.v2.stream_identifier,
+	};
 
 	CompressionType format_used = send_settings.compression_to_use;
 
@@ -430,7 +432,7 @@ NODISCARD static inline int send_message_to_connection(HTTPGeneralContext* const
                                                        HTTPResponseToSend to_send,
                                                        SendSettings send_settings) {
 
-	if(send_settings.protocol_to_use == HTTPProtocolVersion2) {
+	if(send_settings.protocol_data.version == HTTPProtocolVersion2) {
 		HTTP2Context* const context = http_general_context_get_http2_context(general_context);
 		if(context == NULL) {
 			return -143;

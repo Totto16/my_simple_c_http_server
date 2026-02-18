@@ -32,11 +32,6 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } Http2FrameType;
 
 typedef struct {
-	bool _reserved : 1;
-	uint32_t identifier : 31; // only 31 bits!
-} Http2Identifier;
-
-typedef struct {
 	SizedBuffer content;
 	bool is_end;
 	Http2Identifier identifier;
@@ -169,10 +164,6 @@ typedef struct {
 	} value;
 } Http2Frame;
 
-TVEC_DEFINE_VEC_TYPE(Http2Frame)
-
-typedef TVEC_TYPENAME(Http2Frame) Http2Frames;
-
 typedef struct {
 	uint32_t header_table_size;
 	bool enable_push;
@@ -250,7 +241,6 @@ typedef struct {
 typedef struct {
 	Http2Settings settings;
 	Http2StreamMap streams;
-	Http2Frames frames;
 	Http2ContextState state;
 } HTTP2Context;
 
@@ -281,9 +271,11 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* context,
                                                           BufferedReader* reader);
 
 NODISCARD int http2_send_connection_error(const ConnectionDescriptor* descriptor,
-                                          Http2ErrorCode error_code, const char* error);
+                                          const HTTP2Context* context, Http2ErrorCode error_code,
+                                          const char* error);
 
 NODISCARD int http2_send_connection_error_with_data(const ConnectionDescriptor* descriptor,
+                                                    const HTTP2Context* context,
                                                     Http2ErrorCode error_code,
                                                     SizedBuffer debug_data);
 
@@ -298,5 +290,3 @@ NODISCARD int http2_send_headers(const ConnectionDescriptor* descriptor, Http2Id
 
 NODISCARD int http2_send_data(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
                               Http2Settings settings, SizedBuffer buffer);
-
-NODISCARD Http2Identifier get_new_http2_identifier(HTTP2Context* context);

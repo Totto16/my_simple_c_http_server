@@ -102,9 +102,28 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 #define DEFAULT_RESPONSE_PROTOCOL_VERSION HTTPProtocolVersion1Dot1
 
 typedef struct {
+	bool _reserved : 1;
+	uint32_t identifier : 31; // only 31 bits!
+} Http2Identifier;
+
+typedef struct {
+	Http2Identifier stream_identifier;
+} HttpProtocolDataV2;
+
+typedef struct {
+	HTTPProtocolVersion version;
+	union {
+		HttpProtocolDataV2 v2;
+	} value;
+} HttpProtocolData;
+
+#define DEFAULT_RESPONSE_PROTOCOL_DATA \
+	((HttpProtocolData){ .version = HTTPProtocolVersion1Dot1, .value = {} })
+
+typedef struct {
 	HTTPRequestMethod method;
 	ParsedRequestURI uri;
-	HTTPProtocolVersion protocol_version;
+	HttpProtocolData protocol_data;
 } HttpRequestLine;
 
 NODISCARD const char* get_http_method_string(HTTPRequestMethod method);
@@ -207,7 +226,7 @@ typedef struct {
 
 typedef struct {
 	CompressionSettings compression_settings;
-	HTTPProtocolVersion protocol_used;
+	HttpProtocolData protocol_data;
 	HttpRequestProperties http_properties;
 } RequestSettings;
 
@@ -242,7 +261,7 @@ NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char
 
 typedef struct {
 	CompressionType compression_to_use;
-	HTTPProtocolVersion protocol_to_use;
+	HttpProtocolData protocol_data;
 } SendSettings;
 
 NODISCARD SendSettings get_send_settings(RequestSettings request_settings);

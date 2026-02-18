@@ -153,7 +153,10 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeUnsupportedMethod };
 	}
 
-	result.protocol_version = get_protocol_version_from_string(protocol_version, &success);
+	result.protocol_data = (HttpProtocolData){
+		.version = get_protocol_version_from_string(protocol_version, &success),
+		.value = {},
+	};
 
 	if(!success) {
 		free_parsed_request_uri(result.uri);
@@ -488,7 +491,7 @@ NODISCARD RequestSettings get_request_settings(const HttpRequest http_request) {
 		    (CompressionSettings){
 		        .entries = TVEC_EMPTY(CompressionEntry),
 		    },
-		.protocol_used = http_request.head.request_line.protocol_version,
+		.protocol_data = http_request.head.request_line.protocol_data,
 		.http_properties = { .type = HTTPPropertyTypeInvalid },
 	};
 
@@ -629,7 +632,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 	// only allow HTTPRequestLengthTypeClose on http/1.0
 	if(analyze_result.length.type == HTTPRequestLengthTypeClose &&
-	   http_request.head.request_line.protocol_version != HTTPProtocolVersion1Dot0) {
+	   http_request.head.request_line.protocol_data.version != HTTPProtocolVersion1Dot0) {
 		analyze_result.length.type = HTTPRequestLengthTypeNoBody;
 	}
 
@@ -908,7 +911,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 		switch(reader->protocol) {
 			case ProtocolSelectedHttp1Dot1: {
 
-				if(request_line.protocol_version == HTTPProtocolVersion2) {
+				if(request_line.protocol_data.version == HTTPProtocolVersion2) {
 					return (HttpRequestResult){
 						.is_error = true,
 						.value = { .error =
@@ -968,7 +971,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 		// check if the method makes sense
 
-		if(request_line.protocol_version == HTTPProtocolVersion2) {
+		if(request_line.protocol_data.version == HTTPProtocolVersion2) {
 			// the first request was already a http2 request
 
 			const Http2PrefaceStatus http2_preface_status =
