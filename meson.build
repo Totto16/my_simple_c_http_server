@@ -249,6 +249,13 @@ internal_c_args += cc.get_supported_arguments(
 
 if cc.get_id() == 'gcc'
     internal_c_args += cc.get_supported_arguments('-Wno-format-nonliteral')
+
+    if get_option('buildtype') == 'release'
+        # wait for the fix of https://gcc.gnu.org/bugzilla/show_bug.cgi?id=124151
+        #to land in the gcc the Ci uses, after that disable that
+        internal_c_args += cc.get_supported_arguments('-fno-tree-sra')
+    endif
+
 endif
 
 src_files = []
