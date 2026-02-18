@@ -1074,6 +1074,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		return EXIT_FAILURE;
 	}
 
+	global_setup_port_data(port);
+
 	*addr = (struct sockaddr_in){ 0 };
 
 	addr->sin_family = AF_INET;

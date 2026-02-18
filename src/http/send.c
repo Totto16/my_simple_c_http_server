@@ -29,6 +29,20 @@ send_concatted_http1_response_to_connection(const ConnectionDescriptor* const de
 	return result;
 }
 
+// may size of uint61_t is 65535 alias 5 chars, + h2="" => 5 + 1 for 0 byte
+#define SIZE_OF_GLOBAL_ALT_SVC_DATA ((5 + 1) + 5)
+
+// support h2 alt-sv, populate it once, use it after that
+char g_alt_svc_constant_data[SIZE_OF_GLOBAL_ALT_SVC_DATA] = { 'h', '2', '=', '"', 0,   0,
+	                                                          0,   0,   0,   '"', '\0' };
+
+void global_setup_port_data(uint16_t port) {
+	size_t result =
+	    snprintf(g_alt_svc_constant_data, SIZE_OF_GLOBAL_ALT_SVC_DATA, "h2=\"%u\"", port);
+
+	assert(result <= SIZE_OF_GLOBAL_ALT_SVC_DATA);
+}
+
 static bool construct_http1_headers_for_request(
     SendSettings send_settings, HttpHeaderFields* const result_header_fields,
     const char* const mime_type, HttpHeaderFields additional_headers,
@@ -79,6 +93,18 @@ static bool construct_http1_headers_for_request(
 
 		add_http_header_field_const_key_const_value(result_header_fields, HTTP_HEADER_NAME(server),
 		                                            server_value);
+	}
+
+	{
+		// Alt-Svc
+		// see: https://datatracker.ietf.org/doc/html/rfc7838
+
+		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
+		   status != HttpStatusSwitchingProtocols) {
+
+			add_http_header_field_const_key_const_value(
+			    result_header_fields, HTTP_HEADER_NAME(alt_svc), g_alt_svc_constant_data);
+		}
 	}
 
 	{
