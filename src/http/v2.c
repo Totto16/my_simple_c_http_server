@@ -1780,9 +1780,14 @@ typedef struct {
 } Http2ProcessFrameFinishedRequest;
 
 typedef struct {
+	bool is_connection_error;
+	const char* message;
+} Http2ProcessFrameError;
+
+typedef struct {
 	Http2ProcessFrameResultType type;
 	union {
-		const char* error;
+		Http2ProcessFrameError error;
 		Http2ProcessFrameFinishedRequest request;
 	} value;
 } Http2ProcessFrameResult;
@@ -1971,6 +1976,17 @@ static void http2_close_stream(Http2Stream* const stream) {
 	// TODO: when to remove this stream from the map?
 }
 
+static void http2_close_stream_by_identifier(HTTP2Context* const context,
+                                             const Http2Identifier identifier) {
+	Http2Stream* stream = get_http2_stream(context, identifier);
+
+	if(stream == NULL) {
+		return;
+	}
+
+	http2_close_stream(stream);
+}
+
 NODISCARD static Http2ProcessFrameResult
 process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Context* const context,
                                Http2Frame* frame, ConnectionDescriptor* const descriptor) {
@@ -1990,9 +2006,14 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				                                stream_identifier);
 				UNUSED(_);
 
+				http2_close_stream_by_identifier(context, stream_identifier);
+
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = {
+						.is_connection_error = false,
+						.message = error,
+					} },
 				};
 			}
 
@@ -2006,7 +2027,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = true, .message = error } },
 				};
 			}
 
@@ -2020,7 +2041,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = false, .message = error } },
 				};
 			}
 
@@ -2035,7 +2056,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = false, .message = error } },
 				};
 			}
 
@@ -2043,10 +2064,13 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			// doesn't clear the buffer!
 			if(!http2_stream_add_content_block(stream, &(data_frame->content),
 			                                   data_frame->is_end)) {
-				return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-					                              .value = {
-					                                  .error = "stream content block add error",
-					                              } };
+				return (
+				    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+					                          .value = {
+					                              .error = { .is_connection_error = true,
+					                                         .message =
+					                                             "stream content block add error" },
+					                          } };
 			}
 
 			if(stream->end_stream) {
@@ -2070,13 +2094,15 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 			if(stream_state == Http2StreamStateClosed) {
 				const char* error = "Headers frame send on a stream in an invalid state";
-				int _ = http2_send_connection_error(descriptor, context,
-				                                    Http2ErrorCodeProtocolError, error);
+				int _ = http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
+				                                headers_frame->identifier);
 				UNUSED(_);
+
+				http2_close_stream_by_identifier(context, stream_identifier);
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = false, .message = error } },
 				};
 			}
 
@@ -2084,13 +2110,15 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			if(stream_state != Http2StreamStateIdle) {
 				const char* error = "Headers frame send on a stream in an invalid state (trailers "
 				                    "not supported yet)";
-				int _ = http2_send_connection_error(descriptor, context,
-				                                    Http2ErrorCodeProtocolError, error);
+				int _ = http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
+				                                headers_frame->identifier);
 				UNUSED(_);
+
+				http2_close_stream_by_identifier(context, stream_identifier);
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = false, .message = error } },
 				};
 			}
 
@@ -2111,10 +2139,12 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				}
 
 				if(!add_new_http2_stream(context, stream_identifier, new_stream)) {
-					return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-						                              .value = {
-						                                  .error = "stream insert error",
-						                              } };
+					return (
+					    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+						                          .value = {
+						                              .error = { .is_connection_error = true,
+						                                         .message = "stream insert error" },
+						                          } };
 				}
 
 				stream = get_http2_stream(context, stream_identifier);
@@ -2127,7 +2157,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 					return (Http2ProcessFrameResult){
 						.type = Http2ProcessFrameResultTypeError,
-						.value = { .error = error },
+						.value = { .error = { .is_connection_error = true, .message = error } },
 					};
 				}
 			} else {
@@ -2151,7 +2181,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 					return (Http2ProcessFrameResult){
 						.type = Http2ProcessFrameResultTypeError,
-						.value = { .error = error },
+						.value = { .error = { .is_connection_error = false, .message = error } },
 					};
 				}
 			}
@@ -2160,10 +2190,13 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			// doesn't clear the buffer!
 			if(!http2_stream_add_header_block(stream, &(headers_frame->block_fragment),
 			                                  headers_frame->end_headers)) {
-				return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-					                              .value = {
-					                                  .error = "stream header block add error",
-					                              } };
+				return (
+				    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+					                          .value = {
+					                              .error = { .is_connection_error = true,
+					                                         .message =
+					                                             "stream header block add error" },
+					                          } };
 			}
 
 			// NOTE: headers frames can end a stream, if this header frame has set the
@@ -2201,10 +2234,12 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				};
 
 				if(!add_new_http2_stream(context, stream_identifier, new_stream)) {
-					return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-						                              .value = {
-						                                  .error = "stream insert error",
-						                              } };
+					return (
+					    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+						                          .value = {
+						                              .error = { .is_connection_error = true,
+						                                         .message = "stream insert error" },
+						                          } };
 				}
 			} else {
 				stream->priority = priority_frame.priority;
@@ -2222,13 +2257,15 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 			if(stream_state == Http2StreamStateIdle) {
 				const char* error = "Rst Stream frame send on a stream in an invalid state";
-				int _ = http2_send_connection_error(descriptor, context,
-				                                    Http2ErrorCodeProtocolError, error);
+				int _ = http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
+				                                stream_identifier);
 				UNUSED(_);
+
+				http2_close_stream_by_identifier(context, stream_identifier);
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = false, .message = error } },
 				};
 			}
 
@@ -2242,7 +2279,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = true, .message = error } },
 				};
 			}
 
@@ -2259,13 +2296,15 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 			if(stream_state != Http2StreamStateOpen && stream_state != Http2StreamStateHalfClosed) {
 				const char* error = "Push promise frame send on a stream in an invalid state";
-				int _ = http2_send_connection_error(descriptor, context,
-				                                    Http2ErrorCodeProtocolError, error);
+				int _ = http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
+				                                stream_identifier);
 				UNUSED(_);
+
+				http2_close_stream_by_identifier(context, stream_identifier);
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = false, .message = error } },
 				};
 			}
 
@@ -2284,7 +2323,9 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 				                                  push_promise_frame->end_headers)) {
 					return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
 						                              .value = {
-						                                  .error = "stream header block add error",
+						                                  .error = { .is_connection_error = true,
+						                                             .message = "stream header "
+						                                                        "block add error" },
 						                              } };
 				}
 			}
@@ -2293,7 +2334,8 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			                         new_stream)) {
 				return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
 					                              .value = {
-					                                  .error = "stream insert error",
+					                                  .error = { .is_connection_error = true,
+					                                             .message = "stream insert error" },
 					                              } };
 			}
 
@@ -2313,13 +2355,15 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 			if(stream_state != Http2StreamStateOpen && stream_state != Http2StreamStateReserved) {
 				const char* error = "Continuation frame send on a stream in an invalid state";
-				int _ = http2_send_connection_error(descriptor, context,
-				                                    Http2ErrorCodeProtocolError, error);
+				int _ = http2_send_stream_error(descriptor, Http2ErrorCodeProtocolError,
+				                                stream_identifier);
 				UNUSED(_);
+
+				http2_close_stream_by_identifier(context, stream_identifier);
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = false, .message = error } },
 				};
 			}
 
@@ -2333,7 +2377,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = true, .message = error } },
 				};
 			}
 
@@ -2348,7 +2392,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = false, .message = error } },
 				};
 			}
 
@@ -2362,17 +2406,20 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 				return (Http2ProcessFrameResult){
 					.type = Http2ProcessFrameResultTypeError,
-					.value = { .error = error },
+					.value = { .error = { .is_connection_error = false, .message = error } },
 				};
 			}
 			// this pushes the block, sets it in the frame to NULL, so that the frame freeing
 			// doesn't clear the buffer!
 			if(!http2_stream_add_header_block(stream, &continuation_frame->block_fragment,
 			                                  continuation_frame->end_headers)) {
-				return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-					                              .value = {
-					                                  .error = "stream header block add error",
-					                              } };
+				return (
+				    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+					                          .value = {
+					                              .error = { .is_connection_error = true,
+					                                         .message =
+					                                             "stream header block add error" ,},
+					                          } };
 			}
 
 			// NOTE: continuation frames can end a stream, if the starting header frame has set
@@ -2397,16 +2444,19 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 		case Http2FrameTypeSettings:
 		case Http2FrameTypePing:
 		case Http2FrameTypeGoaway: {
-			return (
-			    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                          .value = {
-				                              .error = "invalid frame type to process for a stream",
-				                          } };
+			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                              .value = {
+				                                  .error = { .is_connection_error = true,
+				                                             .message = "invalid frame type to "
+				                                                        "process for a stream" },
+				                              } };
 		}
 		default: {
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
 				                              .value = {
-				                                  .error = "unkown frame type to process",
+				                                  .error = { .is_connection_error = true,
+				                                             .message =
+				                                                 "unkown frame type to process" },
 				                              } };
 		}
 	}
@@ -2481,16 +2531,20 @@ process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame
 		case Http2FrameTypeRstStream:
 		case Http2FrameTypePushPromise:
 		case Http2FrameTypeContinuation: {
-			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
-				                              .value = {
-				                                  .error = "invalid frame type to process for "
-				                                           "a connection",
-				                              } };
+			return (
+			    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
+				                          .value = {
+				                              .error = { .is_connection_error = true,
+				                                         .message =
+				                                             "invalid frame type to process for "
+				                                             "a connection" },
+				                          } };
 		}
 		default: {
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
 				                              .value = {
-				                                  .error = "unkown frame type to process",
+				                                  .error = { .is_connection_error = true,
+				                                             "unkown frame type to process" },
 				                              } };
 		}
 	}
@@ -2872,12 +2926,18 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 
 		switch(process_result.type) {
 			case Http2ProcessFrameResultTypeError: {
+				const Http2ProcessFrameError error = process_result.value.error;
+				if(!error.is_connection_error) {
+					// if it isn't a connection error, we can continue, it just was a stream error
+					break;
+				}
+
 				return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){
 				                                    .is_advanced = true,
-				                                    .value = { .advanced = process_result.value.error ,}
+				                                    .value = { .advanced =  error.message,}
 
 				                                },
 				                        } };
@@ -3029,8 +3089,8 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 
 	if(process_result.type != Http2ProcessFrameResultTypeOk) {
 		const char* error =
-		    process_result.type == Http2ProcessFrameResultTypeError
-		        ? process_result.value.error
+		    (process_result.type == Http2ProcessFrameResultTypeError)
+		        ? process_result.value.error.message
 		        : "error: implementation error (settings frame can't result in a request)";
 		return (Http2StartResult){ .is_error = true, .value = { .error = error } };
 	}
@@ -3082,7 +3142,7 @@ NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context*
 	if(process_result.type != Http2ProcessFrameResultTypeOk) {
 		const char* error =
 		    process_result.type == Http2ProcessFrameResultTypeError
-		        ? process_result.value.error
+		        ? process_result.value.error.message
 		        : "error: implementation error (settings frame can't result in a request)";
 		return (Http2StartResult){ .is_error = true, .value = { .error = error } };
 	}
