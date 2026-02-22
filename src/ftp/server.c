@@ -159,7 +159,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 
 	while(!quit) {
 
-		char* raw_ftp_commands = read_string_from_connection(descriptor);
+		char* raw_ftp_commands = read_string_from_connection_deprecated(descriptor);
 
 		if(!raw_ftp_commands) {
 			int result = send_ftp_message_to_connection_single(
@@ -785,7 +785,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    data_connection_get_descriptor_to_send_to(argument->data_controller,
 				                                              data_connection);
 
-				char* resulting_data = read_string_from_connection(data_conn_descriptor);
+				char* resulting_data = read_string_from_connection_deprecated(data_conn_descriptor);
 
 				if(!resulting_data) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
