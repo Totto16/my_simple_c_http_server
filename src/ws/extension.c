@@ -422,7 +422,7 @@ static char* array_process_send_fn(WebSocketMessage* message,
 	return NULL;
 }
 
-#define WS_DECOMPRESS_TAILER_LENGTH 4
+#define WS_DECOMPRESS_TAIL_LENGTH 4
 
 static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* options) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7692#section-6.2
@@ -436,19 +436,19 @@ static char* decompress_ws_message(WebSocketMessage* message, WsDeflateOptions* 
 	// steps from: https://datatracker.ietf.org/doc/html/rfc7692#section-7.2.2
 
 	// 1. Append 4 octets of 0x00 0x00 0xff 0xff to the tail end of the payload of the message.
-	const uint8_t ws_trailer_data[WS_DECOMPRESS_TAILER_LENGTH] = { 0x00, 0x00, 0xff, 0xff };
+	const uint8_t ws_trailer_data[WS_DECOMPRESS_TAIL_LENGTH] = { 0x00, 0x00, 0xff, 0xff };
 	uint8_t* new_buf =
-	    (uint8_t*)realloc(input_buffer.data, input_buffer.size + WS_DECOMPRESS_TAILER_LENGTH);
+	    (uint8_t*)realloc(input_buffer.data, input_buffer.size + WS_DECOMPRESS_TAIL_LENGTH);
 	if(!new_buf) {
 		return strdup("allocation error");
 	}
 
-	for(size_t i = 0; i < WS_DECOMPRESS_TAILER_LENGTH; ++i) {
+	for(size_t i = 0; i < WS_DECOMPRESS_TAIL_LENGTH; ++i) {
 		new_buf[input_buffer.size + i] = ws_trailer_data[i];
 	}
 
 	input_buffer.data = new_buf;
-	input_buffer.size = input_buffer.size + WS_DECOMPRESS_TAILER_LENGTH;
+	input_buffer.size = input_buffer.size + WS_DECOMPRESS_TAIL_LENGTH;
 
 	message->buffer = input_buffer;
 
