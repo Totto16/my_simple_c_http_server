@@ -4,23 +4,24 @@
 
 #include "utils/utils.h"
 #include <tmap.h>
+#include <tstr.h>
 
 typedef struct {
-	char* /* NULLABLE */ username;
-	char* /* NULLABLE */ password;
+	tstr /* NULLABLE */ username;
+	tstr /* NULLABLE */ password;
 } URIUserInfo;
 
 typedef struct {
 	URIUserInfo /* NULLABLE */ user_info;
-	char* host;
+	tstr host;
 	uint16_t /* NULLABLE */ port;
 } ParsedAuthority;
 
 typedef struct {
-	char* value;
+	tstr value;
 } ParsedSearchPathValue;
 
-TMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
+TMAP_DEFINE_MAP_TYPE(tstr, TSTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
 
 typedef TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap) ParsedSearchPathEntry;
 
@@ -30,14 +31,14 @@ typedef struct {
 
 // RFC: https://datatracker.ietf.org/doc/html/rfc1738
 typedef struct {
-	char* path;
+	tstr path;
 	ParsedSearchPath /* NULLABLE */ search_path;
-	char* /* NULLABLE */ fragment;
+	tstr /* NULLABLE */ fragment;
 } ParsedURLPath;
 
 //  URI spec: https://datatracker.ietf.org/doc/html/rfc3986
 typedef struct {
-	char* scheme;
+	tstr scheme;
 	ParsedAuthority authority;
 	ParsedURLPath path;
 } ParsedURI;
@@ -71,9 +72,9 @@ typedef struct {
 	} value;
 } ParsedRequestURIResult;
 
-NODISCARD ParsedURLPath parse_url_path(char* path);
+NODISCARD ParsedURLPath parse_url_path(tstr_view path);
 
-NODISCARD char* parse_authority(char* str, OUT_PARAM(ParsedAuthority) out_result);
+NODISCARD tstr_view parse_authority(tstr_view str, OUT_PARAM(ParsedAuthority) out_result);
 
 /**
  * @brief Get the parsed url path from raw object, it modifies the string inline and creates
@@ -82,7 +83,7 @@ NODISCARD char* parse_authority(char* str, OUT_PARAM(ParsedAuthority) out_result
  * @param path
  * @return ParsedRequestURIResult
  */
-NODISCARD ParsedRequestURIResult parse_request_uri(char* path);
+NODISCARD ParsedRequestURIResult parse_request_uri(tstr_view path);
 
 void free_parsed_request_uri(ParsedRequestURI uri);
 

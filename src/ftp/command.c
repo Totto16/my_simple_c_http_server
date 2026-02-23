@@ -124,9 +124,7 @@ static FTPPortInformation* parse_ftp_command_port_info(const tstr_view arg) {
 	}
 
 	// after MAX_PORT_ARG splits we should be at the end
-	tstr_view after_end_value;
-	bool split_succeeded = tstr_split_next(&iter, &after_end_value);
-	if(split_succeeded) {
+	if(!iter.finished) {
 		free(info);
 		return NULL;
 	}
@@ -244,16 +242,15 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 		return command;
 	}
 
-	tstr_view command_str;
+	tstr_split_result split_result = tstr_split(data_str, " ");
 
-	tstr_view argument_str;
-
-	bool has_delim = tstr_split_once(data_str, " ", &command_str, &argument_str);
-
-	if(!has_delim) {
+	if(!split_result.ok) {
 		free(command);
 		return NULL;
 	}
+
+	const tstr_view command_str = split_result.first;
+	const tstr_view argument_str = split_result.second;
 
 	if(tstr_view_eq_ignore_case(command_str, "USER")) {
 		command->type = FtpCommandUser;

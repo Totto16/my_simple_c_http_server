@@ -798,16 +798,16 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view v
 			                          .data = { .error = "empty header value" } };
 	}
 
-	tstr_view auth_scheme;
-	tstr_view auth_param;
-
 	// Syntax:  Authorization: <auth-scheme> <authorization-parameters>))
-	const bool success = tstr_split_once(value, " ", &auth_scheme, &auth_param);
+	const tstr_split_result split_res = tstr_split(value, " ");
 
-	if(!success) {
+	if(!split_res.ok) {
 		return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
 			                          .data = { .error = "no auth-params specified" } };
 	}
+
+	const tstr_view auth_scheme = split_res.first;
+	const tstr_view auth_param = split_res.second;
 
 	// TODO(Totto): support more auth-schemes
 
@@ -831,16 +831,12 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view v
 		// TODO(Totto): support utf8 here, for the user and the username, but tha needs to be
 		// propagated into many places, so not doing it now
 
-		const tstr_view decoded_data = (tstr_view){ .data = decoded.data, .len = decoded.size };
+		const tstr_view decoded_data = tstr_view_from_buffer(decoded);
 
-		tstr_view username;
-		tstr_view password;
-		bool split_success = tstr_split_once(decoded_data, ":", &username, &password);
+		const tstr_split_result split_res2 = tstr_split(decoded_data, ":");
 
-		if(!split_success) {
-			username = decoded_data;
-			password = TSTR_EMPTY_VIEW;
-		}
+		const tstr_view username = split_res2.ok ? split_res2.first : decoded_data;
+		const tstr_view password = split_res2.ok ? split_res2.second : TSTR_EMPTY_VIEW;
 
 		HttpAuthHeaderBasic basic = { .username = tstr_from_view(username),
 			                          .password = tstr_from_view(password) };

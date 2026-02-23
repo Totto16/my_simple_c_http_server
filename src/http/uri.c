@@ -3,10 +3,10 @@
 
 #include "utils/string_builder.h"
 
-TMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
+TMAP_IMPLEMENT_MAP_TYPE(tstr, TSTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
 
-NODISCARD ParsedURLPath parse_url_path(char* const path) {
-	// precodnition:  path is not NULL and len is > 1
+NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
+	// precondition:  path is not NULL and len is > 1
 
 	char* search_path = strchr(path, '?');
 
@@ -303,7 +303,7 @@ NODISCARD static ParsedRequestURIResult parse_uri_or_authority(char* const path)
 	return (ParsedRequestURIResult){ .is_error = false, .value = { .uri = result } };
 }
 
-NODISCARD ParsedRequestURIResult parse_request_uri(char* const path) {
+NODISCARD ParsedRequestURIResult parse_request_uri(const tstr_view path) {
 
 	ParsedRequestURI result = {};
 

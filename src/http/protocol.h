@@ -260,7 +260,7 @@ void free_http_request(HttpRequest request);
 
 void free_http_request_result(HTTPResultOk result);
 
-NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
+NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const tstr* key);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed

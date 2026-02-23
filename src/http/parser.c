@@ -8,35 +8,35 @@
 #include <ctype.h>
 #include <math.h>
 
-NODISCARD HTTPRequestMethod get_http_method_from_string(const char* const method,
+NODISCARD HTTPRequestMethod get_http_method_from_string(const tstr_view method,
                                                         OUT_PARAM(bool) success) {
 
-	if(strcmp(method, "GET") == 0) {
+	if(tstr_view_eq(method, "GET")) {
 		*success = true;
 		return HTTPRequestMethodGet;
 	}
 
-	if(strcmp(method, "POST") == 0) {
+	if(tstr_view_eq(method, "POST")) {
 		*success = true;
 		return HTTPRequestMethodPost;
 	}
 
-	if(strcmp(method, "HEAD") == 0) {
+	if(tstr_view_eq(method, "HEAD")) {
 		*success = true;
 		return HTTPRequestMethodHead;
 	}
 
-	if(strcmp(method, "OPTIONS") == 0) {
+	if(tstr_view_eq(method, "OPTIONS")) {
 		*success = true;
 		return HTTPRequestMethodOptions;
 	}
 
-	if(strcmp(method, "CONNECT") == 0) {
+	if(tstr_view_eq(method, "CONNECT")) {
 		*success = true;
 		return HTTPRequestMethodConnect;
 	}
 
-	if(strcmp(method, "PRI") == 0) {
+	if(tstr_view_eq(method, "PRI")) {
 		*success = true;
 		return HTTPRequestMethodPRI;
 	}
@@ -101,38 +101,39 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 	// operate on slices of bytes
 
 	// make this string parseable by the libc functions
-	SizedBuffer request_line = read_result.value.buffer;
+	const SizedBuffer request_line = read_result.value.buffer;
 
-	char* const start = (char*)request_line.data;
-	*(start + request_line.size) = '\0';
+	const tstr_view request_line_str = tstr_view_from_buffer(request_line);
 
-	char* method = NULL;
-	char* path = NULL;
-	char* protocol_version = NULL;
+	tstr_view method = TSTR_EMPTY_VIEW;
+	tstr_view path = TSTR_EMPTY_VIEW;
+	tstr_view protocol_version = TSTR_EMPTY_VIEW;
 
-	{ // parse the three filed in the line from start to line_end
+	{ // parse the three fields in the line from start to line_end
 
-		char* method_end = strchr(start, ' ');
+		tstr_split_iter line_iter = tstr_split_init(request_line_str, " ");
 
-		if(method_end == NULL) {
+		bool success = tstr_split_next(&line_iter, &method);
+
+		if(!success) {
 			return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 		}
 
-		*method_end = '\0';
+		success = tstr_split_next(&line_iter, &path);
 
-		method = start;
-
-		path = method_end + 1;
-
-		char* path_end = strchr(path, ' ');
-
-		if(path_end == NULL) {
+		if(!success) {
 			return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 		}
 
-		*path_end = '\0';
+		success = tstr_split_next(&line_iter, &protocol_version);
 
-		protocol_version = path_end + 1;
+		if(!success) {
+			return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
+		}
+
+		if(!line_iter.finished) {
+			return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
+		}
 	}
 
 	ParsedRequestURIResult uri_result = parse_request_uri(path);

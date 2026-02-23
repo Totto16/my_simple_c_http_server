@@ -3,6 +3,7 @@
 
 #include "utils/utils.h"
 #include <tmap.h>
+#include <tstr.h>
 
 #define HTTP_MIME_TYPE_NAME(name) g_mime_type_##name
 
@@ -36,7 +37,7 @@ HTTP_MIME_TYPE_MAKE(octet_stream, "application/octet-stream");
 // from: https://www.iana.org/assignments/media-types/media-types.xhtml
 // and nginx
 
-TMAP_DEFINE_MAP_TYPE(char*, CHAR_PTR_KEYNAME, char*, MimeTypeEntryHashMap)
+TMAP_DEFINE_MAP_TYPE(tstr, TSTR_KEYNAME, char*, MimeTypeEntryHashMap)
 
 typedef TMAP_TYPENAME_ENTRY(MimeTypeEntryHashMap) MimeTypeEntry;
 

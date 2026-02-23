@@ -61,3 +61,7 @@ NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer) {
 
 	return (SizedBuffer){ .data = new_data, .size = buffer.size };
 }
+
+NODISCARD tstr_view tstr_view_from_buffer(const SizedBuffer buffer) {
+	return (tstr_view){ .data = buffer.data, .len = buffer.size };
+}

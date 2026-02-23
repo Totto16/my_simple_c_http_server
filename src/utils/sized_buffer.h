@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <tstr.h>
 
 #include "./utils.h"
 
@@ -37,6 +38,7 @@ NODISCARD int sized_buffer_cmp_with_data(SizedBuffer buf1, const void* data, siz
 
 NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer);
 
+NODISCARD tstr_view tstr_view_from_buffer(SizedBuffer buffer);
 #ifdef __cplusplus
 }
 #endif
