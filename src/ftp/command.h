@@ -72,7 +72,7 @@ typedef struct {
 typedef struct {
 	FtpCommandEnum type;
 	union {
-		char* string;
+		tstr string;
 		FTPCommandTypeInformation* type_info;
 		FTPPortInformation* port_info;
 	} data;
@@ -85,4 +85,4 @@ void free_ftp_command(FTPCommand* cmd);
 
 NODISCARD const char* get_command_name(const FTPCommand* command);
 
-NODISCARD FTPCommandTypeInformation* parse_ftp_command_type_info(const tstr* arg);
+NODISCARD FTPCommandTypeInformation* parse_ftp_command_type_info(tstr_view arg);
