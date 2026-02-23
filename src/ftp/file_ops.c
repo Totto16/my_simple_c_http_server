@@ -999,7 +999,7 @@ void free_send_data(SendData* data) {
 	free(data);
 }
 
-NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
+NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* const file) {
 
 	DirChangeResult dir_result = DirChangeResultOk;
 	char* new_dir = internal_resolve_path_in_cwd(state, file, &dir_result);

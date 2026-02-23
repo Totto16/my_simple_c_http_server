@@ -5,6 +5,8 @@
 #include "./hash.h"
 #include "utils/utils.h"
 
+#include <tstr.h>
+
 typedef struct AuthenticationProvidersImpl AuthenticationProviders;
 
 typedef struct AuthenticationProviderImpl AuthenticationProvider;
@@ -82,4 +84,4 @@ typedef struct {
 } AuthenticationFindResult;
 
 NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
-    const AuthenticationProviders* auth_providers, char* username, char* password);
+    const AuthenticationProviders* auth_providers, const tstr* username, const tstr* password);

@@ -261,15 +261,19 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 	switch(command->type) {
 		case FtpCommandUser: {
 
+			const tstr anon_username = tstr_from(ANON_USERNAME);
+			// otherwise we should use a tstr_eq_ignore_case which uses a cstr
+			assert(!anon_username.is_long);
+
 			// see https://datatracker.ietf.org/doc/html/rfc1635
-			if(strcasecmp(ANON_USERNAME, command->data.string) == 0) {
+			if(tstr_eq_ignore_case(&(command->data.string), &anon_username)) {
 				free_account_data(state->account);
 
 				state->account->state = AccountStateOk;
 
-				char* malloced_username = strdup(command->data.string);
+				const tstr malloced_username = tstr_dup(&(command->data.string));
 
-				if(!malloced_username) {
+				if(tstr_cstr(&malloced_username) == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 					return true;
@@ -289,9 +293,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			state->account->state = AccountStateOnlyUser;
 
-			char* malloced_username = strdup(command->data.string);
+			const tstr malloced_username = tstr_dup(&(command->data.string));
 
-			if(!malloced_username) {
+			if(tstr_cstr(&malloced_username) == NULL) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 				return true;
@@ -306,8 +310,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 		case FtpCommandPass: {
 
+			const tstr anon_username = tstr_from(ANON_USERNAME);
+			// otherwise we should use a tstr_eq_ignore_case which uses a cstr
+			assert(!anon_username.is_long);
+
 			if(state->account->state == AccountStateOk &&
-			   strcasecmp(ANON_USERNAME, state->account->data.ok_data.username) == 0) {
+			   tstr_eq_ignore_case(&(state->account->data.ok_data.username), &anon_username)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn,
 				                               "Already logged in as anon!");
 
@@ -325,11 +333,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* username = state->account->data.temp_data.username;
+			const tstr username = state->account->data.temp_data.username;
 
-			char* passwd = command->data.string;
+			const tstr passwd = command->data.string;
 
-			UserValidity user_validity = account_verify(argument->auth_providers, username, passwd);
+			UserValidity user_validity =
+			    account_verify(argument->auth_providers, &username, &passwd);
 
 			switch(user_validity) {
 				case UserValidityOk: {
@@ -338,9 +347,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					state->account->state = AccountStateOk;
 
-					char* malloced_username = strdup(username);
+					const tstr malloced_username = tstr_dup(&username);
 
-					if(!malloced_username) {
+					if(tstr_cstr(&malloced_username) == NULL) {
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 						return true;
@@ -423,9 +432,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* cwd_argument = command->data.string;
+			const tstr cwd_argument = command->data.string;
 
-			DirChangeResult result = change_dirname_to(state, cwd_argument);
+			DirChangeResult result = change_dirname_to(state, tstr_cstr(&cwd_argument));
 
 			switch(result) {
 				case DirChangeResultOk: {
@@ -646,11 +655,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* arg = command->data.string;
+			const tstr arg = command->data.string;
 
 			// NOTE: we allow overwrites, as the ftp spec says
 
-			char* final_file_path = resolve_path_in_cwd(state, arg);
+			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -841,9 +850,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* arg = command->data.string;
+			const tstr arg = command->data.string;
 
-			char* final_file_path = resolve_path_in_cwd(state, arg);
+			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -1069,14 +1078,15 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			const char* arg = command->data.string;
+			tstr arg = command->data.string;
 
-			if(arg == NULL) {
+			if(tstr_cstr(&arg) == NULL) {
 				// A null argument implies the user's current working or default directory.
-				arg = ".";
+				arg = tstr_from(".");
+				assert(!arg.is_long);
 			}
 
-			char* final_file_path = resolve_path_in_cwd(state, arg);
+			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
