@@ -8,9 +8,9 @@
 #include "./state.h"
 
 #include "generic/helper.h"
-#include "generic/read.h"
 #include "generic/send.h"
 #include "generic/signal_fd.h"
+#include "utils/buffered_reader.h"
 #include "utils/clock.h"
 #include "utils/errors.h"
 #include "utils/log.h"
@@ -148,6 +148,21 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		return JOB_ERROR_DESC;
 	}
 
+	BufferedReader* buffered_reader = get_buffered_reader(descriptor);
+
+	if(!buffered_reader) {
+		int result = send_ftp_message_to_connection_single(
+		    descriptor, FtpReturnCodeSyntaxError,
+		    "Request couldn't be read, a connection error occurred!");
+
+		if(result < 0) {
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
+		}
+
+		goto cleanup;
+	}
+
 	int hello_result = send_ftp_message_to_connection_single(descriptor, FtpReturnCodeSrvcReady,
 	                                                         "Simple FTP Server");
 	if(hello_result < 0) {
@@ -159,28 +174,16 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 
 	while(!quit) {
 
-		char* raw_ftp_commands = read_string_from_connection_deprecated(descriptor);
-
-		if(!raw_ftp_commands) {
-			int result = send_ftp_message_to_connection_single(
-			    descriptor, FtpReturnCodeSyntaxError,
-			    "Request couldn't be read, a connection error occurred!");
-
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
-				goto cleanup;
-			}
-
-			continue;
-		}
-
 		// raw_ftp_commands gets freed in here
-		FTPCommandArray* ftp_commands = parse_multiple_ftp_commands(raw_ftp_commands);
+		FTPCommand* ftp_command = parse_single_ftp_command(buffered_reader);
+
+		// invlaidate old data, this makes all alloced data invalid, but it frees some space and the
+		// command should have duped the necessary bytes
+		buffered_reader_invalidate_old_data(buffered_reader);
 
 		// ftp_commands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
-		if(ftp_commands == NULL) {
+		if(ftp_command == NULL) {
 			int result = send_ftp_message_to_connection_single(descriptor, FtpReturnCodeSyntaxError,
 			                                                   "Invalid Command Sequence");
 
@@ -193,27 +196,27 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 			continue;
 		}
 
-		for(size_t i = 0; i < TVEC_LENGTH(FTPCommandPtr, *ftp_commands); ++i) {
-			FTPCommand* command = TVEC_AT(FTPCommandPtr, *ftp_commands, i);
-			bool successfull = ftp_process_command(descriptor, server_addr, argument, command);
-			if(!successfull) {
-				quit = true;
-				break;
-			}
+		bool successfull = ftp_process_command(descriptor, server_addr, argument, ftp_command);
+		if(!successfull) {
+			quit = true;
+			break;
 		}
 
-		free_ftp_command_array(ftp_commands);
+		free_ftp_command(ftp_command);
 	}
 
 cleanup:
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing Connection\n");
 	// finally close the connection
-	int result =
-	    close_connection_descriptor_advanced(descriptor, context, ALLOW_SSL_AUTO_CONTEXT_REUSE);
-	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", {
+	bool result = finish_buffered_reader(buffered_reader, context, ALLOW_SSL_AUTO_CONTEXT_REUSE);
+
+	if(!result) {
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), "%s: %s\n",
+		            "While trying to close the connection descriptor", strerror(errno));
 		FREE_AT_END();
 		return JOB_ERROR_CLOSE;
-	});
+	}
+
 	// and free the malloced argument
 	FREE_AT_END();
 	return JOB_ERROR_NONE;
@@ -785,18 +788,27 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    data_connection_get_descriptor_to_send_to(argument->data_controller,
 				                                              data_connection);
 
-				char* resulting_data = read_string_from_connection_deprecated(data_conn_descriptor);
+				BufferedReader* data_conn_reader = get_buffered_reader(data_conn_descriptor);
 
-				if(!resulting_data) {
+				if(data_conn_reader == NULL) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
+					                               "Internal error buffered reader error");
+					return true;
+				}
+
+				const BufferedReadResult resulting_data =
+				    buffered_reader_get_until_end(data_conn_reader);
+
+				if(resulting_data.type != BufferedReadResultTypeOk) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 					                               "Internal error 5");
 					return true;
 				}
 
-				size_t data_length = strlen(resulting_data);
-
 				// store data
-				bool success = write_to_file(final_file_path, resulting_data, data_length);
+				bool success = write_to_file(final_file_path, resulting_data.value.buffer);
+
+				free_buffered_reader(data_conn_reader);
 
 				if(!success) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -1837,8 +1849,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
-	struct sockaddr_in* control_addr =
-	    (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
+	struct sockaddr_in* control_addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
 
 	if(!control_addr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
@@ -1846,7 +1857,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 		return EXIT_FAILURE;
 	}
 
-	*control_addr =(struct sockaddr_in){0};
+	*control_addr = (struct sockaddr_in){ 0 };
 
 	control_addr->sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and

@@ -5,6 +5,8 @@
 #include <stdlib.h>
 
 #include "./state.h"
+#include "utils/buffered_reader.h"
+#include <tstr.h>
 #include <tvec.h>
 
 /**
@@ -77,16 +79,10 @@ typedef struct {
 
 } FTPCommand;
 
-TVEC_DEFINE_VEC_TYPE_EXTENDED(FTPCommand*, FTPCommandPtr)
-
-typedef TVEC_TYPENAME(FTPCommandPtr) FTPCommandArray;
-
-NODISCARD FTPCommandArray* parse_multiple_ftp_commands(char* raw_ftp_commands);
+NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* buffered_reader);
 
 void free_ftp_command(FTPCommand* cmd);
 
-void free_ftp_command_array(FTPCommandArray* array);
-
 NODISCARD const char* get_command_name(const FTPCommand* command);
 
-NODISCARD FTPCommandTypeInformation* parse_ftp_command_type_info(char* arg);
+NODISCARD FTPCommandTypeInformation* parse_ftp_command_type_info(const tstr* arg);

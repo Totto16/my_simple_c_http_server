@@ -1028,7 +1028,7 @@ NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* file) {
 	return DirChangeResultOk;
 }
 
-NODISCARD bool write_to_file(char* path, void* data, size_t data_size) {
+NODISCARD bool write_to_file(char* const path, const SizedBuffer buffer) {
 
 	FILE* file = fopen(path, "wb");
 
@@ -1039,9 +1039,9 @@ NODISCARD bool write_to_file(char* path, void* data, size_t data_size) {
 		return false;
 	}
 
-	size_t fwrite_result = fwrite(data, 1, data_size, file);
+	size_t fwrite_result = fwrite(buffer.data, 1, buffer.size, file);
 
-	if(fwrite_result != data_size) {
+	if(fwrite_result != buffer.size) {
 		LOG_MESSAGE(LogLevelError, "Couldn't write the correct amount of bytes to file '%s': %s\n",
 		            path, strerror(errno));
 

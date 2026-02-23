@@ -3,7 +3,6 @@
 #include "./send.h"
 #include "./v2.h"
 #include "generic/hash.h"
-#include "generic/read.h"
 #include "utils/buffered_reader.h"
 
 #include <ctype.h>
