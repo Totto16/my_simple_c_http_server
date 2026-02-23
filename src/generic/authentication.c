@@ -755,3 +755,13 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 
 	return best_result;
 }
+
+// tmap hash functions
+
+TMAP_HASH_FUNC_SIG(tstr, TStr) {
+	return TMAP_HASH_BYTES(tstr_cstr(&key), tstr_len(&key));
+}
+
+TMAP_COMPARE_FUNC_SIG(tstr, TStr) {
+	return tstr_cmp(&key1, &key2);
+}

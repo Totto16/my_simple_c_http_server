@@ -134,8 +134,15 @@ NODISCARD static AuthenticationProviders* initialize_default_authentication_prov
 
 			SimpleUserEntry entry = entries[i];
 
-			if(!add_user_to_simple_authentication_provider_data_password_raw(
-			       simple_auth_provider, entry.username, entry.password, entry.role)) {
+			tstr username = tstr_from(entry.username);
+			tstr password = tstr_from(entry.password);
+			const auto result = add_user_to_simple_authentication_provider_data_password_raw(
+			    simple_auth_provider, &username, &password, entry.role);
+
+			tstr_free(&username);
+			tstr_free(&password);
+
+			if(!result) {
 				free_authentication_providers(auth_providers);
 				free_authentication_provider(simple_auth_provider);
 				return NULL;
