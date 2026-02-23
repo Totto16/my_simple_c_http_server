@@ -301,7 +301,7 @@ static HTTPResponseToSend auth_executor_fn(ParsedURLPath /* path */, AuthUserWit
 	StringBuilder* string_builder = string_builder_init();
 
 	string_builder_append_single(string_builder, "{\"username\": \"");
-	string_builder_append_single(string_builder, user.user.username);
+	string_builder_append_single(string_builder, tstr_cstr(&user.user.username));
 	string_builder_append_single(string_builder, "\", \"role\": \"");
 	string_builder_append_single(string_builder, get_name_for_user_role(user.user.role));
 	string_builder_append_single(string_builder, "\", \"provider\": \"");
@@ -740,7 +740,7 @@ NODISCARD static SelectedRoute* selected_route_from_data(HTTPRouteData route_dat
 }
 
 static void free_auth_user(AuthUserWithContext* user) {
-	free(user->user.username);
+	tstr_free(&(user->user.username));
 	free(user);
 }
 
@@ -760,92 +760,101 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } HttpAuthHeaderValueType;
 
 typedef struct {
+	tstr username;
+	tstr password;
+} HttpAuthHeaderBasic;
+
+typedef struct {
 	HttpAuthHeaderValueType type;
 	union {
-		struct {
-			char* username;
-			char* password;
-		} basic;
-		struct {
-			const char* error_message;
-		} error;
-
+		HttpAuthHeaderBasic basic;
+		const char* error;
 	} data;
 } HttpAuthHeaderValue;
 
-// see: https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/Authorization
-NODISCARD static HttpAuthHeaderValue parse_authorization_value(char* value) {
+static void free_http_auth_header_basic(HttpAuthHeaderBasic* const value) {
+	tstr_free(&(value->username));
+	tstr_free(&(value->password));
+}
 
-	if(strlen(value) == 0) {
-		return (
-		    HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-			                      .data = { .error = { .error_message = "empty header value" } } };
+static void free_http_auth_header_value(HttpAuthHeaderValue* const value) {
+	switch(value->type) {
+		case HttpAuthHeaderValueTypeBasic: {
+			free_http_auth_header_basic(&(value->data.basic));
+			break;
+		}
+		case HttpAuthHeaderValueTypeError:
+		default: {
+			break;
+		}
+	}
+}
+
+// see: https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/Authorization
+NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view value) {
+
+	if(value.len == 0) {
+		return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
+			                          .data = { .error = "empty header value" } };
 	}
 
-	char* auth_scheme = value;
+	tstr_view auth_scheme;
+	tstr_view auth_param;
 
 	// Syntax:  Authorization: <auth-scheme> <authorization-parameters>))
-	char* auth_param_start = strchr(value, ' ');
+	const bool success = tstr_split_once(value, " ", &auth_scheme, &auth_param);
 
-	if(auth_param_start == NULL) {
+	if(!success) {
 		return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-			                          .data = { .error = { .error_message =
-			                                                   "no auth-params specified" } } };
+			                          .data = { .error = "no auth-params specified" } };
 	}
-
-	*auth_param_start = '\0';
 
 	// TODO(Totto): support more auth-schemes
 
 	// see: https://www.iana.org/assignments/http-authschemes/http-authschemes.xhtml
-	if(strcasecmp(auth_scheme, "Basic") == 0) {
+	if(tstr_view_eq_ignore_case(auth_scheme, "Basic")) {
 		// see https://datatracker.ietf.org/doc/html/rfc7617
 
-		char* auth_param = auth_param_start + 1;
-
-		if(strlen(auth_param) == 0) {
-			return (
-			    HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-				                      .data = { .error = { .error_message = "data was empty" } } };
+		if(auth_param.len == 0) {
+			return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
+				                          .data = { .error = "data was empty" } };
 		}
 
-		SizedBuffer decoded =
-		    base64_decode_buffer((SizedBuffer){ .data = auth_param, .size = strlen(auth_param) });
+		SizedBuffer decoded = base64_decode_buffer(
+		    (SizedBuffer){ .data = (void*)auth_param.data, .size = auth_param.len });
 
 		if(!decoded.data) {
 			return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-				                          .data = { .error = { .error_message =
-				                                                   "base64 decoding failed" } } };
+				                          .data = { .error = "base64 decoding failed" } };
 		}
 
 		// TODO(Totto): support utf8 here, for the user and the username, but tha needs to be
 		// propagated into many places, so not doing it now
 
-		char* decoded_data = malloc(decoded.size + 1);
-		memcpy(decoded_data, decoded.data, decoded.size);
-		decoded_data[decoded.size] = '\0';
+		const tstr_view decoded_data = (tstr_view){ .data = decoded.data, .len = decoded.size };
+
+		tstr_view username;
+		tstr_view password;
+		bool split_success = tstr_split_once(decoded_data, ":", &username, &password);
+
+		if(!split_success) {
+			username = decoded_data;
+			password = TSTR_EMPTY_VIEW;
+		}
+
+		HttpAuthHeaderBasic basic = { .username = tstr_from_view(username),
+			                          .password = tstr_from_view(password) };
 
 		free_sized_buffer(decoded);
 
-		char* username = decoded_data;
-		char* password = NULL;
-
-		char* seperator_idx = strchr(decoded_data, ':');
-
-		if(seperator_idx != NULL) {
-			*seperator_idx = '\0';
-
-			password = seperator_idx + 1;
-		}
-
 		return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeBasic,
-			                          .data = { .basic = { .username = username,
-			                                               .password = password } } };
+			                          .data = {
+			                              .basic = basic,
+			                          } };
 	}
 
 	return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-		                          .data = { .error = { .error_message =
-		                                                   "invalid auth-scheme specified" } } };
+		                          .data = { .error = "invalid auth-scheme specified" } };
 }
 
 /**
@@ -888,30 +897,29 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 			                                   .reason = "Authorization header missing" } } };
 	}
 
-	char* value_dup = strdup(authorization_field->value);
-
-	HttpAuthHeaderValue result = parse_authorization_value(value_dup);
+	HttpAuthHeaderValue result =
+	    parse_authorization_value(tstr_view_from(authorization_field->value));
 
 	if(result.type == HttpAuthHeaderValueTypeError) {
 		LOG_MESSAGE(LogLevelError, "Error in parsing the authorization header: %s\n",
-		            result.data.error.error_message);
+		            result.data.error);
 
-		free(value_dup);
 		return (HttpAuthStatus){ .type = HttpAuthStatusTypeError,
 			                     .data = { .error = { .error_message = "Header parse error" } } };
 	}
 
 	// note: this potential memory leak is not one, as it is just returned and than later freed by
 	// the cosnuming functions
-	char* username = NULL; // NOLINT(clang-analyzer-unix.Malloc)
-	char* password = NULL;
+	tstr username = tstr_init(); // NOLINT(clang-analyzer-unix.Malloc)
+	tstr password = tstr_init();
 
 	switch(result.type) {
 		case HttpAuthHeaderValueTypeBasic: {
-			username = strdup(result.data.basic.username);
-			password =
-			    result.data.basic.password == NULL ? NULL : strdup(result.data.basic.password);
-			free(result.data.basic.username);
+			const HttpAuthHeaderBasic basic = result.data.basic;
+			username = basic.username;
+			password = basic.password;
+			result.data.basic =
+			    (HttpAuthHeaderBasic){ .username = tstr_init(), .password = tstr_init() };
 			break;
 		}
 		case HttpAuthHeaderValueTypeError:
@@ -922,13 +930,13 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 		}
 	}
 
-	free(value_dup);
+	free_http_auth_header_value(&result);
 
 	AuthenticationFindResult find_result =
-	    authentication_providers_find_user_with_password(auth_providers, username, password);
+	    authentication_providers_find_user_with_password(auth_providers, &username, &password);
 
-	free(username);
-	free(password);
+	tstr_free(&username);
+	tstr_free(&password);
 
 	switch(find_result.validity) {
 		case AuthenticationValidityNoSuchUser: {
