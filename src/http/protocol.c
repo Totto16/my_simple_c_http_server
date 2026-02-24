@@ -81,7 +81,7 @@ typedef struct {
 	} data;
 } HTTPContent;
 
-NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath search_path,
+NODISCARD const ParsedSearchPathEntry* find_search_key(const ParsedSearchPath search_path,
                                                        const tstr* const key) {
 
 	if(TMAP_IS_EMPTY(ParsedSearchPathHashMap, &search_path.hash_map)) {
@@ -96,6 +96,16 @@ NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath search_p
 	}
 
 	return entry;
+}
+
+NODISCARD const ParsedSearchPathEntry* find_search_key_cstr(const ParsedSearchPath path,
+                                                            const char* key) {
+	const size_t size = strlen(key);
+	// cast he const away, as we never alter this pointer, also this doesn't need to be freed
+	// afterwards
+	const tstr temp = tstr_own((char*)key, size, size);
+
+	return find_search_key(path, &temp);
 }
 
 // simple helper for getting the status Message for a special status code, all from the spec for

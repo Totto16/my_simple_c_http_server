@@ -108,18 +108,18 @@ NODISCARD static bool log_entry_to_string(StringBuilder* const builder, const Lo
 
 		const char* method_str = get_http_method_string(entry.request.method);
 
-		char* uri_str = get_request_uri_as_string(entry.request.uri);
+		tstr uri_str = get_request_uri_as_string(entry.request.uri);
 
 		const char* protocol_str =
 		    get_http_protocol_version_string(entry.request.protocol_data.version);
 
-		if(method_str == NULL || uri_str == NULL || protocol_str == NULL) {
-			free(uri_str);
+		if(method_str == NULL || tstr_cstr(&uri_str) == NULL || protocol_str == NULL) {
+			tstr_free(&uri_str);
 			return false;
 		}
 
 		STRING_BUILDER_APPENDF(builder, return false;
-		                       , "\"%s %s %s\" ", method_str, uri_str, protocol_str);
+		                       , "\"%s %s %s\" ", method_str, tstr_cstr(&uri_str), protocol_str);
 	}
 
 	if(entry.result != 0) {

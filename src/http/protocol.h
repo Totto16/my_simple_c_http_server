@@ -262,6 +262,8 @@ void free_http_request_result(HTTPResultOk result);
 
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const tstr* key);
 
+NODISCARD const ParsedSearchPathEntry* find_search_key_cstr(ParsedSearchPath path, const char* key);
+
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);

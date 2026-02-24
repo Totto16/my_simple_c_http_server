@@ -661,10 +661,10 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						break;
 					}
 
-					auto const normal_data = http_properties.data.normal;
+					const ParsedURLPath normal_data = http_properties.data.normal;
 
 					StringBuilder* html_string_builder =
-					    folder_content_to_html(folder_info, normal_data.path);
+					    folder_content_to_html(folder_info, &normal_data.path);
 
 					if(html_string_builder == NULL) {
 						HTTPResponseToSend to_send = {

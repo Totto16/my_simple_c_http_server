@@ -9,7 +9,7 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 	StringBuilder* result = string_builder_init();
 
 	const char* method = get_http_method_string(request.head.request_line.method);
-	char* request_uri = get_request_uri_as_string(request.head.request_line.uri);
+	tstr request_uri = get_request_uri_as_string(request.head.request_line.uri);
 	const char* protocol_version =
 	    get_http_protocol_version_string(request.head.request_line.protocol_data.version);
 
@@ -19,8 +19,8 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 	string_builder_append_single(result, method);
 	string_builder_append_single(result, "\n");
 
-	STRING_BUILDER_APPENDF(result, return NULL;, "\tRequestURI: %s\n", request_uri);
-	free(request_uri);
+	STRING_BUILDER_APPENDF(result, return NULL;, "\tRequestURI: %s\n", tstr_cstr(&request_uri));
+	tstr_free(&request_uri);
 
 	string_builder_append_single(result, "\tProtocolVersion:");
 	string_builder_append_single(result, protocol_version);
@@ -113,32 +113,35 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 				const ParsedURI uri = request_uri.data.uri;
 				const ParsedAuthority authority = uri.authority;
 
-				char* path_str = get_parsed_url_as_string(uri.path);
-				char* uri_str = get_uri_as_string(uri);
+				tstr path_str = get_parsed_url_as_string(uri.path);
+				tstr uri_str = get_uri_as_string(uri);
 
-				STRING_BUILDER_APPENDF(
-				    body, return NULL;,
-				                      "\"type\": \"uri\", \"data\": { \"path\": { \"str_form\": "
-				                      "\"%s\"  } , \"uri_str\":\"%s\"  , \"scheme\":\"%s\" , "
-				                      "\"authority\": { \"user\": { \"name\": "
-				                      "\"%s\",\"password\": \"%s\" }, \"host\": "
-				                      "\"%s\", \"port\": "
-				                      "\"%u\"  }}",
-				                      path_str, uri_str, uri.scheme, authority.user_info.username,
-				                      authority.user_info.password, authority.host, authority.port);
+				STRING_BUILDER_APPENDF(body, return NULL;
+				                       ,
+				                       "\"type\": \"uri\", \"data\": { \"path\": { \"str_form\": "
+				                       "\"%s\"  } , \"uri_str\":\"%s\"  , \"scheme\":\"%s\" , "
+				                       "\"authority\": { \"user\": { \"name\": "
+				                       "\"%s\",\"password\": \"%s\" }, \"host\": "
+				                       "\"%s\", \"port\": "
+				                       "\"%u\"  }}",
+				                       tstr_cstr(&path_str), tstr_cstr(&uri_str),
+				                       tstr_cstr(&uri.scheme),
+				                       tstr_cstr(&authority.user_info.username),
+				                       tstr_cstr(&authority.user_info.password),
+				                       tstr_cstr(&authority.host), authority.port);
 
-				free(path_str);
-				free(uri_str);
+				tstr_free(&path_str);
+				tstr_free(&uri_str);
 				break;
 			}
 			case ParsedURITypeAbsPath: {
-				char* path_str = get_parsed_url_as_string(request_uri.data.path);
+				tstr path_str = get_parsed_url_as_string(request_uri.data.path);
 
 				STRING_BUILDER_APPENDF(body, return NULL;
 				                       , "\"type\": \"path\", \"data\": { \"str_form\": \"%s\"  }",
-				                       path_str);
+				                       tstr_cstr(&path_str));
 
-				free(path_str);
+				tstr_free(&path_str);
 				break;
 			}
 			case ParsedURITypeAuthority: {
@@ -150,8 +153,9 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 				                       "\"%s\",\"password\": \"%s\" }, \"host\": "
 				                       "\"%s\", \"port\": "
 				                       "\"%u\"  }",
-				                       authority.user_info.username, authority.user_info.password,
-				                       authority.host, authority.port);
+				                       tstr_cstr(&authority.user_info.username),
+				                       tstr_cstr(&authority.user_info.password),
+				                       tstr_cstr(&authority.host), authority.port);
 				break;
 			}
 			default: {
@@ -202,7 +206,7 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 	StringBuilder* body = string_builder_init();
 
 	const char* method = get_http_method_string(request.head.request_line.method);
-	char* request_uri = get_request_uri_as_string(request.head.request_line.uri);
+	tstr request_uri = get_request_uri_as_string(request.head.request_line.uri);
 	const char* protocol_version =
 	    get_http_protocol_version_string(request.head.request_line.protocol_data.version);
 
@@ -212,8 +216,9 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 	string_builder_append_single(body, method);
 	string_builder_append_single(body, "</div>");
 
-	STRING_BUILDER_APPENDF(body, return NULL;, "<div>RequestURI: %s</div>", request_uri);
-	free(request_uri);
+	STRING_BUILDER_APPENDF(body, return NULL;
+	                       , "<div>RequestURI: %s</div>", tstr_cstr(&request_uri));
+	tstr_free(&request_uri);
 
 	string_builder_append_single(body, "<div>ProtocolVersion:");
 	string_builder_append_single(body, protocol_version);

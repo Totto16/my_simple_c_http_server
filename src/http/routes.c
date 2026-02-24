@@ -61,7 +61,7 @@ well_known_folder_fn_extended(SendSettings /* send_settings */, const HttpReques
 
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
-	if(strcmp(path.path, "/.well-known/access.log") == 0) {
+	if(tstr_eq_cstr(&path.path, "/.well-known/access.log")) {
 
 		StringBuilder* builder = log_collector_to_string_builder(collector);
 
@@ -281,7 +281,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_body) {
 
-	const ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, "pretty");
+	const ParsedSearchPathEntry* pretty_key = find_search_key_cstr(path.search_path, "pretty");
 
 	bool pretty = pretty_key != NULL;
 
@@ -685,7 +685,7 @@ NODISCARD static bool is_matching(HTTPRequestRouteMethod route_method, HTTPReque
 	return false;
 }
 
-NODISCARD static bool is_route_matching(HTTPRoutePath route_path, const char* const path) {
+NODISCARD static bool is_route_matching(HTTPRoutePath route_path, const tstr* const path) {
 
 	if(route_path.data == NULL) {
 		return true;
@@ -693,20 +693,18 @@ NODISCARD static bool is_route_matching(HTTPRoutePath route_path, const char* co
 
 	switch(route_path.type) {
 		case HTTPRoutePathTypeExact: {
-			return strcmp(route_path.data, path) == 0;
+			return tstr_eq_cstr(path, route_path.data);
 		}
 		case HTTPRoutePathTypeStartsWith: {
 
 			size_t route_path_len = strlen(route_path.data);
 
-			size_t path_len = strlen(path);
-
-			if(path_len < route_path_len) {
+			if(tstr_len(path) < route_path_len) {
 				return false;
 			}
 
 			// TODO: use cwalk!
-			return strncmp(route_path.data, path, route_path_len) == 0;
+			return strncmp(route_path.data, tstr_cstr(path), route_path_len) == 0;
 		}
 		default: {
 			return false;
@@ -1158,7 +1156,7 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 
 		if(is_matching(route.method, request.head.request_line.method)) {
 
-			if(is_route_matching(route.path, normal_data.path)) {
+			if(is_route_matching(route.path, &normal_data.path)) {
 				return process_matched_route(route_manager, http_properties, request, route);
 			}
 		}

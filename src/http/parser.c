@@ -45,20 +45,20 @@ NODISCARD HTTPRequestMethod get_http_method_from_string(const tstr_view method,
 	return HTTPRequestMethodGet;
 }
 
-NODISCARD static HTTPProtocolVersion get_protocol_version_from_string(const char* protocol_version,
-                                                                      OUT_PARAM(bool) success) {
+NODISCARD static HTTPProtocolVersion
+get_protocol_version_from_string(const tstr_view protocol_version, OUT_PARAM(bool) success) {
 
-	if(strcmp(protocol_version, "HTTP/1.0") == 0) {
+	if(tstr_view_eq(protocol_version, "HTTP/1.0")) {
 		*success = true;
 		return HTTPProtocolVersion1Dot0;
 	}
 
-	if(strcmp(protocol_version, "HTTP/1.1") == 0) {
+	if(tstr_view_eq(protocol_version, "HTTP/1.1")) {
 		*success = true;
 		return HTTPProtocolVersion1Dot1;
 	}
 
-	if(strcmp(protocol_version, "HTTP/2.0") == 0) {
+	if(tstr_view_eq(protocol_version, "HTTP/2.0")) {
 		*success = true;
 		return HTTPProtocolVersion2;
 	}

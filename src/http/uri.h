@@ -87,12 +87,12 @@ NODISCARD ParsedRequestURIResult parse_request_uri(tstr_view path);
 
 void free_parsed_request_uri(ParsedRequestURI uri);
 
-NODISCARD char* get_parsed_url_as_string(ParsedURLPath path);
+NODISCARD tstr get_parsed_url_as_string(ParsedURLPath path);
 
-NODISCARD char* get_parsed_authority_as_string(ParsedAuthority authority);
+NODISCARD tstr get_parsed_authority_as_string(ParsedAuthority authority);
 
-NODISCARD char* get_uri_as_string(ParsedURI uri);
+NODISCARD tstr get_uri_as_string(ParsedURI uri);
 
-NODISCARD char* get_request_uri_as_string(ParsedRequestURI uri);
+NODISCARD tstr get_request_uri_as_string(ParsedRequestURI uri);
 
 NODISCARD ParsedRequestURI duplicate_request_uri(ParsedRequestURI uri);

@@ -261,12 +261,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 	switch(command->type) {
 		case FtpCommandUser: {
 
-			const tstr anon_username = tstr_from(ANON_USERNAME);
-			// otherwise we should use a tstr_eq_ignore_case which uses a cstr
-			assert(!anon_username.is_long);
-
 			// see https://datatracker.ietf.org/doc/html/rfc1635
-			if(tstr_eq_ignore_case(&(command->data.string), &anon_username)) {
+			if(tstr_eq_ignore_case_cstr(&(command->data.string), ANON_USERNAME)) {
 				free_account_data(state->account);
 
 				state->account->state = AccountStateOk;
@@ -310,12 +306,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 		case FtpCommandPass: {
 
-			const tstr anon_username = tstr_from(ANON_USERNAME);
-			// otherwise we should use a tstr_eq_ignore_case which uses a cstr
-			assert(!anon_username.is_long);
-
 			if(state->account->state == AccountStateOk &&
-			   tstr_eq_ignore_case(&(state->account->data.ok_data.username), &anon_username)) {
+			   tstr_eq_ignore_case_cstr(&(state->account->data.ok_data.username), ANON_USERNAME)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn,
 				                               "Already logged in as anon!");
 

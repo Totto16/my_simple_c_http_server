@@ -55,4 +55,4 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 void free_serve_folder_result(ServeFolderResult* serve_folder_result);
 
 NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_info,
-                                                const char* folder_path);
+                                                const tstr* folder_path);

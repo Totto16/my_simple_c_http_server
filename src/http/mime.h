@@ -37,7 +37,7 @@ HTTP_MIME_TYPE_MAKE(octet_stream, "application/octet-stream");
 // from: https://www.iana.org/assignments/media-types/media-types.xhtml
 // and nginx
 
-TMAP_DEFINE_MAP_TYPE(tstr, TSTR_KEYNAME, char*, MimeTypeEntryHashMap)
+TMAP_DEFINE_MAP_TYPE(char*, CString, const char*, MimeTypeEntryHashMap)
 
 typedef TMAP_TYPENAME_ENTRY(MimeTypeEntryHashMap) MimeTypeEntry;
 
@@ -45,7 +45,8 @@ typedef struct {
 	TMAP_TYPENAME_MAP(MimeTypeEntryHashMap) entries;
 } MimeTypeMappings;
 
-extern MimeTypeMappings g_mime_type_mappings; //NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+extern MimeTypeMappings
+    g_mime_type_mappings; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
 NODISCARD const char* get_mime_type_for_ext(const char* ext);
 
