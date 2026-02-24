@@ -8,60 +8,84 @@ TMAP_IMPLEMENT_MAP_TYPE(tstr, TSTR_KEYNAME, ParsedSearchPathValue, ParsedSearchP
 NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 	// precondition:  path is not NULL and len is > 1
 
-	tstr_view search_path = tstr_view_find(path, "?");
+	const tstr_split_result search_path_res = tstr_split(path, "?");
 
 	ParsedURLPath result = { .search_path = {
 		                         .hash_map = TMAP_EMPTY(ParsedSearchPathHashMap),
 		                     } ,.fragment = tstr_init()};
 
-	if(search_path.data == NULL) {
-		result.path = tstr_from_view(path);
+	tstr_view search_path;
+	tstr_view path_view;
+	tstr_view fragment_view;
 
-		return result;
+	if(!search_path_res.ok) {
+		search_path = TSTR_EMPTY_VIEW;
+
+		const tstr_split_result fragment_res = tstr_split(path, "#");
+
+		if(!fragment_res.ok) {
+			path_view = path;
+			fragment_view = TSTR_EMPTY_VIEW;
+		} else {
+			path_view = fragment_res.first;
+			fragment_view = fragment_res.second;
+		}
+
+	} else {
+		path_view = search_path_res.first;
+
+		const tstr_split_result fragment_res = tstr_split(search_path_res.second, "#");
+
+		if(!fragment_res.ok) {
+			search_path = search_path_res.second;
+			fragment_view = TSTR_EMPTY_VIEW;
+		} else {
+			search_path = fragment_res.first;
+			fragment_view = fragment_res.second;
+		}
 	}
-
-	tstr_view path_view = (tstr_view){ .data = path.data, .len = path.len - 1 - search_path.len };
 
 	result.path = tstr_from_view(path_view);
-
-	tstr_view fragment_part = tstr_view_find(search_path, "#");
+	result.fragment = tstr_from_view(fragment_view);
 
 	tstr_view search_params = search_path;
-
-	if(fragment_part.data != NULL) {
-		result.fragment = tstr_from_view(fragment_part);
-		search_params =
-		    (tstr_view){ .data = search_path.data, .len = search_path.len - 1 - fragment_part.len };
-	}
 
 	if(search_params.len == 0) {
 		return result;
 	}
 
-	while(true) {
+	while(search_params.len != 0) {
 
-		char* next_argument = strchr(search_params, '&');
+		const tstr_split_result next_arg_res = tstr_split(search_params, "&");
 
-		if(next_argument != NULL) {
-			*next_argument = '\0';
+		tstr_view current_value;
+
+		if(!next_arg_res.ok) {
+			current_value = search_params;
+			search_params = TSTR_EMPTY_VIEW;
+		} else {
+			current_value = next_arg_res.first;
+			search_params = next_arg_res.second;
 		}
 
-		char* key = search_params;
+		const tstr_split_result value_res = tstr_split(current_value, "=");
 
-		char* value_ptr = strchr(search_params, '=');
+		tstr_view value;
+		tstr_view key;
 
-		if(value_ptr != NULL) {
-			*value_ptr = '\0';
+		if(!value_res.ok) {
+			key = current_value;
+			value = TSTR_EMPTY_VIEW;
+		} else {
+			key = value_res.first;
+			value = value_res.second;
 		}
 
-		const char* value = value_ptr == NULL ? "" : value_ptr + 1;
+		const ParsedSearchPathValue value_entry = { .value = tstr_from_view(value) };
 
-		char* key_dup = strdup(key);
-		char* value_dup = strdup(value);
-		const ParsedSearchPathValue value_entry = { .value = value_dup };
-
-		const TmapInsertResult insert_result = TMAP_INSERT(
-		    ParsedSearchPathHashMap, &(result.search_path.hash_map), key_dup, value_entry, false);
+		const TmapInsertResult insert_result =
+		    TMAP_INSERT(ParsedSearchPathHashMap, &(result.search_path.hash_map),
+		                tstr_from_view(key), value_entry, false);
 
 		switch(insert_result) {
 			case TmapInsertResultWouldOverwrite: {
@@ -80,12 +104,6 @@ NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 				UNREACHABLE();
 			}
 		}
-
-		if(next_argument == NULL) {
-			break;
-		}
-
-		search_params = next_argument + 1;
 	}
 
 	return result;
