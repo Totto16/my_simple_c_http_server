@@ -18,7 +18,7 @@ typedef struct {
 } ParsedAuthority;
 
 typedef struct {
-	tstr value;
+	tstr val;
 } ParsedSearchPathValue;
 
 TMAP_DEFINE_MAP_TYPE(tstr, TSTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
@@ -74,7 +74,13 @@ typedef struct {
 
 NODISCARD ParsedURLPath parse_url_path(tstr_view path);
 
-NODISCARD tstr_view parse_authority(tstr_view str, OUT_PARAM(ParsedAuthority) out_result);
+typedef struct {
+	ParsedAuthority authority;
+	tstr_view after;
+	bool ok;
+} AuthorityResult;
+
+NODISCARD AuthorityResult parse_authority(tstr_view str);
 
 /**
  * @brief Get the parsed url path from raw object, it modifies the string inline and creates
