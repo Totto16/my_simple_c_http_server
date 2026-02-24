@@ -8,33 +8,33 @@ TMAP_IMPLEMENT_MAP_TYPE(tstr, TSTR_KEYNAME, ParsedSearchPathValue, ParsedSearchP
 NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 	// precondition:  path is not NULL and len is > 1
 
-	char* search_path = strchr(path, '?');
+	tstr_view search_path = tstr_view_find(path, "?");
 
 	ParsedURLPath result = { .search_path = {
 		                         .hash_map = TMAP_EMPTY(ParsedSearchPathHashMap),
-		                     } ,.fragment = NULL};
+		                     } ,.fragment = tstr_init()};
 
-	if(search_path == NULL) {
-		result.path = strdup(path);
+	if(search_path.data == NULL) {
+		result.path = tstr_from_view(path);
 
 		return result;
 	}
 
-	*search_path = '\0';
+	tstr_view path_view = (tstr_view){ .data = path.data, .len = path.len - 1 - search_path.len };
 
-	result.path = strdup(path);
+	result.path = tstr_from_view(path_view);
 
-	char* search_params = search_path + 1;
+	tstr_view fragment_part = tstr_view_find(search_path, "#");
 
-	char* fragment_part = strchr(search_params, '#');
+	tstr_view search_params = search_path;
 
-	if(fragment_part != NULL) {
-		*fragment_part = '\0';
-
-		result.fragment = strdup(fragment_part + 1);
+	if(fragment_part.data != NULL) {
+		result.fragment = tstr_from_view(fragment_part);
+		search_params =
+		    (tstr_view){ .data = search_path.data, .len = search_path.len - 1 - fragment_part.len };
 	}
 
-	if(strlen(search_params) == 0) {
+	if(search_params.len == 0) {
 		return result;
 	}
 
