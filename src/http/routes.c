@@ -281,7 +281,9 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_body) {
 
-	const ParsedSearchPathEntry* pretty_key = find_search_key_cstr(path.search_path, "pretty");
+	const tstr pretty_val = tstr_from_static_cstr("pretty");
+
+	const ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, &pretty_val);
 
 	bool pretty = pretty_key != NULL;
 
@@ -882,8 +884,10 @@ NODISCARD static HttpAuthStatus
 handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
                                const HttpRequest request, HTTPAuthorizationComplicatedData* data) {
 
+	const tstr authorization_val = tstr_from_static_cstr(HTTP_HEADER_NAME(authorization));
+
 	const HttpHeaderField* authorization_field =
-	    find_header_by_key(request.head.header_fields, HTTP_HEADER_NAME(authorization));
+	    find_header_by_key(request.head.header_fields, &authorization_val);
 
 	if(authorization_field == NULL) {
 		return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
@@ -892,7 +896,7 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 	}
 
 	HttpAuthHeaderValue result =
-	    parse_authorization_value(tstr_view_from(authorization_field->value));
+	    parse_authorization_value(tstr_as_view(&authorization_field->value));
 
 	if(result.type == HttpAuthHeaderValueTypeError) {
 		LOG_MESSAGE(LogLevelError, "Error in parsing the authorization header: %s\n",
@@ -1030,9 +1034,9 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				    },
 				    "Basic realm=\"%s\", charset=\"UTF-8\"", DEFAULT_AUTH_REALM);
 
-				add_http_header_field_const_key_dynamic_value(&additional_headers,
-				                                              HTTP_HEADER_NAME(www_authenticate),
-				                                              www_authenticate_buffer);
+				add_http_header_field_const_key_dynamic_value(
+				    &additional_headers, HTTP_HEADER_NAME(www_authenticate),
+				    tstr_own_cstr(www_authenticate_buffer));
 
 #ifndef NDEBUG
 				add_http_header_field_const_key_const_value(&additional_headers,

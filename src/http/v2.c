@@ -2702,9 +2702,10 @@ parse_http2_headers(HpackState* const hpack_state, const Http2StreamHeaders head
 		                              (ParsedURI){
 		                                  .authority =
 		                                      (ParsedAuthority){
-		                                          .host = NULL,
-		                                          .user_info = (URIUserInfo){ .username = NULL,
-		                                                                      .password = NULL },
+		                                          .host = tstr_init(),
+		                                          .user_info =
+		                                              (URIUserInfo){ .username = tstr_init(),
+		                                                             .password = tstr_init() },
 		                                          .port = 0 },
 
 		                              } },
@@ -2722,7 +2723,7 @@ parse_http2_headers(HpackState* const hpack_state, const Http2StreamHeaders head
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http2_headers); ++i) {
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, http2_headers, i);
 
-		if(strlen(entry.key) > 0 && entry.key[0] == ':') {
+		if(tstr_len(&entry.key) > 0 && tstr_cstr(&entry.key)[0] == ':') {
 			if(pseudo_headers_finished) {
 				return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 					                                .data = {
@@ -2733,11 +2734,12 @@ parse_http2_headers(HpackState* const hpack_state, const Http2StreamHeaders head
 
 			PseudoHeadersForHttp2 new_pseudo_header = PseudoHeadersForHttp2None;
 
-			if(strcmp(HTTP_HEADER_NAME(http2_pseudo_method), entry.key) == 0) {
+			if(tstr_eq_cstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_method))) {
 
 				bool success = false;
 
-				const HTTPRequestMethod method = get_http_method_from_string(entry.value, &success);
+				const HTTPRequestMethod method =
+				    get_http_method_from_string(tstr_as_view(&entry.value), &success);
 
 				if(!success) {
 					return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
@@ -2749,18 +2751,18 @@ parse_http2_headers(HpackState* const hpack_state, const Http2StreamHeaders head
 				result.request_line.method = method;
 				new_pseudo_header = PseudoHeadersForHttp2Method;
 
-			} else if(strcmp(HTTP_HEADER_NAME(http2_pseudo_scheme), entry.key) == 0) {
+			} else if(tstr_eq_cstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_scheme))) {
 
 				assert(result.request_line.uri.type == ParsedURITypeAbsoluteURI);
-				result.request_line.uri.data.uri.scheme = strdup(entry.value);
+				result.request_line.uri.data.uri.scheme = tstr_dup(&entry.value);
 				new_pseudo_header = PseudoHeadersForHttp2Scheme;
 
-			} else if(strcmp(HTTP_HEADER_NAME(http2_pseudo_authority), entry.key) == 0) {
+			} else if(tstr_eq_cstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_authority))) {
 
-				ParsedAuthority authority = {};
-				char* authority_parse_result = parse_authority(entry.value, &authority);
+				AuthorityResult authority_parse_result =
+				    parse_authority(tstr_as_view(&entry.value));
 
-				if(authority_parse_result == NULL) {
+				if(!authority_parse_result.ok) {
 					return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 						                                .data = {
 						                                    .error = "Authority parse error: not a "
@@ -2768,7 +2770,7 @@ parse_http2_headers(HpackState* const hpack_state, const Http2StreamHeaders head
 						                                } };
 				}
 
-				if(*authority_parse_result != '\0') {
+				if(authority_parse_result.after.len != 0) {
 
 					return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 						                                .data = {
@@ -2779,18 +2781,18 @@ parse_http2_headers(HpackState* const hpack_state, const Http2StreamHeaders head
 				}
 
 				assert(result.request_line.uri.type == ParsedURITypeAbsoluteURI);
-				result.request_line.uri.data.uri.authority = authority;
+				result.request_line.uri.data.uri.authority = authority_parse_result.authority;
 				new_pseudo_header = PseudoHeadersForHttp2Authority;
 
-			} else if(strcmp(HTTP_HEADER_NAME(http2_pseudo_path), entry.key) == 0) {
+			} else if(tstr_eq_cstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_path))) {
 
-				const ParsedURLPath path = parse_url_path(entry.value);
+				const ParsedURLPath path = parse_url_path(tstr_as_view(&entry.value));
 
 				assert(result.request_line.uri.type == ParsedURITypeAbsoluteURI);
 				result.request_line.uri.data.uri.path = path;
 				new_pseudo_header = PseudoHeadersForHttp2Path;
 
-			} else if(strcmp(HTTP_HEADER_NAME(http2_pseudo_status), entry.key) == 0) {
+			} else if(tstr_eq_cstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_status))) {
 				return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 					                                .data = {
 					                                    .error = "pseudo header status not allowed "

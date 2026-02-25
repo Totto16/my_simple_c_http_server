@@ -37,8 +37,8 @@ void free_http_request_head(HttpRequestHead head) {
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, head.header_fields); ++i) {
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, head.header_fields, i);
 
-		free(entry.key);
-		free(entry.value);
+		tstr_free(&entry.key);
+		tstr_free(&entry.value);
 	}
 	TVEC_FREE(HttpHeaderField, &head.header_fields);
 }
@@ -98,16 +98,6 @@ NODISCARD const ParsedSearchPathEntry* find_search_key(const ParsedSearchPath se
 	return entry;
 }
 
-NODISCARD const ParsedSearchPathEntry* find_search_key_cstr(const ParsedSearchPath path,
-                                                            const char* key) {
-	const size_t size = strlen(key);
-	// cast he const away, as we never alter this pointer, also this doesn't need to be freed
-	// afterwards
-	const tstr temp = tstr_own((char*)key, size, size);
-
-	return find_search_key(path, &temp);
-}
-
 // simple helper for getting the status Message for a special status code, all from the spec for
 // http 1.1 implemented (not in the spec e.g. 418)
 const char* get_status_message(HttpStatusCode status_code) {
@@ -160,11 +150,11 @@ const char* get_status_message(HttpStatusCode status_code) {
 	return result;
 }
 
-NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const tstr* const key) {
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, array); ++i) {
 		HttpHeaderField* header = TVEC_GET_AT_MUT(HttpHeaderField, &array, i);
-		if(strcasecmp(header->key, key) == 0) {
+		if(tstr_eq(&(header->key), key)) {
 			return header;
 		}
 	}
@@ -257,9 +247,9 @@ break_for:
 	return result;
 }
 
-void free_http_header_field(const HttpHeaderField field) {
-	free(field.key);
-	free(field.value);
+void free_http_header_field(HttpHeaderField field) {
+	tstr_free(&field.key);
+	tstr_free(&field.value);
 }
 
 void free_http_header_fields(HttpHeaderFields* header_fields) {
@@ -273,8 +263,8 @@ void free_http_header_fields(HttpHeaderFields* header_fields) {
 	*header_fields = TVEC_EMPTY(HttpHeaderField);
 }
 
-static void add_http_header_field_raw(HttpHeaderFields* const header_fields, char* const key,
-                                      char* const value) {
+static void add_http_header_field_raw(HttpHeaderFields* const header_fields, const tstr key,
+                                      const tstr value) {
 
 	HttpHeaderField field = { .key = key, .value = value };
 
@@ -283,12 +273,12 @@ static void add_http_header_field_raw(HttpHeaderFields* const header_fields, cha
 }
 
 void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* const header_fields,
-                                                   const char* const key, char* const value) {
+                                                   const char* const key, const tstr value) {
 
-	add_http_header_field_raw(header_fields, strdup(key), value);
+	add_http_header_field_raw(header_fields, tstr_from(key), value);
 }
 
 void add_http_header_field_const_key_const_value(HttpHeaderFields* const header_fields,
                                                  const char* const key, const char* const value) {
-	add_http_header_field_raw(header_fields, strdup(key), strdup(value));
+	add_http_header_field_raw(header_fields, tstr_from(key), tstr_from(value));
 }

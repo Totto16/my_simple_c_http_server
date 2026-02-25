@@ -74,8 +74,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 // self implemented Http Request and Http Response Structs
 
 typedef struct {
-	char* key;
-	char* value;
+	tstr key;
+	tstr value;
 } HttpHeaderField;
 
 /**
@@ -131,9 +131,9 @@ NODISCARD const char* get_http_method_string(HTTPRequestMethod method);
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version);
 
 typedef struct {
-	char* protocol_version;
-	char* status_code;
-	char* status_message;
+	tstr protocol_version;
+	tstr status_code;
+	tstr status_message;
 } HttpResponseLine;
 
 TVEC_DEFINE_VEC_TYPE(HttpHeaderField)
@@ -142,6 +142,8 @@ typedef TVEC_TYPENAME(HttpHeaderField) HttpHeaderFields;
 
 typedef struct {
 	HttpRequestLine request_line;
+	// TODO: are header fileds an array of key value or a hasmpa?
+	//  see MAP_INSERT(ParsedSearchPathHashMap, as we treat search params as map
 	HttpHeaderFields header_fields;
 } HttpRequestHead;
 
@@ -262,13 +264,11 @@ void free_http_request_result(HTTPResultOk result);
 
 NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const tstr* key);
 
-NODISCARD const ParsedSearchPathEntry* find_search_key_cstr(ParsedSearchPath path, const char* key);
-
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);
 
-NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key);
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const tstr* key);
 
 typedef struct {
 	CompressionType compression_to_use;
@@ -282,7 +282,7 @@ void free_http_header_field(HttpHeaderField field);
 void free_http_header_fields(HttpHeaderFields* header_fields);
 
 void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* header_fields, const char* key,
-                                                   char* value);
+                                                   tstr value);
 
 void add_http_header_field_const_key_const_value(HttpHeaderFields* header_fields, const char* key,
                                                  const char* value);
@@ -293,6 +293,24 @@ void add_http_header_field_const_key_const_value(HttpHeaderFields* header_fields
 
 static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0]))) - 1 ==
               SIZEOF_HTTP_LINE_SEPERATORS);
+
+// TODO: move thos etstr helper functions t the header file
+NODISCARD inline tstr tstr_from_static_cstr(const char* const value) {
+	const size_t size = strlen(value);
+	// cast he const away, as we never alter this pointer, also this doesn't need to be freed
+	// afterwards
+	const tstr result = tstr_own((char*)value, size, size);
+
+	return result;
+}
+
+NODISCARD inline tstr tstr_own_cstr(char* const value) {
+	const size_t size = strlen(value);
+
+	const tstr result = tstr_own(value, size, size);
+
+	return result;
+}
 
 #ifdef __cplusplus
 }

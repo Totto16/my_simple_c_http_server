@@ -89,8 +89,9 @@ NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 
 		switch(insert_result) {
 			case TmapInsertResultWouldOverwrite: {
-				// TODO: if this header has to be unique, error, if this header can be
-				// concatenatend, like e.g. cookie, concatene it, otherwise i don't know what to do
+				// TODO: search path keys can be non unique, either error, as we don't support
+				// duplicates here, or just appaned them to the existing string, but with what
+				// separator?
 				UNREACHABLE();
 				break;
 			}
