@@ -284,7 +284,7 @@ static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0])))
               SIZEOF_HTTP_LINE_SEPERATORS);
 
 // TODO: move thos etstr helper functions t the header file
-NODISCARD inline tstr tstr_from_static_cstr(const char* const value) {
+NODISCARD static inline tstr tstr_from_static_cstr(const char* const value) {
 	const size_t size = strlen(value);
 	// cast he const away, as we never alter this pointer, also this doesn't need to be freed
 	// afterwards
@@ -293,7 +293,7 @@ NODISCARD inline tstr tstr_from_static_cstr(const char* const value) {
 	return result;
 }
 
-NODISCARD inline tstr tstr_own_cstr(char* const value) {
+NODISCARD static inline tstr tstr_own_cstr(char* const value) {
 	const size_t size = strlen(value);
 
 	const tstr result = tstr_own(value, size, size);
