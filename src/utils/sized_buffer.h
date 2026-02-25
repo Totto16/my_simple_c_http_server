@@ -39,6 +39,9 @@ NODISCARD int sized_buffer_cmp_with_data(SizedBuffer buf1, const void* data, siz
 NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer);
 
 NODISCARD tstr_view tstr_view_from_buffer(SizedBuffer buffer);
+
+NODISCARD SizedBuffer sized_buffer_from_tstr(const tstr* value);
+
 #ifdef __cplusplus
 }
 #endif

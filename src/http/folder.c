@@ -20,7 +20,7 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 	// TODO(Totto): redirect /dir requests to /dir/ with 310 or 302!
 
 	size_t data_len = strlen(data.folder_path);
-	size_t request_len = strlen(request_path.path);
+	size_t request_len = tstr_len(&request_path.path);
 
 	char* result_path = NULL;
 
@@ -45,7 +45,8 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 			memcpy(result_path + data_len + 1, route_path, route_len);
 			result_path[data_len + 1 + route_len] = '/';
 
-			memcpy(result_path + data_len + 2 + route_len, request_path.path, request_len);
+			memcpy(result_path + data_len + 2 + route_len, tstr_cstr(&request_path.path),
+			       request_len);
 			result_path[data_len + 2 + route_len + request_len] = '\0';
 
 			break;
@@ -61,7 +62,7 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 			memcpy(result_path, data.folder_path, data_len);
 			result_path[data_len] = '/';
 
-			memcpy(result_path + data_len + 1, request_path.path, request_len);
+			memcpy(result_path + data_len + 1, tstr_cstr(&request_path.path), request_len);
 			result_path[data_len + 1 + request_len] = '\0';
 
 			break;
@@ -582,12 +583,12 @@ NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
 }
 
 NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_info,
-                                                const char* folder_path) {
+                                                const tstr* const folder_path) {
 
 	StringBuilder* body = string_builder_init();
 
 	STRING_BUILDER_APPENDF(body, return NULL;
-	                       , "<h1 id=\"title\">Index of %s</h1> <br>", folder_path);
+	                       , "<h1 id=\"title\">Index of %s</h1> <br>", tstr_cstr(folder_path));
 
 	string_builder_append_single(body, "<div id=\"content\">");
 

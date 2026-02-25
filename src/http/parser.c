@@ -233,49 +233,52 @@ initialize_http_reader_from_connection(ConnectionDescriptor* const descriptor) {
 	return reader;
 }
 
-static CompressionType parse_compression_type(char* compression_name, OUT_PARAM(bool) ok_result) {
+static CompressionType parse_compression_type(const tstr_view compression_name,
+                                              OUT_PARAM(bool) ok_result) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.3
-	if(strcmp(compression_name, "gzip") == 0 || strcmp(compression_name, "x-gzip") == 0) {
+	if(tstr_view_eq(compression_name, "gzip") || tstr_view_eq(compression_name, "x-gzip")) {
 		*ok_result = true;
 		return CompressionTypeGzip;
 	}
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.2
-	if(strcmp(compression_name, "deflate") == 0) {
+	if(tstr_view_eq(compression_name, "deflate")) {
 		*ok_result = true;
 		return CompressionTypeDeflate;
 	}
 
-	if(strcmp(compression_name, "br") == 0) {
+	if(tstr_view_eq(compression_name, "br")) {
 		*ok_result = true;
 		return CompressionTypeBr;
 	}
 
-	if(strcmp(compression_name, "zstd") == 0) {
+	if(tstr_view_eq(compression_name, "zstd")) {
 		*ok_result = true;
 		return CompressionTypeZstd;
 	}
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.1
-	if(strcmp(compression_name, "compress") == 0 || strcmp(compression_name, "x-compress") == 0) {
+	if(tstr_view_eq(compression_name, "compress") || tstr_view_eq(compression_name, "x-compress")) {
 		*ok_result = true;
 		return CompressionTypeCompress;
 	}
 
-	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %s\n", compression_name);
+	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %.*s\n", (int)compression_name.len,
+	            compression_name.data);
 
 	*ok_result = false;
 	return CompressionTypeNone;
 }
 
-static CompressionValue parse_compression_value(char* compression_name, OUT_PARAM(bool) ok_result) {
+static CompressionValue parse_compression_value(const tstr_view compression_name,
+                                                OUT_PARAM(bool) ok_result) {
 
-	if(strcmp(compression_name, "*") == 0) {
+	if(tstr_view_eq(compression_name, "*")) {
 		*ok_result = true;
 		return (CompressionValue){ .type = CompressionValueTypeAllEncodings, .data = {} };
 	}
 
-	if(strcmp(compression_name, "identity") == 0) {
+	if(tstr_view_eq(compression_name, "identity")) {
 		*ok_result = true;
 		return (CompressionValue){ .type = CompressionValueTypeNoEncoding, .data = {} };
 	}
@@ -294,28 +297,39 @@ static CompressionValue parse_compression_value(char* compression_name, OUT_PARA
 	return result;
 }
 
-NODISCARD static float parse_compression_quality(char* compression_weight) {
-	// strip whitespace
-	while(isspace(*compression_weight)) {
-		compression_weight++;
-	}
+// TODO: implement non allocating variant of this!
+NODISCARD static float parse_float_tstr(const tstr_view value) {
 
-	if(strlen(compression_weight) < 2) {
+	// we need to call this, so that the value we pass to the strtof is null terminated
+	tstr value_duped = tstr_from_view(value);
+
+	float result = parse_float(tstr_cstr(&value_duped));
+
+	tstr_free(&value_duped);
+
+	return result;
+}
+
+NODISCARD static float parse_compression_quality(const tstr_view compression_weight_nput) {
+	// strip whitespace
+	tstr_view compression_weight = tstr_view_lstrip(compression_weight_nput);
+
+	if(compression_weight.len < 2) {
 		// no q=
 		return NAN;
 	}
 
-	if(compression_weight[0] != 'q' && compression_weight[0] != 'Q') {
+	if(compression_weight.data[0] != 'q' && compression_weight.data[0] != 'Q') {
 		return NAN;
 	}
-	compression_weight++;
 
-	if(compression_weight[0] != '=') {
+	if(compression_weight.data[1] != '=') {
 		return NAN;
 	}
-	compression_weight++;
 
-	float value = parse_float(compression_weight);
+	const tstr_view float_value = tstr_sub_until_end(compression_weight, 2);
+
+	float value = parse_float_tstr(float_value);
 
 	return value;
 }
@@ -388,49 +402,54 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
+	const tstr accept_encoding_val = tstr_from_static_cstr(HTTP_HEADER_NAME(accept_encoding));
+
 	HttpHeaderField* accept_encoding_header =
-	    find_header_by_key(header_fields, HTTP_HEADER_NAME(accept_encoding));
+	    find_header_by_key(header_fields, &accept_encoding_val);
 
 	if(!accept_encoding_header) {
 		return compression_settings;
 	}
 
-	char* raw_value = accept_encoding_header->value;
+	const tstr raw_value = accept_encoding_header->value;
 
-	if(strlen(raw_value) == 0) {
+	if(tstr_len(&raw_value) == 0) {
 		return compression_settings;
 	}
 
-	// copy the value, so that parsing is easier
-
-	char* value = strdup(raw_value);
-	char* original_value = value;
+	const tstr_view value = tstr_as_view(&raw_value);
+	tstr_split_iter iter = tstr_split_init(value, ",");
 
 	do {
 
-		char* index = strstr(value, ",");
+		tstr_view part;
 
-		if(index != NULL) {
-			*index = '\0';
+		const bool finished = tstr_split_next(&iter, &part);
+
+		if(finished) {
+			break;
 		}
-
-		// value points to the string to parse, that is null terminated
 
 		{
 
-			char* sub_index = strstr(value, ";");
+			part = tstr_view_lstrip(part);
 
-			char* compression_name = value;
-			char* compression_weight = NULL;
+			const tstr_split_result sub_result = tstr_split(part, ";");
 
-			if(sub_index != NULL) {
-				*sub_index = '\0';
-				compression_weight = sub_index + 1;
+			tstr_view compression_name;
+			tstr_view compression_weight;
+
+			if(!sub_result.ok) {
+				compression_name = part;
+				compression_weight = TSTR_EMPTY_VIEW;
+			} else {
+				compression_name = sub_result.first;
+				compression_weight = sub_result.second;
 			}
 
 			CompressionEntry entry = { .value = {}, .weight = 1.0F };
 
-			if(compression_weight != NULL) {
+			if(compression_weight.len != 0) {
 
 				float weight_value = parse_compression_quality(compression_weight);
 
@@ -440,9 +459,7 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 			}
 
 			// strip whitespace
-			while(isspace(*compression_name)) {
-				compression_name++;
-			}
+			compression_name = tstr_view_lstrip(compression_name);
 
 			bool ok_result = true;
 			CompressionValue comp_value = parse_compression_value(compression_name, &ok_result);
@@ -453,27 +470,13 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 				auto _ = TVEC_PUSH(CompressionEntry, &(compression_settings.entries), entry);
 				UNUSED(_);
 			} else {
-				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%s'\n", compression_name);
-			}
-		}
-
-		if(index == NULL) {
-			break;
-		}
-
-		value = index + 1;
-
-		{
-
-			// strip whitespace
-			while(isspace(*value)) {
-				value++;
+				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%.*s'\n",
+				            (int)compression_name.len, compression_name.data);
 			}
 		}
 
 	} while(true);
 
-	free(original_value);
 	return compression_settings;
 }
 
@@ -604,7 +607,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
 		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
-		if(strcasecmp(header.key, HTTP_HEADER_NAME(content_length)) == 0) {
+		if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(content_length))) {
 			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
 
@@ -617,7 +620,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 			bool success = false;
 
-			const size_t content_length = parse_size_t(header.value, &success);
+			const size_t content_length = parse_size_t(tstr_cstr(&header.value), &success);
 
 			if(!success) {
 				FREE_AT_END();
@@ -630,7 +633,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			analyze_result.length.type = HTTPRequestLengthTypeContentLength;
 			analyze_result.length.value.length = content_length;
 
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(transfer_encoding)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(transfer_encoding))) {
 
 			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
@@ -645,7 +648,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			analyze_result.length.type = HTTPRequestLengthTypeTransferEncoded;
 
 			// TODO(Totto): support more than chunked, as also compression can be used with chunked!
-			if(strcasecmp(header.value, "chunked") != 0) {
+			if(!tstr_eq_ignore_case_cstr(&header.value, "chunked")) {
 				FREE_AT_END();
 				return (HTTPAnalyzeHeadersResult){
 					.is_error = true,
@@ -654,11 +657,11 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			}
 			analyze_result.length.value.encoding = HTTPEncodingChunked;
 
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(connection)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(connection))) {
 			// see https://datatracker.ietf.org/doc/html/rfc7230#section-6.1
-			if(strcasecmp(header.value, "close") == 0) {
+			if(tstr_eq_ignore_case_cstr(&header.value, "close")) {
 				analyze_result.length.type = HTTPRequestLengthTypeClose;
-			} else if(strcasecmp(header.value, "keep-alive") == 0) {
+			} else if(tstr_eq_ignore_case_cstr(&header.value, "keep-alive")) {
 				if(analyze_result.connection.type != HttpAnalyzeConnectionTypeNothingSpecial) {
 					FREE_AT_END();
 					return (HTTPAnalyzeHeadersResult){
@@ -732,15 +735,15 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 				}
 			}
 
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(upgrade)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(upgrade)) ) {
 			// see: https://datatracker.ietf.org/doc/html/rfc7230#section-6.7
 
-			if(strcasecmp(header.value, "h2c") == 0) {
+			if(tstr_eq_ignore_case_cstr(&header.value, "h2c") ) {
 				h2state.upgrade_h2c_present = true;
 			}
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(http2_settings)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(http2_settings)) ) {
 
-			const SizedBuffer input = sized_buffer_from_cstr(header.value);
+			const SizedBuffer input = sized_buffer_from_tstr(&header.value);
 
 			h2state.settings_buffer = base64_decode_buffer(input);
 		}

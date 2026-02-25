@@ -9,7 +9,6 @@
 #include "http/send.h"
 #include "utils/log.h"
 #include "utils/string_builder.h"
-#include "utils/string_helper.h"
 
 #include <strings.h>
 
@@ -95,10 +94,11 @@ NODISCARD static bool is_valid_sec_key(const char* key) {
 
 static const char* const key_accept_constant = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-static char* generate_key_answer(const char* sec_key) {
+static char* generate_key_answer(const tstr* const sec_key) {
 
 	char* key_to_hash_buffer = NULL;
-	FORMAT_STRING(&key_to_hash_buffer, return NULL;, "%s%s", sec_key, key_accept_constant);
+	FORMAT_STRING(&key_to_hash_buffer, return NULL;
+	              , "%s%s", tstr_cstr(sec_key), key_accept_constant);
 
 	SizedBuffer sha1_hash = get_sha1_from_string(key_to_hash_buffer);
 
@@ -192,22 +192,22 @@ int handle_ws_handshake(const HttpRequest http_request,
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
 	NeededHeaderForHandshake found_list = HandshakeHeaderNone;
 
-	char* sec_key = NULL;
+	tstr sec_key = tstr_init();
 	bool from_browser = false;
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
-		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
+		const HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
-		if(strcasecmp(header.key, HTTP_HEADER_NAME(host)) == 0) {
+		if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(host))) {
 			found_list |= HandshakeHeaderHeaderHost;
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(upgrade)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(upgrade))) {
 			found_list |= HandshakeHeaderHeaderUpgrade;
 			if(strcasecontains(header.value, "websocket") < 0) {
 				return send_failed_handshake_message(descriptor, general_context,
 				                                     "upgrade does not contain 'websocket'",
 				                                     send_settings);
 			}
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(connection)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(connection))) {
 			found_list |= HandshakeHeaderHeaderConnection;
 			if(strcasecontains(header.value, HTTP_HEADER_NAME(upgrade)) < 0) {
 				if(send_http_upgrade_required_status_code) {
@@ -219,29 +219,31 @@ int handle_ws_handshake(const HttpRequest http_request,
 				                                     "connection does not contain 'upgrade'",
 				                                     send_settings);
 			}
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(ws_sec_websocket_key)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(ws_sec_websocket_key))) {
 			found_list |= HandshakeHeaderHeaderSecWebsocketKey;
-			if(is_valid_sec_key(header.value)) {
+			if(is_valid_sec_key(&header.value)) {
 				sec_key = header.value;
 			} else {
 				return send_failed_handshake_message(descriptor, general_context,
 				                                     "sec-websocket-key is invalid", send_settings);
 			}
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(ws_sec_websocket_version)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(header.key,
+		                                   HTTP_HEADER_NAME(ws_sec_websocket_version))) {
 			found_list |= HandshakeHeaderHeaderSecWebsocketVersion;
-			if(strcmp(header.value, "13") != 0) {
+			if(!tstr_eq_cstr(header.value, "13")) {
 				return send_failed_handshake_message(descriptor, general_context,
 				                                     "sec-websocket-version has invalid value",
 				                                     send_settings);
 			}
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(ws_sec_websocket_extensions)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(header.key,
+		                                   HTTP_HEADER_NAME(ws_sec_websocket_extensions))) {
 			// TODO(Totto): this header field may be specified multiple times, but we should
 			// combine all and than parse it, but lets see if the autobahn test suite tests for
 			// that first
 			// TODO: normalize headers in some place!
 			parse_ws_extensions(extensions, header.value);
 
-		} else if(strcasecmp(header.key, HTTP_HEADER_NAME(origin)) == 0) {
+		} else if(tstr_eq_ignore_case_cstr(header.key, HTTP_HEADER_NAME(origin))) {
 			from_browser = true;
 		} else {
 			// do nothing

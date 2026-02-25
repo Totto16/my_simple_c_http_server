@@ -32,7 +32,7 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, request.head.header_fields, i);
 
 		STRING_BUILDER_APPENDF(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
-		                                           entry.key, entry.value);
+		                                           tstr_cstr(&entry.key), tstr_cstr(&entry.value));
 	}
 	STRING_BUILDER_APPENDF(result, return NULL;
 	                       , "\tBody: %.*s\n", (int)request.body.size, (char*)request.body.data);
@@ -177,8 +177,8 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, request.head.header_fields, i);
 
-		STRING_BUILDER_APPENDF(body, return NULL;
-		                       , "{\"header\":\"%s\", \"key\":\"%s\"}", entry.key, entry.value);
+		STRING_BUILDER_APPENDF(body, return NULL;, "{\"header\":\"%s\", \"key\":\"%s\"}",
+		                                         tstr_cstr(&entry.key), tstr_cstr(&entry.value));
 		if(i + 1 < header_amount) {
 			string_builder_append_single(body, ", ");
 		} else {
@@ -234,8 +234,8 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 
 		STRING_BUILDER_APPENDF(
 		    body, return NULL;
-		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>", entry.key,
-		    entry.value);
+		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>",
+		    tstr_cstr(&entry.key), tstr_cstr(&entry.value));
 	}
 
 	string_builder_append_single(body, "</div> <div id=\"settings\">");
