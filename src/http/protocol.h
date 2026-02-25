@@ -283,12 +283,18 @@ void add_http_header_field_const_key_const_value(HttpHeaderFields* header_fields
 static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0]))) - 1 ==
               SIZEOF_HTTP_LINE_SEPERATORS);
 
-// TODO: move thos etstr helper functions t the header file
+// TODO: move those tstr helper functions t the header file
 NODISCARD static inline tstr tstr_from_static_cstr(const char* const value) {
 	const size_t size = strlen(value);
+
 	// cast he const away, as we never alter this pointer, also this doesn't need to be freed
 	// afterwards
-	const tstr result = tstr_own((char*)value, size, size);
+	tstr result = tstr_init();
+
+	result.is_long = 1;
+	result.l.ptr = (char*)value;
+	result.l.len = size;
+	result.l.cap = size;
 
 	return result;
 }
