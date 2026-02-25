@@ -402,10 +402,8 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
-	const tstr accept_encoding_val = tstr_from_static_cstr(HTTP_HEADER_NAME(accept_encoding));
-
 	HttpHeaderField* accept_encoding_header =
-	    find_header_by_key(header_fields, &accept_encoding_val);
+	    find_header_by_key(header_fields, tstr_from_static_cstr(HTTP_HEADER_NAME(accept_encoding)));
 
 	if(!accept_encoding_header) {
 		return compression_settings;

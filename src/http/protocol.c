@@ -82,14 +82,14 @@ typedef struct {
 } HTTPContent;
 
 NODISCARD const ParsedSearchPathEntry* find_search_key(const ParsedSearchPath search_path,
-                                                       const tstr* const key) {
+                                                       const tstr key) {
 
 	if(TMAP_IS_EMPTY(ParsedSearchPathHashMap, &search_path.hash_map)) {
 		return NULL;
 	}
 
 	const ParsedSearchPathEntry* entry =
-	    TMAP_GET_ENTRY(ParsedSearchPathHashMap, &(search_path.hash_map), *key);
+	    TMAP_GET_ENTRY(ParsedSearchPathHashMap, &(search_path.hash_map), key);
 
 	if(entry == NULL) {
 		return NULL;
@@ -150,11 +150,11 @@ const char* get_status_message(HttpStatusCode status_code) {
 	return result;
 }
 
-NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const tstr* const key) {
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const tstr key) {
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, array); ++i) {
 		HttpHeaderField* header = TVEC_GET_AT_MUT(HttpHeaderField, &array, i);
-		if(tstr_eq(&(header->key), key)) {
+		if(tstr_eq(&(header->key), &key)) {
 			return header;
 		}
 	}
