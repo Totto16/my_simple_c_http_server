@@ -581,29 +581,6 @@ typedef struct {
 	SizedBuffer settings_buffer;
 } Http2UpgradeState;
 
-typedef void (*ProcessHeaderValue)(const tstr_view value, void* argument);
-
-void static process_delimitered_header_value(const tstr_view value, const char* const delimiter,
-                                             ProcessHeaderValue callback_function,
-                                             void* callback_argument) {
-
-	tstr_split_iter iter = tstr_split_init(value, delimiter);
-
-	while(true) {
-
-		tstr_view result;
-		const bool finished = tstr_split_next(&iter, &result);
-
-		if(finished) {
-			break;
-		}
-
-		result = tstr_view_lstrip(result);
-
-		callback_function(result, callback_argument);
-	}
-}
-
 /**
  * @enum MASK / FLAGS
  */

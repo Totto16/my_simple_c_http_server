@@ -301,6 +301,12 @@ NODISCARD inline tstr tstr_own_cstr(char* const value) {
 	return result;
 }
 
+typedef void (*ProcessHeaderValue)(const tstr_view value, void* argument);
+
+void process_delimitered_header_value(tstr_view value, const char* delimiter,
+                                      ProcessHeaderValue callback_function,
+                                      void* callback_argument);
+
 #ifdef __cplusplus
 }
 #endif

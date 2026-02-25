@@ -183,6 +183,20 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 
 static const bool send_http_upgrade_required_status_code = true;
 
+typedef struct {
+	const char* const field_name;
+	bool success;
+} WsHeaderProcessArg;
+
+static void process_ws_header(const tstr_view value, void* argument) {
+
+	WsHeaderProcessArg* arg = (WsHeaderProcessArg*)argument;
+
+	if(tstr_view_eq_ignore_case(value, arg->field_name)) {
+		arg->success = true;
+	}
+}
+
 int handle_ws_handshake(const HttpRequest http_request,
                         const ConnectionDescriptor* const descriptor,
                         HTTPGeneralContext* general_context, SendSettings send_settings,
@@ -202,14 +216,32 @@ int handle_ws_handshake(const HttpRequest http_request,
 			found_list |= HandshakeHeaderHeaderHost;
 		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(upgrade))) {
 			found_list |= HandshakeHeaderHeaderUpgrade;
-			if(strcasecontains(header.value, "websocket") < 0) {
+
+			WsHeaderProcessArg process_arg = {
+				.field_name = "websocket",
+				.success = false,
+			};
+
+			process_delimitered_header_value(tstr_as_view(&header.value), ",", process_ws_header,
+			                                 &process_arg);
+
+			if(!process_arg.success) {
 				return send_failed_handshake_message(descriptor, general_context,
 				                                     "upgrade does not contain 'websocket'",
 				                                     send_settings);
 			}
 		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(connection))) {
 			found_list |= HandshakeHeaderHeaderConnection;
-			if(strcasecontains(header.value, HTTP_HEADER_NAME(upgrade)) < 0) {
+
+			WsHeaderProcessArg process_arg = {
+				.field_name = HTTP_HEADER_NAME(upgrade),
+				.success = false,
+			};
+
+			process_delimitered_header_value(tstr_as_view(&header.value), ",", process_ws_header,
+			                                 &process_arg);
+
+			if(!process_arg.success) {
 				if(send_http_upgrade_required_status_code) {
 					return send_failed_handshake_message_upgrade_required(
 					    descriptor, general_context, send_settings);
