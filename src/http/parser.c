@@ -420,7 +420,7 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 	const tstr_view value = tstr_as_view(&raw_value);
 	tstr_split_iter iter = tstr_split_init(value, ",");
 
-	do {
+	while(true) {
 
 		tstr_view part;
 
@@ -474,8 +474,7 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 				            (int)compression_name.len, compression_name.data);
 			}
 		}
-
-	} while(true);
+	}
 
 	return compression_settings;
 }
@@ -582,6 +581,54 @@ typedef struct {
 	SizedBuffer settings_buffer;
 } Http2UpgradeState;
 
+typedef void (*ProcessHeaderValue)(const tstr_view value, void* argument);
+
+void static process_delimitered_header_value(const tstr_view value, const char* const delimiter,
+                                             ProcessHeaderValue callback_function,
+                                             void* callback_argument) {
+
+	tstr_split_iter iter = tstr_split_init(value, delimiter);
+
+	while(true) {
+
+		tstr_view result;
+		const bool finished = tstr_split_next(&iter, &result);
+
+		if(finished) {
+			break;
+		}
+
+		result = tstr_view_lstrip(result);
+
+		callback_function(result, callback_argument);
+	}
+}
+
+/**
+ * @enum MASK / FLAGS
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ConnectionHeaderTypeNone = 0x00,
+	ConnectionHeaderTypeUpgrade = 0x01,
+	ConnectionHeaderTypeHTTP2Settings = 0x02,
+	ConnectionHeaderTypeOther = 0x04,
+	ConnectionHeaderTypeNeededForH2C = ConnectionHeaderTypeUpgrade |
+	                                   ConnectionHeaderTypeHTTP2Settings
+} ConnectionHeaderType;
+
+static void process_connection_header(const tstr_view value, void* argument) {
+
+	ConnectionHeaderType* state = (ConnectionHeaderType*)argument;
+
+	if(tstr_view_eq_ignore_case(value, "upgrade")) {
+		*state = *state | ConnectionHeaderTypeUpgrade;
+	} else if(tstr_view_eq_ignore_case(value, "http2-settings")) {
+		*state = *state | ConnectionHeaderTypeHTTP2Settings;
+	} else {
+		*state = *state | ConnectionHeaderTypeOther;
+	}
+}
+
 NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest http_request) {
 
 	HTTPAnalyzeHeaders analyze_result = {
@@ -672,76 +719,25 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 				analyze_result.connection.type = HttpAnalyzeConnectionTypeKeepAlive;
 			} else {
-				if(strstr(header.value, ",") != NULL) {
 
-					// parse the header field
+				// parse the header field
 
-					/**
-					 * @enum MASK / FLAGS
-					 */
-					typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-						ConnectionHeaderTypeNone = 0x00,
-						ConnectionHeaderTypeUpgrade = 0x01,
-						ConnectionHeaderTypeHTTP2Settings = 0x02,
-						ConnectionHeaderTypeOther = 0x04,
-						ConnectionHeaderTypeNeededForH2C =
-						    ConnectionHeaderTypeUpgrade | ConnectionHeaderTypeHTTP2Settings
-					} ConnectionHeaderType;
+				ConnectionHeaderType state = ConnectionHeaderTypeNone;
 
-					ConnectionHeaderType state = ConnectionHeaderTypeNone;
+				process_delimitered_header_value(tstr_as_view(&header.value), ",",
+				                                 process_connection_header, &state);
 
-					char* const values = strdup(header.value);
-
-					{
-						char* current_pos = values;
-
-						bool finished = false;
-
-						while(!finished) {
-
-							char* const tok = strstr(current_pos, ",");
-
-							const char* const current_value = current_pos;
-
-							if(tok == NULL) {
-								finished = true;
-							} else {
-								*tok = '\0';
-
-								current_pos = tok + 1;
-
-								// strip whitespace
-								while(isspace(*current_pos)) {
-									current_pos++;
-								}
-							}
-
-							if(strcasecmp(current_value, "upgrade") == 0) {
-								state = state | ConnectionHeaderTypeUpgrade;
-							} else if(strcasecmp(current_value, "http2-settings") == 0) {
-								state = state | ConnectionHeaderTypeHTTP2Settings;
-							} else {
-								state = state | ConnectionHeaderTypeOther;
-							}
-						}
-					}
-
-					free(values);
-
-					if((state & ConnectionHeaderTypeNeededForH2C) ==
-					   ConnectionHeaderTypeNeededForH2C) {
-						h2state.connection_has_both_upgrade_and_h2_settings = true;
-					}
+				if((state & ConnectionHeaderTypeNeededForH2C) == ConnectionHeaderTypeNeededForH2C) {
+					h2state.connection_has_both_upgrade_and_h2_settings = true;
 				}
 			}
-
-		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(upgrade)) ) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(upgrade))) {
 			// see: https://datatracker.ietf.org/doc/html/rfc7230#section-6.7
 
-			if(tstr_eq_ignore_case_cstr(&header.value, "h2c") ) {
+			if(tstr_eq_ignore_case_cstr(&header.value, "h2c")) {
 				h2state.upgrade_h2c_present = true;
 			}
-		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(http2_settings)) ) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(http2_settings))) {
 
 			const SizedBuffer input = sized_buffer_from_tstr(&header.value);
 
