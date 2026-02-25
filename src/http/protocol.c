@@ -154,7 +154,7 @@ NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const tstr
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, array); ++i) {
 		HttpHeaderField* header = TVEC_GET_AT_MUT(HttpHeaderField, &array, i);
-		if(tstr_eq(&(header->key), &key)) {
+		if(tstr_eq_ignore_case(&(header->key), &key)) {
 			return header;
 		}
 	}
