@@ -31,7 +31,7 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(const tstr_v
 
 		{
 
-			tstr_split_result split_result = tstr_split(current_param, "=");
+			const tstr_split_result split_result = tstr_split(current_param, "=");
 
 			tstr_view current_param_name;
 			tstr_view current_param_value;
@@ -115,7 +115,7 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(const tstr_v
 NODISCARD static WSExtension parse_ws_extension_value(const tstr_view value,
                                                       OUT_PARAM(bool) success) {
 
-	tstr_split_result split_result = tstr_split(value, ";");
+	const tstr_split_result split_result = tstr_split(value, ";");
 
 	tstr_view name;
 	tstr_view params;

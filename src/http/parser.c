@@ -97,13 +97,7 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 	}
 
-	// TODO(Totto): don't use libc parse function that operate on strings, use parser ones, that
-	// operate on slices of bytes
-
-	// make this string parseable by the libc functions
-	const SizedBuffer request_line = read_result.value.buffer;
-
-	const tstr_view request_line_str = tstr_view_from_buffer(request_line);
+	const tstr_view request_line = tstr_view_from_buffer(read_result.value.buffer);
 
 	tstr_view method = TSTR_EMPTY_VIEW;
 	tstr_view path = TSTR_EMPTY_VIEW;
@@ -111,7 +105,7 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 
 	{ // parse the three fields in the line from start to line_end
 
-		tstr_split_iter line_iter = tstr_split_init(request_line_str, " ");
+		tstr_split_iter line_iter = tstr_split_init(request_line, " ");
 
 		bool success = tstr_split_next(&line_iter, &method);
 
@@ -885,9 +879,6 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 		.body = (SizedBuffer){ .data = NULL, .size = 0 },
 	};
 
-	// TODO(Totto): don't use libc parse function that operate on strings, use parser ones, that
-	// operate on slices of bytes
-
 	// parse headers
 	while(true) {
 
@@ -903,22 +894,17 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 				                                                  "Failed to parse headers" } } } };
 		}
 
-		SizedBuffer header_line = read_result.value.buffer;
+		tstr_view header_line = tstr_view_from_buffer(read_result.value.buffer);
 
-		char* const current_pos = (char*)header_line.data;
-		*(current_pos + header_line.size) = '\0';
-
-		if(strlen(current_pos) == 0) {
+		if(header_line.len == 0) {
 			break;
 		}
 
-		char* header_start = current_pos;
-
 		{ // parse the single header
 
-			char* header_key_end = strchr(header_start, ':');
+			const tstr_split_result split_result = tstr_split(header_line, ":");
 
-			if(header_key_end == NULL) {
+			if(!split_result.ok) {
 				return (HttpRequestResult){
 					.type = HttpRequestResultTypeError,
 					.value = { .error =
@@ -928,16 +914,11 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 				};
 			}
 
-			*header_key_end = '\0';
+			const tstr_view header_key = split_result.first;
+			const tstr_view header_value = tstr_view_lstrip(split_result.second);
 
-			char* header_value_start = header_key_end + 1;
-
-			while(isspace(*header_value_start)) {
-				header_value_start = header_value_start + 1;
-			}
-
-			HttpHeaderField field = { .key = strdup(header_start),
-				                      .value = strdup(header_value_start) };
+			HttpHeaderField field = { .key = tstr_from_view(header_key),
+				                      .value = tstr_from_view(header_value) };
 
 			auto _ = TVEC_PUSH(HttpHeaderField, &(request.head.header_fields), field);
 			UNUSED(_);

@@ -242,7 +242,7 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 		return command;
 	}
 
-	tstr_split_result split_result = tstr_split(data_str, " ");
+	const tstr_split_result split_result = tstr_split(data_str, " ");
 
 	if(!split_result.ok) {
 		free(command);
