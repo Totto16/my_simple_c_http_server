@@ -80,9 +80,8 @@ NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* c
 
 #define EXPECTED_WS_HEADER_SEC_KEY_LENGTH 16
 
-NODISCARD static bool is_valid_sec_key(const char* key) {
-	SizedBuffer b64_result =
-	    base64_decode_buffer((SizedBuffer){ .data = (void*)key, .size = strlen(key) });
+NODISCARD static bool is_valid_sec_key(const tstr* const key) {
+	SizedBuffer b64_result = base64_decode_buffer(sized_buffer_from_tstr(key));
 	if(!b64_result.data) {
 		return false;
 	}
@@ -259,23 +258,23 @@ int handle_ws_handshake(const HttpRequest http_request,
 				return send_failed_handshake_message(descriptor, general_context,
 				                                     "sec-websocket-key is invalid", send_settings);
 			}
-		} else if(tstr_eq_ignore_case_cstr(header.key,
+		} else if(tstr_eq_ignore_case_cstr(&header.key,
 		                                   HTTP_HEADER_NAME(ws_sec_websocket_version))) {
 			found_list |= HandshakeHeaderHeaderSecWebsocketVersion;
-			if(!tstr_eq_cstr(header.value, "13")) {
+			if(!tstr_eq_cstr(&header.value, "13")) {
 				return send_failed_handshake_message(descriptor, general_context,
 				                                     "sec-websocket-version has invalid value",
 				                                     send_settings);
 			}
-		} else if(tstr_eq_ignore_case_cstr(header.key,
+		} else if(tstr_eq_ignore_case_cstr(&header.key,
 		                                   HTTP_HEADER_NAME(ws_sec_websocket_extensions))) {
 			// TODO(Totto): this header field may be specified multiple times, but we should
 			// combine all and than parse it, but lets see if the autobahn test suite tests for
 			// that first
 			// TODO: normalize headers in some place!
-			parse_ws_extensions(extensions, header.value);
+			parse_ws_extensions(extensions, tstr_as_view(&header.value));
 
-		} else if(tstr_eq_ignore_case_cstr(header.key, HTTP_HEADER_NAME(origin))) {
+		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(origin))) {
 			from_browser = true;
 		} else {
 			// do nothing
@@ -318,12 +317,13 @@ int handle_ws_handshake(const HttpRequest http_request,
 		                                            HTTP_HEADER_NAME(connection), "upgrade");
 	}
 
-	char* key_answer = generate_key_answer(sec_key);
+	char* key_answer = generate_key_answer(&sec_key);
 
 	if(key_answer != NULL) {
 
-		add_http_header_field_const_key_dynamic_value(
-		    &additional_headers, HTTP_HEADER_NAME(ws_sec_websocket_accept), key_answer);
+		add_http_header_field_const_key_dynamic_value(&additional_headers,
+		                                              HTTP_HEADER_NAME(ws_sec_websocket_accept),
+		                                              tstr_own_cstr(key_answer));
 	}
 
 	if(!TVEC_IS_EMPTY(WSExtension, *extensions)) {
@@ -333,7 +333,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 			add_http_header_field_const_key_dynamic_value(
 			    &additional_headers, HTTP_HEADER_NAME(ws_sec_websocket_extensions),
-			    accepted_extensions);
+			    tstr_own_cstr(accepted_extensions));
 		}
 	}
 
@@ -347,8 +347,10 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedURLPath path) {
 
+	const auto fragmented_val = tstr_from_static_cstr("fragmented");
+
 	const ParsedSearchPathEntry* fragmented_paramater =
-	    find_search_key(path.search_path, "fragmented");
+	    find_search_key(path.search_path, &fragmented_val);
 
 	if(fragmented_paramater == NULL) {
 		return (WsFragmentOption){ .type = WsFragmentOptionTypeOff };
@@ -356,14 +358,17 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedU
 
 	WsFragmentOption result = { .type = WsFragmentOptionTypeAuto };
 
+	const auto fragment_size_val = tstr_from_static_cstr("fragment_size");
+
 	const ParsedSearchPathEntry* fragment_size_parameter =
-	    find_search_key(path.search_path, "fragment_size");
+	    find_search_key(path.search_path, &fragment_size_val);
 
 	if(fragment_size_parameter != NULL) {
 
 		bool success = true;
 
-		long parsed_long = parse_long(fragment_size_parameter->value.value, &success);
+		long parsed_long =
+		    parse_long_tstr(tstr_as_view(&fragment_size_parameter->value.val), &success);
 
 		if(success) {
 
@@ -380,7 +385,9 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedU
 NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
                                                          WSExtensions extensions) {
 
-	const ParsedSearchPathEntry* trace_paramater = find_search_key(path.search_path, "trace");
+	const auto trace_val = tstr_from_static_cstr("trace");
+
+	const ParsedSearchPathEntry* trace_paramater = find_search_key(path.search_path, &trace_val);
 
 	return (WsConnectionArgs){ .fragment_option = get_ws_fragment_args_from_http_request(path),
 		                       .extensions = extensions,

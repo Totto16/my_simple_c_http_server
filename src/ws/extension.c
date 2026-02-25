@@ -13,51 +13,50 @@ TVEC_IMPLEMENT_VEC_TYPE(WSExtension)
 #define MIN_MAX_WINDOW_BITS 8
 #define MAX_MAX_WINDOW_BITS 15
 
-NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params,
+NODISCARD static bool parse_ws_extension_per_message_deflate_params(const tstr_view params,
                                                                     WsDeflateOptions* options) {
 
-	char* current_params = params;
+	tstr_split_iter iter = tstr_split_init(params, ";");
 
 	while(true) {
 
-		char* next_params = index(current_params, ';');
+		tstr_view current_param;
+		const bool finished = tstr_split_next(&iter, &current_param);
 
-		if(next_params != NULL) {
-			*next_params = '\0';
+		if(finished) {
+			break;
 		}
 
-		// strip whitespace
-		while(isspace(*current_params)) {
-			current_params++;
-		}
+		current_param = tstr_view_lstrip(current_param);
 
 		{
 
-			char* current_param_name = current_params;
+			tstr_split_result split_result = tstr_split(current_param, "=");
 
-			char* current_param_value = NULL;
-
-			char* current_param_value_start = index(current_param_name, '=');
-
-			if(current_param_value_start != NULL) {
-				*current_param_value_start = '\0';
-				current_param_value = current_param_value_start + 1;
+			tstr_view current_param_name;
+			tstr_view current_param_value;
+			if(split_result.ok) {
+				current_param_name = split_result.first;
+				current_param_value = split_result.second;
+			} else {
+				current_param_name = current_param;
+				current_param_value = TSTR_EMPTY_VIEW;
 			}
 
-			if(strcmp(current_param_name, "server_no_context_takeover") == 0) {
-				if(current_param_value != NULL) {
+			if(tstr_view_eq(current_param_name, "server_no_context_takeover")) {
+				if(current_param_value.len != 0) {
 					return false;
 				}
 
 				options->server.no_context_takeover = true;
 
-			} else if(strcmp(current_param_name, "server_max_window_bits") == 0) {
+			} else if(tstr_view_eq(current_param_name, "server_max_window_bits")) {
 
 				uint8_t max_window_bits = DEFAULT_MAX_WINDOW_BITS;
 
-				if(current_param_value != NULL) {
+				if(current_param_value.len != 0) {
 					bool success = true;
-					long parsed_number = parse_long(current_param_value, &success);
+					long parsed_number = parse_long_tstr(current_param_value, &success);
 
 					if(!success) {
 						return false;
@@ -72,20 +71,20 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params
 
 				options->server.max_window_bits = max_window_bits;
 
-			} else if(strcmp(current_param_name, "client_no_context_takeover") == 0) {
-				if(current_param_value != NULL) {
+			} else if(tstr_view_eq(current_param_name, "client_no_context_takeover")) {
+				if(current_param_value.len != 0) {
 					return false;
 				}
 
 				options->client.no_context_takeover = true;
 
-			} else if(strcmp(current_param_name, "client_max_window_bits") == 0) {
+			} else if(tstr_view_eq(current_param_name, "client_max_window_bits")) {
 
 				uint8_t max_window_bits = DEFAULT_MAX_WINDOW_BITS;
 
-				if(current_param_value != NULL) {
+				if(current_param_value.len != 0) {
 					bool success = true;
-					long parsed_number = parse_long(current_param_value, &success);
+					long parsed_number = parse_long_tstr(current_param_value, &success);
 
 					if(!success) {
 						return false;
@@ -104,12 +103,6 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params
 				return false;
 			}
 		}
-
-		if(next_params == NULL) {
-			break;
-		}
-
-		current_params = next_params + 1;
 	}
 
 	return true;
@@ -119,24 +112,23 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(char* params
 
 #define DEFAULT_CONTEXT_TAKEOVER_SERVER_VALUE true
 
-NODISCARD static WSExtension parse_ws_extension_value(char* value, OUT_PARAM(bool) success) {
+NODISCARD static WSExtension parse_ws_extension_value(const tstr_view value,
+                                                      OUT_PARAM(bool) success) {
 
-	char* name = value;
+	tstr_split_result split_result = tstr_split(value, ";");
 
-	char* params_start = index(value, ';');
+	tstr_view name;
+	tstr_view params;
 
-	char* params = NULL;
-	if(params_start != NULL) {
-		*params_start = '\0';
-		params = params_start + 1;
-
-		// strip whitespace
-		while(isspace(*params)) {
-			params++;
-		}
+	if(split_result.ok) {
+		name = split_result.first;
+		params = tstr_view_lstrip(split_result.second);
+	} else {
+		name = value;
+		params = TSTR_EMPTY_VIEW;
 	}
 
-	if(strcmp(name, "permessage-deflate") == 0) {
+	if(tstr_view_eq(name, "permessage-deflate")) {
 
 		WSExtension extension = {
 			.type = WSExtensionTypePerMessageDeflate,
@@ -148,7 +140,7 @@ NODISCARD static WSExtension parse_ws_extension_value(char* value, OUT_PARAM(boo
 			                                   .max_window_bits = DEFAULT_MAX_WINDOW_BITS } } }
 		};
 
-		if(params != NULL) {
+		if(params.len != 0) {
 			bool res =
 			    parse_ws_extension_per_message_deflate_params(params, &extension.data.deflate);
 
@@ -165,37 +157,28 @@ NODISCARD static WSExtension parse_ws_extension_value(char* value, OUT_PARAM(boo
 }
 
 // see https://datatracker.ietf.org/doc/html/rfc6455#section-9.1
-void parse_ws_extensions(WSExtensions* extensions, const char* const value_const) {
+void parse_ws_extensions(WSExtensions* extensions, const tstr_view value) {
 
-	char* value = strdup(value_const);
-
-	char* current_extension = value;
+	tstr_split_iter iter = tstr_split_init(value, ",");
 
 	while(true) {
 
-		char* next_value = index(current_extension, ',');
+		tstr_view part;
+		const bool finished = tstr_split_next(&iter, &part);
 
-		if(next_value != NULL) {
-			*next_value = '\0';
+		if(finished) {
+			break;
 		}
 
 		bool success = true;
 
-		WSExtension extension = parse_ws_extension_value(current_extension, &success);
+		WSExtension extension = parse_ws_extension_value(part, &success);
 
 		if(success) {
 			auto _ = TVEC_PUSH(WSExtension, extensions, extension);
 			UNUSED(_);
 		}
-
-		if(next_value == NULL) {
-			break;
-		}
-
-		current_extension = next_value + 1;
 	}
-
-	free(value);
 }
 
 NODISCARD static bool append_ws_extension_as_string(StringBuilder* string_builder,
@@ -744,4 +727,19 @@ void extension_send_pipeline_process_cont_message(ExtensionSendState* extension_
 	// NOOP atm
 	UNUSED(extension_send_state);
 	UNUSED(raw_message);
+}
+
+NODISCARD long parse_long_tstr(const tstr_view input, OUT_PARAM(bool) const success) {
+
+	int result;
+	// TODO: this can only parse ints, not longs, so the valkue might overflow
+	bool correct = tstr_view_to_int(input, &result);
+
+	if(!correct) {
+		*success = false;
+		return 0;
+	}
+
+	*success = true;
+	return (long)result;
 }
