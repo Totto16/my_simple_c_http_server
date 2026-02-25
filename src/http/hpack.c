@@ -206,7 +206,8 @@ NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t 
 		return -3;
 	}
 
-	const HttpHeaderField entry_value = { .key = entry.value.key, .value = entry.value.value };
+	const HttpHeaderField entry_value = { .key = tstr_own_cstr(entry.value.key),
+		                                  .value = tstr_own_cstr(entry.value.value) };
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, entry_value);
 
@@ -408,8 +409,8 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	}
 
 	const HttpHeaderField header_field = {
-		.key = header_key,
-		.value = header_value,
+		.key = tstr_own_cstr(header_key),
+		.value = tstr_own_cstr(header_value),
 	};
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
@@ -528,8 +529,8 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos,
 	}
 
 	const HttpHeaderField header_field = {
-		.key = header_key,
-		.value = header_value,
+		.key = tstr_own_cstr(header_key),
+		.value = tstr_own_cstr(header_value),
 	};
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
@@ -617,8 +618,8 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	}
 
 	const HttpHeaderField header_field = {
-		.key = header_key,
-		.value = header_value,
+		.key = tstr_own_cstr(header_key),
+		.value = tstr_own_cstr(header_value),
 	};
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
@@ -832,8 +833,8 @@ NODISCARD static SizedBuffer encode_single_header_field_dumb_literal(HttpHeaderF
 	// | Value String (Length octets)  |
 	// +-------------------------------+
 
-	const size_t key_size = strlen(field.key);
-	const size_t value_size = strlen(field.value);
+	const size_t key_size = tstr_len(&field.key);
+	const size_t value_size = tstr_len(&field.value);
 
 	const size_t max_size = MAX_HPACK_VARIABLE_INTEGER_SIZE + MAX_HPACK_VARIABLE_INTEGER_SIZE +
 	                        key_size + value_size + 1;
@@ -864,7 +865,7 @@ NODISCARD static SizedBuffer encode_single_header_field_dumb_literal(HttpHeaderF
 
 		i += result;
 
-		memcpy(data + i, field.key, key_size);
+		memcpy(data + i, tstr_cstr(&field.key), key_size);
 
 		i += key_size;
 	}
@@ -883,7 +884,7 @@ NODISCARD static SizedBuffer encode_single_header_field_dumb_literal(HttpHeaderF
 
 		i += result;
 
-		memcpy(data + i, field.value, value_size);
+		memcpy(data + i, tstr_cstr(&field.value), value_size);
 
 		i += value_size;
 	}
