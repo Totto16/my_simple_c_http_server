@@ -21,9 +21,9 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(const tstr_v
 	while(true) {
 
 		tstr_view current_param;
-		const bool finished = tstr_split_next(&iter, &current_param);
+		const bool split_succeeded = tstr_split_next(&iter, &current_param);
 
-		if(finished) {
+		if(!split_succeeded) {
 			break;
 		}
 
@@ -164,9 +164,9 @@ void parse_ws_extensions(WSExtensions* extensions, const tstr_view value) {
 	while(true) {
 
 		tstr_view part;
-		const bool finished = tstr_split_next(&iter, &part);
+		const bool split_succeeded = tstr_split_next(&iter, &part);
 
-		if(finished) {
+		if(!split_succeeded) {
 			break;
 		}
 

@@ -416,9 +416,9 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 
 		tstr_view part;
 
-		const bool finished = tstr_split_next(&iter, &part);
+		const bool split_succeeded = tstr_split_next(&iter, &part);
 
-		if(finished) {
+		if(!split_succeeded) {
 			break;
 		}
 

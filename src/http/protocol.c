@@ -292,9 +292,9 @@ void process_delimitered_header_value(const tstr_view value, const char* const d
 	while(true) {
 
 		tstr_view result;
-		const bool finished = tstr_split_next(&iter, &result);
+		const bool split_succeeded = tstr_split_next(&iter, &result);
 
-		if(finished) {
+		if(!split_succeeded) {
 			break;
 		}
 
