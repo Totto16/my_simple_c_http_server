@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <tstr.h>
 
 constexpr const size_t vector_max_for_printing_content = 40;
 
@@ -89,3 +90,7 @@ template <typename T> struct CppDefer {
 
 	~CppDefer() { this->m_free_fn(this->m_state); }
 };
+
+[[nodiscard]] static inline std::string string_from_tstr(const tstr value) {
+	return std::string{ tstr_cstr(&value), tstr_len(&value) };
+}

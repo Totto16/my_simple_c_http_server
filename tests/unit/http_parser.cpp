@@ -29,8 +29,9 @@ class CompressionSettingsCpp {
 
 		HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
 
-		add_http_header_field_const_key_dynamic_value(
-		    &http_header_fields, HTTP_HEADER_NAME(accept_encoding), strdup(accept_encoding_value));
+		add_http_header_field_const_key_dynamic_value(&http_header_fields,
+		                                              HTTP_HEADER_NAME(accept_encoding),
+		                                              tstr_from(accept_encoding_value));
 
 		this->m_settings = get_compression_settings(http_header_fields);
 
@@ -314,9 +315,9 @@ struct ParsedURIWrapper {
 
 ParsedURIWrapper parse_uri(const char* value) {
 
-	std::string readable_copy = std::string{ value };
+	const auto value_tstr = tstr_from_static_cstr(value);
 
-	auto result = parse_request_uri(readable_copy.data());
+	auto result = parse_request_uri(tstr_as_view(&value_tstr));
 
 	return ParsedURIWrapper(result);
 }
@@ -333,7 +334,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/");
 
@@ -349,7 +350,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
@@ -365,7 +366,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
@@ -380,9 +381,9 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param1");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param1");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "hello");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "hello");
 			}
 
 			{
@@ -392,9 +393,9 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param2");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param2");
 
-				REQUIRE_EQ(std::string{ entry->value.val }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
@@ -403,9 +404,9 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param3");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param3");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
@@ -426,7 +427,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
@@ -441,9 +442,9 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param1");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param1");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "hello");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "hello");
 			}
 
 			{
@@ -453,9 +454,9 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param2");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param2");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
@@ -464,9 +465,9 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param3");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param3");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{

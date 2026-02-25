@@ -1,6 +1,7 @@
 #pragma once
 
 #include <http/hpack.h>
+#include "helpers/cpp_types.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -245,7 +246,7 @@ get_cpp_headers(const HttpHeaderFields& fields) {
 
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, fields, i);
 
-		result.insert_or_assign(std::string{ field.key }, std::string{ field.value });
+		result.insert_or_assign(string_from_tstr(field.key), string_from_tstr(field.value));
 	}
 
 	return result;
