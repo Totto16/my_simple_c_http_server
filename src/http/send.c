@@ -67,8 +67,9 @@ static bool construct_http1_headers_for_request(
 			char* content_length_buffer = NULL;
 			FORMAT_STRING(&content_length_buffer, return NULL;, "%ld", body.size);
 
-			add_http_header_field_const_key_dynamic_value(
-			    result_header_fields, HTTP_HEADER_NAME(content_length), content_length_buffer);
+			add_http_header_field_const_key_dynamic_value(result_header_fields,
+			                                              HTTP_HEADER_NAME(content_length),
+			                                              tstr_own_cstr(content_length_buffer));
 		}
 	}
 
@@ -155,8 +156,9 @@ static bool construct_http2_headers_for_request(
 	char* status_code_buffer = NULL;
 	FORMAT_STRING(&status_code_buffer, return false;, "%u", status);
 
-	add_http_header_field_const_key_dynamic_value(
-	    result_header_fields, HTTP_HEADER_NAME(http2_pseudo_status), status_code_buffer);
+	add_http_header_field_const_key_dynamic_value(result_header_fields,
+	                                              HTTP_HEADER_NAME(http2_pseudo_status),
+	                                              tstr_own_cstr(status_code_buffer));
 
 	return construct_http1_headers_for_request(send_settings, result_header_fields, mime_type,
 	                                           additional_headers, compression_format, body,
@@ -195,7 +197,18 @@ NODISCARD static int send_http2_response_to_connection(const ConnectionDescripto
 }
 
 typedef struct {
-	HttpResponseHead head;
+	tstr protocol_version;
+	tstr status_code_str;
+	tstr status_message;
+} Http1ResponseLine;
+
+typedef struct {
+	Http1ResponseLine response_line;
+	HttpHeaderFields header_fields;
+} Http1ResponseHead;
+
+typedef struct {
+	Http1ResponseHead head;
 	SizedBuffer body;
 } Http1Response;
 
@@ -212,31 +225,30 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 		return NULL;
 	}
 
-	*response = (Http1Response){ .head = {
-		.header_fields = 	TVEC_EMPTY(HttpHeaderField),
-		.response_line = {
-			.protocol_version = NULL,.status_code = 0,
-			.status_message = NULL,
-		} 
-	}, .body = (SizedBuffer){ .data = NULL, .size = 0 } };
+	*response = (Http1Response){ 
+		.head = {
+			.header_fields = 	TVEC_EMPTY(HttpHeaderField),
+			.response_line = {
+				.protocol_version = tstr_init(),
+				.status_code_str =  tstr_init(),
+				.status_message = tstr_init(),
+			} 
+		},
+		.body = (SizedBuffer){ .data = NULL, .size = 0 } };
 
 	HTTPProtocolVersion version_to_use = send_settings.protocol_data.version;
 
 	const char* protocol_version = get_http_protocol_version_string(version_to_use);
 
-	size_t protocol_length = strlen(protocol_version);
 	const char* status_message = get_status_message(to_send.status);
 
 	// using the same trick as before, \0 in the malloced string :)
-	char* response_line_buffer = NULL;
-	FORMAT_STRING(&response_line_buffer, return NULL;
-	              , "%s%c%d%c%s", protocol_version, '\0', to_send.status, '\0', status_message);
+	char* status_code_buffer = NULL;
+	FORMAT_STRING(&status_code_buffer, return NULL;, "%d", to_send.status);
 
-	response->head.response_line.protocol_version = response_line_buffer;
-	response->head.response_line.status_code = response_line_buffer + protocol_length + 1;
-	response->head.response_line.status_message =
-	    response_line_buffer + protocol_length +
-	    strlen(response_line_buffer + protocol_length + 1) + 2;
+	response->head.response_line.protocol_version = tstr_from(protocol_version);
+	response->head.response_line.status_code_str = tstr_own_cstr(status_code_buffer);
+	response->head.response_line.status_message = tstr_from(status_message);
 
 	CompressionType format_used = send_settings.compression_to_use;
 
@@ -377,17 +389,18 @@ NODISCARD static Http1ConcattedResponse* http1_response_concat(Http1Response* re
 
 	StringBuilder* result = string_builder_init();
 
-	STRING_BUILDER_APPENDF(result, return NULL;
-	                       , "%s %s %s%s", response->head.response_line.protocol_version,
-	                       response->head.response_line.status_code,
-	                       response->head.response_line.status_message, HTTP_LINE_SEPERATORS);
+	STRING_BUILDER_APPENDF(
+	    result, return NULL;
+	    , "%s %s %s%s", tstr_cstr(&response->head.response_line.protocol_version),
+	    tstr_cstr(&response->head.response_line.status_code_str),
+	    tstr_cstr(&response->head.response_line.status_message), HTTP_LINE_SEPERATORS);
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, response->head.header_fields); ++i) {
 
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, response->head.header_fields, i);
 
-		STRING_BUILDER_APPENDF(result, return NULL;
-		                       , "%s: %s%s", entry.key, entry.value, HTTP_LINE_SEPERATORS);
+		STRING_BUILDER_APPENDF(result, return NULL;, "%s: %s%s", tstr_cstr(&entry.key),
+		                                           tstr_cstr(&entry.value), HTTP_LINE_SEPERATORS);
 	}
 
 	string_builder_append_single(result, HTTP_LINE_SEPERATORS);
@@ -398,10 +411,15 @@ NODISCARD static Http1ConcattedResponse* http1_response_concat(Http1Response* re
 	return concatted_response;
 }
 
+static void free_http1_response_line(Http1ResponseLine* line) {
+	tstr_free(&line->protocol_version);
+	tstr_free(&line->status_code_str);
+	tstr_free(&line->status_message);
+}
+
 // free the HttpResponse, just freeing everything necessary
 static void free_http1_response(Http1Response* response) {
-	// elegantly freeing three at once :)
-	free(response->head.response_line.protocol_version);
+	free_http1_response_line(&(response->head.response_line));
 	free_http_header_fields(&response->head.header_fields);
 
 	free_sized_buffer(response->body);

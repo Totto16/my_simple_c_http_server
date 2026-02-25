@@ -83,7 +83,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 					char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 					if(date_str != NULL) {
 						add_http_header_field_const_key_dynamic_value(
-						    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+						    &additional_headers, HTTP_HEADER_NAME(date), tstr_own_cstr(date_str));
 					}
 				}
 			}
@@ -117,8 +117,9 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 					if(success) {
 						char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 						if(date_str != NULL) {
-							add_http_header_field_const_key_dynamic_value(
-							    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+							add_http_header_field_const_key_dynamic_value(&additional_headers,
+							                                              HTTP_HEADER_NAME(date),
+							                                              tstr_own_cstr(date_str));
 						}
 					}
 				}
@@ -261,7 +262,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
 								add_http_header_field_const_key_dynamic_value(
-								    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+								    &additional_headers, HTTP_HEADER_NAME(date),
+								    tstr_own_cstr(date_str));
 							}
 						}
 					}
@@ -297,7 +299,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
 								add_http_header_field_const_key_dynamic_value(
-								    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+								    &additional_headers, HTTP_HEADER_NAME(date),
+								    tstr_own_cstr(date_str));
 							}
 						}
 					}
@@ -589,7 +592,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 							add_http_header_field_const_key_dynamic_value(
 							    &additional_headers, HTTP_HEADER_NAME(content_disposition),
-							    content_disposition_buffer);
+							    tstr_own_cstr(content_disposition_buffer));
 						}
 
 						{
@@ -602,7 +605,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 								if(date_str != NULL) {
 
 									add_http_header_field_const_key_dynamic_value(
-									    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+									    &additional_headers, HTTP_HEADER_NAME(date),
+									    tstr_own_cstr(date_str));
 								}
 							}
 						}

@@ -130,12 +130,6 @@ NODISCARD const char* get_http_method_string(HTTPRequestMethod method);
 
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version);
 
-typedef struct {
-	tstr protocol_version;
-	tstr status_code;
-	tstr status_message;
-} HttpResponseLine;
-
 TVEC_DEFINE_VEC_TYPE(HttpHeaderField)
 
 typedef TVEC_TYPENAME(HttpHeaderField) HttpHeaderFields;
@@ -146,11 +140,6 @@ typedef struct {
 	//  see MAP_INSERT(ParsedSearchPathHashMap, as we treat search params as map
 	HttpHeaderFields header_fields;
 } HttpRequestHead;
-
-typedef struct {
-	HttpResponseLine response_line;
-	HttpHeaderFields header_fields;
-} HttpResponseHead;
 
 typedef struct {
 	HttpRequestHead head;
