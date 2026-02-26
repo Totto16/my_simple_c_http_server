@@ -34,7 +34,7 @@ static void receive_signal(int signal_number) {
 	g_signal_received = signal_number;
 }
 
-#define SUPPORTED_HTTP_METHODS "GET, POST, HEAD, OPTIONS, CONNECT"
+#define SUPPORTED_HTTP_METHODS TSTR_LIT("GET, POST, HEAD, OPTIONS, CONNECT")
 
 #define FREE_AT_END() \
 	do { \
@@ -82,8 +82,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				if(success) {
 					char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 					if(date_str != NULL) {
-						add_http_header_field_const_key_dynamic_value(
-						    &additional_headers, HTTP_HEADER_NAME(date), tstr_own_cstr(date_str));
+						add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+						                      tstr_own_cstr(date_str));
 					}
 				}
 			}
@@ -105,8 +105,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 				{ // all 405 have to have a Allow filed according to spec
 
-					add_http_header_field_const_key_const_value(
-					    &additional_headers, HTTP_HEADER_NAME(allow), SUPPORTED_HTTP_METHODS);
+					add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+					                      SUPPORTED_HTTP_METHODS);
 				}
 
 				{
@@ -117,9 +117,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 					if(success) {
 						char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 						if(date_str != NULL) {
-							add_http_header_field_const_key_dynamic_value(&additional_headers,
-							                                              HTTP_HEADER_NAME(date),
-							                                              tstr_own_cstr(date_str));
+							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+							                      tstr_own_cstr(date_str));
 						}
 					}
 				}
@@ -249,8 +248,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{ // all 405 have to have a Allow filed according to spec
 
-						add_http_header_field_const_key_const_value(
-						    &additional_headers, HTTP_HEADER_NAME(allow), SUPPORTED_HTTP_METHODS);
+						add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+						                      SUPPORTED_HTTP_METHODS);
 					}
 
 					{
@@ -261,9 +260,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						if(success) {
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
-								add_http_header_field_const_key_dynamic_value(
-								    &additional_headers, HTTP_HEADER_NAME(date),
-								    tstr_own_cstr(date_str));
+								add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+								                      tstr_own_cstr(date_str));
 							}
 						}
 					}
@@ -271,7 +269,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 				HTTPResponseToSend to_send = { .status = HttpStatusOk,
 					                           .body = http_response_body_empty(),
-					                           .mime_type = NULL,
+					                           .mime_type = tstr_init(),
 					                           .additional_headers = additional_headers };
 
 				result = send_http_message_to_connection(general_context, descriptor, to_send,
@@ -286,8 +284,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{ // all 405 have to have a Allow filed according to spec
 
-						add_http_header_field_const_key_const_value(
-						    &additional_headers, HTTP_HEADER_NAME(allow), SUPPORTED_HTTP_METHODS);
+						add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+						                      SUPPORTED_HTTP_METHODS);
 					}
 
 					{
@@ -298,9 +296,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						if(success) {
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
-								add_http_header_field_const_key_dynamic_value(
-								    &additional_headers, HTTP_HEADER_NAME(date),
-								    tstr_own_cstr(date_str));
+								add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+								                      tstr_own_cstr(date_str));
 							}
 						}
 					}
@@ -308,7 +305,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 				HTTPResponseToSend to_send = { .status = HttpStatusOk,
 					                           .body = http_response_body_empty(),
-					                           .mime_type = NULL,
+					                           .mime_type = tstr_init(),
 					                           .additional_headers = additional_headers };
 
 				result = send_http_message_to_connection(general_context, descriptor, to_send,
@@ -359,16 +356,16 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 						{
 
-							add_http_header_field_const_key_const_value(
-							    &additional_headers, HTTP_HEADER_NAME(x_shutdown), "true");
+							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(x_shutdown),
+							                      TSTR_LIT("true"));
 						}
 
 					} else {
 
 						{ // all 405 have to have a Allow filed according to spec
 
-							add_http_header_field_const_key_const_value(
-							    &additional_headers, HTTP_HEADER_NAME(allow), "GET, HEAD");
+							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+							                      TSTR_LIT("GET, HEAD"));
 						}
 
 						HTTPResponseToSend to_send = {
@@ -413,8 +410,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 						{ // all 405 have to have a Allow filed according to spec
 
-							add_http_header_field_const_key_const_value(
-							    &additional_headers, HTTP_HEADER_NAME(allow), "GET");
+							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+							                      TSTR_LIT("GET"));
 						}
 
 						HTTPResponseToSend to_send = {
@@ -534,8 +531,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
 
-								add_http_header_field_const_key_const_value(
-								    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+								add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+								                      tstr_own_cstr(date_str));
 							}
 						}
 					}
@@ -572,13 +569,13 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{
 
-						add_http_header_field_const_key_const_value(
-						    &additional_headers, HTTP_HEADER_NAME(content_transfer_encoding),
-						    "binary");
+						add_http_header_field(&additional_headers,
+						                      HTTP_HEADER_NAME(content_transfer_encoding),
+						                      TSTR_LIT("binary"));
 
-						add_http_header_field_const_key_const_value(
-						    &additional_headers, HTTP_HEADER_NAME(content_description),
-						    "File Transfer");
+						add_http_header_field(&additional_headers,
+						                      HTTP_HEADER_NAME(content_description),
+						                      TSTR_LIT("File Transfer"));
 
 						{
 							char* content_disposition_buffer = NULL;
@@ -590,9 +587,9 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							    },
 							    "attachment; filename=\"%s\"", file.file_name);
 
-							add_http_header_field_const_key_dynamic_value(
-							    &additional_headers, HTTP_HEADER_NAME(content_disposition),
-							    tstr_own_cstr(content_disposition_buffer));
+							add_http_header_field(&additional_headers,
+							                      HTTP_HEADER_NAME(content_disposition),
+							                      tstr_own_cstr(content_disposition_buffer));
 						}
 
 						{
@@ -604,9 +601,9 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 								char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 								if(date_str != NULL) {
 
-									add_http_header_field_const_key_dynamic_value(
-									    &additional_headers, HTTP_HEADER_NAME(date),
-									    tstr_own_cstr(date_str));
+									add_http_header_field(&additional_headers,
+									                      HTTP_HEADER_NAME(date),
+									                      tstr_own_cstr(date_str));
 								}
 							}
 						}

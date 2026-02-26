@@ -263,24 +263,13 @@ void free_http_header_fields(HttpHeaderFields* header_fields) {
 	*header_fields = TVEC_EMPTY(HttpHeaderField);
 }
 
-static void add_http_header_field_raw(HttpHeaderFields* const header_fields, const tstr key,
-                                      const tstr value) {
+void add_http_header_field(HttpHeaderFields* const header_fields, const tstr key,
+                           const tstr value) {
 
 	HttpHeaderField field = { .key = key, .value = value };
 
 	auto _ = TVEC_PUSH(HttpHeaderField, header_fields, field);
 	UNUSED(_);
-}
-
-void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* const header_fields,
-                                                   const char* const key, const tstr value) {
-
-	add_http_header_field_raw(header_fields, tstr_from(key), value);
-}
-
-void add_http_header_field_const_key_const_value(HttpHeaderFields* const header_fields,
-                                                 const char* const key, const char* const value) {
-	add_http_header_field_raw(header_fields, tstr_from(key), tstr_from(value));
 }
 
 void process_delimitered_header_value(const tstr_view value, const char* const delimiter,

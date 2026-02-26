@@ -397,7 +397,7 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 	// see: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
 	HttpHeaderField* accept_encoding_header =
-	    find_header_by_key(header_fields, tstr_static_init(HTTP_HEADER_NAME(accept_encoding)));
+	    find_header_by_key(header_fields, HTTP_HEADER_NAME(accept_encoding));
 
 	if(!accept_encoding_header) {
 		return compression_settings;
@@ -623,7 +623,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
 		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
-		if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(content_length))) {
+		if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(content_length))) {
 			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
 
@@ -649,7 +649,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			analyze_result.length.type = HTTPRequestLengthTypeContentLength;
 			analyze_result.length.value.length = content_length;
 
-		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(transfer_encoding))) {
+		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(transfer_encoding))) {
 
 			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
@@ -673,7 +673,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			}
 			analyze_result.length.value.encoding = HTTPEncodingChunked;
 
-		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(connection))) {
+		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(connection))) {
 			// see https://datatracker.ietf.org/doc/html/rfc7230#section-6.1
 			if(tstr_eq_ignore_case_cstr(&header.value, "close")) {
 				analyze_result.length.type = HTTPRequestLengthTypeClose;
@@ -700,13 +700,13 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 					h2state.connection_has_both_upgrade_and_h2_settings = true;
 				}
 			}
-		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(upgrade))) {
+		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(upgrade))) {
 			// see: https://datatracker.ietf.org/doc/html/rfc7230#section-6.7
 
 			if(tstr_eq_ignore_case_cstr(&header.value, "h2c")) {
 				h2state.upgrade_h2c_present = true;
 			}
-		} else if(tstr_eq_ignore_case_cstr(&header.key, HTTP_HEADER_NAME(http2_settings))) {
+		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(http2_settings))) {
 
 			const SizedBuffer input = sized_buffer_from_tstr(&header.value);
 
@@ -828,16 +828,15 @@ process_http2_upgrade_request(const HTTPResultOk ok, HTTPReader* const reader,
 		HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 		{
-			add_http_header_field_const_key_const_value(&additional_headers,
-			                                            HTTP_HEADER_NAME(upgrade), "h2c");
+			add_http_header_field(&additional_headers, HTTP_HEADER_NAME(upgrade), TSTR_LIT("h2c"));
 
-			add_http_header_field_const_key_const_value(&additional_headers,
-			                                            HTTP_HEADER_NAME(connection), "upgrade");
+			add_http_header_field(&additional_headers, HTTP_HEADER_NAME(connection),
+			                      TSTR_LIT("upgrade"));
 		}
 
 		HTTPResponseToSend to_send = { .status = HttpStatusSwitchingProtocols,
 			                           .body = http_response_body_empty(),
-			                           .mime_type = NULL,
+			                           .mime_type = tstr_init(),
 			                           .additional_headers = additional_headers };
 
 		SendSettings send_settings = get_send_settings(ok.settings);

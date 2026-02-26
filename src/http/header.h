@@ -1,11 +1,13 @@
 #pragma once
 
+#include <tstr.h>
+
 #define HTTP_HEADER_NAME(name) g_http_header_##name
 
 #ifdef HTTP_HEADER_IMPL
-	#define HTTP_HEADER_MAKE(name, content) const char* const HTTP_HEADER_NAME(name) = content
+	#define HTTP_HEADER_MAKE(name, content) const tstr HTTP_HEADER_NAME(name) = TSTR_LIT(content)
 #else
-	#define HTTP_HEADER_MAKE(name, content) extern const char* const HTTP_HEADER_NAME(name)
+	#define HTTP_HEADER_MAKE(name, content) extern const tstr HTTP_HEADER_NAME(name)
 #endif
 
 HTTP_HEADER_MAKE(authorization, "authorization");

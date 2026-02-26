@@ -8,9 +8,10 @@
 #define HTTP_MIME_TYPE_NAME(name) g_mime_type_##name
 
 #ifdef HTTP_MIME_TYPE_IMPL
-	#define HTTP_MIME_TYPE_MAKE(name, content) const char* const HTTP_MIME_TYPE_NAME(name) = content
+	#define HTTP_MIME_TYPE_MAKE(name, content) \
+		const tstr HTTP_MIME_TYPE_NAME(name) = TSTR_LIT(content)
 #else
-	#define HTTP_MIME_TYPE_MAKE(name, content) extern const char* const HTTP_MIME_TYPE_NAME(name)
+	#define HTTP_MIME_TYPE_MAKE(name, content) extern const tstr HTTP_MIME_TYPE_NAME(name)
 #endif
 
 // some Default Mime Type Definitions:
@@ -37,7 +38,7 @@ HTTP_MIME_TYPE_MAKE(octet_stream, "application/octet-stream");
 // from: https://www.iana.org/assignments/media-types/media-types.xhtml
 // and nginx
 
-TMAP_DEFINE_MAP_TYPE(char*, CString, const char*, MimeTypeEntryHashMap)
+TMAP_DEFINE_MAP_TYPE(tstr, TSTR_KEYNAME, tstr, MimeTypeEntryHashMap)
 
 typedef TMAP_TYPENAME_ENTRY(MimeTypeEntryHashMap) MimeTypeEntry;
 
@@ -48,7 +49,7 @@ typedef struct {
 extern MimeTypeMappings
     g_mime_type_mappings; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 
-NODISCARD const char* get_mime_type_for_ext(const char* ext);
+NODISCARD tstr get_mime_type_for_ext(const tstr* ext);
 
 void global_initialize_mime_map(void);
 

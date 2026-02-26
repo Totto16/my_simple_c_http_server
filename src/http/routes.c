@@ -282,7 +282,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_body) {
 
 	const ParsedSearchPathEntry* pretty_key =
-	    find_search_key(path.search_path, tstr_static_init("pretty"));
+	    find_search_key(path.search_path, TSTR_LIT("pretty"));
 
 	bool pretty = pretty_key != NULL;
 
@@ -884,7 +884,7 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
                                const HttpRequest request, HTTPAuthorizationComplicatedData* data) {
 
 	const HttpHeaderField* authorization_field = find_header_by_key(
-	    request.head.header_fields, tstr_static_init(HTTP_HEADER_NAME(authorization)));
+	    request.head.header_fields, TSTR_LIT(HTTP_HEADER_NAME(authorization)));
 
 	if(authorization_field == NULL) {
 		return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
@@ -1031,14 +1031,14 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				    },
 				    "Basic realm=\"%s\", charset=\"UTF-8\"", DEFAULT_AUTH_REALM);
 
-				add_http_header_field_const_key_dynamic_value(
-				    &additional_headers, HTTP_HEADER_NAME(www_authenticate),
-				    tstr_own_cstr(www_authenticate_buffer));
+				add_http_header_field(&additional_headers,
+				                      TSTR_LIT(HTTP_HEADER_NAME(www_authenticate)),
+				                      tstr_own_cstr(www_authenticate_buffer));
 
 #ifndef NDEBUG
-				add_http_header_field_const_key_const_value(&additional_headers,
-				                                            HTTP_HEADER_NAME(x_special_reason),
-				                                            auth_status.data.unauthorized.reason);
+				add_http_header_field(&additional_headers,
+				                                            TSTR_LIT(HTTP_HEADER_NAME(x_special_reason)),
+				                                            TSTR_LIT(auth_status.data.unauthorized.reason));
 
 #endif
 

@@ -1074,7 +1074,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			if(tstr_cstr(&arg) == NULL) {
 				// A null argument implies the user's current working or default directory.
-				arg = tstr_static_init(".");
+				arg = TSTR_LIT(".");
 			}
 
 			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));

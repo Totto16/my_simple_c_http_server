@@ -270,11 +270,8 @@ void free_http_header_field(HttpHeaderField field);
 
 void free_http_header_fields(HttpHeaderFields* header_fields);
 
-void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* header_fields, const char* key,
+void add_http_header_field(HttpHeaderFields* header_fields, tstr key,
                                                    tstr value);
-
-void add_http_header_field_const_key_const_value(HttpHeaderFields* header_fields, const char* key,
-                                                 const char* value);
 
 #define HTTP_LINE_SEPERATORS "\r\n"
 

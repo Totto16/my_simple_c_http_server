@@ -105,7 +105,7 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 	return result_path;
 }
 
-static ServeFolderResult get_serve_folder_content_for_file(const char* const final_path,
+static ServeFolderResult get_serve_folder_content_for_file(const tstr_view final_path,
                                                            const bool send_body) {
 
 	ServeFolderResult result = { .type = ServeFolderResultTypeServerError };

@@ -45,19 +45,19 @@ void global_setup_port_data(uint16_t port) {
 }
 
 static bool construct_http1_headers_for_request(
-    SendSettings send_settings, HttpHeaderFields* const result_header_fields,
-    const char* const mime_type, HttpHeaderFields additional_headers,
-    CompressionType compression_format, const SizedBuffer body, const HttpStatusCode status) {
+    SendSettings send_settings, HttpHeaderFields* const result_header_fields, const tstr mime_type,
+    HttpHeaderFields additional_headers, CompressionType compression_format, const SizedBuffer body,
+    const HttpStatusCode status) {
 
 	// add standard fields
 
 	{
 		// MIME TYPE
 
-		const char* const actual_mime_type = mime_type == NULL ? DEFAULT_MIME_TYPE : mime_type;
+		const tstr actual_mime_type = tstr_cstr(&mime_type) == NULL ? DEFAULT_MIME_TYPE : mime_type;
 
-		add_http_header_field_const_key_const_value(
-		    result_header_fields, HTTP_HEADER_NAME(content_type), actual_mime_type);
+		add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_type),
+		                      actual_mime_type);
 	}
 
 	{
@@ -67,9 +67,8 @@ static bool construct_http1_headers_for_request(
 			char* content_length_buffer = NULL;
 			FORMAT_STRING(&content_length_buffer, return NULL;, "%ld", body.size);
 
-			add_http_header_field_const_key_dynamic_value(result_header_fields,
-			                                              HTTP_HEADER_NAME(content_length),
-			                                              tstr_own_cstr(content_length_buffer));
+			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_length),
+			                      tstr_own_cstr(content_length_buffer));
 		}
 	}
 
@@ -82,8 +81,8 @@ static bool construct_http1_headers_for_request(
 		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
 		   status != HttpStatusSwitchingProtocols) {
 
-			add_http_header_field_const_key_const_value(result_header_fields,
-			                                            HTTP_HEADER_NAME(connection), "close");
+			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(connection),
+			                      TSTR_LIT("close"));
 		}
 		UNUSED(send_settings);
 	}
@@ -91,10 +90,9 @@ static bool construct_http1_headers_for_request(
 	{
 		// Server
 
-		const char* const server_value = "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING);
+		const tstr server_value = TSTR_LIT("Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
-		add_http_header_field_const_key_const_value(result_header_fields, HTTP_HEADER_NAME(server),
-		                                            server_value);
+		add_http_header_field(result_header_fields, HTTP_HEADER_NAME(server), server_value);
 	}
 
 	{
@@ -104,8 +102,9 @@ static bool construct_http1_headers_for_request(
 		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
 		   status != HttpStatusSwitchingProtocols) {
 
-			add_http_header_field_const_key_const_value(
-			    result_header_fields, HTTP_HEADER_NAME(alt_svc), g_alt_svc_constant_data);
+			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(alt_svc),
+			                      tstr_from_static_cstr_with_len(g_alt_svc_constant_data,
+			                                                     SIZE_OF_GLOBAL_ALT_SVC_DATA - 1));
 		}
 	}
 
@@ -115,10 +114,10 @@ static bool construct_http1_headers_for_request(
 
 		if(compression_format != CompressionTypeNone) {
 
-			const char* const content_encoding = get_string_for_compress_format(compression_format);
+			const tstr content_encoding = get_string_for_compress_format(compression_format);
 
-			add_http_header_field_const_key_const_value(
-			    result_header_fields, HTTP_HEADER_NAME(content_encoding), content_encoding);
+			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_encoding),
+			                      content_encoding);
 		}
 	}
 
@@ -147,18 +146,17 @@ static bool construct_http1_headers_for_request(
 }
 
 static bool construct_http2_headers_for_request(
-    SendSettings send_settings, HttpHeaderFields* const result_header_fields,
-    const char* const mime_type, HttpHeaderFields additional_headers,
-    CompressionType compression_format, const SizedBuffer body, const HttpStatusCode status) {
+    SendSettings send_settings, HttpHeaderFields* const result_header_fields, const tstr mime_type,
+    HttpHeaderFields additional_headers, CompressionType compression_format, const SizedBuffer body,
+    const HttpStatusCode status) {
 
 	*result_header_fields = TVEC_EMPTY(HttpHeaderField);
 
 	char* status_code_buffer = NULL;
 	FORMAT_STRING(&status_code_buffer, return false;, "%u", status);
 
-	add_http_header_field_const_key_dynamic_value(result_header_fields,
-	                                              HTTP_HEADER_NAME(http2_pseudo_status),
-	                                              tstr_own_cstr(status_code_buffer));
+	add_http_header_field(result_header_fields, HTTP_HEADER_NAME(http2_pseudo_status),
+	                      tstr_own_cstr(status_code_buffer));
 
 	return construct_http1_headers_for_request(send_settings, result_header_fields, mime_type,
 	                                           additional_headers, compression_format, body,
@@ -261,10 +259,12 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 			    compress_buffer_with(to_send.body.content, send_settings.compression_to_use);
 
 			if(!new_body.data) {
-				LOG_MESSAGE(
-				    LogLevelError,
-				    "An error occurred while compressing the body with the compression format %s\n",
-				    get_string_for_compress_format(send_settings.compression_to_use));
+				const tstr str = get_string_for_compress_format(send_settings.compression_to_use);
+
+				LOG_MESSAGE(LogLevelError,
+				            "An error occurred while compressing the body with the compression "
+				            "format " TSTR_FMT "\n",
+				            TSTR_ARG(str));
 				format_used = CompressionTypeNone;
 				response->body = to_send.body.content;
 			} else {
@@ -325,10 +325,12 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 			    compress_buffer_with(to_send.body.content, send_settings.compression_to_use);
 
 			if(!new_body.data) {
-				LOG_MESSAGE(
-				    LogLevelError,
-				    "An error occurred while compressing the body with the compression format %s\n",
-				    get_string_for_compress_format(send_settings.compression_to_use));
+				const tstr str = get_string_for_compress_format(send_settings.compression_to_use);
+
+				LOG_MESSAGE(LogLevelError,
+				            "An error occurred while compressing the body with the compression "
+				            "format " TSTR_FMT "\n",
+				            TSTR_ARG(str));
 				format_used = CompressionTypeNone;
 				response->body = to_send.body.content;
 			} else {

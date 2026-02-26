@@ -14,7 +14,7 @@ typedef struct {
 typedef struct {
 	HttpStatusCode status;
 	HTTPResponseBody body;
-	const char* mime_type;
+	tstr mime_type;
 	HttpHeaderFields additional_headers;
 } HTTPResponseToSend;
 

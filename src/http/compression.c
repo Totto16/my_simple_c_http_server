@@ -640,16 +640,16 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 }
 #endif
 
-NODISCARD const char* get_string_for_compress_format(CompressionType format) {
+NODISCARD tstr get_string_for_compress_format(CompressionType format) {
 
 	switch(format) {
-		case CompressionTypeNone: return "none";
-		case CompressionTypeGzip: return "gzip";
-		case CompressionTypeDeflate: return "deflate";
-		case CompressionTypeBr: return "br";
-		case CompressionTypeZstd: return "zstd";
-		case CompressionTypeCompress: return "compress";
-		default: return "<unknown>";
+		case CompressionTypeNone: return TSTR_LIT("none");
+		case CompressionTypeGzip: return TSTR_LIT("gzip");
+		case CompressionTypeDeflate: return TSTR_LIT("deflate");
+		case CompressionTypeBr: return TSTR_LIT("br");
+		case CompressionTypeZstd: return TSTR_LIT("zstd");
+		case CompressionTypeCompress: return TSTR_LIT("compress");
+		default: return TSTR_LIT("<unknown>");
 	}
 }
 
