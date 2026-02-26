@@ -95,4 +95,6 @@ template <typename T> struct CppDefer {
 	return std::string{ tstr_cstr(&value), tstr_len(&value) };
 }
 
-#define TSTR_LIT_CPP(s) tstr_from_static_cstr_with_len(s, sizeof(s) - 1)
+[[nodiscard]] static inline tstr operator""_tstr(const char* str, std::size_t len) {
+	return tstr_from_static_cstr_with_len(str, len);
+}
