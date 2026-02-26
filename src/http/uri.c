@@ -448,9 +448,9 @@ NODISCARD tstr get_parsed_authority_as_string(ParsedAuthority authority) {
 
 	StringBuilder* string_builder = string_builder_init();
 
-	if(tstr_cstr(&authority.user_info.username) != NULL) {
+	if(!tstr_is_null(&authority.user_info.username)) {
 		string_builder_append_single(string_builder, tstr_cstr(&authority.user_info.username));
-		if(tstr_cstr(&authority.user_info.password) != NULL) {
+		if(tstr_is_null(&authority.user_info.password)) {
 			string_builder_append_single(string_builder, ":");
 			string_builder_append_single(string_builder, tstr_cstr(&authority.user_info.password));
 		}
@@ -475,7 +475,7 @@ NODISCARD tstr get_uri_as_string(ParsedURI uri) {
 
 	string_builder_append_single(string_builder, "://");
 
-	if(tstr_cstr(&uri.authority.host) != NULL) {
+	if(!tstr_is_null(&uri.authority.host)) {
 		tstr authority_str = get_parsed_authority_as_string(uri.authority);
 		string_builder_append_single(string_builder, tstr_cstr(&authority_str));
 		tstr_free(&authority_str);
@@ -517,15 +517,15 @@ static ParsedAuthority duplicate_authority(const ParsedAuthority authority) {
 		                       .host = tstr_init(),
 		                       .port = 0 };
 
-	if(tstr_cstr(&authority.user_info.username) != NULL) {
+	if(!tstr_is_null(&authority.user_info.username)) {
 		result.user_info.username = tstr_dup(&authority.user_info.username);
 	}
 
-	if(tstr_cstr(&authority.user_info.password) != NULL) {
+	if(!tstr_is_null(&authority.user_info.password)) {
 		result.user_info.password = tstr_dup(&authority.user_info.password);
 	}
 
-	if(tstr_cstr(&authority.host) != NULL) {
+	if(!tstr_is_null(&authority.host)) {
 		result.host = tstr_dup(&authority.host);
 	}
 
@@ -542,7 +542,7 @@ static ParsedURLPath duplicate_path(const ParsedURLPath path) {
 		.fragment = tstr_init(),
 	};
 
-	if(tstr_cstr(&path.path) != NULL) {
+	if(!tstr_is_null(&path.path)) {
 		result.path = tstr_dup(&path.path);
 	}
 
@@ -564,7 +564,7 @@ static ParsedURLPath duplicate_path(const ParsedURLPath path) {
 		assert(insert_result == TmapInsertResultOk);
 	}
 
-	if(tstr_cstr(&path.fragment) != NULL) {
+	if(!tstr_is_null(&path.fragment)) {
 		result.fragment = tstr_dup(&path.fragment);
 	}
 
@@ -583,7 +583,7 @@ static ParsedURI duplicate_uri(const ParsedURI uri) {
 		          .fragment = tstr_init() }
 	};
 
-	if(tstr_cstr(&uri.scheme) != NULL) {
+	if(!tstr_is_null(&uri.scheme)) {
 		result.scheme = tstr_dup(&uri.scheme);
 	}
 

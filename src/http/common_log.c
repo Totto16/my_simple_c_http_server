@@ -113,7 +113,7 @@ NODISCARD static bool log_entry_to_string(StringBuilder* const builder, const Lo
 		const char* protocol_str =
 		    get_http_protocol_version_string(entry.request.protocol_data.version);
 
-		if(method_str == NULL || tstr_cstr(&uri_str) == NULL || protocol_str == NULL) {
+		if(method_str == NULL || tstr_is_null(&uri_str) || protocol_str == NULL) {
 			tstr_free(&uri_str);
 			return false;
 		}

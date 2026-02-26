@@ -54,7 +54,7 @@ static bool construct_http1_headers_for_request(
 	{
 		// MIME TYPE
 
-		const tstr actual_mime_type = tstr_cstr(&mime_type) == NULL ? DEFAULT_MIME_TYPE : mime_type;
+		const tstr actual_mime_type = tstr_is_null(&mime_type) ? DEFAULT_MIME_TYPE : mime_type;
 
 		add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_type),
 		                      actual_mime_type);

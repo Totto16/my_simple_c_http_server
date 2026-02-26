@@ -269,7 +269,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				const tstr malloced_username = tstr_dup(&(command->data.string));
 
-				if(tstr_cstr(&malloced_username) == NULL) {
+				if(tstr_is_null(&malloced_username)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 					return true;
@@ -291,7 +291,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr malloced_username = tstr_dup(&(command->data.string));
 
-			if(tstr_cstr(&malloced_username) == NULL) {
+			if(tstr_is_null(&malloced_username)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 				return true;
@@ -341,7 +341,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					const tstr malloced_username = tstr_dup(&username);
 
-					if(tstr_cstr(&malloced_username) == NULL) {
+					if(tstr_is_null(&malloced_username)) {
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 						return true;
@@ -1072,7 +1072,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			tstr arg = command->data.string;
 
-			if(tstr_cstr(&arg) == NULL) {
+			if(tstr_is_null(&arg)) {
 				// A null argument implies the user's current working or default directory.
 				arg = TSTR_LIT(".");
 			}

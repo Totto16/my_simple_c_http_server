@@ -464,7 +464,7 @@ void free_ftp_command(FTPCommand* cmd) {
 		case FtpCommandNlst:
 		case FtpCommandStat:
 		case FtpCommandHelp: {
-			if(tstr_data(&(cmd->data.string)) != NULL) {
+			if(!tstr_is_null(&(cmd->data.string))) {
 				tstr_free(&(cmd->data.string));
 			}
 			break;
