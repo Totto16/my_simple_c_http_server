@@ -348,7 +348,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedURLPath path) {
 
 	const ParsedSearchPathEntry* fragmented_paramater =
-	    find_search_key(path.search_path, tstr_from_static_cstr("fragmented"));
+	    find_search_key(path.search_path, tstr_static_init("fragmented"));
 
 	if(fragmented_paramater == NULL) {
 		return (WsFragmentOption){ .type = WsFragmentOptionTypeOff };
@@ -357,7 +357,7 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedU
 	WsFragmentOption result = { .type = WsFragmentOptionTypeAuto };
 
 	const ParsedSearchPathEntry* fragment_size_parameter =
-	    find_search_key(path.search_path, tstr_from_static_cstr("fragment_size"));
+	    find_search_key(path.search_path, tstr_static_init("fragment_size"));
 
 	if(fragment_size_parameter != NULL) {
 
@@ -382,7 +382,7 @@ NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
                                                          WSExtensions extensions) {
 
 	const ParsedSearchPathEntry* trace_paramater =
-	    find_search_key(path.search_path, tstr_from_static_cstr("trace"));
+	    find_search_key(path.search_path, tstr_static_init("trace"));
 
 	return (WsConnectionArgs){ .fragment_option = get_ws_fragment_args_from_http_request(path),
 		                       .extensions = extensions,

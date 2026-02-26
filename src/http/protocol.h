@@ -283,30 +283,6 @@ void add_http_header_field_const_key_const_value(HttpHeaderFields* header_fields
 static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0]))) - 1 ==
               SIZEOF_HTTP_LINE_SEPERATORS);
 
-// TODO: move those tstr helper functions t the header file
-NODISCARD static inline tstr tstr_from_static_cstr(const char* const value) {
-	const size_t size = strlen(value);
-
-	// cast he const away, as we never alter this pointer, also this doesn't need to be freed
-	// afterwards
-	tstr result = tstr_init();
-
-	result.is_long = 1;
-	result.l.ptr = (char*)value;
-	result.l.len = size;
-	result.l.cap = size;
-
-	return result;
-}
-
-NODISCARD static inline tstr tstr_own_cstr(char* const value) {
-	const size_t size = strlen(value);
-
-	const tstr result = tstr_own(value, size, size);
-
-	return result;
-}
-
 typedef void (*ProcessHeaderValue)(const tstr_view value, void* argument);
 
 void process_delimitered_header_value(tstr_view value, const char* delimiter,

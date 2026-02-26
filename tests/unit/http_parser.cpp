@@ -315,7 +315,7 @@ struct ParsedURIWrapper {
 
 ParsedURIWrapper parse_uri(const char* value) {
 
-	const auto value_tstr = tstr_from_static_cstr(value);
+	const auto value_tstr = tstr_static_init(value);
 
 	auto result = parse_request_uri(tstr_as_view(&value_tstr));
 
@@ -377,7 +377,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, tstr_from_static_cstr("param1"));
+				    find_search_key(search_path, tstr_static_init("param1"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -389,7 +389,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, tstr_from_static_cstr("param2"));
+				    find_search_key(search_path, tstr_static_init("param2"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -400,7 +400,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			{
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, tstr_from_static_cstr("param3"));
+				    find_search_key(search_path, tstr_static_init("param3"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -412,7 +412,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, tstr_from_static_cstr("param4"));
+				    find_search_key(search_path, tstr_static_init("param4"));
 
 				REQUIRE_EQ(entry, nullptr);
 			}
@@ -438,7 +438,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, tstr_from_static_cstr("param1"));
+				    find_search_key(search_path, tstr_static_init("param1"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -450,7 +450,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, tstr_from_static_cstr("param2"));
+				    find_search_key(search_path, tstr_static_init("param2"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -461,7 +461,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			{
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, tstr_from_static_cstr("param3"));
+				    find_search_key(search_path, tstr_static_init("param3"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -473,7 +473,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, tstr_from_static_cstr("param4"));
+				    find_search_key(search_path, tstr_static_init("param4"));
 
 				REQUIRE_EQ(entry, nullptr);
 			}

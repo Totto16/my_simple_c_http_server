@@ -282,7 +282,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_body) {
 
 	const ParsedSearchPathEntry* pretty_key =
-	    find_search_key(path.search_path, tstr_from_static_cstr("pretty"));
+	    find_search_key(path.search_path, tstr_static_init("pretty"));
 
 	bool pretty = pretty_key != NULL;
 
@@ -884,7 +884,7 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
                                const HttpRequest request, HTTPAuthorizationComplicatedData* data) {
 
 	const HttpHeaderField* authorization_field = find_header_by_key(
-	    request.head.header_fields, tstr_from_static_cstr(HTTP_HEADER_NAME(authorization)));
+	    request.head.header_fields, tstr_static_init(HTTP_HEADER_NAME(authorization)));
 
 	if(authorization_field == NULL) {
 		return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,

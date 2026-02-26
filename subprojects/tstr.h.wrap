@@ -1,7 +1,7 @@
 [wrap-git]
 directory = tstr.h
 url = https://github.com/Totto16/tstr.h.git
-revision = a75e20d3b44797012253fbbfa00eca40f831519e
+revision = feaa8c5d14b6a439a76e5cbfb947e297022439e5
 depth = 1
 
 [provide]
