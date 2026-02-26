@@ -262,6 +262,11 @@ NODISCARD static char* parse_literal_string_value(size_t* pos, const size_t size
 			return NULL;
 		}
 		// TODO: huffman can technically produce 0 bytes, but then the encoder did some bad thing,
+
+#ifndef NDEBUG
+		assert(strlen(huffman_res.data.result.data) == huffman_res.data.result.size);
+#endif
+
 		// so we are just ignoring that
 		return (char*)huffman_res.data.result.data;
 	}

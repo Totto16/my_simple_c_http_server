@@ -42,11 +42,7 @@ int send_data_to_connection(const ConnectionDescriptor* const descriptor, void* 
 	return 0;
 }
 
-// sends a string to the connection, makes all write calls under the hood, deals with arbitrary
-// large null terminated strings!
-int send_string_to_connection(const ConnectionDescriptor* const descriptor, char* to_send) {
-	return send_data_to_connection(descriptor, to_send, strlen(to_send));
-}
+
 
 NODISCARD int send_sized_buffer_to_connection(const ConnectionDescriptor* const descriptor,
                                               SizedBuffer buffer) {
