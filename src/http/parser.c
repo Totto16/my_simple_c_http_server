@@ -258,7 +258,7 @@ static CompressionType parse_compression_type(const tstr_view compression_name,
 	}
 
 	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: " TSTR_FMT "\n",
-	            ZSV_ARG(compression_name));
+	            TSV_FMT_ARGS(compression_name));
 
 	*ok_result = false;
 	return CompressionTypeNone;
@@ -463,7 +463,7 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 				UNUSED(_);
 			} else {
 				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '" TSTR_FMT "'\n",
-				            ZSV_ARG(compression_name));
+				            TSV_FMT_ARGS(compression_name));
 			}
 		}
 	}

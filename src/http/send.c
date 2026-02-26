@@ -264,7 +264,7 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 				LOG_MESSAGE(LogLevelError,
 				            "An error occurred while compressing the body with the compression "
 				            "format " TSTR_FMT "\n",
-				            TSTR_ARG(str));
+				            TSTR_FMT_ARGS(str));
 				format_used = CompressionTypeNone;
 				response->body = to_send.body.content;
 			} else {
@@ -330,7 +330,7 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 				LOG_MESSAGE(LogLevelError,
 				            "An error occurred while compressing the body with the compression "
 				            "format " TSTR_FMT "\n",
-				            TSTR_ARG(str));
+				            TSTR_FMT_ARGS(str));
 				format_used = CompressionTypeNone;
 				response->body = to_send.body.content;
 			} else {

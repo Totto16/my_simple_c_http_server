@@ -105,15 +105,15 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 	return result_path;
 }
 
-static ServeFolderResult get_serve_folder_content_for_file(const tstr_view path,
+static ServeFolderResult get_serve_folder_content_for_file(const tstr* const path,
                                                            const bool send_body) {
 
 	ServeFolderResult result = { .type = ServeFolderResultTypeServerError };
 
-	tstr_view base_name = path;
+	tstr_view base_name = tstr_as_view(path);
 
 	{
-		tstr_split_iter iter = tstr_split_init(path, "/");
+		tstr_split_iter iter = tstr_split_init(base_name, "/");
 
 		// TODO(Totto): factor out  into helper function or use cwalk
 		while(true) {
@@ -147,15 +147,15 @@ static ServeFolderResult get_serve_folder_content_for_file(const tstr_view path,
 		}
 	}
 
-	const char* mime_type = get_mime_type_for_ext(ext);
+	tstr mime_type = get_mime_type_for_ext(ext);
 
-	if(mime_type == NULL) {
+	if(tstr_is_null(&mime_type)) {
 		mime_type = UNRECOGNIZED_MIME_TYPE;
 	}
 
-	char* file_name = strdup(name_ptr);
+	tstr file_name = tstr_from_view(base_name);
 
-	if(!file_name) {
+	if(tstr_is_null(&file_name)) {
 		result.type = ServeFolderResultTypeServerError;
 		return result;
 	}
@@ -166,22 +166,22 @@ static ServeFolderResult get_serve_folder_content_for_file(const tstr_view path,
 
 	if(!send_body) {
 		// we just need the size, no need to read the entire file
-		bool success = get_file_size_of_file(final_path, &file_size);
+		bool success = get_file_size_of_file(tstr_cstr(path), &file_size);
 
 		if(!success) {
 
-			free(file_name);
+			tstr_free(&file_name);
 			result.type = ServeFolderResultTypeServerError;
 			return result;
 		}
 
 		file_content = (SizedBuffer){ .data = NULL, .size = file_size };
 	} else {
-		void* file_data = read_entire_file(final_path, &file_size);
+		void* file_data = read_entire_file(tstr_cstr(path), &file_size);
 
 		if(file_data == NULL) {
 
-			free(file_name);
+			tstr_free(&file_name);
 			result.type = ServeFolderResultTypeServerError;
 			return result;
 		}
@@ -518,7 +518,9 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 
 		*result = get_serve_folder_content_for_folder(final_path, has_valid_parent);
 	} else {
-		*result = get_serve_folder_content_for_file(final_path, send_body);
+		const tstr path = tstr_own_cstr(final_path);
+
+		*result = get_serve_folder_content_for_file(&path, send_body);
 	}
 
 	free(final_path);
@@ -528,7 +530,7 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 
 static void free_file_info(ServeFolderFileInfo file_info) {
 	free_sized_buffer(file_info.file_content);
-	free(file_info.file_name);
+	tstr_free(&file_info.file_name);
 }
 
 void free_serve_folder_result(ServeFolderResult* serve_folder_result) {

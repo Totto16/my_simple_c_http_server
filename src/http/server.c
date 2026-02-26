@@ -585,7 +585,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 								    TVEC_FREE(HttpHeaderField, &additional_headers);
 								    return NULL;
 							    },
-							    "attachment; filename=\"%s\"", file.file_name);
+							    "attachment; filename=\"" TSTR_FMT "\"",
+							    TSTR_FMT_ARGS(file.file_name));
 
 							add_http_header_field(&additional_headers,
 							                      HTTP_HEADER_NAME(content_disposition),

@@ -21,7 +21,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 typedef struct {
 	tstr mime_type;
 	SizedBuffer file_content;
-	char* file_name;
+	tstr file_name;
 } ServeFolderFileInfo;
 
 // NOTe. similar to some ftp type, but with less info

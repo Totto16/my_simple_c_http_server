@@ -195,7 +195,7 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 	STRING_BUILDER_APPENDF(
 	    body, return NULL;
 	    , "\"send_settings\":{\"compression\" : \"" TSTR_FMT "\", \"http_protocol\": \"%s\"} }",
-	    TSTR_ARG(compress_format),
+	    TSTR_FMT_ARGS(compress_format),
 	    get_http_protocol_version_string(send_settings.protocol_data.version));
 
 	string_builder_append_single(body, "}");
@@ -249,7 +249,7 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 		const auto comp_format = get_string_for_compress_format(send_settings.compression_to_use);
 
 		STRING_BUILDER_APPENDF(body, return NULL;
-		                       , "<h3>Compression:</h3> " TSTR_FMT, TSTR_ARG(comp_format));
+		                       , "<h3>Compression:</h3> " TSTR_FMT, TSTR_FMT_ARGS(comp_format));
 		STRING_BUILDER_APPENDF(body, return NULL;, "<h3>HTTP Protocol:</h3> %s",
 		                                         get_http_protocol_version_string(
 		                                             send_settings.protocol_data.version));
