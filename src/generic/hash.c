@@ -271,11 +271,11 @@ NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 	BIO_flush(mem_input);
 	BIO_get_mem_ptr(mem_input, &buffer_ptr);
 
-	size_t lenght = buffer_ptr->length * sizeof(char);
+	size_t length = buffer_ptr->length * sizeof(char);
 
-	char* result = (char*)malloc(lenght + 1);
-	memcpy(result, buffer_ptr->data, lenght);
-	result[lenght] = '\0';
+	char* result = (char*)malloc(length + 1);
+	memcpy(result, buffer_ptr->data, length);
+	result[length] = '\0';
 
 	BIO_free_all(mem_input);
 	return result;
