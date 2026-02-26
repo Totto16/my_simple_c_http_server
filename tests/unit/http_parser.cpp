@@ -109,7 +109,7 @@ template <> struct StringMaker<CompressionEntry> {
 
 TEST_SUITE_BEGIN("http_parser" * doctest::description("http parser tests") * doctest::timeout(2.0));
 
-TEST_CASE("testing parsing of the Accept-Encoding header") {
+TEST_CASE("testing parsing of the Accept-Encoding header <encoding_parser>") {
 
 	REQUIRE(is_compression_supported(CompressionTypeGzip));
 	REQUIRE(is_compression_supported(CompressionTypeDeflate));
@@ -322,7 +322,7 @@ ParsedURIWrapper parse_uri(const std::string& uri) {
 
 } // namespace
 
-TEST_CASE("testing the parsing of the http request - test url path parsing") {
+TEST_CASE("testing the parsing of the http request - test url path parsing <url_parser>") {
 
 	SUBCASE("simple url") {
 		[]() -> void {

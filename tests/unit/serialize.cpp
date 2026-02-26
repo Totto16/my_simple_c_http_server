@@ -42,7 +42,7 @@ struct TestCaseDeserialize32 {
 TEST_SUITE_BEGIN("serialize" * doctest::description("serialize / deserialize tests") *
                  doctest::timeout(2.0));
 
-TEST_CASE("testing deserializing u32") {
+TEST_CASE("testing deserializing u32 <deserialize_u32>") {
 
 	std::vector<TestCaseDeserialize32> test_cases = {
 		{
@@ -114,7 +114,7 @@ struct TestCaseDeserialize16 {
 	std::function<uint16_t(const uint8_t*)> fn;
 };
 
-TEST_CASE("testing deserializing u16") {
+TEST_CASE("testing deserializing u16 <deserialize_u16>") {
 
 	std::vector<TestCaseDeserialize16> test_cases = {
 		{

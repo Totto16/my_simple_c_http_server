@@ -4,10 +4,10 @@
 #include "helpers/cpp_types.hpp"
 
 #define IMPLEMENT_HPACK_TEST_CASE \
-	TEST_CASE("testing hpack deserializing - external tests (" HPACK_TEST_CASE_VALUE ")" * \
+	TEST_CASE("testing hpack deserializing - external tests (" HPACK_TEST_CASE_VALUE \
+	          ") <hpack_generated_ " HPACK_TEST_CASE_VALUE ">" * \
 	          doctest::description("hpack thirdparty test case (" HPACK_TEST_CASE_VALUE ")") * \
 	          doctest::timeout(2.0) * doctest::test_suite("hpack/thirdparty")) { \
-\
 \
 		const auto hpack_cpp_global_handle = HpackGlobalHandle(); \
 \
@@ -19,7 +19,8 @@
 			doctest::String case_name = doctest::String{ case_str.c_str() }; \
 			SUBCASE(case_name) { \
 				[&test_case]() -> void { \
-					HpackStateCpp state = get_default_hpack_state_cpp(test_case.header_table_size); \
+					HpackStateCpp state = \
+					    get_default_hpack_state_cpp(test_case.header_table_size); \
 					REQUIRE_NE(state.get(), nullptr); \
 \
 					INFO("test case description: ", test_case.description); \

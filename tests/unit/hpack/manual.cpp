@@ -12,7 +12,7 @@ struct IntegerTest {
 	HpackVariableInteger result;
 };
 
-TEST_CASE("testing hpack deserializing - integer tests") {
+TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserialize>") {
 
 	const auto hpack_cpp_global_handle = HpackGlobalHandle();
 
@@ -211,7 +211,7 @@ struct HpackStateImpl {
 	return test::DynamicTable{ .entries = entries, .size = size };
 }
 
-TEST_CASE("testing hpack deserializing - header field tests") {
+TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields>") {
 
 	const auto hpack_cpp_global_handle = HpackGlobalHandle();
 
@@ -316,7 +316,7 @@ struct HpackManualTestCase {
 
 } // namespace
 
-TEST_CASE("testing hpack deserializing - manual tests") {
+TEST_CASE("testing hpack deserializing - manual tests <hpack_complete_manual>") {
 
 	const auto hpack_cpp_global_handle = HpackGlobalHandle();
 
