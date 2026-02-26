@@ -205,7 +205,7 @@ struct HpackStateImpl {
 	    rest_count != 0; i = (i + 1) % state_cpp_extracted->dynamic_table.capacity, rest_count--) {
 		const auto& entry = state_cpp_extracted->dynamic_table.entries[i];
 
-		entries.emplace_back(entry.key, entry.value);
+		entries.emplace_back(string_from_tstr(entry.key), string_from_tstr(entry.value));
 	}
 
 	return test::DynamicTable{ .entries = entries, .size = size };

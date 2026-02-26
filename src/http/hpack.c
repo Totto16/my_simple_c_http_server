@@ -134,14 +134,6 @@ static void global_free_hpack_static_header_table_data() {
 	free_hpack_static_header_table_entries(g_hpack_static_data.static_header_table);
 }
 
-NODISCARD static char* strdup_null_agnostic(const char* const value) {
-	if(value == NULL) {
-		return NULL;
-	}
-
-	return strdup(value);
-}
-
 NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackState* const state,
                                                                  size_t value) {
 
@@ -156,8 +148,8 @@ NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackStat
 
 		return (HpackHeaderEntryResult){ .is_error = false,
 			                             .value = (HpackHeaderDynamicEntry){
-			                                 .key = strdup(static_entry.key),
-			                                 .value = strdup_null_agnostic(static_entry.value) } };
+			                                 .key = tstr_dup(&static_entry.key),
+			                                 .value = tstr_dup(&static_entry.value) } };
 	}
 
 	const size_t dynamic_index = value - HPACK_STATIC_HEADER_TABLE_SIZE - 1;
@@ -173,8 +165,8 @@ NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackStat
 
 	return (HpackHeaderEntryResult){ .is_error = false,
 		                             .value = (HpackHeaderDynamicEntry){
-		                                 .key = strdup(dynamic_entry.key),
-		                                 .value = strdup_null_agnostic(dynamic_entry.value) } };
+		                                 .key = tstr_dup(&dynamic_entry.key),
+		                                 .value = tstr_dup(&dynamic_entry.value) } };
 }
 
 NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t size,
@@ -206,8 +198,7 @@ NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t 
 		return -3;
 	}
 
-	const HttpHeaderField entry_value = { .key = tstr_own_cstr(entry.value.key),
-		                                  .value = tstr_own_cstr(entry.value.value) };
+	const HttpHeaderField entry_value = { .key = entry.value.key, .value = entry.value.value };
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, entry_value);
 
@@ -219,12 +210,12 @@ NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t 
 	return 0;
 }
 
-NODISCARD static char* parse_literal_string_value(size_t* pos, const size_t size,
-                                                  const uint8_t* const data) {
+NODISCARD static tstr parse_literal_string_value(size_t* pos, const size_t size,
+                                                 const uint8_t* const data) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.2
 
 	if(*pos >= size) {
-		return NULL;
+		return tstr_init();
 	}
 
 	const uint8_t byte = data[*pos];
@@ -234,18 +225,18 @@ NODISCARD static char* parse_literal_string_value(size_t* pos, const size_t size
 	const HpackVariableIntegerResult length_res = decode_hpack_variable_integer(pos, size, data, 7);
 
 	if(length_res.is_error) {
-		return NULL;
+		return tstr_init();
 	}
 
 	const HpackVariableInteger length = length_res.data.value;
 
 	if(*pos >= size) {
-		return NULL;
+		return tstr_init();
 	}
 
 	// it is okay if (*pos) + length == size here, that means the string literal goes until the end!
 	if(((*pos) + length) > size) {
-		return NULL;
+		return tstr_init();
 	}
 
 	const SizedBuffer raw_bytes = {
@@ -259,28 +250,29 @@ NODISCARD static char* parse_literal_string_value(size_t* pos, const size_t size
 		const HuffmanResult huffman_res = decode_bytes_huffman_with_global_data_setup(raw_bytes);
 
 		if(huffman_res.is_error) {
-			return NULL;
+			return tstr_init();
 		}
 		// TODO: huffman can technically produce 0 bytes, but then the encoder did some bad thing,
+		// so we are just ignoring that
 
 #ifndef NDEBUG
 		assert(strlen(huffman_res.data.result.data) == huffman_res.data.result.size);
 #endif
 
-		// so we are just ignoring that
-		return (char*)huffman_res.data.result.data;
+		return tstr_own(huffman_res.data.result.data, huffman_res.data.result.size,
+		                huffman_res.data.result.size);
 	}
 
 	char* value = malloc(length + 1);
 
 	if(value == NULL) {
-		return NULL;
+		return tstr_init();
 	}
 
 	value[length] = 0;
 	memcpy(value, raw_bytes.data, raw_bytes.size);
 
-	return value;
+	return tstr_own(value, length, length);
 }
 
 NODISCARD static size_t get_dynamic_entry_size(const HpackHeaderDynamicEntry entry) {
@@ -289,7 +281,7 @@ NODISCARD static size_t get_dynamic_entry_size(const HpackHeaderDynamicEntry ent
 	// The size of an entry is the sum of its name's length in octets its value's length in octets,
 	// and 32.
 
-	return strlen(entry.key) + strlen(entry.value) + 32;
+	return tstr_len(&entry.key) + tstr_len(&entry.value) + 32;
 }
 
 static void insert_entry_into_dynamic_table(HpackState* const state,
@@ -326,9 +318,8 @@ static void insert_entry_into_dynamic_table(HpackState* const state,
 
 	// finally insert the entry
 
-	const HpackHeaderDynamicEntry new_entry_dup = { .key = strdup(new_entry.key),
-		                                            .value =
-		                                                strdup_null_agnostic(new_entry.value) };
+	const HpackHeaderDynamicEntry new_entry_dup = { .key = tstr_dup(&new_entry.key),
+		                                            .value = tstr_dup(&new_entry.value) };
 
 	bool success = hpack_dynamic_table_insert_at_start(&(state->dynamic_table), new_entry_dup);
 
@@ -377,14 +368,14 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
-	char* header_key = NULL;
+	tstr header_key = tstr_init();
 
 	if(index == 0) {
 		// second variant
 
-		char* string_literal_result = parse_literal_string_value(pos, size, data);
+		tstr string_literal_result = parse_literal_string_value(pos, size, data);
 
-		if(string_literal_result == NULL) {
+		if(tstr_is_null(&string_literal_result)) {
 			return -5;
 		}
 
@@ -393,29 +384,29 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	} else {
 		// first variant
 
-		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
+		HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
 
 		if(entry.is_error) {
 			return -3;
 		}
 
 		header_key = entry.value.key;
-		free(entry.value.value);
+		tstr_free(&entry.value.value);
 	}
 
 	if(*pos >= size) {
 		return -8;
 	}
 
-	char* header_value = parse_literal_string_value(pos, size, data);
+	tstr header_value = parse_literal_string_value(pos, size, data);
 
-	if(header_value == NULL) {
+	if(tstr_is_null(&header_value)) {
 		return -6;
 	}
 
 	const HttpHeaderField header_field = {
-		.key = tstr_own_cstr(header_key),
-		.value = tstr_own_cstr(header_value),
+		.key = header_key,
+		.value = header_value,
 	};
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
@@ -497,14 +488,14 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos,
 	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
-	char* header_key = NULL;
+	tstr header_key = tstr_init();
 
 	if(index == 0) {
 		// second variant
 
-		char* string_literal_result = parse_literal_string_value(pos, size, data);
+		tstr string_literal_result = parse_literal_string_value(pos, size, data);
 
-		if(string_literal_result == NULL) {
+		if(tstr_is_null(&string_literal_result)) {
 			return -5;
 		}
 
@@ -513,29 +504,29 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos,
 	} else {
 		// first variant
 
-		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
+		HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
 
 		if(entry.is_error) {
 			return -3;
 		}
 
 		header_key = entry.value.key;
-		free(entry.value.value);
+		tstr_free(&entry.value.value);
 	}
 
 	if(*pos >= size) {
 		return -8;
 	}
 
-	char* header_value = parse_literal_string_value(pos, size, data);
+	tstr header_value = parse_literal_string_value(pos, size, data);
 
-	if(header_value == NULL) {
+	if(tstr_is_null(&header_value)) {
 		return -6;
 	}
 
 	const HttpHeaderField header_field = {
-		.key = tstr_own_cstr(header_key),
-		.value = tstr_own_cstr(header_value),
+		.key = header_key,
+		.value = header_value,
 	};
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
@@ -586,14 +577,14 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
-	char* header_key = NULL;
+	tstr header_key = tstr_init();
 
 	if(index == 0) {
 		// second variant
 
-		char* string_literal_result = parse_literal_string_value(pos, size, data);
+		tstr string_literal_result = parse_literal_string_value(pos, size, data);
 
-		if(string_literal_result == NULL) {
+		if(tstr_is_null(&string_literal_result)) {
 			return -5;
 		}
 
@@ -602,29 +593,29 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	} else {
 		// first variant
 
-		const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
+		HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
 
 		if(entry.is_error) {
 			return -3;
 		}
 
 		header_key = entry.value.key;
-		free(entry.value.value);
+		tstr_free(&entry.value.value);
 	}
 
 	if(*pos >= size) {
 		return -8;
 	}
 
-	char* header_value = parse_literal_string_value(pos, size, data);
+	tstr header_value = parse_literal_string_value(pos, size, data);
 
-	if(header_value == NULL) {
+	if(tstr_is_null(&header_value)) {
 		return -6;
 	}
 
 	const HttpHeaderField header_field = {
-		.key = tstr_own_cstr(header_key),
-		.value = tstr_own_cstr(header_value),
+		.key = header_key,
+		.value = header_value,
 	};
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);

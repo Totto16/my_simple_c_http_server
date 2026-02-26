@@ -27,7 +27,7 @@ typedef struct {
 // NOTe. similar to some ftp type, but with less info
 typedef struct {
 	bool dir;
-	char* file_name;
+	tstr file_name;
 	Time date;
 	size_t size;
 } ServeFolderFolderEntry;

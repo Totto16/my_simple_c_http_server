@@ -2,9 +2,11 @@
 
 #include "utils/utils.h"
 
+#include <tstr.h>
+
 typedef struct {
-	char* key;
-	char* value;
+	tstr key;
+	tstr value;
 } HpackHeaderDynamicEntry;
 
 // We need those three properties for this "container":

@@ -203,7 +203,7 @@ static ServeFolderResult get_serve_folder_content_for_file(const tstr* const pat
 
 static void free_folder_info_entry(ServeFolderFolderEntry folder_info_entry) {
 
-	free(folder_info_entry.file_name);
+	tstr_free(&folder_info_entry.file_name);
 }
 
 static void free_folder_info(ServeFolderFolderInfo folder_info) {
@@ -223,7 +223,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
     const char* const absolute_path, // NOLINT(bugprone-easily-swappable-parameters)
     const char* const name) {
 
-	ServeFolderFolderEntry result = { .file_name = NULL };
+	ServeFolderFolderEntry result = { .file_name = tstr_init() };
 
 	struct stat stat_result;
 	int result_stat_int = stat(absolute_path, &stat_result);
@@ -232,7 +232,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		            "Couldn't stat folder '%s': %s\n", absolute_path, strerror(errno));
 
-		result.file_name = NULL;
+		result.file_name = tstr_init();
 		return result;
 	}
 
@@ -241,7 +241,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 	char* new_name = (char*)malloc(name_len + 1);
 
 	if(!new_name) {
-		result.file_name = NULL;
+		result.file_name = tstr_init();
 		return result;
 	}
 
@@ -254,7 +254,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 	const bool is_dir = (stat_result.st_mode & S_IFMT) == S_IFDIR;
 
 	result.dir = is_dir;
-	result.file_name = new_name;
+	result.file_name = tstr_own(new_name, name_len, name_len);
 
 #ifdef __APPLE__
 	result.date = time_from_struct(stat_result.st_mtimespec);
@@ -270,7 +270,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 NODISCARD static ServeFolderFolderEntry get_folder_entry(const char* const folder,
                                                          const char* const name) {
 
-	ServeFolderFolderEntry result = { .file_name = NULL };
+	ServeFolderFolderEntry result = { .file_name = tstr_init() };
 
 	size_t folder_len = strlen(folder);
 	size_t name_len = strlen(name);
@@ -283,7 +283,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry(const char* const folde
 	char* absolute_path = (char*)malloc(final_length);
 
 	if(!absolute_path) {
-		result.file_name = NULL;
+		result.file_name = tstr_init();
 		return result;
 	}
 
@@ -349,7 +349,7 @@ get_serve_folder_content_for_folder(const char* const folder_path, bool has_vali
 
 		ServeFolderFolderEntry metadata = get_folder_entry(folder_path, name);
 
-		if(!metadata.file_name) {
+		if(tstr_is_null(&metadata.file_name)) {
 			goto error;
 		}
 
@@ -579,12 +579,14 @@ NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
 		dir_delim = "/";
 	}
 
-	STRING_BUILDER_APPENDF(
-	    body, return NULL;
-	    ,
-	    "<div class=\"entry\"> <div class=\"name\"><a href=\"%s%s\">%s%s</a></div> <div "
-	    "class=\"date\">" TIME_FORMAT "</div> <div class=\"size\">%zu</div> </div> <br>",
-	    entry.file_name, dir_delim, entry.file_name, dir_delim, time_in_ms, entry.size);
+	STRING_BUILDER_APPENDF(body, return NULL;
+	                       ,
+	                       "<div class=\"entry\"> <div class=\"name\"><a href=\"" TSTR_FMT
+	                       "%s\">" TSTR_FMT "%s</a></div> <div "
+	                       "class=\"date\">" TIME_FORMAT
+	                       "</div> <div class=\"size\">%zu</div> </div> <br>",
+	                       TSTR_FMT_ARGS(entry.file_name), dir_delim,
+	                       TSTR_FMT_ARGS(entry.file_name), dir_delim, time_in_ms, entry.size);
 
 	return body;
 }
@@ -600,7 +602,7 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 	string_builder_append_single(body, "<div id=\"content\">");
 
 	if(folder_info.has_valid_parent) {
-		char* file_name_dup = strdup("..");
+		tstr file_name_dup = TSTR_LIT("..");
 
 		ServeFolderFolderEntry parent = {
 			.file_name = file_name_dup,
@@ -612,11 +614,11 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 		if(!folder_content_add_entry(body, parent)) {
 
 			free_string_builder(body);
-			free(file_name_dup);
+			tstr_free(&file_name_dup);
 			return NULL;
 		}
 
-		free(file_name_dup);
+		tstr_free(&file_name_dup);
 	}
 
 	for(size_t i = 0; i < TVEC_LENGTH(ServeFolderFolderEntry, folder_info.entries); ++i) {

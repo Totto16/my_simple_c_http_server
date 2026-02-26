@@ -267,7 +267,7 @@ typedef struct {
 	Owners owners;
 	size_t size;
 	Time last_mod;
-	char* file_name;
+	tstr file_name;
 	UniqueIdentifier identifier;
 } FileWithMetadata;
 
@@ -524,7 +524,7 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 	metadata->last_mod = time_from_struct(stat_result.st_mtim);
 #endif
 
-	metadata->file_name = new_name;
+	metadata->file_name = tstr_own(new_name, name_len, name_len);
 	metadata->identifier.dev = stat_result.st_dev;
 	metadata->identifier.ino = stat_result.st_ino;
 
@@ -533,7 +533,7 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 
 static void free_file_metadata(FileWithMetadata* metadata) {
 
-	free(metadata->file_name);
+	tstr_free(&(metadata->file_name));
 	free(metadata);
 }
 
@@ -770,10 +770,11 @@ NODISCARD static StringBuilder* format_file_line_in_ls_format(FileWithMetadata* 
 		    free(date_str);
 		    return NULL;
 	    },
-	    FORMAT_SPACES "%*lu" FORMAT_SPACES "%*d" FORMAT_SPACES "%*d" FORMAT_SPACES "%*lu %s %s\n",
+	    FORMAT_SPACES "%*lu" FORMAT_SPACES "%*d" FORMAT_SPACES "%*d" FORMAT_SPACES
+	                  "%*lu %s " TSTR_FMT "\n",
 	    ((int)sizes.link), file->link_amount, ((int)sizes.user), file->owners.user,
 	    ((int)sizes.group), file->owners.group, ((int)sizes.size), file->size, date_str,
-	    file->file_name);
+	    TSTR_FMT_ARGS(file->file_name));
 
 	free(date_str);
 	return string_builder;
@@ -865,7 +866,8 @@ NODISCARD static StringBuilder* format_file_line_in_eplf_format(FileWithMetadata
 	// 3. a tab (\011);
 	// 4. an abbreviated pathname; and
 	// 5. \015\012. (\r\n)
-	STRING_BUILDER_APPENDF(string_builder, return NULL;, "\t%s\r\n", file->file_name);
+	STRING_BUILDER_APPENDF(string_builder, return NULL;
+	                       , "\t" TSTR_FMT "\r\n", TSTR_FMT_ARGS(file->file_name));
 
 	return string_builder;
 }

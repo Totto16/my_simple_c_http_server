@@ -592,10 +592,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return false;
 				}
 
-				STRING_BUILDER_APPENDF(string_builder, return false;, " %s", feature.name);
+				STRING_BUILDER_APPENDF(string_builder, return false;
+				                       , " " TSTR_FMT, TSTR_FMT_ARGS(feature.name));
 
-				if(feature.arguments != NULL) {
-					STRING_BUILDER_APPENDF(string_builder, return false;, " %s", feature.arguments);
+				if(!tstr_is_null(&feature.arguments)) {
+					STRING_BUILDER_APPENDF(string_builder, return false;
+					                       , " " TSTR_FMT, TSTR_FMT_ARGS(feature.arguments));
 				}
 
 				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
