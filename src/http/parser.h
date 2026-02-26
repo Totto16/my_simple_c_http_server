@@ -9,7 +9,7 @@ extern "C" {
 #include "./protocol.h"
 #include "./v2.h"
 
-NODISCARD HTTPRequestMethod get_http_method_from_string(const char* method,
+NODISCARD HTTPRequestMethod get_http_method_from_string(tstr_view method,
                                                         OUT_PARAM(bool) success);
 
 typedef struct HTTPReaderImpl HTTPReader;

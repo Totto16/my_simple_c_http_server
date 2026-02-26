@@ -180,6 +180,14 @@ deps += dependency(
     allow_fallback: true,
 )
 
+deps += dependency(
+    'tstr.h',
+    allow_fallback: true,
+    default_options: {
+        'static_string_modification_behavior': 'error',
+    },
+)
+
 cc = meson.get_compiler('c')
 
 deps += cc.find_library(

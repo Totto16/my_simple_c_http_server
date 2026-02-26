@@ -4,6 +4,7 @@
 
 #include "generic/authentication.h"
 #include "utils/utils.h"
+#include <tstr.h>
 
 /**
  * @enum MASK / FLAGS
@@ -26,7 +27,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 typedef struct {
 	AccountPermissions permissions;
-	char* username;
+	tstr username;
 } AccountOkData;
 
 typedef struct {
@@ -34,7 +35,7 @@ typedef struct {
 	union {
 		AccountOkData ok_data;
 		struct {
-			char* username;
+			tstr username;
 		} temp_data;
 	} data;
 } AccountInfo;
@@ -53,5 +54,5 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	UserValidityInternalError,
 } UserValidity;
 
-NODISCARD UserValidity account_verify(const AuthenticationProviders* auth_providers, char* username,
-                                      char* password);
+NODISCARD UserValidity account_verify(const AuthenticationProviders* auth_providers, const tstr* username,
+                                      const tstr* password);

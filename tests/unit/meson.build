@@ -60,13 +60,16 @@ if cpp.get_id() == 'gcc'
     internal_cpp_args += cc.get_supported_arguments('-Wno-missing-braces')
 endif
 
-test_files = [
+test_files_manual = [
     'hash.cpp',
     'http_parser.cpp',
     'serialize.cpp',
     # hpack
     'hpack/huffman.cpp',
     'hpack/manual.cpp',
+]
+
+test_files_hpack = [
     # thirdparty hpack
     'hpack/thirdparty/go-hpack.cpp',
     'hpack/thirdparty/haskell-http2-linear.cpp',
@@ -87,7 +90,7 @@ test_files = [
 
 workdir = meson.project_source_root() / 'tests' / 'unit' / 'files'
 
-foreach test_file : test_files
+foreach test_file : test_files_manual + test_files_hpack
 
     test_name = test_file.replace('.cpp', '').replace('/', '_')
 
@@ -116,11 +119,40 @@ foreach test_file : test_files
 
 endforeach
 
+all_tests_manual = executable(
+    'all_tests_manual',
+    test_src,
+    files(test_files_manual),
+    include_directories: test_inc_dirs,
+    dependencies: [test_deps, http_server_dep],
+    cpp_args: internal_cpp_args,
+    override_options: {
+        'warning_level': '3',
+        'werror': true,
+        'b_coverage': false,
+        'cpp_std': ['c++23', 'c++latest', 'c++20'],
+    },
+)
+
+all_tests_hpack = executable(
+    'all_tests_hpack',
+    test_src,
+    files(test_files_hpack),
+    include_directories: test_inc_dirs,
+    dependencies: [test_deps, http_server_dep],
+    cpp_args: internal_cpp_args,
+    override_options: {
+        'warning_level': '3',
+        'werror': true,
+        'b_coverage': false,
+        'cpp_std': ['c++23', 'c++latest', 'c++20'],
+    },
+)
 
 all_tests = executable(
     'all_tests',
     test_src,
-    files(test_files),
+    files(test_files_manual + test_files_hpack),
     include_directories: test_inc_dirs,
     dependencies: [test_deps, http_server_dep],
     cpp_args: internal_cpp_args,

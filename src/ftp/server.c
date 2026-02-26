@@ -8,9 +8,9 @@
 #include "./state.h"
 
 #include "generic/helper.h"
-#include "generic/read.h"
 #include "generic/send.h"
 #include "generic/signal_fd.h"
+#include "utils/buffered_reader.h"
 #include "utils/clock.h"
 #include "utils/errors.h"
 #include "utils/log.h"
@@ -148,8 +148,23 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		return JOB_ERROR_DESC;
 	}
 
-	int hello_result = send_ftp_message_to_connection_single(descriptor, FtpReturnCodeSrvcReady,
-	                                                         "Simple FTP Server");
+	BufferedReader* buffered_reader = get_buffered_reader(descriptor);
+
+	if(!buffered_reader) {
+		int result = send_ftp_message_to_connection_tstr(
+		    descriptor, FtpReturnCodeSyntaxError,
+		    TSTR_LIT("Request couldn't be read, a connection error occurred!"));
+
+		if(result < 0) {
+			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			                   "Error in sending response\n");
+		}
+
+		goto cleanup;
+	}
+
+	int hello_result = send_ftp_message_to_connection_tstr(descriptor, FtpReturnCodeSrvcReady,
+	                                                       TSTR_LIT("Simple FTP Server"));
 	if(hello_result < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending hello message\n");
 		goto cleanup;
@@ -159,30 +174,18 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 
 	while(!quit) {
 
-		char* raw_ftp_commands = read_string_from_connection(descriptor);
-
-		if(!raw_ftp_commands) {
-			int result = send_ftp_message_to_connection_single(
-			    descriptor, FtpReturnCodeSyntaxError,
-			    "Request couldn't be read, a connection error occurred!");
-
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
-				goto cleanup;
-			}
-
-			continue;
-		}
-
 		// raw_ftp_commands gets freed in here
-		FTPCommandArray* ftp_commands = parse_multiple_ftp_commands(raw_ftp_commands);
+		FTPCommand* ftp_command = parse_single_ftp_command(buffered_reader);
+
+		// invlaidate old data, this makes all alloced data invalid, but it frees some space and the
+		// command should have duped the necessary bytes
+		buffered_reader_invalidate_old_data(buffered_reader);
 
 		// ftp_commands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
-		if(ftp_commands == NULL) {
-			int result = send_ftp_message_to_connection_single(descriptor, FtpReturnCodeSyntaxError,
-			                                                   "Invalid Command Sequence");
+		if(ftp_command == NULL) {
+			int result = send_ftp_message_to_connection_tstr(descriptor, FtpReturnCodeSyntaxError,
+			                                                 TSTR_LIT("Invalid Command Sequence"));
 
 			if(result < 0) {
 				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -193,27 +196,27 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 			continue;
 		}
 
-		for(size_t i = 0; i < TVEC_LENGTH(FTPCommandPtr, *ftp_commands); ++i) {
-			FTPCommand* command = TVEC_AT(FTPCommandPtr, *ftp_commands, i);
-			bool successfull = ftp_process_command(descriptor, server_addr, argument, command);
-			if(!successfull) {
-				quit = true;
-				break;
-			}
+		bool successfull = ftp_process_command(descriptor, server_addr, argument, ftp_command);
+		if(!successfull) {
+			quit = true;
+			break;
 		}
 
-		free_ftp_command_array(ftp_commands);
+		free_ftp_command(ftp_command);
 	}
 
 cleanup:
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing Connection\n");
 	// finally close the connection
-	int result =
-	    close_connection_descriptor_advanced(descriptor, context, ALLOW_SSL_AUTO_CONTEXT_REUSE);
-	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", {
+	bool result = finish_buffered_reader(buffered_reader, context, ALLOW_SSL_AUTO_CONTEXT_REUSE);
+
+	if(!result) {
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), "%s: %s\n",
+		            "While trying to close the connection descriptor", strerror(errno));
 		FREE_AT_END();
 		return JOB_ERROR_CLOSE;
-	});
+	}
+
 	// and free the malloced argument
 	FREE_AT_END();
 	return JOB_ERROR_NONE;
@@ -223,7 +226,7 @@ cleanup:
 
 #define SEND_RESPONSE_WITH_ERROR_CHECK(code, msg) \
 	do { \
-		int send_result = send_ftp_message_to_connection_single(descriptor, code, msg); \
+		int send_result = send_ftp_message_to_connection_tstr(descriptor, code, TSTR_LIT(msg)); \
 		if(send_result < 0) { \
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
 			                   "Error in sending response\n"); \
@@ -259,14 +262,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandUser: {
 
 			// see https://datatracker.ietf.org/doc/html/rfc1635
-			if(strcasecmp(ANON_USERNAME, command->data.string) == 0) {
+			if(tstr_eq_ignore_case_cstr(&(command->data.string), ANON_USERNAME)) {
 				free_account_data(state->account);
 
 				state->account->state = AccountStateOk;
 
-				char* malloced_username = strdup(command->data.string);
+				const tstr malloced_username = tstr_dup(&(command->data.string));
 
-				if(!malloced_username) {
+				if(tstr_is_null(&malloced_username)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 					return true;
@@ -286,9 +289,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			state->account->state = AccountStateOnlyUser;
 
-			char* malloced_username = strdup(command->data.string);
+			const tstr malloced_username = tstr_dup(&(command->data.string));
 
-			if(!malloced_username) {
+			if(tstr_is_null(&malloced_username)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 				return true;
@@ -304,7 +307,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandPass: {
 
 			if(state->account->state == AccountStateOk &&
-			   strcasecmp(ANON_USERNAME, state->account->data.ok_data.username) == 0) {
+			   tstr_eq_ignore_case_cstr(&(state->account->data.ok_data.username), ANON_USERNAME)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn,
 				                               "Already logged in as anon!");
 
@@ -322,11 +325,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* username = state->account->data.temp_data.username;
+			const tstr username = state->account->data.temp_data.username;
 
-			char* passwd = command->data.string;
+			const tstr passwd = command->data.string;
 
-			UserValidity user_validity = account_verify(argument->auth_providers, username, passwd);
+			UserValidity user_validity =
+			    account_verify(argument->auth_providers, &username, &passwd);
 
 			switch(user_validity) {
 				case UserValidityOk: {
@@ -335,9 +339,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					state->account->state = AccountStateOk;
 
-					char* malloced_username = strdup(username);
+					const tstr malloced_username = tstr_dup(&username);
 
-					if(!malloced_username) {
+					if(tstr_is_null(&malloced_username)) {
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 						return true;
@@ -420,9 +424,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* cwd_argument = command->data.string;
+			const tstr cwd_argument = command->data.string;
 
-			DirChangeResult result = change_dirname_to(state, cwd_argument);
+			DirChangeResult result = change_dirname_to(state, tstr_cstr(&cwd_argument));
 
 			switch(result) {
 				case DirChangeResultOk: {
@@ -588,10 +592,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return false;
 				}
 
-				STRING_BUILDER_APPENDF(string_builder, return false;, " %s", feature.name);
+				STRING_BUILDER_APPENDF(string_builder, return false;
+				                       , " " TSTR_FMT, TSTR_FMT_ARGS(feature.name));
 
-				if(feature.arguments != NULL) {
-					STRING_BUILDER_APPENDF(string_builder, return false;, " %s", feature.arguments);
+				if(!tstr_is_null(&feature.arguments)) {
+					STRING_BUILDER_APPENDF(string_builder, return false;
+					                       , " " TSTR_FMT, TSTR_FMT_ARGS(feature.arguments));
 				}
 
 				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
@@ -643,11 +649,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* arg = command->data.string;
+			const tstr arg = command->data.string;
 
 			// NOTE: we allow overwrites, as the ftp spec says
 
-			char* final_file_path = resolve_path_in_cwd(state, arg);
+			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -785,18 +791,27 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    data_connection_get_descriptor_to_send_to(argument->data_controller,
 				                                              data_connection);
 
-				char* resulting_data = read_string_from_connection(data_conn_descriptor);
+				BufferedReader* data_conn_reader = get_buffered_reader(data_conn_descriptor);
 
-				if(!resulting_data) {
+				if(data_conn_reader == NULL) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
+					                               "Internal error buffered reader error");
+					return true;
+				}
+
+				const BufferedReadResult resulting_data =
+				    buffered_reader_get_until_end(data_conn_reader);
+
+				if(resulting_data.type != BufferedReadResultTypeOk) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 					                               "Internal error 5");
 					return true;
 				}
 
-				size_t data_length = strlen(resulting_data);
-
 				// store data
-				bool success = write_to_file(final_file_path, resulting_data, data_length);
+				bool success = write_to_file(final_file_path, resulting_data.value.buffer);
+
+				free_buffered_reader(data_conn_reader);
 
 				if(!success) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -829,9 +844,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* arg = command->data.string;
+			const tstr arg = command->data.string;
 
-			char* final_file_path = resolve_path_in_cwd(state, arg);
+			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -1057,14 +1072,14 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			const char* arg = command->data.string;
+			tstr arg = command->data.string;
 
-			if(arg == NULL) {
+			if(tstr_is_null(&arg)) {
 				// A null argument implies the user's current working or default directory.
-				arg = ".";
+				arg = TSTR_LIT(".");
 			}
 
-			char* final_file_path = resolve_path_in_cwd(state, arg);
+			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -1837,8 +1852,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
-	struct sockaddr_in* control_addr =
-	    (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
+	struct sockaddr_in* control_addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
 
 	if(!control_addr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
@@ -1846,7 +1860,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 		return EXIT_FAILURE;
 	}
 
-	*control_addr =(struct sockaddr_in){0};
+	*control_addr = (struct sockaddr_in){ 0 };
 
 	control_addr->sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and

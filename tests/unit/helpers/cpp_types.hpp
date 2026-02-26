@@ -8,6 +8,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <tstr.h>
 #include <unordered_map>
 #include <vector>
 
@@ -89,3 +90,11 @@ template <typename T> struct CppDefer {
 
 	~CppDefer() { this->m_free_fn(this->m_state); }
 };
+
+[[nodiscard]] static inline std::string string_from_tstr(const tstr value) {
+	return std::string{ tstr_cstr(&value), tstr_len(&value) };
+}
+
+[[nodiscard]] static inline tstr operator""_tstr(const char* str, std::size_t len) {
+	return tstr_from_static_cstr_with_len(str, len);
+}

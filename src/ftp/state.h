@@ -90,8 +90,8 @@ typedef struct {
 } FTPDataSettings;
 
 typedef struct {
-	char* name;
-	char* arguments;
+	tstr name;
+	tstr arguments;
 } FTPSupportedFeature;
 
 typedef struct {
@@ -114,6 +114,7 @@ typedef struct {
 typedef struct {
 	const char* global_folder;
 	AccountInfo* account;
+	//TODO: use tstr
 	char* current_working_directory;
 	FtpTransmissionType current_type;
 	FtpMode mode;

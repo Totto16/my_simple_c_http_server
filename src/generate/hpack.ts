@@ -1274,9 +1274,9 @@ interface HeaderTable {
 
 function header_to_c_value(header: HeaderTable): string {
 
-    const value: string = header.value === null ? "NULL" : `"${header.value}"`
+    const value: string = header.value === null ? "tstr_init()" : `TSTR_LIT("${header.value}")`
 
-    return `(HpackHeaderStaticEntry){ .key = "${header.key}", .value = ${value} }`
+    return `(HpackHeaderStaticEntry){ .key = TSTR_LIT("${header.key}"), .value = ${value} }`
 }
 
 function generated_hpack_headerable_code_h(generated_hpack_header_table_h: string): void {
@@ -1315,12 +1315,13 @@ function generated_hpack_headerable_code_h(generated_hpack_header_table_h: strin
 #pragma once
 
 #include "utils/utils.h"
+#include <tstr.h>
 
 #define HPACK_STATIC_HEADER_TABLE_SIZE ${max_size}
 
 typedef struct {
-	const char* key;
-	const char* value;
+	tstr key;
+	tstr value;
 } HpackHeaderStaticEntry;
 
 NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void);

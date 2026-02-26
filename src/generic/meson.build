@@ -8,8 +8,6 @@ src_files += files(
     'helper.h',
     'ip.c',
     'ip.h',
-    'read.c',
-    'read.h',
     'secure.c',
     'secure.h',
     'sem.c',

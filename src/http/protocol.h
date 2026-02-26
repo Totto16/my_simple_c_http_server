@@ -74,8 +74,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 // self implemented Http Request and Http Response Structs
 
 typedef struct {
-	char* key;
-	char* value;
+	tstr key;
+	tstr value;
 } HttpHeaderField;
 
 /**
@@ -102,20 +102,33 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 #define DEFAULT_RESPONSE_PROTOCOL_VERSION HTTPProtocolVersion1Dot1
 
 typedef struct {
+	bool _reserved : 1;
+	uint32_t identifier : 31; // only 31 bits!
+} Http2Identifier;
+
+typedef struct {
+	Http2Identifier stream_identifier;
+} HttpProtocolDataV2;
+
+typedef struct {
+	HTTPProtocolVersion version;
+	union {
+		HttpProtocolDataV2 v2;
+	} value;
+} HttpProtocolData;
+
+#define DEFAULT_RESPONSE_PROTOCOL_DATA \
+	((HttpProtocolData){ .version = HTTPProtocolVersion1Dot1, .value = {} })
+
+typedef struct {
 	HTTPRequestMethod method;
 	ParsedRequestURI uri;
-	HTTPProtocolVersion protocol_version;
+	HttpProtocolData protocol_data;
 } HttpRequestLine;
 
 NODISCARD const char* get_http_method_string(HTTPRequestMethod method);
 
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version);
-
-typedef struct {
-	char* protocol_version;
-	char* status_code;
-	char* status_message;
-} HttpResponseLine;
 
 TVEC_DEFINE_VEC_TYPE(HttpHeaderField)
 
@@ -123,13 +136,10 @@ typedef TVEC_TYPENAME(HttpHeaderField) HttpHeaderFields;
 
 typedef struct {
 	HttpRequestLine request_line;
+	// TODO: are header fileds an array of key value or a hasmpa?
+	//  see MAP_INSERT(ParsedSearchPathHashMap, as we treat search params as map
 	HttpHeaderFields header_fields;
 } HttpRequestHead;
-
-typedef struct {
-	HttpResponseLine response_line;
-	HttpHeaderFields header_fields;
-} HttpResponseHead;
 
 typedef struct {
 	HttpRequestHead head;
@@ -207,7 +217,7 @@ typedef struct {
 
 typedef struct {
 	CompressionSettings compression_settings;
-	HTTPProtocolVersion protocol_used;
+	HttpProtocolData protocol_data;
 	HttpRequestProperties http_properties;
 } RequestSettings;
 
@@ -216,10 +226,19 @@ typedef struct {
 	RequestSettings settings;
 } HTTPResultOk;
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HttpRequestResultTypeOk = 0,
+	HttpRequestResultTypeError,
+	HttpRequestResultTypeCloseConnection,
+} HttpRequestResultType;
+
 typedef struct {
-	bool is_error;
+	HttpRequestResultType type;
 	union {
-		HTTPResultOk result;
+		HTTPResultOk ok;
 		HttpRequestError error;
 	} value;
 } HttpRequestResult;
@@ -232,17 +251,17 @@ void free_http_request(HttpRequest request);
 
 void free_http_request_result(HTTPResultOk result);
 
-NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, const char* key);
+NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, tstr key);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);
 
-NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key);
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, tstr key);
 
 typedef struct {
 	CompressionType compression_to_use;
-	HTTPProtocolVersion protocol_to_use;
+	HttpProtocolData protocol_data;
 } SendSettings;
 
 NODISCARD SendSettings get_send_settings(RequestSettings request_settings);
@@ -251,11 +270,8 @@ void free_http_header_field(HttpHeaderField field);
 
 void free_http_header_fields(HttpHeaderFields* header_fields);
 
-void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* header_fields, const char* key,
-                                                   char* value);
-
-void add_http_header_field_const_key_const_value(HttpHeaderFields* header_fields, const char* key,
-                                                 const char* value);
+void add_http_header_field(HttpHeaderFields* header_fields, tstr key,
+                                                   tstr value);
 
 #define HTTP_LINE_SEPERATORS "\r\n"
 
@@ -263,6 +279,12 @@ void add_http_header_field_const_key_const_value(HttpHeaderFields* header_fields
 
 static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0]))) - 1 ==
               SIZEOF_HTTP_LINE_SEPERATORS);
+
+typedef void (*ProcessHeaderValue)(const tstr_view value, void* argument);
+
+void process_delimitered_header_value(tstr_view value, const char* delimiter,
+                                      ProcessHeaderValue callback_function,
+                                      void* callback_argument);
 
 #ifdef __cplusplus
 }

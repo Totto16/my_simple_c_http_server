@@ -149,7 +149,7 @@ struct TestCaseBase64 {
 
 TEST_SUITE_BEGIN("hash" * doctest::description("hash tests") * doctest::timeout(2.0));
 
-TEST_CASE("testing sha1 generation with openssl") {
+TEST_CASE("testing sha1 generation with openssl <sha1>") {
 
 	std::string sha1_provider = get_sha1_provider();
 	REQUIRE_EQ(sha1_provider, "openssl (EVP)");
@@ -382,7 +382,7 @@ std::vector<TestCaseBase64> base64_test_cases = {
 
 } // namespace
 
-TEST_CASE("testing base64 decoding with openssl") {
+TEST_CASE("testing base64 decoding with openssl <base64_dec>") {
 
 	std::string base64_provider = get_base64_provider();
 	REQUIRE_EQ(base64_provider, "openssl");
@@ -413,7 +413,7 @@ TEST_CASE("testing base64 decoding with openssl") {
 	}
 }
 
-TEST_CASE("testing base64 encoding with openssl") {
+TEST_CASE("testing base64 encoding with openssl <base64_enc>") {
 
 	std::string base64_provider = get_base64_provider();
 	REQUIRE_EQ(base64_provider, "openssl");
@@ -459,7 +459,7 @@ struct TestCaseBaseBcrypt {
 
 	#define BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS 10
 
-TEST_CASE("testing password hashing with bcrypt" * doctest::timeout(10.0)) {
+TEST_CASE("testing password hashing with bcrypt <bcrypt>" * doctest::timeout(10.0)) {
 
 	std::vector<TestCaseBaseBcrypt> test_cases = {
 		{ .name = "normal password (bcrypt)",

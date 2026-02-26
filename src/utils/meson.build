@@ -15,8 +15,6 @@ src_files += files(
     'sized_buffer.h',
     'string_builder.c',
     'string_builder.h',
-    'string_helper.c',
-    'string_helper.h',
     'thread_helper.c',
     'thread_helper.h',
     'thread_pool.c',

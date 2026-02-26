@@ -61,7 +61,7 @@ well_known_folder_fn_extended(SendSettings /* send_settings */, const HttpReques
 
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
-	if(strcmp(path.path, "/.well-known/access.log") == 0) {
+	if(tstr_eq_cstr(&path.path, "/.well-known/access.log")) {
 
 		StringBuilder* builder = log_collector_to_string_builder(collector);
 
@@ -281,7 +281,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_body) {
 
-	const ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, "pretty");
+	const ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, TSTR_LIT("pretty"));
 
 	bool pretty = pretty_key != NULL;
 
@@ -301,7 +301,7 @@ static HTTPResponseToSend auth_executor_fn(ParsedURLPath /* path */, AuthUserWit
 	StringBuilder* string_builder = string_builder_init();
 
 	string_builder_append_single(string_builder, "{\"username\": \"");
-	string_builder_append_single(string_builder, user.user.username);
+	string_builder_append_single(string_builder, tstr_cstr(&user.user.username));
 	string_builder_append_single(string_builder, "\", \"role\": \"");
 	string_builder_append_single(string_builder, get_name_for_user_role(user.user.role));
 	string_builder_append_single(string_builder, "\", \"provider\": \"");
@@ -685,7 +685,7 @@ NODISCARD static bool is_matching(HTTPRequestRouteMethod route_method, HTTPReque
 	return false;
 }
 
-NODISCARD static bool is_route_matching(HTTPRoutePath route_path, const char* const path) {
+NODISCARD static bool is_route_matching(HTTPRoutePath route_path, const tstr* const path) {
 
 	if(route_path.data == NULL) {
 		return true;
@@ -693,20 +693,18 @@ NODISCARD static bool is_route_matching(HTTPRoutePath route_path, const char* co
 
 	switch(route_path.type) {
 		case HTTPRoutePathTypeExact: {
-			return strcmp(route_path.data, path) == 0;
+			return tstr_eq_cstr(path, route_path.data);
 		}
 		case HTTPRoutePathTypeStartsWith: {
 
 			size_t route_path_len = strlen(route_path.data);
 
-			size_t path_len = strlen(path);
-
-			if(path_len < route_path_len) {
+			if(tstr_len(path) < route_path_len) {
 				return false;
 			}
 
 			// TODO: use cwalk!
-			return strncmp(route_path.data, path, route_path_len) == 0;
+			return strncmp(route_path.data, tstr_cstr(path), route_path_len) == 0;
 		}
 		default: {
 			return false;
@@ -740,7 +738,7 @@ NODISCARD static SelectedRoute* selected_route_from_data(HTTPRouteData route_dat
 }
 
 static void free_auth_user(AuthUserWithContext* user) {
-	free(user->user.username);
+	tstr_free(&(user->user.username));
 	free(user);
 }
 
@@ -760,92 +758,97 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } HttpAuthHeaderValueType;
 
 typedef struct {
+	tstr username;
+	tstr password;
+} HttpAuthHeaderBasic;
+
+typedef struct {
 	HttpAuthHeaderValueType type;
 	union {
-		struct {
-			char* username;
-			char* password;
-		} basic;
-		struct {
-			const char* error_message;
-		} error;
-
+		HttpAuthHeaderBasic basic;
+		const char* error;
 	} data;
 } HttpAuthHeaderValue;
 
-// see: https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/Authorization
-NODISCARD static HttpAuthHeaderValue parse_authorization_value(char* value) {
+static void free_http_auth_header_basic(HttpAuthHeaderBasic* const value) {
+	tstr_free(&(value->username));
+	tstr_free(&(value->password));
+}
 
-	if(strlen(value) == 0) {
-		return (
-		    HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-			                      .data = { .error = { .error_message = "empty header value" } } };
+static void free_http_auth_header_value(HttpAuthHeaderValue* const value) {
+	switch(value->type) {
+		case HttpAuthHeaderValueTypeBasic: {
+			free_http_auth_header_basic(&(value->data.basic));
+			break;
+		}
+		case HttpAuthHeaderValueTypeError:
+		default: {
+			break;
+		}
 	}
+}
 
-	char* auth_scheme = value;
+// see: https://developer.mozilla.org/de/docs/Web/HTTP/Reference/Headers/Authorization
+NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view value) {
+
+	if(value.len == 0) {
+		return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
+			                          .data = { .error = "empty header value" } };
+	}
 
 	// Syntax:  Authorization: <auth-scheme> <authorization-parameters>))
-	char* auth_param_start = strchr(value, ' ');
+	const tstr_split_result split_res = tstr_split(value, " ");
 
-	if(auth_param_start == NULL) {
+	if(!split_res.ok) {
 		return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-			                          .data = { .error = { .error_message =
-			                                                   "no auth-params specified" } } };
+			                          .data = { .error = "no auth-params specified" } };
 	}
 
-	*auth_param_start = '\0';
+	const tstr_view auth_scheme = split_res.first;
+	const tstr_view auth_param = split_res.second;
 
 	// TODO(Totto): support more auth-schemes
 
 	// see: https://www.iana.org/assignments/http-authschemes/http-authschemes.xhtml
-	if(strcasecmp(auth_scheme, "Basic") == 0) {
+	if(tstr_view_eq_ignore_case(auth_scheme, "Basic")) {
 		// see https://datatracker.ietf.org/doc/html/rfc7617
 
-		char* auth_param = auth_param_start + 1;
-
-		if(strlen(auth_param) == 0) {
-			return (
-			    HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-				                      .data = { .error = { .error_message = "data was empty" } } };
+		if(auth_param.len == 0) {
+			return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
+				                          .data = { .error = "data was empty" } };
 		}
 
-		SizedBuffer decoded =
-		    base64_decode_buffer((SizedBuffer){ .data = auth_param, .size = strlen(auth_param) });
+		SizedBuffer decoded = base64_decode_buffer(
+		    (SizedBuffer){ .data = (void*)auth_param.data, .size = auth_param.len });
 
 		if(!decoded.data) {
 			return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-				                          .data = { .error = { .error_message =
-				                                                   "base64 decoding failed" } } };
+				                          .data = { .error = "base64 decoding failed" } };
 		}
 
 		// TODO(Totto): support utf8 here, for the user and the username, but tha needs to be
 		// propagated into many places, so not doing it now
 
-		char* decoded_data = malloc(decoded.size + 1);
-		memcpy(decoded_data, decoded.data, decoded.size);
-		decoded_data[decoded.size] = '\0';
+		const tstr_view decoded_data = tstr_view_from_buffer(decoded);
+
+		const tstr_split_result split_res2 = tstr_split(decoded_data, ":");
+
+		const tstr_view username = split_res2.ok ? split_res2.first : decoded_data;
+		const tstr_view password = split_res2.ok ? split_res2.second : TSTR_EMPTY_VIEW;
+
+		HttpAuthHeaderBasic basic = { .username = tstr_from_view(username),
+			                          .password = tstr_from_view(password) };
 
 		free_sized_buffer(decoded);
 
-		char* username = decoded_data;
-		char* password = NULL;
-
-		char* seperator_idx = strchr(decoded_data, ':');
-
-		if(seperator_idx != NULL) {
-			*seperator_idx = '\0';
-
-			password = seperator_idx + 1;
-		}
-
 		return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeBasic,
-			                          .data = { .basic = { .username = username,
-			                                               .password = password } } };
+			                          .data = {
+			                              .basic = basic,
+			                          } };
 	}
 
 	return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
-		                          .data = { .error = { .error_message =
-		                                                   "invalid auth-scheme specified" } } };
+		                          .data = { .error = "invalid auth-scheme specified" } };
 }
 
 /**
@@ -863,7 +866,7 @@ typedef struct {
 	union {
 		AuthUserWithContext authorized;
 		struct {
-			const char* reason;
+			tstr reason;
 		} unauthorized;
 		struct {
 			const char* error;
@@ -883,35 +886,35 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 	    find_header_by_key(request.head.header_fields, HTTP_HEADER_NAME(authorization));
 
 	if(authorization_field == NULL) {
-		return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
-			                     .data = { .unauthorized = {
-			                                   .reason = "Authorization header missing" } } };
+		return (HttpAuthStatus){
+			.type = HttpAuthStatusTypeUnauthorized,
+			.data = { .unauthorized = { .reason = TSTR_LIT("Authorization header missing") } }
+		};
 	}
 
-	char* value_dup = strdup(authorization_field->value);
-
-	HttpAuthHeaderValue result = parse_authorization_value(value_dup);
+	HttpAuthHeaderValue result =
+	    parse_authorization_value(tstr_as_view(&authorization_field->value));
 
 	if(result.type == HttpAuthHeaderValueTypeError) {
 		LOG_MESSAGE(LogLevelError, "Error in parsing the authorization header: %s\n",
-		            result.data.error.error_message);
+		            result.data.error);
 
-		free(value_dup);
 		return (HttpAuthStatus){ .type = HttpAuthStatusTypeError,
 			                     .data = { .error = { .error_message = "Header parse error" } } };
 	}
 
 	// note: this potential memory leak is not one, as it is just returned and than later freed by
 	// the cosnuming functions
-	char* username = NULL; // NOLINT(clang-analyzer-unix.Malloc)
-	char* password = NULL;
+	tstr username = tstr_init(); // NOLINT(clang-analyzer-unix.Malloc)
+	tstr password = tstr_init();
 
 	switch(result.type) {
 		case HttpAuthHeaderValueTypeBasic: {
-			username = strdup(result.data.basic.username);
-			password =
-			    result.data.basic.password == NULL ? NULL : strdup(result.data.basic.password);
-			free(result.data.basic.username);
+			const HttpAuthHeaderBasic basic = result.data.basic;
+			username = basic.username;
+			password = basic.password;
+			result.data.basic =
+			    (HttpAuthHeaderBasic){ .username = tstr_init(), .password = tstr_init() };
 			break;
 		}
 		case HttpAuthHeaderValueTypeError:
@@ -922,24 +925,26 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 		}
 	}
 
-	free(value_dup);
+	free_http_auth_header_value(&result);
 
 	AuthenticationFindResult find_result =
-	    authentication_providers_find_user_with_password(auth_providers, username, password);
+	    authentication_providers_find_user_with_password(auth_providers, &username, &password);
 
-	free(username);
-	free(password);
+	tstr_free(&username);
+	tstr_free(&password);
 
 	switch(find_result.validity) {
 		case AuthenticationValidityNoSuchUser: {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
-				                     .data = { .unauthorized = { .reason = "no such user" } } };
+				                     .data = {
+				                         .unauthorized = { .reason = TSTR_LIT("no such user") } } };
 		}
 		case AuthenticationValidityWrongPassword: {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
-				                     .data = { .unauthorized = { .reason = "wrong password" } } };
+				                     .data = { .unauthorized = {
+				                                   .reason = TSTR_LIT("wrong password") } } };
 		}
 		case AuthenticationValidityOk: {
 
@@ -1028,14 +1033,12 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				    },
 				    "Basic realm=\"%s\", charset=\"UTF-8\"", DEFAULT_AUTH_REALM);
 
-				add_http_header_field_const_key_dynamic_value(&additional_headers,
-				                                              HTTP_HEADER_NAME(www_authenticate),
-				                                              www_authenticate_buffer);
+				add_http_header_field(&additional_headers, HTTP_HEADER_NAME(www_authenticate),
+				                      tstr_own_cstr(www_authenticate_buffer));
 
 #ifndef NDEBUG
-				add_http_header_field_const_key_const_value(&additional_headers,
-				                                            HTTP_HEADER_NAME(x_special_reason),
-				                                            auth_status.data.unauthorized.reason);
+				add_http_header_field(&additional_headers, HTTP_HEADER_NAME(x_special_reason),
+				                      auth_status.data.unauthorized.reason);
 
 #endif
 
@@ -1154,7 +1157,7 @@ route_manager_get_route_for_request(const RouteManager* const route_manager,
 
 		if(is_matching(route.method, request.head.request_line.method)) {
 
-			if(is_route_matching(route.path, normal_data.path)) {
+			if(is_route_matching(route.path, &normal_data.path)) {
 				return process_matched_route(route_manager, http_properties, request, route);
 			}
 		}

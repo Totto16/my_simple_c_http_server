@@ -6,7 +6,6 @@
 #include "./send.h"
 #include "./server.h"
 #include "generic/helper.h"
-#include "generic/read.h"
 #include "generic/secure.h"
 #include "generic/signal_fd.h"
 #include "http/header.h"
@@ -35,7 +34,7 @@ static void receive_signal(int signal_number) {
 	g_signal_received = signal_number;
 }
 
-#define SUPPORTED_HTTP_METHODS "GET, POST, HEAD, OPTIONS, CONNECT"
+#define SUPPORTED_HTTP_METHODS TSTR_LIT("GET, POST, HEAD, OPTIONS, CONNECT")
 
 #define FREE_AT_END() \
 	do { \
@@ -83,8 +82,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				if(success) {
 					char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 					if(date_str != NULL) {
-						add_http_header_field_const_key_dynamic_value(
-						    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+						add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+						                      tstr_own_cstr(date_str));
 					}
 				}
 			}
@@ -106,8 +105,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 				{ // all 405 have to have a Allow filed according to spec
 
-					add_http_header_field_const_key_const_value(
-					    &additional_headers, HTTP_HEADER_NAME(allow), SUPPORTED_HTTP_METHODS);
+					add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+					                      SUPPORTED_HTTP_METHODS);
 				}
 
 				{
@@ -118,8 +117,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 					if(success) {
 						char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 						if(date_str != NULL) {
-							add_http_header_field_const_key_dynamic_value(
-							    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+							                      tstr_own_cstr(date_str));
 						}
 					}
 				}
@@ -150,8 +149,9 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 			                                       send_settings);
 		}
 		case HttpRequestErrorTypeInvalidHttp2Preface: {
-			return http2_send_connection_error(descriptor, Http2ErrorCodeProtocolError,
-			                                   "invalid http2 preface");
+			return http2_send_connection_error(
+			    descriptor, http_general_context_get_http2_context(general_context),
+			    Http2ErrorCodeProtocolError, "invalid http2 preface");
 		}
 		case HttpRequestErrorTypeLengthRequired: {
 			HTTPResponseToSend to_send = { .status = HttpStatusLengthRequired,
@@ -248,8 +248,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{ // all 405 have to have a Allow filed according to spec
 
-						add_http_header_field_const_key_const_value(
-						    &additional_headers, HTTP_HEADER_NAME(allow), SUPPORTED_HTTP_METHODS);
+						add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+						                      SUPPORTED_HTTP_METHODS);
 					}
 
 					{
@@ -260,8 +260,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						if(success) {
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
-								add_http_header_field_const_key_dynamic_value(
-								    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+								add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+								                      tstr_own_cstr(date_str));
 							}
 						}
 					}
@@ -269,7 +269,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 				HTTPResponseToSend to_send = { .status = HttpStatusOk,
 					                           .body = http_response_body_empty(),
-					                           .mime_type = NULL,
+					                           .mime_type = tstr_init(),
 					                           .additional_headers = additional_headers };
 
 				result = send_http_message_to_connection(general_context, descriptor, to_send,
@@ -284,8 +284,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{ // all 405 have to have a Allow filed according to spec
 
-						add_http_header_field_const_key_const_value(
-						    &additional_headers, HTTP_HEADER_NAME(allow), SUPPORTED_HTTP_METHODS);
+						add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+						                      SUPPORTED_HTTP_METHODS);
 					}
 
 					{
@@ -296,8 +296,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						if(success) {
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
-								add_http_header_field_const_key_dynamic_value(
-								    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+								add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+								                      tstr_own_cstr(date_str));
 							}
 						}
 					}
@@ -305,7 +305,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 				HTTPResponseToSend to_send = { .status = HttpStatusOk,
 					                           .body = http_response_body_empty(),
-					                           .mime_type = NULL,
+					                           .mime_type = tstr_init(),
 					                           .additional_headers = additional_headers };
 
 				result = send_http_message_to_connection(general_context, descriptor, to_send,
@@ -356,16 +356,16 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 						{
 
-							add_http_header_field_const_key_const_value(
-							    &additional_headers, HTTP_HEADER_NAME(x_shutdown), "true");
+							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(x_shutdown),
+							                      TSTR_LIT("true"));
 						}
 
 					} else {
 
 						{ // all 405 have to have a Allow filed according to spec
 
-							add_http_header_field_const_key_const_value(
-							    &additional_headers, HTTP_HEADER_NAME(allow), "GET, HEAD");
+							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+							                      TSTR_LIT("GET, HEAD"));
 						}
 
 						HTTPResponseToSend to_send = {
@@ -410,8 +410,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 						{ // all 405 have to have a Allow filed according to spec
 
-							add_http_header_field_const_key_const_value(
-							    &additional_headers, HTTP_HEADER_NAME(allow), "GET");
+							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+							                      TSTR_LIT("GET"));
 						}
 
 						HTTPResponseToSend to_send = {
@@ -531,8 +531,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
 
-								add_http_header_field_const_key_const_value(
-								    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+								add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+								                      tstr_own_cstr(date_str));
 							}
 						}
 					}
@@ -569,13 +569,13 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{
 
-						add_http_header_field_const_key_const_value(
-						    &additional_headers, HTTP_HEADER_NAME(content_transfer_encoding),
-						    "binary");
+						add_http_header_field(&additional_headers,
+						                      HTTP_HEADER_NAME(content_transfer_encoding),
+						                      TSTR_LIT("binary"));
 
-						add_http_header_field_const_key_const_value(
-						    &additional_headers, HTTP_HEADER_NAME(content_description),
-						    "File Transfer");
+						add_http_header_field(&additional_headers,
+						                      HTTP_HEADER_NAME(content_description),
+						                      TSTR_LIT("File Transfer"));
 
 						{
 							char* content_disposition_buffer = NULL;
@@ -585,11 +585,12 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 								    TVEC_FREE(HttpHeaderField, &additional_headers);
 								    return NULL;
 							    },
-							    "attachment; filename=\"%s\"", file.file_name);
+							    "attachment; filename=\"" TSTR_FMT "\"",
+							    TSTR_FMT_ARGS(file.file_name));
 
-							add_http_header_field_const_key_dynamic_value(
-							    &additional_headers, HTTP_HEADER_NAME(content_disposition),
-							    content_disposition_buffer);
+							add_http_header_field(&additional_headers,
+							                      HTTP_HEADER_NAME(content_disposition),
+							                      tstr_own_cstr(content_disposition_buffer));
 						}
 
 						{
@@ -601,8 +602,9 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 								char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 								if(date_str != NULL) {
 
-									add_http_header_field_const_key_dynamic_value(
-									    &additional_headers, HTTP_HEADER_NAME(date), date_str);
+									add_http_header_field(&additional_headers,
+									                      HTTP_HEADER_NAME(date),
+									                      tstr_own_cstr(date_str));
 								}
 							}
 						}
@@ -661,10 +663,10 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						break;
 					}
 
-					auto const normal_data = http_properties.data.normal;
+					const ParsedURLPath normal_data = http_properties.data.normal;
 
 					StringBuilder* html_string_builder =
-					    folder_content_to_html(folder_info, normal_data.path);
+					    folder_content_to_html(folder_info, &normal_data.path);
 
 					if(html_string_builder == NULL) {
 						HTTPResponseToSend to_send = {
@@ -797,13 +799,13 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-		int result = send_http_message_to_connection(
-		    NULL, // not yet available!
-		    descriptor, to_send,
-		    (SendSettings){
-		        .compression_to_use = CompressionTypeNone,
-		        .protocol_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION,
-		    });
+		int result =
+		    send_http_message_to_connection(NULL, // not yet available!
+		                                    descriptor, to_send,
+		                                    (SendSettings){
+		                                        .compression_to_use = CompressionTypeNone,
+		                                        .protocol_data = DEFAULT_RESPONSE_PROTOCOL_DATA,
+		                                    });
 
 		if(result < 0) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -818,53 +820,64 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 	do {
 
 		// raw_http_request gets freed in here
-		// TODO: replace with proper error handling instead of NULL or value, thats the same as
-		// optional<> ws expected<>
 		HttpRequestResult http_request_result = get_http_request(http_reader);
 
-		if(http_request_result.is_error) {
+		switch(http_request_result.type) {
+			case HttpRequestResultTypeError: {
 
-			SendSettings default_send_settings = {
-				.compression_to_use = CompressionTypeNone,
-				.protocol_to_use = DEFAULT_RESPONSE_PROTOCOL_VERSION,
-			};
+				SendSettings default_send_settings = {
+					.compression_to_use = CompressionTypeNone,
+					.protocol_data = DEFAULT_RESPONSE_PROTOCOL_DATA,
+				};
 
-			int result = process_http_error(http_request_result.value.error, descriptor,
-			                                general_context, default_send_settings, true);
+				int result = process_http_error(http_request_result.value.error, descriptor,
+				                                general_context, default_send_settings, true);
 
-			if(result < 0) {
-				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-				                   "Error in sending response\n");
+				if(result < 0) {
+					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+					                   "Error in sending response\n");
+				}
+
+				goto cleanup;
 			}
+			case HttpRequestResultTypeOk: {
 
-			goto cleanup;
-		}
+				const HTTPResultOk http_result = http_request_result.value.ok;
+				const HttpRequest http_request = http_result.request;
 
-		const HTTPResultOk http_result = http_request_result.value.result;
-		const HttpRequest http_request = http_result.request;
+				JobError process_error = process_http_request(
+				    http_request, descriptor, http_reader, route_manager, argument, worker_info,
+				    http_result.settings, argument->address);
 
-		JobError process_error =
-		    process_http_request(http_request, descriptor, http_reader, route_manager, argument,
-		                         worker_info, http_result.settings, argument->address);
+				free_http_request_result(http_result);
 
-		free_http_request_result(http_result);
+				if(process_error == JOB_ERROR_CLEANUP_CONNECTION) {
+					job_error = JOB_ERROR_NONE;
+					goto cleanup;
+				}
 
-		if(process_error == JOB_ERROR_CLEANUP_CONNECTION) {
-			job_error = JOB_ERROR_NONE;
-			goto cleanup;
-		}
+				if(process_error == JOB_ERROR_CONNECTION_UPGRADE) {
 
-		if(process_error == JOB_ERROR_CONNECTION_UPGRADE) {
+					// we already have release the buffered reader so that it can be safely freed
+					// without closing the needed connection descriptor to early!
+					job_error = JOB_ERROR_NONE;
+					goto cleanup;
+				}
 
-			// we already have release the buffered reader so that it can be safely freed without
-			// closing the needed connection descriptor to early!
-			job_error = JOB_ERROR_NONE;
-			goto cleanup;
-		}
+				if(process_error != JOB_ERROR_NONE) {
+					job_error = process_error;
+					goto cleanup;
+				}
 
-		if(process_error != JOB_ERROR_NONE) {
-			job_error = process_error;
-			goto cleanup;
+				break;
+			}
+			case HttpRequestResultTypeCloseConnection: {
+				job_error = JOB_ERROR_NONE;
+				goto cleanup;
+			}
+			default: {
+				UNREACHABLE();
+			}
 		}
 
 	} while(http_reader_more_available(http_reader));
@@ -1061,6 +1074,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		                   "Couldn't allocate memory!\n");
 		return EXIT_FAILURE;
 	}
+
+	global_setup_port_data(port);
 
 	*addr = (struct sockaddr_in){ 0 };
 

@@ -20,7 +20,7 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 	// TODO(Totto): redirect /dir requests to /dir/ with 310 or 302!
 
 	size_t data_len = strlen(data.folder_path);
-	size_t request_len = strlen(request_path.path);
+	size_t request_len = tstr_len(&request_path.path);
 
 	char* result_path = NULL;
 
@@ -45,7 +45,8 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 			memcpy(result_path + data_len + 1, route_path, route_len);
 			result_path[data_len + 1 + route_len] = '/';
 
-			memcpy(result_path + data_len + 2 + route_len, request_path.path, request_len);
+			memcpy(result_path + data_len + 2 + route_len, tstr_cstr(&request_path.path),
+			       request_len);
 			result_path[data_len + 2 + route_len + request_len] = '\0';
 
 			break;
@@ -61,7 +62,7 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 			memcpy(result_path, data.folder_path, data_len);
 			result_path[data_len] = '/';
 
-			memcpy(result_path + data_len + 1, request_path.path, request_len);
+			memcpy(result_path + data_len + 1, tstr_cstr(&request_path.path), request_len);
 			result_path[data_len + 1 + request_len] = '\0';
 
 			break;
@@ -104,52 +105,57 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 	return result_path;
 }
 
-static ServeFolderResult get_serve_folder_content_for_file(const char* const final_path,
+static ServeFolderResult get_serve_folder_content_for_file(const tstr* const path,
                                                            const bool send_body) {
 
 	ServeFolderResult result = { .type = ServeFolderResultTypeServerError };
 
-	const char* name_ptr = final_path;
-
-	// TODO(Totto): factor out  into helper function or use cwalk
-	while(true) {
-		char* str_result = strstr(name_ptr, "/");
-
-		if(str_result == NULL) {
-			break;
-		}
-
-		name_ptr = str_result + 1;
-	}
-
-	const char* ext = NULL;
+	tstr_view base_name = tstr_as_view(path);
 
 	{
+		tstr_split_iter iter = tstr_split_init(base_name, "/");
 
-		const char* ext_ptr = name_ptr;
-
+		// TODO(Totto): factor out  into helper function or use cwalk
 		while(true) {
-			char* str_result = strstr(ext_ptr, ".");
+			tstr_view part;
 
-			if(str_result == NULL) {
+			bool split_succeeded = tstr_split_next(&iter, &part);
+
+			if(!split_succeeded) {
 				break;
 			}
 
-			ext_ptr = str_result + 1;
+			base_name = part;
 		}
-
-		ext = ext_ptr;
 	}
 
-	const char* mime_type = get_mime_type_for_ext(ext);
+	tstr_view ext = TSTR_EMPTY_VIEW;
 
-	if(mime_type == NULL) {
+	{
+
+		tstr_split_iter ext_iter = tstr_split_init(base_name, ".");
+
+		while(true) {
+			tstr_view part;
+			bool split_succeeded = tstr_split_next(&ext_iter, &part);
+
+			if(!split_succeeded) {
+				break;
+			}
+
+			ext = part;
+		}
+	}
+
+	tstr mime_type = get_mime_type_for_ext(ext);
+
+	if(tstr_is_null(&mime_type)) {
 		mime_type = UNRECOGNIZED_MIME_TYPE;
 	}
 
-	char* file_name = strdup(name_ptr);
+	tstr file_name = tstr_from_view(base_name);
 
-	if(!file_name) {
+	if(tstr_is_null(&file_name)) {
 		result.type = ServeFolderResultTypeServerError;
 		return result;
 	}
@@ -160,22 +166,22 @@ static ServeFolderResult get_serve_folder_content_for_file(const char* const fin
 
 	if(!send_body) {
 		// we just need the size, no need to read the entire file
-		bool success = get_file_size_of_file(final_path, &file_size);
+		bool success = get_file_size_of_file(tstr_cstr(path), &file_size);
 
 		if(!success) {
 
-			free(file_name);
+			tstr_free(&file_name);
 			result.type = ServeFolderResultTypeServerError;
 			return result;
 		}
 
 		file_content = (SizedBuffer){ .data = NULL, .size = file_size };
 	} else {
-		void* file_data = read_entire_file(final_path, &file_size);
+		void* file_data = read_entire_file(tstr_cstr(path), &file_size);
 
 		if(file_data == NULL) {
 
-			free(file_name);
+			tstr_free(&file_name);
 			result.type = ServeFolderResultTypeServerError;
 			return result;
 		}
@@ -197,7 +203,7 @@ static ServeFolderResult get_serve_folder_content_for_file(const char* const fin
 
 static void free_folder_info_entry(ServeFolderFolderEntry folder_info_entry) {
 
-	free(folder_info_entry.file_name);
+	tstr_free(&folder_info_entry.file_name);
 }
 
 static void free_folder_info(ServeFolderFolderInfo folder_info) {
@@ -217,7 +223,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
     const char* const absolute_path, // NOLINT(bugprone-easily-swappable-parameters)
     const char* const name) {
 
-	ServeFolderFolderEntry result = { .file_name = NULL };
+	ServeFolderFolderEntry result = { .file_name = tstr_init() };
 
 	struct stat stat_result;
 	int result_stat_int = stat(absolute_path, &stat_result);
@@ -226,7 +232,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		            "Couldn't stat folder '%s': %s\n", absolute_path, strerror(errno));
 
-		result.file_name = NULL;
+		result.file_name = tstr_init();
 		return result;
 	}
 
@@ -235,7 +241,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 	char* new_name = (char*)malloc(name_len + 1);
 
 	if(!new_name) {
-		result.file_name = NULL;
+		result.file_name = tstr_init();
 		return result;
 	}
 
@@ -248,7 +254,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 	const bool is_dir = (stat_result.st_mode & S_IFMT) == S_IFDIR;
 
 	result.dir = is_dir;
-	result.file_name = new_name;
+	result.file_name = tstr_own(new_name, name_len, name_len);
 
 #ifdef __APPLE__
 	result.date = time_from_struct(stat_result.st_mtimespec);
@@ -264,7 +270,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 NODISCARD static ServeFolderFolderEntry get_folder_entry(const char* const folder,
                                                          const char* const name) {
 
-	ServeFolderFolderEntry result = { .file_name = NULL };
+	ServeFolderFolderEntry result = { .file_name = tstr_init() };
 
 	size_t folder_len = strlen(folder);
 	size_t name_len = strlen(name);
@@ -277,7 +283,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry(const char* const folde
 	char* absolute_path = (char*)malloc(final_length);
 
 	if(!absolute_path) {
-		result.file_name = NULL;
+		result.file_name = tstr_init();
 		return result;
 	}
 
@@ -343,7 +349,7 @@ get_serve_folder_content_for_folder(const char* const folder_path, bool has_vali
 
 		ServeFolderFolderEntry metadata = get_folder_entry(folder_path, name);
 
-		if(!metadata.file_name) {
+		if(tstr_is_null(&metadata.file_name)) {
 			goto error;
 		}
 
@@ -512,7 +518,9 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 
 		*result = get_serve_folder_content_for_folder(final_path, has_valid_parent);
 	} else {
-		*result = get_serve_folder_content_for_file(final_path, send_body);
+		const tstr path = tstr_own_cstr(final_path);
+
+		*result = get_serve_folder_content_for_file(&path, send_body);
 	}
 
 	free(final_path);
@@ -522,7 +530,7 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 
 static void free_file_info(ServeFolderFileInfo file_info) {
 	free_sized_buffer(file_info.file_content);
-	free(file_info.file_name);
+	tstr_free(&file_info.file_name);
 }
 
 void free_serve_folder_result(ServeFolderResult* serve_folder_result) {
@@ -571,28 +579,30 @@ NODISCARD static StringBuilder* folder_content_add_entry(StringBuilder* body,
 		dir_delim = "/";
 	}
 
-	STRING_BUILDER_APPENDF(
-	    body, return NULL;
-	    ,
-	    "<div class=\"entry\"> <div class=\"name\"><a href=\"%s%s\">%s%s</a></div> <div "
-	    "class=\"date\">" TIME_FORMAT "</div> <div class=\"size\">%zu</div> </div> <br>",
-	    entry.file_name, dir_delim, entry.file_name, dir_delim, time_in_ms, entry.size);
+	STRING_BUILDER_APPENDF(body, return NULL;
+	                       ,
+	                       "<div class=\"entry\"> <div class=\"name\"><a href=\"" TSTR_FMT
+	                       "%s\">" TSTR_FMT "%s</a></div> <div "
+	                       "class=\"date\">" TIME_FORMAT
+	                       "</div> <div class=\"size\">%zu</div> </div> <br>",
+	                       TSTR_FMT_ARGS(entry.file_name), dir_delim,
+	                       TSTR_FMT_ARGS(entry.file_name), dir_delim, time_in_ms, entry.size);
 
 	return body;
 }
 
 NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_info,
-                                                const char* folder_path) {
+                                                const tstr* const folder_path) {
 
 	StringBuilder* body = string_builder_init();
 
 	STRING_BUILDER_APPENDF(body, return NULL;
-	                       , "<h1 id=\"title\">Index of %s</h1> <br>", folder_path);
+	                       , "<h1 id=\"title\">Index of %s</h1> <br>", tstr_cstr(folder_path));
 
 	string_builder_append_single(body, "<div id=\"content\">");
 
 	if(folder_info.has_valid_parent) {
-		char* file_name_dup = strdup("..");
+		tstr file_name_dup = TSTR_LIT("..");
 
 		ServeFolderFolderEntry parent = {
 			.file_name = file_name_dup,
@@ -604,11 +614,11 @@ NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_inf
 		if(!folder_content_add_entry(body, parent)) {
 
 			free_string_builder(body);
-			free(file_name_dup);
+			tstr_free(&file_name_dup);
 			return NULL;
 		}
 
-		free(file_name_dup);
+		tstr_free(&file_name_dup);
 	}
 
 	for(size_t i = 0; i < TVEC_LENGTH(ServeFolderFolderEntry, folder_info.entries); ++i) {

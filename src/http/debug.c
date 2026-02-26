@@ -1,4 +1,3 @@
-
 #include "./debug.h"
 #include "utils/string_builder.h"
 #include "utils/utils.h"
@@ -10,9 +9,9 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 	StringBuilder* result = string_builder_init();
 
 	const char* method = get_http_method_string(request.head.request_line.method);
-	char* request_uri = get_request_uri_as_string(request.head.request_line.uri);
+	tstr request_uri = get_request_uri_as_string(request.head.request_line.uri);
 	const char* protocol_version =
-	    get_http_protocol_version_string(request.head.request_line.protocol_version);
+	    get_http_protocol_version_string(request.head.request_line.protocol_data.version);
 
 	string_builder_append_single(result, "HttpRequest:\n");
 
@@ -20,8 +19,8 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 	string_builder_append_single(result, method);
 	string_builder_append_single(result, "\n");
 
-	STRING_BUILDER_APPENDF(result, return NULL;, "\tRequestURI: %s\n", request_uri);
-	free(request_uri);
+	STRING_BUILDER_APPENDF(result, return NULL;, "\tRequestURI: %s\n", tstr_cstr(&request_uri));
+	tstr_free(&request_uri);
 
 	string_builder_append_single(result, "\tProtocolVersion:");
 	string_builder_append_single(result, protocol_version);
@@ -33,10 +32,10 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, request.head.header_fields, i);
 
 		STRING_BUILDER_APPENDF(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
-		                                           entry.key, entry.value);
+		                                           tstr_cstr(&entry.key), tstr_cstr(&entry.value));
 	}
 	STRING_BUILDER_APPENDF(result, return NULL;
-	                       , "\tBody: %.*s\n", (int)request.body.size, (char*)request.body.data);
+	                       , "\tBody: " SIZED_BUFFER_FMT " \n", SIZED_BUFFER_FMT_ARGS(request.body));
 	return result;
 }
 
@@ -91,7 +90,7 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 
 	const char* method = get_http_method_string(request.head.request_line.method);
 	const char* protocol_version =
-	    get_http_protocol_version_string(request.head.request_line.protocol_version);
+	    get_http_protocol_version_string(request.head.request_line.protocol_data.version);
 
 	string_builder_append_single(body, "{\"request\":\"");
 	string_builder_append_single(body, method);
@@ -114,32 +113,35 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 				const ParsedURI uri = request_uri.data.uri;
 				const ParsedAuthority authority = uri.authority;
 
-				char* path_str = get_parsed_url_as_string(uri.path);
-				char* uri_str = get_uri_as_string(uri);
+				tstr path_str = get_parsed_url_as_string(uri.path);
+				tstr uri_str = get_uri_as_string(uri);
 
-				STRING_BUILDER_APPENDF(
-				    body, return NULL;,
-				                      "\"type\": \"uri\", \"data\": { \"path\": { \"str_form\": "
-				                      "\"%s\"  } , \"uri_str\":\"%s\"  , \"scheme\":\"%s\" , "
-				                      "\"authority\": { \"user\": { \"name\": "
-				                      "\"%s\",\"password\": \"%s\" }, \"host\": "
-				                      "\"%s\", \"port\": "
-				                      "\"%u\"  }}",
-				                      path_str, uri_str, uri.scheme, authority.user_info.username,
-				                      authority.user_info.password, authority.host, authority.port);
+				STRING_BUILDER_APPENDF(body, return NULL;
+				                       ,
+				                       "\"type\": \"uri\", \"data\": { \"path\": { \"str_form\": "
+				                       "\"%s\"  } , \"uri_str\":\"%s\"  , \"scheme\":\"%s\" , "
+				                       "\"authority\": { \"user\": { \"name\": "
+				                       "\"%s\",\"password\": \"%s\" }, \"host\": "
+				                       "\"%s\", \"port\": "
+				                       "\"%u\"  }}",
+				                       tstr_cstr(&path_str), tstr_cstr(&uri_str),
+				                       tstr_cstr(&uri.scheme),
+				                       tstr_cstr(&authority.user_info.username),
+				                       tstr_cstr(&authority.user_info.password),
+				                       tstr_cstr(&authority.host), authority.port);
 
-				free(path_str);
-				free(uri_str);
+				tstr_free(&path_str);
+				tstr_free(&uri_str);
 				break;
 			}
 			case ParsedURITypeAbsPath: {
-				char* path_str = get_parsed_url_as_string(request_uri.data.path);
+				tstr path_str = get_parsed_url_as_string(request_uri.data.path);
 
 				STRING_BUILDER_APPENDF(body, return NULL;
 				                       , "\"type\": \"path\", \"data\": { \"str_form\": \"%s\"  }",
-				                       path_str);
+				                       tstr_cstr(&path_str));
 
-				free(path_str);
+				tstr_free(&path_str);
 				break;
 			}
 			case ParsedURITypeAuthority: {
@@ -151,8 +153,9 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 				                       "\"%s\",\"password\": \"%s\" }, \"host\": "
 				                       "\"%s\", \"port\": "
 				                       "\"%u\"  }",
-				                       authority.user_info.username, authority.user_info.password,
-				                       authority.host, authority.port);
+				                       tstr_cstr(&authority.user_info.username),
+				                       tstr_cstr(&authority.user_info.password),
+				                       tstr_cstr(&authority.host), authority.port);
 				break;
 			}
 			default: {
@@ -174,24 +177,26 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, request.head.header_fields, i);
 
-		STRING_BUILDER_APPENDF(body, return NULL;
-		                       , "{\"header\":\"%s\", \"key\":\"%s\"}", entry.key, entry.value);
+		STRING_BUILDER_APPENDF(body, return NULL;, "{\"header\":\"%s\", \"key\":\"%s\"}",
+		                                         tstr_cstr(&entry.key), tstr_cstr(&entry.value));
 		if(i + 1 < header_amount) {
 			string_builder_append_single(body, ", ");
 		} else {
 			string_builder_append_single(body, "],");
 		}
 	}
-	STRING_BUILDER_APPENDF(body, return NULL;
-	                       , "\"body\":\"%.*s\"", (int)request.body.size, (char*)request.body.data);
+	STRING_BUILDER_APPENDF(body, return NULL;, "\"body\":\"" SIZED_BUFFER_FMT "\"",
+	                                         SIZED_BUFFER_FMT_ARGS(request.body));
 
 	string_builder_append_single(body, ", \"settings\": {");
 
+	const tstr compress_format = get_string_for_compress_format(send_settings.compression_to_use);
+
 	STRING_BUILDER_APPENDF(
 	    body, return NULL;
-	    , "\"send_settings\":{\"compression\" : \"%s\", \"http_protocol\": \"%s\"} }",
-	    get_string_for_compress_format(send_settings.compression_to_use),
-	    get_http_protocol_version_string(send_settings.protocol_to_use));
+	    , "\"send_settings\":{\"compression\" : \"" TSTR_FMT "\", \"http_protocol\": \"%s\"} }",
+	    TSTR_FMT_ARGS(compress_format),
+	    get_http_protocol_version_string(send_settings.protocol_data.version));
 
 	string_builder_append_single(body, "}");
 	return body;
@@ -203,9 +208,9 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 	StringBuilder* body = string_builder_init();
 
 	const char* method = get_http_method_string(request.head.request_line.method);
-	char* request_uri = get_request_uri_as_string(request.head.request_line.uri);
+	tstr request_uri = get_request_uri_as_string(request.head.request_line.uri);
 	const char* protocol_version =
-	    get_http_protocol_version_string(request.head.request_line.protocol_version);
+	    get_http_protocol_version_string(request.head.request_line.protocol_data.version);
 
 	string_builder_append_single(body, "<h1 id=\"title\">HttpRequest:</h1><br>");
 
@@ -213,8 +218,9 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 	string_builder_append_single(body, method);
 	string_builder_append_single(body, "</div>");
 
-	STRING_BUILDER_APPENDF(body, return NULL;, "<div>RequestURI: %s</div>", request_uri);
-	free(request_uri);
+	STRING_BUILDER_APPENDF(body, return NULL;
+	                       , "<div>RequestURI: %s</div>", tstr_cstr(&request_uri));
+	tstr_free(&request_uri);
 
 	string_builder_append_single(body, "<div>ProtocolVersion:");
 	string_builder_append_single(body, protocol_version);
@@ -230,8 +236,8 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 
 		STRING_BUILDER_APPENDF(
 		    body, return NULL;
-		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>", entry.key,
-		    entry.value);
+		    , "<div><h2>Header:</h2><br><h3>Key:</h3> %s<br><h3>Value:</h3> %s</div>",
+		    tstr_cstr(&entry.key), tstr_cstr(&entry.value));
 	}
 
 	string_builder_append_single(body, "</div> <div id=\"settings\">");
@@ -239,19 +245,21 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 	{
 		string_builder_append_single(body, "</div> <div id=\"send_settings\">");
 		string_builder_append_single(body, "<h2>Send Settings:</h2> <br>");
+
+		const auto comp_format = get_string_for_compress_format(send_settings.compression_to_use);
+
 		STRING_BUILDER_APPENDF(body, return NULL;
-		                       , "<h3>Compression:</h3> %s",
-		                       get_string_for_compress_format(send_settings.compression_to_use));
-		STRING_BUILDER_APPENDF(body, return NULL;
-		                       , "<h3>HTTP Protocol:</h3> %s",
-		                       get_http_protocol_version_string(send_settings.protocol_to_use));
+		                       , "<h3>Compression:</h3> " TSTR_FMT, TSTR_FMT_ARGS(comp_format));
+		STRING_BUILDER_APPENDF(body, return NULL;, "<h3>HTTP Protocol:</h3> %s",
+		                                         get_http_protocol_version_string(
+		                                             send_settings.protocol_data.version));
 		string_builder_append_single(body, "</div>");
 	}
 	string_builder_append_single(body, "</div>");
 
 	string_builder_append_single(body, "</div> <div id=\"body\">");
-	STRING_BUILDER_APPENDF(body, return NULL;, "<h1>Body:</h1> <br>%.*s", (int)request.body.size,
-	                                         (char*)request.body.data);
+	STRING_BUILDER_APPENDF(body, return NULL;, "<h1>Body:</h1> <br>" SIZED_BUFFER_FMT "",
+	                                         SIZED_BUFFER_FMT_ARGS(request.body));
 	string_builder_append_single(body, "</div>");
 
 	// style

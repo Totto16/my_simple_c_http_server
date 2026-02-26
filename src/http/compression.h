@@ -25,7 +25,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 NODISCARD bool is_compression_supported(CompressionType format);
 
-NODISCARD const char* get_string_for_compress_format(CompressionType format);
+NODISCARD tstr get_string_for_compress_format(CompressionType format);
 
 // ws deflate support functions
 #if defined(_SIMPLE_SERVER_COMPRESSION_SUPPORT_DEFLATE)

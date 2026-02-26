@@ -271,17 +271,17 @@ NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 	BIO_flush(mem_input);
 	BIO_get_mem_ptr(mem_input, &buffer_ptr);
 
-	size_t lenght = buffer_ptr->length * sizeof(char);
+	size_t length = buffer_ptr->length * sizeof(char);
 
-	char* result = (char*)malloc(lenght + 1);
-	memcpy(result, buffer_ptr->data, lenght);
-	result[lenght] = '\0';
+	char* result = (char*)malloc(length + 1);
+	memcpy(result, buffer_ptr->data, length);
+	result[length] = '\0';
 
 	BIO_free_all(mem_input);
 	return result;
 }
 
-	#define B64_CHUNCK_SIZE 512
+	#define B64_CHUNK_SIZE 512
 
 NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 	if(input_buffer.size == 0) {
@@ -296,7 +296,7 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 	BIO* mem_input = NULL;
 	BIO* b64_filter = NULL;
 
-	uint8_t* output_buffer_current = malloc(B64_CHUNCK_SIZE);
+	uint8_t* output_buffer_current = malloc(B64_CHUNK_SIZE);
 	SizedBuffer output_buffer = { .data = output_buffer_current, .size = 0 };
 
 	b64_filter = BIO_new(BIO_f_base64());
@@ -307,7 +307,7 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 	BIO_set_flags(mem_input, BIO_FLAGS_BASE64_NO_NL);
 	while(true) {
 		size_t read_size = 0;
-		int result = BIO_read_ex(mem_input, output_buffer_current, B64_CHUNCK_SIZE, &read_size);
+		int result = BIO_read_ex(mem_input, output_buffer_current, B64_CHUNK_SIZE, &read_size);
 
 		if(result != 1) {
 			BIO_free_all(mem_input);
@@ -318,14 +318,14 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 		output_buffer.size += read_size;
 
 		// we need to perform more reads
-		if(read_size == B64_CHUNCK_SIZE) {
-			void* new_chunk = realloc(output_buffer.data, output_buffer.size + B64_CHUNCK_SIZE);
+		if(read_size == B64_CHUNK_SIZE) {
+			void* new_chunk = realloc(output_buffer.data, output_buffer.size + B64_CHUNK_SIZE);
 			output_buffer.data = new_chunk;
 			output_buffer_current = (uint8_t*)output_buffer.data + output_buffer.size;
 			continue;
 		}
 
-		// the read returned 0 or < B64_CHUNCK_SIZE, so we read until the end
+		// the read returned 0 or < B64_CHUNK_SIZE, so we read until the end
 		break;
 	}
 

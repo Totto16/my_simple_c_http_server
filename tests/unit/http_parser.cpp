@@ -29,8 +29,8 @@ class CompressionSettingsCpp {
 
 		HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
 
-		add_http_header_field_const_key_dynamic_value(
-		    &http_header_fields, HTTP_HEADER_NAME(accept_encoding), strdup(accept_encoding_value));
+		add_http_header_field(&http_header_fields, HTTP_HEADER_NAME(accept_encoding),
+		                      tstr_from(accept_encoding_value));
 
 		this->m_settings = get_compression_settings(http_header_fields);
 
@@ -51,7 +51,8 @@ class CompressionSettingsCpp {
 };
 
 [[nodiscard]] const char* compression_type_to_string(CompressionType type) {
-	return get_string_for_compress_format(type);
+	const tstr temp = get_string_for_compress_format(type);
+	return tstr_cstr(&temp);
 }
 
 [[nodiscard]] const char* get_representation_for_compression_value(CompressionValue value) {
@@ -108,7 +109,7 @@ template <> struct StringMaker<CompressionEntry> {
 
 TEST_SUITE_BEGIN("http_parser" * doctest::description("http parser tests") * doctest::timeout(2.0));
 
-TEST_CASE("testing parsing of the Accept-Encoding header") {
+TEST_CASE("testing parsing of the Accept-Encoding header <encoding_parser>") {
 
 	REQUIRE(is_compression_supported(CompressionTypeGzip));
 	REQUIRE(is_compression_supported(CompressionTypeDeflate));
@@ -312,18 +313,16 @@ struct ParsedURIWrapper {
 	}
 };
 
-ParsedURIWrapper parse_uri(const char* value) {
+ParsedURIWrapper parse_uri(const std::string& uri) {
 
-	std::string readable_copy = std::string{ value };
-
-	auto result = parse_request_uri(readable_copy.data());
+	auto result = parse_request_uri(tstr_view{ uri.data(), uri.size() });
 
 	return ParsedURIWrapper(result);
 }
 
 } // namespace
 
-TEST_CASE("testing the parsing of the http request - test url path parsing") {
+TEST_CASE("testing the parsing of the http request - test url path parsing <url_parser>") {
 
 	SUBCASE("simple url") {
 		[]() -> void {
@@ -333,7 +332,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/");
 
@@ -349,7 +348,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
@@ -365,7 +364,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
@@ -375,39 +374,39 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param1");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param1");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "hello");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "hello");
 			}
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param2");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param2");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param3");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param3");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4"_tstr);
 
 				REQUIRE_EQ(entry, nullptr);
 			}
@@ -422,7 +421,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
@@ -432,39 +431,39 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param1");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param1");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "hello");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "hello");
 			}
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param2");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param2");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param3");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param3");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4"_tstr);
 
 				REQUIRE_EQ(entry, nullptr);
 			}

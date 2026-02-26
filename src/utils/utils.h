@@ -175,7 +175,7 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 
 #define IMPL_STDERR_LOGGER(format, ...) fprintf(stderr, format, __VA_ARGS__)
 
-NODISCARD float parse_float(char* value);
+NODISCARD float parse_float(const char* value);
 
 NODISCARD uint32_t get_random_byte(void);
 
@@ -183,7 +183,7 @@ NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max);
 
 NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
 
-#define CHAR_PTR_KEYNAME CString
+#define TSTR_KEYNAME TString
 
 #define STRINGIFY(a) STR_IMPL(a)
 #define STR_IMPL(a) #a
