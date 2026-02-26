@@ -35,7 +35,7 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 		                                           tstr_cstr(&entry.key), tstr_cstr(&entry.value));
 	}
 	STRING_BUILDER_APPENDF(result, return NULL;
-	                       , "\tBody: %.*s\n", (int)request.body.size, (char*)request.body.data);
+	                       , "\tBody: " SIZED_BUFFER_FMT " \n", SIZED_BUFFER_FMT_ARGS(request.body));
 	return result;
 }
 
@@ -185,15 +185,17 @@ StringBuilder* http_request_to_json(const HttpRequest request, bool https,
 			string_builder_append_single(body, "],");
 		}
 	}
-	STRING_BUILDER_APPENDF(body, return NULL;
-	                       , "\"body\":\"%.*s\"", (int)request.body.size, (char*)request.body.data);
+	STRING_BUILDER_APPENDF(body, return NULL;, "\"body\":\"" SIZED_BUFFER_FMT "\"",
+	                                         SIZED_BUFFER_FMT_ARGS(request.body));
 
 	string_builder_append_single(body, ", \"settings\": {");
 
+	const tstr compress_format = get_string_for_compress_format(send_settings.compression_to_use);
+
 	STRING_BUILDER_APPENDF(
 	    body, return NULL;
-	    , "\"send_settings\":{\"compression\" : \"%s\", \"http_protocol\": \"%s\"} }",
-	    get_string_for_compress_format(send_settings.compression_to_use),
+	    , "\"send_settings\":{\"compression\" : \"" TSTR_FMT "\", \"http_protocol\": \"%s\"} }",
+	    TSTR_ARG(compress_format),
 	    get_http_protocol_version_string(send_settings.protocol_data.version));
 
 	string_builder_append_single(body, "}");
@@ -243,9 +245,11 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 	{
 		string_builder_append_single(body, "</div> <div id=\"send_settings\">");
 		string_builder_append_single(body, "<h2>Send Settings:</h2> <br>");
+
+		const auto comp_format = get_string_for_compress_format(send_settings.compression_to_use);
+
 		STRING_BUILDER_APPENDF(body, return NULL;
-		                       , "<h3>Compression:</h3> %s",
-		                       get_string_for_compress_format(send_settings.compression_to_use));
+		                       , "<h3>Compression:</h3> " TSTR_FMT, TSTR_ARG(comp_format));
 		STRING_BUILDER_APPENDF(body, return NULL;, "<h3>HTTP Protocol:</h3> %s",
 		                                         get_http_protocol_version_string(
 		                                             send_settings.protocol_data.version));
@@ -254,8 +258,8 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 	string_builder_append_single(body, "</div>");
 
 	string_builder_append_single(body, "</div> <div id=\"body\">");
-	STRING_BUILDER_APPENDF(body, return NULL;, "<h1>Body:</h1> <br>%.*s", (int)request.body.size,
-	                                         (char*)request.body.data);
+	STRING_BUILDER_APPENDF(body, return NULL;, "<h1>Body:</h1> <br>" SIZED_BUFFER_FMT "",
+	                                         SIZED_BUFFER_FMT_ARGS(request.body));
 	string_builder_append_single(body, "</div>");
 
 	// style

@@ -337,7 +337,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 	HTTPResponseToSend to_send = { .status = HttpStatusSwitchingProtocols,
 		                           .body = http_response_body_empty(),
-		                           .mime_type = NULL,
+		                           .mime_type = tstr_init(),
 		                           .additional_headers = additional_headers };
 
 	return send_http_message_to_connection(general_context, descriptor, to_send, send_settings);

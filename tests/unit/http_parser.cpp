@@ -29,7 +29,7 @@ class CompressionSettingsCpp {
 
 		HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
 
-		add_http_header_field_const_key_dynamic_value(&http_header_fields,
+		add_http_header_field(&http_header_fields,
 		                                              HTTP_HEADER_NAME(accept_encoding),
 		                                              tstr_from(accept_encoding_value));
 
@@ -52,7 +52,8 @@ class CompressionSettingsCpp {
 };
 
 [[nodiscard]] const char* compression_type_to_string(CompressionType type) {
-	return get_string_for_compress_format(type);
+	const tstr temp = get_string_for_compress_format(type);
+	return tstr_cstr(&temp);
 }
 
 [[nodiscard]] const char* get_representation_for_compression_value(CompressionValue value) {
@@ -315,7 +316,7 @@ struct ParsedURIWrapper {
 
 ParsedURIWrapper parse_uri(const char* value) {
 
-	const auto value_tstr = TSTR_LIT(value);
+	const auto value_tstr = TSTR_LIT_CPP(value);
 
 	auto result = parse_request_uri(tstr_as_view(&value_tstr));
 
@@ -377,7 +378,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, TSTR_LIT("param1"));
+				    find_search_key(search_path, TSTR_LIT_CPP("param1"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -389,7 +390,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, TSTR_LIT("param2"));
+				    find_search_key(search_path, TSTR_LIT_CPP("param2"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -400,7 +401,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			{
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, TSTR_LIT("param3"));
+				    find_search_key(search_path, TSTR_LIT_CPP("param3"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -412,7 +413,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, TSTR_LIT("param4"));
+				    find_search_key(search_path, TSTR_LIT_CPP("param4"));
 
 				REQUIRE_EQ(entry, nullptr);
 			}
@@ -438,7 +439,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, TSTR_LIT("param1"));
+				    find_search_key(search_path, TSTR_LIT_CPP("param1"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -450,7 +451,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, TSTR_LIT("param2"));
+				    find_search_key(search_path, TSTR_LIT_CPP("param2"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -461,7 +462,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			{
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, TSTR_LIT("param3"));
+				    find_search_key(search_path, TSTR_LIT_CPP("param3"));
 
 				REQUIRE_NE(entry, nullptr);
 
@@ -473,7 +474,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 			{
 
 				const ParsedSearchPathEntry* entry =
-				    find_search_key(search_path, TSTR_LIT("param4"));
+				    find_search_key(search_path, TSTR_LIT_CPP("param4"));
 
 				REQUIRE_EQ(entry, nullptr);
 			}

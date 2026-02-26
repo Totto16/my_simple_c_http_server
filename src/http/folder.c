@@ -105,41 +105,46 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 	return result_path;
 }
 
-static ServeFolderResult get_serve_folder_content_for_file(const tstr_view final_path,
+static ServeFolderResult get_serve_folder_content_for_file(const tstr_view path,
                                                            const bool send_body) {
 
 	ServeFolderResult result = { .type = ServeFolderResultTypeServerError };
 
-	const char* name_ptr = final_path;
-
-	// TODO(Totto): factor out  into helper function or use cwalk
-	while(true) {
-		char* str_result = strstr(name_ptr, "/");
-
-		if(str_result == NULL) {
-			break;
-		}
-
-		name_ptr = str_result + 1;
-	}
-
-	const char* ext = NULL;
+	tstr_view base_name = path;
 
 	{
+		tstr_split_iter iter = tstr_split_init(path, "/");
 
-		const char* ext_ptr = name_ptr;
-
+		// TODO(Totto): factor out  into helper function or use cwalk
 		while(true) {
-			char* str_result = strstr(ext_ptr, ".");
+			tstr_view part;
 
-			if(str_result == NULL) {
+			bool split_succeeded = tstr_split_next(&iter, &part);
+
+			if(!split_succeeded) {
 				break;
 			}
 
-			ext_ptr = str_result + 1;
+			base_name = part;
 		}
+	}
 
-		ext = ext_ptr;
+	tstr_view ext = TSTR_EMPTY_VIEW;
+
+	{
+
+		tstr_split_iter ext_iter = tstr_split_init(base_name, ".");
+
+		while(true) {
+			tstr_view part;
+			bool split_succeeded = tstr_split_next(&ext_iter, &part);
+
+			if(!split_succeeded) {
+				break;
+			}
+
+			ext = part;
+		}
 	}
 
 	const char* mime_type = get_mime_type_for_ext(ext);

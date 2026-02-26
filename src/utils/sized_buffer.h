@@ -42,6 +42,10 @@ NODISCARD tstr_view tstr_view_from_buffer(SizedBuffer buffer);
 
 NODISCARD SizedBuffer sized_buffer_from_tstr(const tstr* value);
 
+#define SIZED_BUFFER_FMT "%.*s"
+
+#define SIZED_BUFFER_FMT_ARGS(n) ((int)(n).size), ((char*)(n).data)
+
 #ifdef __cplusplus
 }
 #endif

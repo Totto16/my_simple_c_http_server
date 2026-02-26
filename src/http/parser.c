@@ -257,8 +257,8 @@ static CompressionType parse_compression_type(const tstr_view compression_name,
 		return CompressionTypeCompress;
 	}
 
-	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: %.*s\n", (int)compression_name.len,
-	            compression_name.data);
+	LOG_MESSAGE(LogLevelWarn, "Not recognized compression level: " TSTR_FMT "\n",
+	            ZSV_ARG(compression_name));
 
 	*ok_result = false;
 	return CompressionTypeNone;
@@ -462,8 +462,8 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 				auto _ = TVEC_PUSH(CompressionEntry, &(compression_settings.entries), entry);
 				UNUSED(_);
 			} else {
-				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '%.*s'\n",
-				            (int)compression_name.len, compression_name.data);
+				LOG_MESSAGE(LogLevelWarn, "Couldn't parse compression '" TSTR_FMT "'\n",
+				            ZSV_ARG(compression_name));
 			}
 		}
 	}

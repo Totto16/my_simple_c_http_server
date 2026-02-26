@@ -8,9 +8,9 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <tstr.h>
 #include <unordered_map>
 #include <vector>
-#include <tstr.h>
 
 constexpr const size_t vector_max_for_printing_content = 40;
 
@@ -94,3 +94,5 @@ template <typename T> struct CppDefer {
 [[nodiscard]] static inline std::string string_from_tstr(const tstr value) {
 	return std::string{ tstr_cstr(&value), tstr_len(&value) };
 }
+
+#define TSTR_LIT_CPP(s) tstr_from_static_cstr_with_len(s, sizeof(s) - 1)

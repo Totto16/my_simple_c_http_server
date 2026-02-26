@@ -2508,9 +2508,8 @@ process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame
 				LOG_MESSAGE(LogLevelWarn, "Received goaway error code: %d\n",
 				            goaway_frame.error_code);
 				if(goaway_frame.additional_debug_data.size > 0) {
-					LOG_MESSAGE(LogLevelWarn, "Additional data:\n%.*s\n",
-					            (int)goaway_frame.additional_debug_data.size,
-					            (char*)goaway_frame.additional_debug_data.data);
+					LOG_MESSAGE(LogLevelWarn, "Additional data:\n" SIZED_BUFFER_FMT "\n",
+					            SIZED_BUFFER_FMT_ARGS(goaway_frame.additional_debug_data));
 				}
 			}
 
