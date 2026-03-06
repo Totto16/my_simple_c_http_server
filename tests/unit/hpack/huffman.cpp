@@ -60,8 +60,7 @@ static void free_huffman_encode_result(HuffmanEncodeResult* encode_result) {
 TEST_SUITE_BEGIN("hpack/huffman" * doctest::description("hpack huffman tests") *
                  doctest::timeout(2.0));
 
-TEST_CASE(
-    "testing hpack huffman deserializing - from hpack spec <hpack_huffman_deserialize_spec>") {
+TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decode_spec>") {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4
 	const std::vector<TestCaseManual> test_cases = {
@@ -133,8 +132,8 @@ TEST_CASE(
 	}
 }
 
-TEST_CASE("testing hpack huffman deserializing (ascii) - generated "
-          "<hpack_huffman_deserialize_ascii_generated>") {
+TEST_CASE("testing hpack huffman decoding (ascii) - generated "
+          "<hpack_huffman_decode_ascii_generated>") {
 
 	const auto test_cases = generated::tests::test_cases_ascii;
 
@@ -177,8 +176,8 @@ TEST_CASE("testing hpack huffman deserializing (ascii) - generated "
 	}
 }
 
-TEST_CASE("testing hpack huffman deserializing (utf8) - generated "
-          "<hpack_huffman_deserialize_utf8_generated>") {
+TEST_CASE("testing hpack huffman decoding (utf8) - generated "
+          "<hpack_huffman_decode_utf8_generated>") {
 
 	const auto test_cases = generated::tests::test_cases_utf8;
 
@@ -216,7 +215,7 @@ TEST_CASE("testing hpack huffman deserializing (utf8) - generated "
 	}
 }
 
-TEST_CASE("testing hpack huffman serializing - from hpack spec <hpack_huffman_serialize_spec>") {
+TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encode_spec>") {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4
 	const std::vector<TestCaseManual> test_cases = {
@@ -284,8 +283,8 @@ TEST_CASE("testing hpack huffman serializing - from hpack spec <hpack_huffman_se
 	}
 }
 
-TEST_CASE("testing hpack huffman serializing (ascii) - generated "
-          "<hpack_huffman_serialize_ascii_generated>") {
+TEST_CASE("testing hpack huffman encoding (ascii) - generated "
+          "<hpack_huffman_encode_ascii_generated>") {
 
 	const auto test_cases = generated::tests::test_cases_ascii;
 
@@ -324,8 +323,8 @@ TEST_CASE("testing hpack huffman serializing (ascii) - generated "
 	}
 }
 
-TEST_CASE("testing hpack huffman serializing (utf8) - generated "
-          "<hpack_huffman_serialize_utf8_generated>") {
+TEST_CASE("testing hpack huffman encoding (utf8) - generated "
+          "<hpack_huffman_encode_utf8_generated>") {
 
 	const auto test_cases = generated::tests::test_cases_utf8;
 
