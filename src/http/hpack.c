@@ -1007,7 +1007,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_hu
 
 		i += result;
 
-		const HuffmanEncodeResult enc_result =
+		const HuffmanEncodeFixedResult enc_result =
 		    http_hpack_encode_value_fixed_size(data + i, size_key, &field.key);
 
 		if(enc_result.is_error) {
@@ -1040,7 +1040,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_hu
 
 		i += result;
 
-		const HuffmanEncodeResult enc_result =
+		const HuffmanEncodeFixedResult enc_result =
 		    http_hpack_encode_value_fixed_size(data + i, size_value, &field.value);
 
 		if(enc_result.is_error) {

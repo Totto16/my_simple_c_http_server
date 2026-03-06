@@ -197,18 +197,18 @@ NODISCARD size_t http_hpack_get_huffman_encoded_size(const tstr* const str) {
 	return (result_bits + 7) / 8;
 }
 
-NODISCARD HuffmanEncodeResult http_hpack_encode_value_fixed_size(void* const data,
-                                                                 const size_t max_size,
-                                                                 const tstr* const str) {
+NODISCARD HuffmanEncodeFixedResult http_hpack_encode_value_fixed_size(void* const data,
+                                                                      const size_t max_size,
+                                                                      const tstr* const str) {
 
 	const size_t str_len = tstr_len(str);
 
 	if(str_len == 0) {
-		return (HuffmanEncodeResult){ .is_error = false, .data = { .result_size = 0 } };
+		return (HuffmanEncodeFixedResult){ .is_error = false, .data = { .result_size = 0 } };
 	}
 
 	if(max_size == 0) {
-		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = "max size is 0" } };
+		return (HuffmanEncodeFixedResult){ .is_error = true, .data = { .error = "max size is 0" } };
 	}
 
 	uint8_t* data_ptr = (uint8_t*)data;
@@ -227,6 +227,12 @@ NODISCARD HuffmanEncodeResult http_hpack_encode_value_fixed_size(void* const dat
 			if(current_pos.bits_pos == 0) {
 				// initialize to 0
 				data_ptr[current_pos.pos] = 0;
+			}
+
+			if(max_size >= current_pos.pos) {
+				return (HuffmanEncodeFixedResult){
+					.is_error = true, .data = { .error = "not enough size in the out buffer" }
+				};
 			}
 
 			const uint8_t bit = value & 0x01;
@@ -250,5 +256,33 @@ NODISCARD HuffmanEncodeResult http_hpack_encode_value_fixed_size(void* const dat
 		current_pos.pos += 1;
 	}
 
-	return (HuffmanEncodeResult){ .is_error = false, .data = { .result_size = current_pos.pos } };
+	return (HuffmanEncodeFixedResult){ .is_error = false,
+		                               .data = { .result_size = current_pos.pos } };
+}
+
+NODISCARD HuffmanEncodeResult http_hpack_encode_value(const tstr* str) {
+
+	const size_t size = http_hpack_get_huffman_encoded_size(str);
+
+	uint8_t* const values = malloc(size);
+
+	if(values == NULL) {
+		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = "failed malloc" } };
+	}
+
+	const HuffmanEncodeFixedResult res = http_hpack_encode_value_fixed_size(values, size, str);
+
+	if(res.is_error) {
+		free(values);
+		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = res.data.error } };
+	}
+
+	if(res.data.result_size != size) {
+		return (HuffmanEncodeResult){ .is_error = true,
+			                          .data = { .error = "Size that got calculated not exact" } };
+	}
+
+	const SizedBuffer result = { .data = values, .size = size };
+
+	return (HuffmanEncodeResult){ .is_error = true, .data = { .result = result } };
 }

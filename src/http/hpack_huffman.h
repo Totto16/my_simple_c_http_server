@@ -28,10 +28,20 @@ typedef struct {
 		size_t result_size;
 		const char* error;
 	} data;
+} HuffmanEncodeFixedResult;
+
+NODISCARD HuffmanEncodeFixedResult http_hpack_encode_value_fixed_size(void* data, size_t max_size,
+                                                                      const tstr* str);
+
+typedef struct {
+	bool is_error;
+	union {
+		SizedBuffer result;
+		const char* error;
+	} data;
 } HuffmanEncodeResult;
 
-NODISCARD HuffmanEncodeResult http_hpack_encode_value_fixed_size(void* data, size_t max_size,
-                                                                 const tstr* str);
+NODISCARD HuffmanEncodeResult http_hpack_encode_value(const tstr* str);
 
 void global_initialize_http2_hpack_huffman_data(void);
 
