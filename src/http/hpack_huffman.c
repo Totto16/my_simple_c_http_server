@@ -24,7 +24,7 @@ static void bit_pos_inc(BitPos* const bit_pos) {
 	}
 }
 
-NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffManTree* const tree,
+NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree* const tree,
                                                                const SizedBuffer input) {
 
 	if(tree == NULL) {
@@ -59,23 +59,23 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffManTree
 
 	BitPos last_pos = current_pos;
 
-	const HuffManNode* current_node = tree->root;
+	const HuffmanNode* current_node = tree->root;
 
 	while(current_pos.pos < size) {
-		assert(current_node->type == HuffManNodeTypeNode);
+		assert(current_node->type == HuffmanNodeTypeNode);
 
 		const bool bit = ((data[current_pos.pos]) & (bit_pos_mask[current_pos.bits_pos])) != 0;
 
-		const HuffManNode* const next_node =
+		const HuffmanNode* const next_node =
 		    bit ? current_node->data.node.bit_1 : current_node->data.node.bit_0;
 
-		if(next_node->type == HuffManNodeTypeError) {
+		if(next_node->type == HuffmanNodeTypeError) {
 			free(values);
 			return (HuffmanDecodeResult){ .is_error = true,
 				                          .data = { .error = next_node->data.error } };
 		}
 
-		if(next_node->type == HuffManNodeTypeEnd) {
+		if(next_node->type == HuffmanNodeTypeEnd) {
 			values[values_idx] = next_node->data.end;
 			++values_idx;
 
@@ -158,31 +158,35 @@ huffman_return_ok:
 }
 
 typedef struct {
-	HuffManTree* tree;
+	HuffmanTree* tree;
+	HuffmanEncodeMap* map;
 } GlobalHpackHuffmanData;
 
 GlobalHpackHuffmanData
-    g_huffman_tree_data = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-    { .tree = NULL };
+    g_huffman_data = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    { .tree = NULL, .map = NULL };
 
 void global_initialize_http2_hpack_huffman_data(void) {
-	g_huffman_tree_data.tree = get_hpack_huffman_tree();
+	g_huffman_data.tree = get_hpack_huffman_tree();
+	g_huffman_data.map = get_hpack_huffman_encode_map();
 }
 
 void global_free_http2_hpack_huffman_data(void) {
-	free_hpack_huffman_tree(g_huffman_tree_data.tree);
+	free_hpack_huffman_tree(g_huffman_data.tree);
+	free_hpack_huffman_encode_map(g_huffman_data.map);
 }
 
 NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(const SizedBuffer input) {
-	if(g_huffman_tree_data.tree == NULL) {
+	if(g_huffman_data.tree == NULL) {
 		return (HuffmanDecodeResult){ .is_error = true,
 			                          .data = { .error = "global tree is not initialized" } };
 	}
 
-	return decode_bytes_huffman_impl(g_huffman_tree_data.tree, input);
+	return decode_bytes_huffman_impl(g_huffman_data.tree, input);
 }
 
-NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* const str) {
+NODISCARD static size_t hpack_huffman_get_encoded_size_impl(const HuffmanEncodeMap* const map,
+                                                            const tstr* const str) {
 
 	size_t result_bits = 0;
 
@@ -190,16 +194,25 @@ NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* const str) {
 
 	for(size_t i = 0; i < tstr_len(str); ++i) {
 		const uint8_t value = str_ptr[i];
-		result_bits += g_huffman_encode_map[value].bit_size;
+		result_bits += map->entries[value].bit_size;
 	}
 
 	// do + 7 to ceil it in a simple fashion
 	return (result_bits + 7) / 8;
 }
 
-NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* const data,
-                                                                      const size_t max_size,
-                                                                      const tstr* const str) {
+NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* const str) {
+	if(g_huffman_data.map == NULL) {
+		assert(false && "global map is not initialized");
+		return 0;
+	};
+
+	return hpack_huffman_get_encoded_size_impl(g_huffman_data.map, str);
+}
+
+NODISCARD static HuffmanEncodeFixedResult
+hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, void* const data,
+                                           const size_t max_size, const tstr* const str) {
 
 	const size_t str_len = tstr_len(str);
 
@@ -219,7 +232,7 @@ NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* c
 
 	for(size_t i = 0; i < str_len; ++i) {
 		const uint8_t char_val = str_ptr[i];
-		const HuffmanEncodeEntry encode_entry = g_huffman_encode_map[char_val];
+		const HuffmanEncodeEntry encode_entry = map->entries[char_val];
 
 		uint32_t value = encode_entry.value;
 
@@ -260,7 +273,19 @@ NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* c
 		                               .data = { .result_size = current_pos.pos } };
 }
 
-NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str) {
+NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* const data,
+                                                                         const size_t max_size,
+                                                                         const tstr* const str) {
+	if(g_huffman_data.map == NULL) {
+		return (HuffmanEncodeFixedResult){ .is_error = true,
+			                               .data = { .error = "global map is not initialized" } };
+	}
+
+	return hpack_huffman_encode_value_fixed_size_impl(g_huffman_data.map, data, max_size, str);
+}
+
+NODISCARD static HuffmanEncodeResult
+hpack_huffman_encode_value_impl(const HuffmanEncodeMap* const map, const tstr* str) {
 
 	const size_t size = hpack_huffman_get_encoded_size(str);
 
@@ -270,7 +295,8 @@ NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str) {
 		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = "failed malloc" } };
 	}
 
-	const HuffmanEncodeFixedResult res = hpack_huffman_encode_value_fixed_size(values, size, str);
+	const HuffmanEncodeFixedResult res =
+	    hpack_huffman_encode_value_fixed_size_impl(map, values, size, str);
 
 	if(res.is_error) {
 		free(values);
@@ -285,4 +311,13 @@ NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str) {
 	const SizedBuffer result = { .data = values, .size = size };
 
 	return (HuffmanEncodeResult){ .is_error = true, .data = { .result = result } };
+}
+
+NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str) {
+	if(g_huffman_data.map == NULL) {
+		return (HuffmanEncodeResult){ .is_error = true,
+			                          .data = { .error = "global map is not initialized" } };
+	}
+
+	return hpack_huffman_encode_value_impl(g_huffman_data.map, str);
 }

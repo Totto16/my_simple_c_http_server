@@ -22,12 +22,12 @@
 	return buffer;
 }
 
-using GlobalHuffmanTreeCpp = std::unique_ptr<int, void (*)(int*)>;
+using GlobalHuffmanDataCpp = std::unique_ptr<int, void (*)(int*)>;
 
-[[nodiscard]] static GlobalHuffmanTreeCpp global_huffman_tree_cpp() {
+[[nodiscard]] static GlobalHuffmanDataCpp global_huffman_data_cpp() {
 
 	global_initialize_http2_hpack_huffman_data();
-	GlobalHuffmanTreeCpp tree{ 0, [](int*) -> void { global_free_http2_hpack_huffman_data(); } };
+	GlobalHuffmanDataCpp tree{ 0, [](int*) -> void { global_free_http2_hpack_huffman_data(); } };
 	return tree;
 }
 
@@ -98,7 +98,7 @@ TEST_CASE(
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_tree_cpp();
+				const auto tree = global_huffman_data_cpp();
 
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
@@ -142,7 +142,7 @@ TEST_CASE("testing hpack huffman deserializing (ascii) - generated "
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_tree_cpp();
+				const auto tree = global_huffman_data_cpp();
 
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
@@ -186,7 +186,7 @@ TEST_CASE("testing hpack huffman deserializing (utf8) - generated "
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_tree_cpp();
+				const auto tree = global_huffman_data_cpp();
 
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
@@ -253,7 +253,7 @@ TEST_CASE("testing hpack huffman serializing - from hpack spec <hpack_huffman_se
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_tree_cpp();
+				const auto tree = global_huffman_data_cpp();
 
 				auto input = tstr_from_std_string(test_case.str);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };

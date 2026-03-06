@@ -853,12 +853,12 @@ function check_and_map_raw_code(code: RawHuffmanCode): HuffmanCode {
 
 }
 
-interface HuffManNodeNodeNode {
-    bit_0: HuffManNode;
-    bit_1: HuffManNode;
+interface HuffmanNodeNodeNode {
+    bit_0: HuffmanNode;
+    bit_1: HuffmanNode;
 }
 
-class HuffManNodeBasic {
+class HuffmanNodeBasic {
     id: null | bigint
 
     constructor(id: null | bigint) {
@@ -866,21 +866,21 @@ class HuffManNodeBasic {
     }
 }
 
-class HuffManNodeNode extends HuffManNodeBasic {
+class HuffmanNodeNode extends HuffmanNodeBasic {
     type: "node"
-    node: HuffManNodeNodeNode;
+    node: HuffmanNodeNodeNode;
 
-    constructor(node: HuffManNodeNodeNode | null) {
+    constructor(node: HuffmanNodeNodeNode | null) {
         super(null);
 
         this.type = "node";
-        this.node = node === null ? { bit_0: new HuffManNodeEnd(null), bit_1: new HuffManNodeEnd(null) } : node;
+        this.node = node === null ? { bit_0: new HuffmanNodeEnd(null), bit_1: new HuffmanNodeEnd(null) } : node;
     }
 }
 
 type EndValue = bigint | "EOS"
 
-class HuffManNodeEnd extends HuffManNodeBasic {
+class HuffmanNodeEnd extends HuffmanNodeBasic {
     type: "end"
     value: EndValue | null
 
@@ -892,10 +892,10 @@ class HuffManNodeEnd extends HuffManNodeBasic {
     }
 }
 
-type HuffManNode = HuffManNodeNode | HuffManNodeEnd
+type HuffmanNode = HuffmanNodeNode | HuffmanNodeEnd
 
 interface HuffmanTree {
-    root: HuffManNode;
+    root: HuffmanNode;
 }
 
 function getValue(code: HuffmanCode): EndValue {
@@ -910,7 +910,7 @@ function getValue(code: HuffmanCode): EndValue {
     throw new Error("Error")
 }
 
-function check_valid_root(root: HuffManNode): void {
+function check_valid_root(root: HuffmanNode): void {
 
     if (root.id === null) {
         throw new Error("NULL id on node")
@@ -937,10 +937,10 @@ interface TreeResult {
 
 function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
-    const root: HuffManNode = new HuffManNodeNode(null)
+    const root: HuffmanNode = new HuffmanNodeNode(null)
 
     for (const code of codes) {
-        let currentNode: HuffManNode = root
+        let currentNode: HuffmanNode = root
 
         for (let i = 0; i < code.bytes.size; ++i) {
             const bit = code.bytes.get(i);
@@ -955,18 +955,18 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
                 if (bit) {
                     if (currentNode.node.bit_1 === null) {
-                        currentNode.node.bit_1 = new HuffManNodeEnd(getValue(code))
+                        currentNode.node.bit_1 = new HuffmanNodeEnd(getValue(code))
                     } else if (currentNode.node.bit_1.type == "end") {
                         if (currentNode.node.bit_1.value != null) {
                             console.error(currentNode.node.bit_1)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_1 = new HuffManNodeEnd(getValue(code))
+                        currentNode.node.bit_1 = new HuffmanNodeEnd(getValue(code))
                     }
                 } else {
                     if (currentNode.node.bit_0 === null) {
-                        currentNode.node.bit_0 = new HuffManNodeEnd(getValue(code))
+                        currentNode.node.bit_0 = new HuffmanNodeEnd(getValue(code))
                     } else if (currentNode.node.bit_0.type == "end") {
                         if (currentNode.node.bit_0.value != null) {
                             console.error(currentNode.node.bit_0)
@@ -974,7 +974,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_0 = new HuffManNodeEnd(getValue(code))
+                        currentNode.node.bit_0 = new HuffmanNodeEnd(getValue(code))
                     }
                 }
 
@@ -988,27 +988,27 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
                 if (bit) {
                     if (currentNode.node.bit_1 === null) {
-                        currentNode.node.bit_1 = new HuffManNodeNode(null)
+                        currentNode.node.bit_1 = new HuffmanNodeNode(null)
                     } else if (currentNode.node.bit_1.type == "end") {
                         if (currentNode.node.bit_1.value != null) {
                             console.error(currentNode.node.bit_1)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_1 = new HuffManNodeNode(null)
+                        currentNode.node.bit_1 = new HuffmanNodeNode(null)
                     }
 
                     currentNode = currentNode.node.bit_1;
                 } else {
                     if (currentNode.node.bit_0 === null) {
-                        currentNode.node.bit_0 = new HuffManNodeNode(null)
+                        currentNode.node.bit_0 = new HuffmanNodeNode(null)
                     } else if (currentNode.node.bit_0.type == "end") {
                         if (currentNode.node.bit_0.value != null) {
                             console.error(currentNode.node.bit_0)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_0 = new HuffManNodeNode(null)
+                        currentNode.node.bit_0 = new HuffmanNodeNode(null)
                     }
 
                     currentNode = currentNode.node.bit_0;
@@ -1025,7 +1025,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
     }
 
-    const nodes: HuffManNode[] = [root]
+    const nodes: HuffmanNode[] = [root]
 
     let id: bigint = 0n;
 
@@ -1079,13 +1079,13 @@ function codes_to_map(codes: HuffmanCode[]): HuffmanEncodingMap {
 }
 
 
-function to_c_node(node: HuffManNode, nodes_array_value: string): string {
+function to_c_node(node: HuffmanNode, nodes_array_value: string): string {
 
     if (node.type == "end") {
 
         if (node.value === "EOS") {
 
-            return `((HuffManNode){ .type = HuffManNodeTypeError, .data = { .error = "EOS received" } })`
+            return `((HuffmanNode){ .type = HuffmanNodeTypeError, .data = { .error = "EOS received" } })`
 
 
         }
@@ -1098,12 +1098,12 @@ function to_c_node(node: HuffManNode, nodes_array_value: string): string {
             throw new Error("invalid node value")
         }
 
-        return `((HuffManNode){ .type = HuffManNodeTypeEnd, .data = { .end = ${node.value.toString()} } })`
+        return `((HuffmanNode){ .type = HuffmanNodeTypeEnd, .data = { .end = ${node.value.toString()} } })`
 
     }
 
 
-    return `((HuffManNode){ .type = HuffManNodeTypeNode, .data = { .node = (HuffManNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id}) } } })`
+    return `((HuffmanNode){ .type = HuffmanNodeTypeNode, .data = { .node = (HuffmanNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id}) } } })`
 
 
 }
@@ -1144,7 +1144,7 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
 
     }
 
-    const nodes: HuffManNode[] = [tree.root]
+    const nodes: HuffmanNode[] = [tree.root]
 
     // traverse all nodes
     while (nodes.length != 0) {
@@ -1209,38 +1209,38 @@ function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, 
 
 #include "utils/utils.h"
 
-typedef struct HuffManTreeImpl HuffManTree;
+typedef struct HuffmanTreeImpl HuffmanTree;
 
-typedef struct HuffManNodeImpl HuffManNode;
+typedef struct HuffmanNodeImpl HuffmanNode;
 
 typedef struct {
-	HuffManNode* bit_0;
-	HuffManNode* bit_1;
-} HuffManNodeNode;
+	HuffmanNode* bit_0;
+	HuffmanNode* bit_1;
+} HuffmanNodeNode;
 
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HuffManNodeTypeNode = 0,
-	HuffManNodeTypeEnd,
-	HuffManNodeTypeError
-} HuffManNodeType;
+	HuffmanNodeTypeNode = 0,
+	HuffmanNodeTypeEnd,
+	HuffmanNodeTypeError
+} HuffmanNodeType;
 
-struct HuffManNodeImpl {
-	HuffManNodeType type;
+struct HuffmanNodeImpl {
+	HuffmanNodeType type;
 	union {
-		HuffManNodeNode node;
+		HuffmanNodeNode node;
 		uint8_t end;
 		const char* error;
 	} data;
 };
 
-struct HuffManTreeImpl {
-	HuffManNode* root;
+struct HuffmanTreeImpl {
+	HuffmanNode* root;
 	void* memory;
 };
 
-NODISCARD HuffManTree* get_hpack_huffman_tree(void);
+NODISCARD HuffmanTree* get_hpack_huffman_tree(void);
 
-void free_hpack_huffman_tree(HuffManTree* tree);
+void free_hpack_huffman_tree(HuffmanTree* tree);
 
 typedef struct {
     size_t bit_size;
@@ -1248,7 +1248,13 @@ typedef struct {
 } HuffmanEncodeEntry;
 
 // hold mappings from all 8 bit values to a HuffmanEncodeEntry
-extern const HuffmanEncodeEntry g_huffman_encode_map[256];
+typedef struct  {
+	HuffmanEncodeEntry entries[256];
+} HuffmanEncodeMap;
+
+NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void);
+
+void free_hpack_huffman_encode_map(HuffmanEncodeMap* map);
 `
 
     writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
@@ -1266,16 +1272,16 @@ extern const HuffmanEncodeEntry g_huffman_encode_map[256];
 
 #define HUFFMAN_NODE_AMOUNT ${node_amount.toString()}
 
-NODISCARD HuffManTree* get_hpack_huffman_tree(void) {
+NODISCARD HuffmanTree* get_hpack_huffman_tree(void) {
 
-	HuffManTree* tree = malloc(sizeof(HuffManTree));
+	HuffmanTree* tree = malloc(sizeof(HuffmanTree));
 
 	if(tree == NULL) {
 		return NULL;
 	}
 
 	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
-	HuffManNode* ${nodes_array_value} = malloc(sizeof(HuffManNode) * HUFFMAN_NODE_AMOUNT);
+	HuffmanNode* ${nodes_array_value} = malloc(sizeof(HuffmanNode) * HUFFMAN_NODE_AMOUNT);
 
 	if(${nodes_array_value} == NULL) {
 		free(tree);
@@ -1291,21 +1297,39 @@ ${nodes.map((val, i) => {
 
 	}
 
-	HuffManNode* root = (${nodes_array_value} + ${tree.root.id});
+	HuffmanNode* root = (${nodes_array_value} + ${tree.root.id});
 
-	*tree = (HuffManTree){ .root = root, .memory = (void*)${nodes_array_value} };
+	*tree = (HuffmanTree){ .root = root, .memory = (void*)${nodes_array_value} };
 
 	return tree;
 }
 
-void free_hpack_huffman_tree(HuffManTree* const tree) {
+void free_hpack_huffman_tree(HuffmanTree* const tree) {
 	free(tree->memory);
 	free(tree);
 }
 
-const HuffmanEncodeEntry g_huffman_encode_map[256] = {
-	${encode_nodes.join(",\n	")}
-};
+NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void){
+	HuffmanEncodeMap* map = malloc(sizeof(HuffmanEncodeMap));
+
+	if(map == NULL) {
+		return NULL;
+	}
+
+	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
+
+	{
+		${encode_nodes.map((val, idx) => {
+        return `map->entries[${idx}] = ${val};`
+    }).join("\n		")}
+	}
+
+	return map;
+}
+
+void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
+	free(map);
+}
 `
 
     const generated_hpack_huffman_file_c = path.join(path.dirname(generated_hpack_huffman_file_h), path.basename(generated_hpack_huffman_file_h).replace(".h", ".c"))
