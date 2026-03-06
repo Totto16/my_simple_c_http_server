@@ -19,8 +19,8 @@
 			doctest::String case_name = doctest::String{ case_str.c_str() }; \
 			SUBCASE(case_name) { \
 				[&test_case]() -> void { \
-					HpackStateCpp state = \
-					    get_default_hpack_state_cpp(test_case.header_table_size); \
+					HpackDecompressStateCpp state = \
+					    get_default_hpack_decompress_state_cpp(test_case.header_table_size); \
 					REQUIRE_NE(state.get(), nullptr); \
 \
 					INFO("test case description: ", test_case.description); \

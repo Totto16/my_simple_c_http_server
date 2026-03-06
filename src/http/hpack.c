@@ -6,10 +6,18 @@
 
 // see: https://datatracker.ietf.org/doc/html/rfc7541
 
-struct HpackStateImpl {
+typedef struct {
 	HpackHeaderDynamicTable dynamic_table;
 	size_t max_dynamic_table_byte_size;
 	size_t current_dynamic_table_byte_size;
+} HpackDynamicTableState;
+
+struct HpackDecompressStateImpl {
+	HpackDynamicTableState dynamic_table_state;
+};
+
+struct HpackCompressStateImpl {
+	HpackDynamicTableState dynamic_table_state;
 };
 
 // this is chosen, so that a HpackVariableInteger value can be encoded, as the max bits per byte,
@@ -134,8 +142,8 @@ static void global_free_hpack_static_header_table_data() {
 	free_hpack_static_header_table_entries(g_hpack_static_data.static_header_table);
 }
 
-NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackState* const state,
-                                                                 size_t value) {
+NODISCARD static HpackHeaderEntryResult
+hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value) {
 
 	if(value == 0) {
 		return (HpackHeaderEntryResult){ .is_error = true };
@@ -169,10 +177,10 @@ NODISCARD static HpackHeaderEntryResult hpack_get_table_entry_at(const HpackStat
 		                                 .value = tstr_dup(&dynamic_entry.value) } };
 }
 
-NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t size,
-                                                      const uint8_t* const data,
-                                                      HttpHeaderFields* const headers,
-                                                      const HpackState* const state) {
+NODISCARD static int
+parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* const data,
+                                 HttpHeaderFields* const headers,
+                                 const HpackDecompressState* const decompress_state) {
 	// Indexed Header Field:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.1
 	//    0   1   2   3   4   5   6   7
@@ -192,7 +200,8 @@ NODISCARD static int parse_hpack_indexed_header_field(size_t* pos, const size_t 
 		return -2;
 	}
 
-	const HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
+	const HpackHeaderEntryResult entry =
+	    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
 	if(entry.is_error) {
 		return -3;
@@ -284,7 +293,7 @@ NODISCARD static size_t get_dynamic_entry_size(const HpackHeaderDynamicEntry ent
 	return tstr_len(&entry.key) + tstr_len(&entry.value) + 32;
 }
 
-static void insert_entry_into_dynamic_table(HpackState* const state,
+static void insert_entry_into_dynamic_table(HpackDynamicTableState* const state,
                                             const HpackHeaderDynamicEntry new_entry) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-4.4
 
@@ -332,7 +341,7 @@ static void insert_entry_into_dynamic_table(HpackState* const state,
 
 NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
     size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers,
-    HpackState* const state) {
+    HpackDecompressState* const decompress_state) {
 	// Literal Header Field with Incremental Indexing:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.1
 	//   0   1   2   3   4   5   6   7
@@ -384,7 +393,8 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	} else {
 		// first variant
 
-		HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
+		HpackHeaderEntryResult entry =
+		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
 		if(entry.is_error) {
 			return -3;
@@ -421,14 +431,14 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 		.value = header_value,
 	};
 
-	insert_entry_into_dynamic_table(state, entry);
+	insert_entry_into_dynamic_table(&(decompress_state->dynamic_table_state), entry);
 
 	return 0;
 }
 
-NODISCARD static int parse_hpack_dynamic_table_size_update(size_t* pos, const size_t size,
-                                                           const uint8_t* const data,
-                                                           HpackState* const state) {
+NODISCARD static int
+parse_hpack_dynamic_table_size_update(size_t* pos, const size_t size, const uint8_t* const data,
+                                      HpackDecompressState* const decompress_state) {
 	// Dynamic Table Size Update:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.3
 	//   0   1   2   3   4   5   6   7
@@ -444,15 +454,14 @@ NODISCARD static int parse_hpack_dynamic_table_size_update(size_t* pos, const si
 
 	// TODO(Totto): this can't be greater than the http2 setting, but this is mostly used for
 	// setting it to 0, to evict things, so not a priority to check that right now
-	set_hpack_state_setting(state, new_size.data.value);
+	set_hpack_decompress_state_setting(decompress_state, new_size.data.value);
 
 	return 0;
 }
 
-NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos, const size_t size,
-                                                                    const uint8_t* const data,
-                                                                    HttpHeaderFields* const headers,
-                                                                    const HpackState* const state) {
+NODISCARD static int parse_hpack_literal_header_field_never_indexed(
+    size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers,
+    const HpackDecompressState* const decompress_state) {
 	// Literal Header Field Never Indexed:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
 	//   0   1   2   3   4   5   6   7
@@ -504,7 +513,8 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos,
 	} else {
 		// first variant
 
-		HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
+		HpackHeaderEntryResult entry =
+		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
 		if(entry.is_error) {
 			return -3;
@@ -541,7 +551,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(size_t* pos,
 
 NODISCARD static int parse_hpack_literal_header_field_without_indexing(
     size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers,
-    const HpackState* const state) {
+    const HpackDecompressState* const decompress_state) {
 	// Literal Header Field without Indexing:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.2
 	//   0   1   2   3   4   5   6   7
@@ -593,7 +603,8 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	} else {
 		// first variant
 
-		HpackHeaderEntryResult entry = hpack_get_table_entry_at(state, index);
+		HpackHeaderEntryResult entry =
+		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
 		if(entry.is_error) {
 			return -3;
@@ -629,7 +640,8 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 }
 
 NODISCARD static Http2HpackDecompressResult
-http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer input) {
+http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
+                                 const SizedBuffer input) {
 
 	size_t pos = 0;
 	const size_t size = input.size;
@@ -649,7 +661,8 @@ http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer inpu
 			//  +---+---+---+---+---+---+---+---+
 			//  | 1 |        Index (7+)         |
 			//  +---+---------------------------+
-			const int res = parse_hpack_indexed_header_field(&pos, size, data, &result, state);
+			const int res =
+			    parse_hpack_indexed_header_field(&pos, size, data, &result, decompress_state);
 			if(res < 0) {
 				error = "error in parsing indexed header field";
 				goto return_error;
@@ -663,7 +676,7 @@ http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer inpu
 			// +---+---+-----------------------+
 			// ...
 			const int res = parse_hpack_literal_header_field_with_incremental_indexing(
-			    &pos, size, data, &result, state);
+			    &pos, size, data, &result, decompress_state);
 			if(res < 0) {
 				error = "error in parsing literal header field with incremental indexing";
 				goto return_error;
@@ -675,7 +688,8 @@ http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer inpu
 			// +---+---+---+---+---+---+---+---+
 			// | 0 | 0 | 1 |   Max size (5+)   |
 			// +---+---------------------------+
-			const int res = parse_hpack_dynamic_table_size_update(&pos, size, data, state);
+			const int res =
+			    parse_hpack_dynamic_table_size_update(&pos, size, data, decompress_state);
 			if(res < 0) {
 				error = "error in parsing dynamic table size update";
 				goto return_error;
@@ -688,8 +702,8 @@ http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer inpu
 			// | 0 | 0 | 0 | 1 |  Index (4+)   |
 			// +---+---+-----------------------+
 			// ...
-			const int res =
-			    parse_hpack_literal_header_field_never_indexed(&pos, size, data, &result, state);
+			const int res = parse_hpack_literal_header_field_never_indexed(
+			    &pos, size, data, &result, decompress_state);
 			if(res < 0) {
 				error = "error in parsing literal header field never indexed";
 				goto return_error;
@@ -706,8 +720,8 @@ http2_hpack_decompress_data_impl(HpackState* const state, const SizedBuffer inpu
 			// | 0 | 0 | 0 | 0 |  Index (4+)   |
 			// +---+---+-----------------------+
 			// ...
-			const int res =
-			    parse_hpack_literal_header_field_without_indexing(&pos, size, data, &result, state);
+			const int res = parse_hpack_literal_header_field_without_indexing(
+			    &pos, size, data, &result, decompress_state);
 			if(res < 0) {
 				error = "error in parsing literal header field without indexing";
 				goto return_error;
@@ -729,24 +743,45 @@ return_error:
 		                                 } };
 }
 
-NODISCARD HpackState* get_default_hpack_state(size_t max_dynamic_table_byte_size) {
+NODISCARD static HpackDynamicTableState
+get_default_hpack_dynamic_table_state(size_t max_dynamic_table_byte_size) {
+	return (HpackDynamicTableState){
+		.dynamic_table = hpack_dynamic_table_empty(),
+		.current_dynamic_table_byte_size = 0,
+		.max_dynamic_table_byte_size = max_dynamic_table_byte_size,
+	};
+}
 
-	HpackState* state = malloc(sizeof(HpackState));
+NODISCARD HpackDecompressState*
+get_default_hpack_decompress_state(size_t max_dynamic_table_byte_size) {
+
+	HpackDecompressState* state = malloc(sizeof(HpackDecompressState));
 
 	if(state == NULL) {
 		return NULL;
 	}
 
-	*state = (HpackState){
-		.dynamic_table = hpack_dynamic_table_empty(),
-		.current_dynamic_table_byte_size = 0,
-		.max_dynamic_table_byte_size = max_dynamic_table_byte_size,
-	};
+	*state = (HpackDecompressState){ .dynamic_table_state = get_default_hpack_dynamic_table_state(
+		                                 max_dynamic_table_byte_size) };
 
 	return state;
 }
 
-static void dynamic_table_evict_entries_on_table_change(HpackState* const state) {
+NODISCARD HpackCompressState* get_default_hpack_compress_state(size_t max_dynamic_table_byte_size) {
+
+	HpackCompressState* state = malloc(sizeof(HpackCompressState));
+
+	if(state == NULL) {
+		return NULL;
+	}
+
+	*state = (HpackCompressState){ .dynamic_table_state = get_default_hpack_dynamic_table_state(
+		                               max_dynamic_table_byte_size) };
+
+	return state;
+}
+
+static void dynamic_table_evict_entries_on_table_change(HpackDynamicTableState* const state) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-4.3
 
 	if(state->max_dynamic_table_byte_size == 0) {
@@ -775,27 +810,45 @@ static void dynamic_table_evict_entries_on_table_change(HpackState* const state)
 	}
 }
 
-void set_hpack_state_setting(HpackState* const state, size_t max_dynamic_table_byte_size) {
+void set_hpack_decompress_state_setting(HpackDecompressState* const decompress_state,
+                                        size_t max_dynamic_table_byte_size) {
 
-	state->max_dynamic_table_byte_size = max_dynamic_table_byte_size;
-	dynamic_table_evict_entries_on_table_change(state);
+	decompress_state->dynamic_table_state.max_dynamic_table_byte_size = max_dynamic_table_byte_size;
+	dynamic_table_evict_entries_on_table_change(&(decompress_state->dynamic_table_state));
 }
 
-void free_hpack_state(HpackState* state) {
+void set_hpack_compress_state_setting(HpackCompressState* const compress_state,
+                                      size_t max_dynamic_table_byte_size) {
 
+	compress_state->dynamic_table_state.max_dynamic_table_byte_size = max_dynamic_table_byte_size;
+	dynamic_table_evict_entries_on_table_change(&(compress_state->dynamic_table_state));
+}
+
+static void free_dynamic_table_state(HpackDynamicTableState* const state) {
 	hpack_dynamic_table_free(&(state->dynamic_table));
-	free(state);
 }
 
-NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackState* const state,
-                                                                 const SizedBuffer input) {
+void free_hpack_decompress_state(HpackDecompressState* const decompress_state) {
 
-	if(state == NULL) {
+	free_dynamic_table_state(&(decompress_state->dynamic_table_state));
+	free(decompress_state);
+}
+
+void free_hpack_compress_state(HpackCompressState* compress_state) {
+
+	free_dynamic_table_state(&(compress_state->dynamic_table_state));
+	free(compress_state);
+}
+
+NODISCARD Http2HpackDecompressResult
+http2_hpack_decompress_data(HpackDecompressState* const decompress_state, const SizedBuffer input) {
+
+	if(decompress_state == NULL) {
 		return (Http2HpackDecompressResult){ .is_error = true,
 			                                 .data = { .error = "state is NULL" } };
 	}
 
-	return http2_hpack_decompress_data_impl(state, input);
+	return http2_hpack_decompress_data_impl(decompress_state, input);
 }
 
 void global_initialize_http2_hpack_data(void) {
@@ -903,7 +956,7 @@ NODISCARD static SizedBuffer encode_single_header_field_dumb_literal(HttpHeaderF
 	return buffer;
 }
 
-NODISCARD SizedBuffer http2_hpack_compress_data(HpackState* const state,
+NODISCARD SizedBuffer http2_hpack_compress_data(HpackCompressState* const compress_state,
                                                 const HttpHeaderFields header_fields) {
 
 	// TODO: use more advanced methods of compression
@@ -912,7 +965,7 @@ NODISCARD SizedBuffer http2_hpack_compress_data(HpackState* const state,
 	//  encoding
 
 	// currently not using state alias the dynamic table
-	UNUSED(state);
+	UNUSED(compress_state);
 
 	SizedBuffer result = { .data = NULL, .size = 0 };
 

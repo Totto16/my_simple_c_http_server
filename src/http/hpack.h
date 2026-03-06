@@ -10,11 +10,11 @@ extern "C" {
 #include "utils/sized_buffer.h"
 #include "utils/utils.h"
 
-typedef struct HpackStateImpl HpackState;
+typedef struct HpackDecompressStateImpl HpackDecompressState;
 
-NODISCARD HpackState* get_default_hpack_state(size_t max_dynamic_table_byte_size);
+NODISCARD HpackDecompressState* get_default_hpack_decompress_state(size_t max_dynamic_table_byte_size);
 
-void free_hpack_state(HpackState* state);
+void free_hpack_decompress_state(HpackDecompressState* decompress_state);
 
 typedef struct {
 	bool is_error;
@@ -24,12 +24,20 @@ typedef struct {
 	} data;
 } Http2HpackDecompressResult;
 
-NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackState* state,
+NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackDecompressState* decompress_state,
                                                                  SizedBuffer input);
 
-NODISCARD SizedBuffer http2_hpack_compress_data(HpackState* state, HttpHeaderFields header_fields);
+typedef struct HpackCompressStateImpl HpackCompressState;
 
-void set_hpack_state_setting(HpackState* state, size_t max_dynamic_table_byte_size);
+NODISCARD HpackCompressState* get_default_hpack_compress_state(size_t max_dynamic_table_byte_size);
+
+void free_hpack_compress_state(HpackCompressState* compress_state);
+
+NODISCARD SizedBuffer http2_hpack_compress_data(HpackCompressState* compress_state, HttpHeaderFields header_fields);
+
+void set_hpack_decompress_state_setting(HpackDecompressState* decompress_state, size_t max_dynamic_table_byte_size);
+
+void set_hpack_compress_state_setting(HpackCompressState* compress_state, size_t max_dynamic_table_byte_size);
 
 typedef uint64_t HpackVariableInteger;
 

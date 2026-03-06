@@ -233,9 +233,14 @@ typedef struct {
 } Http2State;
 
 typedef struct {
+	HpackCompressState* compress_state;
+	HpackDecompressState* decompress_state;
+} Http2HpackState;
+
+typedef struct {
 	Http2Identifier last_stream_id;
 	Http2State state;
-	HpackState* hpack_state;
+	Http2HpackState hpack_state;
 } Http2ContextState;
 
 typedef struct {

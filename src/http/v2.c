@@ -108,6 +108,13 @@ NODISCARD inline static Http2Settings http2_default_settings(void) {
 	};
 }
 
+NODISCARD static Http2HpackState get_default_hpack_state(size_t max_dynamic_table_byte_size) {
+	return (Http2HpackState){
+		.decompress_state = get_default_hpack_decompress_state(max_dynamic_table_byte_size),
+		.compress_state = get_default_hpack_compress_state(max_dynamic_table_byte_size),
+	};
+}
+
 NODISCARD inline static Http2ContextState http2_default_context_state(void) {
 	return (Http2ContextState){
 		.last_stream_id = { .identifier = 0 },
@@ -1641,7 +1648,8 @@ static void http2_apply_settings_frame(HTTP2Context* const context,
 		switch(entry.identifier) {
 			case Http2SettingsFrameIdentifierHeaderTableSize: {
 				context->settings.header_table_size = entry.value;
-				set_hpack_state_setting(context->state.hpack_state, entry.value);
+				set_hpack_decompress_state_setting(context->state.hpack_state.decompress_state,
+				                                   entry.value);
 				break;
 			}
 			case Http2SettingsFrameIdentifierEnablePush: {
@@ -2662,8 +2670,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } PseudoHeadersForHttp2;
 
 NODISCARD static Http2RequestHeadersResult
-parse_http2_headers(HpackState* const hpack_state, const Http2StreamHeaders headers,
-                    const Http2Identifier stream_identifier) {
+parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
+                    const Http2StreamHeaders headers, const Http2Identifier stream_identifier) {
 
 	const ConcatDataBlocksResult header_value_res = http2_concat_data_blocks(headers.header_blocks);
 
@@ -2676,7 +2684,7 @@ parse_http2_headers(HpackState* const hpack_state, const Http2StreamHeaders head
 	const SizedBuffer header_value = header_value_res.result;
 
 	const Http2HpackDecompressResult header_result =
-	    http2_hpack_decompress_data(hpack_state, header_value);
+	    http2_hpack_decompress_data(hpack_decompress_state, header_value);
 
 	free_sized_buffer(header_value);
 
@@ -2849,8 +2857,8 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
                                        const Http2Stream* const stream,
                                        const Http2Identifier stream_identifier) {
 
-	const Http2RequestHeadersResult headers_result =
-	    parse_http2_headers(state->hpack_state, stream->headers, stream_identifier);
+	const Http2RequestHeadersResult headers_result = parse_http2_headers(
+	    state->hpack_state.decompress_state, stream->headers, stream_identifier);
 
 	if(headers_result.type != Http2RequestHeadersResultTypeOk) {
 		LOG_MESSAGE(LogLevelError, "Error in headers parsing: %s\n", headers_result.data.error);
@@ -3042,7 +3050,8 @@ NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
 	return Http2PrefaceStatusErr;
 }
 
-NODISCARD static Http2SettingsFrame get_start_settings_frame(void) {
+NODISCARD static Http2SettingsFrame
+get_start_settings_frame(Http2ContextState* const context_state) {
 
 	// TODO(Totto): select the best settings, we should send
 	Http2SettingsFrame settings_frame = {
@@ -3050,16 +3059,33 @@ NODISCARD static Http2SettingsFrame get_start_settings_frame(void) {
 		.entries = TVEC_EMPTY(Http2SettingSingleValue),
 	};
 
+	const size_t hpack_dynamic_table_max_size = DEFAULT_HEADER_TABLE_SIZE;
+
+	{
+		const Http2SettingSingleValue dynamic_table_value = {
+			.identifier = Http2SettingsFrameIdentifierHeaderTableSize,
+			.value = hpack_dynamic_table_max_size,
+		};
+
+		auto _ = TVEC_PUSH(Http2SettingSingleValue, &settings_frame.entries, dynamic_table_value);
+		UNUSED(_);
+	}
+
+	set_hpack_compress_state_setting(context_state->hpack_state.compress_state,
+	                                 hpack_dynamic_table_max_size);
+
 	return settings_frame;
 }
 
 NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const context,
                                                           BufferedReader* const reader) {
 
-	const Http2SettingsFrame frame_to_send = get_start_settings_frame();
+	const Http2SettingsFrame frame_to_send = get_start_settings_frame(&(context->state));
 
 	int result =
 	    http2_send_settings_frame(buffered_reader_get_connection_descriptor(reader), frame_to_send);
+
+	free_http2_settings_frame(frame_to_send);
 
 	if(result < 0) {
 		return (Http2StartResult){
@@ -3157,10 +3183,12 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
                                                       const HttpRequest original_request) {
 
 	// send settings frame first:
-	const Http2SettingsFrame frame_to_send = get_start_settings_frame();
+	const Http2SettingsFrame frame_to_send = get_start_settings_frame(&(context->state));
 
 	int result =
 	    http2_send_settings_frame(buffered_reader_get_connection_descriptor(reader), frame_to_send);
+
+	free_http2_settings_frame(frame_to_send);
 
 	if(result < 0) {
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
@@ -3275,6 +3303,11 @@ static void free_http2_streams(Http2StreamMap streams) {
 	}
 
 	TMAP_FREE(Http2StreamMap, &streams);
+}
+
+static void free_hpack_state(Http2HpackState state) {
+	free_hpack_decompress_state(state.decompress_state);
+	free_hpack_compress_state(state.compress_state);
 }
 
 static void free_http2_context_state(Http2ContextState state) {

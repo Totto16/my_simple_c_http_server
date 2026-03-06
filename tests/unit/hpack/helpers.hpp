@@ -1,7 +1,7 @@
 #pragma once
 
-#include <http/hpack.h>
 #include "helpers/cpp_types.hpp"
+#include <http/hpack.h>
 
 #include <filesystem>
 #include <fstream>
@@ -252,11 +252,15 @@ get_cpp_headers(const HttpHeaderFields& fields) {
 	return result;
 }
 
-using HpackStateCpp = std::unique_ptr<HpackState, void (*)(HpackState*)>;
+using HpackDecompressStateCpp =
+    std::unique_ptr<HpackDecompressState, void (*)(HpackDecompressState*)>;
 
-[[nodiscard]] static HpackStateCpp get_default_hpack_state_cpp(size_t max_dynamic_table_byte_size) {
-	HpackStateCpp state{ get_default_hpack_state(max_dynamic_table_byte_size), free_hpack_state };
-	return state;
+[[nodiscard]] static HpackDecompressStateCpp
+get_default_hpack_decompress_state_cpp(size_t max_dynamic_table_byte_size) {
+	HpackDecompressStateCpp decompress_state{
+		get_default_hpack_decompress_state(max_dynamic_table_byte_size), free_hpack_decompress_state
+	};
+	return decompress_state;
 }
 
 [[maybe_unused]] static void free_hpack_decompress_result(Http2HpackDecompressResult* result) {
