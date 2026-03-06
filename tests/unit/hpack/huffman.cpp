@@ -22,6 +22,11 @@
 	return buffer;
 }
 
+[[nodiscard]] static tstr tstr_from_utf8_string(const std::vector<std::uint8_t>& val) {
+	const tstr buffer = tstr_from_len((const char*)val.data(), val.size());
+	return buffer;
+}
+
 using GlobalHuffmanDataCpp = std::unique_ptr<int, void (*)(int*)>;
 
 [[nodiscard]] static GlobalHuffmanDataCpp global_huffman_data_cpp() {
@@ -256,6 +261,86 @@ TEST_CASE("testing hpack huffman serializing - from hpack spec <hpack_huffman_se
 				const auto tree = global_huffman_data_cpp();
 
 				auto input = tstr_from_std_string(test_case.str);
+				CppDefer<tstr> defer_tstr = { &input, tstr_free };
+
+				auto result = hpack_huffman_encode_value(&input);
+				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+
+				const char* error = nullptr;
+
+				if(result.is_error) {
+					error = result.data.error;
+				}
+
+				REQUIRE_EQ(error, nullptr);
+
+				const auto actual_result = result.data.result;
+
+				const auto expected_result = buffer_from_raw_data(test_case.encoded);
+
+				REQUIRE_EQ(actual_result, expected_result);
+			}();
+		}
+	}
+}
+
+TEST_CASE("testing hpack huffman serializing (ascii) - generated "
+          "<hpack_huffman_serialize_ascii_generated>") {
+
+	const auto test_cases = generated::tests::test_cases_ascii;
+
+	for(size_t i = 0; i < test_cases.size(); ++i) {
+
+		const auto test_case = test_cases.at(i);
+
+		const auto case_str = std::string{ "Case " } + std::to_string(i);
+		doctest::String case_name = doctest::String{ case_str.c_str() };
+
+		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				const auto tree = global_huffman_data_cpp();
+
+				auto input = tstr_from_std_string(test_case.str);
+				CppDefer<tstr> defer_tstr = { &input, tstr_free };
+
+				auto result = hpack_huffman_encode_value(&input);
+				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+
+				const char* error = nullptr;
+
+				if(result.is_error) {
+					error = result.data.error;
+				}
+
+				REQUIRE_EQ(error, nullptr);
+
+				const auto actual_result = result.data.result;
+
+				const auto expected_result = buffer_from_raw_data(test_case.encoded);
+
+				REQUIRE_EQ(actual_result, expected_result);
+			}();
+		}
+	}
+}
+
+TEST_CASE("testing hpack huffman serializing (utf8) - generated "
+          "<hpack_huffman_serialize_utf8_generated>") {
+
+	const auto test_cases = generated::tests::test_cases_utf8;
+
+	for(size_t i = 0; i < test_cases.size(); ++i) {
+
+		const auto test_case = test_cases.at(i);
+
+		const auto case_str = std::string{ "Case " } + std::to_string(i);
+		doctest::String case_name = doctest::String{ case_str.c_str() };
+
+		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				const auto tree = global_huffman_data_cpp();
+
+				auto input = tstr_from_utf8_string(test_case.value);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
