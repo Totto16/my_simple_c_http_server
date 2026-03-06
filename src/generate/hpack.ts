@@ -1305,6 +1305,9 @@ ${nodes.map((val, i) => {
 }
 
 void free_hpack_huffman_tree(HuffmanTree* const tree) {
+	if(tree == NULL){
+		return;
+	}
 	free(tree->memory);
 	free(tree);
 }

@@ -167,13 +167,21 @@ GlobalHpackHuffmanData
     { .tree = NULL, .map = NULL };
 
 void global_initialize_http2_hpack_huffman_data(void) {
-	g_huffman_data.tree = get_hpack_huffman_tree();
-	g_huffman_data.map = get_hpack_huffman_encode_map();
+	if(g_huffman_data.tree == NULL) {
+		g_huffman_data.tree = get_hpack_huffman_tree();
+	}
+
+	if(g_huffman_data.map == NULL) {
+		g_huffman_data.map = get_hpack_huffman_encode_map();
+	}
 }
 
 void global_free_http2_hpack_huffman_data(void) {
 	free_hpack_huffman_tree(g_huffman_data.tree);
+	g_huffman_data.tree = NULL;
+
 	free_hpack_huffman_encode_map(g_huffman_data.map);
+	g_huffman_data.map = NULL;
 }
 
 NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(const SizedBuffer input) {
