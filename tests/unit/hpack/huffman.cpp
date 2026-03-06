@@ -27,14 +27,24 @@
 	return buffer;
 }
 
-using GlobalHuffmanDataCpp = std::unique_ptr<int, void (*)(int*)>;
+struct GlobalHuffmanData {
+	bool present;
 
-[[nodiscard]] static GlobalHuffmanDataCpp global_huffman_data_cpp() {
+  public:
+	GlobalHuffmanData() : present{ true } { global_initialize_http2_hpack_huffman_data(); }
 
-	global_initialize_http2_hpack_huffman_data();
-	GlobalHuffmanDataCpp tree{ 0, [](int*) -> void { global_free_http2_hpack_huffman_data(); } };
-	return tree;
-}
+	GlobalHuffmanData(GlobalHuffmanData&&) = delete;
+
+	GlobalHuffmanData(const GlobalHuffmanData&) = delete;
+
+	GlobalHuffmanData& operator=(const GlobalHuffmanData&) = delete;
+
+	GlobalHuffmanData operator=(GlobalHuffmanData&&) = delete;
+
+	~GlobalHuffmanData() { global_free_http2_hpack_huffman_data(); }
+};
+
+static GlobalHuffmanData g_global_huffman_data = {};
 
 struct TestCaseManual {
 	std::vector<std::uint8_t> encoded;
@@ -102,7 +112,7 @@ TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decod
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_data_cpp();
+				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
@@ -146,7 +156,7 @@ TEST_CASE("testing hpack huffman decoding (ascii) - generated "
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_data_cpp();
+				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
@@ -190,7 +200,7 @@ TEST_CASE("testing hpack huffman decoding (utf8) - generated "
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_data_cpp();
+				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
@@ -257,7 +267,7 @@ TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encod
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_data_cpp();
+				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				auto input = tstr_from_std_string(test_case.str);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
@@ -297,7 +307,7 @@ TEST_CASE("testing hpack huffman encoding (ascii) - generated "
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_data_cpp();
+				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				auto input = tstr_from_std_string(test_case.str);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
@@ -337,7 +347,7 @@ TEST_CASE("testing hpack huffman encoding (utf8) - generated "
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_data_cpp();
+				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				auto input = tstr_from_utf8_string(test_case.value);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
@@ -407,7 +417,7 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto tree = global_huffman_data_cpp();
+				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				auto input = tstr_from_utf8_string(test_case.value);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
