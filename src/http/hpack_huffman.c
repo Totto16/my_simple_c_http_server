@@ -242,7 +242,7 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 				data_ptr[current_pos.pos] = 0;
 			}
 
-			if(max_size >= current_pos.pos) {
+			if(current_pos.pos >= max_size) {
 				return (HuffmanEncodeFixedResult){
 					.is_error = true, .data = { .error = "not enough size in the out buffer" }
 				};
@@ -310,7 +310,7 @@ hpack_huffman_encode_value_impl(const HuffmanEncodeMap* const map, const tstr* s
 
 	const SizedBuffer result = { .data = values, .size = size };
 
-	return (HuffmanEncodeResult){ .is_error = true, .data = { .result = result } };
+	return (HuffmanEncodeResult){ .is_error = false, .data = { .result = result } };
 }
 
 NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str) {
