@@ -12,7 +12,8 @@ extern "C" {
 
 typedef struct HpackDecompressStateImpl HpackDecompressState;
 
-NODISCARD HpackDecompressState* get_default_hpack_decompress_state(size_t max_dynamic_table_byte_size);
+NODISCARD HpackDecompressState*
+get_default_hpack_decompress_state(size_t max_dynamic_table_byte_size);
 
 void free_hpack_decompress_state(HpackDecompressState* decompress_state);
 
@@ -24,8 +25,8 @@ typedef struct {
 	} data;
 } Http2HpackDecompressResult;
 
-NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(HpackDecompressState* decompress_state,
-                                                                 SizedBuffer input);
+NODISCARD Http2HpackDecompressResult
+http2_hpack_decompress_data(HpackDecompressState* decompress_state, SizedBuffer input);
 
 typedef struct HpackCompressStateImpl HpackCompressState;
 
@@ -33,11 +34,48 @@ NODISCARD HpackCompressState* get_default_hpack_compress_state(size_t max_dynami
 
 void free_hpack_compress_state(HpackCompressState* compress_state);
 
-NODISCARD SizedBuffer http2_hpack_compress_data(HpackCompressState* compress_state, HttpHeaderFields header_fields);
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2HpackHuffmanUsageAuto = 0,
+	Http2HpackHuffmanUsageAlways,
+	Http2HpackHuffmanUsageNever,
+} Http2HpackHuffmanUsage;
 
-void set_hpack_decompress_state_setting(HpackDecompressState* decompress_state, size_t max_dynamic_table_byte_size);
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2HpackCompressTypeNoTableUsage = 0,
+	Http2HpackCompressTypeStaticTableUsage,
+	Http2HpackCompressTypeAllTablesUsage,
+} Http2HpackCompressType;
 
-void set_hpack_compress_state_setting(HpackCompressState* compress_state, size_t max_dynamic_table_byte_size);
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	Http2HpackTableAddTypeNone = 0,
+	Http2HpackTableAddTypeCommon,
+	Http2HpackTableAddTypeAll,
+} Http2HpackTableAddType;
+
+typedef struct {
+	Http2HpackHuffmanUsage huffman_usage;
+	Http2HpackCompressType type;
+	Http2HpackTableAddType table_add_type;
+} Http2HpackCompressOptions;
+
+NODISCARD SizedBuffer http2_hpack_compress_data(HpackCompressState* compress_state,
+                                                HttpHeaderFields header_fields,
+                                                Http2HpackCompressOptions options);
+
+void set_hpack_decompress_state_setting(HpackDecompressState* decompress_state,
+                                        size_t max_dynamic_table_byte_size);
+
+void set_hpack_compress_state_setting(HpackCompressState* compress_state,
+                                      size_t max_dynamic_table_byte_size);
 
 typedef uint64_t HpackVariableInteger;
 

@@ -797,7 +797,9 @@ function get_bit_array_from_bits(bits: string, bit_len: number, hex_value: strin
 
     }
 
-
+    if (result.size > 32) {
+        throw new Error(`Bits size has to be <= 32 but was: ${result.size}`);
+    }
 
     return result;
 
@@ -1050,7 +1052,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
 }
 
-type HuffmanEncodingMap = Record<string, HuffmanCodeNormal | undefined>;
+type HuffmanEncodingMap = Record<number, HuffmanCodeNormal | undefined>;
 
 function codes_to_map(codes: HuffmanCode[]): HuffmanEncodingMap {
 
@@ -1159,10 +1161,46 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
     }
 
     return values;
+}
+
+
+function encode_node_c(code: HuffmanCodeNormal): string {
+
+    let str: string = ""
+
+    for (let i = 0; i < code.bytes.size; ++i) {
+        str += (code.bytes.get(i) ? "1" : "0")
+    }
+
+    const finalStr: string = `0b${str.split("").reverse().join("")}`
+
+    const encodeValueLSB: bigint = BigInt(finalStr);
+
+    const byteLength: number = Math.ceil(code.bytes.size / 8);
+
+    return `(HuffmanEncodeEntry){.bit_size = ${code.bytes.size}, .value = ${toHexString(encodeValueLSB, byteLength)}}`
+}
+
+function map_to_encode_nodes(map: HuffmanEncodingMap): string[] {
+
+    const result: string[] = new Array(256).fill(undefined);
+
+    for (let i = 0; i < 256; ++i) {
+        const code = map[i];
+        if (code === undefined) {
+            throw new Error(`Code ${i} has to be defined`)
+        }
+        result[i] = encode_node_c(code);
+
+    }
+
+    return result;
+
 
 }
 
-function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult): void {
+
+function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
 
     console.assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
 
@@ -1200,11 +1238,17 @@ struct HuffManTreeImpl {
 	void* memory;
 };
 
-
-
 NODISCARD HuffManTree* get_hpack_huffman_tree(void);
 
 void free_hpack_huffman_tree(HuffManTree* tree);
+
+typedef struct {
+    size_t bit_size;
+    uint32_t value;
+} HuffmanEncodeEntry;
+
+// hold mappings from all 8 bit values to a HuffmanEncodeEntry
+extern const HuffmanEncodeEntry g_huffman_encode_map[256];
 `
 
     writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
@@ -1214,6 +1258,8 @@ void free_hpack_huffman_tree(HuffManTree* tree);
     const { node_amount, tree } = tree_result
 
     const nodes: string[] = tree_to_nodes(tree, node_amount, nodes_array_value)
+
+    const encode_nodes: string[] = map_to_encode_nodes(map)
 
     const c_data = `
 #include "./${path.basename(generated_hpack_huffman_file_h)}"
@@ -1256,6 +1302,10 @@ void free_hpack_huffman_tree(HuffManTree* const tree) {
 	free(tree->memory);
 	free(tree);
 }
+
+const HuffmanEncodeEntry g_huffman_encode_map[256] = {
+	${encode_nodes.join(",\n	")}
+};
 `
 
     const generated_hpack_huffman_file_c = path.join(path.dirname(generated_hpack_huffman_file_h), path.basename(generated_hpack_huffman_file_h).replace(".h", ".c"))
@@ -1524,9 +1574,9 @@ function encode_string_with_huffman(map: HuffmanEncodingMap, text: string): Enco
 }
 
 
-function toHexString(num: number): string {
+function toHexString(num: number | bigint, byteAmount = 1): string {
 
-    return `0x${num.toString(16).padStart(2, "0")}`
+    return `0x${num.toString(16).padStart(byteAmount * 2, "0")}`
 }
 
 function normal_test_to_cpp(caze: EncodedHuffmanAscii): string {
@@ -1728,10 +1778,10 @@ function generateFile(options: GenerateOptions): void {
 
     if (options.type === "c_hpack_huffman") {
         const tree_result = codes_to_tree(codes)
-        generated_hpack_huffman_code_c(options.output, tree_result)
+        const map = codes_to_map(codes)
+        generated_hpack_huffman_code_c(options.output, tree_result, map)
         return;
     } else if (options.type === "c_header_table") {
-        const tree_result = codes_to_tree(codes)
         generated_hpack_headerable_code_h(options.output)
         return;
     } else if (options.type === "cpp_tests") {

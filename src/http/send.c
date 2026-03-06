@@ -359,8 +359,13 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 		response->body = get_empty_sized_buffer();
 	}
 
-	response->hpack_encoded_headers =
-	    http2_hpack_compress_data(state->hpack_state.compress_state, result_headers);
+	const Http2HpackCompressOptions default_compress_options = {
+		.huffman_usage = Http2HpackHuffmanUsageAuto,
+		.type = Http2HpackCompressTypeAllTablesUsage,
+	};
+
+	response->hpack_encoded_headers = http2_hpack_compress_data(
+	    state->hpack_state.compress_state, result_headers, default_compress_options);
 
 	free_http_header_fields(&result_headers);
 

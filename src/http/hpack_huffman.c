@@ -24,15 +24,16 @@ static void bit_pos_inc(BitPos* const bit_pos) {
 	}
 }
 
-NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree,
-                                             const SizedBuffer input) {
+NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffManTree* const tree,
+                                                               const SizedBuffer input) {
 
 	if(tree == NULL) {
-		return (HuffmanResult){ .is_error = true, .data = { .error = "tree is NULL" } };
+		return (HuffmanDecodeResult){ .is_error = true, .data = { .error = "tree is NULL" } };
 	}
 
 	if(input.size == 0 || input.data == NULL) {
-		return (HuffmanResult){ .is_error = true, .data = { .error = "input is NULL or empty" } };
+		return (HuffmanDecodeResult){ .is_error = true,
+			                          .data = { .error = "input is NULL or empty" } };
 	}
 
 	size_t memory_size =
@@ -41,7 +42,7 @@ NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree,
 	uint8_t* const values = malloc(memory_size + 1);
 
 	if(values == NULL) {
-		return (HuffmanResult){ .is_error = true, .data = { .error = "failed malloc" } };
+		return (HuffmanDecodeResult){ .is_error = true, .data = { .error = "failed malloc" } };
 	}
 
 	memset(values, '\0', memory_size);
@@ -70,7 +71,8 @@ NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree,
 
 		if(next_node->type == HuffManNodeTypeError) {
 			free(values);
-			return (HuffmanResult){ .is_error = true, .data = { .error = next_node->data.error } };
+			return (HuffmanDecodeResult){ .is_error = true,
+				                          .data = { .error = next_node->data.error } };
 		}
 
 		if(next_node->type == HuffManNodeTypeEnd) {
@@ -80,8 +82,8 @@ NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree,
 			if(values_idx >= memory_size) {
 				// out of bounds on output
 				free(values);
-				return (HuffmanResult){ .is_error = true,
-					                    .data = { .error = "result memory overflow" } };
+				return (HuffmanDecodeResult){ .is_error = true,
+					                          .data = { .error = "result memory overflow" } };
 			}
 
 			current_node = tree->root;
@@ -114,16 +116,17 @@ NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree,
 
 	if(bytes_not_decoded > 1) {
 		// more than one byte not decoded, invalid decoding
-		return (HuffmanResult){ .is_error = true,
-			                    .data = {
-			                        .error = "more than one byte not decoded, invalid decoding" } };
+		return (HuffmanDecodeResult){
+			.is_error = true,
+			.data = { .error = "more than one byte not decoded, invalid decoding" }
+		};
 	}
 
 	size_t bits_not_decoded = 8 - last_pos.bits_pos;
 
 	if(bits_not_decoded >= 8) {
 		// 8 bits not decoded, is also invalid
-		return (HuffmanResult){
+		return (HuffmanDecodeResult){
 			.is_error = true, .data = { .error = "8 or more bits not decoded, is also invalid" }
 		};
 	}
@@ -132,7 +135,7 @@ NODISCARD HuffmanResult decode_bytes_huffman(const HuffManTree* const tree,
 
 	if((data[last_pos.pos] & bits_mask) != (EOS_BYTE & bits_mask)) {
 		// last not decoded bits are not the eos bytes
-		return (HuffmanResult){
+		return (HuffmanDecodeResult){
 			.is_error = true, .data = { .error = "last not decoded bits are not the EOS bytes" }
 		};
 	}
@@ -143,15 +146,15 @@ huffman_return_ok:
 	void* new_values = realloc(values, values_idx + 1);
 
 	if(new_values == NULL) {
-		return (HuffmanResult){
+		return (HuffmanDecodeResult){
 			.is_error = true,
 			.data = { .error = "realloc to smaller size failed, LOL, you really got unlucky xD" }
 		};
 	}
 
-	return (HuffmanResult){ .is_error = false,
-		                    .data = { .result = (SizedBuffer){ .data = new_values,
-		                                                       .size = values_idx } } };
+	return (HuffmanDecodeResult){ .is_error = false,
+		                          .data = { .result = (SizedBuffer){ .data = new_values,
+		                                                             .size = values_idx } } };
 }
 
 typedef struct {
@@ -170,11 +173,82 @@ void global_free_http2_hpack_huffman_data(void) {
 	free_hpack_huffman_tree(g_huffman_tree_data.tree);
 }
 
-NODISCARD HuffmanResult decode_bytes_huffman_with_global_data_setup(const SizedBuffer input) {
+NODISCARD HuffmanDecodeResult decode_bytes_huffman(const SizedBuffer input) {
 	if(g_huffman_tree_data.tree == NULL) {
-		return (HuffmanResult){ .is_error = true,
-			                    .data = { .error = "global tree is not initialized" } };
+		return (HuffmanDecodeResult){ .is_error = true,
+			                          .data = { .error = "global tree is not initialized" } };
 	}
 
-	return decode_bytes_huffman(g_huffman_tree_data.tree, input);
+	return decode_bytes_huffman_impl(g_huffman_tree_data.tree, input);
+}
+
+NODISCARD size_t http_hpack_get_huffman_encoded_size(const tstr* const str) {
+
+	size_t result_bits = 0;
+
+	uint8_t* str_ptr = (uint8_t*)tstr_cstr(str);
+
+	for(size_t i = 0; i < tstr_len(str); ++i) {
+		const uint8_t value = str_ptr[i];
+		result_bits += g_huffman_encode_map[value].bit_size;
+	}
+
+	// do + 7 to ceil it in a simple fashion
+	return (result_bits + 7) / 8;
+}
+
+NODISCARD HuffmanEncodeResult http_hpack_encode_value_fixed_size(void* const data,
+                                                                 const size_t max_size,
+                                                                 const tstr* const str) {
+
+	const size_t str_len = tstr_len(str);
+
+	if(str_len == 0) {
+		return (HuffmanEncodeResult){ .is_error = false, .data = { .result_size = 0 } };
+	}
+
+	if(max_size == 0) {
+		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = "max size is 0" } };
+	}
+
+	uint8_t* data_ptr = (uint8_t*)data;
+
+	uint8_t* str_ptr = (uint8_t*)tstr_cstr(str);
+
+	BitPos current_pos = { .pos = 0, .bits_pos = 0 };
+
+	for(size_t i = 0; i < str_len; ++i) {
+		const uint8_t char_val = str_ptr[i];
+		const HuffmanEncodeEntry encode_entry = g_huffman_encode_map[char_val];
+
+		uint32_t value = encode_entry.value;
+
+		for(size_t j = 0; j < encode_entry.bit_size; ++j) {
+			if(current_pos.bits_pos == 0) {
+				// initialize to 0
+				data_ptr[current_pos.pos] = 0;
+			}
+
+			const uint8_t bit = value & 0x01;
+			value = value >> 1;
+
+			data_ptr[current_pos.pos] =
+			    data_ptr[current_pos.pos] | (bit << (7 - current_pos.bits_pos));
+
+			bit_pos_inc(&current_pos);
+		}
+
+		// encode if possible, advance position
+	}
+
+	if(current_pos.bits_pos > 0) {
+		const size_t missing_bits = 8 - current_pos.bits_pos;
+		// set the last bits to EOS bits (all 1s)
+		data_ptr[current_pos.pos] = data_ptr[current_pos.pos] | ((1 << missing_bits) - 1);
+
+		current_pos.bits_pos = 0;
+		current_pos.pos += 1;
+	}
+
+	return (HuffmanEncodeResult){ .is_error = false, .data = { .result_size = current_pos.pos } };
 }

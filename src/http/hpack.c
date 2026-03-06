@@ -256,7 +256,8 @@ NODISCARD static tstr parse_literal_string_value(size_t* pos, const size_t size,
 	(*pos) += length;
 
 	if(is_hufffman) {
-		const HuffmanResult huffman_res = decode_bytes_huffman_with_global_data_setup(raw_bytes);
+		const HuffmanDecodeResult huffman_res =
+		    decode_bytes_huffman(raw_bytes);
 
 		if(huffman_res.is_error) {
 			return tstr_init();
@@ -861,8 +862,8 @@ void global_free_http2_hpack_data(void) {
 	global_free_hpack_static_header_table_data();
 }
 
-NODISCARD static SizedBuffer encode_single_header_field_dumb_literal(HttpHeaderField field) {
-
+NODISCARD static SizedBuffer
+encode_single_header_field_literal_never_indexed_no_huffman(const HttpHeaderField field) {
 	// encode the value as:
 	// Literal Header Field Never Indexed:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
@@ -956,24 +957,171 @@ NODISCARD static SizedBuffer encode_single_header_field_dumb_literal(HttpHeaderF
 	return buffer;
 }
 
-NODISCARD SizedBuffer http2_hpack_compress_data(HpackCompressState* const compress_state,
-                                                const HttpHeaderFields header_fields) {
+NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_huffman(
+    const HttpHeaderField field, const size_t size_key, const size_t size_value) {
+	// encode the value as:
+	// Literal Header Field Never Indexed:
+	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
 
-	// TODO: use more advanced methods of compression
-	//  atm I only use "Literal Header Field Never Indexed", they take up some space, but are easy
-	//  to create, as they don't require any lookup in the static or dynamic table and no huffman
-	//  encoding
+	// variant 2:
 
-	// currently not using state alias the dynamic table
-	UNUSED(compress_state);
+	//    0   1   2   3   4   5   6   7
+	// +---+---+---+---+---+---+---+---+
+	// | 0 | 0 | 0 | 1 |       0       |
+	// +---+---+-----------------------+
+	// | H |     Name Length (7+)      |
+	// +---+---------------------------+
+	// |  Name String (Length octets)  |
+	// +---+---------------------------+
+	// | H |     Value Length (7+)     |
+	// +---+---------------------------+
+	// | Value String (Length octets)  |
+	// +-------------------------------+
 
+	const size_t max_size = MAX_HPACK_VARIABLE_INTEGER_SIZE + MAX_HPACK_VARIABLE_INTEGER_SIZE +
+	                        size_key + size_value + 1;
+
+	SizedBuffer buffer = allocate_sized_buffer(max_size);
+
+	if(buffer.data == NULL) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	uint8_t* data = (uint8_t*)buffer.data;
+
+	size_t i = 0;
+
+	data[i++] = 0x10;
+
+	{ // encode key / name
+
+		// set Huffman to true
+		data[i] = 0x80;
+
+		int8_t result = encode_hpack_variable_integer(data + i, size_key, 7);
+
+		if(result < 1) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += result;
+
+		const HuffmanEncodeResult enc_result =
+		    http_hpack_encode_value_fixed_size(data + i, size_key, &field.key);
+
+		if(enc_result.is_error) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		if(enc_result.data.result_size != size_key) {
+			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
+			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
+			// has
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += enc_result.data.result_size;
+	}
+
+	{ // encode value
+
+		// set Huffman to true
+		data[i] = 0x80;
+
+		int8_t result = encode_hpack_variable_integer(data + i, size_value, 7);
+
+		if(result < 1) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += result;
+
+		const HuffmanEncodeResult enc_result =
+		    http_hpack_encode_value_fixed_size(data + i, size_value, &field.value);
+
+		if(enc_result.is_error) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		if(enc_result.data.result_size != size_value) {
+			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
+			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
+			// has
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += enc_result.data.result_size;
+	}
+
+	if(i > buffer.size) {
+		// NOTE: too much data used
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	void* new_data = realloc(buffer.data, i);
+
+	if(new_data == NULL) {
+		free_sized_buffer(buffer);
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	buffer.data = new_data;
+	buffer.size = i;
+
+	return buffer;
+}
+
+NODISCARD static SizedBuffer
+encode_single_header_field_literal_never_indexed(const HttpHeaderField field,
+                                                 const Http2HpackHuffmanUsage huffman_usage) {
+
+	switch(huffman_usage) {
+		case Http2HpackHuffmanUsageNever: {
+			return encode_single_header_field_literal_never_indexed_no_huffman(field);
+		}
+		case Http2HpackHuffmanUsageAlways: {
+			const size_t size_key = http_hpack_get_huffman_encoded_size(&field.key);
+			const size_t size_value = http_hpack_get_huffman_encoded_size(&field.value);
+
+			return encode_single_header_field_literal_never_indexed_huffman(field, size_key,
+			                                                                size_value);
+		}
+		case Http2HpackHuffmanUsageAuto:
+		default: {
+
+			const size_t size_key = http_hpack_get_huffman_encoded_size(&field.key);
+			const size_t size_value = http_hpack_get_huffman_encoded_size(&field.value);
+
+			if(size_key + size_value < tstr_len(&field.key) + tstr_len(&field.value)) {
+				return encode_single_header_field_literal_never_indexed_huffman(field, size_key,
+				                                                                size_value);
+			}
+
+			return encode_single_header_field_literal_never_indexed_no_huffman(field);
+		}
+	}
+}
+
+NODISCARD static SizedBuffer
+http2_hpack_compress_data_simple(const HttpHeaderFields header_fields,
+                                 Http2HpackHuffmanUsage huffman_usage) {
 	SizedBuffer result = { .data = NULL, .size = 0 };
+
+	//  This only uses "Literal Header Field Never Indexed", they take up some space, but are
+	//  easy to create, as they don't require any lookup in the static or dynamic table
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, header_fields); ++i) {
 
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, header_fields, i);
 
-		const SizedBuffer single_header_result = encode_single_header_field_dumb_literal(field);
+		const SizedBuffer single_header_result =
+		    encode_single_header_field_literal_never_indexed(field, huffman_usage);
 
 		if(single_header_result.data == NULL) {
 			free_sized_buffer(result);
@@ -997,4 +1145,29 @@ NODISCARD SizedBuffer http2_hpack_compress_data(HpackCompressState* const compre
 	}
 
 	return result;
+}
+
+NODISCARD SizedBuffer http2_hpack_compress_data(HpackCompressState* const compress_state,
+                                                const HttpHeaderFields header_fields,
+                                                Http2HpackCompressOptions options) {
+
+	// TODO: use more advanced methods of compression
+
+	UNUSED(compress_state);
+
+	switch(options.type) {
+		case Http2HpackCompressTypeNoTableUsage: {
+			return http2_hpack_compress_data_simple(header_fields, options.huffman_usage);
+		}
+		case Http2HpackCompressTypeStaticTableUsage: {
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+		case Http2HpackCompressTypeAllTablesUsage: {
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+		default: {
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+			;
+		}
+	}
 }
