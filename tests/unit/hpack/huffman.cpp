@@ -363,4 +363,87 @@ TEST_CASE("testing hpack huffman encoding (utf8) - generated "
 	}
 }
 
+struct TestCaseExtended {
+	std::vector<std::uint8_t> value;
+};
+
+[[nodiscard]] static std::vector<std::uint8_t> vector_from_string(const std::string& data) {
+	std::vector<std::uint8_t> result = {};
+	result.reserve(data.size());
+
+	for(const auto& ch : data) {
+		result.emplace_back(ch);
+	}
+
+	return result;
+}
+
+[[nodiscard]] static std::vector<std::uint8_t> all_values_vector() {
+	std::vector<std::uint8_t> result = {};
+	result.reserve(256);
+
+	for(size_t i = 0; i < 256; ++i) {
+		result.emplace_back((uint8_t)i);
+	}
+
+	return result;
+}
+
+TEST_CASE("testing hpack huffman roundtrip - generated "
+          "<hpack_huffman_roundtrip>") {
+
+	const std::vector<TestCaseExtended> test_cases = {
+		TestCaseExtended{ .value = vector_from_string("test hello") },
+		TestCaseExtended{ .value = vector_from_string("test hello a long non ascii string öäüß") },
+		TestCaseExtended{ .value = all_values_vector() },
+	};
+
+	for(size_t i = 0; i < test_cases.size(); ++i) {
+
+		const auto test_case = test_cases.at(i);
+
+		const auto case_str = std::string{ "Case " } + std::to_string(i);
+		doctest::String case_name = doctest::String{ case_str.c_str() };
+
+		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				const auto tree = global_huffman_data_cpp();
+
+				auto input = tstr_from_utf8_string(test_case.value);
+				CppDefer<tstr> defer_tstr = { &input, tstr_free };
+
+				auto result = hpack_huffman_encode_value(&input);
+				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+
+				const char* error = nullptr;
+
+				if(result.is_error) {
+					error = result.data.error;
+				}
+
+				REQUIRE_EQ(error, nullptr);
+
+				const auto intermediary_result = result.data.result;
+
+				auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
+				CppDefer<HuffmanDecodeResult> defer2 = { &result_dec, free_huffman_decode_result };
+
+				const char* error2 = nullptr;
+
+				if(result_dec.is_error) {
+					error2 = result_dec.data.error;
+				}
+
+				REQUIRE_EQ(error2, nullptr);
+
+				const auto actual_result = result_dec.data.result;
+
+				const auto expected_result = buffer_from_raw_data(test_case.value);
+
+				REQUIRE_EQ(actual_result, expected_result);
+			}();
+		}
+	}
+}
+
 TEST_SUITE_END();
