@@ -256,8 +256,7 @@ NODISCARD static tstr parse_literal_string_value(size_t* pos, const size_t size,
 	(*pos) += length;
 
 	if(is_hufffman) {
-		const HuffmanDecodeResult huffman_res =
-		    decode_bytes_huffman(raw_bytes);
+		const HuffmanDecodeResult huffman_res = hpack_huffman_decode_bytes(raw_bytes);
 
 		if(huffman_res.is_error) {
 			return tstr_init();
@@ -1008,7 +1007,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_hu
 		i += result;
 
 		const HuffmanEncodeFixedResult enc_result =
-		    http_hpack_encode_value_fixed_size(data + i, size_key, &field.key);
+		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &field.key);
 
 		if(enc_result.is_error) {
 			free_sized_buffer(buffer);
@@ -1041,7 +1040,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_hu
 		i += result;
 
 		const HuffmanEncodeFixedResult enc_result =
-		    http_hpack_encode_value_fixed_size(data + i, size_value, &field.value);
+		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &field.value);
 
 		if(enc_result.is_error) {
 			free_sized_buffer(buffer);
@@ -1086,8 +1085,8 @@ encode_single_header_field_literal_never_indexed(const HttpHeaderField field,
 			return encode_single_header_field_literal_never_indexed_no_huffman(field);
 		}
 		case Http2HpackHuffmanUsageAlways: {
-			const size_t size_key = http_hpack_get_huffman_encoded_size(&field.key);
-			const size_t size_value = http_hpack_get_huffman_encoded_size(&field.value);
+			const size_t size_key = hpack_huffman_get_encoded_size(&field.key);
+			const size_t size_value = hpack_huffman_get_encoded_size(&field.value);
 
 			return encode_single_header_field_literal_never_indexed_huffman(field, size_key,
 			                                                                size_value);
@@ -1095,8 +1094,8 @@ encode_single_header_field_literal_never_indexed(const HttpHeaderField field,
 		case Http2HpackHuffmanUsageAuto:
 		default: {
 
-			const size_t size_key = http_hpack_get_huffman_encoded_size(&field.key);
-			const size_t size_value = http_hpack_get_huffman_encoded_size(&field.value);
+			const size_t size_key = hpack_huffman_get_encoded_size(&field.key);
+			const size_t size_value = hpack_huffman_get_encoded_size(&field.value);
 
 			if(size_key + size_value < tstr_len(&field.key) + tstr_len(&field.value)) {
 				return encode_single_header_field_literal_never_indexed_huffman(field, size_key,

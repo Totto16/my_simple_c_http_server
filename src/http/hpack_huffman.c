@@ -173,7 +173,7 @@ void global_free_http2_hpack_huffman_data(void) {
 	free_hpack_huffman_tree(g_huffman_tree_data.tree);
 }
 
-NODISCARD HuffmanDecodeResult decode_bytes_huffman(const SizedBuffer input) {
+NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(const SizedBuffer input) {
 	if(g_huffman_tree_data.tree == NULL) {
 		return (HuffmanDecodeResult){ .is_error = true,
 			                          .data = { .error = "global tree is not initialized" } };
@@ -182,7 +182,7 @@ NODISCARD HuffmanDecodeResult decode_bytes_huffman(const SizedBuffer input) {
 	return decode_bytes_huffman_impl(g_huffman_tree_data.tree, input);
 }
 
-NODISCARD size_t http_hpack_get_huffman_encoded_size(const tstr* const str) {
+NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* const str) {
 
 	size_t result_bits = 0;
 
@@ -197,7 +197,7 @@ NODISCARD size_t http_hpack_get_huffman_encoded_size(const tstr* const str) {
 	return (result_bits + 7) / 8;
 }
 
-NODISCARD HuffmanEncodeFixedResult http_hpack_encode_value_fixed_size(void* const data,
+NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* const data,
                                                                       const size_t max_size,
                                                                       const tstr* const str) {
 
@@ -260,9 +260,9 @@ NODISCARD HuffmanEncodeFixedResult http_hpack_encode_value_fixed_size(void* cons
 		                               .data = { .result_size = current_pos.pos } };
 }
 
-NODISCARD HuffmanEncodeResult http_hpack_encode_value(const tstr* str) {
+NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str) {
 
-	const size_t size = http_hpack_get_huffman_encoded_size(str);
+	const size_t size = hpack_huffman_get_encoded_size(str);
 
 	uint8_t* const values = malloc(size);
 
@@ -270,7 +270,7 @@ NODISCARD HuffmanEncodeResult http_hpack_encode_value(const tstr* str) {
 		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = "failed malloc" } };
 	}
 
-	const HuffmanEncodeFixedResult res = http_hpack_encode_value_fixed_size(values, size, str);
+	const HuffmanEncodeFixedResult res = hpack_huffman_encode_value_fixed_size(values, size, str);
 
 	if(res.is_error) {
 		free(values);

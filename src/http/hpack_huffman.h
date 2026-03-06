@@ -18,9 +18,9 @@ typedef struct {
 	} data;
 } HuffmanDecodeResult;
 
-NODISCARD HuffmanDecodeResult decode_bytes_huffman(SizedBuffer input);
+NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(SizedBuffer input);
 
-NODISCARD size_t http_hpack_get_huffman_encoded_size(const tstr* str);
+NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* str);
 
 typedef struct {
 	bool is_error;
@@ -30,8 +30,9 @@ typedef struct {
 	} data;
 } HuffmanEncodeFixedResult;
 
-NODISCARD HuffmanEncodeFixedResult http_hpack_encode_value_fixed_size(void* data, size_t max_size,
-                                                                      const tstr* str);
+NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* data,
+                                                                         size_t max_size,
+                                                                         const tstr* str);
 
 typedef struct {
 	bool is_error;
@@ -41,7 +42,7 @@ typedef struct {
 	} data;
 } HuffmanEncodeResult;
 
-NODISCARD HuffmanEncodeResult http_hpack_encode_value(const tstr* str);
+NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str);
 
 void global_initialize_http2_hpack_huffman_data(void);
 
