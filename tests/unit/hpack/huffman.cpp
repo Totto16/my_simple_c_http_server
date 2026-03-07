@@ -7,18 +7,8 @@
 
 #include <memory>
 
-[[nodiscard]] static SizedBuffer buffer_from_raw_data(const std::vector<std::uint8_t>& data) {
-	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
-	return buffer;
-}
-
 [[nodiscard]] static SizedBuffer buffer_from_str(const std::string& data) {
 	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
-	return buffer;
-}
-
-[[nodiscard]] static tstr tstr_from_std_string(const std::string& str) {
-	const tstr buffer = tstr_from_len(str.c_str(), str.size());
 	return buffer;
 }
 
@@ -269,7 +259,7 @@ TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encod
 			[&test_case]() -> void {
 				REQUIRE_EQ(g_global_huffman_data.present, true);
 
-				auto input = tstr_from_std_string(test_case.str);
+				auto input = tstr_from_string(test_case.str);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
@@ -309,7 +299,7 @@ TEST_CASE("testing hpack huffman encoding (ascii) - generated "
 			[&test_case]() -> void {
 				REQUIRE_EQ(g_global_huffman_data.present, true);
 
-				auto input = tstr_from_std_string(test_case.str);
+				auto input = tstr_from_string(test_case.str);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);

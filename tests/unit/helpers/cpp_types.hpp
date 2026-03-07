@@ -12,6 +12,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "./c_types.hpp"
+
 constexpr const size_t vector_max_for_printing_content = 40;
 
 template <typename A, typename B>
@@ -88,13 +90,25 @@ template <typename T> struct CppDefer {
 
 	CppDefer operator=(CppDefer&&) = delete;
 
+	const T* const get() const { return this->m_state; }
+
 	~CppDefer() { this->m_free_fn(this->m_state); }
 };
 
-[[nodiscard]] static inline std::string string_from_tstr(const tstr value) {
+[[nodiscard]] static inline std::string string_from_tstr(const tstr& value) {
 	return std::string{ tstr_cstr(&value), tstr_len(&value) };
+}
+
+[[nodiscard]] static inline tstr tstr_from_string(const std::string& value) {
+	return tstr_from_len(value.c_str(), value.size());
 }
 
 [[nodiscard]] static inline tstr operator""_tstr(const char* str, std::size_t len) {
 	return tstr_from_static_cstr_with_len(str, len);
+}
+
+[[nodiscard]] static inline SizedBuffer
+buffer_from_raw_data(const std::vector<std::uint8_t>& data) {
+	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
+	return buffer;
 }

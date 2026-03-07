@@ -38,11 +38,6 @@ struct HpackGlobalHandle {
 	~HpackGlobalHandle() { global_free_http2_hpack_data(); }
 };
 
-[[nodiscard]] static SizedBuffer buffer_from_raw_data(const std::vector<std::uint8_t>& data) {
-	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
-	return buffer;
-}
-
 [[nodiscard]] static std::uint8_t parse_hex_byte(const char& val) {
 
 	if(val >= '0' && val <= '9') {
@@ -252,6 +247,32 @@ get_cpp_headers(const HttpHeaderFields& fields) {
 	return result;
 }
 
+[[maybe_unused]] [[nodiscard]] static CppDefer<HttpHeaderFields>
+get_c_map_from_cpp(const std::unordered_map<std::string, std::string>& map) {
+
+	auto* result = (HttpHeaderFields*)malloc(sizeof(HttpHeaderFields));
+
+	assert(result != NULL);
+
+	*result = TVEC_EMPTY(HttpHeaderField);
+
+	auto res = TVEC_RESERVE(HttpHeaderField, result, map.size());
+	assert(res == TvecResultOk);
+
+	for(const auto& elem : map) {
+		HttpHeaderField value = { .key = tstr_from_string(elem.first),
+			                      .value = tstr_from_string(elem.second) };
+
+		res = TVEC_PUSH(HttpHeaderField, result, value);
+		assert(res == TvecResultOk);
+	}
+
+	return CppDefer<HttpHeaderFields>{ result, [](HttpHeaderFields* const fields) -> void {
+		                                  free_http_header_fields(fields);
+		                                  free(fields);
+		                              } };
+}
+
 using HpackDecompressStateCpp =
     std::unique_ptr<HpackDecompressState, void (*)(HpackDecompressState*)>;
 
@@ -261,6 +282,16 @@ get_default_hpack_decompress_state_cpp(size_t max_dynamic_table_byte_size) {
 		get_default_hpack_decompress_state(max_dynamic_table_byte_size), free_hpack_decompress_state
 	};
 	return decompress_state;
+}
+
+using HpackCompressStateCpp = std::unique_ptr<HpackCompressState, void (*)(HpackCompressState*)>;
+
+[[maybe_unused]] [[nodiscard]] static HpackCompressStateCpp
+get_default_hpack_compress_state_cpp(size_t max_dynamic_table_byte_size) {
+	HpackCompressStateCpp compress_state{
+		get_default_hpack_compress_state(max_dynamic_table_byte_size), free_hpack_compress_state
+	};
+	return compress_state;
 }
 
 [[maybe_unused]] static void free_hpack_decompress_result(Http2HpackDecompressResult* result) {

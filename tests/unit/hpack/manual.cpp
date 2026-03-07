@@ -225,6 +225,16 @@ get_dynamic_decompress_table(const HpackDecompressStateCpp& state) {
 	return get_dynamic_table(&(state_cpp_extracted->dynamic_table_state));
 }
 
+[[nodiscard]] static test::DynamicTable
+get_dynamic_compress_table(const HpackCompressStateCpp& state) {
+
+	const auto* state_cpp_extracted =
+	    (const cpp_forbidden_test_type_impl_DONT_USE::HpackCompressStateImpl*)state.get();
+
+	return get_dynamic_table(&(state_cpp_extracted->dynamic_table_state));
+}
+
+
 TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields>") {
 
 	const auto hpack_cpp_global_handle = HpackGlobalHandle();
@@ -640,16 +650,11 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 
 namespace {
 
-struct HpackManualSerializeSettings {
-	bool use_huffamen;
-	bool use_dynamic_table;
-};
-
 struct HpackManualSerializeTestCaseEntry {
 	std::vector<std::uint8_t> result;
 	test::DynamicTable dynamic_table;
 	std::unordered_map<std::string, std::string> input;
-	HpackManualSerializeSettings settings;
+	Http2HpackCompressOptions options;
 };
 
 struct HpackManualTestSerializeCase {
@@ -660,6 +665,19 @@ struct HpackManualTestSerializeCase {
 };
 
 } // namespace
+
+[[nodiscard]] static std::vector<std::uint8_t> raw_data_from_buffer(const SizedBuffer& buffer) {
+
+	std::vector<std::uint8_t> result{};
+	result.reserve(buffer.size);
+
+	for(size_t i = 0; i < buffer.size; ++i) {
+		result.push_back(((uint8_t*)buffer.data)[i]);
+	}
+
+	return result;
+}
+
 TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 
 	const auto hpack_cpp_global_handle = HpackGlobalHandle();
@@ -684,7 +702,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{":path","/", },
 						{":authority","www.example.com", },
 					},
-					.settings = {
+					.options = {
 
 					}
 				},
@@ -705,7 +723,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{":authority","www.example.com", },
 						{"cache-control","no-cache", },
 					},
-					.settings = {}
+					.options = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.3
 				HpackManualSerializeTestCaseEntry{ 
@@ -725,7 +743,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{":authority","www.example.com", },
 						{"custom-key", "custom-value", },
 					},
-					.settings = {}
+					.options = {}
 				},
 			}
 		},
@@ -748,7 +766,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{":path","/", },
 						{":authority","www.example.com", },
 					},
-					.settings = {}
+					.options = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.2
 				HpackManualSerializeTestCaseEntry{ 
@@ -767,7 +785,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{":authority","www.example.com", },
 						{"cache-control","no-cache", },
 					},
-					.settings = {}
+					.options = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.3
 				HpackManualSerializeTestCaseEntry{ 
@@ -787,7 +805,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{":authority","www.example.com", },
 						{"custom-key", "custom-value", },
 					},
-					.settings = {}
+					.options = {}
 				},
 			}
 		},
@@ -815,7 +833,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
 						{"location", "https://www.example.com"},
 					},
-					.settings = {}
+					.options = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.2
 				HpackManualSerializeTestCaseEntry{ 
@@ -835,7 +853,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
 						{"location", "https://www.example.com"},
 					},
-					.settings = {}
+					.options = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.3
 				HpackManualSerializeTestCaseEntry{ 
@@ -856,7 +874,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"content-encoding", "gzip"},
 						{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
 					},
-					.settings = {}
+					.options = {}
 				},
 			}
 		},
@@ -884,7 +902,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
 						{"location", "https://www.example.com"},
 					},
-					.settings = {}
+					.options = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.2
 				HpackManualSerializeTestCaseEntry{ 
@@ -904,7 +922,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
 						{"location", "https://www.example.com"},
 					},
-					.settings = {}
+					.options = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.3
 				HpackManualSerializeTestCaseEntry{ 
@@ -925,7 +943,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"content-encoding", "gzip"},
 						{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
 					},
-					.settings  = {}
+					.options  = {}
 				},
 			}
 		}
@@ -938,46 +956,36 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				HpackDecompressStateCpp decompress_state =
-				    get_default_hpack_decompress_state_cpp(test_case.header_table_size);
-				REQUIRE_NE(decompress_state.get(), nullptr);
+				HpackCompressStateCpp compress_state =
+				    get_default_hpack_compress_state_cpp(test_case.header_table_size);
+				REQUIRE_NE(compress_state.get(), nullptr);
 
 				for(size_t i = 0; i < test_case.cases.size(); ++i) {
 
 					const auto& subcase = test_case.cases.at(i);
 
-					throw std::runtime_error("TODO");
-					(void)subcase;
-					// const auto input = subcase.input;
+					const auto input = subcase.input;
+					auto input_c = get_c_map_from_cpp(input);
 
-					/* 	auto result = http2_hpack_compress_data(decompress_state.get(), input);
-					    CppDefer<Http2HpackDecompressResult> defer = { &result,
-					                                                   free_hpack_decompress_result
-					   };
+					auto result = http2_hpack_compress_data(compress_state.get(), *input_c.get(),
+					                                        subcase.options);
+					CppDefer<SizedBuffer> defer = { &result, [](SizedBuffer* buf) -> void {
+						                               free_sized_buffer(*buf);
+						                           } };
 
-					    std::string error = "";
-					    if(result.is_error) {
-					        error = std::string{ result.data.error };
-					    }
+					REQUIRE_NE(result.data, nullptr);
 
-					    INFO("request number: ", i);
-					    INFO("Error occurred: ", error);
-					    REQUIRE_FALSE(result.is_error);
+					const auto& expected_result = subcase.result;
 
-					    const auto actual_result = result.data.result;
+					const auto actual_result = raw_data_from_buffer(result);
 
-					    const auto& expected_result = subcase.result;
+					REQUIRE_EQ(actual_result, expected_result);
 
-					    const auto actual_result_cpp = get_cpp_headers(actual_result);
+					const auto& expected_dynamic_table = subcase.dynamic_table;
 
-					    REQUIRE_EQ(actual_result_cpp, expected_result);
+					const auto actual_dynamic_table = get_dynamic_compress_table(compress_state);
 
-					    const auto& expected_dynamic_table = subcase.dynamic_table;
-
-					    const auto actual_dynamic_table =
-					   get_dynamic_decompress_table(decompress_state);
-
-					    REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table); */
+					REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
 				}
 			}();
 		}
