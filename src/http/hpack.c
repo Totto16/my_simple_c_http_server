@@ -93,17 +93,17 @@ NODISCARD static int8_t encode_hpack_variable_integer(uint8_t* const out_bytes,
 	// it needs more bytes
 
 	HpackVariableInteger value = input;
-	int8_t result = 0;
+	int8_t idx = 0;
 
-	out_bytes[result] = out_bytes[result] | mask;
+	out_bytes[idx] = out_bytes[idx] | mask;
 
 	value -= mask;
-	++result;
+	++idx;
 
 	// first byte was special, now loop
 
 	while(true) {
-		if(result > (int)(MAX_HPACK_VARIABLE_INTEGER_SIZE)) {
+		if(idx > (int)(MAX_HPACK_VARIABLE_INTEGER_SIZE)) {
 			return -1;
 		}
 
@@ -111,15 +111,15 @@ NODISCARD static int8_t encode_hpack_variable_integer(uint8_t* const out_bytes,
 			// not the end
 
 			const uint8_t to_encode = value & 0x7F;
-			out_bytes[result++] = 0x80 + to_encode;
+			out_bytes[idx++] = 0x80 + to_encode;
 			value /= 0x80;
 		} else {
-			out_bytes[result++] = value;
+			out_bytes[idx++] = value;
 			break;
 		}
 	}
 
-	return result;
+	return idx;
 }
 
 typedef struct {
@@ -162,7 +162,7 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 
 	const size_t dynamic_index = value - HPACK_STATIC_HEADER_TABLE_SIZE - 1;
 
-	const size_t dynamic_table_size = state->dynamic_table.count;
+	const size_t dynamic_table_size = hpack_dynamic_table_size(&(state->dynamic_table));
 
 	if(dynamic_table_size <= dynamic_index) {
 		return (HpackHeaderEntryResult){ .is_error = true };
@@ -862,7 +862,7 @@ void global_free_http2_hpack_data(void) {
 }
 
 NODISCARD static SizedBuffer
-encode_single_header_field_literal_never_indexed_no_huffman(const HttpHeaderField field) {
+encode_single_header_field_literal_never_indexed_no_huffman(const HttpHeaderField* const field) {
 	// encode the value as:
 	// Literal Header Field Never Indexed:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
@@ -882,8 +882,8 @@ encode_single_header_field_literal_never_indexed_no_huffman(const HttpHeaderFiel
 	// | Value String (Length octets)  |
 	// +-------------------------------+
 
-	const size_t key_size = tstr_len(&field.key);
-	const size_t value_size = tstr_len(&field.value);
+	const size_t key_size = tstr_len(&(field->key));
+	const size_t value_size = tstr_len(&(field->value));
 
 	const size_t max_size = MAX_HPACK_VARIABLE_INTEGER_SIZE + MAX_HPACK_VARIABLE_INTEGER_SIZE +
 	                        key_size + value_size + 1;
@@ -907,14 +907,14 @@ encode_single_header_field_literal_never_indexed_no_huffman(const HttpHeaderFiel
 
 		int8_t result = encode_hpack_variable_integer(data + i, key_size, 7);
 
-		if(result < 1) {
+		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
 		i += result;
 
-		memcpy(data + i, tstr_cstr(&field.key), key_size);
+		memcpy(data + i, tstr_cstr(&(field->key)), key_size);
 
 		i += key_size;
 	}
@@ -926,14 +926,14 @@ encode_single_header_field_literal_never_indexed_no_huffman(const HttpHeaderFiel
 
 		int8_t result = encode_hpack_variable_integer(data + i, value_size, 7);
 
-		if(result < 1) {
+		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
 		i += result;
 
-		memcpy(data + i, tstr_cstr(&field.value), value_size);
+		memcpy(data + i, tstr_cstr(&(field->value)), value_size);
 
 		i += value_size;
 	}
@@ -957,7 +957,7 @@ encode_single_header_field_literal_never_indexed_no_huffman(const HttpHeaderFiel
 }
 
 NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_huffman(
-    const HttpHeaderField field, const size_t size_key, const size_t size_value) {
+    const HttpHeaderField* const field, const size_t size_key, const size_t size_value) {
 	// encode the value as:
 	// Literal Header Field Never Indexed:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
@@ -1007,7 +1007,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_hu
 		i += result;
 
 		const HuffmanEncodeFixedResult enc_result =
-		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &field.key);
+		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &(field->key));
 
 		if(enc_result.is_error) {
 			free_sized_buffer(buffer);
@@ -1040,7 +1040,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_hu
 		i += result;
 
 		const HuffmanEncodeFixedResult enc_result =
-		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &field.value);
+		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
 
 		if(enc_result.is_error) {
 			free_sized_buffer(buffer);
@@ -1077,7 +1077,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_hu
 }
 
 NODISCARD static SizedBuffer
-encode_single_header_field_literal_never_indexed(const HttpHeaderField field,
+encode_single_header_field_literal_never_indexed(const HttpHeaderField* const field,
                                                  const Http2HpackHuffmanUsage huffman_usage) {
 
 	switch(huffman_usage) {
@@ -1085,8 +1085,8 @@ encode_single_header_field_literal_never_indexed(const HttpHeaderField field,
 			return encode_single_header_field_literal_never_indexed_no_huffman(field);
 		}
 		case Http2HpackHuffmanUsageAlways: {
-			const size_t size_key = hpack_huffman_get_encoded_size(&field.key);
-			const size_t size_value = hpack_huffman_get_encoded_size(&field.value);
+			const size_t size_key = hpack_huffman_get_encoded_size(&(field->key));
+			const size_t size_value = hpack_huffman_get_encoded_size(&(field->value));
 
 			return encode_single_header_field_literal_never_indexed_huffman(field, size_key,
 			                                                                size_value);
@@ -1094,10 +1094,10 @@ encode_single_header_field_literal_never_indexed(const HttpHeaderField field,
 		case Http2HpackHuffmanUsageAuto:
 		default: {
 
-			const size_t size_key = hpack_huffman_get_encoded_size(&field.key);
-			const size_t size_value = hpack_huffman_get_encoded_size(&field.value);
+			const size_t size_key = hpack_huffman_get_encoded_size(&(field->key));
+			const size_t size_value = hpack_huffman_get_encoded_size(&(field->value));
 
-			if(size_key + size_value < tstr_len(&field.key) + tstr_len(&field.value)) {
+			if(size_key + size_value < tstr_len(&(field->key)) + tstr_len(&(field->value))) {
 				return encode_single_header_field_literal_never_indexed_huffman(field, size_key,
 				                                                                size_value);
 			}
@@ -1120,7 +1120,212 @@ http2_hpack_compress_data_simple(const HttpHeaderFields header_fields,
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, header_fields, i);
 
 		const SizedBuffer single_header_result =
-		    encode_single_header_field_literal_never_indexed(field, huffman_usage);
+		    encode_single_header_field_literal_never_indexed(&field, huffman_usage);
+
+		if(single_header_result.data == NULL) {
+			free_sized_buffer(result);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		const size_t old_size = result.size;
+		void* new_data = realloc(result.data, old_size + single_header_result.size);
+
+		if(new_data == NULL) {
+			free_sized_buffer(result);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		result.data = new_data;
+		result.size += single_header_result.size;
+
+		memcpy(((uint8_t*)result.data) + old_size, single_header_result.data,
+		       single_header_result.size);
+		free_sized_buffer(single_header_result);
+	}
+
+	return result;
+}
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	TableFindResultTypeNotFound = 0,
+	TableFindResultTypeKeyFound,
+	TableFindResultTypeAllFound,
+} TableFindResultType;
+
+typedef struct {
+	TableFindResultType type;
+	union {
+		size_t index;
+	} data;
+} TableFindResult;
+
+NODISCARD static inline TableFindResultType table_entry_matches(const HttpHeaderField* const field,
+                                                                const tstr* const entry_key,
+                                                                const tstr* const entry_value) {
+	if(!tstr_eq(&(field->key), entry_key)) {
+		return TableFindResultTypeNotFound;
+	}
+
+	if(tstr_is_null(entry_value)) {
+		return TableFindResultTypeKeyFound;
+	}
+
+	if(!tstr_eq(&(field->value), entry_value)) {
+		return TableFindResultTypeKeyFound;
+	}
+
+	return TableFindResultTypeAllFound;
+}
+
+NODISCARD static TableFindResultType
+table_entry_matches_static(const HttpHeaderField* const field,
+                           const HpackHeaderStaticEntry* const entry) {
+	return table_entry_matches(field, &(entry->key), &(entry->value));
+}
+
+NODISCARD static TableFindResultType
+table_entry_matches_dynamic(const HttpHeaderField* const field,
+                            const HpackHeaderDynamicEntry* const entry) {
+	return table_entry_matches(field, &(entry->key), &(entry->value));
+}
+
+NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const field,
+                                                const HpackCompressState* const compress_state,
+                                                const bool use_all_tables) {
+
+	TableFindResult result = { .type = TableFindResultTypeNotFound };
+
+	assert(g_hpack_static_data.static_header_table != NULL);
+
+	for(size_t i = 0; i < HPACK_STATIC_HEADER_TABLE_SIZE; ++i) {
+		const HpackHeaderStaticEntry static_entry = g_hpack_static_data.static_header_table[i];
+
+		const TableFindResultType matches_entry = table_entry_matches_static(field, &static_entry);
+
+		switch(matches_entry) {
+			case TableFindResultTypeAllFound: {
+				return (TableFindResult){ .type = TableFindResultTypeAllFound,
+					                      .data = { .index = i + 1 } };
+			}
+			case TableFindResultTypeKeyFound: {
+				// - store the key found result, maybe we find a better entry, so we use that,
+				// otherwise we use this entry
+				// - always overwrite the current result, since íf multiple entries match the key,
+				// it is irrelevant which entry we use
+
+				result = (TableFindResult){ .type = TableFindResultTypeKeyFound,
+					                        .data = { .index = i + 1 } };
+				break;
+			}
+			case TableFindResultTypeNotFound:
+			default: {
+				break;
+			}
+		}
+
+		//
+	}
+
+	if(!use_all_tables) {
+		// return best result so far
+		return result;
+	}
+
+	for(size_t i = 0;
+	    i < hpack_dynamic_table_size(&(compress_state->dynamic_table_state.dynamic_table)); ++i) {
+		const HpackHeaderDynamicEntry dynamic_entry =
+		    hpack_dynamic_table_at(&(compress_state->dynamic_table_state.dynamic_table), i);
+
+		const TableFindResultType matches_entry =
+		    table_entry_matches_dynamic(field, &dynamic_entry);
+
+		switch(matches_entry) {
+			case TableFindResultTypeAllFound: {
+				return (
+				    TableFindResult){ .type = TableFindResultTypeAllFound,
+					                  .data = { .index = i + 1 + HPACK_STATIC_HEADER_TABLE_SIZE } };
+			}
+			case TableFindResultTypeKeyFound: {
+				// - store the key found result, maybe we find a better entry, so we use that,
+				// otherwise we use this entry
+				// - always overwrite the current result, since íf multiple entries match the key,
+				// it is irrelevant which entry we use
+
+				result = (TableFindResult){ .type = TableFindResultTypeKeyFound,
+					                        .data = { .index = i + 1 +
+					                                           HPACK_STATIC_HEADER_TABLE_SIZE } };
+				break;
+			}
+			case TableFindResultTypeNotFound:
+			default: {
+				break;
+			}
+		}
+
+		//
+	}
+
+	return result;
+}
+
+NODISCARD static SizedBuffer encode_single_header_field_extended_as_whole(
+    const HttpHeaderField* const field, HpackCompressState* const compress_state,
+    const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type) {}
+
+NODISCARD static SizedBuffer encode_single_header_field_extended_with_key_from_table(
+    const HttpHeaderField* const field, HpackCompressState* const compress_state,
+    const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type,
+    const size_t key_table_idx) {}
+
+NODISCARD static SizedBuffer
+encode_single_header_field_extended_with_entry_from_table(const size_t entry_table_idx) {
+	//
+}
+
+NODISCARD static SizedBuffer encode_single_header_field_extended(
+    const HttpHeaderField* const field, HpackCompressState* const compress_state,
+    const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type,
+    const bool use_all_tables) {
+	//
+	const TableFindResult table_find_result = find_in_tables(field, compress_state, use_all_tables);
+
+	switch(table_find_result.type) {
+		case TableFindResultTypeNotFound: {
+			return encode_single_header_field_extended_as_whole(field, compress_state,
+			                                                    huffman_usage, table_add_type);
+		}
+		case TableFindResultTypeKeyFound: {
+			return encode_single_header_field_extended_with_key_from_table(
+			    field, compress_state, huffman_usage, table_add_type, table_find_result.data.index);
+		}
+		case TableFindResultTypeAllFound: {
+			return encode_single_header_field_extended_with_entry_from_table(
+			    table_find_result.data.index);
+		}
+		default: {
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+	}
+}
+
+NODISCARD static SizedBuffer http2_hpack_compress_data_extended(
+    const HttpHeaderFields header_fields, HpackCompressState* const compress_state,
+    const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type,
+    const bool use_all_tables) {
+	SizedBuffer result = { .data = NULL, .size = 0 };
+
+	//  This only uses "Literal Header Field Never Indexed", they take up some space, but are
+	//  easy to create, as they don't require any lookup in the static or dynamic table
+
+	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, header_fields); ++i) {
+
+		HttpHeaderField field = TVEC_AT(HttpHeaderField, header_fields, i);
+
+		const SizedBuffer single_header_result = encode_single_header_field_extended(
+		    &field, compress_state, huffman_usage, table_add_type, use_all_tables);
 
 		if(single_header_result.data == NULL) {
 			free_sized_buffer(result);
@@ -1150,23 +1355,18 @@ NODISCARD SizedBuffer http2_hpack_compress_data(HpackCompressState* const compre
                                                 const HttpHeaderFields header_fields,
                                                 Http2HpackCompressOptions options) {
 
-	// TODO: use more advanced methods of compression
-
-	UNUSED(compress_state);
-
 	switch(options.type) {
 		case Http2HpackCompressTypeNoTableUsage: {
 			return http2_hpack_compress_data_simple(header_fields, options.huffman_usage);
 		}
-		case Http2HpackCompressTypeStaticTableUsage: {
-			return (SizedBuffer){ .data = NULL, .size = 0 };
-		}
+		case Http2HpackCompressTypeStaticTableUsage:
 		case Http2HpackCompressTypeAllTablesUsage: {
-			return (SizedBuffer){ .data = NULL, .size = 0 };
+			return http2_hpack_compress_data_extended(
+			    header_fields, compress_state, options.huffman_usage, options.table_add_type,
+			    options.type == Http2HpackCompressTypeAllTablesUsage);
 		}
 		default: {
 			return (SizedBuffer){ .data = NULL, .size = 0 };
-			;
 		}
 	}
 }

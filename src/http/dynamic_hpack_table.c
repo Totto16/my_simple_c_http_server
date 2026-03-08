@@ -18,6 +18,11 @@ hpack_dynamic_table_at(const HpackHeaderDynamicTable* const dynamic_table, const
 	return dynamic_table->entries[idx];
 }
 
+
+NODISCARD size_t hpack_dynamic_table_size(const HpackHeaderDynamicTable* const dynamic_table){
+	return dynamic_table->count;
+}
+
 void free_dynamic_entry(HpackHeaderDynamicEntry entry) {
 	tstr_free(&entry.key);
 	tstr_free(&entry.value);

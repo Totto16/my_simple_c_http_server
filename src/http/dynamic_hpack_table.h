@@ -32,6 +32,8 @@ NODISCARD HpackHeaderDynamicTable hpack_dynamic_table_empty(void);
 NODISCARD HpackHeaderDynamicEntry
 hpack_dynamic_table_at(const HpackHeaderDynamicTable* dynamic_table, size_t index);
 
+NODISCARD size_t hpack_dynamic_table_size(const HpackHeaderDynamicTable* dynamic_table);
+
 void free_dynamic_entry(HpackHeaderDynamicEntry entry);
 
 void hpack_dynamic_table_free(HpackHeaderDynamicTable* dynamic_table);
