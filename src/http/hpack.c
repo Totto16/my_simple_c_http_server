@@ -1896,11 +1896,6 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 
 	TableFindResult result = { .type = TableFindResultTypeNotFound };
 
-	assert(g_hpack_static_data.static_header_table != NULL);
-
-	// TODO: use modified comparison algorihtmn of the fast string cmp, as the static table is
-	// known, this can be faster!
-
 	const StaticTableFindResult static_table_find_result =
 	    hpack_generated_find_in_static_table_fast(field);
 
