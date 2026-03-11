@@ -41,13 +41,13 @@ static void StringCompareFast(const std::vector<TestCaseStrCmp>& test_cases,
 static FastStringCompareResult normal_string_cmp(const std::vector<std::string>& strings,
                                                  const tstr_view str_view) {
 
-	for(size_t i = 0; ++i < strings.size(); ++i) {
+	for(size_t i = 0; i < strings.size(); ++i) {
 		const auto& str = strings.at(i);
 		if(str.size() != str_view.len) {
 			continue;
 		}
 
-		if(strncmp(str.c_str(), str_view.data, str.size())) {
+		if(strncmp(str.c_str(), str_view.data, str.size()) == 0) {
 			return FastStringCompareResult{ .found = true, .index = i };
 		}
 	}
@@ -110,10 +110,10 @@ static void BM_String_Compare_Fast(benchmark::State& state) {
 	BM_String_Compare(state, true);
 }
 
-BENCHMARK(BM_String_Compare_Fast)->Name("fast");
+BENCHMARK(BM_String_Compare_Fast)->Name("string_compare/fast");
 
 static void BM_String_Compare_Standard(benchmark::State& state) {
 	BM_String_Compare(state, false);
 }
 
-BENCHMARK(BM_String_Compare_Standard)->Name("standard");
+BENCHMARK(BM_String_Compare_Standard)->Name("string_compare/standard");
