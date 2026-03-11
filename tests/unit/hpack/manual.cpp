@@ -726,7 +726,11 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{":authority","www.example.com", },
 						{"cache-control","no-cache", },
 					},
-					.options = {}
+					.options = {
+						.huffman_usage = Http2HpackHuffmanUsageNever,
+						.type = Http2HpackCompressTypeAllTablesUsage,
+						.table_add_type = Http2HpackTableAddTypeAll,
+					}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.3
 				HpackManualSerializeTestCaseEntry{ 
@@ -876,7 +880,11 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
 						{"location", "https://www.example.com"},
 					},
-					.options = {}
+					.options = {
+						.huffman_usage = Http2HpackHuffmanUsageNever,
+						.type = Http2HpackCompressTypeAllTablesUsage,
+						.table_add_type = Http2HpackTableAddTypeAll,
+					}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.3
 				HpackManualSerializeTestCaseEntry{ 
