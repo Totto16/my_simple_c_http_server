@@ -1639,9 +1639,6 @@ ${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_co
 			return node->data.result;
 		}
 
-		//TODO: maybe needed for direct compare if the prefix_len == 1 down in the strncmp case
-		//const char value = str[index];
-
 		const FastStringCmpPrefixes prefixes = node->data.prefixes;
 
 		if(index + prefixes.prefix_len > str_view.len){
@@ -1653,7 +1650,17 @@ ${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_co
 		for(size_t j = 0; j < prefixes.array.len; ++j){
 			const FastStringCmpPrefix prefix = prefixes.array.data[j];
 
-			//TODO: maybe use normal char cmp if prefix_len == 1
+			if(prefixes.prefix_len == 1){
+				assert(prefix.prefix[1] == '\\0' && "valid 1 length c string");
+				if(str_view.data[index] == prefix.prefix[0]){
+					node = prefix.node;
+					found = true;
+					break;
+				}
+
+				continue;
+			}
+
 			if(strncmp((((const char*)str_view.data) + index), prefix.prefix, prefixes.prefix_len) == 0){
 				node = prefix.node;
 				found = true;
