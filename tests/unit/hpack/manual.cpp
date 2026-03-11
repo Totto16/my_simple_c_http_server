@@ -1017,9 +1017,14 @@ TEST_CASE("testing fast string comparison <fast_string_cmp>") {
 		REQUIRE_EQ(actual_result.found, expected_result);
 
 		if(actual_result.found) {
-			REQUIRE_EQ(actual_result.value, test_case);
+			REQUIRE_GE(actual_result.index, 0);
+			REQUIRE_LT(actual_result.index, test_data_strings.size());
+
+			const std::string& actual_result_str = test_data_strings.at(actual_result.index);
+
+			REQUIRE_EQ(actual_result_str, test_case);
 		} else {
-			REQUIRE_EQ(actual_result.value, nullptr);
+			REQUIRE_EQ(actual_result.index, 0);
 		}
 	}
 }

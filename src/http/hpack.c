@@ -1199,6 +1199,9 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 
 	assert(g_hpack_static_data.static_header_table != NULL);
 
+	// TODO: use modified comparison algorihtmn of the fast string cmp, as the static table is
+	// known, this can be faster!
+
 	for(size_t i = 0; i < HPACK_STATIC_HEADER_TABLE_SIZE; ++i) {
 		const HpackHeaderStaticEntry static_entry = g_hpack_static_data.static_header_table[i];
 

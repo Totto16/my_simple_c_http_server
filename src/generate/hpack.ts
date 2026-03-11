@@ -1207,12 +1207,13 @@ class FastStringCompareNodeBasic {
     }
 }
 
+type FastStringCompareNodeResult = number
 
 class FastStringCompareNodeEnd extends FastStringCompareNodeBasic {
     type: "end"
-    result: string | null
+    result: FastStringCompareNodeResult | null
 
-    constructor(result: string | null) {
+    constructor(result: FastStringCompareNodeResult | null) {
         super(null);
 
         this.type = "end";
@@ -1263,11 +1264,16 @@ function isNormalNode(node: FastStringCompareNode): node is FastStringCompareNod
     return node.type == "normal"
 }
 
+interface StringWithIdx {
+    str: string
+    idx: number
+}
+
 interface FastStringCompareTree {
     root: FastStringCompareNode
     node_amount: bigint
     prefix_amount: bigint
-    strings: string[]
+    strings: StringWithIdx[]
 }
 
 type FastStringCompare = Record<number, FastStringCompareTree>
@@ -1347,8 +1353,15 @@ function check_valid_root_tree_2(root: FastStringCompareNode): void {
 
 }
 
+function to_c_str(str: string): string {
+
+    assert(str !== null && str !== undefined && typeof str == "string", "has to be a string");
+
+    return `"${str}"`
+}
+
 function fast_string_prefix_to_c(prefix: FastStringComparePrefix, array_name: string): string {
-    return `(FastStringCmpPrefix){ .prefix = "${prefix.prefix}", .node = &(${array_name}[${prefix.node.id}])}`
+    return `(FastStringCmpPrefix){ .prefix = ${to_c_str(prefix.prefix)}, .node = &(${array_name}[${prefix.node.id}])}`
 }
 
 function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes: string): string {
@@ -1359,7 +1372,7 @@ function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes:
             throw new Error("Implementation error")
         }
 
-        return `(FastStringCmpNode){ .is_result = true, .data = { .result = (FastStringCompareResult){ .found = true, .value = "${node.result}" } }}`
+        return `(FastStringCmpNode){ .is_result = true, .data = { .result = (FastStringCompareResult){ .found = true, .index = ${node.result} } }}`
 
     }
 
@@ -1369,9 +1382,10 @@ function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes:
 
 function process_string_fast_compare(input: string[]): FastStringCompare {
 
-    const step1: Record<number, { cases: string[] } | undefined> = {}
+    const step1: Record<number, { cases: StringWithIdx[] } | undefined> = {}
 
-    for (const inp of input) {
+    for (let i = 0; i < input.length; ++i) {
+        const inp = input.at(i)!
         if (inp.toLowerCase() != inp) {
             throw new Error(`hpack fields need to be lowercase, but got: ${inp}`)
         }
@@ -1391,7 +1405,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
             step1[len] = { cases: [] }
         }
 
-        step1[len].cases.push(inp)
+        step1[len].cases.push({ str: inp, idx: i })
     }
 
     const result: Record<number, FastStringCompareTree> = {}
@@ -1407,10 +1421,10 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
             throw new Error("Unrechable")
         } else if (cazes.length == 1) {
             const caze = cazes[0]!
-            root = new FastStringCompareNodeNormal(caze.length, [
+            root = new FastStringCompareNodeNormal(caze.str.length, [
                 new FastStringComparePrefix(
-                    caze,
-                    new FastStringCompareNodeEnd(caze)
+                    caze.str,
+                    new FastStringCompareNodeEnd(caze.idx)
                 )
             ]
             );
@@ -1424,7 +1438,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
                 let node: FastStringCompareNode = root
 
-                for (let i = 0; i < caze.length;) {
+                for (let i = 0; i < caze.str.length;) {
 
                     if (!isNormalNode(node)) {
                         throw new Error("algorithmn error")
@@ -1432,16 +1446,15 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
                     const inc: number = node.prefix_len
 
-                    const char_value = caze.substring(i, i + inc)
+                    const char_value = caze.str.substring(i, i + inc)
 
                     const foundIndex: number = node.prefixes.findIndex((val) => {
                         return val.prefix == char_value
                     })
 
                     if (foundIndex < 0) {
-                        const next_node: FastStringCompareNode = i + inc >= caze.length ? new FastStringCompareNodeEnd(
-
-                            caze
+                        const next_node: FastStringCompareNode = i + inc >= caze.str.length ? new FastStringCompareNodeEnd(
+                            caze.idx
                         ) : new FastStringCompareNodeNormal(1, []);
 
 
@@ -1559,7 +1572,7 @@ ${!need_fast_compare_string_with_tree ? "" : `NODISCARD static FastStringCompare
 
 		if(index + prefixes.prefix_len > str_view.len){
 			// can't perform comparisons
-			return (FastStringCompareResult){ .found = false, .value = NULL };
+			return (FastStringCompareResult){ .found = false, .index = 0 };
 		}
 
 		bool found = false;
@@ -1575,7 +1588,7 @@ ${!need_fast_compare_string_with_tree ? "" : `NODISCARD static FastStringCompare
 		}
 
 		if(!found){
-			return (FastStringCompareResult){ .found = false, .value = NULL };
+			return (FastStringCompareResult){ .found = false, .index = 0 };
 		}
 
 		index += prefixes.prefix_len;
@@ -1584,12 +1597,12 @@ ${!need_fast_compare_string_with_tree ? "" : `NODISCARD static FastStringCompare
 			if(node->is_result){
 				return node->data.result;
 			}
-			return (FastStringCompareResult){ .found = false, .value = NULL };
+			return (FastStringCompareResult){ .found = false, .index = 0 };
 		}
 	
 	}
 	
-	return (FastStringCompareResult){ .found = false, .value = NULL };
+	return (FastStringCompareResult){ .found = false, .index = 0 };
 }
 `}
 NODISCARD FastStringCompareResult ${function_name}(const tstr_view str_view){
@@ -1603,13 +1616,13 @@ ${Object.entries(preprocessed_compare).map(([key, tree]): string => {
 
         if (tree.strings.length == 1) {
 
-            const str: string = tree.strings[0]!
+            const str: StringWithIdx = tree.strings[0]!
 
             return `		case ${key}: {
-			if(strncmp(str_view.data, "${str}", ${key}) == 0){
-				return (FastStringCompareResult){ .found = true, .value = "${str}" };
+			if(strncmp(str_view.data, ${to_c_str(str.str)}, ${key}) == 0){
+				return (FastStringCompareResult){ .found = true, .index = ${str.idx} };
 			}
-			return (FastStringCompareResult){ .found = false, .value = NULL };
+			return (FastStringCompareResult){ .found = false, .index = 0 };
 		}`
         } else {
 
@@ -1617,7 +1630,7 @@ ${Object.entries(preprocessed_compare).map(([key, tree]): string => {
 			FastStringCmpNode ${array_name}[${tree.node_amount}] = {};
 			FastStringCmpPrefix ${array_name_prefixes}[${tree.prefix_amount}] = {};
 
-			// handling strings: ${tree.strings.map(str => `"${str}"`).join(", ")}
+			// handling strings: ${tree.strings.map(str => `${to_c_str(str.str)}`).join(", ")}
 			{
 			// nodes
 ${values.nodes.map((node): string => {
@@ -1645,7 +1658,7 @@ ${values.prefixes.map((prefixes): string => {
     }).join("\n")}
 
 		default:{
-			return (FastStringCompareResult){ .found = false, .value = NULL };
+			return (FastStringCompareResult){ .found = false, .index = 0 };
 		}
 	}
 }
@@ -1734,7 +1747,7 @@ void free_hpack_huffman_encode_map(HuffmanEncodeMap* map);
 
 typedef struct {
 	bool found;
-	const char* value;
+	size_t index;
 } FastStringCompareResult;
 
 ${generate_fast_stringcompare_decl("hpack_generated_is_common_field_key_fast_cmp")}
@@ -1857,9 +1870,9 @@ interface HeaderTable {
 
 function header_to_c_value(header: HeaderTable): string {
 
-    const value: string = header.value === null ? "tstr_init()" : `TSTR_LIT("${header.value}")`
+    const value: string = header.value === null ? "tstr_init()" : `TSTR_LIT(${to_c_str(header.value)})`
 
-    return `(HpackHeaderStaticEntry){ .key = TSTR_LIT("${header.key}"), .value = ${value} }`
+    return `(HpackHeaderStaticEntry){ .key = TSTR_LIT(${to_c_str(header.key)}), .value = ${value} }`
 }
 
 function generated_hpack_headerable_code_h(generated_hpack_header_table_h: string): void {
@@ -2116,7 +2129,7 @@ function normal_test_to_cpp(caze: EncodedHuffmanAscii): string {
 
     const arr: number[] = caze.encoded.toNumArray();
 
-    return `		TestCaseAscii{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
+    return `		TestCaseAscii{ .str = std::string{${to_c_str(caze.value)}}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
 }
 
@@ -2322,7 +2335,7 @@ extern "C" {
 
 
 std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
-	return std::vector<std::string>{${fast_string_compare_test_data.map((str): string => `"${str}"`).join(", ")}};
+	return std::vector<std::string>{${fast_string_compare_test_data.map((str): string => `${to_c_str(str)}`).join(", ")}};
 }
 
 
