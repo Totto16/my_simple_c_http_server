@@ -1029,7 +1029,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
     let id: bigint = 0n;
 
-    // make an id for each node
+    // make an id for each node, BFS style
     while (nodes.length != 0) {
 
         const node = nodes.pop()!;
@@ -1146,7 +1146,7 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
 
     const nodes: HuffmanNode[] = [tree.root]
 
-    // traverse all nodes
+    // traverse all nodes, BFS style
     while (nodes.length != 0) {
 
         const node = nodes.pop()!;
@@ -1296,6 +1296,7 @@ function nodes_and_prefixes_from_str_tree(tree: FastStringCompareTree): NodesAnd
 
     const temp_nodes: FastStringCompareNode[] = [tree.root]
 
+    // iterate nodes BFS style
     while (temp_nodes.length != 0) {
 
         const node = temp_nodes.pop()!;
@@ -1380,6 +1381,73 @@ function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes:
 
 }
 
+
+
+function cleanup_short_paths_fast_compare(root: FastStringCompareNodeNormal): FastStringCompareNode {
+
+
+    interface FastStringCompareNodeWithParent {
+        inner: FastStringCompareNode
+        parent: FastStringCompareNodeWithParent | null
+    }
+
+    const traverse_root: FastStringCompareNodeWithParent = { inner: root, parent: null }
+
+
+    // iterate nodes DFS style
+
+    function iterate_node(node: FastStringCompareNodeWithParent): FastStringCompareNodeWithParent & { changed?: boolean | undefined } {
+        if (node.inner.type != "end") {
+            let changed = false;
+            node.inner.prefixes = node.inner.prefixes.map((prefix): FastStringComparePrefix => {
+                const result = iterate_node({ inner: prefix.node, parent: node })
+
+                if (result.changed) {
+                    changed = true;
+                }
+
+                prefix.node = result.inner;
+
+                return prefix
+            }
+            )
+            return { inner: node.inner, parent: node.parent, changed };
+        }
+
+        if (node.parent === null || node.parent.inner.type === "end") {
+            return node;
+        }
+
+        if (node.parent.parent === null || node.parent.parent.inner.type === "end") {
+            return node;
+        }
+
+        if (node.parent.inner.prefixes.length == 1 && node.parent.parent.inner.prefixes.length == 1) {
+            const prefix_len: number = node.parent.inner.prefix_len + node.parent.parent.inner.prefix_len
+
+            const prefix: string = `${node.parent.parent.inner.prefixes[0]!.prefix}${node.parent.inner.prefixes[0]!.prefix}`
+
+            node.parent.parent.inner = new FastStringCompareNodeNormal(prefix_len, [new FastStringComparePrefix(prefix, node.inner)])
+            return { inner: node.inner, parent: node.parent, changed: true };
+        }
+
+        return node;
+
+    }
+
+    let result = iterate_node(traverse_root)
+
+    while (result.changed) {
+        result = iterate_node(result)
+    }
+
+    if (result.changed || result.parent !== null) {
+        throw new Error("Implementation error")
+    }
+
+    return result.inner
+}
+
 function process_string_fast_compare(input: string[]): FastStringCompare {
 
     const step1: Record<number, { cases: StringWithIdx[] } | undefined> = {}
@@ -1388,11 +1456,11 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
         const inp = input.at(i)!
 
         if (is_utf8_string(inp)) {
-            throw new Error(`hpack fields need to be ascii, to be usable for this algorithmn`)
+            throw new Error(`fast compare string fields need to be ascii, to be usable for this algorithmn`)
         }
 
         if (inp.length == 0) {
-            throw new Error(`hpack fields need to be at least one byte long!`)
+            throw new Error(`fast compare string fields need to be at least one byte long!`)
         }
 
 
@@ -1469,6 +1537,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
             }
 
+            root = cleanup_short_paths_fast_compare(root)
         }
 
         const nodes: FastStringCompareNode[] = [root]
@@ -1477,7 +1546,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
         let prefix_id: bigint = 0n;
         let prefix_offset: number = 0;
 
-        // make an id for each node
+        // make an id for each node, BFS style
         while (nodes.length != 0) {
 
             const node = nodes.pop()!;
@@ -2429,7 +2498,7 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file_hpp: str
         return encoded;
     });
 
-    const fast_string_compare_test_data: string[] = ["hello", "hallo", "common", "common2", "similar", "test", "toast", "help", "helo", "one", "two", "onq", "loooooooooongstring", "0", "01", "02", "03", "04"]
+    const fast_string_compare_test_data: string[] = ["hello", "hallo", "common", "common2", "similar", "test", "toast", "help", "helo", "one", "two", "onq", "loooooooooongstring", "0", "01", "02", "03", "04", "123456", "193456", "hells"]
 
     const hpp_data = `
 #pragma once
