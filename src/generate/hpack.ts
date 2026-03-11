@@ -1806,8 +1806,8 @@ NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const 
 
     const encode_nodes: string[] = map_to_encode_nodes(map)
 
-    // note: hpack headers are always small cased
-    const common_hpack_key_names: string[] = ["date", "cookies", "server"]
+    // note: hpack header keys are always small cased
+    const common_hpack_key_names: string[] = ["date", "cookie", "server", "content-encoding", "host", "user-agent"]
 
     const key_of_static_table: string[] = unique_arr(raw_header_table.map(header => {
         return header.key
@@ -1900,7 +1900,7 @@ void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
 	free(map);
 }
 
-${generate_fast_string_compare_impl("hpack_generated_is_common_field_key_fast_cmp", common_hpack_key_names)}
+${generate_fast_string_compare_impl("hpack_generated_is_common_field_key_fast_cmp", common_hpack_key_names, { first_gen_call: true, static: false })}
 
 NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view){
 	const size_t len = str_view.len;
@@ -1917,7 +1917,7 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
 	return hpack_generated_is_common_field_key_fast_cmp(str_view).found;
 }
 
-${generate_fast_string_compare_impl("hpack_generated_is_key_of_static_table_fast_cmp", key_of_static_table, { first_gen_call: true, static: true })}
+${generate_fast_string_compare_impl("hpack_generated_is_key_of_static_table_fast_cmp", key_of_static_table, { first_gen_call: false, static: true })}
 
 ${Object.entries(value_by_key_static_table_strings).map((val): string => {
 
