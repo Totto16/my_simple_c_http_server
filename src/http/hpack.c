@@ -578,6 +578,9 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	// | Value String (Length octets)  |
 	// +-------------------------------+
 
+	// NOTE: this is exactly the same as parse_hpack_literal_header_field_never_indexed, except the
+	// first 4 bytes, which this function doesnÄt care about
+
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 4);
 
 	if(index_res.is_error) {
@@ -861,6 +864,17 @@ void global_free_http2_hpack_data(void) {
 	global_free_hpack_static_header_table_data();
 }
 
+NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_variant1(
+    const size_t field_key_table_idx, const tstr* const field_value,
+    const Http2HpackHuffmanUsage huffman_usage) {
+
+	UNUSED(field_key_table_idx);
+	UNUSED(field_value);
+	UNUSED(huffman_usage);
+	// TODO
+	return (SizedBuffer){ .data = NULL, .size = 0 };
+}
+
 NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_variant2_no_huffman(
     const HttpHeaderField* const field) {
 	// encode the value as:
@@ -1106,6 +1120,261 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 	}
 }
 
+NODISCARD static SizedBuffer encode_single_header_field_literal_incremental_indexing_variant1(
+    const size_t field_key_table_idx, const tstr* const field_value,
+    const Http2HpackHuffmanUsage huffman_usage) {
+
+	UNUSED(field_key_table_idx);
+	UNUSED(field_value);
+	UNUSED(huffman_usage);
+	// TODO
+	return (SizedBuffer){ .data = NULL, .size = 0 };
+}
+
+NODISCARD static SizedBuffer encode_single_header_field_incremental_indexing_variant2_no_huffman(
+    const HttpHeaderField* const field) {
+	// encode the value as:
+	// Literal Header Field with Incremental Indexing:
+	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.1
+
+	// variant 2:
+
+	//   0   1   2   3   4   5   6   7
+	// +---+---+---+---+---+---+---+---+
+	// | 0 | 1 |           0           |
+	// +---+---+-----------------------+
+	// | H |     Name Length (7+)      |
+	// +---+---------------------------+
+	// |  Name String (Length octets)  |
+	// +---+---------------------------+
+	// | H |     Value Length (7+)     |
+	// +---+---------------------------+
+	// | Value String (Length octets)  |
+	// +-------------------------------+
+
+	const size_t key_size = tstr_len(&(field->key));
+	const size_t value_size = tstr_len(&(field->value));
+
+	const size_t max_size = MAX_HPACK_VARIABLE_INTEGER_SIZE + MAX_HPACK_VARIABLE_INTEGER_SIZE +
+	                        key_size + value_size + 1;
+
+	SizedBuffer buffer = allocate_sized_buffer(max_size);
+
+	if(buffer.data == NULL) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	uint8_t* data = (uint8_t*)buffer.data;
+
+	size_t i = 0;
+
+	data[i++] = 0x40;
+
+	{ // encode key / name
+
+		// set Huffman to false
+		data[i] = 0x00;
+
+		int8_t result = encode_hpack_variable_integer(data + i, key_size, 7);
+
+		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += result;
+
+		memcpy(data + i, tstr_cstr(&(field->key)), key_size);
+
+		i += key_size;
+	}
+
+	{ // encode value
+
+		// set Huffman to false
+		data[i] = 0x00;
+
+		int8_t result = encode_hpack_variable_integer(data + i, value_size, 7);
+
+		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += result;
+
+		memcpy(data + i, tstr_cstr(&(field->value)), value_size);
+
+		i += value_size;
+	}
+
+	if(i > buffer.size) {
+		// NOTE: too much data used
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	void* new_data = realloc(buffer.data, i);
+
+	if(new_data == NULL) {
+		free_sized_buffer(buffer);
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	buffer.data = new_data;
+	buffer.size = i;
+
+	return buffer;
+}
+
+NODISCARD static SizedBuffer encode_single_header_field_incremental_indexing_variant2_huffman(
+    const HttpHeaderField* const field, const size_t size_key, const size_t size_value) {
+	// encode the value as:
+	// Literal Header Field with Incremental Indexing:
+	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.1
+
+	// variant 2:
+
+	//   0   1   2   3   4   5   6   7
+	// +---+---+---+---+---+---+---+---+
+	// | 0 | 1 |           0           |
+	// +---+---+-----------------------+
+	// | H |     Name Length (7+)      |
+	// +---+---------------------------+
+	// |  Name String (Length octets)  |
+	// +---+---------------------------+
+	// | H |     Value Length (7+)     |
+	// +---+---------------------------+
+	// | Value String (Length octets)  |
+	// +-------------------------------+
+
+	const size_t max_size = MAX_HPACK_VARIABLE_INTEGER_SIZE + MAX_HPACK_VARIABLE_INTEGER_SIZE +
+	                        size_key + size_value + 1;
+
+	SizedBuffer buffer = allocate_sized_buffer(max_size);
+
+	if(buffer.data == NULL) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	uint8_t* data = (uint8_t*)buffer.data;
+
+	size_t i = 0;
+
+	data[i++] = 0x40;
+
+	{ // encode key / name
+
+		// set Huffman to true
+		data[i] = 0x80;
+
+		int8_t result = encode_hpack_variable_integer(data + i, size_key, 7);
+
+		if(result < 1) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += result;
+
+		const HuffmanEncodeFixedResult enc_result =
+		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &(field->key));
+
+		if(enc_result.is_error) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		if(enc_result.data.result_size != size_key) {
+			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
+			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
+			// has
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += enc_result.data.result_size;
+	}
+
+	{ // encode value
+
+		// set Huffman to true
+		data[i] = 0x80;
+
+		int8_t result = encode_hpack_variable_integer(data + i, size_value, 7);
+
+		if(result < 1) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += result;
+
+		const HuffmanEncodeFixedResult enc_result =
+		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
+
+		if(enc_result.is_error) {
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		if(enc_result.data.result_size != size_value) {
+			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
+			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
+			// has
+			free_sized_buffer(buffer);
+			return (SizedBuffer){ .data = NULL, .size = 0 };
+		}
+
+		i += enc_result.data.result_size;
+	}
+
+	if(i > buffer.size) {
+		// NOTE: too much data used
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	void* new_data = realloc(buffer.data, i);
+
+	if(new_data == NULL) {
+		free_sized_buffer(buffer);
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	buffer.data = new_data;
+	buffer.size = i;
+
+	return buffer;
+}
+
+NODISCARD static SizedBuffer encode_single_header_field_literal_incremental_indexing_variant2(
+    const HttpHeaderField* const field, const Http2HpackHuffmanUsage huffman_usage) {
+	switch(huffman_usage) {
+		case Http2HpackHuffmanUsageNever: {
+			return encode_single_header_field_incremental_indexing_variant2_no_huffman(field);
+		}
+		case Http2HpackHuffmanUsageAlways: {
+			const size_t size_key = hpack_huffman_get_encoded_size(&(field->key));
+			const size_t size_value = hpack_huffman_get_encoded_size(&(field->value));
+
+			return encode_single_header_field_incremental_indexing_variant2_huffman(field, size_key,
+			                                                                        size_value);
+		}
+		case Http2HpackHuffmanUsageAuto:
+		default: {
+
+			const size_t size_key = hpack_huffman_get_encoded_size(&(field->key));
+			const size_t size_value = hpack_huffman_get_encoded_size(&(field->value));
+
+			if(size_key + size_value < tstr_len(&(field->key)) + tstr_len(&(field->value))) {
+				return encode_single_header_field_incremental_indexing_variant2_huffman(
+				    field, size_key, size_value);
+			}
+
+			return encode_single_header_field_incremental_indexing_variant2_no_huffman(field);
+		}
+	}
+}
+
 NODISCARD static SizedBuffer
 http2_hpack_compress_data_simple(const HttpHeaderFields header_fields,
                                  Http2HpackHuffmanUsage huffman_usage) {
@@ -1196,7 +1465,8 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 	// TODO: use modified comparison algorihtmn of the fast string cmp, as the static table is
 	// known, this can be faster!
 
-	const StaticTableFindResult static_table_find_result = hpack_generated_find_in_static_table_fast(field);
+	const StaticTableFindResult static_table_find_result =
+	    hpack_generated_find_in_static_table_fast(field);
 
 	switch(static_table_find_result.type) {
 		case StaticTableFindResultTypeAllFound: {
@@ -1303,21 +1573,78 @@ NODISCARD static SizedBuffer encode_single_header_field_extended_with_key_from_t
     const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type,
     const size_t key_table_idx) {
 
+	const bool should_add = should_add_header_to_table(field, table_add_type);
+
+	if(should_add) {
+
+		//
+	}
+
 	UNUSED(field);
 	UNUSED(compress_state);
 	UNUSED(huffman_usage);
 	UNUSED(table_add_type);
 	UNUSED(key_table_idx);
+	UNUSED(should_add);
 	// TODO
 	return (SizedBuffer){ .data = NULL, .size = 0 };
 }
 
 NODISCARD static SizedBuffer
+encode_single_header_field_indexed_header_field(const size_t entry_table_idx) {
+	// encode the value as:
+	// Indexed Header Field:
+	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.1
+	//    0   1   2   3   4   5   6   7
+	//  +---+---+---+---+---+---+---+---+
+	//  | 1 |        Index (7+)         |
+	//  +---+---------------------------+
+
+	const size_t max_size = MAX_HPACK_VARIABLE_INTEGER_SIZE;
+
+	SizedBuffer buffer = allocate_sized_buffer(max_size);
+
+	if(buffer.data == NULL) {
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	uint8_t* data = (uint8_t*)buffer.data;
+
+	size_t i = 0;
+
+	data[i] = 0x80; // set the first bit
+
+	assert(entry_table_idx != 0);
+	int8_t result = encode_hpack_variable_integer(data + i, entry_table_idx, 7);
+
+	if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
+		free_sized_buffer(buffer);
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	i += result;
+
+	if(i > buffer.size) {
+		// NOTE: too much data used
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	void* new_data = realloc(buffer.data, i);
+
+	if(new_data == NULL) {
+		free_sized_buffer(buffer);
+		return (SizedBuffer){ .data = NULL, .size = 0 };
+	}
+
+	buffer.data = new_data;
+	buffer.size = i;
+
+	return buffer;
+}
+
+NODISCARD static inline SizedBuffer
 encode_single_header_field_extended_with_entry_from_table(const size_t entry_table_idx) {
-	//
-	UNUSED(entry_table_idx);
-	// TODO
-	return (SizedBuffer){ .data = NULL, .size = 0 };
+	return encode_single_header_field_indexed_header_field(entry_table_idx);
 }
 
 NODISCARD static SizedBuffer encode_single_header_field_extended(
