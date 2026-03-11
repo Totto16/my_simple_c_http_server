@@ -910,7 +910,7 @@ function getValue(code: HuffmanCode): EndValue {
     throw new Error("Error")
 }
 
-function check_valid_root(root: HuffmanNode): void {
+function check_valid_root_tree_1(root: HuffmanNode): void {
 
     if (root.id === null) {
         throw new Error("NULL id on node")
@@ -925,8 +925,8 @@ function check_valid_root(root: HuffmanNode): void {
 
     const node = root.node
 
-    check_valid_root(node.bit_0)
-    check_valid_root(node.bit_1)
+    check_valid_root_tree_1(node.bit_0)
+    check_valid_root_tree_1(node.bit_1)
 
 }
 
@@ -1044,7 +1044,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
     }
 
-    check_valid_root(root)
+    check_valid_root_tree_1(root)
 
     const tree: HuffmanTree = { root: root }
 
@@ -1199,21 +1199,48 @@ function map_to_encode_nodes(map: HuffmanEncodingMap): string[] {
 
 }
 
-interface FastStringCompareNodeEnd {
-    type: "end"
-    result: boolean
+class FastStringCompareNodeBasic {
+    id: null | bigint
+
+    constructor(id: null | bigint) {
+        this.id = id;
+    }
 }
+
+
+class FastStringCompareNodeEnd extends FastStringCompareNodeBasic {
+    type: "end"
+    result: boolean | null
+
+    constructor(result: boolean | null) {
+        super(null);
+
+        this.type = "end";
+        this.result = result
+    }
+}
+
 
 interface FastStringComparePrefix {
     prefix: string
     node: FastStringCompareNode
 }
 
-interface FastStringCompareNodeNormal {
+class FastStringCompareNodeNormal extends FastStringCompareNodeBasic {
     type: "normal"
     prefix_len: number
     data: FastStringComparePrefix[]
+
+    constructor(prefix_len: number,
+        data: FastStringComparePrefix[]) {
+        super(null);
+
+        this.type = "normal";
+        this.prefix_len = prefix_len;
+        this.data = data;
+    }
 }
+
 
 type FastStringCompareNode = FastStringCompareNodeEnd | FastStringCompareNodeNormal
 
@@ -1223,7 +1250,7 @@ function isNormalNode(node: FastStringCompareNode): node is FastStringCompareNod
 
 interface FastStringCompareTree {
     root: FastStringCompareNode
-    nodes_length: number
+    node_amount: bigint
 }
 
 type FastStringCompare = Record<number, FastStringCompareTree>
@@ -1233,6 +1260,29 @@ function nodes_from_str_tree(tree: FastStringCompareTree): FastStringCompareNode
     //TODO
     console.log(tree)
     return []
+}
+
+function check_valid_root_tree_2(root: FastStringCompareNode): void {
+
+    if (root.id === null) {
+        throw new Error("NULL id on node")
+    }
+
+    if (root.type === "end") {
+        if (root.result === null) {
+            throw new Error("NULL end node")
+        }
+        return;
+    }
+
+    if (root.data.length === 0) {
+        throw new Error("empty subnodes in normal node")
+    }
+
+    for (const node of root.data) {
+        check_valid_root_tree_2(node.node)
+    }
+
 }
 
 function process_string_fast_compare(input: string[]): FastStringCompare {
@@ -1267,7 +1317,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
     for (const [key, value] of Object.entries(step1)) {
 
 
-        const tree: FastStringCompareTree = { root: { type: "end", result: false }, nodes_length: 0 }
+        let root: FastStringCompareNode = new FastStringCompareNodeEnd(false);
 
         const cazes = value!.cases
 
@@ -1275,23 +1325,22 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
             throw new Error("Unrechable")
         } else if (cazes.length == 1) {
             const caze = cazes[0]!
-            tree.root = {
-                type: "normal", prefix_len: caze.length, data: [
-                    {
-                        prefix: caze,
-                        node: { type: "end", result: true }
-                    }
-                ]
-            }
+            root = new FastStringCompareNodeNormal(caze.length, [
+                {
+                    prefix: caze,
+                    node: new FastStringCompareNodeEnd(true)
+                }
+            ]
+            );
         } else {
 
-            tree.root = {
-                type: "normal", prefix_len: 1, data: []
-            }
+            root = new FastStringCompareNodeNormal(
+                1, []
+            )
 
             for (const caze of cazes) {
 
-                let node: FastStringCompareNode = tree.root
+                let node: FastStringCompareNode = root
 
                 for (let i = 0; i < caze.length;) {
 
@@ -1308,14 +1357,11 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
                     })
 
                     if (foundIndex < 0) {
-                        const next_node: FastStringCompareNode = i + inc >= caze.length ? {
-                            type: "end",
-                            result: true
-                        } : {
-                            type: "normal",
-                            prefix_len: 1,
-                            data: []
-                        }
+                        const next_node: FastStringCompareNode = i + inc >= caze.length ? new FastStringCompareNodeEnd(
+
+                            true
+                        ) : new FastStringCompareNodeNormal(1, []);
+
 
                         node.data.push({
                             prefix: char_value,
@@ -1324,12 +1370,8 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
                         node = next_node
                     } else {
-
                         node = node.data[foundIndex]!.node;
-
-
                     }
-
 
                     i += inc;
                 }
@@ -1338,10 +1380,32 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
         }
 
+        const nodes: FastStringCompareNode[] = [root]
 
-        //TODO: add id and count node_length;
-        tree.nodes_length = 0;
-        result[key as unknown as number] = tree
+        let id: bigint = 0n;
+
+        // make an id for each node
+        while (nodes.length != 0) {
+
+            const node = nodes.pop()!;
+
+            node.id = id;
+            ++id;
+
+            if (node.type != "end") {
+                for (const data of node.data) {
+                    nodes.push(data.node)
+                }
+            }
+
+        }
+
+
+        check_valid_root_tree_2(root)
+
+
+
+        result[key as unknown as number] = { root: root, node_amount: id }
     }
 
 
@@ -1580,7 +1644,7 @@ ${Object.entries(hpack_key_names_common_preprocessed).map(([key, tree]): string 
 
         return `		case ${key}: {
 			FastStringCmpTree fast_string_cmp_tree_${key} = {.len = ${key}, .root = NULL};
-			FastStringCmpNode fast_string_cmp_nodes_${key}[${tree.nodes_length}] = {};
+			FastStringCmpNode fast_string_cmp_nodes_${key}[${tree.node_amount}] = {};
 
 			{
 ${nodes_from_str_tree(tree).map((node) => {
