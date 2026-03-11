@@ -1221,23 +1221,38 @@ class FastStringCompareNodeEnd extends FastStringCompareNodeBasic {
 }
 
 
-interface FastStringComparePrefix {
+
+
+class FastStringComparePrefix extends FastStringCompareNodeBasic {
+    type: "prefix"
     prefix: string
     node: FastStringCompareNode
+
+    constructor(
+        prefix: string,
+        node: FastStringCompareNode) {
+        super(null);
+
+        this.type = "prefix";
+        this.prefix = prefix;
+        this.node = node;
+    }
 }
 
 class FastStringCompareNodeNormal extends FastStringCompareNodeBasic {
     type: "normal"
     prefix_len: number
-    data: FastStringComparePrefix[]
+    prefixes: FastStringComparePrefix[]
+    prefix_offset: number | null
 
     constructor(prefix_len: number,
-        data: FastStringComparePrefix[]) {
+        prefixes: FastStringComparePrefix[]) {
         super(null);
 
         this.type = "normal";
         this.prefix_len = prefix_len;
-        this.data = data;
+        this.prefixes = prefixes;
+        this.prefix_offset = null
     }
 }
 
@@ -1251,36 +1266,55 @@ function isNormalNode(node: FastStringCompareNode): node is FastStringCompareNod
 interface FastStringCompareTree {
     root: FastStringCompareNode
     node_amount: bigint
+    prefix_amount: bigint
     strings: string[]
 }
 
 type FastStringCompare = Record<number, FastStringCompareTree>
 
 
-function nodes_from_str_tree(tree: FastStringCompareTree): FastStringCompareNode[] {
+interface FastStringComparePrefixesWithOffset {
+    offset: number
+    prefixes: FastStringComparePrefix[]
+}
 
-    const result: FastStringCompareNode[] = []
+interface NodesAndPrefixes {
+    nodes: FastStringCompareNode[]
+    prefixes: FastStringComparePrefixesWithOffset[]
+}
 
-    const nodes: FastStringCompareNode[] = [tree.root]
+function nodes_and_prefixes_from_str_tree(tree: FastStringCompareTree): NodesAndPrefixes {
 
-    let id: bigint = 0n;
+    const nodes: FastStringCompareNode[] = []
+    const prefixes: FastStringComparePrefixesWithOffset[] = []
 
-    // make an id for each node
-    while (nodes.length != 0) {
+    const temp_nodes: FastStringCompareNode[] = [tree.root]
 
-        const node = nodes.pop()!;
+    while (temp_nodes.length != 0) {
 
-        result.push(node)
+        const node = temp_nodes.pop()!;
+
+        nodes.push(node)
 
         if (node.type != "end") {
-            for (const data of node.data) {
-                nodes.push(data.node)
+            for (const data of node.prefixes) {
+                temp_nodes.push(data.node)
             }
+
+            if (node.prefix_offset == null) {
+                throw new Error("Implementation error")
+            }
+
+
+            const prefix: FastStringComparePrefixesWithOffset = { prefixes: node.prefixes, offset: node.prefix_offset }
+
+            prefixes.push(prefix)
+
         }
 
     }
 
-    return result;
+    return { nodes, prefixes };
 }
 
 function check_valid_root_tree_2(root: FastStringCompareNode): void {
@@ -1296,17 +1330,28 @@ function check_valid_root_tree_2(root: FastStringCompareNode): void {
         return;
     }
 
-    if (root.data.length === 0) {
+    if (root.prefixes.length === 0) {
         throw new Error("empty subnodes in normal node")
     }
 
-    for (const node of root.data) {
-        check_valid_root_tree_2(node.node)
+    if (root.prefix_offset === null) {
+        throw new Error("NULL prefix offset")
+    }
+
+    for (const prefix of root.prefixes) {
+        if (prefix.id === null) {
+            throw new Error("NULL prefix id on node")
+        }
+        check_valid_root_tree_2(prefix.node)
     }
 
 }
 
-function fast_string_node_to_c(node: FastStringCompareNode, array_name: string): string {
+function fast_string_prefix_to_c(prefix: FastStringComparePrefix, array_name: string): string {
+    return `(FastStringCmpPrefix){ .prefix = "${prefix.prefix}", .node = &(${array_name}[${prefix.node.id}])}`
+}
+
+function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes: string): string {
 
     if (!isNormalNode(node)) {
 
@@ -1318,9 +1363,7 @@ function fast_string_node_to_c(node: FastStringCompareNode, array_name: string):
 
     }
 
-    return `(FastStringCmpNode){ .is_result = false, .data = { .prefixes = (FastStringCmpPrefixes){ .prefix_len = ${node.prefix_len}, .data_len = ${node.data.length}, .data = {${node.data.map((d): string => {
-        return `(FastStringCmpPrefixes){ .prefix = "${d.prefix}", .node = &(${array_name}[${d.node.id}])}`
-    }).join(", ")}} } }}`
+    return `(FastStringCmpNode){ .is_result = false, .data = { .prefixes = (FastStringCmpPrefixes){ .prefix_len = ${node.prefix_len}, .array = (FastStringCmpPrefixArray) { .len = ${node.prefixes.length}, .data = &(${array_name_prefixes}[${node.prefix_offset}]) } } } }`
 
 }
 
@@ -1365,10 +1408,10 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
         } else if (cazes.length == 1) {
             const caze = cazes[0]!
             root = new FastStringCompareNodeNormal(caze.length, [
-                {
-                    prefix: caze,
-                    node: new FastStringCompareNodeEnd(true)
-                }
+                new FastStringComparePrefix(
+                    caze,
+                    new FastStringCompareNodeEnd(true)
+                )
             ]
             );
         } else {
@@ -1391,7 +1434,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
                     const char_value = caze.substring(i, i + inc)
 
-                    const foundIndex = node.data.findIndex((val) => {
+                    const foundIndex = node.prefixes.findIndex((val) => {
                         return val.prefix == char_value
                     })
 
@@ -1402,14 +1445,13 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
                         ) : new FastStringCompareNodeNormal(1, []);
 
 
-                        node.data.push({
-                            prefix: char_value,
-                            node: next_node
-                        })
+                        node.prefixes.push(new FastStringComparePrefix(char_value,
+                            next_node
+                        ))
 
                         node = next_node
                     } else {
-                        node = node.data[foundIndex]!.node;
+                        node = node.prefixes[foundIndex]!.node;
                     }
 
                     i += inc;
@@ -1422,6 +1464,8 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
         const nodes: FastStringCompareNode[] = [root]
 
         let id: bigint = 0n;
+        let prefix_id: bigint = 0n;
+        let prefix_offset: number = 0;
 
         // make an id for each node
         while (nodes.length != 0) {
@@ -1432,16 +1476,21 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
             ++id;
 
             if (node.type != "end") {
-                for (const data of node.data) {
-                    nodes.push(data.node)
+                node.prefix_offset = prefix_offset
+
+                for (const prefix of node.prefixes) {
+                    nodes.push(prefix.node)
+                    prefix.id = prefix_id;
                 }
+                ++prefix_id;
+                prefix_offset += node.prefixes.length
             }
 
         }
 
         check_valid_root_tree_2(root)
 
-        const tree: FastStringCompareTree = { root: root, node_amount: id, strings: cazes };
+        const tree: FastStringCompareTree = { root: root, node_amount: id, strings: cazes, prefix_amount: prefix_id };
 
         result[key as unknown as number] = tree;
     }
@@ -1527,8 +1576,6 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
 
     const hpack_key_names_common_preprocessed: FastStringCompare = process_string_fast_compare(common_hpack_key_names)
 
-    console.log(hpack_key_names_common_preprocessed)
-
     const c_data = `
 #include "./${path.basename(generated_hpack_huffman_file_h)}"
 
@@ -1604,9 +1651,13 @@ typedef struct {
 } FastStringCmpPrefix;
 
 typedef struct {
+	size_t len;
+	FastStringCmpPrefix* data;
+} FastStringCmpPrefixArray;
+
+typedef struct {
 	size_t prefix_len;
-	size_t data_len;
-	FastStringCmpPrefix data[];
+	FastStringCmpPrefixArray array;
 } FastStringCmpPrefixes;
 
 struct FastStringCmpNodeImpl {
@@ -1643,8 +1694,8 @@ NODISCARD static bool fast_compare_string_with_tree(const FastStringCmpTree tree
 		}
 
 		bool found = false;
-		for(size_t j = 0; j < prefixes.data_len; ++j){
-			const FastStringCmpPrefix prefix = prefixes.data[j];
+		for(size_t j = 0; j < prefixes.array.len; ++j){
+			const FastStringCmpPrefix prefix = prefixes.array.data[j];
 
 			//TODO: maybe use normal char cmp if prefix_len == 1
 			if(strncmp((((const char*)str_view.data) + index), prefix.prefix, prefixes.prefix_len) == 0){
@@ -1681,14 +1732,29 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
 ${Object.entries(hpack_key_names_common_preprocessed).map(([key, tree]): string => {
 
         const array_name: string = `fast_string_cmp_nodes_${key}`;
+        const array_name_prefixes: string = `fast_string_cmp_prefixes_${key}`;
+
+        const values = nodes_and_prefixes_from_str_tree(tree)
 
         return `		case ${key}: {
 			FastStringCmpNode ${array_name}[${tree.node_amount}] = {};
+			FastStringCmpPrefix ${array_name_prefixes}[${tree.prefix_amount}] = {};
 
 			// handling strings: ${tree.strings.map(str => `"${str}"`).join(", ")}
 			{
-${nodes_from_str_tree(tree).map((node): string => {
-            return `				${array_name}[${node.id}] = ${fast_string_node_to_c(node, array_name)};`
+			// nodes
+${values.nodes.map((node): string => {
+            return `				${array_name}[${node.id}] = ${fast_string_node_to_c(node, array_name_prefixes)};`
+        }).join("\n")}
+			// prefixes
+${values.prefixes.map((prefixes): string => {
+
+            return prefixes.prefixes.map((prefix, idx): string => {
+
+                const totalIdx = prefixes.offset + idx;
+
+                return `				${array_name_prefixes}[${totalIdx}] = ${fast_string_prefix_to_c(prefix, array_name)};`
+            }).join("\n");
         }).join("\n")}
 			}
 
@@ -1696,6 +1762,7 @@ ${nodes_from_str_tree(tree).map((node): string => {
 
 			return fast_compare_string_with_tree(fast_string_cmp_tree_${key}, str_view);
 		}`
+
 
     }).join("\n")}
 
