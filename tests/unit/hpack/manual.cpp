@@ -993,26 +993,34 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 	}
 }
 
+namespace {
+struct TestCaseStrCmp {
+	std::string value;
+	bool result;
+};
+} // namespace
+
 TEST_CASE("testing fast string comparison <fast_string_cmp>") {
 
-	std::vector<std::string> test_cases = {
-		"",
-		"hello world",
-		"longer string",
+	std::vector<TestCaseStrCmp> test_cases = {
+		TestCaseStrCmp{ .value = "", .result = false },
+		TestCaseStrCmp{ .value = "hello world", .result = false },
+		TestCaseStrCmp{ .value = "longer string", .result = false },
 	};
 
 	const auto test_data_strings = generated::c_test_fns::get_test_data_strings();
 
 	for(const auto& val : test_data_strings) {
-		test_cases.emplace_back(val);
+		test_cases.emplace_back(val, true);
 	}
 
 	for(const auto& test_case : test_cases) {
 
-		const bool expected_result = vec_contains(test_data_strings, test_case);
+		const bool expected_result = test_case.result;
+		const auto& str = test_case.value;
 
 		const auto actual_result = generated_c_test_fns_fast_string_compare_test_data(
-		    tstr_view{ test_case.c_str(), test_case.size() });
+		    tstr_view{ str.c_str(), str.size() });
 
 		REQUIRE_EQ(actual_result.found, expected_result);
 
@@ -1022,7 +1030,7 @@ TEST_CASE("testing fast string comparison <fast_string_cmp>") {
 
 			const std::string& actual_result_str = test_data_strings.at(actual_result.index);
 
-			REQUIRE_EQ(actual_result_str, test_case);
+			REQUIRE_EQ(actual_result_str, str);
 		} else {
 			REQUIRE_EQ(actual_result.index, 0);
 		}

@@ -45,7 +45,6 @@ endforeach
 
 cpp = meson.get_compiler('cpp')
 
-
 internal_cpp_args = []
 
 internal_cpp_args += cpp.get_supported_arguments(correct_cpp_args)
