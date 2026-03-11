@@ -1178,7 +1178,7 @@ function encode_node_c(code: HuffmanCodeNormal): string {
 
     const byteLength: number = Math.ceil(code.bytes.size / 8);
 
-    return `(HuffmanEncodeEntry){.bit_size = ${code.bytes.size}, .value = ${toHexString(encodeValueLSB, byteLength)}}`
+    return `(HuffmanEncodeEntry){ .bit_size = ${code.bytes.size}, .value = ${toHexString(encodeValueLSB, byteLength)}}`
 }
 
 function map_to_encode_nodes(map: HuffmanEncodingMap): string[] {
@@ -1386,9 +1386,6 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
     for (let i = 0; i < input.length; ++i) {
         const inp = input.at(i)!
-        if (inp.toLowerCase() != inp) {
-            throw new Error(`hpack fields need to be lowercase, but got: ${inp}`)
-        }
 
         if (is_utf8_string(inp)) {
             throw new Error(`hpack fields need to be ascii, to be usable for this algorithmn`)
@@ -1512,18 +1509,12 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
     return result
 }
 
-function generate_fast_stringcompare_decl(function_name: string): string {
+function generate_fast_string_compare_decl(function_name: string): string {
     return `
 NODISCARD FastStringCompareResult ${function_name}(const tstr_view str_view);`
 }
 
-function generate_fast_stringcompare_impl(function_name: string, list_of_strings: string[]): string {
-
-
-    const preprocessed_compare: FastStringCompare = process_string_fast_compare(list_of_strings)
-
-    const need_fast_compare_string_with_tree = Object.entries(preprocessed_compare).filter(([_, tree]): boolean => { return tree.strings.length > 1 }).length > 0;
-
+function generate_types_for_fast_compare(): string {
     return `
 typedef struct FastStringCmpNodeImpl FastStringCmpNode;
 
@@ -1553,8 +1544,22 @@ struct FastStringCmpNodeImpl {
 typedef struct {
 	FastStringCmpNode* root;
 } FastStringCmpTree;
+`
+}
 
-${!need_fast_compare_string_with_tree ? "" : `NODISCARD static FastStringCompareResult fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
+interface StringCompareFlags {
+    first_gen_call: boolean
+    static: boolean
+}
+
+function generate_fast_string_compare_impl(function_name: string, list_of_strings: string[], flags: StringCompareFlags = { first_gen_call: false, static: false }): string {
+
+    const preprocessed_compare: FastStringCompare = process_string_fast_compare(list_of_strings)
+
+    return `
+${!flags.first_gen_call ? "" : generate_types_for_fast_compare()}
+
+${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
 	
 	const FastStringCmpNode* node = tree.root;
 	size_t index = 0;
@@ -1605,7 +1610,8 @@ ${!need_fast_compare_string_with_tree ? "" : `NODISCARD static FastStringCompare
 	return (FastStringCompareResult){ .found = false, .index = 0 };
 }
 `}
-NODISCARD FastStringCompareResult ${function_name}(const tstr_view str_view){
+
+NODISCARD ${flags.static ? "static " : ""}FastStringCompareResult ${function_name}(const tstr_view str_view){
 	switch(str_view.len){
 ${Object.entries(preprocessed_compare).map(([key, tree]): string => {
 
@@ -1648,7 +1654,7 @@ ${values.prefixes.map((prefixes): string => {
             }).join("\n")}
 			}
 
-			FastStringCmpTree fast_string_cmp_tree_${key} = {.root = &(${array_name}[${tree.root.id}])};
+			FastStringCmpTree fast_string_cmp_tree_${key} = { .root = &(${array_name}[${tree.root.id}])};
 
 			return fast_compare_string_with_tree(fast_string_cmp_tree_${key}, str_view);
 		}`
@@ -1662,10 +1668,7 @@ ${values.prefixes.map((prefixes): string => {
 		}
 	}
 }
-
-
-
-    `
+`
 }
 
 function assert(val: boolean, message: string): never | void {
@@ -1687,6 +1690,24 @@ function getOtherFile(inp_file: string, expected_ext: string, other_ext: string)
     return other_file;
 }
 
+function unique_arr<T>(arr: T[]): T[] {
+    return [...new Set<T>(arr)]
+}
+
+function arr_eq<T>(arr1: T[], arr2: T[]): boolean {
+    if (arr1.length != arr2.length) {
+        return false;
+    }
+
+    for (let i = 0; i < arr1.length; ++i) {
+        if (arr1.at(i) != arr2.at(i)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
 
     assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
@@ -1697,6 +1718,8 @@ function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, 
 #include "utils/utils.h"
 
 #include <tstr.h>
+
+#include <http/protocol.h>
 
 typedef struct HuffmanTreeImpl HuffmanTree;
 
@@ -1750,9 +1773,27 @@ typedef struct {
 	size_t index;
 } FastStringCompareResult;
 
-${generate_fast_stringcompare_decl("hpack_generated_is_common_field_key_fast_cmp")}
+${generate_fast_string_compare_decl("hpack_generated_is_common_field_key_fast_cmp")}
 
 NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view);
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	StaticTableFindResultTypeNotFound = 0,
+	StaticTableFindResultTypeKeyFound,
+	StaticTableFindResultTypeAllFound,
+} StaticTableFindResultType;
+
+typedef struct {
+	StaticTableFindResultType type;
+	union {
+		size_t index;
+	} data;
+} StaticTableFindResult;
+
+NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* const field);
 `
 
     writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
@@ -1767,6 +1808,30 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
 
     // note: hpack headers are always small cased
     const common_hpack_key_names: string[] = ["date", "cookies", "server"]
+
+    const key_of_static_table: string[] = unique_arr(raw_header_table.map(header => {
+        return header.key
+    }))
+
+    const value_by_key_static_table_strings: Record<string, RawHeaderTable[] | undefined> = {}
+
+    for (const hdr_key of key_of_static_table) {
+        const values = raw_header_table.filter((header): boolean => {
+            return header.key == hdr_key
+        })
+
+        if (values.length <= 1) {
+            continue;
+        }
+
+        value_by_key_static_table_strings[hdr_key] = values
+
+    }
+
+    function static_table_fast_cmp_value_for(key: string): string {
+        return `hpack_generated_is_value_of_static_table_with_key_${key.replace(":", "dp_")}_fast_cmp`
+    }
+
 
     const c_data = `
 #include "./${path.basename(generated_hpack_huffman_file_h)}"
@@ -1835,8 +1900,7 @@ void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
 	free(map);
 }
 
-
-${generate_fast_stringcompare_impl("hpack_generated_is_common_field_key_fast_cmp", common_hpack_key_names)}
+${generate_fast_string_compare_impl("hpack_generated_is_common_field_key_fast_cmp", common_hpack_key_names)}
 
 NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view){
 	const size_t len = str_view.len;
@@ -1851,6 +1915,91 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
 	}
 
 	return hpack_generated_is_common_field_key_fast_cmp(str_view).found;
+}
+
+${generate_fast_string_compare_impl("hpack_generated_is_key_of_static_table_fast_cmp", key_of_static_table, { first_gen_call: true, static: true })}
+
+${Object.entries(value_by_key_static_table_strings).map((val): string => {
+
+        const name = static_table_fast_cmp_value_for(val[0])
+
+        return `
+
+${generate_fast_string_compare_impl(name, val[1]!.map((value): string => {
+
+            if (value.value === null) {
+                throw new Error("Implementation error")
+            }
+
+            return value.value;
+
+        }), { first_gen_call: false, static: true })}
+
+`
+
+    }).join("\n\n")}
+
+NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* const field){
+
+	const FastStringCompareResult result = hpack_generated_is_key_of_static_table_fast_cmp(tstr_as_view(&field->key));
+
+	if(!result.found){
+		return (StaticTableFindResult){ .type = StaticTableFindResultTypeNotFound };
+	}
+
+	switch(result.index){
+${key_of_static_table.map((str, idx) => {
+
+        const values = raw_header_table.filter((header): boolean => {
+            return header.key == str
+        })
+
+        if (values.length == 0) {
+            throw new Error("Implementation error")
+        }
+
+        if (values.length == 1) {
+
+            const value = values[0]!
+
+            if (value.value === null) {
+                return `		case ${idx}: {
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index} } };
+		}`
+            }
+
+            return `		case ${idx}: {
+			if(strncmp(tstr_cstr(&(field->value)), ${to_c_str(value.value)}, ${value.value.length}) == 0){
+				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = ${value.index} } };
+			}
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index} } };
+		}`
+        }
+
+        if (value_by_key_static_table_strings[str] === undefined || !arr_eq(values, value_by_key_static_table_strings[str])) {
+            throw new Error("generated and used strings have to be the same!")
+
+        }
+
+        return `		case ${idx}: {
+			const FastStringCompareResult value_cmp_res = ${static_table_fast_cmp_value_for(str)}(tstr_as_view(&(field->value)));
+
+			if(value_cmp_res.found){
+				const size_t index_map[${values.length}] = {${values.map(value => {
+            return `${value.index}`
+        })}};
+
+				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = index_map[value_cmp_res.index] } };
+			}
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${values[0]!.index} } };
+		}`
+
+    }).join("\n")}
+		default: {
+			assert(false && "UNREACHABLE");
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeNotFound };
+		}
+	}
 }
 `
 
@@ -2319,7 +2468,7 @@ extern "C" {
 
 	#include "generated_hpack_huffman.h"
 
-	${generate_fast_stringcompare_decl("generated_c_test_fns_fast_string_compare_test_data")}
+	${generate_fast_string_compare_decl("generated_c_test_fns_fast_string_compare_test_data")}
 }
 
 `
@@ -2343,7 +2492,7 @@ std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
 extern "C" {
 	#pragma GCC diagnostic push
 	#pragma GCC diagnostic ignored "-Wc99-extensions"
-	${generate_fast_stringcompare_impl("generated_c_test_fns_fast_string_compare_test_data", fast_string_compare_test_data)}
+	${generate_fast_string_compare_impl("generated_c_test_fns_fast_string_compare_test_data", fast_string_compare_test_data, { first_gen_call: true, static: false })}
 	#pragma GCC diagnostic pop
 }
 `

@@ -1179,13 +1179,7 @@ NODISCARD static inline TableFindResultType table_entry_matches(const HttpHeader
 	return TableFindResultTypeAllFound;
 }
 
-NODISCARD static TableFindResultType
-table_entry_matches_static(const HttpHeaderField* const field,
-                           const HpackHeaderStaticEntry* const entry) {
-	return table_entry_matches(field, &(entry->key), &(entry->value));
-}
-
-NODISCARD static TableFindResultType
+NODISCARD static inline TableFindResultType
 table_entry_matches_dynamic(const HttpHeaderField* const field,
                             const HpackHeaderDynamicEntry* const entry) {
 	return table_entry_matches(field, &(entry->key), &(entry->value));
@@ -1202,33 +1196,27 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 	// TODO: use modified comparison algorihtmn of the fast string cmp, as the static table is
 	// known, this can be faster!
 
-	for(size_t i = 0; i < HPACK_STATIC_HEADER_TABLE_SIZE; ++i) {
-		const HpackHeaderStaticEntry static_entry = g_hpack_static_data.static_header_table[i];
+	const StaticTableFindResult static_table_find_result = hpack_generated_find_in_static_table_fast(field);
 
-		const TableFindResultType matches_entry = table_entry_matches_static(field, &static_entry);
-
-		switch(matches_entry) {
-			case TableFindResultTypeAllFound: {
-				return (TableFindResult){ .type = TableFindResultTypeAllFound,
-					                      .data = { .index = i + 1 } };
-			}
-			case TableFindResultTypeKeyFound: {
-				// - store the key found result, maybe we find a better entry, so we use that,
-				// otherwise we use this entry
-				// - always overwrite the current result, since íf multiple entries match the key,
-				// it is irrelevant which entry we use
-
-				result = (TableFindResult){ .type = TableFindResultTypeKeyFound,
-					                        .data = { .index = i + 1 } };
-				break;
-			}
-			case TableFindResultTypeNotFound:
-			default: {
-				break;
-			}
+	switch(static_table_find_result.type) {
+		case StaticTableFindResultTypeAllFound: {
+			return (TableFindResult){ .type = TableFindResultTypeAllFound,
+				                      .data = { .index = static_table_find_result.data.index } };
 		}
+		case StaticTableFindResultTypeKeyFound: {
+			// - store the key found result, maybe we find a better entry, so we use that,
+			// otherwise we use this entry
+			// - always overwrite the current result, since íf multiple entries match the key,
+			// it is irrelevant which entry we use
 
-		//
+			result = (TableFindResult){ .type = TableFindResultTypeKeyFound,
+				                        .data = { .index = static_table_find_result.data.index } };
+			break;
+		}
+		case StaticTableFindResultTypeNotFound:
+		default: {
+			break;
+		}
 	}
 
 	if(!use_all_tables) {
