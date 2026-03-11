@@ -1,4 +1,3 @@
-
 #include <benchmark/benchmark.h>
 
 #include "generated_hpack_tests.hpp"

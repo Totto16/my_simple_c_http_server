@@ -46,12 +46,11 @@ if cpp.get_id() == 'gcc'
     internal_cpp_args += cc.get_supported_arguments('-Wno-missing-braces')
 endif
 
-bench_files = files('string_compare.cpp')
+bench_src += files('serialize.cpp', 'string_compare.cpp')
 
 bench_exe = executable(
     'bench',
     bench_src,
-    bench_files,
     include_directories: bench_inc_dirs,
     dependencies: [bench_deps, http_server_dep],
     cpp_args: internal_cpp_args,
@@ -67,5 +66,5 @@ benchmark(
     'bench',
     bench_exe,
     protocol: 'exitcode',
-    workdir: workdir
+    workdir: workdir,
 )
