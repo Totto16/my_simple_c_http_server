@@ -1579,6 +1579,13 @@ ${!need_fast_compare_string_with_tree ? "" : `NODISCARD static FastStringCompare
 		}
 
 		index += prefixes.prefix_len;
+
+		if(index == str_view.len){
+			if(node->is_result){
+				return node->data.result;
+			}
+			return (FastStringCompareResult){ .found = false, .value = NULL };
+		}
 	
 	}
 	
