@@ -1508,11 +1508,9 @@ function generate_fast_stringcompare_impl(function_name: string, list_of_strings
 
     const preprocessed_compare: FastStringCompare = process_string_fast_compare(list_of_strings)
 
-
+    const need_fast_compare_string_with_tree = Object.entries(preprocessed_compare).filter(([_, tree]): boolean => { return tree.strings.length > 1 }).length > 0;
 
     return `
-
-
 typedef struct FastStringCmpNodeImpl FastStringCmpNode;
 
 typedef struct {
@@ -1542,7 +1540,7 @@ typedef struct {
 	FastStringCmpNode* root;
 } FastStringCmpTree;
 
-NODISCARD static bool fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
+${!need_fast_compare_string_with_tree ? "" : `NODISCARD static bool fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
 	
 	const FastStringCmpNode* node = tree.root;
 	size_t index = 0;
@@ -1585,7 +1583,7 @@ NODISCARD static bool fast_compare_string_with_tree(const FastStringCmpTree tree
 	
 	return false;
 }
-
+`}
 NODISCARD bool ${function_name}(const tstr_view str_view){
 	const size_t len = str_view.len;
 
@@ -1797,6 +1795,7 @@ NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void){
 void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
 	free(map);
 }
+
 
 ${generate_fast_stringcompare_impl("hpack_generated_is_common_field_key_fast", common_hpack_key_names)}
 `
@@ -2262,6 +2261,9 @@ ${utf8_tests_to_cpp(final_test_case).join(",\n")}
 #ifndef NODISCARD
 #define NODISCARD [[nodiscard]]
 #endif
+
+#include <tstr.h>
+#include <cassert>
 
 namespace generated::c_test_fns {
     std::vector<std::string> test_data_strings = {${fast_string_compare_test_data.map((str): string => `"${str}"`).join(", ")}};
