@@ -1481,8 +1481,8 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
                 for (const prefix of node.prefixes) {
                     nodes.push(prefix.node)
                     prefix.id = prefix_id;
+                    ++prefix_id;
                 }
-                ++prefix_id;
                 prefix_offset += node.prefixes.length
             }
 
