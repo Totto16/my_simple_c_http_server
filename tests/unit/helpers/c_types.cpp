@@ -8,17 +8,17 @@
 #include <sstream>
 #include <string>
 
-namespace {
-
-constexpr const size_t buffer_max_for_printing_content = 40;
-
 [[nodiscard]] std::string get_hex_value_for_u8(std::uint8_t value) {
 	std::ostringstream oss;
-	oss << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+	oss << "0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
 	    << static_cast<int>(value);
 
 	return oss.str();
 }
+
+namespace {
+
+constexpr const size_t buffer_max_for_printing_content = 40;
 
 } // namespace
 
@@ -26,9 +26,12 @@ std::ostream& operator<<(std::ostream& os, const SizedBuffer& buffer) {
 	if(buffer.data == NULL || buffer.size > buffer_max_for_printing_content) {
 		os << "SizedBuffer{data=" << buffer.data << ", size=" << buffer.size << "}";
 	} else {
-		os << "SizedBuffer{content='0x";
+		os << "SizedBuffer{content=";
 		auto* buffer_ptr = static_cast<std::uint8_t*>(buffer.data);
 		for(size_t i = 0; i < buffer.size; ++i) {
+			if(i != 0) {
+				os << ", ";
+			}
 			os << get_hex_value_for_u8(buffer_ptr[i]);
 		}
 		os << "'}";

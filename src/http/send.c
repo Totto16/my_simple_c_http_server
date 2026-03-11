@@ -361,7 +361,8 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 
 	const Http2HpackCompressOptions default_compress_options = {
 		.huffman_usage = Http2HpackHuffmanUsageAuto,
-		.type = Http2HpackCompressTypeAllTablesUsage,
+		.type = Http2HpackCompressTypeStaticTableUsage,
+		.table_add_type = Http2HpackTableAddTypeCommon,
 	};
 
 	response->hpack_encoded_headers = http2_hpack_compress_data(

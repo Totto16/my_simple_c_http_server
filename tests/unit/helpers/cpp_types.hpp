@@ -32,7 +32,18 @@ template <typename T>
 			if(i != 0) {
 				os << ", ";
 			}
-			os << vector.at(i);
+
+			const auto& val = vector.at(i);
+
+			if constexpr(std::is_same_v<T, char> || std::is_same_v<T, std::uint8_t>) {
+				if(isprint(val)) {
+					os << val;
+				} else {
+					os << get_hex_value_for_u8(val);
+				}
+			} else {
+				os << val;
+			}
 		}
 		os << "} }";
 	}

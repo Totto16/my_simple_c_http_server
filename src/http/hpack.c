@@ -1356,15 +1356,14 @@ encode_single_header_field_literal_incremental_indexing_variant1_no_huffman(
 
 	{ // encode key as table index
 
-		// set Huffman to false
-		data[i] = 0x00;
-
 		int8_t result = encode_hpack_variable_integer(data + i, field_key_table_idx, 6);
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
+
+		i += result;
 	}
 
 	{ // encode value
@@ -1447,15 +1446,14 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 
 	{ // encode key as table index
 
-		// set Huffman to false
-		data[i] = 0x00;
-
 		int8_t result = encode_hpack_variable_integer(data + i, field_key_table_idx, 6);
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
+
+		i += result;
 	}
 
 	{ // encode value
