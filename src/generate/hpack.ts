@@ -1199,13 +1199,45 @@ function map_to_encode_nodes(map: HuffmanEncodingMap): string[] {
 
 }
 
-interface FastStringCompare {
-    cases: string[]
+interface FastStringCompareNodeEnd {
+    type: "end"
+    result: boolean
 }
 
-function process_string_fast_compare(input: string[]): Record<number, FastStringCompare> {
+interface FastStringComparePrefix {
+    prefix: string
+    node: FastStringCompareNode
+}
 
-    const step1: Record<number, FastStringCompare | undefined> = {}
+interface FastStringCompareNodeNormal {
+    type: "normal"
+    prefix_len: number
+    data: FastStringComparePrefix[]
+}
+
+type FastStringCompareNode = FastStringCompareNodeEnd | FastStringCompareNodeNormal
+
+function isNormalNode(node: FastStringCompareNode): node is FastStringCompareNodeNormal {
+    return node.type == "normal"
+}
+
+interface FastStringCompareTree {
+    root: FastStringCompareNode
+    nodes_length: number
+}
+
+type FastStringCompare = Record<number, FastStringCompareTree>
+
+
+function nodes_from_str_tree(tree: FastStringCompareTree): FastStringCompareNode[] {
+    //TODO
+    console.log(tree)
+    return []
+}
+
+function process_string_fast_compare(input: string[]): FastStringCompare {
+
+    const step1: Record<number, { cases: string[] } | undefined> = {}
 
     for (const inp of input) {
         if (inp.toLowerCase() != inp) {
@@ -1216,6 +1248,11 @@ function process_string_fast_compare(input: string[]): Record<number, FastString
             throw new Error(`hpack fields need to be ascii, to be usable for this algorithmn`)
         }
 
+        if (inp.length == 0) {
+            throw new Error(`hpack fields need to be at least one byte long!`)
+        }
+
+
         const len = inp.length
 
         if (step1[len] === undefined) {
@@ -1225,23 +1262,90 @@ function process_string_fast_compare(input: string[]): Record<number, FastString
         step1[len].cases.push(inp)
     }
 
-    const result: Record<number, FastStringCompare | undefined> = {}
+    const result: Record<number, FastStringCompareTree> = {}
 
     for (const [key, value] of Object.entries(step1)) {
 
 
-        const new_value = {}
+        const tree: FastStringCompareTree = { root: { type: "end", result: false }, nodes_length: 0 }
+
+        const cazes = value!.cases
+
+        if (cazes.length == 0) {
+            throw new Error("Unrechable")
+        } else if (cazes.length == 1) {
+            const caze = cazes[0]!
+            tree.root = {
+                type: "normal", prefix_len: caze.length, data: [
+                    {
+                        prefix: caze,
+                        node: { type: "end", result: true }
+                    }
+                ]
+            }
+        } else {
+
+            tree.root = {
+                type: "normal", prefix_len: 1, data: []
+            }
+
+            for (const caze of cazes) {
+
+                let node: FastStringCompareNode = tree.root
+
+                for (let i = 0; i < caze.length;) {
+
+                    if (!isNormalNode(node)) {
+                        throw new Error("algorithmn error")
+                    }
+
+                    const inc: number = node.prefix_len
+
+                    const char_value = caze.substring(i, i + inc)
+
+                    const foundIndex = node.data.findIndex((val) => {
+                        return val.prefix == char_value
+                    })
+
+                    if (foundIndex < 0) {
+                        const next_node: FastStringCompareNode = i + inc >= caze.length ? {
+                            type: "end",
+                            result: true
+                        } : {
+                            type: "normal",
+                            prefix_len: 1,
+                            data: []
+                        }
+
+                        node.data.push({
+                            prefix: char_value,
+                            node: next_node
+                        })
+
+                        node = next_node
+                    } else {
+
+                        node = node.data[foundIndex]!.node;
 
 
+                    }
 
-        result[key as unknown as number] = new_value
+
+                    i += inc;
+                }
+
+            }
+
+        }
 
 
+        //TODO: add id and count node_length;
+        tree.nodes_length = 0;
+        result[key as unknown as number] = tree
     }
 
 
-    return result;
-
+    return result
 }
 
 function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
@@ -1252,6 +1356,8 @@ function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, 
 #pragma once
 
 #include "utils/utils.h"
+
+#include <tstr.h>
 
 typedef struct HuffmanTreeImpl HuffmanTree;
 
@@ -1287,8 +1393,8 @@ NODISCARD HuffmanTree* get_hpack_huffman_tree(void);
 void free_hpack_huffman_tree(HuffmanTree* tree);
 
 typedef struct {
-    size_t bit_size;
-    uint32_t value;
+	size_t bit_size;
+	uint32_t value;
 } HuffmanEncodeEntry;
 
 // hold mappings from all 8 bit values to a HuffmanEncodeEntry
@@ -1314,10 +1420,12 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
     const encode_nodes: string[] = map_to_encode_nodes(map)
 
     // note: hpack headers are always small cased
-    const common_hpack_key_names: string[] = ["date", "cookies", "server"]
+    const common_hpack_key_names: string[] = ["date", "cookies", "server", "test"]
 
 
-    const hpack_key_names_common_preprocessed: Record<number, FastStringCompare> = process_string_fast_compare(common_hpack_key_names)
+    const hpack_key_names_common_preprocessed: FastStringCompare = process_string_fast_compare(common_hpack_key_names)
+
+    console.log(hpack_key_names_common_preprocessed)
 
     const c_data = `
 #include "./${path.basename(generated_hpack_huffman_file_h)}"
@@ -1386,6 +1494,75 @@ void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
 	free(map);
 }
 
+typedef struct FastStringCmpNodeImpl FastStringCmpNode;
+
+typedef struct {
+	const char* prefix;
+	FastStringCmpNode* node;
+} FastStringCmpPrefix;
+
+typedef struct {
+	FastStringCmpPrefix* data;
+	size_t data_len;
+    size_t prefix_len;
+} FastStringCmpPrefixes;
+
+struct FastStringCmpNodeImpl {
+	bool is_result;
+	union {
+		bool result;
+		FastStringCmpPrefixes prefixes;
+	} data;
+};
+
+typedef struct {
+	FastStringCmpNode* root;
+} FastStringCmpTree;
+
+NODISCARD static bool fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
+	
+	const FastStringCmpNode* node = tree.root;
+	size_t index = 0;
+
+	assert(!(node->is_result) && "first node can't be a result!");
+	while(index < str_view.len){
+		if(node->is_result){
+			return node->data.result;
+		}
+
+		//TODO: maybe needed for direct compare if the prefix_len == 1 down in the strncmp case
+		//const char value = str[index];
+
+		const FastStringCmpPrefixes prefixes = node->data.prefixes;
+
+		if(index + prefixes.prefix_len > str_view.len){
+			// can't perform comparisons
+			return false;
+		}
+
+		bool found = false;
+		for(size_t j = 0; j < prefixes.data_len; ++j){
+			const FastStringCmpPrefix prefix = prefixes.data[j];
+
+			//TODO: maybe use normal char cmp if prefix_len == 1
+			if(strncmp((((const char*)str_view.data) + index), prefix.prefix, prefixes.prefix_len) == 0){
+				node = prefix.node;
+				found = true;
+				break;
+			}
+		}
+
+		if(!found){
+			return false;
+		}
+
+		index += prefixes.prefix_len;
+	
+	}
+	
+	return false;
+}
+
 NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view){
 	const size_t len = str_view.len;
 
@@ -1393,20 +1570,27 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
 		return false;
 	}
 
-	// a pseudo header field
-	if(str_view[0] == ':'){
+	// a pseudo header field is alaways considered common
+	if(str_view.data[0] == ':'){
 		return true;
 	}
 
 	switch(len){
-		${Object.entries(hpack_key_names_common_preprocessed).map(([key, val]): string => {
+${Object.entries(hpack_key_names_common_preprocessed).map(([key, tree]): string => {
 
-        return `case ${key}: { 
-	${val.T}
-	return false;
-}`
+        return `		case ${key}: {
+			FastStringCmpTree fast_string_cmp_tree_${key} = {.len = ${key}, .root = NULL};
+			FastStringCmpNode fast_string_cmp_nodes_${key}[${tree.nodes_length}] = {};
 
-    })}
+			{
+${nodes_from_str_tree(tree).map((node) => {
+            return `TODO;${node.type}`
+        })}
+			}
+			return fast_compare_string_with_tree(fast_string_cmp_tree_${key}, str_view);
+		}`
+
+    }).join("\n")}
 
 		default:{
 			return false;
