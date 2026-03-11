@@ -861,8 +861,8 @@ void global_free_http2_hpack_data(void) {
 	global_free_hpack_static_header_table_data();
 }
 
-NODISCARD static SizedBuffer
-encode_single_header_field_literal_never_indexed_no_huffman(const HttpHeaderField* const field) {
+NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_variant2_no_huffman(
+    const HttpHeaderField* const field) {
 	// encode the value as:
 	// Literal Header Field Never Indexed:
 	// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
@@ -956,7 +956,7 @@ encode_single_header_field_literal_never_indexed_no_huffman(const HttpHeaderFiel
 	return buffer;
 }
 
-NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_huffman(
+NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_variant2_huffman(
     const HttpHeaderField* const field, const size_t size_key, const size_t size_value) {
 	// encode the value as:
 	// Literal Header Field Never Indexed:
@@ -1076,20 +1076,19 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_hu
 	return buffer;
 }
 
-NODISCARD static SizedBuffer
-encode_single_header_field_literal_never_indexed(const HttpHeaderField* const field,
-                                                 const Http2HpackHuffmanUsage huffman_usage) {
+NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_variant2(
+    const HttpHeaderField* const field, const Http2HpackHuffmanUsage huffman_usage) {
 
 	switch(huffman_usage) {
 		case Http2HpackHuffmanUsageNever: {
-			return encode_single_header_field_literal_never_indexed_no_huffman(field);
+			return encode_single_header_field_literal_never_indexed_variant2_no_huffman(field);
 		}
 		case Http2HpackHuffmanUsageAlways: {
 			const size_t size_key = hpack_huffman_get_encoded_size(&(field->key));
 			const size_t size_value = hpack_huffman_get_encoded_size(&(field->value));
 
-			return encode_single_header_field_literal_never_indexed_huffman(field, size_key,
-			                                                                size_value);
+			return encode_single_header_field_literal_never_indexed_variant2_huffman(
+			    field, size_key, size_value);
 		}
 		case Http2HpackHuffmanUsageAuto:
 		default: {
@@ -1098,11 +1097,11 @@ encode_single_header_field_literal_never_indexed(const HttpHeaderField* const fi
 			const size_t size_value = hpack_huffman_get_encoded_size(&(field->value));
 
 			if(size_key + size_value < tstr_len(&(field->key)) + tstr_len(&(field->value))) {
-				return encode_single_header_field_literal_never_indexed_huffman(field, size_key,
-				                                                                size_value);
+				return encode_single_header_field_literal_never_indexed_variant2_huffman(
+				    field, size_key, size_value);
 			}
 
-			return encode_single_header_field_literal_never_indexed_no_huffman(field);
+			return encode_single_header_field_literal_never_indexed_variant2_no_huffman(field);
 		}
 	}
 }
@@ -1120,7 +1119,7 @@ http2_hpack_compress_data_simple(const HttpHeaderFields header_fields,
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, header_fields, i);
 
 		const SizedBuffer single_header_result =
-		    encode_single_header_field_literal_never_indexed(&field, huffman_usage);
+		    encode_single_header_field_literal_never_indexed_variant2(&field, huffman_usage);
 
 		if(single_header_result.data == NULL) {
 			free_sized_buffer(result);
@@ -1271,9 +1270,34 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 	return result;
 }
 
+NODISCARD static bool should_add_header_to_table(const HttpHeaderField* const field,
+                                                 const Http2HpackTableAddType table_add_type) {
+
+	switch(table_add_type) {
+		case Http2HpackTableAddTypeNone: {
+			return false;
+		}
+		case Http2HpackTableAddTypeCommon: {
+			// note: this compares the key to a list of common names, e.g. date, cookie, server etc
+			// and it does that faster than a huge else if tree of all possibilities therefore it is
+			// generated from the list
+			return hpack_generated_is_common_field_key_fast(field->key);
+		}
+		case Http2HpackTableAddTypeAll: {
+			return true;
+		}
+		default: {
+			return false;
+		}
+	}
+}
+
 NODISCARD static SizedBuffer encode_single_header_field_extended_as_whole(
     const HttpHeaderField* const field, HpackCompressState* const compress_state,
-    const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type) {}
+    const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type) {
+
+	const bool should_add = should_add_header_to_table(field, table_add_type);
+}
 
 NODISCARD static SizedBuffer encode_single_header_field_extended_with_key_from_table(
     const HttpHeaderField* const field, HpackCompressState* const compress_state,

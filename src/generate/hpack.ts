@@ -1199,6 +1199,50 @@ function map_to_encode_nodes(map: HuffmanEncodingMap): string[] {
 
 }
 
+interface FastStringCompare {
+    cases: string[]
+}
+
+function process_string_fast_compare(input: string[]): Record<number, FastStringCompare> {
+
+    const step1: Record<number, FastStringCompare | undefined> = {}
+
+    for (const inp of input) {
+        if (inp.toLowerCase() != inp) {
+            throw new Error(`hpack fields need to be lowercase, but got: ${inp}`)
+        }
+
+        if (is_utf8_string(inp)) {
+            throw new Error(`hpack fields need to be ascii, to be usable for this algorithmn`)
+        }
+
+        const len = inp.length
+
+        if (step1[len] === undefined) {
+            step1[len] = { cases: [] }
+        }
+
+        step1[len].cases.push(inp)
+    }
+
+    const result: Record<number, FastStringCompare | undefined> = {}
+
+    for (const [key, value] of Object.entries(step1)) {
+
+
+        const new_value = {}
+
+
+
+        result[key as unknown as number] = new_value
+
+
+    }
+
+
+    return result;
+
+}
 
 function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
 
@@ -1255,6 +1299,8 @@ typedef struct  {
 NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void);
 
 void free_hpack_huffman_encode_map(HuffmanEncodeMap* map);
+
+NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view);
 `
 
     writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
@@ -1266,6 +1312,12 @@ void free_hpack_huffman_encode_map(HuffmanEncodeMap* map);
     const nodes: string[] = tree_to_nodes(tree, node_amount, nodes_array_value)
 
     const encode_nodes: string[] = map_to_encode_nodes(map)
+
+    // note: hpack headers are always small cased
+    const common_hpack_key_names: string[] = ["date", "cookies", "server"]
+
+
+    const hpack_key_names_common_preprocessed: Record<number, FastStringCompare> = process_string_fast_compare(common_hpack_key_names)
 
     const c_data = `
 #include "./${path.basename(generated_hpack_huffman_file_h)}"
@@ -1332,6 +1384,34 @@ NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void){
 
 void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
 	free(map);
+}
+
+NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view){
+	const size_t len = str_view.len;
+
+	if(len  == 0){
+		return false;
+	}
+
+	// a pseudo header field
+	if(str_view[0] == ':'){
+		return true;
+	}
+
+	switch(len){
+		${Object.entries(hpack_key_names_common_preprocessed).map(([key, val]): string => {
+
+        return `case ${key}: { 
+	${val.T}
+	return false;
+}`
+
+    })}
+
+		default:{
+			return false;
+		}
+	}
 }
 `
 
