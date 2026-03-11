@@ -17,8 +17,23 @@ hpack_script_depend_files = files('hpack.ts', 'package.json', 'tsconfig.json')
 hpack_script_depends = []
 
 if npx.found() and pnpm.found()
+    install_dependencies = custom_target(
+        'install dependencies (hpack generator)',
+        command: [
+            pnpm,
+            '--dir',
+            meson.current_source_dir(),
+            'exec',
+            pnpm,
+            'install',
+        ],
+        output: ['nothing1.txt'],
+        depend_files: [hpack_script_depend_files, 'pnpm-lock.yaml'],
+    )
+    hpack_script_depends += install_dependencies
+
     type_check_hpack_ts = custom_target(
-        'hpack.ts',
+        'typecheck hpack.ts',
         command: [
             pnpm,
             '--dir',
@@ -29,7 +44,7 @@ if npx.found() and pnpm.found()
             '-p',
             'tsconfig.json',
         ],
-        output: ['nothing.txt'],
+        output: ['nothing2.txt'],
         depend_files: hpack_script_depend_files,
     )
     hpack_script_depends += type_check_hpack_ts
