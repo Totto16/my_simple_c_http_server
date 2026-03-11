@@ -1281,7 +1281,7 @@ NODISCARD static bool should_add_header_to_table(const HttpHeaderField* const fi
 			// note: this compares the key to a list of common names, e.g. date, cookie, server etc
 			// and it does that faster than a huge else if tree of all possibilities therefore it is
 			// generated from the list
-			return hpack_generated_is_common_field_key_fast(field->key);
+			return hpack_generated_is_common_field_key_fast(tstr_as_view(&field->key));
 		}
 		case Http2HpackTableAddTypeAll: {
 			return true;
@@ -1297,16 +1297,36 @@ NODISCARD static SizedBuffer encode_single_header_field_extended_as_whole(
     const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type) {
 
 	const bool should_add = should_add_header_to_table(field, table_add_type);
+
+	UNUSED(field);
+	UNUSED(compress_state);
+	UNUSED(huffman_usage);
+	UNUSED(table_add_type);
+	UNUSED(should_add);
+	// TODO
+	return (SizedBuffer){ .data = NULL, .size = 0 };
 }
 
 NODISCARD static SizedBuffer encode_single_header_field_extended_with_key_from_table(
     const HttpHeaderField* const field, HpackCompressState* const compress_state,
     const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type,
-    const size_t key_table_idx) {}
+    const size_t key_table_idx) {
+
+	UNUSED(field);
+	UNUSED(compress_state);
+	UNUSED(huffman_usage);
+	UNUSED(table_add_type);
+	UNUSED(key_table_idx);
+	// TODO
+	return (SizedBuffer){ .data = NULL, .size = 0 };
+}
 
 NODISCARD static SizedBuffer
 encode_single_header_field_extended_with_entry_from_table(const size_t entry_table_idx) {
 	//
+	UNUSED(entry_table_idx);
+	// TODO
+	return (SizedBuffer){ .data = NULL, .size = 0 };
 }
 
 NODISCARD static SizedBuffer encode_single_header_field_extended(

@@ -1499,149 +1499,19 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
     return result
 }
 
-function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
-
-    console.assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
-
-    const h_data = `
-#pragma once
-
-#include "utils/utils.h"
-
-#include <tstr.h>
-
-typedef struct HuffmanTreeImpl HuffmanTree;
-
-typedef struct HuffmanNodeImpl HuffmanNode;
-
-typedef struct {
-	HuffmanNode* bit_0;
-	HuffmanNode* bit_1;
-} HuffmanNodeNode;
-
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HuffmanNodeTypeNode = 0,
-	HuffmanNodeTypeEnd,
-	HuffmanNodeTypeError
-} HuffmanNodeType;
-
-struct HuffmanNodeImpl {
-	HuffmanNodeType type;
-	union {
-		HuffmanNodeNode node;
-		uint8_t end;
-		const char* error;
-	} data;
-};
-
-struct HuffmanTreeImpl {
-	HuffmanNode* root;
-	void* memory;
-};
-
-NODISCARD HuffmanTree* get_hpack_huffman_tree(void);
-
-void free_hpack_huffman_tree(HuffmanTree* tree);
-
-typedef struct {
-	size_t bit_size;
-	uint32_t value;
-} HuffmanEncodeEntry;
-
-// hold mappings from all 8 bit values to a HuffmanEncodeEntry
-typedef struct  {
-	HuffmanEncodeEntry entries[256];
-} HuffmanEncodeMap;
-
-NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void);
-
-void free_hpack_huffman_encode_map(HuffmanEncodeMap* map);
-
-NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view);
-`
-
-    writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
-
-    const nodes_array_value = "nodes_array"
-
-    const { node_amount, tree } = tree_result
-
-    const nodes: string[] = tree_to_nodes(tree, node_amount, nodes_array_value)
-
-    const encode_nodes: string[] = map_to_encode_nodes(map)
-
-    // note: hpack headers are always small cased
-    const common_hpack_key_names: string[] = ["date", "cookies", "server"]
-
-
-    const hpack_key_names_common_preprocessed: FastStringCompare = process_string_fast_compare(common_hpack_key_names)
-
-    const c_data = `
-#include "./${path.basename(generated_hpack_huffman_file_h)}"
-
-#define HUFFMAN_NODE_AMOUNT ${node_amount.toString()}
-
-NODISCARD HuffmanTree* get_hpack_huffman_tree(void) {
-
-	HuffmanTree* tree = malloc(sizeof(HuffmanTree));
-
-	if(tree == NULL) {
-		return NULL;
-	}
-
-	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
-	HuffmanNode* ${nodes_array_value} = malloc(sizeof(HuffmanNode) * HUFFMAN_NODE_AMOUNT);
-
-	if(${nodes_array_value} == NULL) {
-		free(tree);
-		return NULL;
-	}
-
-	{
-	
-${nodes.map((val, i) => {
-
-        return `		${nodes_array_value}[${i}] = ${val};`;
-    }).join("\n")}
-
-	}
-
-	HuffmanNode* root = (${nodes_array_value} + ${tree.root.id});
-
-	*tree = (HuffmanTree){ .root = root, .memory = (void*)${nodes_array_value} };
-
-	return tree;
+function generate_fast_stringcompare_decl(function_name: string): string {
+    return `NODISCARD bool ${function_name}(const tstr_view str_view);`
 }
 
-void free_hpack_huffman_tree(HuffmanTree* const tree) {
-	if(tree == NULL){
-		return;
-	}
-	free(tree->memory);
-	free(tree);
-}
+function generate_fast_stringcompare_impl(function_name: string, list_of_strings: string[]): string {
 
-NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void){
-	HuffmanEncodeMap* map = malloc(sizeof(HuffmanEncodeMap));
 
-	if(map == NULL) {
-		return NULL;
-	}
+    const preprocessed_compare: FastStringCompare = process_string_fast_compare(list_of_strings)
 
-	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
 
-	{
-		${encode_nodes.map((val, idx) => {
-        return `map->entries[${idx}] = ${val};`
-    }).join("\n		")}
-	}
 
-	return map;
-}
+    return `
 
-void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
-	free(map);
-}
 
 typedef struct FastStringCmpNodeImpl FastStringCmpNode;
 
@@ -1716,7 +1586,7 @@ NODISCARD static bool fast_compare_string_with_tree(const FastStringCmpTree tree
 	return false;
 }
 
-NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view){
+NODISCARD bool ${function_name}(const tstr_view str_view){
 	const size_t len = str_view.len;
 
 	if(len == 0){
@@ -1729,7 +1599,7 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
 	}
 
 	switch(len){
-${Object.entries(hpack_key_names_common_preprocessed).map(([key, tree]): string => {
+${Object.entries(preprocessed_compare).map(([key, tree]): string => {
 
         const array_name: string = `fast_string_cmp_nodes_${key}`;
         const array_name_prefixes: string = `fast_string_cmp_prefixes_${key}`;
@@ -1781,6 +1651,154 @@ ${values.prefixes.map((prefixes): string => {
 		}
 	}
 }
+
+
+
+    `
+}
+
+function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
+
+    console.assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
+
+    const h_data = `
+#pragma once
+
+#include "utils/utils.h"
+
+#include <tstr.h>
+
+typedef struct HuffmanTreeImpl HuffmanTree;
+
+typedef struct HuffmanNodeImpl HuffmanNode;
+
+typedef struct {
+	HuffmanNode* bit_0;
+	HuffmanNode* bit_1;
+} HuffmanNodeNode;
+
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	HuffmanNodeTypeNode = 0,
+	HuffmanNodeTypeEnd,
+	HuffmanNodeTypeError
+} HuffmanNodeType;
+
+struct HuffmanNodeImpl {
+	HuffmanNodeType type;
+	union {
+		HuffmanNodeNode node;
+		uint8_t end;
+		const char* error;
+	} data;
+};
+
+struct HuffmanTreeImpl {
+	HuffmanNode* root;
+	void* memory;
+};
+
+NODISCARD HuffmanTree* get_hpack_huffman_tree(void);
+
+void free_hpack_huffman_tree(HuffmanTree* tree);
+
+typedef struct {
+	size_t bit_size;
+	uint32_t value;
+} HuffmanEncodeEntry;
+
+// hold mappings from all 8 bit values to a HuffmanEncodeEntry
+typedef struct  {
+	HuffmanEncodeEntry entries[256];
+} HuffmanEncodeMap;
+
+NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void);
+
+void free_hpack_huffman_encode_map(HuffmanEncodeMap* map);
+
+${generate_fast_stringcompare_decl("hpack_generated_is_common_field_key_fast")}
+`
+
+    writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
+
+    const nodes_array_value = "nodes_array"
+
+    const { node_amount, tree } = tree_result
+
+    const nodes: string[] = tree_to_nodes(tree, node_amount, nodes_array_value)
+
+    const encode_nodes: string[] = map_to_encode_nodes(map)
+
+    // note: hpack headers are always small cased
+    const common_hpack_key_names: string[] = ["date", "cookies", "server"]
+
+    const c_data = `
+#include "./${path.basename(generated_hpack_huffman_file_h)}"
+
+#define HUFFMAN_NODE_AMOUNT ${node_amount.toString()}
+
+NODISCARD HuffmanTree* get_hpack_huffman_tree(void) {
+
+	HuffmanTree* tree = malloc(sizeof(HuffmanTree));
+
+	if(tree == NULL) {
+		return NULL;
+	}
+
+	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
+	HuffmanNode* ${nodes_array_value} = malloc(sizeof(HuffmanNode) * HUFFMAN_NODE_AMOUNT);
+
+	if(${nodes_array_value} == NULL) {
+		free(tree);
+		return NULL;
+	}
+
+	{
+	
+${nodes.map((val, i) => {
+
+        return `		${nodes_array_value}[${i}] = ${val};`;
+    }).join("\n")}
+
+	}
+
+	HuffmanNode* root = (${nodes_array_value} + ${tree.root.id});
+
+	*tree = (HuffmanTree){ .root = root, .memory = (void*)${nodes_array_value} };
+
+	return tree;
+}
+
+void free_hpack_huffman_tree(HuffmanTree* const tree) {
+	if(tree == NULL){
+		return;
+	}
+	free(tree->memory);
+	free(tree);
+}
+
+NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void){
+	HuffmanEncodeMap* map = malloc(sizeof(HuffmanEncodeMap));
+
+	if(map == NULL) {
+		return NULL;
+	}
+
+	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
+
+	{
+		${encode_nodes.map((val, idx) => {
+        return `map->entries[${idx}] = ${val};`
+    }).join("\n		")}
+	}
+
+	return map;
+}
+
+void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
+	free(map);
+}
+
+${generate_fast_stringcompare_impl("hpack_generated_is_common_field_key_fast", common_hpack_key_names)}
 `
 
     const generated_hpack_huffman_file_c = path.join(path.dirname(generated_hpack_huffman_file_h), path.basename(generated_hpack_huffman_file_h).replace(".h", ".c"))
@@ -2209,6 +2227,8 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
         return encoded;
     });
 
+    const fast_string_compare_test_data: string[] = ["hello", "hallo", "common", "common2", "similar", "test", "toast", "help", "helo", "one", "two", "onq", "loooooooooongstring", "0", "01", "02", "03", "04"]
+
     const cpp_data = `
 #pragma once
 
@@ -2237,6 +2257,32 @@ ${utf8_tests_to_cpp(final_test_case).join(",\n")}
 	}; 
 
 } // namespace generated::tests
+
+// some C helper
+#ifndef NODISCARD
+#define NODISCARD [[nodiscard]]
+#endif
+
+namespace generated::c_test_fns {
+    std::vector<std::string> test_data_strings = {${fast_string_compare_test_data.map((str): string => `"${str}"`).join(", ")}};
+
+
+
+	extern "C" {
+
+		#pragma GCC diagnostic push
+		#pragma GCC diagnostic ignored "-Wc99-extensions"
+
+		${generate_fast_stringcompare_decl("fast_string_compare_test_data")}
+
+		${generate_fast_stringcompare_impl("fast_string_compare_test_data", fast_string_compare_test_data)}
+
+		#pragma GCC diagnostic pop
+
+		}
+
+} // namespace generated::c_test_fns
+
 `
 
     writeFileAndDirs(generated_hpack_test_cases_file, cpp_data)
