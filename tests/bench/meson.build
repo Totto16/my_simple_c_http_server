@@ -46,7 +46,7 @@ if cpp.get_id() == 'gcc'
     internal_cpp_args += cc.get_supported_arguments('-Wno-missing-braces')
 endif
 
-bench_src += files('serialize.cpp', 'string_compare.cpp')
+bench_src += files('parsing.cpp', 'serialize.cpp', 'string_compare.cpp')
 
 bench_exe = executable(
     'bench',
