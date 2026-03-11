@@ -173,7 +173,7 @@ NODISCARD [[maybe_unused]] static bool operator==(const DynamicTable& table1,
 struct HeaderFieldDeserializeTest {
 	std::vector<std::uint8_t> raw_data;
 	test::DynamicTable dynamic_table;
-	std::unordered_map<std::string, std::string> result;
+	std::vector<std::pair<std::string, std::string>> result;
 };
 
 // this is a hack, as I don't want to expose the state in the header for c, but i also want to test
@@ -654,7 +654,7 @@ namespace {
 struct HpackManualSerializeTestCaseEntry {
 	std::vector<std::uint8_t> result;
 	test::DynamicTable dynamic_table;
-	std::unordered_map<std::string, std::string> input;
+	std::vector<std::pair<std::string, std::string>> input;
 	Http2HpackCompressOptions options;
 };
 

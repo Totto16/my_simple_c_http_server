@@ -7,13 +7,12 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <optional>
-#include <unordered_map>
 #include <vector>
 
 struct ThirdPartyHpackTestCaseEntry {
 	size_t seqno;
 	std::vector<std::uint8_t> wire_data;
-	std::unordered_map<std::string, std::string> headers;
+	std::vector<std::pair<std::string, std::string>> headers;
 };
 
 struct ThirdPartyHpackTestCase {
@@ -75,10 +74,10 @@ struct HpackGlobalHandle {
 	return result;
 }
 
-[[nodiscard]] static std::unordered_map<std::string, std::string>
+[[nodiscard]] static std::vector<std::pair<std::string, std::string>>
 parse_headers_map(const nlohmann::json& value) {
 
-	std::unordered_map<std::string, std::string> result{};
+	std::vector<std::pair<std::string, std::string>> result{};
 
 	if(!value.is_array()) {
 		throw std::runtime_error("json is malformed");
@@ -91,7 +90,7 @@ parse_headers_map(const nlohmann::json& value) {
 		}
 
 		for(auto& el : val.items()) {
-			result.insert_or_assign(el.key(), el.value());
+			result.emplace_back(el.key(), el.value());
 		}
 	}
 
@@ -232,23 +231,23 @@ get_thirdparty_hpack_test_cases(const std::string& name) {
 	return result;
 }
 
-[[nodiscard]] static std::unordered_map<std::string, std::string>
+[[nodiscard]] static std::vector<std::pair<std::string, std::string>>
 get_cpp_headers(const HttpHeaderFields& fields) {
 
-	std::unordered_map<std::string, std::string> result{};
+	std::vector<std::pair<std::string, std::string>> result{};
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, fields); ++i) {
 
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, fields, i);
 
-		result.insert_or_assign(string_from_tstr(field.key), string_from_tstr(field.value));
+		result.emplace_back(string_from_tstr(field.key), string_from_tstr(field.value));
 	}
 
 	return result;
 }
 
 [[maybe_unused]] [[nodiscard]] static CppDefer<HttpHeaderFields>
-get_c_map_from_cpp(const std::unordered_map<std::string, std::string>& map) {
+get_c_map_from_cpp(const std::vector<std::pair<std::string, std::string>>& map) {
 
 	auto* result = (HttpHeaderFields*)malloc(sizeof(HttpHeaderFields));
 

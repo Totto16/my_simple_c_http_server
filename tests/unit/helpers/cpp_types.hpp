@@ -9,7 +9,6 @@
 #include <sstream>
 #include <string>
 #include <tstr.h>
-#include <unordered_map>
 #include <vector>
 
 #include "./c_types.hpp"
@@ -51,7 +50,7 @@ template <typename T>
 }
 
 std::ostream& operator<<(std::ostream& os,
-                         const std::unordered_map<std::string, std::string>& string_map);
+                         const std::vector<std::pair<std::string, std::string>>& string_map);
 
 template <typename T> doctest::String os_stream_formattable_to_doctest(const T& value) {
 	std::stringstream str{};
@@ -62,8 +61,8 @@ template <typename T> doctest::String os_stream_formattable_to_doctest(const T& 
 }
 
 namespace doctest {
-template <> struct StringMaker<std::unordered_map<std::string, std::string>> {
-	static String convert(const std::unordered_map<std::string, std::string>& string_map) {
+template <> struct StringMaker<std::vector<std::pair<std::string, std::string>>> {
+	static String convert(const std::vector<std::pair<std::string, std::string>>& string_map) {
 		return ::os_stream_formattable_to_doctest(string_map);
 	}
 };
