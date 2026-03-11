@@ -95,7 +95,7 @@ TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decod
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
-		const auto test_case = test_cases.at(i);
+		const auto& test_case = test_cases.at(i);
 
 		const auto case_str = std::string{ "Case " } + std::to_string(i);
 		doctest::String case_name = doctest::String{ case_str.c_str() };
@@ -135,11 +135,11 @@ TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decod
 TEST_CASE("testing hpack huffman decoding (ascii) - generated "
           "<hpack_huffman_decode_ascii_generated>") {
 
-	const auto test_cases = generated::tests::test_cases_ascii;
+	const auto& test_cases = generated::tests::test_cases_ascii;
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
-		const auto test_case = test_cases.at(i);
+		const auto& test_case = test_cases.at(i);
 
 		const auto case_str = std::string{ "Case " } + std::to_string(i);
 		doctest::String case_name = doctest::String{ case_str.c_str() };
@@ -179,11 +179,11 @@ TEST_CASE("testing hpack huffman decoding (ascii) - generated "
 TEST_CASE("testing hpack huffman decoding (utf8) - generated "
           "<hpack_huffman_decode_utf8_generated>") {
 
-	const auto test_cases = generated::tests::test_cases_utf8;
+	const auto& test_cases = generated::tests::test_cases_utf8;
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
-		const auto test_case = test_cases.at(i);
+		const auto& test_case = test_cases.at(i);
 
 		const auto case_str = std::string{ "Case " } + std::to_string(i);
 		doctest::String case_name = doctest::String{ case_str.c_str() };
@@ -250,7 +250,7 @@ TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encod
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
-		const auto test_case = test_cases.at(i);
+		const auto& test_case = test_cases.at(i);
 
 		const auto case_str = std::string{ "Case " } + std::to_string(i);
 		doctest::String case_name = doctest::String{ case_str.c_str() };
@@ -286,11 +286,11 @@ TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encod
 TEST_CASE("testing hpack huffman encoding (ascii) - generated "
           "<hpack_huffman_encode_ascii_generated>") {
 
-	const auto test_cases = generated::tests::test_cases_ascii;
+	const auto& test_cases = generated::tests::test_cases_ascii;
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
-		const auto test_case = test_cases.at(i);
+		const auto& test_case = test_cases.at(i);
 
 		const auto case_str = std::string{ "Case " } + std::to_string(i);
 		doctest::String case_name = doctest::String{ case_str.c_str() };
@@ -326,11 +326,11 @@ TEST_CASE("testing hpack huffman encoding (ascii) - generated "
 TEST_CASE("testing hpack huffman encoding (utf8) - generated "
           "<hpack_huffman_encode_utf8_generated>") {
 
-	const auto test_cases = generated::tests::test_cases_utf8;
+	const auto& test_cases = generated::tests::test_cases_utf8;
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
-		const auto test_case = test_cases.at(i);
+		const auto& test_case = test_cases.at(i);
 
 		const auto case_str = std::string{ "Case " } + std::to_string(i);
 		doctest::String case_name = doctest::String{ case_str.c_str() };
@@ -400,7 +400,7 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
 
-		const auto test_case = test_cases.at(i);
+		const auto& test_case = test_cases.at(i);
 
 		const auto case_str = std::string{ "Case " } + std::to_string(i);
 		doctest::String case_name = doctest::String{ case_str.c_str() };

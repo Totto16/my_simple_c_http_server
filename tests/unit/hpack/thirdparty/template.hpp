@@ -11,7 +11,7 @@
 \
 		const auto hpack_cpp_global_handle = HpackGlobalHandle(); \
 \
-		const auto test_cases = get_thirdparty_hpack_test_cases(HPACK_TEST_CASE_VALUE); \
+		const auto& test_cases = get_thirdparty_hpack_test_cases(HPACK_TEST_CASE_VALUE); \
 \
 		for(const auto& test_case : test_cases) { \
 \
