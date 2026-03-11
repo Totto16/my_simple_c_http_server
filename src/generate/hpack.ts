@@ -1210,9 +1210,9 @@ class FastStringCompareNodeBasic {
 
 class FastStringCompareNodeEnd extends FastStringCompareNodeBasic {
     type: "end"
-    result: boolean | null
+    result: string | null
 
-    constructor(result: boolean | null) {
+    constructor(result: string | null) {
         super(null);
 
         this.type = "end";
@@ -1359,7 +1359,7 @@ function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes:
             throw new Error("Implementation error")
         }
 
-        return `(FastStringCmpNode){ .is_result = true, .data = { .result = ${node.result} }}`
+        return `(FastStringCmpNode){ .is_result = true, .data = { .result = (FastStringCompareResult){ .found = true, .value = "${node.result}" } }}`
 
     }
 
@@ -1399,7 +1399,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
     for (const [key, value] of Object.entries(step1)) {
 
 
-        let root: FastStringCompareNode = new FastStringCompareNodeEnd(false);
+        let root: FastStringCompareNode = new FastStringCompareNodeEnd(null);
 
         const cazes = value!.cases
 
@@ -1410,7 +1410,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
             root = new FastStringCompareNodeNormal(caze.length, [
                 new FastStringComparePrefix(
                     caze,
-                    new FastStringCompareNodeEnd(true)
+                    new FastStringCompareNodeEnd(caze)
                 )
             ]
             );
@@ -1434,14 +1434,14 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
                     const char_value = caze.substring(i, i + inc)
 
-                    const foundIndex = node.prefixes.findIndex((val) => {
+                    const foundIndex: number = node.prefixes.findIndex((val) => {
                         return val.prefix == char_value
                     })
 
                     if (foundIndex < 0) {
                         const next_node: FastStringCompareNode = i + inc >= caze.length ? new FastStringCompareNodeEnd(
 
-                            true
+                            caze
                         ) : new FastStringCompareNodeNormal(1, []);
 
 
@@ -1500,7 +1500,13 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 }
 
 function generate_fast_stringcompare_decl(function_name: string): string {
-    return `NODISCARD bool ${function_name}(const tstr_view str_view);`
+    return `
+typedef struct {
+	bool found;
+	const char* value;
+} FastStringCompareResult;
+
+NODISCARD FastStringCompareResult ${function_name}(const tstr_view str_view);`
 }
 
 function generate_fast_stringcompare_impl(function_name: string, list_of_strings: string[]): string {
@@ -1531,7 +1537,7 @@ typedef struct {
 struct FastStringCmpNodeImpl {
 	bool is_result;
 	union {
-		bool result;
+		FastStringCompareResult result;
 		FastStringCmpPrefixes prefixes;
 	} data;
 };
@@ -1540,7 +1546,7 @@ typedef struct {
 	FastStringCmpNode* root;
 } FastStringCmpTree;
 
-${!need_fast_compare_string_with_tree ? "" : `NODISCARD static bool fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
+${!need_fast_compare_string_with_tree ? "" : `NODISCARD static FastStringCompareResult fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
 	
 	const FastStringCmpNode* node = tree.root;
 	size_t index = 0;
@@ -1558,7 +1564,7 @@ ${!need_fast_compare_string_with_tree ? "" : `NODISCARD static bool fast_compare
 
 		if(index + prefixes.prefix_len > str_view.len){
 			// can't perform comparisons
-			return false;
+			return (FastStringCompareResult){ .found = false, .value = NULL };
 		}
 
 		bool found = false;
@@ -1574,29 +1580,18 @@ ${!need_fast_compare_string_with_tree ? "" : `NODISCARD static bool fast_compare
 		}
 
 		if(!found){
-			return false;
+			return (FastStringCompareResult){ .found = false, .value = NULL };
 		}
 
 		index += prefixes.prefix_len;
 	
 	}
 	
-	return false;
+	return (FastStringCompareResult){ .found = false, .value = NULL };
 }
 `}
-NODISCARD bool ${function_name}(const tstr_view str_view){
-	const size_t len = str_view.len;
-
-	if(len == 0){
-		return false;
-	}
-
-	// a pseudo header field is alaways considered common
-	if(str_view.data[0] == ':'){
-		return true;
-	}
-
-	switch(len){
+NODISCARD FastStringCompareResult ${function_name}(const tstr_view str_view){
+	switch(str_view.len){
 ${Object.entries(preprocessed_compare).map(([key, tree]): string => {
 
         const array_name: string = `fast_string_cmp_nodes_${key}`;
@@ -1609,7 +1604,10 @@ ${Object.entries(preprocessed_compare).map(([key, tree]): string => {
             const str: string = tree.strings[0]!
 
             return `		case ${key}: {
-			return strncmp(str_view.data, "${str}", ${key}) == 0;
+			if(strncmp(str_view.data, "${str}", ${key}) == 0){
+				return (FastStringCompareResult){ .found = true, .value = "${str}" };
+			}
+			return (FastStringCompareResult){ .found = false, .value = NULL };
 		}`
         } else {
 
@@ -1645,7 +1643,7 @@ ${values.prefixes.map((prefixes): string => {
     }).join("\n")}
 
 		default:{
-			return false;
+			return (FastStringCompareResult){ .found = false, .value = NULL };
 		}
 	}
 }
@@ -1713,7 +1711,9 @@ NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void);
 
 void free_hpack_huffman_encode_map(HuffmanEncodeMap* map);
 
-${generate_fast_stringcompare_decl("hpack_generated_is_common_field_key_fast")}
+${generate_fast_stringcompare_decl("hpack_generated_is_common_field_key_fast_cmp")}
+
+NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view);
 `
 
     writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
@@ -1797,7 +1797,22 @@ void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
 }
 
 
-${generate_fast_stringcompare_impl("hpack_generated_is_common_field_key_fast", common_hpack_key_names)}
+${generate_fast_stringcompare_impl("hpack_generated_is_common_field_key_fast_cmp", common_hpack_key_names)}
+
+NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view){
+	const size_t len = str_view.len;
+
+	if(len == 0){
+		return false;
+	}
+
+	// a pseudo header field is alaways considered common
+	if(str_view.data[0] == ':'){
+		return true;
+	}
+
+	return hpack_generated_is_common_field_key_fast_cmp(str_view).found;
+}
 `
 
     const generated_hpack_huffman_file_c = path.join(path.dirname(generated_hpack_huffman_file_h), path.basename(generated_hpack_huffman_file_h).replace(".h", ".c"))
