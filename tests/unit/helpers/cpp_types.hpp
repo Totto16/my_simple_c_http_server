@@ -112,3 +112,8 @@ buffer_from_raw_data(const std::vector<std::uint8_t>& data) {
 	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
 	return buffer;
 }
+
+template <typename T>
+[[nodiscard]] static inline bool vec_contains(const std::vector<T>& vec, const T& val) {
+	return std::find(vec.begin(), vec.end(), val) != vec.end();
+}

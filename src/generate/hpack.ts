@@ -1501,11 +1501,6 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
 function generate_fast_stringcompare_decl(function_name: string): string {
     return `
-typedef struct {
-	bool found;
-	const char* value;
-} FastStringCompareResult;
-
 NODISCARD FastStringCompareResult ${function_name}(const tstr_view str_view);`
 }
 
@@ -1653,9 +1648,28 @@ ${values.prefixes.map((prefixes): string => {
     `
 }
 
+function assert(val: boolean, message: string): never | void {
+    if (!val) {
+        throw new Error(message)
+    }
+
+}
+
+function getOtherFile(inp_file: string, expected_ext: string, other_ext: string): string {
+
+
+    assert(path.extname(inp_file) == expected_ext, `file has to end in "${expected_ext}"`)
+
+    assert(other_ext.includes("."), `"${other_ext}" has to have a dot '.'`)
+
+    const other_file = path.join(path.dirname(inp_file), path.basename(inp_file).replace(expected_ext, other_ext))
+
+    return other_file;
+}
+
 function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
 
-    console.assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
+    assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
 
     const h_data = `
 #pragma once
@@ -1710,6 +1724,11 @@ typedef struct  {
 NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void);
 
 void free_hpack_huffman_encode_map(HuffmanEncodeMap* map);
+
+typedef struct {
+	bool found;
+	const char* value;
+} FastStringCompareResult;
 
 ${generate_fast_stringcompare_decl("hpack_generated_is_common_field_key_fast_cmp")}
 
@@ -1815,7 +1834,7 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
 }
 `
 
-    const generated_hpack_huffman_file_c = path.join(path.dirname(generated_hpack_huffman_file_h), path.basename(generated_hpack_huffman_file_h).replace(".h", ".c"))
+    const generated_hpack_huffman_file_c = getOtherFile(generated_hpack_huffman_file_h, ".h", ".c")
 
     writeFileAndDirs(generated_hpack_huffman_file_c, c_data)
 
@@ -1838,7 +1857,7 @@ function header_to_c_value(header: HeaderTable): string {
 
 function generated_hpack_headerable_code_h(generated_hpack_header_table_h: string): void {
 
-    console.assert(path.extname(generated_hpack_header_table_h) == ".h", "hpack header table file has to end in .h")
+    assert(path.extname(generated_hpack_header_table_h) == ".h", "hpack header table file has to end in .h")
 
 
     const header_map: Record<number, HeaderTable> = {}
@@ -1862,7 +1881,7 @@ function generated_hpack_headerable_code_h(generated_hpack_header_table_h: strin
             throw new Error("Missing header table index")
         }
 
-        console.assert(headers.length == i, "insertion is linear")
+        assert(headers.length == i, "insertion is linear")
         headers.push(header_to_c_value(value))
     }
 
@@ -1920,7 +1939,7 @@ void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* const entrie
 }
 `
 
-    const generated_hpack_header_table_c = path.join(path.dirname(generated_hpack_header_table_h), path.basename(generated_hpack_header_table_h).replace(".h", ".c"))
+    const generated_hpack_header_table_c = getOtherFile(generated_hpack_header_table_h, ".h", ".c")
 
     writeFileAndDirs(generated_hpack_header_table_c, c_data)
 
@@ -1952,7 +1971,7 @@ class EncodedHuffman {
             size += 8 - (size % 8);
         }
 
-        console.assert((size % 8) == 0, "implementation error")
+        assert((size % 8) == 0, "implementation error")
 
         const result = new BitArray(size);
 
@@ -2132,7 +2151,7 @@ function get_manual_test_arr(manual_test_arr: ManualTest[]): number[] {
         size += 8 - (size % 8);
     }
 
-    console.assert((size % 8) == 0, "implementation error")
+    assert((size % 8) == 0, "implementation error")
 
     const result = new BitArray(size);
 
@@ -2183,9 +2202,9 @@ function num_array_is_eq(arr1: number[], arr2: number[]): boolean {
 
 }
 
-function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string, map: HuffmanEncodingMap): void {
+function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file_hpp: string, map: HuffmanEncodingMap): void {
 
-    console.assert(path.extname(generated_hpack_test_cases_file) == ".hpp", "hpack huffman test file has to end in .hpp")
+    assert(path.extname(generated_hpack_test_cases_file_hpp) == ".hpp", "hpack huffman test file has to end in .hpp")
 
     { // test js encoding
         const test_test_result = encode_normal_string_with_huffman(map, "307");
@@ -2212,7 +2231,7 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
 
     { // test utf8 detection
 
-        console.assert(is_utf8_string("UTF-8: üöäß "), "utf-8 string detected correctly")
+        assert(is_utf8_string("UTF-8: üöäß "), "utf-8 string detected correctly")
 
 
     }
@@ -2243,7 +2262,7 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
 
     const fast_string_compare_test_data: string[] = ["hello", "hallo", "common", "common2", "similar", "test", "toast", "help", "helo", "one", "two", "onq", "loooooooooongstring", "0", "01", "02", "03", "04"]
 
-    const cpp_data = `
+    const hpp_data = `
 #pragma once
 
 #include <cstdint>
@@ -2272,37 +2291,46 @@ ${utf8_tests_to_cpp(final_test_case).join(",\n")}
 
 } // namespace generated::tests
 
-// some C helper
-#ifndef NODISCARD
-#define NODISCARD [[nodiscard]]
-#endif
-
-#include <tstr.h>
-#include <cassert>
-
 namespace generated::c_test_fns {
-    std::vector<std::string> test_data_strings = {${fast_string_compare_test_data.map((str): string => `"${str}"`).join(", ")}};
-
-
-
-	extern "C" {
-
-		#pragma GCC diagnostic push
-		#pragma GCC diagnostic ignored "-Wc99-extensions"
-
-		${generate_fast_stringcompare_decl("fast_string_compare_test_data")}
-
-		${generate_fast_stringcompare_impl("fast_string_compare_test_data", fast_string_compare_test_data)}
-
-		#pragma GCC diagnostic pop
-
-		}
-
+	std::vector<std::string> get_test_data_strings();
 } // namespace generated::c_test_fns
+
+extern "C" {
+
+	#include "generated_hpack_huffman.h"
+
+	${generate_fast_stringcompare_decl("generated_c_test_fns_fast_string_compare_test_data")}
+}
 
 `
 
-    writeFileAndDirs(generated_hpack_test_cases_file, cpp_data)
+    writeFileAndDirs(generated_hpack_test_cases_file_hpp, hpp_data)
+
+
+    const generated_hpack_test_cases_file_cpp = getOtherFile(generated_hpack_test_cases_file_hpp, ".hpp", ".cpp")
+
+
+    const cpp_data = `
+#include "./${path.basename(generated_hpack_test_cases_file_hpp)}"
+
+
+std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
+	return std::vector<std::string>{${fast_string_compare_test_data.map((str): string => `"${str}"`).join(", ")}};
+}
+
+
+
+extern "C" {
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wc99-extensions"
+	${generate_fast_stringcompare_impl("generated_c_test_fns_fast_string_compare_test_data", fast_string_compare_test_data)}
+	#pragma GCC diagnostic pop
+}
+`
+
+
+    writeFileAndDirs(generated_hpack_test_cases_file_cpp, cpp_data)
+
 
 }
 

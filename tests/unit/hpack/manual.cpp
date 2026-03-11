@@ -1,6 +1,8 @@
 #include "helpers/c_types.hpp"
 #include "helpers/cpp_types.hpp"
 
+#include "generated_hpack_tests.hpp"
+
 #include "./helpers.hpp"
 
 TEST_SUITE_BEGIN("hpack/manual" * doctest::description("manual hpack tests") *
@@ -233,7 +235,6 @@ get_dynamic_compress_table(const HpackCompressStateCpp& state) {
 
 	return get_dynamic_table(&(state_cpp_extracted->dynamic_table_state));
 }
-
 
 TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields>") {
 
@@ -988,6 +989,37 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 					REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
 				}
 			}();
+		}
+	}
+}
+
+TEST_CASE("testing fast string comparison <fast_string_cmp>") {
+
+	std::vector<std::string> test_cases = {
+		"",
+		"hello world",
+		"longer string",
+	};
+
+	const auto test_data_strings = generated::c_test_fns::get_test_data_strings();
+
+	for(const auto& val : test_data_strings) {
+		test_cases.emplace_back(val);
+	}
+
+	for(const auto& test_case : test_cases) {
+
+		const bool expected_result = vec_contains(test_data_strings, test_case);
+
+		const auto actual_result = generated_c_test_fns_fast_string_compare_test_data(
+		    tstr_view{ test_case.c_str(), test_case.size() });
+
+		REQUIRE_EQ(actual_result.found, expected_result);
+
+		if(actual_result.found) {
+			REQUIRE_EQ(actual_result.value, test_case);
+		} else {
+			REQUIRE_EQ(actual_result.value, nullptr);
 		}
 	}
 }
