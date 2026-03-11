@@ -1571,7 +1571,7 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
     const encode_nodes: string[] = map_to_encode_nodes(map)
 
     // note: hpack headers are always small cased
-    const common_hpack_key_names: string[] = ["date", "cookies", "server", "test"]
+    const common_hpack_key_names: string[] = ["date", "cookies", "server"]
 
 
     const hpack_key_names_common_preprocessed: FastStringCompare = process_string_fast_compare(common_hpack_key_names)
@@ -1719,7 +1719,7 @@ NODISCARD static bool fast_compare_string_with_tree(const FastStringCmpTree tree
 NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view){
 	const size_t len = str_view.len;
 
-	if(len  == 0){
+	if(len == 0){
 		return false;
 	}
 
@@ -1736,7 +1736,16 @@ ${Object.entries(hpack_key_names_common_preprocessed).map(([key, tree]): string 
 
         const values = nodes_and_prefixes_from_str_tree(tree)
 
-        return `		case ${key}: {
+        if (tree.strings.length == 1) {
+
+            const str: string = tree.strings[0]!
+
+            return `		case ${key}: {
+			return strncmp(str_view.data, "${str}", ${key}) == 0;
+		}`
+        } else {
+
+            return `		case ${key}: {
 			FastStringCmpNode ${array_name}[${tree.node_amount}] = {};
 			FastStringCmpPrefix ${array_name_prefixes}[${tree.prefix_amount}] = {};
 
@@ -1744,24 +1753,25 @@ ${Object.entries(hpack_key_names_common_preprocessed).map(([key, tree]): string 
 			{
 			// nodes
 ${values.nodes.map((node): string => {
-            return `				${array_name}[${node.id}] = ${fast_string_node_to_c(node, array_name_prefixes)};`
-        }).join("\n")}
+                return `				${array_name}[${node.id}] = ${fast_string_node_to_c(node, array_name_prefixes)};`
+            }).join("\n")}
 			// prefixes
 ${values.prefixes.map((prefixes): string => {
 
-            return prefixes.prefixes.map((prefix, idx): string => {
+                return prefixes.prefixes.map((prefix, idx): string => {
 
-                const totalIdx = prefixes.offset + idx;
+                    const totalIdx = prefixes.offset + idx;
 
-                return `				${array_name_prefixes}[${totalIdx}] = ${fast_string_prefix_to_c(prefix, array_name)};`
-            }).join("\n");
-        }).join("\n")}
+                    return `				${array_name_prefixes}[${totalIdx}] = ${fast_string_prefix_to_c(prefix, array_name)};`
+                }).join("\n");
+            }).join("\n")}
 			}
 
 			FastStringCmpTree fast_string_cmp_tree_${key} = {.root = &(${array_name}[${tree.root.id}])};
 
 			return fast_compare_string_with_tree(fast_string_cmp_tree_${key}, str_view);
 		}`
+        }
 
 
     }).join("\n")}
