@@ -246,7 +246,7 @@ StringBuilder* http_request_to_html(const HttpRequest request, bool https,
 		string_builder_append_single(body, "</div> <div id=\"send_settings\">");
 		string_builder_append_single(body, "<h2>Send Settings:</h2> <br>");
 
-		const auto comp_format = get_string_for_compress_format(send_settings.compression_to_use);
+		const tstr comp_format = get_string_for_compress_format(send_settings.compression_to_use);
 
 		STRING_BUILDER_APPENDF(body, return NULL;
 		                       , "<h3>Compression:</h3> " TSTR_FMT, TSTR_FMT_ARGS(comp_format));
