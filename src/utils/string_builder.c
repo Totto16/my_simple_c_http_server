@@ -49,7 +49,7 @@ static int string_builder_append_string_impl(StringBuilder* string_builder, cons
 	const TvecResult set_res = TVEC_SET_AT(char, &string_builder->value, new_size - 1, '\0');
 	OOM_ASSERT(set_res == TvecResultOk, "Vec set at error");
 
-	// TODO: make this a public function on the TVEC
+	// TODO(Totto): make this a public function on the TVEC
 	memcpy(string_builder->value.data + current_size - (current_size == 0 ? 0 : 1), string, size);
 
 	return 0;

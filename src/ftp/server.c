@@ -1926,7 +1926,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 		const TvecResult push_res =
 		    TVEC_SET_AT(ConnectionContextPtr, &control_contexts, i, context);
 
-		if(push_res != TvecResultOk) {
+		if(push_res != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 			TVEC_FREE(ConnectionContextPtr, &control_contexts);
 			return EXIT_FAILURE;
 		}
