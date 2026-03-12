@@ -25,7 +25,6 @@ static void StringCompareFast(const std::vector<TestCaseStrCmp>& test_cases,
 		assert(actual_result.found == expected_result);
 
 		if(actual_result.found) {
-			assert(actual_result.index >= 0);
 			assert(actual_result.index < test_data_strings.size());
 
 			const std::string& actual_result_str = test_data_strings.at(actual_result.index);
@@ -68,7 +67,6 @@ static void StringCompareStandard(const std::vector<TestCaseStrCmp>& test_cases,
 		assert(actual_result.found == expected_result);
 
 		if(actual_result.found) {
-			assert(actual_result.index >= 0);
 			assert(actual_result.index < test_data_strings.size());
 
 			const std::string& actual_result_str = test_data_strings.at(actual_result.index);
