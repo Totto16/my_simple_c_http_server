@@ -497,7 +497,15 @@ HTTPRoutes* get_default_routes(void) {
 	return routes;
 }
 
+static void free_routes(HTTPRoutes* routes);
+
+#define FREE_AT_END() \
+	do { \
+		free_routes(routes); \
+	} while(false)
+
 NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
+
 	HTTPRoutes* routes = malloc(sizeof(HTTPRoutes));
 
 	if(routes == NULL) {
@@ -594,12 +602,15 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 		if(folder_path == NULL) {
 			LOG_MESSAGE(LogLevelError, "Couldn't find required env variable '%s'\n",
 			            s_folder_env_variable);
+
+			FREE_AT_END();
 			return NULL;
 		}
 
 		char* folder_path_resolved = get_serve_folder(folder_path);
 
 		if(folder_path_resolved == NULL) {
+			FREE_AT_END();
 			return NULL;
 		}
 
@@ -630,6 +641,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 
 	return routes;
 }
+#undef FREE_AT_END
 
 NODISCARD RouteManager* initialize_route_manager(HTTPRoutes* routes,
                                                  const AuthenticationProviders* auth_providers) {

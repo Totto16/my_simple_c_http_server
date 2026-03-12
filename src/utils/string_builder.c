@@ -42,13 +42,14 @@ static int string_builder_append_string_impl(StringBuilder* string_builder, cons
 	// allocate 0 byte at the end, if needed
 	size_t new_size = current_size + size + (current_size == 0 ? 1 : 0);
 
-	auto _ = TVEC_ALLOCATE_UNINITIALIZED(char, &string_builder->value, new_size);
-	UNUSED(_);
+	const TvecResult allocate_res =
+	    TVEC_ALLOCATE_UNINITIALIZED(char, &string_builder->value, new_size);
+	assert(allocate_res == TvecResultOk);
 
-	auto _1 = TVEC_SET_AT(char, &string_builder->value, new_size - 1, '\0');
-	UNUSED(_1);
+	const TvecResult set_res = TVEC_SET_AT(char, &string_builder->value, new_size - 1, '\0');
+	assert(set_res == TvecResultOk);
 
-	// TODO: make this a public function on the ZVEC
+	// TODO: make this a public function on the TVEC
 	memcpy(string_builder->value.data + current_size - (current_size == 0 ? 0 : 1), string, size);
 
 	return 0;
