@@ -294,41 +294,68 @@ static CompressionValue parse_compression_value(const tstr_view compression_name
 	return result;
 }
 
-// TODO(Totto): implement non allocating variant of this!
-NODISCARD static float parse_float_tstr(const tstr_view value) {
+NODISCARD static bool parse_compression_quality_float_tstr(const tstr_view view,
+                                                           OUT_PARAM(float) out_val) {
 
-	// we need to call this, so that the value we pass to the strtof is null terminated
-	tstr value_duped = tstr_from_view(value);
+	// this parses a subset of floats, as specified by the qualityformat:
+	// see here: https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.1
 
-	float result = parse_float(tstr_cstr(&value_duped));
+	if(view.len == 0) {
+		return false;
+	}
 
-	tstr_free(&value_duped);
+	float result = 0.0F;
+	bool had_dot = false;
+	float frac = 10.0F;
 
-	return result;
+	for(size_t i = 0; i < view.len; i++) {
+		if(view.data[i] == '.') {
+			if(had_dot) {
+				return false;
+			}
+
+			had_dot = true;
+			continue;
+		}
+
+		if(view.data[i] < '0' || view.data[i] > '9') {
+			const float val = (float)(view.data[i] - '0');
+			if(had_dot) {
+				result = result + (val / frac);
+				frac = frac * 10.0F;
+			} else {
+				result = (result * 10.0F) + val;
+			}
+		}
+
+		return false;
+	}
+
+	*out_val = result;
+	return true;
 }
 
-NODISCARD static float parse_compression_quality(const tstr_view compression_weight_nput) {
+NODISCARD static bool parse_compression_quality(const tstr_view compression_weight_input,
+                                                OUT_PARAM(float) out_val) {
 	// strip whitespace
-	tstr_view compression_weight = tstr_view_lstrip(compression_weight_nput);
+	tstr_view compression_weight = tstr_view_lstrip(compression_weight_input);
 
 	if(compression_weight.len < 2) {
 		// no q=
-		return NAN;
+		return false;
 	}
 
 	if(compression_weight.data[0] != 'q' && compression_weight.data[0] != 'Q') {
-		return NAN;
+		return false;
 	}
 
 	if(compression_weight.data[1] != '=') {
-		return NAN;
+		return false;
 	}
 
 	const tstr_view float_value = tstr_sub_until_end(compression_weight, 2);
 
-	float value = parse_float_tstr(float_value);
-
-	return value;
+	return parse_compression_quality_float_tstr(float_value, out_val);
 }
 
 NODISCARD static HttpRequestProperties get_http_properties(const HttpRequest http_request) {
@@ -446,9 +473,10 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 
 			if(compression_weight.len != 0) {
 
-				float weight_value = parse_compression_quality(compression_weight);
+				float weight_value = 0.0F;
+				const bool success = parse_compression_quality(compression_weight, &weight_value);
 
-				if(!isnan(weight_value)) {
+				if(!success) {
 					entry.weight = weight_value;
 				}
 			}
@@ -666,7 +694,8 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 			analyze_result.length.type = HTTPRequestLengthTypeTransferEncoded;
 
-			// TODO(Totto): support more than chunked, as also compression can be used with chunked!
+			// TODO(Totto): support more than chunked, as also compression can be used with
+			// chunked!
 			if(!tstr_eq_ignore_case_cstr(&header.value, "chunked")) {
 				FREE_AT_END();
 				return (HTTPAnalyzeHeadersResult){
@@ -741,7 +770,8 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			.type = HttpAnalyzeConnectionTypeUpgradeH2C,
 			.value = { .h2c = h2state.settings_buffer },
 		};
-		// this gets freed at the end, so as we transferred it to the analyze_result, set it to NULL
+		// this gets freed at the end, so as we transferred it to the analyze_result, set it to
+		// NULL
 		h2state.settings_buffer = (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
@@ -1281,8 +1311,8 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 
 	if(reader->general_context.type == HTTPContextTypeV1) {
 
-		// TODO(Totto): use eof, but that has problems, as some clients only close, after we have
-		// closed
+		// TODO(Totto): use eof, but that has problems, as some clients only close, after we
+		// have closed
 		//  try to figure out, what the best solution would be
 		// see also finish_buffered_reader()
 

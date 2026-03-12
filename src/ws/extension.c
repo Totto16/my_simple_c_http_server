@@ -731,8 +731,8 @@ void extension_send_pipeline_process_cont_message(ExtensionSendState* extension_
 
 NODISCARD long parse_long_tstr(const tstr_view input, OUT_PARAM(bool) const success) {
 
-	int result;
-	// TODO: this can only parse ints, not longs, so the valkue might overflow
+	int result = 0;
+	// TODO(Totto): this can only parse ints, not longs, so the value might overflow
 	bool correct = tstr_view_to_int(input, &result);
 
 	if(!correct) {

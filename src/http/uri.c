@@ -89,10 +89,10 @@ NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 
 		switch(insert_result) {
 			case TmapInsertResultWouldOverwrite: {
-				// TODO: search path keys can be non unique, either error, as we don't support
-				// duplicates here, or just appaned them to the existing string, but with what
-				// separator?
-				UNREACHABLE();
+				// TODO(Totto): search path keys can be non unique, either error, as we don't
+				// support duplicates here, or just appaned them to the existing string, but with
+				// what separator?
+				UNREACHABLE(); // NOLINT8cert-dcl03-c,misc-static-assert
 				break;
 			}
 			case TmapInsertResultOk: {
@@ -100,9 +100,9 @@ NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 			}
 			case TmapInsertResultErr:
 			default: {
-				// TODO: allow error!
+				// TODO(Totto): allow error!
 				// return NULL;
-				UNREACHABLE();
+				UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
 			}
 		}
 	}
@@ -274,8 +274,8 @@ NODISCARD static ParsedRequestURIResult parse_uri_or_authority(const tstr_view p
 
 	const tstr_view current_view = scheme_identifier.second;
 
-	// TODO: note, some uris might not have an authority, is that even valid? maybe with file://
-	// /test/hello.txt, but otherwise?
+	// TODO(Totto): note, some uris might not have an authority, is that even valid? maybe with
+	// file:///test/hello.txt, but otherwise?
 
 	AuthorityResult authority_parse_result = parse_authority(current_view);
 
@@ -404,7 +404,7 @@ void free_parsed_request_uri(ParsedRequestURI uri) {
 
 NODISCARD tstr get_parsed_url_as_string(ParsedURLPath path) {
 
-	// TODO: support escape codes!
+	// TODO(Totto): support escape codes!
 
 	StringBuilder* string_builder = string_builder_init();
 
@@ -614,7 +614,7 @@ NODISCARD ParsedRequestURI duplicate_request_uri(const ParsedRequestURI uri) {
 				                                     duplicate_authority(uri.data.authority) } };
 		}
 		default: {
-			UNREACHABLE();
+			UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
 		}
 	}
 }
