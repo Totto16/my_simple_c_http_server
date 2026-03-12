@@ -90,18 +90,34 @@ struct Sha1BufferType {
 
 	constexpr Sha1BufferType(bool is_error) : m_value{}, m_is_error{ is_error } {}
 
-	constexpr ValueType& operator[](UnderlyingType::size_type n) noexcept { return m_value[n]; }
+	constexpr ValueType& operator[](UnderlyingType::size_type n) noexcept {
+		if(is_error()) {
+			assert(false && "can't index a value with an error");
+			exit(1);
+		}
+
+		return m_value[n];
+	}
 
 	[[nodiscard]] constexpr bool is_error() const { return m_is_error; }
 
 	constexpr void set_error(bool error) { m_is_error = error; }
 
 	[[nodiscard]] constexpr SizedBuffer get_sized_buffer() const {
-		SizedBuffer sized_buffer = { .data = (void*)&this->m_value, .size = sha1_buffer_size };
+		if(is_error()) {
+			assert(false && "can't get the buffer from a value with an error");
+			return SizedBuffer{ .data = NULL, .size = 0 };
+		}
+		SizedBuffer sized_buffer = { .data =
+			                             (void*)reinterpret_cast<const void*>(this->m_value.data()),
+			                         .size = sha1_buffer_size };
 		return sized_buffer;
 	}
 
 	[[nodiscard]] bool operator==(const SizedBuffer& lhs) const {
+		if(is_error()) {
+			return false;
+		}
 
 		SizedBuffer rhs_sized_buffer = this->get_sized_buffer();
 
