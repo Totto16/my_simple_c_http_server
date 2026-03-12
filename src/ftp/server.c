@@ -112,7 +112,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		return JOB_ERROR_SIG_HANDLER;
 	}
 
-	struct sockaddr_in server_addr_raw;
+	struct sockaddr_in server_addr_raw = { 0 };
 	socklen_t addr_len = sizeof(server_addr_raw);
 
 	// would be better to set cancel state in the right places!!
@@ -170,9 +170,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		goto cleanup;
 	}
 
-	bool quit = false;
-
-	while(!quit) {
+	while(true) {
 
 		// raw_ftp_commands gets freed in here
 		FTPCommand* ftp_command = parse_single_ftp_command(buffered_reader);
@@ -198,7 +196,6 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 
 		bool successfull = ftp_process_command(descriptor, server_addr, argument, ftp_command);
 		if(!successfull) {
-			quit = true;
 			break;
 		}
 
@@ -307,7 +304,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandPass: {
 
 			if(state->account->state == AccountStateOk &&
-			   tstr_eq_ignore_case_cstr(&(state->account->data.ok_data.username), ANON_USERNAME)) {
+			   tstr_eq_ignore_case_cstr( // NOLINT(readability-implicit-bool-conversion)
+			       &(state->account->data.ok_data.username), ANON_USERNAME)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn,
 				                               "Already logged in as anon!");
 
@@ -1748,25 +1746,17 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 		                "While Trying to set a port listening socket option 'SO_REUSEPORT'",
 		                goto cont_outer;);
 
-		struct sockaddr_in* addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
+		struct sockaddr_in addr = { 0 };
 
-		if(!addr) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-			                   "Couldn't allocate memory!\n");
-			continue;
-		}
-
-		*addr = (struct sockaddr_in){ 0 };
-
-		addr->sin_family = AF_INET;
+		addr.sin_family = AF_INET;
 		// hto functions are used for networking, since there every number is BIG ENDIAN and
 		// linux has Little Endian
-		addr->sin_port = htons(port);
+		addr.sin_port = htons(port);
 		// INADDR_ANY is 0.0.0.0, which means every port, but when nobody forwards it,
 		// it means, that by default only localhost can be used to access it
-		addr->sin_addr.s_addr = htonl(INADDR_ANY);
+		addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-		int result1 = bind(sock_fd, (struct sockaddr*)addr, sizeof(*addr));
+		int result1 = bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr));
 		CHECK_FOR_ERROR(result1, "While trying to bind a port listening socket to port",
 		                goto cont_outer;);
 
@@ -1850,25 +1840,17 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
 	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
-	// is relevant for each multibyte value, essentially everything but char, so htox is
+	// is relevant for each multibyte value, essentially everything but char, so htons is
 	// used, where x stands for different lengths of numbers, s for int, l for long
-	struct sockaddr_in* control_addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
+	struct sockaddr_in control_addr = { 0 };
 
-	if(!control_addr) {
-		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-		                   "Couldn't allocate memory!\n");
-		return EXIT_FAILURE;
-	}
-
-	*control_addr = (struct sockaddr_in){ 0 };
-
-	control_addr->sin_family = AF_INET;
+	control_addr.sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and
 	// linux has Little Endian
-	control_addr->sin_port = htons(control_port);
+	control_addr.sin_port = htons(control_port);
 	// INADDR_ANY is 0.0.0.0, which means every port, but when nobody forwards it,
 	// it means, that by default only localhost can be used to access it
-	control_addr->sin_addr.s_addr = htonl(INADDR_ANY);
+	control_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	// since bind is generic, the specific struct has to be casted, and the actual length
 	// has to be given, this is a function signature, just to satisfy the typings, the real
@@ -1876,7 +1858,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// ports below 1024 are  privileged ports, meaning, that you require special permissions
 	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
 	// getting that is being root, or executing as root: sudo ...)
-	int result1 = bind(control_socket_fd, (struct sockaddr*)control_addr, sizeof(*control_addr));
+	int result1 = bind(control_socket_fd, (struct sockaddr*)&control_addr, sizeof(control_addr));
 	CHECK_FOR_ERROR(result1, "While trying to bind control socket to port", return EXIT_FAILURE;);
 
 	// FTP_SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
@@ -2082,11 +2064,6 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// time, even if closed correctly!
 	result1 = close(control_socket_fd);
 	CHECK_FOR_ERROR(result1, "While trying to close the control socket", return EXIT_FAILURE;);
-
-	// and freeing the malloced sockaddr_in, could be done (probably, since the receiver of
-	// this option has already got that argument and doesn't read data from that pointer
-	// anymore) sooner.
-	free(control_addr);
 
 	free(ports);
 

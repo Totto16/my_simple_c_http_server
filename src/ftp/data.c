@@ -564,6 +564,8 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 
 	struct sockaddr_in* connect_addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
 
+	*connect_addr = (struct sockaddr_in){ 0 };
+
 	connect_addr->sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and linux
 	// has Little Endian
