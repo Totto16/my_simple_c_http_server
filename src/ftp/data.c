@@ -435,14 +435,14 @@ nts_internal_data_connections_to_close(DataController* const data_controller,
 					}
 				}
 
-				auto _ = TVEC_PUSH(ConnectionDescriptorPtr, connections_to_close,
-				                   current_conn->descriptor);
-				UNUSED(_);
+				const TvecResult push_res = TVEC_PUSH(ConnectionDescriptorPtr, connections_to_close,
+				                                      current_conn->descriptor);
+				assert(push_res == TvecResultOk);
 			} else {
 
-				auto _ = TVEC_PUSH(DataConnectionPtr, &new_connections, current_conn);
-
-				UNUSED(_);
+				const TvecResult push_res =
+				    TVEC_PUSH(DataConnectionPtr, &new_connections, current_conn);
+				assert(push_res == TvecResultOk);
 			}
 		}
 

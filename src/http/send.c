@@ -49,6 +49,8 @@ static bool construct_http1_headers_for_request(
     HttpHeaderFields additional_headers, CompressionType compression_format, const SizedBuffer body,
     const HttpStatusCode status) {
 
+	bool result = true;
+
 	// add standard fields
 
 	{
@@ -84,7 +86,6 @@ static bool construct_http1_headers_for_request(
 			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(connection),
 			                      TSTR_LIT("close"));
 		}
-		UNUSED(send_settings);
 	}
 
 	{
@@ -125,24 +126,33 @@ static bool construct_http1_headers_for_request(
 
 	size_t additional_headers_size = TVEC_LENGTH(HttpHeaderField, additional_headers);
 
-	auto _ = TVEC_RESERVE(HttpHeaderField, result_header_fields,
-	                      current_array_size + additional_headers_size);
-	UNUSED(_);
+	const TvecResult push_res = TVEC_RESERVE(HttpHeaderField, result_header_fields,
+	                                         current_array_size + additional_headers_size);
+	if(push_res != TvecResultOk) {
+		goto error;
+	}
 
 	for(size_t i = 0; i < additional_headers_size; ++i) {
 
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, additional_headers, i);
 
-		auto _1 = TVEC_PUSH(HttpHeaderField, result_header_fields, field);
-		UNUSED(_1);
+		const TvecResult push_res1 = TVEC_PUSH(HttpHeaderField, result_header_fields, field);
+		if(push_res1 != TvecResultOk) {
+			goto error;
+		}
 	}
+
+free:
 
 	// if additional Headers are specified free them now
 	if(additional_headers_size > 0) {
 		TVEC_FREE(HttpHeaderField, &additional_headers);
 	}
 
-	return true;
+	return result;
+error:
+	result = false;
+	goto free;
 }
 
 static bool construct_http2_headers_for_request(

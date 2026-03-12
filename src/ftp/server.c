@@ -1923,8 +1923,13 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
 		ConnectionContext* context = get_connection_context(final_options);
 
-		auto _ = TVEC_SET_AT(ConnectionContextPtr, &control_contexts, i, context);
-		UNUSED(_);
+		const TvecResult push_res =
+		    TVEC_SET_AT(ConnectionContextPtr, &control_contexts, i, context);
+
+		if(push_res != TvecResultOk) {
+			TVEC_FREE(ConnectionContextPtr, &control_contexts);
+			return EXIT_FAILURE;
+		}
 	}
 
 	size_t port_amount = DEFAULT_PASSIVE_PORT_AMOUNT;

@@ -544,14 +544,14 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			                                          .post = log_collector_collect_fn,
 			                                      },
 												.data = log_collector };
-
-		auto _ = TVEC_PUSH(HTTPRequestProxy, &routes->proxies, logs_collector_proxy);
-		UNUSED(_);
+		const TvecResult push_res =
+		    TVEC_PUSH(HTTPRequestProxy, &routes->proxies, logs_collector_proxy);
+		assert(push_res == TvecResultOk);
 
 		HTTPFreeFn free_route = { .data = log_collector, .fn = (FreeFnImpl)free_log_collector };
 
-		auto _1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
-		UNUSED(_1);
+		const TvecResult push_res1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
+		assert(push_res1 == TvecResultOk);
 
 		// logs folder
 		// in the "/.well-known/" folder
@@ -578,8 +578,8 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _2 = TVEC_PUSH(HTTPRoute, &routes->routes, well_known_folder);
-		UNUSED(_2);
+		const TvecResult push_res2 = TVEC_PUSH(HTTPRoute, &routes->routes, well_known_folder);
+		assert(push_res2 == TvecResultOk);
 	}
 
 	// note, as routes get checked in order, this works, even if / gets mapped to the server_folder!
@@ -619,13 +619,13 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			.auth = { .type = HTTPAuthorizationTypeNone }
 		};
 
-		auto _ = TVEC_PUSH(HTTPRoute, &routes->routes, serve_route);
-		UNUSED(_);
+		const TvecResult push_res = TVEC_PUSH(HTTPRoute, &routes->routes, serve_route);
+		assert(push_res == TvecResultOk);
 
 		HTTPFreeFn free_route = { .data = folder_path_resolved, .fn = free };
 
-		auto _1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
-		UNUSED(_1);
+		const TvecResult push_res1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
+		assert(push_res1 == TvecResultOk);
 	}
 
 	return routes;
@@ -703,7 +703,7 @@ NODISCARD static bool is_route_matching(HTTPRoutePath route_path, const tstr* co
 				return false;
 			}
 
-			// TODO: use cwalk!
+			// TODO(Totto): use cwalk!
 			return strncmp(route_path.data, tstr_cstr(path), route_path_len) == 0;
 		}
 		default: {
@@ -833,8 +833,12 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view v
 
 		const tstr_split_result split_res2 = tstr_split(decoded_data, ":");
 
-		const tstr_view username = split_res2.ok ? split_res2.first : decoded_data;
-		const tstr_view password = split_res2.ok ? split_res2.second : TSTR_EMPTY_VIEW;
+		const tstr_view username =
+		    split_res2.ok ? split_res2.first // NOLINT(readability-implicit-bool-conversion)
+		                  : decoded_data;
+		const tstr_view password =
+		    split_res2.ok ? split_res2.second // NOLINT(readability-implicit-bool-conversion)
+		                  : TSTR_EMPTY_VIEW;
 
 		HttpAuthHeaderBasic basic = { .username = tstr_from_view(username),
 			                          .password = tstr_from_view(password) };

@@ -268,8 +268,8 @@ void add_http_header_field(HttpHeaderFields* const header_fields, const tstr key
 
 	HttpHeaderField field = { .key = key, .value = value };
 
-	auto _ = TVEC_PUSH(HttpHeaderField, header_fields, field);
-	UNUSED(_);
+	const TvecResult push_res = TVEC_PUSH(HttpHeaderField, header_fields, field);
+	assert(push_res == TvecResultOk);
 }
 
 void process_delimitered_header_value(const tstr_view value, const char* const delimiter,
