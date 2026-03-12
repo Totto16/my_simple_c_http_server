@@ -554,12 +554,12 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 												.data = log_collector };
 		const TvecResult push_res =
 		    TVEC_PUSH(HTTPRequestProxy, &routes->proxies, logs_collector_proxy);
-		assert(push_res == TvecResultOk);
+		OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 
 		HTTPFreeFn free_route = { .data = log_collector, .fn = (FreeFnImpl)free_log_collector };
 
 		const TvecResult push_res1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
-		assert(push_res1 == TvecResultOk);
+		OOM_ASSERT(push_res1 == TvecResultOk, "Vec push error");
 
 		// logs folder
 		// in the "/.well-known/" folder
@@ -587,7 +587,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 		};
 
 		const TvecResult push_res2 = TVEC_PUSH(HTTPRoute, &routes->routes, well_known_folder);
-		assert(push_res2 == TvecResultOk);
+		OOM_ASSERT(push_res2 == TvecResultOk, "Vec push error");
 	}
 
 	// note, as routes get checked in order, this works, even if / gets mapped to the server_folder!
@@ -631,12 +631,12 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 		};
 
 		const TvecResult push_res = TVEC_PUSH(HTTPRoute, &routes->routes, serve_route);
-		assert(push_res == TvecResultOk);
+		OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 
 		HTTPFreeFn free_route = { .data = folder_path_resolved, .fn = free };
 
 		const TvecResult push_res1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
-		assert(push_res1 == TvecResultOk);
+		OOM_ASSERT(push_res1 == TvecResultOk, "Vec push error");
 	}
 
 	return routes;

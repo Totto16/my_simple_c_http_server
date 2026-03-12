@@ -73,24 +73,30 @@
 		do { \
 			UNUSED((x)); \
 		} while(false)
-#else
 
-	#include <assert.h>
-
-#endif
-
-#ifdef NDEBUG
 	#define UNREACHABLE() \
 		do { \
-			fprintf(stderr, "[%s %s:%d]: UNREACHABLE", __func__, __FILE__, __LINE__); \
+			fprintf(stderr, "[%s %s:%d]: UNREACHABLE\n", __func__, __FILE__, __LINE__); \
 			exit(EXIT_FAILURE); \
 		} while(false)
+
+	#define OOM_ASSERT(value, message) \
+		do { \
+			if(!(value)) { \
+				fprintf(stderr, "[%s %s:%d]: OOM: %s\n", __func__, __FILE__, __LINE__, (message)); \
+				exit(EXIT_FAILURE); \
+			} \
+		} while(false)
+
 #else
+	#include <assert.h>
 
 	#define UNREACHABLE() \
 		do { \
 			assert(false && "UNREACHABLE"); \
 		} while(false)
+
+	#define OOM_ASSERT(value, message) assert((value) && (message));
 
 #endif
 

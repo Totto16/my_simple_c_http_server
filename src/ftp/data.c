@@ -437,12 +437,12 @@ nts_internal_data_connections_to_close(DataController* const data_controller,
 
 				const TvecResult push_res = TVEC_PUSH(ConnectionDescriptorPtr, connections_to_close,
 				                                      current_conn->descriptor);
-				assert(push_res == TvecResultOk);
+				OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 			} else {
 
 				const TvecResult push_res =
 				    TVEC_PUSH(DataConnectionPtr, &new_connections, current_conn);
-				assert(push_res == TvecResultOk);
+				OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 			}
 		}
 
