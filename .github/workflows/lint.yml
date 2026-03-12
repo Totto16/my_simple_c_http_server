@@ -1,7 +1,7 @@
 name: Lint CI
 on:
   push:
-    branches: ['main']
+    branches: ["main"]
   pull_request:
   workflow_dispatch:
 
@@ -39,6 +39,8 @@ jobs:
 
           meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
 
+          meson compile -C build generated_sources
+
       - uses: cpp-linter/cpp-linter-action@v2
         id: linter
         continue-on-error: true
@@ -51,7 +53,7 @@ jobs:
           files-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
           lines-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
           thread-comments: update
-          tidy-checks: ''
+          tidy-checks: ""
           step-summary: true
           file-annotations: true
           ignore: subprojects|build|src/thirdparty|src/ws/macos_endian_compat.h|tests/unit/*.cpp|tests/unit/*.hpp

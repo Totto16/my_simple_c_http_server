@@ -128,5 +128,11 @@ generated_hpack_file_cpp = custom_target(
     depends: hpack_script_depends,
 )
 
-
 generated_cpp_hpack_tests += generated_hpack_file_cpp
+
+alias_target(
+    'generated_sources',
+    generated_hpack_huffman_file_c,
+    generated_hpack_header_h,
+    generated_hpack_file_cpp,
+)
