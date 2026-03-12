@@ -230,7 +230,8 @@ initialize_http_reader_from_connection(ConnectionDescriptor* const descriptor) {
 static CompressionType parse_compression_type(const tstr_view compression_name,
                                               OUT_PARAM(bool) ok_result) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.3
-	if(tstr_view_eq(compression_name, "gzip") || tstr_view_eq(compression_name, "x-gzip")) {
+	if(tstr_view_eq(compression_name, "gzip") ||   // NOLINT(readability-implicit-bool-conversion)
+	   tstr_view_eq(compression_name, "x-gzip")) { // NOLINT(readability-implicit-bool-conversion)
 		*ok_result = true;
 		return CompressionTypeGzip;
 	}
@@ -252,7 +253,9 @@ static CompressionType parse_compression_type(const tstr_view compression_name,
 	}
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7230#section-4.2.1
-	if(tstr_view_eq(compression_name, "compress") || tstr_view_eq(compression_name, "x-compress")) {
+	if(tstr_view_eq(compression_name, "compress") || // NOLINT(readability-implicit-bool-conversion)
+	   tstr_view_eq(compression_name,                // NOLINT(readability-implicit-bool-conversion)
+	                "x-compress")) {
 		*ok_result = true;
 		return CompressionTypeCompress;
 	}
@@ -291,7 +294,7 @@ static CompressionValue parse_compression_value(const tstr_view compression_name
 	return result;
 }
 
-// TODO: implement non allocating variant of this!
+// TODO(Totto): implement non allocating variant of this!
 NODISCARD static float parse_float_tstr(const tstr_view value) {
 
 	// we need to call this, so that the value we pass to the strtof is null terminated
@@ -722,7 +725,9 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 	analyze_result.settings = get_request_settings(http_request);
 
-	if(h2state.connection_has_both_upgrade_and_h2_settings && h2state.upgrade_h2c_present &&
+	if(h2state // NOLINT(readability-implicit-bool-conversion)
+	       .connection_has_both_upgrade_and_h2_settings &&
+	   h2state.upgrade_h2c_present && // NOLINT(readability-implicit-bool-conversion)
 	   h2state.settings_buffer.data != NULL) {
 		if(analyze_result.connection.type != HttpAnalyzeConnectionTypeNothingSpecial) {
 			FREE_AT_END();
@@ -820,7 +825,7 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 }
 
 NODISCARD static HttpRequestResult
-process_http2_upgrade_request(const HTTPResultOk ok, HTTPReader* const reader,
+process_http2_upgrade_request(const HTTPResultOk ok_res, HTTPReader* const reader,
                               const SizedBuffer h2c_upgrade_settings) {
 
 	{ // send http1 response
@@ -839,7 +844,7 @@ process_http2_upgrade_request(const HTTPResultOk ok, HTTPReader* const reader,
 			                           .mime_type = tstr_init(),
 			                           .additional_headers = additional_headers };
 
-		SendSettings send_settings = get_send_settings(ok.settings);
+		SendSettings send_settings = get_send_settings(ok_res.settings);
 
 		int result = send_http_message_to_connection(
 		    &(reader->general_context),
@@ -862,7 +867,7 @@ process_http2_upgrade_request(const HTTPResultOk ok, HTTPReader* const reader,
 
 	// upgrade the request to a http2 request and return the request value as an http2 request!
 	return http2_process_h2c_upgrade(&reader->general_context.data.v2, reader->buffered_reader,
-	                                 h2c_upgrade_settings, ok.request);
+	                                 h2c_upgrade_settings, ok_res.request);
 }
 
 NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine request_line,
