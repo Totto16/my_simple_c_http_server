@@ -938,7 +938,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"location", "https://www.example.com"},
 					},
 					.options = {
-						.huffman_usage = Http2HpackHuffmanUsageNever,
+						.huffman_usage = Http2HpackHuffmanUsageAlways,
 						.type = Http2HpackCompressTypeAllTablesUsage,
 						.table_add_type = Http2HpackTableAddTypeAll,
 					}
@@ -962,7 +962,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"location", "https://www.example.com"},
 					},
 					.options = {
-						.huffman_usage = Http2HpackHuffmanUsageNever,
+						.huffman_usage = Http2HpackHuffmanUsageAlways,
 						.type = Http2HpackCompressTypeAllTablesUsage,
 						.table_add_type = Http2HpackTableAddTypeAll,
 					}
@@ -987,7 +987,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
 					},
 					.options  = {
-						.huffman_usage = Http2HpackHuffmanUsageNever,
+						.huffman_usage = Http2HpackHuffmanUsageAlways,
 						.type = Http2HpackCompressTypeAllTablesUsage,
 						.table_add_type = Http2HpackTableAddTypeAll,
 					}
