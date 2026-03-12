@@ -54,19 +54,25 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 		const uint8_t byte = data[*pos];
 		(*pos)++;
 
-		if((amount / 8) >= sizeof(HpackVariableInteger) - 1) {
+		if((amount /
+		    8) >= // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		   sizeof(HpackVariableInteger) - 1) {
 			// to many bytes, the index should not be larger than a uint64_t
 			return (HpackVariableIntegerResult){
 				.is_error = true, .data = { .error = "final integer would be too big" }
 			};
 		}
 
-		result += (byte & 0x7F) << amount;
-		if((byte & 0x80) == 0) {
+		result +=
+		    (byte & 0x7F) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		    << amount;
+		if((byte &
+		    0x80) == // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		   0) {
 			// this was the last byte
 			break;
 		}
-		amount += 7;
+		amount += 7; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	return (HpackVariableIntegerResult){ .is_error = false,
@@ -76,9 +82,10 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 }
 
 // note: out_bytes has to have a available size of MAX_HPACK_VARIABLE_INTEGER_SIZE
-NODISCARD static int8_t encode_hpack_variable_integer(uint8_t* const out_bytes,
-                                                      const HpackVariableInteger input,
-                                                      const uint8_t prefix_bits) {
+NODISCARD static int8_t encode_hpack_variable_integer(
+    uint8_t* const out_bytes,
+    const HpackVariableInteger input, // NOLINT(bugprone-easily-swappable-parameters)
+    const uint8_t prefix_bits) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1
 
@@ -107,12 +114,16 @@ NODISCARD static int8_t encode_hpack_variable_integer(uint8_t* const out_bytes,
 			return -1;
 		}
 
-		if(value >= 0x80) {
+		if(value >=
+		   0x80) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			// not the end
 
 			const uint8_t to_encode = value & 0x7F;
-			out_bytes[idx++] = 0x80 + to_encode;
-			value /= 0x80;
+			out_bytes[idx++] =
+			    0x80 + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			    to_encode;
+			value /=
+			    0x80; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		} else {
 			out_bytes[idx++] = value;
 			break;
@@ -211,7 +222,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, entry_value);
 
-	if(insert_result != TvecResultOk) {
+	if(insert_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		free_dynamic_entry(entry.value);
 		return -3;
 	}
@@ -229,7 +240,7 @@ NODISCARD static tstr parse_literal_string_value(size_t* pos, const size_t size,
 
 	const uint8_t byte = data[*pos];
 
-	const bool is_hufffman = (byte & 0x80) != 0;
+	const bool is_huffman = (byte & 0x80) != 0;
 
 	const HpackVariableIntegerResult length_res = decode_hpack_variable_integer(pos, size, data, 7);
 
@@ -255,14 +266,14 @@ NODISCARD static tstr parse_literal_string_value(size_t* pos, const size_t size,
 
 	(*pos) += length;
 
-	if(is_hufffman) {
+	if(is_huffman) {
 		const HuffmanDecodeResult huffman_res = hpack_huffman_decode_bytes(raw_bytes);
 
 		if(huffman_res.is_error) {
 			return tstr_init();
 		}
-		// TODO: huffman can technically produce 0 bytes, but then the encoder did some bad thing,
-		// so we are just ignoring that
+		// TODO(Totto): huffman can technically produce 0 bytes, but then the encoder did some bad
+		// thing, so we are just ignoring that
 
 #ifndef NDEBUG
 		assert(strlen(huffman_res.data.result.data) == huffman_res.data.result.size);
@@ -290,7 +301,8 @@ NODISCARD static size_t get_dynamic_entry_size(const HpackHeaderDynamicEntry ent
 	// The size of an entry is the sum of its name's length in octets its value's length in octets,
 	// and 32.
 
-	return tstr_len(&entry.key) + tstr_len(&entry.value) + 32;
+	return tstr_len(&entry.key) + tstr_len(&entry.value) +
+	       32; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 }
 
 static void insert_entry_into_dynamic_table(HpackDynamicTableState* const state,
@@ -377,7 +389,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
-	tstr header_key = tstr_init();
+	tstr header_key = tstr_init(); // NOLINT(clang-analyzer-deadcode.DeadStores)
 
 	if(index == 0) {
 		// second variant
@@ -385,7 +397,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 		tstr string_literal_result = parse_literal_string_value(pos, size, data);
 
 		if(tstr_is_null(&string_literal_result)) {
-			return -5;
+			return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		}
 
 		header_key = string_literal_result;
@@ -405,13 +417,13 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	}
 
 	if(*pos >= size) {
-		return -8;
+		return -8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	tstr header_value = parse_literal_string_value(pos, size, data);
 
 	if(tstr_is_null(&header_value)) {
-		return -6;
+		return -6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	const HttpHeaderField header_field = {
@@ -421,7 +433,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
 
-	if(insert_result != TvecResultOk) {
+	if(insert_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		free_http_header_field(header_field);
 		return -3;
 	}
@@ -497,7 +509,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
-	tstr header_key = tstr_init();
+	tstr header_key = tstr_init(); // NOLINT(clang-analyzer-deadcode.DeadStores)
 
 	if(index == 0) {
 		// second variant
@@ -505,7 +517,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 		tstr string_literal_result = parse_literal_string_value(pos, size, data);
 
 		if(tstr_is_null(&string_literal_result)) {
-			return -5;
+			return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		}
 
 		header_key = string_literal_result;
@@ -525,13 +537,13 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 	}
 
 	if(*pos >= size) {
-		return -8;
+		return -8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	tstr header_value = parse_literal_string_value(pos, size, data);
 
 	if(tstr_is_null(&header_value)) {
-		return -6;
+		return -6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	const HttpHeaderField header_field = {
@@ -541,7 +553,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
 
-	if(insert_result != TvecResultOk) {
+	if(insert_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		free_http_header_field(header_field);
 		return -3;
 	}
@@ -590,7 +602,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
-	tstr header_key = tstr_init();
+	tstr header_key = tstr_init(); // NOLINT(clang-analyzer-deadcode.DeadStores)
 
 	if(index == 0) {
 		// second variant
@@ -598,7 +610,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 		tstr string_literal_result = parse_literal_string_value(pos, size, data);
 
 		if(tstr_is_null(&string_literal_result)) {
-			return -5;
+			return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		}
 
 		header_key = string_literal_result;
@@ -618,13 +630,13 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	}
 
 	if(*pos >= size) {
-		return -8;
+		return -8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	tstr header_value = parse_literal_string_value(pos, size, data);
 
 	if(tstr_is_null(&header_value)) {
-		return -6;
+		return -6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	const HttpHeaderField header_field = {
@@ -634,7 +646,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
 
-	if(insert_result != TvecResultOk) {
+	if(insert_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		free_http_header_field(header_field);
 		return -3;
 	}
@@ -652,12 +664,14 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 	const uint8_t* const data = (uint8_t*)input.data;
 
 	HttpHeaderFields result = TVEC_EMPTY(HttpHeaderField);
-	const char* error = "None";
+	const char* error = "None"; // NOLINT(clang-analyzer-deadcode.DeadStores)
 
 	while(pos < size) {
 		uint8_t byte = data[pos];
 
-		if((byte & 0x80) != 0) {
+		if((byte &
+		    0x80) != // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		   0) {
 			// Indexed Header Field:
 			// https://datatracker.ietf.org/doc/html/rfc7541#section-6.1
 			//    0   1   2   3   4   5   6   7
@@ -670,7 +684,10 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 				error = "error in parsing indexed header field";
 				goto return_error;
 			}
-		} else if((byte & 0xC0) == 0x40) {
+		} else if(
+		    (byte &
+		     0xC0) == // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		    0x40) {   // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			// Literal Header Field with Incremental Indexing:
 			// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.1
 			//   0   1   2   3   4   5   6   7
@@ -684,7 +701,10 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 				error = "error in parsing literal header field with incremental indexing";
 				goto return_error;
 			}
-		} else if((byte & 0xE0) == 0x20) {
+		} else if(
+		    (byte &
+		     0xE0) == // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		    0x20) {   // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			// Dynamic Table Size Update:
 			// https://datatracker.ietf.org/doc/html/rfc7541#section-6.3
 			//   0   1   2   3   4   5   6   7
@@ -697,7 +717,10 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 				error = "error in parsing dynamic table size update";
 				goto return_error;
 			}
-		} else if((byte & 0xF0) == 0x10) {
+		} else if(
+		    (byte &
+		     0xF0) == // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		    0x10) {   // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 			// Literal Header Field Never Indexed:
 			// https://datatracker.ietf.org/doc/html/rfc7541#section-6.2.3
 			//   0   1   2   3   4   5   6   7
@@ -896,7 +919,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 
 	size_t i = 0;
 
-	data[i] = 0x10;
+	data[i] = 0x10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	{ // encode key as table index
 
@@ -915,7 +938,9 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 		// set Huffman to false
 		data[i] = 0x00;
 
-		int8_t result = encode_hpack_variable_integer(data + i, value_size, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, value_size,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
@@ -977,7 +1002,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 
 	size_t i = 0;
 
-	data[i] = 0x10;
+	data[i] = 0x10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	{ // encode key as table index
 
@@ -994,9 +1019,11 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 	{ // encode value
 
 		// set Huffman to true
-		data[i] = 0x80;
+		data[i] = 0x80; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-		int8_t result = encode_hpack_variable_integer(data + i, size_value, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, size_value,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1) {
 			free_sized_buffer(buffer);
@@ -1110,14 +1137,16 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 
 	size_t i = 0;
 
-	data[i++] = 0x10;
+	data[i++] = 0x10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	{ // encode key / name
 
 		// set Huffman to false
 		data[i] = 0x00;
 
-		int8_t result = encode_hpack_variable_integer(data + i, key_size, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, key_size,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
@@ -1136,7 +1165,9 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 		// set Huffman to false
 		data[i] = 0x00;
 
-		int8_t result = encode_hpack_variable_integer(data + i, value_size, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, value_size,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
@@ -1202,14 +1233,16 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 
 	size_t i = 0;
 
-	data[i++] = 0x10;
+	data[i++] = 0x10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	{ // encode key / name
 
 		// set Huffman to true
-		data[i] = 0x80;
+		data[i] = 0x80; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-		int8_t result = encode_hpack_variable_integer(data + i, size_key, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, size_key,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1) {
 			free_sized_buffer(buffer);
@@ -1240,9 +1273,11 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 	{ // encode value
 
 		// set Huffman to true
-		data[i] = 0x80;
+		data[i] = 0x80; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-		int8_t result = encode_hpack_variable_integer(data + i, size_value, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, size_value,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1) {
 			free_sized_buffer(buffer);
@@ -1352,11 +1387,13 @@ encode_single_header_field_literal_incremental_indexing_variant1_no_huffman(
 
 	size_t i = 0;
 
-	data[i] = 0x40;
+	data[i] = 0x40; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	{ // encode key as table index
 
-		int8_t result = encode_hpack_variable_integer(data + i, field_key_table_idx, 6);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, field_key_table_idx,
+		    6); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
@@ -1371,7 +1408,9 @@ encode_single_header_field_literal_incremental_indexing_variant1_no_huffman(
 		// set Huffman to false
 		data[i] = 0x00;
 
-		int8_t result = encode_hpack_variable_integer(data + i, value_size, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, value_size,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
@@ -1442,11 +1481,13 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 
 	size_t i = 0;
 
-	data[i] = 0x40;
+	data[i] = 0x40; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	{ // encode key as table index
 
-		int8_t result = encode_hpack_variable_integer(data + i, field_key_table_idx, 6);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, field_key_table_idx,
+		    6); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
@@ -1459,9 +1500,11 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 	{ // encode value
 
 		// set Huffman to true
-		data[i] = 0x80;
+		data[i] = 0x80; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-		int8_t result = encode_hpack_variable_integer(data + i, size_value, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, size_value,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1) {
 			free_sized_buffer(buffer);
@@ -1583,14 +1626,16 @@ encode_single_header_field_literal_incremental_indexing_variant2_no_huffman(
 
 	size_t i = 0;
 
-	data[i++] = 0x40;
+	data[i++] = 0x40; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	{ // encode key / name
 
 		// set Huffman to false
 		data[i] = 0x00;
 
-		int8_t result = encode_hpack_variable_integer(data + i, key_size, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, key_size,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
@@ -1609,7 +1654,9 @@ encode_single_header_field_literal_incremental_indexing_variant2_no_huffman(
 		// set Huffman to false
 		data[i] = 0x00;
 
-		int8_t result = encode_hpack_variable_integer(data + i, value_size, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, value_size,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 			free_sized_buffer(buffer);
@@ -1684,14 +1731,16 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 
 	size_t i = 0;
 
-	data[i++] = 0x40;
+	data[i++] = 0x40; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	{ // encode key / name
 
 		// set Huffman to true
-		data[i] = 0x80;
+		data[i] = 0x80; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-		int8_t result = encode_hpack_variable_integer(data + i, size_key, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, size_key,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1) {
 			free_sized_buffer(buffer);
@@ -1722,9 +1771,11 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 	{ // encode value
 
 		// set Huffman to true
-		data[i] = 0x80;
+		data[i] = 0x80; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-		int8_t result = encode_hpack_variable_integer(data + i, size_value, 7);
+		int8_t result = encode_hpack_variable_integer(
+		    data + i, size_value,
+		    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 		if(result < 1) {
 			free_sized_buffer(buffer);
@@ -1833,7 +1884,9 @@ http2_hpack_compress_data_simple(const HttpHeaderFields header_fields,
 		void* new_data = realloc(result.data, old_size + single_header_result.size);
 
 		if(new_data == NULL) {
-			free_sized_buffer(result);
+			free_sized_buffer(single_header_result);
+			free_sized_buffer(result); // NOLINT(clang-analyzer-unix.Malloc)
+
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
@@ -2002,7 +2055,8 @@ NODISCARD static SizedBuffer encode_single_header_field_extended_as_whole(
 
 NODISCARD static SizedBuffer encode_single_header_field_extended_with_key_from_table(
     const HttpHeaderField* const field, HpackCompressState* const compress_state,
-    const Http2HpackHuffmanUsage huffman_usage, const Http2HpackTableAddType table_add_type,
+    const Http2HpackHuffmanUsage huffman_usage,
+    const Http2HpackTableAddType table_add_type, // NOLINT(bugprone-easily-swappable-parameters)
     const size_t key_table_idx) {
 
 	const bool should_add = should_add_header_to_table(field, table_add_type);
@@ -2038,10 +2092,13 @@ encode_single_header_field_indexed_header_field(const size_t entry_table_idx) {
 
 	size_t i = 0;
 
-	data[i] = 0x80; // set the first bit
+	// set the first bit
+	data[i] = 0x80; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	assert(entry_table_idx != 0);
-	int8_t result = encode_hpack_variable_integer(data + i, entry_table_idx, 7);
+	int8_t result = encode_hpack_variable_integer(
+	    data + i, entry_table_idx,
+	    7); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	if(result < 1 || (size_t)result > MAX_HPACK_VARIABLE_INTEGER_SIZE) {
 		free_sized_buffer(buffer);
@@ -2124,7 +2181,9 @@ NODISCARD static SizedBuffer http2_hpack_compress_data_extended(
 		void* new_data = realloc(result.data, old_size + single_header_result.size);
 
 		if(new_data == NULL) {
-			free_sized_buffer(result);
+			free_sized_buffer(single_header_result);
+			free_sized_buffer(result); // NOLINT(clang-analyzer-unix.Malloc)
+
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 

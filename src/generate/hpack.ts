@@ -1580,7 +1580,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
 function generate_fast_string_compare_decl(function_name: string): string {
     return `
-NODISCARD FastStringCompareResult ${function_name}(const tstr_view str_view);`
+NODISCARD FastStringCompareResult ${function_name}(tstr_view str_view);`
 }
 
 function generate_types_for_fast_compare(): string {
@@ -1837,7 +1837,7 @@ typedef struct {
 
 // hold mappings from all 8 bit values to a HuffmanEncodeEntry
 typedef struct  {
-	HuffmanEncodeEntry entries[256];
+	HuffmanEncodeEntry entries[256]; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 } HuffmanEncodeMap;
 
 NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void);
@@ -1851,7 +1851,7 @@ typedef struct {
 
 ${generate_fast_string_compare_decl("hpack_generated_is_common_field_key_fast_cmp")}
 
-NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view);
+NODISCARD bool hpack_generated_is_common_field_key_fast(tstr_view str_view);
 
 /**
  * @enum value
@@ -1869,7 +1869,7 @@ typedef struct {
 	} data;
 } StaticTableFindResult;
 
-NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* const field);
+NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* field);
 `
 
     writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
