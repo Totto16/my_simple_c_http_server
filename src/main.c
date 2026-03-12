@@ -136,7 +136,7 @@ NODISCARD static AuthenticationProviders* initialize_default_authentication_prov
 
 			tstr username = tstr_from(entry.username);
 			tstr password = tstr_from(entry.password);
-			const auto result = add_user_to_simple_authentication_provider_data_password_raw(
+			const bool result = add_user_to_simple_authentication_provider_data_password_raw(
 			    simple_auth_provider, &username, &password, entry.role);
 
 			tstr_free(&username);
