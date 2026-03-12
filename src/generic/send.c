@@ -42,8 +42,6 @@ int send_data_to_connection(const ConnectionDescriptor* const descriptor, void* 
 	return 0;
 }
 
-
-
 NODISCARD int send_sized_buffer_to_connection(const ConnectionDescriptor* const descriptor,
                                               SizedBuffer buffer) {
 	return send_data_to_connection(descriptor, buffer.data, buffer.size);

@@ -54,5 +54,5 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	UserValidityInternalError,
 } UserValidity;
 
-NODISCARD UserValidity account_verify(const AuthenticationProviders* auth_providers, const tstr* username,
-                                      const tstr* password);
+NODISCARD UserValidity account_verify(const AuthenticationProviders* auth_providers,
+                                      const tstr* username, const tstr* password);

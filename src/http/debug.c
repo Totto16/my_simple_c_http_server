@@ -34,8 +34,8 @@ StringBuilder* http_request_to_string_builder(const HttpRequest request, bool ht
 		STRING_BUILDER_APPENDF(result, return NULL;, "\tHeader:\n\t\tKey: %s \n\t\tValue: %s\n",
 		                                           tstr_cstr(&entry.key), tstr_cstr(&entry.value));
 	}
-	STRING_BUILDER_APPENDF(result, return NULL;
-	                       , "\tBody: " SIZED_BUFFER_FMT " \n", SIZED_BUFFER_FMT_ARGS(request.body));
+	STRING_BUILDER_APPENDF(result, return NULL;, "\tBody: " SIZED_BUFFER_FMT " \n",
+	                                           SIZED_BUFFER_FMT_ARGS(request.body));
 	return result;
 }
 

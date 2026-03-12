@@ -55,7 +55,7 @@ NODISCARD ConnectionDescriptor* get_connection_descriptor(const ConnectionContex
 NODISCARD int close_connection_descriptor(ConnectionDescriptor* descriptor);
 
 NODISCARD int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
-                                         ConnectionContext* context, bool allow_reuse);
+                                                   ConnectionContext* context, bool allow_reuse);
 
 /**
  * @enum value
