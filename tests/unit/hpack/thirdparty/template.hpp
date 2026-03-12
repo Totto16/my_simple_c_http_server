@@ -23,13 +23,14 @@
 					    get_default_hpack_decompress_state_cpp(test_case.header_table_size); \
 					REQUIRE_NE(state.get(), nullptr); \
 \
+					INFO("File: ", test_case.file); \
 					INFO("test case description: ", test_case.description); \
 \
 					for(size_t i = 0; i < test_case.cases.size(); ++i) { \
 \
-						INFO("case: ", i); \
-\
 						const auto& single_case = test_case.cases.at(i); \
+\
+						INFO("index: ", i, " seqno: ", single_case.seqno); \
 \
 						REQUIRE_EQ(single_case.seqno, i); \
 \

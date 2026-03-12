@@ -20,6 +20,7 @@ struct ThirdPartyHpackTestCase {
 	std::vector<ThirdPartyHpackTestCaseEntry> cases;
 	std::string name;
 	size_t header_table_size;
+	std::filesystem::path file;
 };
 
 struct HpackGlobalHandle {
@@ -147,16 +148,19 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 
 	std::optional<size_t> header_table_size = std::nullopt;
 
-	for(const auto& case_ : data["cases"]) {
+	for(size_t i = 0; i < data["cases"].size(); ++i) {
+		const auto& case_ = data["cases"].at(i);
 
 		const auto local_h_size = get_optional_header_size(case_);
 
 		if(local_h_size.has_value()) {
 			if(header_table_size.has_value()) {
 				if(local_h_size.value() != header_table_size.value()) {
-					throw std::runtime_error(std::string{ "Invalid header table size value: " } +
-					                         std::to_string(local_h_size.value()) + " vs " +
-					                         std::to_string(header_table_size.value()));
+
+					throw std::runtime_error(std::string{ "Invalid header table size at index " } +
+					                         std::to_string(i) +
+					                         ", value: " + std::to_string(local_h_size.value()) +
+					                         " vs " + std::to_string(header_table_size.value()));
 				}
 			} else {
 				header_table_size = local_h_size;
@@ -175,6 +179,7 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 		.cases = cases,
 		.name = name,
 		.header_table_size = header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE),
+		.file = path,
 	};
 }
 
@@ -205,7 +210,7 @@ get_thirdparty_hpack_test_cases(const std::string& name) {
 		throw std::runtime_error("Invalid test launch from invalid cwd!");
 	}
 
-	const std::filesystem::path dir = root_tests_dir / name;
+	const std::filesystem::path dir = (root_tests_dir / name).lexically_normal();
 
 	if(!std::filesystem::exists(dir)) {
 		throw std::runtime_error(std::string{ "Invalid test dir name: " } + dir.string());

@@ -230,12 +230,23 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 	return 0;
 }
 
-NODISCARD static tstr parse_literal_string_value(size_t* pos, const size_t size,
-                                                 const uint8_t* const data) {
+typedef struct {
+	bool is_error;
+	union {
+		const char* error;
+		tstr value;
+	} data;
+} LiteralStringResult;
+
+NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, const size_t size,
+                                                                const uint8_t* const data) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.2
 
 	if(*pos >= size) {
-		return tstr_init();
+		return (LiteralStringResult){
+			.is_error = true,
+			.data = { .error = "not enough bytes at the start of a string literal" }
+		};
 	}
 
 	const uint8_t byte = data[*pos];
@@ -245,18 +256,32 @@ NODISCARD static tstr parse_literal_string_value(size_t* pos, const size_t size,
 	const HpackVariableIntegerResult length_res = decode_hpack_variable_integer(pos, size, data, 7);
 
 	if(length_res.is_error) {
-		return tstr_init();
+		return (LiteralStringResult){ .is_error = true,
+			                          .data = { .error = length_res.data.error } };
 	}
 
 	const HpackVariableInteger length = length_res.data.value;
 
 	if(*pos >= size) {
-		return tstr_init();
+		return (LiteralStringResult){
+			.is_error = true,
+			.data = { .error = "not enough bytes after the length bytes of a string literal" }
+		};
+	}
+
+	if(length == 0) {
+		return (LiteralStringResult){ .is_error = false,
+			                          .data = {
+			                              .value = tstr_init(),
+			                          } };
 	}
 
 	// it is okay if (*pos) + length == size here, that means the string literal goes until the end!
 	if(((*pos) + length) > size) {
-		return tstr_init();
+		return (LiteralStringResult){
+			.is_error = true,
+			.data = { .error = "not enough bytes for the amount of data of a string literal" }
+		};
 	}
 
 	const SizedBuffer raw_bytes = {
@@ -270,7 +295,8 @@ NODISCARD static tstr parse_literal_string_value(size_t* pos, const size_t size,
 		const HuffmanDecodeResult huffman_res = hpack_huffman_decode_bytes(raw_bytes);
 
 		if(huffman_res.is_error) {
-			return tstr_init();
+			return (LiteralStringResult){ .is_error = true,
+				                          .data = { .error = huffman_res.data.error } };
 		}
 		// TODO(Totto): huffman can technically produce 0 bytes, but then the encoder did some bad
 		// thing, so we are just ignoring that
@@ -279,20 +305,24 @@ NODISCARD static tstr parse_literal_string_value(size_t* pos, const size_t size,
 		assert(strlen(huffman_res.data.result.data) == huffman_res.data.result.size);
 #endif
 
-		return tstr_own(huffman_res.data.result.data, huffman_res.data.result.size,
-		                huffman_res.data.result.size);
+		const tstr result = tstr_own(huffman_res.data.result.data, huffman_res.data.result.size,
+		                             huffman_res.data.result.size);
+
+		return (LiteralStringResult){ .is_error = false, .data = { .value = result } };
 	}
 
 	char* value = malloc(length + 1);
 
 	if(value == NULL) {
-		return tstr_init();
+		return (LiteralStringResult){ .is_error = true, .data = { .error = "OOM" } };
 	}
 
 	value[length] = 0;
 	memcpy(value, raw_bytes.data, raw_bytes.size);
 
-	return tstr_own(value, length, length);
+	const tstr result = tstr_own(value, length, length);
+
+	return (LiteralStringResult){ .is_error = false, .data = { .value = result } };
 }
 
 NODISCARD static size_t get_dynamic_entry_size(const HpackHeaderDynamicEntry entry) {
@@ -394,13 +424,14 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	if(index == 0) {
 		// second variant
 
-		tstr string_literal_result = parse_literal_string_value(pos, size, data);
+		const LiteralStringResult string_literal_result =
+		    parse_literal_string_value(pos, size, data);
 
-		if(tstr_is_null(&string_literal_result)) {
+		if(string_literal_result.is_error) {
 			return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		}
 
-		header_key = string_literal_result;
+		header_key = string_literal_result.data.value;
 
 	} else {
 		// first variant
@@ -420,15 +451,15 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 		return -8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
-	tstr header_value = parse_literal_string_value(pos, size, data);
+	const LiteralStringResult header_value = parse_literal_string_value(pos, size, data);
 
-	if(tstr_is_null(&header_value)) {
+	if(header_value.is_error) {
 		return -6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	const HttpHeaderField header_field = {
 		.key = header_key,
-		.value = header_value,
+		.value = header_value.data.value,
 	};
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
@@ -440,7 +471,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 
 	const HpackHeaderDynamicEntry entry = {
 		.key = header_key,
-		.value = header_value,
+		.value = header_value.data.value,
 	};
 
 	insert_entry_into_dynamic_table(&(decompress_state->dynamic_table_state), entry);
@@ -514,13 +545,14 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 	if(index == 0) {
 		// second variant
 
-		tstr string_literal_result = parse_literal_string_value(pos, size, data);
+		const LiteralStringResult string_literal_result =
+		    parse_literal_string_value(pos, size, data);
 
-		if(tstr_is_null(&string_literal_result)) {
+		if(string_literal_result.is_error) {
 			return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		}
 
-		header_key = string_literal_result;
+		header_key = string_literal_result.data.value;
 
 	} else {
 		// first variant
@@ -540,15 +572,15 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 		return -8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
-	tstr header_value = parse_literal_string_value(pos, size, data);
+	const LiteralStringResult header_value = parse_literal_string_value(pos, size, data);
 
-	if(tstr_is_null(&header_value)) {
+	if(header_value.is_error) {
 		return -6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	const HttpHeaderField header_field = {
 		.key = header_key,
-		.value = header_value,
+		.value = header_value.data.value,
 	};
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
@@ -607,13 +639,14 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	if(index == 0) {
 		// second variant
 
-		tstr string_literal_result = parse_literal_string_value(pos, size, data);
+		const LiteralStringResult string_literal_result =
+		    parse_literal_string_value(pos, size, data);
 
-		if(tstr_is_null(&string_literal_result)) {
+		if(string_literal_result.is_error) {
 			return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		}
 
-		header_key = string_literal_result;
+		header_key = string_literal_result.data.value;
 
 	} else {
 		// first variant
@@ -633,15 +666,15 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 		return -8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
-	tstr header_value = parse_literal_string_value(pos, size, data);
+	const LiteralStringResult header_value = parse_literal_string_value(pos, size, data);
 
-	if(tstr_is_null(&header_value)) {
+	if(header_value.is_error) {
 		return -6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	const HttpHeaderField header_field = {
 		.key = header_key,
-		.value = header_value,
+		.value = header_value.data.value,
 	};
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
@@ -750,6 +783,7 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			    &pos, size, data, &result, decompress_state);
 			if(res < 0) {
 				error = "error in parsing literal header field without indexing";
+				LOG_MESSAGE(LogLevelError, "res: %d, offset: %zu\n", res, pos);
 				goto return_error;
 			}
 		}

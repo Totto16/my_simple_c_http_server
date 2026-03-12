@@ -464,6 +464,8 @@ void free_ftp_command(FTPCommand* cmd) {
 		case FtpCommandNlst:
 		case FtpCommandStat:
 		case FtpCommandHelp: {
+			// TODO(Totto): tstr_is_null is not the same as data == NULL, as also "" SSO strings
+			// count as that, which is incorrect, fiy that in the entire codebase
 			if(!tstr_is_null(&(cmd->data.string))) {
 				tstr_free(&(cmd->data.string));
 			}

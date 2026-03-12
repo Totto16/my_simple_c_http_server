@@ -177,7 +177,7 @@ static std::ostream& operator<<(std::ostream& os, const T& entry) {
 		return os;
 	}
 
-	os << typeid(entry).name() << "{ is_error: true, error:" << get_error_from<T>(entry) << " }";
+	os << typeid(entry).name() << "{ is_error: true, error: " << get_error_from<T>(entry) << " }";
 
 	return os;
 }
