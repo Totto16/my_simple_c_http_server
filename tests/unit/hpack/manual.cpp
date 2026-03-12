@@ -778,7 +778,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{":authority","www.example.com", },
 					},
 					.options = {
-						.huffman_usage = Http2HpackHuffmanUsageNever,
+						.huffman_usage = Http2HpackHuffmanUsageAlways,
 						.type = Http2HpackCompressTypeAllTablesUsage,
 						.table_add_type = Http2HpackTableAddTypeAll,
 					}
@@ -801,7 +801,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"cache-control","no-cache", },
 					},
 					.options = {
-						.huffman_usage = Http2HpackHuffmanUsageNever,
+						.huffman_usage = Http2HpackHuffmanUsageAlways,
 						.type = Http2HpackCompressTypeAllTablesUsage,
 						.table_add_type = Http2HpackTableAddTypeAll,
 					}
@@ -825,7 +825,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 						{"custom-key", "custom-value", },
 					},
 					.options = {
-						.huffman_usage = Http2HpackHuffmanUsageNever,
+						.huffman_usage = Http2HpackHuffmanUsageAlways,
 						.type = Http2HpackCompressTypeAllTablesUsage,
 						.table_add_type = Http2HpackTableAddTypeAll,
 					}
@@ -1008,6 +1008,11 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				REQUIRE_NE(compress_state.get(), nullptr);
 
 				for(size_t i = 0; i < test_case.cases.size(); ++i) {
+					INFO("iteration: ", i);
+
+					if(test_case.name == "c.5" ){
+						INFO("hello");
+					}
 
 					const auto& subcase = test_case.cases.at(i);
 

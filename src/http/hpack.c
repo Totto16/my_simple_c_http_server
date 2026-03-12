@@ -1938,14 +1938,18 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 					                  .data = { .index = i + 1 + HPACK_STATIC_HEADER_TABLE_SIZE } };
 			}
 			case TableFindResultTypeKeyFound: {
-				// - store the key found result, maybe we find a better entry, so we use that,
-				// otherwise we use this entry
-				// - always overwrite the current result, since íf multiple entries match the key,
-				// it is irrelevant which entry we use
+				// - store the key found result, only if we don#t have another key found entry,
+				// maybe we find a better entry, so we use that, otherwise we use this entry
+				// - never overwrite the current result, as the previous index is always smaller,
+				// which makes it smaller, after it is encoded, so prefer the best first match,
+				// since íf multiple entries match the key, it is irrelevant which entry we use
 
-				result = (TableFindResult){ .type = TableFindResultTypeKeyFound,
-					                        .data = { .index = i + 1 +
-					                                           HPACK_STATIC_HEADER_TABLE_SIZE } };
+				if(result.type == TableFindResultTypeNotFound) {
+					result =
+					    (TableFindResult){ .type = TableFindResultTypeKeyFound,
+						                   .data = { .index =
+						                                 i + 1 + HPACK_STATIC_HEADER_TABLE_SIZE } };
+				}
 				break;
 			}
 			case TableFindResultTypeNotFound:
