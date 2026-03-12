@@ -123,7 +123,7 @@ generated_hpack_file_cpp = custom_target(
         '-o',
         '@OUTPUT0@',
     ],
-    output: ['generated_hpack_tests.hpp', 'generated_hpack_tests.cpp'],
+    output: ['generated_hpack_tests.hpp', 'generated_hpack_tests.cpp', 'generated_hpack_tests.c'],
     depend_files: hpack_script_depend_files,
     depends: hpack_script_depends,
 )

@@ -198,7 +198,6 @@ deps += cc.find_library(
 internal_c_args = []
 
 
-
 internal_c_args += cc.get_supported_arguments(
     '-Wassign-enum',
     '-Wenum-conversion',

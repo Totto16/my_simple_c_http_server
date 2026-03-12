@@ -100,6 +100,7 @@ foreach test_file : test_files_manual + test_files_hpack
         include_directories: test_inc_dirs,
         dependencies: [test_deps, http_server_dep],
         cpp_args: internal_cpp_args,
+        c_args: internal_c_args,
         override_options: {
             'warning_level': '3',
             'werror': true,
@@ -125,6 +126,7 @@ all_tests_manual = executable(
     include_directories: test_inc_dirs,
     dependencies: [test_deps, http_server_dep],
     cpp_args: internal_cpp_args,
+    c_args: internal_c_args,
     override_options: {
         'warning_level': '3',
         'werror': true,
@@ -140,6 +142,7 @@ all_tests_hpack = executable(
     include_directories: test_inc_dirs,
     dependencies: [test_deps, http_server_dep],
     cpp_args: internal_cpp_args,
+    c_args: internal_c_args,
     override_options: {
         'warning_level': '3',
         'werror': true,
@@ -155,6 +158,7 @@ all_tests = executable(
     include_directories: test_inc_dirs,
     dependencies: [test_deps, http_server_dep],
     cpp_args: internal_cpp_args,
+    c_args: internal_c_args,
     override_options: {
         'warning_level': '3',
         'werror': true,

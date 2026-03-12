@@ -60,6 +60,7 @@ bench_exe = executable(
     include_directories: bench_inc_dirs,
     dependencies: [bench_deps, http_server_dep],
     cpp_args: internal_cpp_args,
+    c_args: internal_c_args,
     override_options: {
         'warning_level': '3',
         'werror': true,

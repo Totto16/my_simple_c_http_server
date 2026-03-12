@@ -2562,19 +2562,25 @@ extern "C" {
 std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
 	return std::vector<std::string>{${fast_string_compare_test_data.map((str): string => `${to_c_str(str)}`).join(", ")}};
 }
-
-
-
-extern "C" {
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wc99-extensions"
-	${generate_fast_string_compare_impl("generated_c_test_fns_fast_string_compare_test_data", fast_string_compare_test_data, { first_gen_call: true, static: false })}
-	#pragma GCC diagnostic pop
-}
 `
 
 
     writeFileAndDirs(generated_hpack_test_cases_file_cpp, cpp_data)
+
+    const generated_hpack_test_cases_file_c = getOtherFile(generated_hpack_test_cases_file_hpp, ".hpp", ".c")
+
+
+    const c_data = `
+#include "generated_hpack_huffman.h"
+
+${generate_fast_string_compare_decl("generated_c_test_fns_fast_string_compare_test_data")}
+
+${generate_fast_string_compare_impl("generated_c_test_fns_fast_string_compare_test_data", fast_string_compare_test_data, { first_gen_call: true, static: false })}
+
+`
+
+    writeFileAndDirs(generated_hpack_test_cases_file_c, c_data)
+
 
 
 }
