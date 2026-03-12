@@ -41,14 +41,7 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 				const auto result = decode_hpack_variable_integer(
 				    &pos, input.size, (std::uint8_t*)input.data, test_case.prefix_bits);
 
-				std::string error = "";
-				if(result.is_error) {
-					error = std::string{ result.data.error };
-
-					INFO("Error occurred: ", error);
-				}
-
-				REQUIRE_FALSE(result.is_error);
+				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto actual_result = result.data.value;
 
@@ -76,7 +69,7 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const auto result = decode_hpack_variable_integer(
 			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
 
-			REQUIRE_FALSE(result.is_error);
+			REQUIRE_IS_NOT_ERROR(result);
 
 			REQUIRE_NE(pos, input.size);
 		}();
@@ -95,7 +88,7 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const auto result = decode_hpack_variable_integer(
 			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
 
-			REQUIRE(result.is_error);
+			REQUIRE_IS_NOT_ERROR(result);
 
 			const std::string expected_error = "not enough bytes";
 			const std::string actual_error = result.data.error;
@@ -121,7 +114,7 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const auto result = decode_hpack_variable_integer(
 			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
 
-			REQUIRE(result.is_error);
+			REQUIRE_IS_NOT_ERROR(result);
 
 			const std::string expected_error = "final integer would be too big";
 			const std::string actual_error = result.data.error;
@@ -303,13 +296,7 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 				CppDefer<Http2HpackDecompressResult> defer = { &result,
 					                                           free_hpack_decompress_result };
 
-				std::string error = "";
-				if(result.is_error) {
-					error = std::string{ result.data.error };
-				}
-
-				INFO("Error occurred: ", error);
-				REQUIRE_FALSE(result.is_error);
+				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto actual_result = result.data.result;
 
@@ -611,6 +598,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 				REQUIRE_NE(decompress_state.get(), nullptr);
 
 				for(size_t i = 0; i < test_case.cases.size(); ++i) {
+					INFO("request number: ", i);
 
 					const auto& subcase = test_case.cases.at(i);
 
@@ -620,14 +608,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 					CppDefer<Http2HpackDecompressResult> defer = { &result,
 						                                           free_hpack_decompress_result };
 
-					std::string error = "";
-					if(result.is_error) {
-						error = std::string{ result.data.error };
-					}
-
-					INFO("request number: ", i);
-					INFO("Error occurred: ", error);
-					REQUIRE_FALSE(result.is_error);
+					REQUIRE_IS_NOT_ERROR(result);
 
 					const auto actual_result = result.data.result;
 

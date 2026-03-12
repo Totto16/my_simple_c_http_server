@@ -127,3 +127,65 @@ template <typename T>
 [[nodiscard]] static inline bool vec_contains(const std::vector<T>& vec, const T& val) {
 	return std::find(vec.begin(), vec.end(), val) != vec.end();
 }
+
+template <typename T>
+concept is_errorable_type = requires(T) {
+	{ T::is_error } -> std::convertible_to<bool>;
+};
+
+struct IsNotError {
+  public:
+	IsNotError();
+
+	inline friend std::ostream& operator<<(std::ostream& os, const IsNotError& /* error */) {
+		os << "{}";
+		return os;
+	}
+
+	template <typename T>
+	    requires(is_errorable_type<T>)
+	[[nodiscard]] bool operator==(const T& lhs) const {
+		return !lhs.is_error;
+	}
+};
+
+#define REQUIRE_IS_NOT_ERROR(val) REQUIRE_EQ(IsNotError{}, val)
+
+namespace doctest {
+template <> struct StringMaker<IsNotError> {
+	static String convert(const IsNotError& error) {
+		return ::os_stream_formattable_to_doctest(error);
+	}
+};
+
+} // namespace doctest
+
+template <typename T>
+    requires(is_errorable_type<T> &&
+             requires(T val) {
+	             { val.data.error } -> std::convertible_to<const char*>;
+             })
+static std::string get_error_from(const T& entry) {
+	return std::string{ entry.data.error };
+}
+
+template <typename T>
+    requires(is_errorable_type<T>)
+static std::ostream& operator<<(std::ostream& os, const T& entry) {
+	if(!entry.is_error) {
+		os << "Printing not supported for non error variant of:" << typeid(entry).name();
+		return os;
+	}
+
+	os << typeid(entry).name() << "{ is_error: true, error:" << get_error_from<T>(entry) << " }";
+
+	return os;
+}
+
+namespace doctest {
+template <typename T>
+    requires(is_errorable_type<T>)
+struct StringMaker<T> {
+	static String convert(const T& val) { return ::os_stream_formattable_to_doctest(val); }
+};
+} // namespace doctest

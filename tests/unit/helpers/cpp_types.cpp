@@ -12,3 +12,5 @@ operator<<(std::ostream& os, const std::vector<std::pair<std::string, std::strin
 
 	return os;
 }
+
+IsNotError::IsNotError() {}

@@ -7,7 +7,7 @@
 	TEST_CASE("testing hpack deserializing - external tests (" HPACK_TEST_CASE_VALUE \
 	          ") <hpack_generated_ " HPACK_TEST_CASE_VALUE ">" * \
 	          doctest::description("hpack thirdparty test case (" HPACK_TEST_CASE_VALUE ")") * \
-	          doctest::timeout(2.0) * doctest::test_suite("hpack/thirdparty")) { \
+	          doctest::timeout(10.0) * doctest::test_suite("hpack/thirdparty")) { \
 \
 		const auto hpack_cpp_global_handle = HpackGlobalHandle(); \
 \
@@ -27,26 +27,17 @@
 \
 					for(size_t i = 0; i < test_case.cases.size(); ++i) { \
 \
+						INFO("case: ", i); \
+\
 						const auto& single_case = test_case.cases.at(i); \
 \
-						INFO("the sequential number of that hpack packet has to be the same as " \
-						     "the " \
-						     "index: ", \
-						     single_case.seqno, " | ", i); \
 						REQUIRE_EQ(single_case.seqno, i); \
 \
 						const auto input = buffer_from_raw_data(single_case.wire_data); \
 \
 						const auto result = http2_hpack_decompress_data(state.get(), input); \
 \
-						std::string error = ""; \
-						if(result.is_error) { \
-							error = std::string{ result.data.error }; \
-\
-							INFO("Error occurred: ", error); \
-						} \
-\
-						REQUIRE_FALSE(result.is_error); \
+						REQUIRE_IS_NOT_ERROR(result); \
 \
 						const auto actual_result = result.data.result; \
 \

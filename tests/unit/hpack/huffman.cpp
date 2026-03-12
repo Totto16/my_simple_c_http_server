@@ -109,13 +109,7 @@ TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decod
 				auto result = hpack_huffman_decode_bytes(input);
 				CppDefer<HuffmanDecodeResult> defer = { &result, free_huffman_decode_result };
 
-				const char* error = nullptr;
-
-				if(result.is_error) {
-					error = result.data.error;
-				}
-
-				REQUIRE_EQ(error, nullptr);
+				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto actual_result = result.data.result;
 
@@ -153,13 +147,7 @@ TEST_CASE("testing hpack huffman decoding (ascii) - generated "
 				auto result = hpack_huffman_decode_bytes(input);
 				CppDefer<HuffmanDecodeResult> defer = { &result, free_huffman_decode_result };
 
-				const char* error = nullptr;
-
-				if(result.is_error) {
-					error = result.data.error;
-				}
-
-				REQUIRE_EQ(error, nullptr);
+				REQUIRE_EQ(IsNotError{}, result);
 
 				const auto actual_result = result.data.result;
 
@@ -197,13 +185,7 @@ TEST_CASE("testing hpack huffman decoding (utf8) - generated "
 				auto result = hpack_huffman_decode_bytes(input);
 				CppDefer<HuffmanDecodeResult> defer = { &result, free_huffman_decode_result };
 
-				const char* error = nullptr;
-
-				if(result.is_error) {
-					error = result.data.error;
-				}
-
-				REQUIRE_EQ(error, nullptr);
+				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto actual_result = result.data.result;
 
@@ -265,13 +247,7 @@ TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encod
 				auto result = hpack_huffman_encode_value(&input);
 				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
 
-				const char* error = nullptr;
-
-				if(result.is_error) {
-					error = result.data.error;
-				}
-
-				REQUIRE_EQ(error, nullptr);
+				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto actual_result = result.data.result;
 
@@ -305,13 +281,7 @@ TEST_CASE("testing hpack huffman encoding (ascii) - generated "
 				auto result = hpack_huffman_encode_value(&input);
 				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
 
-				const char* error = nullptr;
-
-				if(result.is_error) {
-					error = result.data.error;
-				}
-
-				REQUIRE_EQ(error, nullptr);
+				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto actual_result = result.data.result;
 
@@ -345,13 +315,7 @@ TEST_CASE("testing hpack huffman encoding (utf8) - generated "
 				auto result = hpack_huffman_encode_value(&input);
 				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
 
-				const char* error = nullptr;
-
-				if(result.is_error) {
-					error = result.data.error;
-				}
-
-				REQUIRE_EQ(error, nullptr);
+				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto actual_result = result.data.result;
 
@@ -415,26 +379,14 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 				auto result = hpack_huffman_encode_value(&input);
 				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
 
-				const char* error = nullptr;
-
-				if(result.is_error) {
-					error = result.data.error;
-				}
-
-				REQUIRE_EQ(error, nullptr);
+				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto intermediary_result = result.data.result;
 
 				auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
 				CppDefer<HuffmanDecodeResult> defer2 = { &result_dec, free_huffman_decode_result };
 
-				const char* error2 = nullptr;
-
-				if(result_dec.is_error) {
-					error2 = result_dec.data.error;
-				}
-
-				REQUIRE_EQ(error2, nullptr);
+				REQUIRE_IS_NOT_ERROR(result_dec);
 
 				const auto actual_result = result_dec.data.result;
 
