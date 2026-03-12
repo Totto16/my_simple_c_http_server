@@ -5,7 +5,7 @@
 #define HTTP_HEADER_NAME(name) g_http_header_##name
 
 #ifdef HTTP_HEADER_IMPL
-	#define HTTP_HEADER_MAKE(name, content) const tstr HTTP_HEADER_NAME(name) = TSTR_LIT(content)
+	#define HTTP_HEADER_MAKE(name, content) const tstr HTTP_HEADER_NAME(name) = TSTR_LIT_CONST(content)
 #else
 	#define HTTP_HEADER_MAKE(name, content) extern const tstr HTTP_HEADER_NAME(name)
 #endif

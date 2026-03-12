@@ -9,7 +9,7 @@
 
 #ifdef HTTP_MIME_TYPE_IMPL
 	#define HTTP_MIME_TYPE_MAKE(name, content) \
-		const tstr HTTP_MIME_TYPE_NAME(name) = TSTR_LIT(content)
+		const tstr HTTP_MIME_TYPE_NAME(name) = TSTR_LIT_CONST(content)
 #else
 	#define HTTP_MIME_TYPE_MAKE(name, content) extern const tstr HTTP_MIME_TYPE_NAME(name)
 #endif
