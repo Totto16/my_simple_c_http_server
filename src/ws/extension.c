@@ -357,7 +357,10 @@ static char* noop_process_send_fn(WebSocketMessage* message,
 	return NULL;
 }
 
-// TODO: do the same as ZVEC qsort with ANY_TYPE and pthread functions!
+// TODO(Totto): do the same as TVEC qsort with ANY_TYPE and pthread functions!
+
+// TODO(Totto): don't use asserts for return types of TVEC_PUSH()
+// TODO(Totto): remove auto _ =TVEC_PUSH(...); UNUSED(_); code
 
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(WsProcessFn)
 
@@ -537,6 +540,8 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 	ArrayProcessArg* array_fns = malloc(sizeof(ArrayProcessArg));
 
 	if(array_fns == NULL) {
+		free(extension_pipeline);
+
 		return NULL;
 	}
 

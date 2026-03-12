@@ -130,7 +130,7 @@ NODISCARD float parse_float(const char* const value, OUT_PARAM(bool) success) {
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
 	if(*endpointer != '\0' || errno != 0) {
 		*success = false;
-		return 0.0F;
+		return NAN;
 	}
 
 	*success = true;
