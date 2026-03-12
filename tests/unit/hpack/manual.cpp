@@ -88,7 +88,7 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const auto result = decode_hpack_variable_integer(
 			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
 
-			REQUIRE_IS_NOT_ERROR(result);
+			REQUIRE(result.is_error);
 
 			const std::string expected_error = "not enough bytes";
 			const std::string actual_error = result.data.error;
@@ -114,7 +114,7 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const auto result = decode_hpack_variable_integer(
 			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
 
-			REQUIRE_IS_NOT_ERROR(result);
+			REQUIRE(result.is_error);
 
 			const std::string expected_error = "final integer would be too big";
 			const std::string actual_error = result.data.error;
