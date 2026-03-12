@@ -53,7 +53,7 @@ NODISCARD static HashSaltResultType* hash_salt_string_sha512_impl(HashSaltSettin
 		return NULL;
 	}
 
-	char new_string[BCRYPT_512BITS_BASE64_SIZE + 1] = { 0 };
+	char new_string[BCRYPT_512BITS_BASE64_SIZE + 1] = ZERO_ARRAY();
 
 	new_string[BCRYPT_512BITS_BASE64_SIZE] = '\0';
 
@@ -98,7 +98,7 @@ NODISCARD static bool is_string_equal_to_hash_salted_string_sha512_impl(
 		return NULL;
 	}
 
-	char new_string[BCRYPT_512BITS_BASE64_SIZE + 1] = { 0 };
+	char new_string[BCRYPT_512BITS_BASE64_SIZE + 1] = ZERO_ARRAY();
 
 	new_string[BCRYPT_512BITS_BASE64_SIZE] = '\0';
 

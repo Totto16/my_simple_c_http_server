@@ -150,7 +150,7 @@ NODISCARD static int http2_send_raw_frame(const ConnectionDescriptor* const desc
 		return -71; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
-	uint8_t header_buffer[HTTP2_HEADER_SIZE] = { 0 };
+	uint8_t header_buffer[HTTP2_HEADER_SIZE] = ZERO_ARRAY();
 
 	{
 		size_t i = 0;
@@ -259,7 +259,7 @@ NODISCARD static int http2_send_rst_stream_frame(const ConnectionDescriptor* con
 		.stream_identifier = frame.identifier,
 	};
 
-	uint8_t frame_as_data_raw[HTTP2_RST_STREAM_SIZE] = { 0 };
+	uint8_t frame_as_data_raw[HTTP2_RST_STREAM_SIZE] = ZERO_ARRAY();
 
 	{
 		size_t i = 0;
@@ -375,7 +375,7 @@ NODISCARD static int http2_send_ping_frame(const ConnectionDescriptor* const des
 		return -12; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
-	uint8_t frame_as_data_raw[HTTP2_PING_FRAME_SIZE] = { 0 };
+	uint8_t frame_as_data_raw[HTTP2_PING_FRAME_SIZE] = ZERO_ARRAY();
 
 	{
 

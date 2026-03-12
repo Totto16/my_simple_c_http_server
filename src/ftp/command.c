@@ -165,7 +165,7 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 		return NULL;
 	}
 
-	*command = (FTPCommand){ .data = { .string = 0 }, .type = 0 };
+	*command = ZERO_STRUCT(FTPCommand);
 
 	// see https://datatracker.ietf.org/doc/html/rfc959 5.3.1
 	if(tstr_view_eq_ignore_case(data_str, "CDUP")) {

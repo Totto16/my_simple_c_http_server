@@ -46,7 +46,7 @@ template <typename T> struct CppDefer {
 
 	CppDefer operator=(CppDefer&&) = delete;
 
-	const T* const get() const { return this->m_state; }
+	[[nodiscard]] T const* get() const { return this->m_state; }
 
 	~CppDefer() { this->m_free_fn(this->m_state); }
 };

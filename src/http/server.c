@@ -1069,7 +1069,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
-	struct sockaddr_in addr = { 0 };
+	struct sockaddr_in addr = ZERO_STRUCT(struct sockaddr_in);
 
 	addr.sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and

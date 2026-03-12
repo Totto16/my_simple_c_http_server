@@ -272,7 +272,7 @@ NODISCARD char* get_date_string(Time time, TimeFormat format) {
 		return NULL;
 	}
 
-	struct tm converted_time = { 0 };
+	struct tm converted_time = ZERO_STRUCT(struct tm);
 	struct tm* convert_result = NULL;
 
 	if(use_utc) {

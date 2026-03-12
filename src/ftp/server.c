@@ -112,7 +112,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		return JOB_ERROR_SIG_HANDLER;
 	}
 
-	struct sockaddr_in server_addr_raw = { 0 };
+	struct sockaddr_in server_addr_raw = ZERO_STRUCT(struct sockaddr_in);
 	socklen_t addr_len = sizeof(server_addr_raw);
 
 	// would be better to set cancel state in the right places!!
@@ -1746,7 +1746,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 		                "While Trying to set a port listening socket option 'SO_REUSEPORT'",
 		                goto cont_outer;);
 
-		struct sockaddr_in addr = { 0 };
+		struct sockaddr_in addr = ZERO_STRUCT(struct sockaddr_in);
 
 		addr.sin_family = AF_INET;
 		// hto functions are used for networking, since there every number is BIG ENDIAN and
@@ -1794,7 +1794,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 		CHECK_FOR_THREAD_ERROR(result,
 		                       "An Error occurred while trying to wait for a port listening Thread",
 		                       is_error = true;
-		                       goto cont_outer2;;);
+		                       goto cont_outer2;);
 
 		if(is_listener_error(return_value)) {
 			if(return_value != LISTENER_ERROR_NONE) {
@@ -1842,7 +1842,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htons is
 	// used, where x stands for different lengths of numbers, s for int, l for long
-	struct sockaddr_in control_addr = { 0 };
+	struct sockaddr_in control_addr = ZERO_STRUCT(struct sockaddr_in);
 
 	control_addr.sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and
