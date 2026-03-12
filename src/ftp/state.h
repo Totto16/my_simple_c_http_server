@@ -114,7 +114,7 @@ typedef struct {
 typedef struct {
 	const char* global_folder;
 	AccountInfo* account;
-	//TODO: use tstr
+	// TODO(Totto): use tstr
 	char* current_working_directory;
 	FtpTransmissionType current_type;
 	FtpMode mode;

@@ -57,7 +57,8 @@ NODISCARD static Http2RawHeader parse_http2_raw_header(const uint8_t* const head
 
 	uint32_t length = special_impl_deserialize_u24_be_to_host(header_data);
 
-	Http2Identifier stream_identifier = deserialize_identifier(header_data + 5);
+	Http2Identifier stream_identifier = deserialize_identifier(
+	    header_data + 5); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	// MUST be ignored in receiving
 	// bool reserved = ((stream_identifier_raw >> 31) & 1) == 1;
@@ -143,10 +144,10 @@ typedef struct {
 NODISCARD static int http2_send_raw_frame(const ConnectionDescriptor* const descriptor,
                                           const Http2RawHeader header, const SizedBuffer data) {
 
-	// TODO: support padding
+	// TODO(Totto): support padding
 
 	if(data.size != header.length) {
-		return -71;
+		return -71; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	uint8_t header_buffer[HTTP2_HEADER_SIZE] = { 0 };
@@ -296,7 +297,8 @@ NODISCARD static int http2_send_settings_frame(const ConnectionDescriptor* const
 
 	uint32_t length = TVEC_LENGTH(Http2SettingSingleValue, frame.entries);
 
-	uint8_t flags = frame.ack ? Http2SettingsFrameFlagAck : 0;
+	uint8_t flags =
+	    frame.ack ? Http2SettingsFrameFlagAck : 0; // NOLINT(readability-implicit-bool-conversion)
 
 	Http2RawHeader header = {
 		.length = length,
@@ -305,8 +307,8 @@ NODISCARD static int http2_send_settings_frame(const ConnectionDescriptor* const
 		.stream_identifier = HTTP2_CONNECTION_STREAM_IDENTIFIER,
 	};
 
-	if(frame.ack && length != 0) {
-		return -19;
+	if(frame.ack && length != 0) { // NOLINT(readability-implicit-bool-conversion)
+		return -19; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	SizedBuffer frame_as_data = allocate_sized_buffer(length);
@@ -333,7 +335,8 @@ NODISCARD static int http2_send_settings_frame(const ConnectionDescriptor* const
 			data[i + 2] = value_res.bytes[0];
 			data[i + 3] = value_res.bytes[1];
 			data[i + 4] = value_res.bytes[2];
-			data[i + 5] = value_res.bytes[3];
+			data[i + 5] = // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			    value_res.bytes[3];
 		}
 	}
 
@@ -358,7 +361,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static int http2_send_ping_frame(const ConnectionDescriptor* const descriptor,
                                            Http2PingFrame frame) {
 
-	uint8_t flags = frame.ack ? Http2PingFrameFlagAck : 0;
+	uint8_t flags =
+	    frame.ack ? Http2PingFrameFlagAck : 0; // NOLINT(readability-implicit-bool-conversion)
 
 	Http2RawHeader header = {
 		.length = HTTP2_PING_FRAME_SIZE,
@@ -368,7 +372,7 @@ NODISCARD static int http2_send_ping_frame(const ConnectionDescriptor* const des
 	};
 
 	if(frame.opaque_data.size != HTTP2_PING_FRAME_SIZE) {
-		return -12;
+		return -12; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
 	uint8_t frame_as_data_raw[HTTP2_PING_FRAME_SIZE] = { 0 };
@@ -401,7 +405,9 @@ NODISCARD static int http2_send_data_frame(const ConnectionDescriptor* const des
 	Http2RawHeader header = {
 		.length = frame.content.size,
 		.type = Http2FrameTypeData,
-		.flags = frame.is_end ? Http2DataFrameFlagEndStream : 0,
+		.flags = frame.is_end // NOLINT(readability-implicit-bool-conversion)
+		             ? Http2DataFrameFlagEndStream
+		             : 0,
 		.stream_identifier = frame.identifier,
 	};
 
@@ -427,17 +433,22 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static int http2_send_headers_frame(const ConnectionDescriptor* const descriptor,
                                               const Http2HeadersFrame frame) {
 
-	// TODO: support priority_opt
+	// TODO(Totto): support priority_opt
 	assert(frame.priority_opt.has_priority == false && "not yet implemented");
 
-	Http2HeadersFrameFlag flags = (Http2HeadersFrameFlag)0;
+	Http2HeadersFrameFlag flags =
+	    (Http2HeadersFrameFlag)0; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 
 	if(frame.end_stream) {
-		flags = flags | Http2HeadersFrameFlagEndStream;
+		flags =                             // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+		    flags |                         // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+		    Http2HeadersFrameFlagEndStream; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 	}
 
 	if(frame.end_headers) {
-		flags = flags | Http2HeadersFrameFlagEndHeaders;
+		flags =                              // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+		    flags |                          // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+		    Http2HeadersFrameFlagEndHeaders; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 	}
 
 	Http2RawHeader header = {
@@ -466,7 +477,9 @@ NODISCARD static int http2_send_continuation_frame(const ConnectionDescriptor* c
 	Http2RawHeader header = {
 		.length = frame.block_fragment.size,
 		.type = Http2FrameTypeContinuation,
-		.flags = frame.end_headers ? Http2ContinuationFrameFlagEndHeaders : 0,
+		.flags = frame.end_headers ? // NOLINT(readability-implicit-bool-conversion)
+		             Http2ContinuationFrameFlagEndHeaders
+		                           : 0,
 		.stream_identifier = frame.identifier,
 	};
 
@@ -640,9 +653,14 @@ get_http2_priority_info_from_raw_data(const SizedBuffer raw_data) {
 
 	uint32_t stream_dependency_identifier_raw = deserialize_u32_be_to_host(priority_data_raw);
 
-	uint32_t dependency_identifier = stream_dependency_identifier_raw & 0x7FFFFFFF;
+	uint32_t dependency_identifier =
+	    stream_dependency_identifier_raw &
+	    0x7FFFFFFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
-	bool exclusive = (stream_dependency_identifier_raw >> 31) != 0;
+	bool exclusive =
+	    (stream_dependency_identifier_raw >>
+	     31) != // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	    0;
 
 	uint8_t weight = priority_data_raw[4];
 
@@ -957,6 +975,13 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 
 #define MAX_MAX_FRAME_SIZE 16777215ULL // 2^24-1 or 16,777,215
 
+#define HTTP2_SETTINGS_FRAME_SINGLE_SIZE 6
+
+#define FREE_AT_END() \
+	do { \
+		TVEC_FREE(Http2SettingSingleValue, &settings_frame.entries); \
+	} while(false)
+
 NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuffer input,
                                                                  BufferedReader* const reader,
                                                                  const HTTP2Context* const context,
@@ -967,11 +992,13 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 		.entries = TVEC_EMPTY(Http2SettingSingleValue),
 	};
 
-	if((input.size % 6) != 0) {
+	if((input.size % HTTP2_SETTINGS_FRAME_SINGLE_SIZE) != 0) {
 		const char* error = "invalid settings frame length, not a multiple of 6";
 		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 		                                    context, Http2ErrorCodeFrameSizeError, error);
 		UNUSED(_);
+
+		FREE_AT_END();
 		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 	}
 
@@ -979,7 +1006,7 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 
 		uint8_t* data = (uint8_t*)input.data;
 
-		for(size_t i = 0; i < input.size; i += 6) {
+		for(size_t i = 0; i < input.size; i += HTTP2_SETTINGS_FRAME_SINGLE_SIZE) {
 			uint16_t identifier = deserialize_u16_be_to_host(data + i);
 
 			uint32_t value = deserialize_u32_be_to_host(data + i + 2);
@@ -995,6 +1022,8 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 						    buffered_reader_get_connection_descriptor(reader), context,
 						    Http2ErrorCodeProtocolError, error);
 						UNUSED(_);
+
+						FREE_AT_END();
 						return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 					}
 					break;
@@ -1010,6 +1039,8 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 						    buffered_reader_get_connection_descriptor(reader), context,
 						    Http2ErrorCodeFlowControlError, error);
 						UNUSED(_);
+
+						FREE_AT_END();
 						return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 					}
 					break;
@@ -1021,6 +1052,8 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 						    buffered_reader_get_connection_descriptor(reader), context,
 						    Http2ErrorCodeProtocolError, error);
 						UNUSED(_);
+
+						FREE_AT_END();
 						return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
 					}
 					break;
@@ -1038,8 +1071,14 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 
 			Http2SettingSingleValue entry = { .identifier = identifier, .value = value };
 
-			auto _ = TVEC_PUSH(Http2SettingSingleValue, &settings_frame.entries, entry);
-			UNUSED(_);
+			const TvecResult push_res =
+			    TVEC_PUSH(Http2SettingSingleValue, &settings_frame.entries, entry);
+			if(push_res != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
+
+				FREE_AT_END();
+				return (Http2FrameResult){ .is_error = true,
+					                       .data = { .error = "OOM in settings array push" } };
+			}
 		}
 	}
 
@@ -1050,6 +1089,8 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 
 	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 }
+
+#undef FREE_AT_END
 
 NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* const reader,
                                                              const HTTP2Context* const context,
@@ -1093,7 +1134,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 		return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
 	}
 
-	if((http2_raw_header.length % 6) != 0) {
+	if((http2_raw_header.length % HTTP2_SETTINGS_FRAME_SINGLE_SIZE) != 0) {
 		const char* error = "invalid settings frame length, not a multiple of 6";
 		int _ = http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 		                                    context, Http2ErrorCodeFrameSizeError, error);
@@ -1869,7 +1910,7 @@ NODISCARD static Http2FrameCategory get_http2_frame_category(const Http2Frame fr
 				                                        continuation_frame.identifier } };
 		}
 		default: {
-			UNREACHABLE();
+			UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
 		}
 	}
 }
@@ -1981,7 +2022,7 @@ static void http2_close_stream(Http2Stream* const stream) {
 
 	stream->state = Http2StreamStateClosed;
 	free_http2_stream(stream);
-	// TODO: when to remove this stream from the map?
+	// TODO(Totto): when to remove this stream from the map?
 }
 
 static void http2_close_stream_by_identifier(HTTP2Context* const context,
@@ -2083,7 +2124,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 
 			if(stream->end_stream) {
 
-				// TODO: maybe set some special flag or state in the stream?
+				// TODO(Totto): maybe set some special flag or state in the stream?
 				stream->state = Http2StreamStateHalfClosed;
 
 				return (Http2ProcessFrameResult){ .type =
@@ -2212,7 +2253,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			if(stream->end_stream &&       // NOLINT(readability-implicit-bool-conversion)
 			   stream->headers.finished) { // NOLINT(readability-implicit-bool-conversion)
 
-				// TODO: maybe set some special flag or state in the stream?
+				// TODO(Totto): maybe set some special flag or state in the stream?
 				stream->state = Http2StreamStateHalfClosed;
 
 				return (Http2ProcessFrameResult){ .type =
@@ -2435,7 +2476,7 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			if(stream->end_stream &&       // NOLINT(readability-implicit-bool-conversion)
 			   stream->headers.finished) { // NOLINT(readability-implicit-bool-conversion)
 
-				// TODO: maybe set some special flag or state in the stream?
+				// TODO(Totto): maybe set some special flag or state in the stream?
 				stream->state = Http2StreamStateHalfClosed;
 
 				return (Http2ProcessFrameResult){ .type =
@@ -2823,7 +2864,9 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 					                            } };
 			}
 
-			found_pseudo_headers = found_pseudo_headers | new_pseudo_header;
+			found_pseudo_headers =     // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			    found_pseudo_headers | // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+			    new_pseudo_header;     // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
 			free_http_header_field(entry);
 
 		} else {
@@ -3191,6 +3234,8 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 	free_http2_settings_frame(frame_to_send);
 
 	if(result < 0) {
+		free_sized_buffer(settings_data);
+
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
@@ -3205,7 +3250,7 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 	const Http2FrameResult settings_frame_result =
 	    parse_raw_http2_settings_frame(settings_data, reader, context, false);
 
-	free_sized_buffer(settings_data);
+	free_sized_buffer(settings_data); // NOLINT(clang-analyzer-unix.Malloc)
 
 	if(settings_frame_result.is_error) {
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
@@ -3219,11 +3264,13 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 				                        } };
 	}
 
-	Http2Frame frame = settings_frame_result.data.frame;
+	const Http2Frame frame = settings_frame_result.data.frame;
 
 	// apply settings
 
 	if(frame.type != Http2FrameTypeSettings) {
+
+		free_http2_frame(&frame);
 
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
@@ -3237,7 +3284,7 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 	}
 
 	http2_apply_settings_frame(context, frame.value.settings);
-	free_http2_frame(&frame);
+	free_http2_settings_frame(frame.value.settings);
 
 	const Http2StartResult start_result = http2_receive_preface_with_magic(context, reader);
 

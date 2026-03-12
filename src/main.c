@@ -54,7 +54,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } UsageCommand;
 
 // prints the usage, if argc is not the right amount!
-static void print_usage(const char* program_name, UsageCommand usage_command) {
+static void print_usage(const char* const program_name, UsageCommand usage_command) {
 	switch(usage_command) {
 		case UsageCommandHttp: {
 			printf("usage: %s http ", program_name);
@@ -78,7 +78,7 @@ static void print_usage(const char* program_name, UsageCommand usage_command) {
 	}
 }
 
-NODISCARD static bool is_help_string(const char* str) {
+NODISCARD static bool is_help_string(const char* const str) {
 	if(strcmp(str, "--help") == 0) {
 		return true;
 	}
@@ -94,7 +94,7 @@ NODISCARD static bool is_help_string(const char* str) {
 	return false;
 }
 
-NODISCARD static bool is_version_string(const char* str) {
+NODISCARD static bool is_version_string(const char* const str) {
 	if(strcmp(str, "--version") == 0) {
 		return true;
 	}

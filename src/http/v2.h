@@ -137,7 +137,7 @@ typedef struct {
 } Http2GoawayFrame;
 
 typedef struct {
-	bool _reserved : 1; // for padding
+	bool _reserved : 1; // for padding //NOLINT(readability-identifier-naming)
 	uint32_t window_size_increment : 31;
 	Http2Identifier identifier;
 } Http2WindowUpdateFrame;
@@ -207,11 +207,11 @@ typedef struct {
 	Http2FramePriority priority;
 } Http2Stream;
 
-// TODO: => v
-//  Http2Stream is either a rec or send request, depending if th identifier is odd or even,
+// TODO(totto): => v
+//  Http2Stream is either a rec or send request, depending if the identifier is odd or even,
 //  also, keep track of the last stream id in the state, so that creating and sending a new one is
 //  easy
-// TODO: make sure that the new send identifier are even and the received are odd!
+// TODO(Totto): make sure that the new send identifier are even and the received are odd!
 
 TMAP_DEFINE_MAP_TYPE(Http2Identifier, StreamIdentifier, Http2Stream, Http2StreamMap)
 

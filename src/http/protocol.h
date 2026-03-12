@@ -102,7 +102,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 #define DEFAULT_RESPONSE_PROTOCOL_VERSION HTTPProtocolVersion1Dot1
 
 typedef struct {
-	bool _reserved : 1;
+	bool _reserved : 1;       // NOLINT(readability-identifier-naming)
 	uint32_t identifier : 31; // only 31 bits!
 } Http2Identifier;
 
@@ -136,7 +136,7 @@ typedef TVEC_TYPENAME(HttpHeaderField) HttpHeaderFields;
 
 typedef struct {
 	HttpRequestLine request_line;
-	// TODO: are header fileds an array of key value or a hasmpa?
+	// TODO(Totto): are header fields an array of key value or a hashmap?
 	//  see MAP_INSERT(ParsedSearchPathHashMap, as we treat search params as map
 	HttpHeaderFields header_fields;
 } HttpRequestHead;

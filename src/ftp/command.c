@@ -72,7 +72,7 @@ NODISCARD static bool parse_u8_into(const tstr_view input, uint8_t* const result
 		return false;
 	}
 
-	int result;
+	int result = 0;
 
 	bool correct = tstr_view_to_int(input, &result);
 
