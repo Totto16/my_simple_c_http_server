@@ -10,6 +10,9 @@ bench_deps += dependency(
     'google-benchmark',
     version: '>=1.8.0',
     fallback: ['google-benchmark', 'google_benchmark_dep'],
+    default_options: {
+        'tests': 'disabled',
+    },
 )
 
 bench_inc_dirs += include_directories('.')
