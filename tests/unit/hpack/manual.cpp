@@ -1010,7 +1010,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				for(size_t i = 0; i < test_case.cases.size(); ++i) {
 					INFO("iteration: ", i);
 
-					if(test_case.name == "c.5" ){
+					if(test_case.name == "c.5") {
 						INFO("hello");
 					}
 
