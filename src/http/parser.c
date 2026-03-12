@@ -306,10 +306,12 @@ NODISCARD static bool parse_compression_quality_float_tstr(const tstr_view view,
 
 	float result = 0.0F;
 	bool had_dot = false;
-	float frac = 10.0F;
+	float frac = 10.0F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 
 	for(size_t i = 0; i < view.len; i++) {
-		if(view.data[i] == '.') {
+		const char val = view.data[i];
+
+		if(val == '.') {
 			if(had_dot) {
 				return false;
 			}
@@ -318,17 +320,22 @@ NODISCARD static bool parse_compression_quality_float_tstr(const tstr_view view,
 			continue;
 		}
 
-		if(view.data[i] < '0' || view.data[i] > '9') {
-			const float val = (float)(view.data[i] - '0');
-			if(had_dot) {
-				result = result + (val / frac);
-				frac = frac * 10.0F;
-			} else {
-				result = (result * 10.0F) + val;
-			}
+		if(val < '0' || val > '9') {
+			return false;
 		}
 
-		return false;
+		const float valf = (float)(val - '0');
+
+		if(had_dot) {
+			result = result + (valf / frac);
+			frac = frac *
+			       10.0F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		} else {
+			result =
+			    (result *
+			     10.0F) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			    valf;
+		}
 	}
 
 	*out_val = result;
@@ -476,7 +483,7 @@ NODISCARD CompressionSettings get_compression_settings(HttpHeaderFields header_f
 				float weight_value = 0.0F;
 				const bool success = parse_compression_quality(compression_weight, &weight_value);
 
-				if(!success) {
+				if(success) {
 					entry.weight = weight_value;
 				}
 			}
