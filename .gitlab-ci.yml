@@ -18,7 +18,7 @@ compile_clang:
         # install meson
         - pip install meson --break-system-packages
         # install node 24
-        - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+        - wget -qO- https://deb.nodesource.com/setup_24.x | bash -
         - apt-get install -y nodejs
     script:
         - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
@@ -34,13 +34,13 @@ compile_gcc:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 g++-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libgmp-dev libpam0g-dev --no-install-recommends -y
+        - apt-get install wget gcc-14 g++-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libgmp-dev libpam0g-dev --no-install-recommends -y
         - export CC="gcc-14"
         - export CXX="g++-14"
         # install meson
         - pip install meson --break-system-packages
         # install node 24
-        - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+        - wget -qO- https://deb.nodesource.com/setup_24.x | bash -
         - apt-get install -y nodejs
     script:
         - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
@@ -71,7 +71,7 @@ unit_tests:
         # install meson
         - pip install meson --break-system-packages
         # install node 24
-        - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+        - wget -qO- https://deb.nodesource.com/setup_24.x | bash -
         - apt-get install -y nodejs
     script:
         # run unit tests
@@ -113,7 +113,7 @@ ws_tests:
         # install meson
         - pip install meson --break-system-packages
         # install node 24
-        - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+        - wget -qO- https://deb.nodesource.com/setup_24.x | bash -
         - apt-get install -y nodejs
         # install pypy2
         - export KEEP_AUTO_PACKAGES_INSTALLED="true"
