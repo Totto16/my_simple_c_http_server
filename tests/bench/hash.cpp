@@ -3,10 +3,9 @@
 #include <generic/hash.h>
 
 #include <support/support.hpp>
+#include <support/helpers.hpp>
 
 #include <vector>
-
-namespace {
 
 struct TestCaseSha1 {
 	std::string name;
@@ -19,8 +18,6 @@ struct TestCaseBase64 {
 	std::string raw;
 	std::string base64;
 };
-
-} // namespace
 
 static void BM_sha1(benchmark::State& state) {
 
@@ -239,7 +236,6 @@ static void BM_sha1(benchmark::State& state) {
 	}
 }
 
-namespace {
 std::vector<TestCaseBase64> base64_test_cases = {
 	{ .name = "empty string", .raw = "", .base64 = "" },
 	{ .name = "simple string", .raw = "hello world", .base64 = "aGVsbG8gd29ybGQ=" },
@@ -248,8 +244,6 @@ std::vector<TestCaseBase64> base64_test_cases = {
 	  .base64 = "8J+YjvCfmI7wn5iO8J+YjvCfmI7wn5iO8J+MjUhlbGxvIHRlc3QgbG9uZyBzdHJpbmc=" }
 
 };
-
-} // namespace
 
 static void BM_base64_dec(benchmark::State& state) {
 
@@ -317,14 +311,11 @@ static void BM_base64_enc(benchmark::State& state) {
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
-namespace {
 struct TestCaseBaseBcrypt {
 	std::string name;
 	std::string password;
 	HashSaltSettings settings;
 };
-
-} // namespace
 
 	#define BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS 10
 
@@ -397,6 +388,8 @@ static void BM_bcrypt(benchmark::State& state) {
 	}
 }
 
+BENCHMARK(BM_bcrypt)->Name("hash/bcrypt");
+
 #endif
 
 BENCHMARK(BM_sha1)->Name("hash/sha1");
@@ -404,5 +397,3 @@ BENCHMARK(BM_sha1)->Name("hash/sha1");
 BENCHMARK(BM_base64_dec)->Name("hash/base64/dec");
 
 BENCHMARK(BM_base64_enc)->Name("hash/base64/enc");
-
-BENCHMARK(BM_bcrypt)->Name("hash/bcrypt");

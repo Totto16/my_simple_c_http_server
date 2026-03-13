@@ -88,7 +88,7 @@ template <typename T> struct CppDefer {
 
 [[nodiscard]] tstr tstr_from_string(const std::string& value);
 
-[[nodiscard]] static consteval tstr operator""_tstr(const char* str, std::size_t len) {
+[[nodiscard]] static constexpr tstr operator""_tstr(const char* str, std::size_t len) {
 	return tstr_from_static_cstr_with_len(str, len);
 }
 
@@ -141,4 +141,9 @@ static std::ostream& operator<<(std::ostream& os, const T& entry) {
 	os << typeid(entry).name() << "{ is_error: true, error: " << get_error_from<T>(entry) << " }";
 
 	return os;
+}
+
+namespace helpers {
+
+[[nodiscard]] std::vector<std::uint8_t> raw_data_from_buffer(const SizedBuffer& buffer);
 }

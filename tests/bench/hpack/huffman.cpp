@@ -4,118 +4,15 @@
 
 #include "generated_hpack_tests.hpp"
 
-#include <functional>
-#include <memory>
+#include <support/helpers.hpp>
+#include <support/support.hpp>
 
-[[nodiscard]] static SizedBuffer buffer_from_str(const std::string& data) {
-	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
-	return buffer;
-}
-
-[[nodiscard]] static tstr tstr_from_utf8_string(const std::vector<std::uint8_t>& val) {
-	const tstr buffer = tstr_from_len((const char*)val.data(), val.size());
-	return buffer;
-}
-
-[[nodiscard]] static inline tstr tstr_from_string(const std::string& value) {
-	return tstr_from_len(value.c_str(), value.size());
-}
-
-[[nodiscard]] static inline SizedBuffer
-buffer_from_raw_data(const std::vector<std::uint8_t>& data) {
-	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
-	return buffer;
-}
-
-template <typename T> struct CppDefer {
-  public:
-	using FreeFn = std::function<void(T*)>;
-
-  private:
-	T* m_state;
-	FreeFn m_free_fn;
-
-  public:
-	CppDefer(T* state, const FreeFn& free_fn) : m_state{ state }, m_free_fn{ free_fn } {}
-
-	CppDefer(CppDefer&&) = delete;
-
-	CppDefer(const CppDefer&) = delete;
-
-	CppDefer& operator=(const CppDefer&) = delete;
-
-	CppDefer operator=(CppDefer&&) = delete;
-
-	[[nodiscard]] T const* get() const { return this->m_state; }
-
-	~CppDefer() { this->m_free_fn(this->m_state); }
-};
-
-NODISCARD static bool operator==(const SizedBuffer& lhs, const SizedBuffer& rhs) {
-
-	if(lhs.size != rhs.size) {
-		return false;
-	}
-
-	if(lhs.data == NULL && rhs.data == NULL) {
-		return true;
-	}
-
-	if(lhs.data == NULL || rhs.data == NULL) {
-		return false;
-	}
-
-	auto* lhs_ptr = static_cast<std::uint8_t*>(lhs.data);
-	auto* rhs_ptr = static_cast<std::uint8_t*>(rhs.data);
-
-	for(size_t i = 0; i < lhs.size; ++i) {
-		if(lhs_ptr[i] != rhs_ptr[i]) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-struct GlobalHuffmanData {
-	bool present;
-
-  public:
-	GlobalHuffmanData() : present{ true } { global_initialize_http2_hpack_huffman_data(); }
-
-	GlobalHuffmanData(GlobalHuffmanData&&) = delete;
-
-	GlobalHuffmanData(const GlobalHuffmanData&) = delete;
-
-	GlobalHuffmanData& operator=(const GlobalHuffmanData&) = delete;
-
-	GlobalHuffmanData operator=(GlobalHuffmanData&&) = delete;
-
-	~GlobalHuffmanData() { global_free_http2_hpack_huffman_data(); }
-};
-
-static GlobalHuffmanData g_global_huffman_data = {};
+static helpers::GlobalHuffmanData g_global_huffman_data = {};
 
 struct TestCaseManual {
 	std::vector<std::uint8_t> encoded;
 	std::string str;
 };
-
-static void free_huffman_decode_result(HuffmanDecodeResult* decode_result) {
-	if(decode_result->is_error) {
-		return;
-	}
-
-	free_sized_buffer(decode_result->data.result);
-}
-
-static void free_huffman_encode_result(HuffmanEncodeResult* encode_result) {
-	if(encode_result->is_error) {
-		return;
-	}
-
-	free_sized_buffer(encode_result->data.result);
-}
 
 static void BM_hpack_huffman_decode_spec(benchmark::State& state) {
 
@@ -162,7 +59,7 @@ static void BM_hpack_huffman_decode_spec(benchmark::State& state) {
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
 			auto result = hpack_huffman_decode_bytes(input);
-			CppDefer<HuffmanDecodeResult> defer = { &result, free_huffman_decode_result };
+			CppDefer<HuffmanDecodeResult> defer = { &result, helpers::free_huffman_decode_result };
 
 			const char* error = nullptr;
 
@@ -174,7 +71,7 @@ static void BM_hpack_huffman_decode_spec(benchmark::State& state) {
 
 			const auto actual_result = result.data.result;
 
-			const auto expected_result = buffer_from_str(test_case.str);
+			const auto expected_result = helpers::buffer_from_string(test_case.str);
 
 			const std::string actual_result_str =
 			    std::string{ (char*)actual_result.data, actual_result.size };
@@ -200,7 +97,7 @@ static void BM_hpack_huffman_decode_ascii_generated(benchmark::State& state) {
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
 			auto result = hpack_huffman_decode_bytes(input);
-			CppDefer<HuffmanDecodeResult> defer = { &result, free_huffman_decode_result };
+			CppDefer<HuffmanDecodeResult> defer = { &result, helpers::free_huffman_decode_result };
 
 			const char* error = nullptr;
 
@@ -212,7 +109,7 @@ static void BM_hpack_huffman_decode_ascii_generated(benchmark::State& state) {
 
 			const auto actual_result = result.data.result;
 
-			const auto expected_result = buffer_from_str(test_case.str);
+			const auto expected_result = helpers::buffer_from_string(test_case.str);
 
 			const std::string actual_result_str =
 			    std::string{ (char*)actual_result.data, actual_result.size };
@@ -238,7 +135,7 @@ static void BM_hpack_huffman_decode_utf8_generated(benchmark::State& state) {
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
 			auto result = hpack_huffman_decode_bytes(input);
-			CppDefer<HuffmanDecodeResult> defer = { &result, free_huffman_decode_result };
+			CppDefer<HuffmanDecodeResult> defer = { &result, helpers::free_huffman_decode_result };
 
 			const char* error = nullptr;
 
@@ -398,28 +295,6 @@ struct TestCaseExtended {
 	std::vector<std::uint8_t> value;
 };
 
-[[nodiscard]] static std::vector<std::uint8_t> vector_from_string(const std::string& data) {
-	std::vector<std::uint8_t> result = {};
-	result.reserve(data.size());
-
-	for(const auto& ch : data) {
-		result.emplace_back(ch);
-	}
-
-	return result;
-}
-
-[[nodiscard]] static std::vector<std::uint8_t> all_values_vector() {
-	std::vector<std::uint8_t> result = {};
-	result.reserve(256);
-
-	for(size_t i = 0; i < 256; ++i) {
-		result.emplace_back((uint8_t)i);
-	}
-
-	return result;
-}
-
 static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 
 	const std::vector<TestCaseExtended> test_cases = {
@@ -454,7 +329,8 @@ static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 			const auto intermediary_result = result.data.result;
 
 			auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
-			CppDefer<HuffmanDecodeResult> defer2 = { &result_dec, free_huffman_decode_result };
+			CppDefer<HuffmanDecodeResult> defer2 = { &result_dec,
+				                                     helpers::free_huffman_decode_result };
 
 			const char* error2 = nullptr;
 

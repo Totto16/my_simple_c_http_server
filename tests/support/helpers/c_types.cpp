@@ -16,11 +16,7 @@
 	return oss.str();
 }
 
-namespace {
-
 constexpr const size_t buffer_max_for_printing_content = 40;
-
-} // namespace
 
 std::ostream& operator<<(std::ostream& os, const SizedBuffer& buffer) {
 	if(buffer.data == NULL || buffer.size > buffer_max_for_printing_content) {

@@ -6,6 +6,8 @@
 #include <support/helpers.hpp>
 #include <support/helpers/hpack.hpp>
 
+#include "../string_maker.hpp"
+
 TEST_SUITE_BEGIN("hpack/manual" * doctest::description("manual hpack tests") *
                  doctest::timeout(2.0));
 
@@ -17,7 +19,7 @@ struct IntegerTest {
 
 TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserialize>") {
 
-	const auto hpack_cpp_global_handle = HpackGlobalHandle();
+	const auto hpack_cpp_global_handle = hpack::HpackGlobalHandle();
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.1
 	const std::vector<IntegerTest> test_cases = {
@@ -132,18 +134,9 @@ struct HeaderFieldDeserializeTest {
 	std::vector<std::string> strict_error_state;
 };
 
-[[nodiscard]] static test::DynamicTable
-get_dynamic_compress_table(const HpackCompressStateCpp& state) {
-
-	const auto* state_cpp_extracted =
-	    (const cpp_forbidden_test_type_impl_DONT_USE::HpackCompressStateImpl*)state.get();
-
-	return get_dynamic_table(&(state_cpp_extracted->dynamic_table_state));
-}
-
 TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields>") {
 
-	const auto hpack_cpp_global_handle = HpackGlobalHandle();
+	const auto hpack_cpp_global_handle = hpack::HpackGlobalHandle();
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.2
 	const std::vector<HeaderFieldDeserializeTest> test_cases = {
@@ -202,17 +195,19 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				HpackDecompressStateCpp decompress_state =
-				    get_default_hpack_decompress_state_cpp(DEFAULT_HEADER_TABLE_SIZE);
+				hpack::HpackDecompressStateCpp decompress_state =
+				    hpack::get_default_hpack_decompress_state_cpp(
+				        consts::default_header_table_size);
 				REQUIRE_NE(decompress_state.get(), nullptr);
 
 				const auto input = buffer_from_raw_data(test_case.raw_data);
 
-				HpackDecodingErrorStateHack error_state_stack{};
+				hpack::hacky_trick::HpackDecodingErrorStateHack error_state_stack{};
 
 				auto result = http2_hpack_decompress_data(decompress_state.get(), input);
-				CppDefer<Http2HpackDecompressResult> defer = { &result,
-					                                           free_hpack_decompress_result };
+				CppDefer<Http2HpackDecompressResult> defer = {
+					&result, hpack::free_hpack_decompress_result
+				};
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -220,7 +215,7 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 
 				const auto& expected_result = test_case.result;
 
-				const auto actual_result_cpp = get_cpp_headers(actual_result);
+				const auto actual_result_cpp = helpers::get_cpp_headers(actual_result);
 
 				REQUIRE_EQ(actual_result_cpp, expected_result);
 
@@ -228,15 +223,14 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 
 				const auto& expected_dynamic_table = test_case.dynamic_table;
 
-				const auto actual_dynamic_table = get_dynamic_decompress_table(decompress_state);
+				const auto actual_dynamic_table =
+				    hpack::get_dynamic_decompress_table(decompress_state);
 
 				REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
 			}();
 		}
 	}
 }
-
-namespace {
 
 using HpackManualDeserializeTestCaseEntry = HeaderFieldDeserializeTest;
 
@@ -247,18 +241,16 @@ struct HpackManualTestDeserializeCase {
 	std::vector<HpackManualDeserializeTestCaseEntry> cases;
 };
 
-} // namespace
-
 TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>") {
 
-	const auto hpack_cpp_global_handle = HpackGlobalHandle();
+	const auto hpack_cpp_global_handle = hpack::HpackGlobalHandle();
 
 	const std::vector<HpackManualTestDeserializeCase> test_cases = {
 		// see https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3
 		HpackManualTestDeserializeCase{
 			.name  = "c.3",
 			.description = "Request Examples without Huffman Coding",
-			.header_table_size = DEFAULT_HEADER_TABLE_SIZE,
+			.header_table_size = consts::default_header_table_size,
 			.cases = std::vector<HpackManualDeserializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.1
 				HpackManualDeserializeTestCaseEntry{ 
@@ -320,7 +312,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 		HpackManualTestDeserializeCase{
 			.name  = "c.4",
 			.description = "Request Examples with Huffman Coding",
-			.header_table_size = DEFAULT_HEADER_TABLE_SIZE,
+			.header_table_size = consts::default_header_table_size,
 			.cases = std::vector<HpackManualDeserializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.1
 				HpackManualDeserializeTestCaseEntry{ 
@@ -525,8 +517,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				HpackDecompressStateCpp decompress_state =
-				    get_default_hpack_decompress_state_cpp(test_case.header_table_size);
+				hpack::HpackDecompressStateCpp decompress_state =
+				    hpack::get_default_hpack_decompress_state_cpp(test_case.header_table_size);
 				REQUIRE_NE(decompress_state.get(), nullptr);
 
 				for(size_t i = 0; i < test_case.cases.size(); ++i) {
@@ -536,11 +528,12 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 
 					const auto input = buffer_from_raw_data(subcase.raw_data);
 
-					HpackDecodingErrorStateHack error_state_stack{};
+					hpack::hacky_trick::HpackDecodingErrorStateHack error_state_stack{};
 
 					auto result = http2_hpack_decompress_data(decompress_state.get(), input);
-					CppDefer<Http2HpackDecompressResult> defer = { &result,
-						                                           free_hpack_decompress_result };
+					CppDefer<Http2HpackDecompressResult> defer = {
+						&result, hpack::free_hpack_decompress_result
+					};
 
 					REQUIRE_IS_NOT_ERROR(result);
 
@@ -548,7 +541,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 
 					const auto& expected_result = subcase.result;
 
-					const auto actual_result_cpp = get_cpp_headers(actual_result);
+					const auto actual_result_cpp = helpers::get_cpp_headers(actual_result);
 
 					REQUIRE_EQ(actual_result_cpp, expected_result);
 
@@ -566,8 +559,6 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 	}
 }
 
-namespace {
-
 struct HpackManualSerializeTestCaseEntry {
 	std::vector<std::uint8_t> result;
 	test::DynamicTable dynamic_table;
@@ -582,30 +573,16 @@ struct HpackManualTestSerializeCase {
 	std::vector<HpackManualSerializeTestCaseEntry> cases;
 };
 
-} // namespace
-
-[[nodiscard]] static std::vector<std::uint8_t> raw_data_from_buffer(const SizedBuffer& buffer) {
-
-	std::vector<std::uint8_t> result{};
-	result.reserve(buffer.size);
-
-	for(size_t i = 0; i < buffer.size; ++i) {
-		result.push_back(((uint8_t*)buffer.data)[i]);
-	}
-
-	return result;
-}
-
 TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 
-	const auto hpack_cpp_global_handle = HpackGlobalHandle();
+	const auto hpack_cpp_global_handle = hpack::HpackGlobalHandle();
 
 	const std::vector<HpackManualTestSerializeCase> test_cases = {
 		// see https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3
 		HpackManualTestSerializeCase{
 			.name  = "c.3",
 			.description = "Request Examples without Huffman Coding",
-			.header_table_size = DEFAULT_HEADER_TABLE_SIZE,
+			.header_table_size = consts::default_header_table_size,
 			.cases = std::vector<HpackManualSerializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.1
 				HpackManualSerializeTestCaseEntry{ 
@@ -679,7 +656,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 		HpackManualTestSerializeCase{
 			.name  = "c.4",
 			.description = "Request Examples with Huffman Coding",
-			.header_table_size = DEFAULT_HEADER_TABLE_SIZE,
+			.header_table_size = consts::default_header_table_size,
 			.cases = std::vector<HpackManualSerializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.1
 				HpackManualSerializeTestCaseEntry{ 
@@ -920,8 +897,8 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				HpackCompressStateCpp compress_state =
-				    get_default_hpack_compress_state_cpp(test_case.header_table_size);
+				hpack::HpackCompressStateCpp compress_state =
+				    hpack::get_default_hpack_compress_state_cpp(test_case.header_table_size);
 				REQUIRE_NE(compress_state.get(), nullptr);
 
 				for(size_t i = 0; i < test_case.cases.size(); ++i) {
@@ -934,7 +911,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 					const auto& subcase = test_case.cases.at(i);
 
 					const auto input = subcase.input;
-					auto input_c = get_c_map_from_cpp(input);
+					auto input_c = helpers::get_c_map_from_cpp(input);
 
 					auto result = http2_hpack_compress_data(compress_state.get(), *input_c.get(),
 					                                        subcase.options);
@@ -946,13 +923,14 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 
 					const auto& expected_result = subcase.result;
 
-					const auto actual_result = raw_data_from_buffer(result);
+					const auto actual_result = helpers::raw_data_from_buffer(result);
 
 					REQUIRE_EQ(actual_result, expected_result);
 
 					const auto& expected_dynamic_table = subcase.dynamic_table;
 
-					const auto actual_dynamic_table = get_dynamic_compress_table(compress_state);
+					const auto actual_dynamic_table =
+					    hpack::get_dynamic_compress_table(compress_state);
 
 					REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
 				}
@@ -961,12 +939,10 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 	}
 }
 
-namespace {
 struct TestCaseStrCmp {
 	std::string value;
 	bool result;
 };
-} // namespace
 
 TEST_CASE("testing fast string comparison <fast_string_cmp>") {
 

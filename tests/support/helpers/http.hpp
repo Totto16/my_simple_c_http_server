@@ -59,3 +59,10 @@ struct ParsedURIWrapper {
 };
 
 } // namespace http
+
+namespace serialize {
+
+[[nodiscard]] uint32_t select_native_value_u32(uint32_t LE_value, uint32_t BE_value);
+
+[[nodiscard]] uint16_t select_native_value_u16(uint16_t LE_value, uint16_t BE_value);
+} // namespace serialize

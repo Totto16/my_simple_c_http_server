@@ -7,8 +7,6 @@
 #include <support/helpers.hpp>
 #include <support/support.hpp>
 
-namespace {
-
 struct TestCaseSha1 {
 	doctest::String name;
 	std::string input;
@@ -20,8 +18,6 @@ struct TestCaseBase64 {
 	std::string raw;
 	std::string base64;
 };
-
-} // namespace
 
 TEST_SUITE_BEGIN("hash" * doctest::description("hash tests") * doctest::timeout(2.0));
 
@@ -242,7 +238,6 @@ TEST_CASE("testing sha1 generation with openssl <sha1>") {
 	}
 }
 
-namespace {
 std::vector<TestCaseBase64> base64_test_cases = {
 	{ .name = "empty string", .raw = "", .base64 = "" },
 	{ .name = "simple string", .raw = "hello world", .base64 = "aGVsbG8gd29ybGQ=" },
@@ -251,7 +246,6 @@ std::vector<TestCaseBase64> base64_test_cases = {
 	  .base64 = "8J+YjvCfmI7wn5iO8J+YjvCfmI7wn5iO8J+MjUhlbGxvIHRlc3QgbG9uZyBzdHJpbmc=" }
 
 };
-} // namespace
 
 TEST_CASE("testing base64 decoding with openssl <base64_dec>") {
 
@@ -262,7 +256,7 @@ TEST_CASE("testing base64 decoding with openssl <base64_dec>") {
 
 		SUBCASE(test_case.name) {
 			[&test_case]() -> void {
-				SizedBuffer input = buffer_from_string(test_case.base64);
+				SizedBuffer input = helpers::buffer_from_string(test_case.base64);
 
 				const SizedBuffer result = base64_decode_buffer(input);
 
@@ -274,7 +268,7 @@ TEST_CASE("testing base64 decoding with openssl <base64_dec>") {
 					REQUIRE_EQ(result.size, 0);
 				}
 
-				SizedBuffer expected_result = buffer_from_string(test_case.raw);
+				SizedBuffer expected_result = helpers::buffer_from_string(test_case.raw);
 
 				REQUIRE_EQ(result, expected_result);
 
@@ -293,7 +287,7 @@ TEST_CASE("testing base64 encoding with openssl <base64_enc>") {
 
 		SUBCASE(test_case.name) {
 			[&test_case]() -> void {
-				SizedBuffer input = buffer_from_string(test_case.raw);
+				SizedBuffer input = helpers::buffer_from_string(test_case.raw);
 
 				char* result = base64_encode_buffer(input);
 
@@ -319,14 +313,11 @@ TEST_CASE("testing base64 encoding with openssl <base64_enc>") {
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
-namespace {
 struct TestCaseBaseBcrypt {
 	doctest::String name;
 	std::string password;
 	HashSaltSettings settings;
 };
-
-} // namespace
 
 	#define BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS 10
 

@@ -78,4 +78,10 @@ template <> struct StringMaker<CompressionEntry> {
 	}
 };
 
+template <> struct StringMaker<test::DynamicTable> {
+	static String convert(const test::DynamicTable& table) {
+		return ::os_stream_formattable_to_doctest(table);
+	}
+};
+
 } // namespace doctest

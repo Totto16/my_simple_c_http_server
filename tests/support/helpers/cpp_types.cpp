@@ -36,3 +36,15 @@ std::ostream& operator<<(std::ostream& os, const IsNotError& /* error */) {
 	os << "{}";
 	return os;
 }
+
+[[nodiscard]] std::vector<std::uint8_t> helpers::raw_data_from_buffer(const SizedBuffer& buffer) {
+
+	std::vector<std::uint8_t> result{};
+	result.reserve(buffer.size);
+
+	for(size_t i = 0; i < buffer.size; ++i) {
+		result.push_back(((uint8_t*)buffer.data)[i]);
+	}
+
+	return result;
+}

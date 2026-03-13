@@ -4,12 +4,10 @@
 
 #include <functional>
 
-namespace {
 struct TestCaseStrCmp {
 	std::string value;
 	bool result;
 };
-} // namespace
 
 static void StringCompareFast(const std::vector<TestCaseStrCmp>& test_cases,
                               const std::vector<std::string>& test_data_strings) {

@@ -288,7 +288,7 @@ std::vector<consts::StrictErrorException> strict_error_state_exceptions = {
 
 };
 
-#define DEFAULT_HEADER_TABLE_SIZE 4096
+const size_t consts::default_header_table_size = 4096;
 
 [[nodiscard]] static tests::ThirdPartyHpackTestCaseEntry
 get_case_from_json(const nlohmann::json& value, const std::string& suite_name,
@@ -328,7 +328,7 @@ get_case_from_json(const nlohmann::json& value, const std::string& suite_name,
 		.seqno = seqno,
 		.wire_data = wire_data,
 		.headers = headers,
-		.header_table_size = header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE),
+		.header_table_size = header_table_size.value_or(consts::default_header_table_size),
 		.strict_error_state = strict_error_state,
 	};
 }
@@ -361,7 +361,7 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 
 	// cases post processing
 	tests::HeaderTableMode header_mode = { .all_the_same = true,
-		                                   .table_size = DEFAULT_HEADER_TABLE_SIZE };
+		                                   .table_size = consts::default_header_table_size };
 
 	{
 		std::optional<size_t> header_table_size = std::nullopt;
@@ -385,12 +385,12 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 		}
 
 		if(header_mode.all_the_same) {
-			header_mode.table_size = header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE);
+			header_mode.table_size = header_table_size.value_or(consts::default_header_table_size);
 		} else {
 			header_mode.table_size =
 			    cases.size() == 0
-			        ? DEFAULT_HEADER_TABLE_SIZE
-			        : cases.at(0).header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE);
+			        ? consts::default_header_table_size
+			        : cases.at(0).header_table_size.value_or(consts::default_header_table_size);
 		}
 	}
 
@@ -599,4 +599,48 @@ hpack::get_dynamic_decompress_table(const HpackDecompressStateCpp& state) {
 	    (const cpp_forbidden_test_type_impl_DONT_USE::HpackDecompressStateImpl*)state.get();
 
 	return get_dynamic_table(&(state_cpp_extracted->dynamic_table_state));
+}
+
+[[nodiscard]] test::DynamicTable
+hpack::get_dynamic_compress_table(const HpackCompressStateCpp& state) {
+
+	const auto* state_cpp_extracted =
+	    (const cpp_forbidden_test_type_impl_DONT_USE::HpackCompressStateImpl*)state.get();
+
+	return get_dynamic_table(&(state_cpp_extracted->dynamic_table_state));
+}
+
+helpers::GlobalHuffmanData::GlobalHuffmanData() : present{ true } {
+	global_initialize_http2_hpack_huffman_data();
+}
+
+helpers::GlobalHuffmanData::~GlobalHuffmanData() {
+	global_free_http2_hpack_huffman_data();
+}
+
+void helpers::free_huffman_decode_result(HuffmanDecodeResult* decode_result) {
+	if(decode_result->is_error) {
+		return;
+	}
+
+	free_sized_buffer(decode_result->data.result);
+}
+
+void helpers::free_huffman_encode_result(HuffmanEncodeResult* encode_result) {
+	if(encode_result->is_error) {
+		return;
+	}
+
+	free_sized_buffer(encode_result->data.result);
+}
+
+[[nodiscard]] std::vector<std::uint8_t> hpack::huffman::all_values_vector() {
+	std::vector<std::uint8_t> result = {};
+	result.reserve(256);
+
+	for(size_t i = 0; i < 256; ++i) {
+		result.emplace_back((uint8_t)i);
+	}
+
+	return result;
 }

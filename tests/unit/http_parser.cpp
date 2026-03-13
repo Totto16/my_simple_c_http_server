@@ -176,7 +176,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 
 	SUBCASE("simple url") {
 		[]() -> void {
-			auto parsed_path = http::ParsedURIWrapper::parse("/");
+			const auto parsed_path = http::ParsedURIWrapper::parse("/");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 
@@ -192,7 +192,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 
 	SUBCASE("real path url") {
 		[]() -> void {
-			auto parsed_path = http::ParsedURIWrapper::parse("/test/hello");
+			const auto parsed_path = http::ParsedURIWrapper::parse("/test/hello");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 
@@ -208,7 +208,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 
 	SUBCASE("path url with search parameters") {
 		[]() -> void {
-			auto parsed_path =
+			const auto parsed_path =
 			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
@@ -266,7 +266,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 
 	SUBCASE("path url with search parameters") {
 		[]() -> void {
-			auto parsed_path =
+			const auto parsed_path =
 			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);

@@ -2,6 +2,7 @@
 
 #include "./cpp_types.hpp"
 #include <http/hpack.h>
+#include <http/hpack_huffman.h>
 
 #include <filesystem>
 #include <fstream>
@@ -93,7 +94,9 @@ struct StrictErrorException {
 	[[nodiscard]] bool operator==(const StrictErrorException& lhs) const;
 };
 
-std::vector<StrictErrorException> strict_error_state_exceptions;
+extern const std::vector<StrictErrorException> strict_error_state_exceptions;
+
+extern const size_t default_header_table_size;
 
 } // namespace consts
 
@@ -146,7 +149,8 @@ namespace hpack {
 
 [[nodiscard]] test::DynamicTable get_dynamic_decompress_table(const HpackDecompressStateCpp& state);
 
-}
+[[nodiscard]] test::DynamicTable get_dynamic_compress_table(const HpackCompressStateCpp& state);
+} // namespace hpack
 
 namespace helpers {
 
@@ -168,4 +172,22 @@ template <typename T> struct OptionalOr {
 		return this->value == lhs.value();
 	}
 };
+
+struct GlobalHuffmanData {
+	bool present;
+
+	GlobalHuffmanData();
+
+	~GlobalHuffmanData();
+};
+
+void free_huffman_decode_result(HuffmanDecodeResult* decode_result);
+
+void free_huffman_encode_result(HuffmanEncodeResult* encode_result);
+
 } // namespace helpers
+
+namespace hpack::huffman {
+
+[[nodiscard]] std::vector<std::uint8_t> all_values_vector();
+} // namespace hpack::huffman

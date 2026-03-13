@@ -3,60 +3,19 @@
 #include "generated_hpack_tests.hpp"
 
 #include <support/helpers.hpp>
+#include <support/helpers/hpack.hpp>
+#include <support/support.hpp>
 
 #include <memory>
 
 #include <doctest.h>
 
-[[nodiscard]] static SizedBuffer buffer_from_str(const std::string& data) {
-	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
-	return buffer;
-}
-
-[[nodiscard]] static tstr tstr_from_utf8_string(const std::vector<std::uint8_t>& val) {
-	const tstr buffer = tstr_from_len((const char*)val.data(), val.size());
-	return buffer;
-}
-
-struct GlobalHuffmanData {
-	bool present;
-
-  public:
-	GlobalHuffmanData() : present{ true } { global_initialize_http2_hpack_huffman_data(); }
-
-	GlobalHuffmanData(GlobalHuffmanData&&) = delete;
-
-	GlobalHuffmanData(const GlobalHuffmanData&) = delete;
-
-	GlobalHuffmanData& operator=(const GlobalHuffmanData&) = delete;
-
-	GlobalHuffmanData operator=(GlobalHuffmanData&&) = delete;
-
-	~GlobalHuffmanData() { global_free_http2_hpack_huffman_data(); }
-};
-
-static GlobalHuffmanData g_global_huffman_data = {};
+static helpers::GlobalHuffmanData g_global_huffman_data = {};
 
 struct TestCaseManual {
 	std::vector<std::uint8_t> encoded;
 	std::string str;
 };
-
-static void free_huffman_decode_result(HuffmanDecodeResult* decode_result) {
-	if(decode_result->is_error) {
-		return;
-	}
-
-	free_sized_buffer(decode_result->data.result);
-}
-
-static void free_huffman_encode_result(HuffmanEncodeResult* encode_result) {
-	if(encode_result->is_error) {
-		return;
-	}
-
-	free_sized_buffer(encode_result->data.result);
-}
 
 TEST_SUITE_BEGIN("hpack/huffman" * doctest::description("hpack huffman tests") *
                  doctest::timeout(2.0));
@@ -108,13 +67,14 @@ TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decod
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
 				auto result = hpack_huffman_decode_bytes(input);
-				CppDefer<HuffmanDecodeResult> defer = { &result, free_huffman_decode_result };
+				CppDefer<HuffmanDecodeResult> defer = { &result,
+					                                    helpers::free_huffman_decode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto actual_result = result.data.result;
 
-				const auto expected_result = buffer_from_str(test_case.str);
+				const auto expected_result = helpers::buffer_from_string(test_case.str);
 
 				const std::string actual_result_str =
 				    std::string{ (char*)actual_result.data, actual_result.size };
@@ -146,13 +106,14 @@ TEST_CASE("testing hpack huffman decoding (ascii) - generated "
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
 				auto result = hpack_huffman_decode_bytes(input);
-				CppDefer<HuffmanDecodeResult> defer = { &result, free_huffman_decode_result };
+				CppDefer<HuffmanDecodeResult> defer = { &result,
+					                                    helpers::free_huffman_decode_result };
 
 				REQUIRE_EQ(IsNotError{}, result);
 
 				const auto actual_result = result.data.result;
 
-				const auto expected_result = buffer_from_str(test_case.str);
+				const auto expected_result = helpers::buffer_from_string(test_case.str);
 
 				const std::string actual_result_str =
 				    std::string{ (char*)actual_result.data, actual_result.size };
@@ -184,7 +145,8 @@ TEST_CASE("testing hpack huffman decoding (utf8) - generated "
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
 				auto result = hpack_huffman_decode_bytes(input);
-				CppDefer<HuffmanDecodeResult> defer = { &result, free_huffman_decode_result };
+				CppDefer<HuffmanDecodeResult> defer = { &result,
+					                                    helpers::free_huffman_decode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -246,7 +208,8 @@ TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encod
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
-				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+				CppDefer<HuffmanEncodeResult> defer = { &result,
+					                                    helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -280,7 +243,8 @@ TEST_CASE("testing hpack huffman encoding (ascii) - generated "
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
-				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+				CppDefer<HuffmanEncodeResult> defer = { &result,
+					                                    helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -310,11 +274,12 @@ TEST_CASE("testing hpack huffman encoding (utf8) - generated "
 			[&test_case]() -> void {
 				REQUIRE_EQ(g_global_huffman_data.present, true);
 
-				auto input = tstr_from_utf8_string(test_case.value);
+				auto input = helpers::tstr_from_utf8_string(test_case.value);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
-				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+				CppDefer<HuffmanEncodeResult> defer = { &result,
+					                                    helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -332,35 +297,14 @@ struct TestCaseExtended {
 	std::vector<std::uint8_t> value;
 };
 
-[[nodiscard]] static std::vector<std::uint8_t> vector_from_string(const std::string& data) {
-	std::vector<std::uint8_t> result = {};
-	result.reserve(data.size());
-
-	for(const auto& ch : data) {
-		result.emplace_back(ch);
-	}
-
-	return result;
-}
-
-[[nodiscard]] static std::vector<std::uint8_t> all_values_vector() {
-	std::vector<std::uint8_t> result = {};
-	result.reserve(256);
-
-	for(size_t i = 0; i < 256; ++i) {
-		result.emplace_back((uint8_t)i);
-	}
-
-	return result;
-}
-
 TEST_CASE("testing hpack huffman roundtrip - generated "
           "<hpack_huffman_roundtrip>") {
 
 	const std::vector<TestCaseExtended> test_cases = {
-		TestCaseExtended{ .value = vector_from_string("test hello") },
-		TestCaseExtended{ .value = vector_from_string("test hello a long non ascii string öäüß") },
-		TestCaseExtended{ .value = all_values_vector() },
+		TestCaseExtended{ .value = helpers::vector_from_string("test hello") },
+		TestCaseExtended{
+		    .value = helpers::vector_from_string("test hello a long non ascii string öäüß") },
+		TestCaseExtended{ .value = hpack::huffman::all_values_vector() },
 	};
 
 	for(size_t i = 0; i < test_cases.size(); ++i) {
@@ -374,18 +318,20 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 			[&test_case]() -> void {
 				REQUIRE_EQ(g_global_huffman_data.present, true);
 
-				auto input = tstr_from_utf8_string(test_case.value);
+				auto input = helpers::tstr_from_utf8_string(test_case.value);
 				CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
-				CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+				CppDefer<HuffmanEncodeResult> defer = { &result,
+					                                    helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
 				const auto intermediary_result = result.data.result;
 
 				auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
-				CppDefer<HuffmanDecodeResult> defer2 = { &result_dec, free_huffman_decode_result };
+				CppDefer<HuffmanDecodeResult> defer2 = { &result_dec,
+					                                     helpers::free_huffman_decode_result };
 
 				REQUIRE_IS_NOT_ERROR(result_dec);
 
