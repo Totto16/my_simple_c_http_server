@@ -2083,8 +2083,6 @@ ${key_of_static_table.map((str, idx) => {
 
     writeFileAndDirs(generated_hpack_huffman_file_c, c_data)
 
-
-
 }
 
 

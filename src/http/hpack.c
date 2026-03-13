@@ -182,6 +182,9 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 	const HpackHeaderDynamicEntry dynamic_entry =
 	    hpack_dynamic_table_at(&(state->dynamic_table), dynamic_index);
 
+	// asserts errors in the underlying dynamic table
+	assert(!tstr_is_null(&dynamic_entry.key));
+
 	return (HpackHeaderEntryResult){ .is_error = false,
 		                             .value = (HpackHeaderDynamicEntry){
 		                                 .key = tstr_dup(&dynamic_entry.key),
@@ -217,6 +220,9 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 	if(entry.is_error) {
 		return -3;
 	}
+
+	// the value can't be null, if using the value too, it can be empty tstr_init() but not NULL!
+	assert(!tstr_is_null(&entry.value.value));
 
 	const HttpHeaderField entry_value = { .key = entry.value.key, .value = entry.value.value };
 
