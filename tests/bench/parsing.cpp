@@ -312,6 +312,10 @@ ParsedURIWrapper parse_uri(const std::string& uri) {
 } // namespace
 
 [[nodiscard]] static inline std::string string_from_tstr(const tstr& value) {
+	if(tstr_is_null(&value)) {
+		throw std::runtime_error("tstr is NULL!");
+	}
+
 	return std::string{ tstr_cstr(&value), tstr_len(&value) };
 }
 
