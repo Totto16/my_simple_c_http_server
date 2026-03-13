@@ -5,9 +5,9 @@
 
 #include <support/helpers.hpp>
 #include <support/helpers/hpack.hpp>
-#include <support/helpers/json.hpp>
 
-#include "../string_maker.hpp"
+#include "helpers/json.hpp"
+#include "helpers/string_maker.hpp"
 
 TEST_SUITE_BEGIN("hpack/manual" * doctest::description("manual hpack tests") *
                  doctest::timeout(2.0));

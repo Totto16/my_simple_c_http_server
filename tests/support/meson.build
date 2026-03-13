@@ -11,8 +11,6 @@ support_src += files(
     'helpers/hpack.hpp',
     'helpers/http.cpp',
     'helpers/http.hpp',
-    'helpers/json.cpp',
-    'helpers/json.hpp',
     'sha1.cpp',
     'sha1.hpp',
     'support.hpp',

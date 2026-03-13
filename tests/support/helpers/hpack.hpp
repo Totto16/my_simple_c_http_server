@@ -5,11 +5,8 @@
 #include <http/hpack_huffman.h>
 
 #include <filesystem>
-#include <fstream>
 #include <optional>
 #include <vector>
-
-#include <doctest.h>
 
 namespace tests {
 

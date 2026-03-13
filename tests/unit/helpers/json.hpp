@@ -4,7 +4,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "./hpack.hpp"
+#include <support/helpers/hpack.hpp>
 
 namespace hpack {
 [[nodiscard]] std::vector<tests::ThirdPartyHpackTestCase>

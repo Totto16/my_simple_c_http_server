@@ -1,7 +1,10 @@
 
 #include <support/helpers.hpp>
 #include <support/helpers/hpack.hpp>
-#include <support/helpers/json.hpp>
+
+#include <doctest.h>
+
+#include "helpers/json.hpp"
 
 #define IMPLEMENT_HPACK_TEST_CASE \
 	TEST_CASE("testing hpack deserializing - external tests (" HPACK_TEST_CASE_VALUE \

@@ -19,7 +19,10 @@ test_inc_dirs += include_directories('.')
 test_inc_dirs += support_inc
 
 test_src += files(
-    'main.cpp'
+    'helpers/main.cpp',
+    'helpers/json.hpp',
+    'helpers/json.cpp',
+    'helpers/string_maker.hpp',
 )
 
 test_src += generated_cpp_hpack_tests

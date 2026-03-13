@@ -15,7 +15,7 @@
 #include <support/helpers.hpp>
 #include <support/helpers/http.hpp>
 
-#include "./string_maker.hpp"
+#include "helpers/string_maker.hpp"
 
 TEST_SUITE_BEGIN("http_parser" * doctest::description("http parser tests") * doctest::timeout(2.0));
 
