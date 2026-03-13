@@ -8,12 +8,13 @@
 
 #include <cwalk.h>
 #include <dirent.h>
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-// this is a way by hdining the real struct dataementation withour using opaque pointers
+
 typedef struct {
 	size_t total_count;
 	size_t sent_count;

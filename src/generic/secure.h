@@ -1,13 +1,14 @@
 
 #pragma once
 
-#include <openssl/ssl.h>
+#ifndef _SIMPLE_SERVER_SECURE_DISABLED
+	#include <openssl/ssl.h>
+	#define ESSL 167
+#endif
 
 #include "utils/utils.h"
 
 #include <tvec.h>
-
-#define ESSL 167
 
 typedef struct SecureDataImpl SecureData;
 
