@@ -48,6 +48,8 @@
 							    decompress_state.get(), single_case.header_table_size.value()); \
 						} \
 \
+						HpackDecodingErrorStateHack error_state_stack{}; \
+\
 						auto result = http2_hpack_decompress_data(decompress_state.get(), input); \
 						CppDefer<Http2HpackDecompressResult> defer = { \
 							&result, free_hpack_decompress_result \
@@ -62,6 +64,9 @@
 						const auto actual_result_cpp = get_cpp_headers(actual_result); \
 \
 						REQUIRE_EQ(actual_result_cpp, expected_result); \
+\
+						REQUIRE_EQ(error_state_stack.get_errors(), \
+						           single_case.strict_error_state); \
 \
 						const auto actual_dynamic_table = \
 						    get_dynamic_decompress_table(decompress_state); \

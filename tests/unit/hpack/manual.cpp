@@ -128,6 +128,7 @@ struct HeaderFieldDeserializeTest {
 	std::vector<std::uint8_t> raw_data;
 	test::DynamicTable dynamic_table;
 	std::vector<std::pair<std::string, std::string>> result;
+	std::vector<std::string> strict_error_state;
 };
 
 [[nodiscard]] static test::DynamicTable
@@ -153,7 +154,8 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 			},
 			.result = {
 				{"custom-key" , "custom-header"}
-			}
+			},
+			.strict_error_state = {}
 		},
 		{ 
 			.raw_data =parse_wire_data("040c2f73616d706c652f70617468"),
@@ -163,7 +165,8 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 			},
 			.result = {
 				{":path","/sample/path"}
-			}
+			},
+			.strict_error_state = {}
 		},
 		{ 
 			.raw_data =parse_wire_data("100870617373776f726406736563726574"),
@@ -173,7 +176,8 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 			},
 			.result = {
 				{"password","secret"}
-			}
+			},
+			.strict_error_state = {}
 		},
 		{ 
 			.raw_data =parse_wire_data("82"),
@@ -183,7 +187,8 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 			},
 			.result = {
 				{":method","GET"}
-			}
+			},
+			.strict_error_state = {}
 		}
 	};
 
@@ -202,6 +207,8 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 
 				const auto input = buffer_from_raw_data(test_case.raw_data);
 
+				HpackDecodingErrorStateHack error_state_stack{};
+
 				auto result = http2_hpack_decompress_data(decompress_state.get(), input);
 				CppDefer<Http2HpackDecompressResult> defer = { &result,
 					                                           free_hpack_decompress_result };
@@ -215,6 +222,8 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 				const auto actual_result_cpp = get_cpp_headers(actual_result);
 
 				REQUIRE_EQ(actual_result_cpp, expected_result);
+
+				REQUIRE_EQ(error_state_stack.get_errors(), test_case.strict_error_state);
 
 				const auto& expected_dynamic_table = test_case.dynamic_table;
 
@@ -262,7 +271,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{":scheme","http", },
 						{":path","/", },
 						{":authority","www.example.com", },
-					}
+					},
+					.strict_error_state = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.2
 				HpackManualDeserializeTestCaseEntry{ 
@@ -280,7 +290,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{":path","/", },
 						{":authority","www.example.com", },
 						{"cache-control","no-cache", },
-					}
+					},
+					.strict_error_state = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.3
 				HpackManualDeserializeTestCaseEntry{ 
@@ -299,7 +310,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{":path","/index.html", },
 						{":authority","www.example.com", },
 						{"custom-key", "custom-value", },
-					}
+					},
+					.strict_error_state = {}
 				},
 			}
 		},
@@ -321,7 +333,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{":scheme","http", },
 						{":path","/", },
 						{":authority","www.example.com", },
-					}
+					},
+					.strict_error_state = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.2
 				HpackManualDeserializeTestCaseEntry{ 
@@ -339,7 +352,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{":path","/", },
 						{":authority","www.example.com", },
 						{"cache-control","no-cache", },
-					}
+					},
+					.strict_error_state = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.3
 				HpackManualDeserializeTestCaseEntry{ 
@@ -358,7 +372,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{":path","/index.html", },
 						{":authority","www.example.com", },
 						{"custom-key", "custom-value", },
-					}
+					},
+					.strict_error_state = {}
 				},
 			}
 		},
@@ -385,7 +400,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{"cache-control", "private"},
 						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
 						{"location", "https://www.example.com"},
-					}
+					},
+					.strict_error_state = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.2
 				HpackManualDeserializeTestCaseEntry{ 
@@ -404,7 +420,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{"cache-control", "private"},
 						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
 						{"location", "https://www.example.com"},
-					}
+					},
+					.strict_error_state = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.3
 				HpackManualDeserializeTestCaseEntry{ 
@@ -424,7 +441,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{"location", "https://www.example.com"},
 						{"content-encoding", "gzip"},
 						{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
-					}
+					},
+					.strict_error_state = {}
 				},
 			}
 		},
@@ -451,7 +469,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{"cache-control", "private"},
 						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
 						{"location", "https://www.example.com"},
-					}
+					},
+					.strict_error_state = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.2
 				HpackManualDeserializeTestCaseEntry{ 
@@ -470,7 +489,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{"cache-control", "private"},
 						{"date", "Mon, 21 Oct 2013 20:13:21 GMT"},
 						{"location", "https://www.example.com"},
-					}
+					},
+					.strict_error_state = {}
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.3
 				HpackManualDeserializeTestCaseEntry{ 
@@ -490,7 +510,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 						{"location", "https://www.example.com"},
 						{"content-encoding", "gzip"},
 						{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
-					}
+					},
+					.strict_error_state = {}
 				},
 			}
 		}
@@ -514,6 +535,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 
 					const auto input = buffer_from_raw_data(subcase.raw_data);
 
+					HpackDecodingErrorStateHack error_state_stack{};
+
 					auto result = http2_hpack_decompress_data(decompress_state.get(), input);
 					CppDefer<Http2HpackDecompressResult> defer = { &result,
 						                                           free_hpack_decompress_result };
@@ -527,6 +550,8 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 					const auto actual_result_cpp = get_cpp_headers(actual_result);
 
 					REQUIRE_EQ(actual_result_cpp, expected_result);
+
+					REQUIRE_EQ(error_state_stack.get_errors(), subcase.strict_error_state);
 
 					const auto& expected_dynamic_table = subcase.dynamic_table;
 

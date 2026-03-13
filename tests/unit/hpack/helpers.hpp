@@ -17,6 +17,7 @@ struct ThirdPartyHpackTestCaseEntry {
 	    header_table_size; // the header table size sent in SETTINGS_HEADER_TABLE_SIZE and ACKed
 	                       // just before this case. The first case should contain this field. If
 	                       // omitted, the default value, 4,096, is used.
+	std::vector<std::string> strict_error_state; // strict key errors
 };
 
 struct HeaderTableMode {
@@ -32,9 +33,27 @@ struct ThirdPartyHpackTestCase {
 	std::filesystem::path file;
 };
 
+#define TEST_ENV_PREFIX "TOTTO_SIMPLE_HTTP_SERVER___ENV___HACK_IMPL"
+
+static void test_framework_setup_global_data() {
+
+	setenv(TEST_ENV_PREFIX "_IS_TEST", "TRUE", 1);
+	setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "FALSE", 1);
+}
+
+static void test_framework_free_global_data() {
+
+	unsetenv(TEST_ENV_PREFIX "_IS_TEST");
+	unsetenv(TEST_ENV_PREFIX "_STRICT_QUIET");
+}
+
 struct HpackGlobalHandle {
 
-	HpackGlobalHandle() { global_initialize_http2_hpack_data(); }
+	HpackGlobalHandle() {
+
+		global_initialize_http2_hpack_data();
+		test_framework_setup_global_data();
+	}
 
 	HpackGlobalHandle(HpackGlobalHandle&&) = delete;
 
@@ -44,7 +63,67 @@ struct HpackGlobalHandle {
 
 	HpackGlobalHandle operator=(HpackGlobalHandle&&) = delete;
 
-	~HpackGlobalHandle() { global_free_http2_hpack_data(); }
+	~HpackGlobalHandle() {
+		global_free_http2_hpack_data();
+		test_framework_free_global_data();
+	}
+};
+
+struct HpackDecodingErrorStateHack {
+	HpackDecodingErrorStateHack() {
+
+#ifdef NDEBUG
+	#error \
+	    "this class doesn't work in non debug mode, as than the library doesn't use thsi expensive global tracking"
+#endif
+
+		// set quiet, as we collect the result
+		setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "TRUE", 1);
+
+		setenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES", "", 1);
+	}
+
+	HpackDecodingErrorStateHack(HpackDecodingErrorStateHack&&) = delete;
+
+	HpackDecodingErrorStateHack(const HpackDecodingErrorStateHack&) = delete;
+
+	HpackDecodingErrorStateHack& operator=(const HpackDecodingErrorStateHack&) = delete;
+
+	HpackDecodingErrorStateHack operator=(HpackDecodingErrorStateHack&&) = delete;
+
+	~HpackDecodingErrorStateHack() {
+		setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "FALSE", 1);
+		unsetenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES");
+	}
+
+	[[nodiscard]] std::vector<std::string> get_errors() {
+
+		std::vector<std::string> result{};
+
+		const char* const values = getenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES");
+
+		if(values == NULL) {
+			return result;
+		}
+
+		std::string cpp_values = std::string{ values };
+
+		if(cpp_values == "") {
+			return result;
+		}
+
+		size_t start = 0;
+		size_t end;
+
+		while((end = cpp_values.find('\1', start)) != std::string::npos) {
+			result.push_back(cpp_values.substr(start, end - start));
+			start = end + 1;
+		}
+
+		result.push_back(cpp_values.substr(start));
+
+		return result;
+	}
 };
 
 [[nodiscard]] static std::uint8_t parse_hex_byte(const char& val) {
@@ -136,11 +215,20 @@ parse_headers_map(const nlohmann::json& value) {
 
 	const auto header_table_size = get_optional_header_size(value);
 
+	std::vector<std::string> strict_error_state{};
+
+	for(const auto& header : headers) {
+		if(header.second == "") {
+			strict_error_state.emplace_back(header.first);
+		}
+	}
+
 	return ThirdPartyHpackTestCaseEntry{
 		.seqno = seqno,
 		.wire_data = wire_data,
 		.headers = headers,
 		.header_table_size = header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE),
+		.strict_error_state = strict_error_state,
 	};
 }
 

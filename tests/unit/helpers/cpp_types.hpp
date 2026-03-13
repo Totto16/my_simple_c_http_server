@@ -44,7 +44,7 @@ template <typename T>
 				os << val;
 			}
 		}
-		os << "} }";
+		os << "} , size=" << vector.size() << "}";
 	}
 	return os;
 }
