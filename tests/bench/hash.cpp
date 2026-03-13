@@ -2,7 +2,7 @@
 
 #include <generic/hash.h>
 
-#include "../support/support.hpp"
+#include <support/support.hpp>
 
 #include <vector>
 

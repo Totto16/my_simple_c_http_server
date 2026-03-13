@@ -2,7 +2,7 @@
 
 #include "generated_hpack_tests.hpp"
 
-#include "../../support/helpers.hpp"
+#include <support/helpers.hpp>
 
 #include <memory>
 

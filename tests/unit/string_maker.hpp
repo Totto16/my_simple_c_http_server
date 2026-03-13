@@ -7,9 +7,9 @@
 #include <sstream>
 #include <vector>
 
-#include "../support/helpers.hpp"
-#include "../support/helpers/hpack.hpp"
-#include "../support/helpers/http.hpp"
+#include <support/helpers.hpp>
+#include <support/helpers/hpack.hpp>
+#include <support/helpers/http.hpp>
 
 template <typename T>
 concept is_cpp_stream_printable = requires(T val, std::ostream& os) {
@@ -27,7 +27,7 @@ doctest::String os_stream_formattable_to_doctest(const T& value)
 		                    static_cast<doctest::String::size_type>(string.size()) };
 }
 
-#include "../support/helpers.hpp"
+#include <support/helpers.hpp>
 
 namespace doctest {
 template <> struct StringMaker<std::vector<std::pair<std::string, std::string>>> {

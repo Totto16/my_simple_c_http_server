@@ -3,8 +3,8 @@
 
 #include "generated_hpack_tests.hpp"
 
-#include "../../support/helpers.hpp"
-#include "../../support/helpers/hpack.hpp"
+#include <support/helpers.hpp>
+#include <support/helpers/hpack.hpp>
 
 TEST_SUITE_BEGIN("hpack/manual" * doctest::description("manual hpack tests") *
                  doctest::timeout(2.0));

@@ -17,6 +17,8 @@ bench_deps += dependency(
 
 bench_inc_dirs += include_directories('.')
 
+bench_inc_dirs += support_inc
+
 bench_src += files('main.cpp')
 
 bench_src += generated_cpp_hpack_tests

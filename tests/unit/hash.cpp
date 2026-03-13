@@ -4,8 +4,8 @@
 
 #include <doctest.h>
 
-#include "../support/helpers.hpp"
-#include "../support/support.hpp"
+#include <support/helpers.hpp>
+#include <support/support.hpp>
 
 namespace {
 
