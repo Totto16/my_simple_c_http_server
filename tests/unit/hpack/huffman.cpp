@@ -2,10 +2,11 @@
 
 #include "generated_hpack_tests.hpp"
 
-#include "helpers/c_types.hpp"
-#include "helpers/cpp_types.hpp"
+#include "../../support/helpers.hpp"
 
 #include <memory>
+
+#include <doctest.h>
 
 [[nodiscard]] static SizedBuffer buffer_from_str(const std::string& data) {
 	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };

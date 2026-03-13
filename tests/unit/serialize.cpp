@@ -1,10 +1,12 @@
 #include <generic/serialize.h>
 
-#include "helpers/c_types.hpp"
+#include "../support/helpers.hpp"
 
 #include <array>
 #include <functional>
 #include <vector>
+
+#include <doctest.h>
 
 struct TestCaseDeserialize32Value {
 	std::array<uint8_t, 4> input;

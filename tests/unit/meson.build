@@ -17,12 +17,7 @@ test_deps += dependency('nlohmann_json')
 test_inc_dirs += include_directories('.')
 
 test_src += files(
-    'helpers/c_types.cpp',
-    'helpers/c_types.hpp',
-    'helpers/cpp_types.cpp',
-    'helpers/cpp_types.hpp',
-    'helpers/main.cpp',
-    'hpack/helpers.hpp',
+    'main.cpp'
 )
 
 test_src += generated_cpp_hpack_tests
@@ -31,6 +26,8 @@ add_languages(
     'cpp',
     native: false,
 )
+
+test_src += support_src
 
 correct_cpp_args = []
 
@@ -115,7 +112,7 @@ foreach test_file : test_files_manual + test_files_hpack
         protocol: 'exitcode',
         workdir: workdir,
         is_parallel: true,
-        timeout: 30
+        timeout: 30,
     )
 
 endforeach

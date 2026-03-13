@@ -83,7 +83,7 @@ class CompressionSettingsCpp {
 
 } // namespace
 
-[[maybe_unused]] static std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
+ std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
 	os << "CompressionEntry{value=" << get_representation_for_compression_value(entry.value)
 	   << ", weight=" << entry.weight << "}";
 	return os;

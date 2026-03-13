@@ -26,6 +26,8 @@ add_languages(
     native: false,
 )
 
+bench_src += support_src
+
 correct_cpp_args = []
 
 foreach internal_c_arg : internal_c_args

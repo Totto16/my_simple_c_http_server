@@ -1,0 +1,171 @@
+#pragma once
+
+#include "./cpp_types.hpp"
+#include <http/hpack.h>
+
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <optional>
+#include <vector>
+
+#include <doctest.h>
+
+namespace tests {
+
+struct ThirdPartyHpackTestCaseEntry {
+	size_t seqno;
+	std::vector<std::uint8_t> wire_data;
+	std::vector<std::pair<std::string, std::string>> headers;
+	std::optional<size_t>
+	    header_table_size; // the header table size sent in SETTINGS_HEADER_TABLE_SIZE and ACKed
+	                       // just before this case. The first case should contain this field. If
+	                       // omitted, the default value, 4,096, is used.
+	std::vector<std::string> strict_error_state; // strict key errors
+};
+
+struct HeaderTableMode {
+	bool all_the_same;
+	size_t table_size;
+};
+
+struct ThirdPartyHpackTestCase {
+	std::string description;
+	std::vector<ThirdPartyHpackTestCaseEntry> cases;
+	std::string test_name;
+	HeaderTableMode header_mode;
+	std::filesystem::path file;
+};
+
+} // namespace tests
+
+namespace hpack {
+
+struct HpackGlobalHandle {
+
+	HpackGlobalHandle();
+
+	HpackGlobalHandle(HpackGlobalHandle&&) = delete;
+
+	HpackGlobalHandle(const HpackGlobalHandle&) = delete;
+
+	HpackGlobalHandle& operator=(const HpackGlobalHandle&) = delete;
+
+	HpackGlobalHandle operator=(HpackGlobalHandle&&) = delete;
+
+	~HpackGlobalHandle();
+};
+
+} // namespace hpack
+
+namespace hpack::hacky_trick {
+
+struct HpackDecodingErrorStateHack {
+	HpackDecodingErrorStateHack();
+
+	HpackDecodingErrorStateHack(HpackDecodingErrorStateHack&&) = delete;
+
+	HpackDecodingErrorStateHack(const HpackDecodingErrorStateHack&) = delete;
+
+	HpackDecodingErrorStateHack& operator=(const HpackDecodingErrorStateHack&) = delete;
+
+	HpackDecodingErrorStateHack operator=(HpackDecodingErrorStateHack&&) = delete;
+
+	~HpackDecodingErrorStateHack();
+
+	[[nodiscard]] std::vector<std::string> get_errors() const;
+};
+
+} // namespace hpack::hacky_trick
+
+namespace hpack::helpers {
+[[nodiscard]] std::vector<std::uint8_t> parse_wire_data(const std::string& raw_wire);
+
+} // namespace hpack::helpers
+
+namespace consts {
+struct StrictErrorException {
+	std::string suite_name;
+	std::string test_name;
+	size_t seqno;
+	std::string field_name;
+
+	[[nodiscard]] bool operator==(const StrictErrorException& lhs) const;
+};
+
+std::vector<StrictErrorException> strict_error_state_exceptions;
+
+} // namespace consts
+
+namespace hpack {
+[[nodiscard]] std::vector<tests::ThirdPartyHpackTestCase>
+get_thirdparty_hpack_test_cases(const std::string& name);
+
+}
+
+namespace helpers {
+
+[[nodiscard]] std::vector<std::pair<std::string, std::string>>
+get_cpp_headers(const HttpHeaderFields& fields);
+
+[[nodiscard]] CppDefer<HttpHeaderFields>
+get_c_map_from_cpp(const std::vector<std::pair<std::string, std::string>>& map);
+} // namespace helpers
+
+namespace hpack {
+
+using HpackDecompressStateCpp =
+    std::unique_ptr<HpackDecompressState, void (*)(HpackDecompressState*)>;
+
+[[nodiscard]] HpackDecompressStateCpp
+get_default_hpack_decompress_state_cpp(size_t max_dynamic_table_byte_size);
+
+using HpackCompressStateCpp = std::unique_ptr<HpackCompressState, void (*)(HpackCompressState*)>;
+
+[[nodiscard]] HpackCompressStateCpp
+get_default_hpack_compress_state_cpp(size_t max_dynamic_table_byte_size);
+
+void free_hpack_decompress_result(Http2HpackDecompressResult* result);
+
+} // namespace hpack
+
+namespace test {
+
+struct DynamicTable {
+	std::vector<std::pair<std::string, std::string>> entries;
+	size_t size;
+
+	[[nodiscard]] bool operator==(const DynamicTable& table2) const;
+};
+
+} // namespace test
+
+std::ostream& operator<<(std::ostream& os, const test::DynamicTable& table);
+
+namespace hpack {
+
+[[nodiscard]] test::DynamicTable get_dynamic_decompress_table(const HpackDecompressStateCpp& state);
+
+}
+
+namespace helpers {
+
+template <typename T> struct OptionalOr {
+  public:
+	T value;
+	OptionalOr(const T& val) : value{ val } {}
+
+	friend std::ostream& operator<<(std::ostream& os, const OptionalOr<T>& val) {
+		os << "OptionalOr{" << val.value << "}";
+		return os;
+	}
+
+	[[nodiscard]] bool operator==(const std::optional<T>& lhs) const {
+		if(!lhs.has_value()) {
+			return true;
+		}
+
+		return this->value == lhs.value();
+	}
+};
+} // namespace helpers

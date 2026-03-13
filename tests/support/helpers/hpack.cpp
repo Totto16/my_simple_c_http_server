@@ -1,42 +1,10 @@
-#pragma once
 
-#include "helpers/cpp_types.hpp"
-#include <http/hpack.h>
-
-#include <filesystem>
-#include <fstream>
-#include <nlohmann/json.hpp>
-#include <optional>
-#include <vector>
-
-struct ThirdPartyHpackTestCaseEntry {
-	size_t seqno;
-	std::vector<std::uint8_t> wire_data;
-	std::vector<std::pair<std::string, std::string>> headers;
-	std::optional<size_t>
-	    header_table_size; // the header table size sent in SETTINGS_HEADER_TABLE_SIZE and ACKed
-	                       // just before this case. The first case should contain this field. If
-	                       // omitted, the default value, 4,096, is used.
-	std::vector<std::string> strict_error_state; // strict key errors
-};
-
-struct HeaderTableMode {
-	bool all_the_same;
-	size_t table_size;
-};
-
-struct ThirdPartyHpackTestCase {
-	std::string description;
-	std::vector<ThirdPartyHpackTestCaseEntry> cases;
-	std::string test_name;
-	HeaderTableMode header_mode;
-	std::filesystem::path file;
-};
+#include "./hpack.hpp"
 
 #define TEST_ENV_PREFIX "TOTTO_SIMPLE_HTTP_SERVER___ENV___HACK_IMPL"
 
 static void test_framework_setup_global_data() {
-
+	// TODO: remove this after hpack decompress doesn't use this anymore!
 	setenv(TEST_ENV_PREFIX "_IS_TEST", "TRUE", 1);
 	setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "FALSE", 1);
 }
@@ -47,84 +15,68 @@ static void test_framework_free_global_data() {
 	unsetenv(TEST_ENV_PREFIX "_STRICT_QUIET");
 }
 
-struct HpackGlobalHandle {
+hpack::HpackGlobalHandle::HpackGlobalHandle() {
 
-	HpackGlobalHandle() {
+	global_initialize_http2_hpack_data();
+	test_framework_setup_global_data();
+}
 
-		global_initialize_http2_hpack_data();
-		test_framework_setup_global_data();
-	}
+hpack::HpackGlobalHandle::~HpackGlobalHandle() {
+	global_free_http2_hpack_data();
+	test_framework_free_global_data();
+}
 
-	HpackGlobalHandle(HpackGlobalHandle&&) = delete;
+// TODO: use callback function inside set env variable,as this can anyway onle be one static
+// instance! store 0 byte with 0 byte map, as one byte has to be non null, store if byte is nonnull,
+// modify null bytes and store
 
-	HpackGlobalHandle(const HpackGlobalHandle&) = delete;
-
-	HpackGlobalHandle& operator=(const HpackGlobalHandle&) = delete;
-
-	HpackGlobalHandle operator=(HpackGlobalHandle&&) = delete;
-
-	~HpackGlobalHandle() {
-		global_free_http2_hpack_data();
-		test_framework_free_global_data();
-	}
-};
-
-struct HpackDecodingErrorStateHack {
-	HpackDecodingErrorStateHack() {
+hpack::hacky_trick::HpackDecodingErrorStateHack::HpackDecodingErrorStateHack() {
 
 #ifdef NDEBUG
 	#error \
-	    "this class doesn't work in non debug mode, as than the library doesn't use thsi expensive global tracking"
+	    "this class doesn't work in non debug mode, as than the library doesn't use this expensive global tracking"
 #endif
 
-		// set quiet, as we collect the result
-		setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "TRUE", 1);
+	// set quiet, as we collect the result
+	setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "TRUE", 1);
 
-		setenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES", "", 1);
-	}
+	setenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES", "", 1);
+}
 
-	HpackDecodingErrorStateHack(HpackDecodingErrorStateHack&&) = delete;
+hpack::hacky_trick::HpackDecodingErrorStateHack::~HpackDecodingErrorStateHack() {
+	setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "FALSE", 1);
+	unsetenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES");
+}
 
-	HpackDecodingErrorStateHack(const HpackDecodingErrorStateHack&) = delete;
+[[nodiscard]] std::vector<std::string>
+hpack::hacky_trick::HpackDecodingErrorStateHack::get_errors() const {
 
-	HpackDecodingErrorStateHack& operator=(const HpackDecodingErrorStateHack&) = delete;
+	std::vector<std::string> result{};
 
-	HpackDecodingErrorStateHack operator=(HpackDecodingErrorStateHack&&) = delete;
+	const char* const values = getenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES");
 
-	~HpackDecodingErrorStateHack() {
-		setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "FALSE", 1);
-		unsetenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES");
-	}
-
-	[[nodiscard]] std::vector<std::string> get_errors() {
-
-		std::vector<std::string> result{};
-
-		const char* const values = getenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES");
-
-		if(values == NULL) {
-			return result;
-		}
-
-		std::string cpp_values = std::string{ values };
-
-		if(cpp_values == "") {
-			return result;
-		}
-
-		size_t start = 0;
-		size_t end;
-
-		while((end = cpp_values.find('\1', start)) != std::string::npos) {
-			result.push_back(cpp_values.substr(start, end - start));
-			start = end + 1;
-		}
-
-		result.push_back(cpp_values.substr(start));
-
+	if(values == NULL) {
 		return result;
 	}
-};
+
+	std::string cpp_values = std::string{ values };
+
+	if(cpp_values == "") {
+		return result;
+	}
+
+	size_t start = 0;
+	size_t end;
+
+	while((end = cpp_values.find('\1', start)) != std::string::npos) {
+		result.push_back(cpp_values.substr(start, end - start));
+		start = end + 1;
+	}
+
+	result.push_back(cpp_values.substr(start));
+
+	return result;
+}
 
 [[nodiscard]] static std::uint8_t parse_hex_byte(const char& val) {
 
@@ -143,7 +95,8 @@ struct HpackDecodingErrorStateHack {
 	throw std::runtime_error("invalid byte data");
 }
 
-[[nodiscard]] static std::vector<std::uint8_t> parse_wire_data(const std::string& raw_wire) {
+[[nodiscard]] std::vector<std::uint8_t>
+hpack::helpers::parse_wire_data(const std::string& raw_wire) {
 
 	std::vector<std::uint8_t> result{};
 
@@ -201,34 +154,26 @@ parse_headers_map(const nlohmann::json& value) {
 	return header_table_size_v.get<size_t>();
 }
 
-namespace consts {
-struct StrictErrorException {
-	std::string suite_name;
-	std::string test_name;
-	size_t seqno;
-	std::string field_name;
-
-	[[nodiscard]] bool operator==(const StrictErrorException& lhs) const {
-		if(this->suite_name != lhs.suite_name) {
-			return false;
-		}
-
-		if(this->test_name != lhs.test_name) {
-			return false;
-		}
-
-		if(this->seqno != lhs.seqno) {
-			return false;
-		}
-
-		return this->field_name == lhs.field_name;
+[[nodiscard]] bool consts::StrictErrorException::operator==(const StrictErrorException& lhs) const {
+	if(this->suite_name != lhs.suite_name) {
+		return false;
 	}
-};
 
-static std::vector<StrictErrorException> strict_error_state_exceptions = {
+	if(this->test_name != lhs.test_name) {
+		return false;
+	}
+
+	if(this->seqno != lhs.seqno) {
+		return false;
+	}
+
+	return this->field_name == lhs.field_name;
+}
+
+std::vector<consts::StrictErrorException> strict_error_state_exceptions = {
 	// manually checked, is a valid field encoded with a string literal
 	// (0x00) alias a 0 long string literal
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "nghttp2-change-table-size",
 	    .test_name = "story_23",
 	    .seqno = 243,
@@ -238,7 +183,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	// manually checked, is a valid field encoded with a string literal
 	// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
 	// always everything is encoded as "Literal Header Field without Indexing"
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "haskell-http2-naive",
 	    .test_name = "story_25",
 	    .seqno = 0,
@@ -248,7 +193,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	// manually checked, is a valid field encoded with a string literal
 	// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
 	// always everything is encoded as "Literal Header Field without Indexing"
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "haskell-http2-naive",
 	    .test_name = "story_23",
 	    .seqno = 243,
@@ -259,7 +204,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
 	// always everything is encoded as "Literal Header Field without Indexing",
 	// searched for by using "636f6e74656e742d7479706500" alias "content-type" in ascii and than 00
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "haskell-http2-naive",
 	    .test_name = "story_30",
 	    .seqno = 138,
@@ -270,7 +215,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
 	// always everything is encoded as "Literal Header Field without Indexing",
 	// searched for by using "636f6e74656e742d7479706500" alias "content-type" in ascii and than 00
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "haskell-http2-naive",
 	    .test_name = "story_30",
 	    .seqno = 599,
@@ -278,7 +223,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	},
 
 	// TODO: investigate
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "haskell-http2-linear-huffman",
 	    .test_name = "story_25",
 	    .seqno = 0,
@@ -286,7 +231,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	},
 
 	// TODO: investigate
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "python-hpack",
 	    .test_name = "story_25",
 	    .seqno = 0,
@@ -294,7 +239,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	},
 
 	// TODO: investigate
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "haskell-http2-linear",
 	    .test_name = "story_25",
 	    .seqno = 0,
@@ -302,7 +247,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	},
 
 	// TODO: investigate
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "go-hpack",
 	    .test_name = "story_25",
 	    .seqno = 0,
@@ -310,7 +255,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	},
 
 	// TODO: investigate
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "haskell-http2-static-huffman",
 	    .test_name = "story_25",
 	    .seqno = 0,
@@ -318,7 +263,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	},
 
 	// TODO: investigate, likely legit!
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "nghttp2-16384-4096",
 	    .test_name = "story_23",
 	    .seqno = 243,
@@ -326,7 +271,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	},
 
 	// TODO: investigate, likely legit!
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "node-http2-hpack",
 	    .test_name = "story_23",
 	    .seqno = 243,
@@ -334,7 +279,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	},
 
 	// TODO: investigate, likely legit!
-	StrictErrorException{
+	consts::StrictErrorException{
 	    .suite_name = "nghttp2",
 	    .test_name = "story_23",
 	    .seqno = 243,
@@ -343,19 +288,17 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 
 };
 
-} // namespace consts
-
 #define DEFAULT_HEADER_TABLE_SIZE 4096
 
-[[nodiscard]] static ThirdPartyHpackTestCaseEntry get_case_from_json(const nlohmann::json& value,
-                                                                     const std::string& suite_name,
-                                                                     const std::string& test_name) {
+[[nodiscard]] static tests::ThirdPartyHpackTestCaseEntry
+get_case_from_json(const nlohmann::json& value, const std::string& suite_name,
+                   const std::string& test_name) {
 
 	size_t seqno = value["seqno"].get<size_t>();
 
 	const std::string raw_wire_data = value["wire"].get<std::string>();
 
-	const auto wire_data = parse_wire_data(raw_wire_data);
+	const auto wire_data = hpack::helpers::parse_wire_data(raw_wire_data);
 
 	const auto headers = parse_headers_map(value["headers"]);
 
@@ -381,7 +324,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 		}
 	}
 
-	return ThirdPartyHpackTestCaseEntry{
+	return tests::ThirdPartyHpackTestCaseEntry{
 		.seqno = seqno,
 		.wire_data = wire_data,
 		.headers = headers,
@@ -390,7 +333,7 @@ static std::vector<StrictErrorException> strict_error_state_exceptions = {
 	};
 }
 
-[[nodiscard]] static ThirdPartyHpackTestCase
+[[nodiscard]] static tests::ThirdPartyHpackTestCase
 get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 
 	std::ifstream file_stream{ path };
@@ -402,7 +345,7 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 
 	const std::string suite_name = path.parent_path().filename().string();
 
-	std::vector<ThirdPartyHpackTestCaseEntry> cases{};
+	std::vector<tests::ThirdPartyHpackTestCaseEntry> cases{};
 
 	if(!data.contains("cases") || !data["cases"].is_array()) {
 		throw std::runtime_error("json is malformed");
@@ -417,7 +360,8 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 	}
 
 	// cases post processing
-	HeaderTableMode header_mode = { .all_the_same = true, .table_size = DEFAULT_HEADER_TABLE_SIZE };
+	tests::HeaderTableMode header_mode = { .all_the_same = true,
+		                                   .table_size = DEFAULT_HEADER_TABLE_SIZE };
 
 	{
 		std::optional<size_t> header_table_size = std::nullopt;
@@ -450,7 +394,7 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 		}
 	}
 
-	return ThirdPartyHpackTestCase{
+	return tests::ThirdPartyHpackTestCase{
 		.description = description,
 		.cases = cases,
 		.test_name = test_name,
@@ -477,7 +421,7 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 	return root_tests_dir2;
 }
 
-[[nodiscard]] [[maybe_unused]] static std::vector<ThirdPartyHpackTestCase>
+[[nodiscard]] static std::vector<tests::ThirdPartyHpackTestCase>
 get_thirdparty_hpack_test_cases(const std::string& name) {
 
 	const std::filesystem::path root_tests_dir = get_root_test_dir();
@@ -496,7 +440,7 @@ get_thirdparty_hpack_test_cases(const std::string& name) {
 		throw std::runtime_error(std::string{ "Invalid test dir name: (no a dir)" } + dir.string());
 	}
 
-	std::vector<ThirdPartyHpackTestCase> result{};
+	std::vector<tests::ThirdPartyHpackTestCase> result{};
 
 	for(auto const& dir_entry : std::filesystem::directory_iterator{ dir }) {
 
@@ -527,7 +471,7 @@ get_cpp_headers(const HttpHeaderFields& fields) {
 	return result;
 }
 
-[[maybe_unused]] [[nodiscard]] static CppDefer<HttpHeaderFields>
+[[nodiscard]] static CppDefer<HttpHeaderFields>
 get_c_map_from_cpp(const std::vector<std::pair<std::string, std::string>>& map) {
 
 	auto* result = (HttpHeaderFields*)malloc(sizeof(HttpHeaderFields));
@@ -566,7 +510,7 @@ get_default_hpack_decompress_state_cpp(size_t max_dynamic_table_byte_size) {
 
 using HpackCompressStateCpp = std::unique_ptr<HpackCompressState, void (*)(HpackCompressState*)>;
 
-[[maybe_unused]] [[nodiscard]] static HpackCompressStateCpp
+[[nodiscard]] static HpackCompressStateCpp
 get_default_hpack_compress_state_cpp(size_t max_dynamic_table_byte_size) {
 	HpackCompressStateCpp compress_state{
 		get_default_hpack_compress_state(max_dynamic_table_byte_size), free_hpack_compress_state
@@ -574,7 +518,7 @@ get_default_hpack_compress_state_cpp(size_t max_dynamic_table_byte_size) {
 	return compress_state;
 }
 
-[[maybe_unused]] static void free_hpack_decompress_result(Http2HpackDecompressResult* result) {
+static void free_hpack_decompress_result(Http2HpackDecompressResult* result) {
 
 	if(result->is_error) {
 		return;
@@ -608,28 +552,19 @@ struct HpackCompressStateImpl {
 
 } // namespace cpp_forbidden_test_type_impl_DONT_USE
 
-namespace test {
-
-struct DynamicTable {
-	std::vector<std::pair<std::string, std::string>> entries;
-	size_t size;
-};
-
-[[maybe_unused]] static std::ostream& operator<<(std::ostream& os,
-                                                 const test::DynamicTable& table) {
-	os << "DynamicTable:\n" << os_stream_formattable_to_doctest(table.entries);
+std::ostream& operator<<(std::ostream& os, const test::DynamicTable& table) {
+	os << "DynamicTable:\n" << table.entries;
 	os << "\n" << table.size << "\n";
 	return os;
 }
 
-NODISCARD [[maybe_unused]] static bool operator==(const DynamicTable& table1,
-                                                  const DynamicTable& table2) {
+[[nodiscard]] bool test::DynamicTable::operator==(const DynamicTable& table2) const {
 
-	if(table1.size != table2.size) {
+	if(this->size != table2.size) {
 		return false;
 	}
 
-	const auto table1_vec = table1.entries;
+	const auto table1_vec = this->entries;
 	const auto table2_vec = table2.entries;
 
 	if(table1_vec.size() != table2_vec.size()) {
@@ -644,8 +579,6 @@ NODISCARD [[maybe_unused]] static bool operator==(const DynamicTable& table1,
 
 	return true;
 }
-
-} // namespace test
 
 [[nodiscard]] static test::DynamicTable get_dynamic_table(
     const cpp_forbidden_test_type_impl_DONT_USE::HpackDynamicTableState* const state) {
@@ -672,31 +605,3 @@ get_dynamic_decompress_table(const HpackDecompressStateCpp& state) {
 
 	return get_dynamic_table(&(state_cpp_extracted->dynamic_table_state));
 }
-
-template <typename T> struct OptionalOr {
-  public:
-	T value;
-	OptionalOr(const T& val) : value{ val } {}
-
-	friend std::ostream& operator<<(std::ostream& os, const OptionalOr<T>& val) {
-		os << "OptionalOr{" << val.value << "}";
-		return os;
-	}
-
-	[[nodiscard]] bool operator==(const std::optional<T>& lhs) const {
-		if(!lhs.has_value()) {
-			return true;
-		}
-
-		return this->value == lhs.value();
-	}
-};
-
-namespace doctest {
-template <typename T> struct StringMaker<OptionalOr<T>> {
-	static String convert(const OptionalOr<T>& val) {
-		return ::os_stream_formattable_to_doctest(val);
-	}
-};
-
-} // namespace doctest
