@@ -53,6 +53,8 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 	dynamic_table->count--;
 
+	// TODO(Totto): if we are small enough, resize and free some things!
+
 	return &(dynamic_table->entries[last_idx]);
 }
 
