@@ -673,8 +673,13 @@ NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
 		return strerror(opaque_error.errno_error);
 	}
 
+#ifdef _SIMPLE_SERVER_SECURE_DISABLED
+	UNREACHABLE();
+#else
+
 	// same reason as above, we should use ERR_error_string_n
 	return ERR_error_string(opaque_error.ssl_error, NULL);
+#endif
 }
 
 ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,
