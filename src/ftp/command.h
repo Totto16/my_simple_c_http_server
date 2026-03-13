@@ -88,13 +88,12 @@ typedef struct {
 
 #define PROPERTY_VALUE_FOR_IND(val) PROPERTY_VALUE_FOR_IMPL_##val
 
-// TODO: remove __ after migration
 #define PROPERTY_VALUE_FOR_IMPL_0 static_assert(false, "doesn't have a property")
-#define PROPERTY_VALUE_FOR_IMPL_1 __string
-#define PROPERTY_VALUE_FOR_IMPL_2 __opt_string
+#define PROPERTY_VALUE_FOR_IMPL_1 string
+#define PROPERTY_VALUE_FOR_IMPL_2 opt_string
 
-#define PROPERTY_VALUE_FOR_IMPL_17 __type_info
-#define PROPERTY_VALUE_FOR_IMPL_18 __port_info
+#define PROPERTY_VALUE_FOR_IMPL_17 type_info
+#define PROPERTY_VALUE_FOR_IMPL_18 port_info
 
 /* START command actual types */
 

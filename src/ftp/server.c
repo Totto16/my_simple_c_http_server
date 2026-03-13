@@ -259,7 +259,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandUser: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_USER == FTP_COMMAND_TYPE_STRING);
 
-			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_USER));
 
 			// see https://datatracker.ietf.org/doc/html/rfc1635
 			if(tstr_eq_ignore_case_cstr(arg, ANON_USERNAME)) {
@@ -309,7 +309,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandPass: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_PASS == FTP_COMMAND_TYPE_STRING);
 
-			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_PASS));
 
 			if(state->account->state == AccountStateOk &&
 			   tstr_eq_ignore_case_cstr( // NOLINT(readability-implicit-bool-conversion)
@@ -425,7 +425,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandCwd: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_CWD == FTP_COMMAND_TYPE_STRING);
 
-			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_CWD));
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -630,7 +630,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			static_assert(FTP_COMMAND_TYPE_COMMAND_PORT == FTP_COMMAND_TYPE_PORT_INFO);
 
 			const FTPPortInformation* port_info =
-			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_PORT_INFO);
+			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_PORT);
 
 			state->data_settings->mode = FtpDataModeActive;
 			state->data_settings->addr = *port_info;
@@ -645,7 +645,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandStor: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_STOR == FTP_COMMAND_TYPE_STRING);
 
-			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_STOR));
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -848,7 +848,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandRetr: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_RETR == FTP_COMMAND_TYPE_STRING);
 
-			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_RETR));
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -1076,7 +1076,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			static_assert(FTP_COMMAND_TYPE_COMMAND_LIST == FTP_COMMAND_TYPE_OPT_STRING);
 
 			const OptionalString arg =
-			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_OPT_STRING);
+			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_LIST);
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -1336,7 +1336,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			static_assert(FTP_COMMAND_TYPE_COMMAND_TYPE == FTP_COMMAND_TYPE_TYPE_INFO);
 
 			const FTPCommandTypeInformation* type_info =
-			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_TYPE_INFO);
+			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_TYPE);
 
 			if(!type_info->is_normal) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeCommandNotImplementedForParam,
