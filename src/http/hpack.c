@@ -419,7 +419,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
-	tstr header_key = tstr_init(); // NOLINT(clang-analyzer-deadcode.DeadStores)
+	tstr header_key = tstr_null(); // NOLINT(clang-analyzer-deadcode.DeadStores)
 
 	if(index == 0) {
 		// second variant
@@ -540,7 +540,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
-	tstr header_key = tstr_init(); // NOLINT(clang-analyzer-deadcode.DeadStores)
+	tstr header_key = tstr_null(); // NOLINT(clang-analyzer-deadcode.DeadStores)
 
 	if(index == 0) {
 		// second variant
@@ -634,7 +634,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	const HpackVariableInteger index = index_res.data.value;
 
 	// the name is the value from a table or a literal value
-	tstr header_key = tstr_init(); // NOLINT(clang-analyzer-deadcode.DeadStores)
+	tstr header_key = tstr_null(); // NOLINT(clang-analyzer-deadcode.DeadStores)
 
 	if(index == 0) {
 		// second variant

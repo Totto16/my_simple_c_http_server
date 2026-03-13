@@ -921,8 +921,8 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 
 	// note: this potential memory leak is not one, as it is just returned and than later freed by
 	// the cosnuming functions
-	tstr username = tstr_init(); // NOLINT(clang-analyzer-unix.Malloc)
-	tstr password = tstr_init();
+	tstr username = tstr_null(); // NOLINT(clang-analyzer-unix.Malloc)
+	tstr password = tstr_null();
 
 	switch(result.type) {
 		case HttpAuthHeaderValueTypeBasic: {
@@ -930,7 +930,7 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 			username = basic.username;
 			password = basic.password;
 			result.data.basic =
-			    (HttpAuthHeaderBasic){ .username = tstr_init(), .password = tstr_init() };
+			    (HttpAuthHeaderBasic){ .username = tstr_null(), .password = tstr_null() };
 			break;
 		}
 		case HttpAuthHeaderValueTypeError:

@@ -136,7 +136,7 @@ static FTPPortInformation* parse_ftp_command_port_info(const tstr_view arg) {
 
 #define FTP_COMMAND_SEPERATORS "\r\n"
 
-#define OPT_STRING_EMPTY ((OptionalString){ .has_value = false, .value = tstr_init() })
+#define OPT_STRING_EMPTY ((OptionalString){ .has_value = false, .value = tstr_null() })
 
 NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_reader) {
 

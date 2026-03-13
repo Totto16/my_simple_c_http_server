@@ -248,9 +248,9 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 		.head = {
 			.header_fields = 	TVEC_EMPTY(HttpHeaderField),
 			.response_line = {
-				.protocol_version = tstr_init(),
-				.status_code_str =  tstr_init(),
-				.status_message = tstr_init(),
+				.protocol_version = tstr_null(),
+				.status_code_str =  tstr_null(),
+				.status_message = tstr_null(),
 			} 
 		},
 		.body = (SizedBuffer){ .data = NULL, .size = 0 } };

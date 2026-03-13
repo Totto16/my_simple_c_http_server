@@ -2095,7 +2095,7 @@ interface HeaderTable {
 
 function header_to_c_value(header: HeaderTable): string {
 
-    const value: string = header.value === null ? "tstr_init()" : `TSTR_LIT(${to_c_str(header.value)})`
+    const value: string = header.value === null ? "tstr_null()" : `TSTR_LIT(${to_c_str(header.value)})`
 
     return `(HpackHeaderStaticEntry){ .key = TSTR_LIT(${to_c_str(header.key)}), .value = ${value} }`
 }

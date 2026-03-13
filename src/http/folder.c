@@ -223,7 +223,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
     const char* const absolute_path, // NOLINT(bugprone-easily-swappable-parameters)
     const char* const name) {
 
-	ServeFolderFolderEntry result = { .file_name = tstr_init() };
+	ServeFolderFolderEntry result = { .file_name = tstr_null() };
 
 	struct stat stat_result;
 	int result_stat_int = stat(absolute_path, &stat_result);
@@ -232,7 +232,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		            "Couldn't stat folder '%s': %s\n", absolute_path, strerror(errno));
 
-		result.file_name = tstr_init();
+		result.file_name = tstr_null();
 		return result;
 	}
 
@@ -241,7 +241,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 	char* new_name = (char*)malloc(name_len + 1);
 
 	if(!new_name) {
-		result.file_name = tstr_init();
+		result.file_name = tstr_null();
 		return result;
 	}
 
@@ -270,7 +270,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 NODISCARD static ServeFolderFolderEntry get_folder_entry(const char* const folder,
                                                          const char* const name) {
 
-	ServeFolderFolderEntry result = { .file_name = tstr_init() };
+	ServeFolderFolderEntry result = { .file_name = tstr_null() };
 
 	size_t folder_len = strlen(folder);
 	size_t name_len = strlen(name);
@@ -282,8 +282,8 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry(const char* const folde
 
 	char* absolute_path = (char*)malloc(final_length);
 
-	if(!absolute_path) {
-		result.file_name = tstr_init();
+	if(absolute_path == NULL) {
+		result.file_name = tstr_null();
 		return result;
 	}
 

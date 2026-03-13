@@ -269,7 +269,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 				HTTPResponseToSend to_send = { .status = HttpStatusOk,
 					                           .body = http_response_body_empty(),
-					                           .mime_type = tstr_init(),
+					                           .mime_type = tstr_null(),
 					                           .additional_headers = additional_headers };
 
 				result = send_http_message_to_connection(general_context, descriptor, to_send,
@@ -305,7 +305,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 				HTTPResponseToSend to_send = { .status = HttpStatusOk,
 					                           .body = http_response_body_empty(),
-					                           .mime_type = tstr_init(),
+					                           .mime_type = tstr_null(),
 					                           .additional_headers = additional_headers };
 
 				result = send_http_message_to_connection(general_context, descriptor, to_send,

@@ -878,7 +878,7 @@ process_http2_upgrade_request(const HTTPResultOk ok_res, HTTPReader* const reade
 
 		HTTPResponseToSend to_send = { .status = HttpStatusSwitchingProtocols,
 			                           .body = http_response_body_empty(),
-			                           .mime_type = tstr_init(),
+			                           .mime_type = tstr_null(),
 			                           .additional_headers = additional_headers };
 
 		SendSettings send_settings = get_send_settings(ok_res.settings);

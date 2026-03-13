@@ -113,9 +113,6 @@ NODISCARD static bool log_entry_to_string(StringBuilder* const builder, const Lo
 		const char* protocol_str =
 		    get_http_protocol_version_string(entry.request.protocol_data.version);
 
-		// TODO(Totto): tstr_is_null is not the same as data == NULL, as also "" SSO strings
-		// count as that, which is incorrect, fix that in the entire codebase
-
 		if(method_str == NULL ||
 		   tstr_is_null(&uri_str) || // NOLINT(readability-implicit-bool-conversion)
 		   protocol_str == NULL) {

@@ -205,7 +205,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
 	NeededHeaderForHandshake found_list = HandshakeHeaderNone;
 
-	tstr sec_key = tstr_init();
+	tstr sec_key = tstr_null();
 	bool from_browser = false;
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
@@ -337,7 +337,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 	HTTPResponseToSend to_send = { .status = HttpStatusSwitchingProtocols,
 		                           .body = http_response_body_empty(),
-		                           .mime_type = tstr_init(),
+		                           .mime_type = tstr_null(),
 		                           .additional_headers = additional_headers };
 
 	return send_http_message_to_connection(general_context, descriptor, to_send, send_settings);

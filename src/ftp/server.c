@@ -267,18 +267,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				state->account->state = AccountStateOk;
 
-				const tstr malloced_username = tstr_dup(arg);
+				const tstr duped_username = tstr_dup(arg);
 
-				// TODO(Totto): tstr_is_null is not the same as data == NULL, as also "" SSO strings
-				// count as that, which is incorrect, fix that in the entire codebase
-				if(tstr_is_null(&malloced_username)) {
+				if(tstr_is_null(&duped_username)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 					return true;
 				}
 
 				AccountOkData ok_data = { .permissions = AccountPermissionsRead,
-					                      .username = malloced_username };
+					                      .username = duped_username };
 
 				state->account->data.ok_data = ok_data;
 
@@ -345,16 +343,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					state->account->state = AccountStateOk;
 
-					const tstr malloced_username = tstr_dup(&username);
+					const tstr duped_username = tstr_dup(&username);
 
-					if(tstr_is_null(&malloced_username)) {
+					if(tstr_is_null(&duped_username)) {
 						SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 						return true;
 					}
 
 					AccountOkData ok_data = { .permissions = AccountPermissionsReadWrite,
-						                      .username = malloced_username };
+						                      .username = duped_username };
 
 					state->account->data.ok_data = ok_data;
 
@@ -1095,7 +1093,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			tstr actual_arg = tstr_init();
+			tstr actual_arg = tstr_null();
 
 			if(!arg.has_value) {
 				// A null argument implies the user's current working or default directory.

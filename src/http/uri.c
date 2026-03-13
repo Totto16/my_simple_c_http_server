@@ -12,7 +12,7 @@ NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 
 	ParsedURLPath result = { .search_path = {
 		                         .hash_map = TMAP_EMPTY(ParsedSearchPathHashMap),
-		                     } ,.fragment = tstr_init()};
+		                     } ,.fragment = tstr_null()};
 
 	tstr_view search_path;
 	tstr_view path_view;
@@ -112,7 +112,7 @@ NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 
 NODISCARD static URIUserInfo parse_user_info(const tstr_view userinfo) {
 
-	URIUserInfo result = { .username = tstr_init(), .password = tstr_init() };
+	URIUserInfo result = { .username = tstr_null(), .password = tstr_null() };
 
 	const tstr_split_result password_res = tstr_split(userinfo, ":");
 
@@ -182,9 +182,9 @@ NODISCARD AuthorityResult parse_authority(const tstr_view str) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc3986#section-3.2
 
-	ParsedAuthority authority = { .user_info = (URIUserInfo){ .username = tstr_init(),
-		                                                      .password = tstr_init() },
-		                          .host = tstr_init(),
+	ParsedAuthority authority = { .user_info = (URIUserInfo){ .username = tstr_null(),
+		                                                      .password = tstr_null() },
+		                          .host = tstr_null(),
 		                          .port = 0 };
 
 	tstr_view current_view = str;
@@ -294,7 +294,7 @@ NODISCARD static ParsedRequestURIResult parse_uri_or_authority(const tstr_view p
 
 		ParsedURLPath parsed_path =  {.path=tstr_from("/"), .search_path= {
 		                         .hash_map = TMAP_INIT(ParsedSearchPathHashMap),
-		                     },.fragment = tstr_init()};
+		                     },.fragment = tstr_null()};
 
 		uri.path = parsed_path;
 	} else {
@@ -319,7 +319,7 @@ NODISCARD ParsedRequestURIResult parse_request_uri(const tstr_view path) {
 		result.type = ParsedURITypeAbsPath;
 		result.data.path = (ParsedURLPath){.path=tstr_from("/"), .search_path= {
 		                         .hash_map = TMAP_INIT(ParsedSearchPathHashMap),
-		                     },.fragment = tstr_init()};
+		                     },.fragment = tstr_null()};
 
 		return (ParsedRequestURIResult){ .is_error = false, .value = { .uri = result } };
 	}
@@ -460,7 +460,7 @@ NODISCARD tstr get_parsed_authority_as_string(ParsedAuthority authority) {
 	string_builder_append_single(string_builder, tstr_cstr(&authority.host));
 
 	if(authority.port != 0) {
-		STRING_BUILDER_APPENDF(string_builder, return tstr_init();, ":%u", authority.port);
+		STRING_BUILDER_APPENDF(string_builder, return tstr_null();, ":%u", authority.port);
 	}
 
 	SizedBuffer result = string_builder_release_into_sized_buffer(&string_builder);
@@ -506,15 +506,15 @@ NODISCARD tstr get_request_uri_as_string(ParsedRequestURI uri) {
 			return get_parsed_authority_as_string(uri.data.authority);
 		}
 		default: {
-			return tstr_init();
+			return tstr_null();
 		}
 	}
 }
 
 static ParsedAuthority duplicate_authority(const ParsedAuthority authority) {
 
-	ParsedAuthority result = { .user_info = { .username = tstr_init(), .password = tstr_init() },
-		                       .host = tstr_init(),
+	ParsedAuthority result = { .user_info = { .username = tstr_null(), .password = tstr_null() },
+		                       .host = tstr_null(),
 		                       .port = 0 };
 
 	if(!tstr_is_null(&authority.user_info.username)) {
@@ -537,9 +537,9 @@ static ParsedAuthority duplicate_authority(const ParsedAuthority authority) {
 static ParsedURLPath duplicate_path(const ParsedURLPath path) {
 
 	ParsedURLPath result = {
-		.path = tstr_init(),
+		.path = tstr_null(),
 		.search_path = { .hash_map = TMAP_EMPTY(ParsedSearchPathHashMap), },
-		.fragment = tstr_init(),
+		.fragment = tstr_null(),
 	};
 
 	if(!tstr_is_null(&path.path)) {
@@ -574,13 +574,13 @@ static ParsedURLPath duplicate_path(const ParsedURLPath path) {
 static ParsedURI duplicate_uri(const ParsedURI uri) {
 
 	ParsedURI result = {
-		.scheme = tstr_init(),
-		.authority = { .user_info = { .username = tstr_init(), .password = tstr_init() },
-		               .host = tstr_init(),
+		.scheme = tstr_null(),
+		.authority = { .user_info = { .username = tstr_null(), .password = tstr_null() },
+		               .host = tstr_null(),
 		               .port = 0 },
-		.path = { .path = tstr_init(),
+		.path = { .path = tstr_null(),
 		          .search_path = { .hash_map = TMAP_EMPTY(ParsedSearchPathHashMap) },
-		          .fragment = tstr_init() }
+		          .fragment = tstr_null() }
 	};
 
 	if(!tstr_is_null(&uri.scheme)) {

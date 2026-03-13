@@ -2750,10 +2750,10 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 		                              (ParsedURI){
 		                                  .authority =
 		                                      (ParsedAuthority){
-		                                          .host = tstr_init(),
+		                                          .host = tstr_null(),
 		                                          .user_info =
-		                                              (URIUserInfo){ .username = tstr_init(),
-		                                                             .password = tstr_init() },
+		                                              (URIUserInfo){ .username = tstr_null(),
+		                                                             .password = tstr_null() },
 		                                          .port = 0 },
 
 		                              } },
