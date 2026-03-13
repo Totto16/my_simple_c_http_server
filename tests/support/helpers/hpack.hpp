@@ -6,7 +6,6 @@
 
 #include <filesystem>
 #include <fstream>
-#include <nlohmann/json.hpp>
 #include <optional>
 #include <vector>
 
@@ -99,12 +98,6 @@ extern const std::vector<StrictErrorException> strict_error_state_exceptions;
 extern const size_t default_header_table_size;
 
 } // namespace consts
-
-namespace hpack {
-[[nodiscard]] std::vector<tests::ThirdPartyHpackTestCase>
-get_thirdparty_hpack_test_cases(const std::string& name);
-
-}
 
 namespace helpers {
 

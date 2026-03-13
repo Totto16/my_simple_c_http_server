@@ -5,6 +5,7 @@
 #include "generated_hpack_tests.hpp"
 
 #include <support/helpers.hpp>
+#include <support/helpers/hpack.hpp>
 #include <support/support.hpp>
 
 static helpers::GlobalHuffmanData g_global_huffman_data = {};
@@ -200,7 +201,7 @@ static void BM_hpack_huffman_encode_spec(benchmark::State& state) {
 			CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);
-			CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+			CppDefer<HuffmanEncodeResult> defer = { &result, helpers::free_huffman_encode_result };
 
 			const char* error = nullptr;
 
@@ -236,7 +237,7 @@ static void BM_hpack_huffman_encode_ascii_generated(benchmark::State& state) {
 			CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);
-			CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+			CppDefer<HuffmanEncodeResult> defer = { &result, helpers::free_huffman_encode_result };
 
 			const char* error = nullptr;
 
@@ -272,7 +273,7 @@ static void BM_hpack_huffman_encode_utf8_generated(benchmark::State& state) {
 			CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);
-			CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+			CppDefer<HuffmanEncodeResult> defer = { &result, helpers::free_huffman_encode_result };
 
 			const char* error = nullptr;
 
@@ -316,7 +317,7 @@ static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 			CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);
-			CppDefer<HuffmanEncodeResult> defer = { &result, free_huffman_encode_result };
+			CppDefer<HuffmanEncodeResult> defer = { &result, helpers::free_huffman_encode_result };
 
 			const char* error = nullptr;
 

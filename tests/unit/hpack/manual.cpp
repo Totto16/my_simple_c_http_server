@@ -5,6 +5,7 @@
 
 #include <support/helpers.hpp>
 #include <support/helpers/hpack.hpp>
+#include <support/helpers/json.hpp>
 
 #include "../string_maker.hpp"
 

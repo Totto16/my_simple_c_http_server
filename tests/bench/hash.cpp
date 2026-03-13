@@ -255,7 +255,7 @@ static void BM_base64_dec(benchmark::State& state) {
 
 		for(const auto& test_case : base64_test_cases) {
 
-			SizedBuffer input = buffer_from_string(test_case.base64);
+			SizedBuffer input = helpers::buffer_from_string(test_case.base64);
 
 			const SizedBuffer result = base64_decode_buffer(input);
 
@@ -267,7 +267,7 @@ static void BM_base64_dec(benchmark::State& state) {
 				assert(result.size == 0);
 			}
 
-			SizedBuffer expected_result = buffer_from_string(test_case.raw);
+			SizedBuffer expected_result = helpers::buffer_from_string(test_case.raw);
 
 			assert(result == expected_result);
 
@@ -286,7 +286,7 @@ static void BM_base64_enc(benchmark::State& state) {
 
 		for(const auto& test_case : base64_test_cases) {
 
-			SizedBuffer input = buffer_from_string(test_case.raw);
+			SizedBuffer input = helpers::buffer_from_string(test_case.raw);
 
 			char* result = base64_encode_buffer(input);
 
