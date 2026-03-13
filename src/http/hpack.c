@@ -283,13 +283,18 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 
 			StringBuilder* sb = string_builder_init();
 
-			if(failed_key_names != NULL) {
+			if(failed_key_names != NULL && strlen(failed_key_names) != 0) {
 				// TODO(Totto). is the env value malloced, so i need to free it before changing it?
 				string_builder_append_single(sb, failed_key_names);
 			}
 
-			STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "sb append");
-			                       , "\1" TSTR_FMT, TSTR_FMT_ARGS(entry.key));
+			if(string_builder_get_string_size(sb) == 0) {
+				STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "sb append");
+				                       , TSTR_FMT, TSTR_FMT_ARGS(entry.key));
+			} else {
+				STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "sb append");
+				                       , "\1" TSTR_FMT, TSTR_FMT_ARGS(entry.key));
+			}
 
 			failed_key_names = string_builder_release_into_string(&sb);
 
