@@ -269,7 +269,7 @@ static void BM_hpack_huffman_encode_utf8_generated(benchmark::State& state) {
 
 			assert(g_global_huffman_data.present == true);
 
-			auto input = tstr_from_utf8_string(test_case.value);
+			auto input = helpers::tstr_from_utf8_string(test_case.value);
 			CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);
@@ -299,9 +299,10 @@ struct TestCaseExtended {
 static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 
 	const std::vector<TestCaseExtended> test_cases = {
-		TestCaseExtended{ .value = vector_from_string("test hello") },
-		TestCaseExtended{ .value = vector_from_string("test hello a long non ascii string öäüß") },
-		TestCaseExtended{ .value = all_values_vector() },
+		TestCaseExtended{ .value = helpers::vector_from_string("test hello") },
+		TestCaseExtended{
+		    .value = helpers::vector_from_string("test hello a long non ascii string öäüß") },
+		TestCaseExtended{ .value = hpack::huffman::all_values_vector() },
 	};
 
 	for(auto _ : state) {
@@ -313,7 +314,7 @@ static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 
 			assert(g_global_huffman_data.present == true);
 
-			auto input = tstr_from_utf8_string(test_case.value);
+			auto input = helpers::tstr_from_utf8_string(test_case.value);
 			CppDefer<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);

@@ -56,17 +56,19 @@ get_case_from_json(const nlohmann::json& value, const std::string& suite_name,
 
 	std::vector<std::string> strict_error_state{};
 
+	const auto& strict_error_state_exceptions = helpers::get_strict_error_state_exceptions();
+
 	for(const auto& header : headers) {
 		if(header.second == "") {
 
 			// some exceptions, as they aree either encoded as 0 byte string and not using an
 			// invalid entry value (NULL != "")
-			if(vec_contains(consts::strict_error_state_exceptions, consts::StrictErrorException{
-			                                                           .suite_name = suite_name,
-			                                                           .test_name = test_name,
-			                                                           .seqno = seqno,
-			                                                           .field_name = header.first,
-			                                                       })) {
+			if(vec_contains(strict_error_state_exceptions, consts::StrictErrorException{
+			                                                   .suite_name = suite_name,
+			                                                   .test_name = test_name,
+			                                                   .seqno = seqno,
+			                                                   .field_name = header.first,
+			                                               })) {
 				continue;
 			}
 

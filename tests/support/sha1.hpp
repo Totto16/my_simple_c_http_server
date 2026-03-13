@@ -118,9 +118,9 @@ struct Sha1BufferType {
 	return result;
 }
 
-} // namespace details
-
 std::ostream& operator<<(std::ostream& os, const details::Sha1BufferType& buffer);
+
+} // namespace details
 
 namespace sha1 {
 using Sha1BufferType = details::Sha1BufferType;

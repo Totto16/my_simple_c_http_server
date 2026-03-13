@@ -132,122 +132,126 @@ hpack::helpers::parse_wire_data(const std::string& raw_wire) {
 	return this->field_name == lhs.field_name;
 }
 
-std::vector<consts::StrictErrorException> strict_error_state_exceptions = {
-	// manually checked, is a valid field encoded with a string literal
-	// (0x00) alias a 0 long string literal
-	consts::StrictErrorException{
-	    .suite_name = "nghttp2-change-table-size",
-	    .test_name = "story_23",
-	    .seqno = 243,
-	    .field_name = "pragma",
-	},
+std::vector<consts::StrictErrorException> helpers::get_strict_error_state_exceptions() {
 
-	// manually checked, is a valid field encoded with a string literal
-	// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
-	// always everything is encoded as "Literal Header Field without Indexing"
-	consts::StrictErrorException{
-	    .suite_name = "haskell-http2-naive",
-	    .test_name = "story_25",
-	    .seqno = 0,
-	    .field_name = "etag",
-	},
+	return {
+		// manually checked, is a valid field encoded with a string literal
+		// (0x00) alias a 0 long string literal
+		consts::StrictErrorException{
+		    .suite_name = "nghttp2-change-table-size",
+		    .test_name = "story_23",
+		    .seqno = 243,
+		    .field_name = "pragma",
+		},
 
-	// manually checked, is a valid field encoded with a string literal
-	// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
-	// always everything is encoded as "Literal Header Field without Indexing"
-	consts::StrictErrorException{
-	    .suite_name = "haskell-http2-naive",
-	    .test_name = "story_23",
-	    .seqno = 243,
-	    .field_name = "pragma",
-	},
+		// manually checked, is a valid field encoded with a string literal
+		// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
+		// always everything is encoded as "Literal Header Field without Indexing"
+		consts::StrictErrorException{
+		    .suite_name = "haskell-http2-naive",
+		    .test_name = "story_25",
+		    .seqno = 0,
+		    .field_name = "etag",
+		},
 
-	// manually checked, is a valid field encoded with a string literal
-	// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
-	// always everything is encoded as "Literal Header Field without Indexing",
-	// searched for by using "636f6e74656e742d7479706500" alias "content-type" in ascii and than 00
-	consts::StrictErrorException{
-	    .suite_name = "haskell-http2-naive",
-	    .test_name = "story_30",
-	    .seqno = 138,
-	    .field_name = "content-type",
-	},
+		// manually checked, is a valid field encoded with a string literal
+		// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
+		// always everything is encoded as "Literal Header Field without Indexing"
+		consts::StrictErrorException{
+		    .suite_name = "haskell-http2-naive",
+		    .test_name = "story_23",
+		    .seqno = 243,
+		    .field_name = "pragma",
+		},
 
-	// manually checked, is a valid field encoded with a string literal
-	// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
-	// always everything is encoded as "Literal Header Field without Indexing",
-	// searched for by using "636f6e74656e742d7479706500" alias "content-type" in ascii and than 00
-	consts::StrictErrorException{
-	    .suite_name = "haskell-http2-naive",
-	    .test_name = "story_30",
-	    .seqno = 599,
-	    .field_name = "content-type",
-	},
+		// manually checked, is a valid field encoded with a string literal
+		// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
+		// always everything is encoded as "Literal Header Field without Indexing",
+		// searched for by using "636f6e74656e742d7479706500" alias "content-type" in ascii and than
+		// 00
+		consts::StrictErrorException{
+		    .suite_name = "haskell-http2-naive",
+		    .test_name = "story_30",
+		    .seqno = 138,
+		    .field_name = "content-type",
+		},
 
-	// TODO: investigate
-	consts::StrictErrorException{
-	    .suite_name = "haskell-http2-linear-huffman",
-	    .test_name = "story_25",
-	    .seqno = 0,
-	    .field_name = "etag",
-	},
+		// manually checked, is a valid field encoded with a string literal
+		// (0x00) alias a 0 long string literal, the whole string uses 0x00 bytes at the start alias
+		// always everything is encoded as "Literal Header Field without Indexing",
+		// searched for by using "636f6e74656e742d7479706500" alias "content-type" in ascii and than
+		// 00
+		consts::StrictErrorException{
+		    .suite_name = "haskell-http2-naive",
+		    .test_name = "story_30",
+		    .seqno = 599,
+		    .field_name = "content-type",
+		},
 
-	// TODO: investigate
-	consts::StrictErrorException{
-	    .suite_name = "python-hpack",
-	    .test_name = "story_25",
-	    .seqno = 0,
-	    .field_name = "etag",
-	},
+		// TODO: investigate
+		consts::StrictErrorException{
+		    .suite_name = "haskell-http2-linear-huffman",
+		    .test_name = "story_25",
+		    .seqno = 0,
+		    .field_name = "etag",
+		},
 
-	// TODO: investigate
-	consts::StrictErrorException{
-	    .suite_name = "haskell-http2-linear",
-	    .test_name = "story_25",
-	    .seqno = 0,
-	    .field_name = "etag",
-	},
+		// TODO: investigate
+		consts::StrictErrorException{
+		    .suite_name = "python-hpack",
+		    .test_name = "story_25",
+		    .seqno = 0,
+		    .field_name = "etag",
+		},
 
-	// TODO: investigate
-	consts::StrictErrorException{
-	    .suite_name = "go-hpack",
-	    .test_name = "story_25",
-	    .seqno = 0,
-	    .field_name = "etag",
-	},
+		// TODO: investigate
+		consts::StrictErrorException{
+		    .suite_name = "haskell-http2-linear",
+		    .test_name = "story_25",
+		    .seqno = 0,
+		    .field_name = "etag",
+		},
 
-	// TODO: investigate
-	consts::StrictErrorException{
-	    .suite_name = "haskell-http2-static-huffman",
-	    .test_name = "story_25",
-	    .seqno = 0,
-	    .field_name = "etag",
-	},
+		// TODO: investigate
+		consts::StrictErrorException{
+		    .suite_name = "go-hpack",
+		    .test_name = "story_25",
+		    .seqno = 0,
+		    .field_name = "etag",
+		},
 
-	// TODO: investigate, likely legit!
-	consts::StrictErrorException{
-	    .suite_name = "nghttp2-16384-4096",
-	    .test_name = "story_23",
-	    .seqno = 243,
-	    .field_name = "pragma",
-	},
+		// TODO: investigate
+		consts::StrictErrorException{
+		    .suite_name = "haskell-http2-static-huffman",
+		    .test_name = "story_25",
+		    .seqno = 0,
+		    .field_name = "etag",
+		},
 
-	// TODO: investigate, likely legit!
-	consts::StrictErrorException{
-	    .suite_name = "node-http2-hpack",
-	    .test_name = "story_23",
-	    .seqno = 243,
-	    .field_name = "pragma",
-	},
+		// TODO: investigate, likely legit!
+		consts::StrictErrorException{
+		    .suite_name = "nghttp2-16384-4096",
+		    .test_name = "story_23",
+		    .seqno = 243,
+		    .field_name = "pragma",
+		},
 
-	// TODO: investigate, likely legit!
-	consts::StrictErrorException{
-	    .suite_name = "nghttp2",
-	    .test_name = "story_23",
-	    .seqno = 243,
-	    .field_name = "pragma",
-	}
+		// TODO: investigate, likely legit!
+		consts::StrictErrorException{
+		    .suite_name = "node-http2-hpack",
+		    .test_name = "story_23",
+		    .seqno = 243,
+		    .field_name = "pragma",
+		},
 
+		// TODO: investigate, likely legit!
+		consts::StrictErrorException{
+		    .suite_name = "nghttp2",
+		    .test_name = "story_23",
+		    .seqno = 243,
+		    .field_name = "pragma",
+		}
+	};
 };
 
 const size_t consts::default_header_table_size = 4096;

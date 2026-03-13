@@ -90,13 +90,13 @@ struct StrictErrorException {
 	[[nodiscard]] bool operator==(const StrictErrorException& lhs) const;
 };
 
-extern const std::vector<StrictErrorException> strict_error_state_exceptions;
-
 extern const size_t default_header_table_size;
 
 } // namespace consts
 
 namespace helpers {
+
+std::vector<consts::StrictErrorException> get_strict_error_state_exceptions();
 
 [[nodiscard]] std::vector<std::pair<std::string, std::string>>
 get_cpp_headers(const HttpHeaderFields& fields);

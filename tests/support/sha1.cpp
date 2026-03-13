@@ -23,7 +23,7 @@
 	return lhs == rhs_sized_buffer;
 }
 
-std::ostream& operator<<(std::ostream& os, const details::Sha1BufferType& buffer) {
+std::ostream& details::operator<<(std::ostream& os, const details::Sha1BufferType& buffer) {
 	SizedBuffer sized_buffer = buffer.get_sized_buffer();
 	os << sized_buffer;
 	return os;
