@@ -148,7 +148,7 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.2
 	const std::vector<HeaderFieldDeserializeTest> test_cases = {
 		{ 
-			.raw_data =parse_wire_data("400a637573746f6d2d6b65790d637573746f6d2d686561646572"),
+			.raw_data =hpack::helpers::parse_wire_data("400a637573746f6d2d6b65790d637573746f6d2d686561646572"),
 			.dynamic_table = {
 				.entries = { {"custom-key" , "custom-header"}},
 				.size  =  55,
@@ -159,7 +159,7 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 			.strict_error_state = {}
 		},
 		{ 
-			.raw_data =parse_wire_data("040c2f73616d706c652f70617468"),
+			.raw_data =hpack::helpers::parse_wire_data("040c2f73616d706c652f70617468"),
 			.dynamic_table = {
 				.entries = { },
 				.size  =  0,
@@ -170,7 +170,7 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 			.strict_error_state = {}
 		},
 		{ 
-			.raw_data =parse_wire_data("100870617373776f726406736563726574"),
+			.raw_data =hpack::helpers::parse_wire_data("100870617373776f726406736563726574"),
 			.dynamic_table = {
 				.entries = { },
 				.size  =  0,
@@ -181,7 +181,7 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 			.strict_error_state = {}
 		},
 		{ 
-			.raw_data =parse_wire_data("82"),
+			.raw_data =hpack::helpers::parse_wire_data("82"),
 			.dynamic_table = {
 				.entries = { },
 				.size  =  0,
@@ -262,7 +262,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 			.cases = std::vector<HpackManualDeserializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.1
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("828684410f7777772e6578616d706c652e636f6d"),
+					.raw_data = hpack::helpers::parse_wire_data("828684410f7777772e6578616d706c652e636f6d"),
 					.dynamic_table = {
 						.entries = { {":authority", "www.example.com"}},
 						.size  =  57,
@@ -277,7 +277,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.2
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("828684be58086e6f2d6361636865"),
+					.raw_data = hpack::helpers::parse_wire_data("828684be58086e6f2d6361636865"),
 					.dynamic_table = {
 						.entries = { 
 							{"cache-control","no-cache"},
@@ -296,7 +296,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.3
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("828785bf400a637573746f6d2d6b65790c637573746f6d2d76616c7565"),
+					.raw_data = hpack::helpers::parse_wire_data("828785bf400a637573746f6d2d6b65790c637573746f6d2d76616c7565"),
 					.dynamic_table = {
 						.entries = { 
 							{"custom-key", "custom-value", },
@@ -324,7 +324,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 			.cases = std::vector<HpackManualDeserializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.1
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("828684418cf1e3c2e5f23a6ba0ab90f4ff"),
+					.raw_data = hpack::helpers::parse_wire_data("828684418cf1e3c2e5f23a6ba0ab90f4ff"),
 					.dynamic_table = {
 						.entries = { {":authority", "www.example.com"}},
 						.size  =  57,
@@ -339,7 +339,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.2
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("828684be5886a8eb10649cbf"),
+					.raw_data = hpack::helpers::parse_wire_data("828684be5886a8eb10649cbf"),
 					.dynamic_table = {
 						.entries = { 
 							{"cache-control","no-cache"},
@@ -358,7 +358,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.3
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("828785bf408825a849e95ba97d7f8925a849e95bb8e8b4bf"),
+					.raw_data = hpack::helpers::parse_wire_data("828785bf408825a849e95ba97d7f8925a849e95bb8e8b4bf"),
 					.dynamic_table = {
 						.entries = { 
 							{"custom-key", "custom-value", },
@@ -386,7 +386,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 			.cases = std::vector<HpackManualDeserializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.1
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("4803333032580770726976617465611d4d6f6e2c203231204f637420323031332032303a31333a323120474d546e1768747470733a2f2f7777772e6578616d706c652e636f6d"),
+					.raw_data = hpack::helpers::parse_wire_data("4803333032580770726976617465611d4d6f6e2c203231204f637420323031332032303a31333a323120474d546e1768747470733a2f2f7777772e6578616d706c652e636f6d"),
 					.dynamic_table = {
 						.entries = { 
 							{"location", "https://www.example.com"},
@@ -406,7 +406,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.2
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("4803333037c1c0bf"),
+					.raw_data = hpack::helpers::parse_wire_data("4803333037c1c0bf"),
 					.dynamic_table = {
 						.entries = { 
 							{":status", "307"},
@@ -426,7 +426,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.3
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("88c1611d4d6f6e2c203231204f637420323031332032303a31333a323220474d54c05a04677a69707738666f6f3d4153444a4b48514b425a584f5157454f50495541585157454f49553b206d61782d6167653d333630303b2076657273696f6e3d31"),
+					.raw_data = hpack::helpers::parse_wire_data("88c1611d4d6f6e2c203231204f637420323031332032303a31333a323220474d54c05a04677a69707738666f6f3d4153444a4b48514b425a584f5157454f50495541585157454f49553b206d61782d6167653d333630303b2076657273696f6e3d31"),
 					.dynamic_table = {
 						.entries = { 
 							{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
@@ -455,7 +455,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 			.cases = std::vector<HpackManualDeserializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.1
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("488264025885aec3771a4b6196d07abe941054d444a8200595040b8166e082a62d1bff6e919d29ad171863c78f0b97c8e9ae82ae43d3"),
+					.raw_data = hpack::helpers::parse_wire_data("488264025885aec3771a4b6196d07abe941054d444a8200595040b8166e082a62d1bff6e919d29ad171863c78f0b97c8e9ae82ae43d3"),
 					.dynamic_table = {
 						.entries = { 
 							{"location", "https://www.example.com"},
@@ -475,7 +475,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.2
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("4883640effc1c0bf"),
+					.raw_data = hpack::helpers::parse_wire_data("4883640effc1c0bf"),
 					.dynamic_table = {
 						.entries = { 
 							{":status", "307"},
@@ -495,7 +495,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.3
 				HpackManualDeserializeTestCaseEntry{ 
-					.raw_data = parse_wire_data("88c16196d07abe941054d444a8200595040b8166e084a62d1bffc05a839bd9ab77ad94e7821dd7f2e6c7b335dfdfcd5b3960d5af27087f3672c1ab270fb5291f9587316065c003ed4ee5b1063d5007"),
+					.raw_data = hpack::helpers::parse_wire_data("88c16196d07abe941054d444a8200595040b8166e084a62d1bffc05a839bd9ab77ad94e7821dd7f2e6c7b335dfdfcd5b3960d5af27087f3672c1ab270fb5291f9587316065c003ed4ee5b1063d5007"),
 					.dynamic_table = {
 						.entries = { 
 							{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
@@ -557,7 +557,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 					const auto& expected_dynamic_table = subcase.dynamic_table;
 
 					const auto actual_dynamic_table =
-					    get_dynamic_decompress_table(decompress_state);
+					    hpack::get_dynamic_decompress_table(decompress_state);
 
 					REQUIRE_EQ(expected_dynamic_table, actual_dynamic_table);
 				}
@@ -609,7 +609,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 			.cases = std::vector<HpackManualSerializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.1
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("828684410f7777772e6578616d706c652e636f6d"),
+					.result = hpack::helpers::parse_wire_data("828684410f7777772e6578616d706c652e636f6d"),
 					.dynamic_table = {
 						.entries = { {":authority", "www.example.com"}},
 						.size  =  57,
@@ -628,7 +628,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.2
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("828684be58086e6f2d6361636865"),
+					.result = hpack::helpers::parse_wire_data("828684be58086e6f2d6361636865"),
 					.dynamic_table = {
 						.entries = { 
 							{"cache-control","no-cache"},
@@ -651,7 +651,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.3.3
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("828785bf400a637573746f6d2d6b65790c637573746f6d2d76616c7565"),
+					.result = hpack::helpers::parse_wire_data("828785bf400a637573746f6d2d6b65790c637573746f6d2d76616c7565"),
 					.dynamic_table = {
 						.entries = { 
 							{"custom-key", "custom-value", },
@@ -683,7 +683,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 			.cases = std::vector<HpackManualSerializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.1
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("828684418cf1e3c2e5f23a6ba0ab90f4ff"),
+					.result = hpack::helpers::parse_wire_data("828684418cf1e3c2e5f23a6ba0ab90f4ff"),
 					.dynamic_table = {
 						.entries = { {":authority", "www.example.com"}},
 						.size  =  57,
@@ -702,7 +702,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.2
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("828684be5886a8eb10649cbf"),
+					.result = hpack::helpers::parse_wire_data("828684be5886a8eb10649cbf"),
 					.dynamic_table = {
 						.entries = { 
 							{"cache-control","no-cache"},
@@ -725,7 +725,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4.3
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("828785bf408825a849e95ba97d7f8925a849e95bb8e8b4bf"),
+					.result = hpack::helpers::parse_wire_data("828785bf408825a849e95ba97d7f8925a849e95bb8e8b4bf"),
 					.dynamic_table = {
 						.entries = { 
 							{"custom-key", "custom-value", },
@@ -757,7 +757,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 			.cases = std::vector<HpackManualSerializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.1
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("4803333032580770726976617465611d4d6f6e2c203231204f637420323031332032303a31333a323120474d546e1768747470733a2f2f7777772e6578616d706c652e636f6d"),
+					.result = hpack::helpers::parse_wire_data("4803333032580770726976617465611d4d6f6e2c203231204f637420323031332032303a31333a323120474d546e1768747470733a2f2f7777772e6578616d706c652e636f6d"),
 					.dynamic_table = {
 						.entries = { 
 							{"location", "https://www.example.com"},
@@ -781,7 +781,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.2
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("4803333037c1c0bf"),
+					.result = hpack::helpers::parse_wire_data("4803333037c1c0bf"),
 					.dynamic_table = {
 						.entries = { 
 							{":status", "307"},
@@ -805,7 +805,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.5.3
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("88c1611d4d6f6e2c203231204f637420323031332032303a31333a323220474d54c05a04677a69707738666f6f3d4153444a4b48514b425a584f5157454f50495541585157454f49553b206d61782d6167653d333630303b2076657273696f6e3d31"),
+					.result = hpack::helpers::parse_wire_data("88c1611d4d6f6e2c203231204f637420323031332032303a31333a323220474d54c05a04677a69707738666f6f3d4153444a4b48514b425a584f5157454f50495541585157454f49553b206d61782d6167653d333630303b2076657273696f6e3d31"),
 					.dynamic_table = {
 						.entries = { 
 							{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},
@@ -838,7 +838,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 			.cases = std::vector<HpackManualSerializeTestCaseEntry>{
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.1
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("488264025885aec3771a4b6196d07abe941054d444a8200595040b8166e082a62d1bff6e919d29ad171863c78f0b97c8e9ae82ae43d3"),
+					.result = hpack::helpers::parse_wire_data("488264025885aec3771a4b6196d07abe941054d444a8200595040b8166e082a62d1bff6e919d29ad171863c78f0b97c8e9ae82ae43d3"),
 					.dynamic_table = {
 						.entries = { 
 							{"location", "https://www.example.com"},
@@ -862,7 +862,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.2
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("4883640effc1c0bf"),
+					.result = hpack::helpers::parse_wire_data("4883640effc1c0bf"),
 					.dynamic_table = {
 						.entries = { 
 							{":status", "307"},
@@ -886,7 +886,7 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 				},
 				// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.6.3
 				HpackManualSerializeTestCaseEntry{ 
-					.result = parse_wire_data("88c16196d07abe941054d444a8200595040b8166e084a62d1bffc05a839bd9ab77ad94e7821dd7f2e6c7b335dfdfcd5b3960d5af27087f3672c1ab270fb5291f9587316065c003ed4ee5b1063d5007"),
+					.result = hpack::helpers::parse_wire_data("88c16196d07abe941054d444a8200595040b8166e084a62d1bffc05a839bd9ab77ad94e7821dd7f2e6c7b335dfdfcd5b3960d5af27087f3672c1ab270fb5291f9587316065c003ed4ee5b1063d5007"),
 					.dynamic_table = {
 						.entries = { 
 							{"set-cookie", "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1"},

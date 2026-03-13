@@ -67,7 +67,7 @@ struct StringMaker<T> {
 };
 
 template <typename T> struct StringMaker<helpers::OptionalOr<T>> {
-	static String convert(const OptionalOr<T>& val) {
+	static String convert(const helpers::OptionalOr<T>& val) {
 		return ::os_stream_formattable_to_doctest(val);
 	}
 };

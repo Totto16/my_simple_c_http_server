@@ -8,9 +8,9 @@
 	          doctest::description("hpack thirdparty test case (" HPACK_TEST_CASE_VALUE ")") * \
 	          doctest::timeout(30.0) * doctest::test_suite("hpack/thirdparty")) { \
 \
-		const auto hpack_cpp_global_handle = HpackGlobalHandle(); \
+		const auto hpack_cpp_global_handle = hpack::HpackGlobalHandle(); \
 \
-		const auto& test_cases = get_thirdparty_hpack_test_cases(HPACK_TEST_CASE_VALUE); \
+		const auto& test_cases = hpack::get_thirdparty_hpack_test_cases(HPACK_TEST_CASE_VALUE); \
 \
 		for(const auto& test_case : test_cases) { \
 \
@@ -18,8 +18,9 @@
 			doctest::String case_name = doctest::String{ case_str.c_str() }; \
 			SUBCASE(case_name) { \
 				[&test_case]() -> void { \
-					HpackDecompressStateCpp decompress_state = \
-					    get_default_hpack_decompress_state_cpp(test_case.header_mode.table_size); \
+					hpack::HpackDecompressStateCpp decompress_state = \
+					    hpack::get_default_hpack_decompress_state_cpp( \
+					        test_case.header_mode.table_size); \
 					REQUIRE_NE(decompress_state.get(), nullptr); \
 \
 					INFO("File: ", test_case.file); \
@@ -47,11 +48,11 @@
 							    decompress_state.get(), single_case.header_table_size.value()); \
 						} \
 \
-						HpackDecodingErrorStateHack error_state_stack{}; \
+						hpack::hacky_trick::HpackDecodingErrorStateHack error_state_stack{}; \
 \
 						auto result = http2_hpack_decompress_data(decompress_state.get(), input); \
 						CppDefer<Http2HpackDecompressResult> defer = { \
-							&result, free_hpack_decompress_result \
+							&result, hpack::free_hpack_decompress_result \
 						}; \
 \
 						REQUIRE_IS_NOT_ERROR(result); \
@@ -60,7 +61,7 @@
 \
 						const auto& expected_result = single_case.headers; \
 \
-						const auto actual_result_cpp = get_cpp_headers(actual_result); \
+						const auto actual_result_cpp = helpers::get_cpp_headers(actual_result); \
 \
 						REQUIRE_EQ(actual_result_cpp, expected_result); \
 \
@@ -68,12 +69,12 @@
 						           single_case.strict_error_state); \
 \
 						const auto actual_dynamic_table = \
-						    get_dynamic_decompress_table(decompress_state); \
+						    hpack::get_dynamic_decompress_table(decompress_state); \
 \
 						if(test_case.header_mode.all_the_same) { \
 							/*assert that the size is correct*/ \
 							REQUIRE_EQ(single_case.header_table_size, \
-							           OptionalOr{ current_header_table_size_expected }); \
+							           helpers::OptionalOr{ current_header_table_size_expected }); \
 						} else { \
 							/*assert that the correct size change happend*/ \
 							if(single_case.header_table_size.has_value()) { \

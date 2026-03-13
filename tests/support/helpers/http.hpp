@@ -39,3 +39,23 @@ class CompressionSettingsCpp {
 std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry);
 
 [[nodiscard]] bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs);
+
+namespace http {
+
+struct ParsedURIWrapper {
+  private:
+	ParsedRequestURIResult m_result;
+
+  public:
+	ParsedURIWrapper(ParsedRequestURIResult result);
+
+	static ParsedURIWrapper parse(const std::string& uri);
+
+	[[nodiscard]] const ParsedURLPath& path() const;
+
+	[[nodiscard]] const char* error() const;
+
+	~ParsedURIWrapper();
+};
+
+} // namespace http

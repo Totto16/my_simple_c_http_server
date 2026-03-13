@@ -172,74 +172,11 @@ TEST_CASE("testing parsing of the Accept-Encoding header <encoding_parser>") {
 	}
 }
 
-namespace {
-
-struct ParsedURIWrapper {
-  private:
-	ParsedRequestURIResult m_result;
-
-  public:
-	ParsedURIWrapper(ParsedRequestURIResult result) : m_result{ result } {}
-
-	[[nodiscard]] const ParsedURLPath& path() const {
-		if(m_result.is_error) {
-			throw std::runtime_error("invalid parse url result: " +
-			                         std::string{ m_result.value.error });
-		}
-
-		switch(m_result.value.uri.type) {
-			case ParsedURITypeAbsoluteURI: {
-				return m_result.value.uri.data.uri.path;
-			};
-			case ParsedURITypeAbsPath: {
-				return m_result.value.uri.data.path;
-			}
-			default: {
-				throw std::runtime_error("invalid parse url result: " +
-				                         std::to_string(m_result.value.uri.type));
-			}
-		}
-	}
-
-	[[nodiscard]] const char* error() const {
-		if(m_result.is_error) {
-			return m_result.value.error;
-		}
-
-		return NULL;
-	}
-
-	ParsedURIWrapper(ParsedURIWrapper&&) = delete;
-
-	ParsedURIWrapper(const ParsedURIWrapper&) = delete;
-
-	ParsedURIWrapper& operator=(const ParsedURIWrapper&) = delete;
-
-	ParsedURIWrapper operator=(ParsedURIWrapper&&) = delete;
-
-	~ParsedURIWrapper() {
-		if(m_result.is_error) {
-			return;
-		}
-
-		free_parsed_request_uri(this->m_result.value.uri);
-	}
-};
-
-ParsedURIWrapper parse_uri(const std::string& uri) {
-
-	auto result = parse_request_uri(tstr_view{ uri.data(), uri.size() });
-
-	return ParsedURIWrapper(result);
-}
-
-} // namespace
-
 TEST_CASE("testing the parsing of the http request - test url path parsing <url_parser>") {
 
 	SUBCASE("simple url") {
 		[]() -> void {
-			auto parsed_path = parse_uri("/");
+			auto parsed_path = http::ParsedURIWrapper::parse("/");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 
@@ -255,7 +192,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 
 	SUBCASE("real path url") {
 		[]() -> void {
-			auto parsed_path = parse_uri("/test/hello");
+			auto parsed_path = http::ParsedURIWrapper::parse("/test/hello");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 
@@ -271,7 +208,8 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 
 	SUBCASE("path url with search parameters") {
 		[]() -> void {
-			auto parsed_path = parse_uri("/test/hello?param1=hello&param2&param3=");
+			auto parsed_path =
+			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 
@@ -328,7 +266,8 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 
 	SUBCASE("path url with search parameters") {
 		[]() -> void {
-			auto parsed_path = parse_uri("/test/hello?param1=hello&param2&param3=");
+			auto parsed_path =
+			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 

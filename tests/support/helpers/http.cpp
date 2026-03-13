@@ -72,3 +72,48 @@ std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
 
 	return lhs.weight == rhs.weight;
 }
+
+http::ParsedURIWrapper::ParsedURIWrapper(ParsedRequestURIResult result) : m_result{ result } {}
+
+[[nodiscard]] const ParsedURLPath& http::ParsedURIWrapper::path() const {
+	if(m_result.is_error) {
+		throw std::runtime_error("invalid parse url result: " +
+		                         std::string{ m_result.value.error });
+	}
+
+	switch(m_result.value.uri.type) {
+		case ParsedURITypeAbsoluteURI: {
+			return m_result.value.uri.data.uri.path;
+		};
+		case ParsedURITypeAbsPath: {
+			return m_result.value.uri.data.path;
+		}
+		default: {
+			throw std::runtime_error("invalid parse url result: " +
+			                         std::to_string(m_result.value.uri.type));
+		}
+	}
+}
+
+[[nodiscard]] const char* http::ParsedURIWrapper::error() const {
+	if(m_result.is_error) {
+		return m_result.value.error;
+	}
+
+	return NULL;
+}
+
+http::ParsedURIWrapper::~ParsedURIWrapper() {
+	if(m_result.is_error) {
+		return;
+	}
+
+	free_parsed_request_uri(this->m_result.value.uri);
+}
+
+http::ParsedURIWrapper http::ParsedURIWrapper::parse(const std::string& uri) {
+
+	auto result = parse_request_uri(tstr_view{ uri.data(), uri.size() });
+
+	return ParsedURIWrapper{ result };
+}

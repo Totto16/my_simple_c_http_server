@@ -421,8 +421,8 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 	return root_tests_dir2;
 }
 
-[[nodiscard]] static std::vector<tests::ThirdPartyHpackTestCase>
-get_thirdparty_hpack_test_cases(const std::string& name) {
+[[nodiscard]] std::vector<tests::ThirdPartyHpackTestCase>
+hpack::get_thirdparty_hpack_test_cases(const std::string& name) {
 
 	const std::filesystem::path root_tests_dir = get_root_test_dir();
 
@@ -456,8 +456,8 @@ get_thirdparty_hpack_test_cases(const std::string& name) {
 	return result;
 }
 
-[[nodiscard]] static std::vector<std::pair<std::string, std::string>>
-get_cpp_headers(const HttpHeaderFields& fields) {
+[[nodiscard]] std::vector<std::pair<std::string, std::string>>
+helpers::get_cpp_headers(const HttpHeaderFields& fields) {
 
 	std::vector<std::pair<std::string, std::string>> result{};
 
@@ -471,8 +471,8 @@ get_cpp_headers(const HttpHeaderFields& fields) {
 	return result;
 }
 
-[[nodiscard]] static CppDefer<HttpHeaderFields>
-get_c_map_from_cpp(const std::vector<std::pair<std::string, std::string>>& map) {
+[[nodiscard]] CppDefer<HttpHeaderFields>
+helpers::get_c_map_from_cpp(const std::vector<std::pair<std::string, std::string>>& map) {
 
 	auto* result = (HttpHeaderFields*)malloc(sizeof(HttpHeaderFields));
 
@@ -497,28 +497,23 @@ get_c_map_from_cpp(const std::vector<std::pair<std::string, std::string>>& map) 
 		                              } };
 }
 
-using HpackDecompressStateCpp =
-    std::unique_ptr<HpackDecompressState, void (*)(HpackDecompressState*)>;
-
-[[nodiscard]] static HpackDecompressStateCpp
-get_default_hpack_decompress_state_cpp(size_t max_dynamic_table_byte_size) {
+[[nodiscard]] hpack::HpackDecompressStateCpp
+hpack::get_default_hpack_decompress_state_cpp(size_t max_dynamic_table_byte_size) {
 	HpackDecompressStateCpp decompress_state{
 		get_default_hpack_decompress_state(max_dynamic_table_byte_size), free_hpack_decompress_state
 	};
 	return decompress_state;
 }
 
-using HpackCompressStateCpp = std::unique_ptr<HpackCompressState, void (*)(HpackCompressState*)>;
-
-[[nodiscard]] static HpackCompressStateCpp
-get_default_hpack_compress_state_cpp(size_t max_dynamic_table_byte_size) {
+[[nodiscard]] hpack::HpackCompressStateCpp
+hpack::get_default_hpack_compress_state_cpp(size_t max_dynamic_table_byte_size) {
 	HpackCompressStateCpp compress_state{
 		get_default_hpack_compress_state(max_dynamic_table_byte_size), free_hpack_compress_state
 	};
 	return compress_state;
 }
 
-static void free_hpack_decompress_result(Http2HpackDecompressResult* result) {
+void hpack::free_hpack_decompress_result(Http2HpackDecompressResult* result) {
 
 	if(result->is_error) {
 		return;
@@ -597,8 +592,8 @@ std::ostream& operator<<(std::ostream& os, const test::DynamicTable& table) {
 	return test::DynamicTable{ .entries = entries, .size = size };
 }
 
-[[nodiscard]] static test::DynamicTable
-get_dynamic_decompress_table(const HpackDecompressStateCpp& state) {
+[[nodiscard]] test::DynamicTable
+hpack::get_dynamic_decompress_table(const HpackDecompressStateCpp& state) {
 
 	const auto* state_cpp_extracted =
 	    (const cpp_forbidden_test_type_impl_DONT_USE::HpackDecompressStateImpl*)state.get();
