@@ -20,11 +20,13 @@
 			SUBCASE(case_name) { \
 				[&test_case]() -> void { \
 					HpackDecompressStateCpp decompress_state = \
-					    get_default_hpack_decompress_state_cpp(test_case.header_table_size); \
+					    get_default_hpack_decompress_state_cpp(test_case.header_mode.table_size); \
 					REQUIRE_NE(decompress_state.get(), nullptr); \
 \
 					INFO("File: ", test_case.file); \
 					INFO("test case description: ", test_case.description); \
+\
+					size_t current_header_table_size_expected = test_case.header_mode.table_size; \
 \
 					for(size_t i = 0; i < test_case.cases.size(); ++i) { \
 \
@@ -35,6 +37,16 @@
 						REQUIRE_EQ(single_case.seqno, i); \
 \
 						const auto input = buffer_from_raw_data(single_case.wire_data); \
+\
+						if(!test_case.header_mode.all_the_same && \
+						   single_case.header_table_size.has_value()) { \
+\
+							/*the header table size sent in SETTINGS_HEADER_TABLE_SIZE and ACKed \
+							 * just before this case. The first case should contain this field. If \
+							 * omitted, the default value, 4,096, is used. */ \
+							set_hpack_decompress_state_setting( \
+							    decompress_state.get(), single_case.header_table_size.value()); \
+						} \
 \
 						auto result = http2_hpack_decompress_data(decompress_state.get(), input); \
 						CppDefer<Http2HpackDecompressResult> defer = { \
@@ -50,6 +62,24 @@
 						const auto actual_result_cpp = get_cpp_headers(actual_result); \
 \
 						REQUIRE_EQ(actual_result_cpp, expected_result); \
+\
+						const auto actual_dynamic_table = \
+						    get_dynamic_decompress_table(decompress_state); \
+\
+						if(test_case.header_mode.all_the_same) { \
+							/*assert that the size is correct*/ \
+							REQUIRE_EQ(single_case.header_table_size, \
+							           OptionalOr{ current_header_table_size_expected }); \
+						} else { \
+							/*assert that the correct size change happend*/ \
+							if(single_case.header_table_size.has_value()) { \
+								current_header_table_size_expected = \
+								    single_case.header_table_size.value(); \
+							} \
+						} \
+\
+						/*assert that the size is correctly <= */ \
+						REQUIRE_LE(actual_dynamic_table.size, current_header_table_size_expected); \
 					} \
 				}(); \
 			} \

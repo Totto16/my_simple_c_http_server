@@ -49,6 +49,18 @@ template <typename T>
 	return os;
 }
 
+template <typename T>
+[[maybe_unused]] std::ostream& operator<<(std::ostream& os, const std::optional<T>& val) {
+	if(!val.has_value()) {
+		os << "std::nullopt";
+		return os;
+	}
+
+	os << "std::optional{ " << val.value() << " }";
+
+	return os;
+}
+
 std::ostream& operator<<(std::ostream& os,
                          const std::vector<std::pair<std::string, std::string>>& string_map);
 
@@ -64,6 +76,12 @@ namespace doctest {
 template <> struct StringMaker<std::vector<std::pair<std::string, std::string>>> {
 	static String convert(const std::vector<std::pair<std::string, std::string>>& string_map) {
 		return ::os_stream_formattable_to_doctest(string_map);
+	}
+};
+
+template <typename T> struct StringMaker<std::optional<T>> {
+	static String convert(const std::optional<T>& val) {
+		return ::os_stream_formattable_to_doctest(val);
 	}
 };
 

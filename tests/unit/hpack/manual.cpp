@@ -124,101 +124,11 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 	}
 }
 
-namespace test {
-
-struct DynamicTable {
-	std::vector<std::pair<std::string, std::string>> entries;
-	size_t size;
-};
-
-[[maybe_unused]] static std::ostream& operator<<(std::ostream& os,
-                                                 const test::DynamicTable& table) {
-	os << "DynamicTable:\n" << os_stream_formattable_to_doctest(table.entries);
-	os << "\n" << table.size << "\n";
-	return os;
-}
-
-NODISCARD [[maybe_unused]] static bool operator==(const DynamicTable& table1,
-                                                  const DynamicTable& table2) {
-
-	if(table1.size != table2.size) {
-		return false;
-	}
-
-	const auto table1_vec = table1.entries;
-	const auto table2_vec = table2.entries;
-
-	if(table1_vec.size() != table2_vec.size()) {
-		return false;
-	}
-
-	for(size_t i = 0; i < table1_vec.size(); ++i) {
-		if(table1_vec.at(i) != table2_vec.at(i)) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
-} // namespace test
-
 struct HeaderFieldDeserializeTest {
 	std::vector<std::uint8_t> raw_data;
 	test::DynamicTable dynamic_table;
 	std::vector<std::pair<std::string, std::string>> result;
 };
-
-// this is a hack, as I don't want to expose the state in the header for c, but i also want to test
-// it, i am willing to copy paste this for the tests
-namespace cpp_forbidden_test_type_impl_DONT_USE {
-
-extern "C" {
-
-#include "http/dynamic_hpack_table.h"
-
-typedef struct {
-	HpackHeaderDynamicTable dynamic_table;
-	size_t max_dynamic_table_byte_size;
-	size_t current_dynamic_table_byte_size;
-} HpackDynamicTableState;
-
-struct HpackDecompressStateImpl {
-	HpackDynamicTableState dynamic_table_state;
-};
-
-struct HpackCompressStateImpl {
-	HpackDynamicTableState dynamic_table_state;
-};
-}
-
-} // namespace cpp_forbidden_test_type_impl_DONT_USE
-
-[[nodiscard]] static test::DynamicTable get_dynamic_table(
-    const cpp_forbidden_test_type_impl_DONT_USE::HpackDynamicTableState* const state) {
-
-	const size_t size = state->current_dynamic_table_byte_size;
-
-	std::vector<std::pair<std::string, std::string>> entries = {};
-
-	for(size_t i = state->dynamic_table.start, rest_count = state->dynamic_table.count;
-	    rest_count != 0; i = (i + 1) % state->dynamic_table.capacity, rest_count--) {
-		const auto& entry = state->dynamic_table.entries[i];
-
-		entries.emplace_back(string_from_tstr(entry.key), string_from_tstr(entry.value));
-	}
-
-	return test::DynamicTable{ .entries = entries, .size = size };
-}
-
-[[nodiscard]] static test::DynamicTable
-get_dynamic_decompress_table(const HpackDecompressStateCpp& state) {
-
-	const auto* state_cpp_extracted =
-	    (const cpp_forbidden_test_type_impl_DONT_USE::HpackDecompressStateImpl*)state.get();
-
-	return get_dynamic_table(&(state_cpp_extracted->dynamic_table_state));
-}
 
 [[nodiscard]] static test::DynamicTable
 get_dynamic_compress_table(const HpackCompressStateCpp& state) {

@@ -13,13 +13,22 @@ struct ThirdPartyHpackTestCaseEntry {
 	size_t seqno;
 	std::vector<std::uint8_t> wire_data;
 	std::vector<std::pair<std::string, std::string>> headers;
+	std::optional<size_t>
+	    header_table_size; // the header table size sent in SETTINGS_HEADER_TABLE_SIZE and ACKed
+	                       // just before this case. The first case should contain this field. If
+	                       // omitted, the default value, 4,096, is used.
+};
+
+struct HeaderTableMode {
+	bool all_the_same;
+	size_t table_size;
 };
 
 struct ThirdPartyHpackTestCase {
 	std::string description;
 	std::vector<ThirdPartyHpackTestCaseEntry> cases;
 	std::string name;
-	size_t header_table_size;
+	HeaderTableMode header_mode;
 	std::filesystem::path file;
 };
 
@@ -98,23 +107,6 @@ parse_headers_map(const nlohmann::json& value) {
 	return result;
 }
 
-[[nodiscard]] static ThirdPartyHpackTestCaseEntry get_case_from_json(const nlohmann::json& value) {
-
-	size_t seqno = value["seqno"].get<size_t>();
-
-	const std::string raw_wire_data = value["wire"].get<std::string>();
-
-	const auto wire_data = parse_wire_data(raw_wire_data);
-
-	const auto headers = parse_headers_map(value["headers"]);
-
-	return ThirdPartyHpackTestCaseEntry{
-		.seqno = seqno,
-		.wire_data = wire_data,
-		.headers = headers,
-	};
-}
-
 [[nodiscard]] static std::optional<size_t> get_optional_header_size(const nlohmann::json& case_) {
 
 	if(!case_.contains("header_table_size")) {
@@ -132,6 +124,26 @@ parse_headers_map(const nlohmann::json& value) {
 
 #define DEFAULT_HEADER_TABLE_SIZE 4096
 
+[[nodiscard]] static ThirdPartyHpackTestCaseEntry get_case_from_json(const nlohmann::json& value) {
+
+	size_t seqno = value["seqno"].get<size_t>();
+
+	const std::string raw_wire_data = value["wire"].get<std::string>();
+
+	const auto wire_data = parse_wire_data(raw_wire_data);
+
+	const auto headers = parse_headers_map(value["headers"]);
+
+	const auto header_table_size = get_optional_header_size(value);
+
+	return ThirdPartyHpackTestCaseEntry{
+		.seqno = seqno,
+		.wire_data = wire_data,
+		.headers = headers,
+		.header_table_size = header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE),
+	};
+}
+
 [[nodiscard]] static ThirdPartyHpackTestCase
 get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 
@@ -146,30 +158,46 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 		throw std::runtime_error("json is malformed");
 	}
 
-	std::optional<size_t> header_table_size = std::nullopt;
-
 	for(size_t i = 0; i < data["cases"].size(); ++i) {
 		const auto& case_ = data["cases"].at(i);
-
-		const auto local_h_size = get_optional_header_size(case_);
-
-		if(local_h_size.has_value()) {
-			if(header_table_size.has_value()) {
-				if(local_h_size.value() != header_table_size.value()) {
-
-					throw std::runtime_error(std::string{ "Invalid header table size at index " } +
-					                         std::to_string(i) +
-					                         ", value: " + std::to_string(local_h_size.value()) +
-					                         " vs " + std::to_string(header_table_size.value()));
-				}
-			} else {
-				header_table_size = local_h_size;
-			}
-		}
 
 		const auto case_result = get_case_from_json(case_);
 
 		cases.push_back(case_result);
+	}
+
+	// cases post processing
+	HeaderTableMode header_mode = { .all_the_same = true, .table_size = DEFAULT_HEADER_TABLE_SIZE };
+
+	{
+		std::optional<size_t> header_table_size = std::nullopt;
+
+		for(size_t i = 0; i < cases.size(); ++i) {
+			const auto& case_ = cases.at(i);
+
+			const auto local_h_size = case_.header_table_size;
+
+			if(local_h_size.has_value()) {
+				if(header_table_size.has_value()) {
+					if(local_h_size.value() != header_table_size.value()) {
+
+						header_mode.all_the_same = false;
+						break;
+					}
+				} else {
+					header_table_size = local_h_size;
+				}
+			}
+		}
+
+		if(header_mode.all_the_same) {
+			header_mode.table_size = header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE);
+		} else {
+			header_mode.table_size =
+			    cases.size() == 0
+			        ? DEFAULT_HEADER_TABLE_SIZE
+			        : cases.at(0).header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE);
+		}
 	}
 
 	const std::string name = path.filename().string();
@@ -178,7 +206,7 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 		.description = description,
 		.cases = cases,
 		.name = name,
-		.header_table_size = header_table_size.value_or(DEFAULT_HEADER_TABLE_SIZE),
+		.header_mode = header_mode,
 		.file = path,
 	};
 }
@@ -306,3 +334,121 @@ get_default_hpack_compress_state_cpp(size_t max_dynamic_table_byte_size) {
 
 	free_http_header_fields(&(result->data.result));
 }
+
+// this is a hack, as I don't want to expose the state in the header for c, but i also want to test
+// it, i am willing to copy paste this for the tests
+namespace cpp_forbidden_test_type_impl_DONT_USE {
+
+extern "C" {
+
+#include "http/dynamic_hpack_table.h"
+
+typedef struct {
+	HpackHeaderDynamicTable dynamic_table;
+	size_t max_dynamic_table_byte_size;
+	size_t current_dynamic_table_byte_size;
+} HpackDynamicTableState;
+
+struct HpackDecompressStateImpl {
+	HpackDynamicTableState dynamic_table_state;
+};
+
+struct HpackCompressStateImpl {
+	HpackDynamicTableState dynamic_table_state;
+};
+}
+
+} // namespace cpp_forbidden_test_type_impl_DONT_USE
+
+namespace test {
+
+struct DynamicTable {
+	std::vector<std::pair<std::string, std::string>> entries;
+	size_t size;
+};
+
+[[maybe_unused]] static std::ostream& operator<<(std::ostream& os,
+                                                 const test::DynamicTable& table) {
+	os << "DynamicTable:\n" << os_stream_formattable_to_doctest(table.entries);
+	os << "\n" << table.size << "\n";
+	return os;
+}
+
+NODISCARD [[maybe_unused]] static bool operator==(const DynamicTable& table1,
+                                                  const DynamicTable& table2) {
+
+	if(table1.size != table2.size) {
+		return false;
+	}
+
+	const auto table1_vec = table1.entries;
+	const auto table2_vec = table2.entries;
+
+	if(table1_vec.size() != table2_vec.size()) {
+		return false;
+	}
+
+	for(size_t i = 0; i < table1_vec.size(); ++i) {
+		if(table1_vec.at(i) != table2_vec.at(i)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+} // namespace test
+
+[[nodiscard]] static test::DynamicTable get_dynamic_table(
+    const cpp_forbidden_test_type_impl_DONT_USE::HpackDynamicTableState* const state) {
+
+	const size_t size = state->current_dynamic_table_byte_size;
+
+	std::vector<std::pair<std::string, std::string>> entries = {};
+
+	for(size_t i = state->dynamic_table.start, rest_count = state->dynamic_table.count;
+	    rest_count != 0; i = (i + 1) % state->dynamic_table.capacity, rest_count--) {
+		const auto& entry = state->dynamic_table.entries[i];
+
+		entries.emplace_back(string_from_tstr(entry.key), string_from_tstr(entry.value));
+	}
+
+	return test::DynamicTable{ .entries = entries, .size = size };
+}
+
+[[nodiscard]] static test::DynamicTable
+get_dynamic_decompress_table(const HpackDecompressStateCpp& state) {
+
+	const auto* state_cpp_extracted =
+	    (const cpp_forbidden_test_type_impl_DONT_USE::HpackDecompressStateImpl*)state.get();
+
+	return get_dynamic_table(&(state_cpp_extracted->dynamic_table_state));
+}
+
+template <typename T> struct OptionalOr {
+  public:
+	T value;
+	OptionalOr(const T& val) : value{ val } {}
+
+	friend std::ostream& operator<<(std::ostream& os, const OptionalOr<T>& val) {
+		os << "OptionalOr{" << val.value << "}";
+		return os;
+	}
+
+	[[nodiscard]] bool operator==(const std::optional<T>& lhs) const {
+		if(!lhs.has_value()) {
+			return true;
+		}
+
+		return this->value == lhs.value();
+	}
+};
+
+namespace doctest {
+template <typename T> struct StringMaker<OptionalOr<T>> {
+	static String convert(const OptionalOr<T>& val) {
+		return ::os_stream_formattable_to_doctest(val);
+	}
+};
+
+} // namespace doctest
