@@ -28,7 +28,7 @@ struct HeaderTableMode {
 struct ThirdPartyHpackTestCase {
 	std::string description;
 	std::vector<ThirdPartyHpackTestCaseEntry> cases;
-	std::string name;
+	std::string test_name;
 	HeaderTableMode header_mode;
 	std::filesystem::path file;
 };
@@ -201,9 +201,49 @@ parse_headers_map(const nlohmann::json& value) {
 	return header_table_size_v.get<size_t>();
 }
 
+namespace consts {
+struct StrictErrorException {
+	std::string suite_name;
+	std::string test_name;
+	size_t seqno;
+	std::string field_name;
+
+	[[nodiscard]] bool operator==(const StrictErrorException& lhs) const {
+		if(this->suite_name != lhs.suite_name) {
+			return false;
+		}
+
+		if(this->test_name != lhs.test_name) {
+			return false;
+		}
+
+		if(this->seqno != lhs.seqno) {
+			return false;
+		}
+
+		return this->field_name == lhs.field_name;
+	}
+};
+
+static std::vector<StrictErrorException> strict_error_state_exceptions = {
+	// manually checked, is a valid field encoded with a string literal
+	// (0x00) alias a 0 long string literal
+	StrictErrorException{
+	    .suite_name = "nghttp2-change-table-size",
+	    .test_name = "story_23",
+	    .seqno = 243,
+	    .field_name = "pragma",
+	}
+
+};
+
+} // namespace consts
+
 #define DEFAULT_HEADER_TABLE_SIZE 4096
 
-[[nodiscard]] static ThirdPartyHpackTestCaseEntry get_case_from_json(const nlohmann::json& value) {
+[[nodiscard]] static ThirdPartyHpackTestCaseEntry get_case_from_json(const nlohmann::json& value,
+                                                                     const std::string& suite_name,
+                                                                     const std::string& test_name) {
 
 	size_t seqno = value["seqno"].get<size_t>();
 
@@ -219,6 +259,18 @@ parse_headers_map(const nlohmann::json& value) {
 
 	for(const auto& header : headers) {
 		if(header.second == "") {
+
+			// some exceptions, as they aree either encoded as 0 byte string and not using an
+			// invalid entry value (NULL != "")
+			if(vec_contains(consts::strict_error_state_exceptions, consts::StrictErrorException{
+			                                                           .suite_name = suite_name,
+			                                                           .test_name = test_name,
+			                                                           .seqno = seqno,
+			                                                           .field_name = header.first,
+			                                                       })) {
+				continue;
+			}
+
 			strict_error_state.emplace_back(header.first);
 		}
 	}
@@ -238,7 +290,11 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 	std::ifstream file_stream{ path };
 	nlohmann::json data = nlohmann::json::parse(file_stream);
 
-	std::string description = data.at("description").get<std::string>();
+	const std::string description = data.at("description").get<std::string>();
+
+	const std::string test_name = path.filename().stem();
+
+	const std::string suite_name = path.parent_path().filename().string();
 
 	std::vector<ThirdPartyHpackTestCaseEntry> cases{};
 
@@ -249,7 +305,7 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 	for(size_t i = 0; i < data["cases"].size(); ++i) {
 		const auto& case_ = data["cases"].at(i);
 
-		const auto case_result = get_case_from_json(case_);
+		const auto case_result = get_case_from_json(case_, suite_name, test_name);
 
 		cases.push_back(case_result);
 	}
@@ -288,12 +344,10 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 		}
 	}
 
-	const std::string name = path.filename().string();
-
 	return ThirdPartyHpackTestCase{
 		.description = description,
 		.cases = cases,
-		.name = name,
+		.test_name = test_name,
 		.header_mode = header_mode,
 		.file = path,
 	};

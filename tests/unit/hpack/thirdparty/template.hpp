@@ -15,7 +15,7 @@
 \
 		for(const auto& test_case : test_cases) { \
 \
-			const auto case_str = std::string{ "Case " } + test_case.name; \
+			const auto case_str = std::string{ "Case " } + test_case.test_name; \
 			doctest::String case_name = doctest::String{ case_str.c_str() }; \
 			SUBCASE(case_name) { \
 				[&test_case]() -> void { \
