@@ -251,21 +251,26 @@ cleanup:
 #define DATA_CONNECTION_INTERVAL_S 1
 
 bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField server_addr,
-                         FTPControlConnectionArgument* argument, const FTPCommand* command) {
+                         FTPControlConnectionArgument* argument, const FTPCommand* const command) {
 
 	FTPState* state = argument->state;
 
 	switch(command->type) {
 		case FtpCommandUser: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_USER == FTP_COMMAND_TYPE_STRING);
+
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
 
 			// see https://datatracker.ietf.org/doc/html/rfc1635
-			if(tstr_eq_ignore_case_cstr(&(command->data.string), ANON_USERNAME)) {
+			if(tstr_eq_ignore_case_cstr(arg, ANON_USERNAME)) {
 				free_account_data(state->account);
 
 				state->account->state = AccountStateOk;
 
-				const tstr malloced_username = tstr_dup(&(command->data.string));
+				const tstr malloced_username = tstr_dup(arg);
 
+				// TODO(Totto): tstr_is_null is not the same as data == NULL, as also "" SSO strings
+				// count as that, which is incorrect, fix that in the entire codebase
 				if(tstr_is_null(&malloced_username)) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
@@ -286,15 +291,15 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			state->account->state = AccountStateOnlyUser;
 
-			const tstr malloced_username = tstr_dup(&(command->data.string));
+			const tstr duped_username = tstr_dup(arg);
 
-			if(tstr_is_null(&malloced_username)) {
+			if(tstr_is_null(&duped_username)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError, "Internal ERROR!");
 
 				return true;
 			}
 
-			state->account->data.temp_data.username = malloced_username;
+			state->account->data.temp_data.username = duped_username;
 
 			SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNeedPswd, "Need Password!");
 
@@ -302,6 +307,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		case FtpCommandPass: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_PASS == FTP_COMMAND_TYPE_STRING);
+
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
 
 			if(state->account->state == AccountStateOk &&
 			   tstr_eq_ignore_case_cstr( // NOLINT(readability-implicit-bool-conversion)
@@ -325,10 +333,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr username = state->account->data.temp_data.username;
 
-			const tstr passwd = command->data.string;
+			const tstr* passwd = arg;
 
 			UserValidity user_validity =
-			    account_verify(argument->auth_providers, &username, &passwd);
+			    account_verify(argument->auth_providers, &username, passwd);
 
 			switch(user_validity) {
 				case UserValidityOk: {
@@ -388,6 +396,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 		// permission model: everybody that is logged in can use PWD
 		case FtpCommandPwd: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_PWD == FTP_COMMAND_TYPE_NONE);
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -414,6 +423,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 		// permission model: everybody that is logged in can use CWD
 		case FtpCommandCwd: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_CWD == FTP_COMMAND_TYPE_STRING);
+
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -422,9 +434,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			const tstr cwd_argument = command->data.string;
+			const tstr* cwd_argument = arg;
 
-			DirChangeResult result = change_dirname_to(state, tstr_cstr(&cwd_argument));
+			DirChangeResult result = change_dirname_to(state, tstr_cstr(cwd_argument));
 
 			switch(result) {
 				case DirChangeResultOk: {
@@ -467,6 +479,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 		// permission model: everybody that is logged in can use CDUP
 		case FtpCommandCdup: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_CDUP == FTP_COMMAND_TYPE_NONE);
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -519,6 +532,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		case FtpCommandPasv: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_PASV == FTP_COMMAND_TYPE_NONE);
 
 			FTPPortField reserved_port =
 			    get_available_port_for_passive_mode(argument->data_controller);
@@ -552,6 +566,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		case FtpCommandFeat: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_FEAT == FTP_COMMAND_TYPE_NONE);
 
 			if(state->supported_features->size == 0) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFeatureList,
@@ -612,9 +627,13 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		case FtpCommandPort: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_PORT == FTP_COMMAND_TYPE_PORT_INFO);
+
+			const FTPPortInformation* port_info =
+			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_PORT_INFO);
 
 			state->data_settings->mode = FtpDataModeActive;
-			state->data_settings->addr = *command->data.port_info;
+			state->data_settings->addr = *port_info;
 
 			SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeCmdOk, "Entering active mode");
 
@@ -624,6 +643,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			// TODO(Totto): deduplicate LIST / RETR / STORand file commands
 		// permission model: you have to be logged in and have WRITE Permissions
 		case FtpCommandStor: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_STOR == FTP_COMMAND_TYPE_STRING);
+
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -647,11 +669,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			const tstr arg = command->data.string;
-
 			// NOTE: we allow overwrites, as the ftp spec says
 
-			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));
+			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -826,6 +846,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			// permission model: everybody that is logged in can use RETR
 		case FtpCommandRetr: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_RETR == FTP_COMMAND_TYPE_STRING);
+
+			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING));
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -842,9 +865,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			const tstr arg = command->data.string;
-
-			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));
+			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -1052,6 +1073,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 		// permission model: everybody that is logged in can use LIST
 		case FtpCommandList: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_LIST == FTP_COMMAND_TYPE_OPT_STRING);
+
+			const OptionalString arg =
+			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_OPT_STRING);
 
 			if(state->account->state != AccountStateOk) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
@@ -1070,14 +1095,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			tstr arg = command->data.string;
+			tstr actual_arg = tstr_init();
 
-			if(tstr_is_null(&arg)) {
+			if(!arg.has_value) {
 				// A null argument implies the user's current working or default directory.
-				arg = TSTR_LIT(".");
+				actual_arg = TSTR_LIT(".");
+			} else {
+				actual_arg = arg.value;
 			}
 
-			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&arg));
+			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&actual_arg));
 
 			if(!final_file_path) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
@@ -1306,8 +1333,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 #undef FREE_AT_END
 
 		case FtpCommandType: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_TYPE == FTP_COMMAND_TYPE_TYPE_INFO);
 
-			FTPCommandTypeInformation* type_info = command->data.type_info;
+			const FTPCommandTypeInformation* type_info =
+			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_TYPE_INFO);
+
 			if(!type_info->is_normal) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeCommandNotImplementedForParam,
 				                               "Not Implemented!");
@@ -1349,6 +1379,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		}
 
 		case FtpCommandAuth: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_AUTH == FTP_COMMAND_TYPE_STRING);
+
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
 			SEND_RESPONSE_WITH_ERROR_CHECK(
 			    FtpReturnCodeCommandNotImplemented,
@@ -1364,18 +1396,18 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 #endif
 		}
 
-		case FtpCommandSyst:
+		case FtpCommandSyst: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_SYST == FTP_COMMAND_TYPE_NONE);
 
-		{
 			// see e.g: https://cr.yp.to/ftp/syst.html
 			SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSystemName, "UNIX Type: L8 Version: Linux");
 
 			return true;
 		}
 
-		case FtpCommandNoop:
+		case FtpCommandNoop: {
+			static_assert(FTP_COMMAND_TYPE_COMMAND_NOOP == FTP_COMMAND_TYPE_NONE);
 
-		{
 			SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeCmdOk, "");
 
 			return true;

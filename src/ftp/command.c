@@ -5,11 +5,6 @@
 
 #include <string.h>
 
-#define MAKE_STRING_ARG(str) \
-	do { \
-		command->data.string = tstr_from_view(str); \
-	} while(false)
-
 FTPCommandTypeInformation* parse_ftp_command_type_info(const tstr_view arg) {
 	FTPCommandTypeInformation* info =
 	    (FTPCommandTypeInformation*)malloc(sizeof(FTPCommandTypeInformation));
@@ -141,6 +136,8 @@ static FTPPortInformation* parse_ftp_command_port_info(const tstr_view arg) {
 
 #define FTP_COMMAND_SEPERATORS "\r\n"
 
+#define OPT_STRING_EMPTY ((OptionalString){ .has_value = false, .value = tstr_init() })
+
 NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_reader) {
 
 	BufferedReadResult read_result =
@@ -170,75 +167,89 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 	// see https://datatracker.ietf.org/doc/html/rfc959 5.3.1
 	if(tstr_view_eq_ignore_case(data_str, "CDUP")) {
 		command->type = FtpCommandCdup;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_CDUP == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "QUIT")) {
 		command->type = FtpCommandQuit;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_QUIT == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "REIN")) {
 		command->type = FtpCommandRein;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_REIN == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "PASV")) {
 		command->type = FtpCommandPasv;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_PASV == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "STOU")) {
 		command->type = FtpCommandStou;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_STOU == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "ABOR")) {
 		command->type = FtpCommandAbor;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_ABOR == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "PWD")) {
 		command->type = FtpCommandPwd;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_PWD == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "LIST")) {
 		command->type = FtpCommandList;
-		command->data.string = tstr_init(); // signifies, that this has an optional argument
+		static_assert(FTP_COMMAND_TYPE_COMMAND_LIST == FTP_COMMAND_TYPE_OPT_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_LIST) = OPT_STRING_EMPTY;
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "NLST")) {
 		command->type = FtpCommandNlst;
-		command->data.string = tstr_init(); // signifies, that this has an optional argument
+		static_assert(FTP_COMMAND_TYPE_COMMAND_NLST == FTP_COMMAND_TYPE_OPT_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_NLST) = OPT_STRING_EMPTY;
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "SYST")) {
 		command->type = FtpCommandSyst;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_SYST == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "STAT")) {
 		command->type = FtpCommandStat;
-		command->data.string = tstr_init(); // signifies, that this has an optional argument
+		static_assert(FTP_COMMAND_TYPE_COMMAND_STAT == FTP_COMMAND_TYPE_OPT_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_STAT) = OPT_STRING_EMPTY;
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "HELP")) {
 		command->type = FtpCommandHelp;
-		command->data.string = tstr_init(); // signifies, that this has an optional argument
+		static_assert(FTP_COMMAND_TYPE_COMMAND_HELP == FTP_COMMAND_TYPE_OPT_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_HELP) = OPT_STRING_EMPTY;
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "NOOP")) {
 		command->type = FtpCommandNoop;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_NOOP == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(data_str, "FEAT")) {
 		command->type = FtpCommandFeat;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_FEAT == FTP_COMMAND_TYPE_NONE);
 		return command;
 	}
 
@@ -254,161 +265,211 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 
 	if(tstr_view_eq_ignore_case(command_str, "USER")) {
 		command->type = FtpCommandUser;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_USER == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_USER) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "PASS")) {
 		command->type = FtpCommandPass;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_PASS == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_PASS) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "ACCT")) {
 		command->type = FtpCommandAcct;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_ACCT == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_ACCT) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "CWD")) {
 		command->type = FtpCommandCwd;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_CWD == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_CWD) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "SMNT")) {
 		command->type = FtpCommandSmnt;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_SMNT == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_SMNT) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "RETR")) {
 		command->type = FtpCommandRetr;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_RETR == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_RETR) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "STOR")) {
 		command->type = FtpCommandStor;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_STOR == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_STOR) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "APPE")) {
 		command->type = FtpCommandAppe;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_APPE == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_APPE) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "RNFR")) {
 		command->type = FtpCommandRnfr;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_RNFR == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_RNFR) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "RNTO")) {
 		command->type = FtpCommandRnto;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_RNTO == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_RNTO) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "DELE")) {
 		command->type = FtpCommandDele;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_DELE == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_DELE) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "RMD")) {
 		command->type = FtpCommandRmd;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_RMD == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_RMD) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "MKD")) {
 		command->type = FtpCommandMkd;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_MKD == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_MKD) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "LIST")) {
 		command->type = FtpCommandList;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_LIST == FTP_COMMAND_TYPE_OPT_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_LIST) =
+		    (OptionalString){ .has_value = true, .value = tstr_from_view(argument_str) };
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "NLST")) {
 		command->type = FtpCommandNlst;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_NLST == FTP_COMMAND_TYPE_OPT_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_NLST) =
+		    (OptionalString){ .has_value = true, .value = tstr_from_view(argument_str) };
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "SITE")) {
 		command->type = FtpCommandSite;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_SITE == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_SITE) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "STAT")) {
 		command->type = FtpCommandStat;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_STAT == FTP_COMMAND_TYPE_OPT_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_STAT) =
+		    (OptionalString){ .has_value = true, .value = tstr_from_view(argument_str) };
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "HELP")) {
 		command->type = FtpCommandHelp;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_HELP == FTP_COMMAND_TYPE_OPT_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_HELP) =
+		    (OptionalString){ .has_value = true, .value = tstr_from_view(argument_str) };
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "AUTH")) {
 		command->type = FtpCommandAuth;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_AUTH == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_AUTH) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "ADAT")) {
 		command->type = FtpCommandAdat;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_ADAT == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_ADAT) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "MIC")) {
 		command->type = FtpCommandMic;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_MIC == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_MIC) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "CONF")) {
 		command->type = FtpCommandConf;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_CONF == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_CONF) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "ENC")) {
 		command->type = FtpCommandEnc;
-		MAKE_STRING_ARG(argument_str);
+		static_assert(FTP_COMMAND_TYPE_COMMAND_ENC == FTP_COMMAND_TYPE_STRING);
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_ENC) =
+		    tstr_from_view(argument_str);
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "TYPE")) {
 		command->type = FtpCommandType;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_TYPE == FTP_COMMAND_TYPE_TYPE_INFO);
 		FTPCommandTypeInformation* type_info = parse_ftp_command_type_info(argument_str);
 		if(type_info == NULL) {
 			free(command);
 			return NULL;
 		}
-		command->data.type_info = type_info;
+
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_TYPE) = type_info;
 		return command;
 	}
 
 	if(tstr_view_eq_ignore_case(command_str, "PORT")) {
 		command->type = FtpCommandPort;
+		static_assert(FTP_COMMAND_TYPE_COMMAND_PORT == FTP_COMMAND_TYPE_PORT_INFO);
 		FTPPortInformation* port_info = parse_ftp_command_port_info(argument_str);
 		if(port_info == NULL) {
 			free(command);
 			return NULL;
 		}
-		command->data.port_info = port_info;
+
+		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_PORT) = port_info;
 		return command;
 	}
 
@@ -429,59 +490,82 @@ void free_ftp_command(FTPCommand* cmd) {
 	switch(cmd->type) {
 		// special things
 		case FtpCommandType: {
-			free(cmd->data.type_info);
+			static_assert(FTP_COMMAND_TYPE_COMMAND_TYPE == FTP_COMMAND_TYPE_TYPE_INFO);
+
+			free(cmd->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_TYPE_INFO));
 			break;
 		}
 		case FtpCommandPort: {
-			free(cmd->data.port_info);
+			static_assert(FTP_COMMAND_TYPE_COMMAND_PORT == FTP_COMMAND_TYPE_PORT_INFO);
+
+			free(cmd->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_PORT_INFO));
 			break;
 		}
 		// string arguments
 		case FtpCommandUser:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_USER == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandPass:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_PASS == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandAcct:
-		case FtpCommandCwd:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_ACCT == FTP_COMMAND_TYPE_STRING);
+		case FtpCommandCwd: static_assert(FTP_COMMAND_TYPE_COMMAND_CWD == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandSmnt:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_SMNT == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandRetr:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_RETR == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandStor:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_STOR == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandAppe:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_APPE == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandRnfr:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_RNFR == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandRnto:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_RNTO == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandDele:
-		case FtpCommandRmd:
-		case FtpCommandMkd:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_DELE == FTP_COMMAND_TYPE_STRING);
+		case FtpCommandRmd: static_assert(FTP_COMMAND_TYPE_COMMAND_RMD == FTP_COMMAND_TYPE_STRING);
+		case FtpCommandMkd: static_assert(FTP_COMMAND_TYPE_COMMAND_MKD == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandSite:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_SITE == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandAuth:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_AUTH == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandAdat:
-		case FtpCommandMic:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_ADAT == FTP_COMMAND_TYPE_STRING);
+		case FtpCommandMic: static_assert(FTP_COMMAND_TYPE_COMMAND_MIC == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandConf:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_CONF == FTP_COMMAND_TYPE_STRING);
 		case FtpCommandEnc: {
-			tstr_free(&(cmd->data.string));
+			static_assert(FTP_COMMAND_TYPE_COMMAND_ENC == FTP_COMMAND_TYPE_STRING);
+
+			tstr_free(&(cmd->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING)));
 			break;
 		}
 		// optional string arguments
 		case FtpCommandList:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_LIST == FTP_COMMAND_TYPE_OPT_STRING);
 		case FtpCommandNlst:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_NLST == FTP_COMMAND_TYPE_OPT_STRING);
 		case FtpCommandStat:
+			static_assert(FTP_COMMAND_TYPE_COMMAND_STAT == FTP_COMMAND_TYPE_OPT_STRING);
 		case FtpCommandHelp: {
-			// TODO(Totto): tstr_is_null is not the same as data == NULL, as also "" SSO strings
-			// count as that, which is incorrect, fiy that in the entire codebase
-			if(!tstr_is_null(&(cmd->data.string))) {
-				tstr_free(&(cmd->data.string));
+			static_assert(FTP_COMMAND_TYPE_COMMAND_HELP == FTP_COMMAND_TYPE_OPT_STRING);
+
+			if(cmd->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_OPT_STRING).has_value) {
+				tstr_free(&(cmd->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_OPT_STRING).value));
 			}
 			break;
 		}
 		// no arguments
-		case FtpCommandCdup:
-		case FtpCommandRein:
-		case FtpCommandPasv:
-		case FtpCommandStou:
-		case FtpCommandAbor:
-		case FtpCommandPwd:
-		case FtpCommandSyst:
-		case FtpCommandNoop:
-		case FtpCommandFeat:
-		case FtpCommandQuit:
+		case FtpCommandCdup: static_assert(FTP_COMMAND_TYPE_COMMAND_CDUP == FTP_COMMAND_TYPE_NONE);
+		case FtpCommandRein: static_assert(FTP_COMMAND_TYPE_COMMAND_REIN == FTP_COMMAND_TYPE_NONE);
+		case FtpCommandPasv: static_assert(FTP_COMMAND_TYPE_COMMAND_PASV == FTP_COMMAND_TYPE_NONE);
+		case FtpCommandStou: static_assert(FTP_COMMAND_TYPE_COMMAND_STOU == FTP_COMMAND_TYPE_NONE);
+		case FtpCommandAbor: static_assert(FTP_COMMAND_TYPE_COMMAND_ABOR == FTP_COMMAND_TYPE_NONE);
+		case FtpCommandPwd: static_assert(FTP_COMMAND_TYPE_COMMAND_PWD == FTP_COMMAND_TYPE_NONE);
+		case FtpCommandSyst: static_assert(FTP_COMMAND_TYPE_COMMAND_SYST == FTP_COMMAND_TYPE_NONE);
+		case FtpCommandNoop: static_assert(FTP_COMMAND_TYPE_COMMAND_NOOP == FTP_COMMAND_TYPE_NONE);
+		case FtpCommandFeat: static_assert(FTP_COMMAND_TYPE_COMMAND_FEAT == FTP_COMMAND_TYPE_NONE);
+		case FtpCommandQuit: static_assert(FTP_COMMAND_TYPE_COMMAND_QUIT == FTP_COMMAND_TYPE_NONE);
 		default: break;
 	}
 }
