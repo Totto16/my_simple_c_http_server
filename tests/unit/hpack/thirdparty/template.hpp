@@ -19,9 +19,9 @@
 			doctest::String case_name = doctest::String{ case_str.c_str() }; \
 			SUBCASE(case_name) { \
 				[&test_case]() -> void { \
-					HpackDecompressStateCpp state = \
+					HpackDecompressStateCpp decompress_state = \
 					    get_default_hpack_decompress_state_cpp(test_case.header_table_size); \
-					REQUIRE_NE(state.get(), nullptr); \
+					REQUIRE_NE(decompress_state.get(), nullptr); \
 \
 					INFO("File: ", test_case.file); \
 					INFO("test case description: ", test_case.description); \
@@ -36,7 +36,10 @@
 \
 						const auto input = buffer_from_raw_data(single_case.wire_data); \
 \
-						const auto result = http2_hpack_decompress_data(state.get(), input); \
+						auto result = http2_hpack_decompress_data(decompress_state.get(), input); \
+						CppDefer<Http2HpackDecompressResult> defer = { \
+							&result, free_hpack_decompress_result \
+						}; \
 \
 						REQUIRE_IS_NOT_ERROR(result); \
 \
