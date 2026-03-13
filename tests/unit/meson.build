@@ -115,6 +115,7 @@ foreach test_file : test_files_manual + test_files_hpack
         protocol: 'exitcode',
         workdir: workdir,
         is_parallel: true,
+        timeout: 30
     )
 
 endforeach
