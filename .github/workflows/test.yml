@@ -57,7 +57,7 @@ jobs:
               run: |
                   meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
                   meson compile -C test_build
-                  meson test -C test_build --verbose
+                  meson test -C test_build --verbose -j $(nproc) -t 3
                   ninja coverage -C test_build
             - name: Create Coverage Report
               uses: insightsengineering/coverage-action@v3
