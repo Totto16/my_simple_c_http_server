@@ -10,9 +10,10 @@
 hpack::HpackGlobalHandle::HpackGlobalHandle() {
 	global_initialize_http2_hpack_data();
 
-	// TODO. set  the value to a invalid length str, so that the code crashes, when we don't setup
-	// HpackDecodingErrorStateHack and use the function
-	//  	setenv(TEST_ENV_PREFIX "_CALLBACK_FN", (char*)cb_fn, 1);
+	setenv(TEST_ENV_PREFIX "_CALLBACK_FN",
+	       "NOT SETUP PROPERLY, you need to use HpackDecodingErrorStateHack to call this function "
+	       "in test mode",
+	       1);
 }
 
 hpack::HpackGlobalHandle::~HpackGlobalHandle() noexcept(false) {
