@@ -122,6 +122,9 @@ void setup_global_env_for_hack() {
 	}
 
 	setenv(TEST_ENV_PREFIX "_CALLBACK_FN", (char*)cb_fn, 1);
+
+	// setenv copies these values
+	free(cb_fn);
 }
 
 hpack::hacky_trick::HpackDecodingErrorStateHack::HpackDecodingErrorStateHack() {
