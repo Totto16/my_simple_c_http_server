@@ -74,7 +74,25 @@ template <typename T> using CAutoFreePtr = std::unique_ptr<T, void (*)(T*)>;
 
 template <typename T>
 [[nodiscard]] static inline bool vec_contains(const std::vector<T>& vec, const T& val) {
-	return std::find(vec.begin(), vec.end(), val) != vec.end();
+	return std::find(vec.cbegin(), vec.cend(), val) != vec.cend();
+}
+template <typename T>
+[[nodiscard]] static inline bool vec_contains_duplicate(const std::vector<T>& vec) {
+
+	for(auto it = vec.cbegin(); it != vec.cend(); ++it) {
+		const auto start_search_it = it + 1;
+		if(start_search_it == vec.cend()) {
+			break;
+		}
+
+		const auto res = std::find(start_search_it, vec.cend(), *it);
+
+		if(res != vec.cend()) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 template <typename T>

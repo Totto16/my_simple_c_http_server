@@ -42,7 +42,8 @@ parse_headers_map(const nlohmann::json& value) {
 
 [[nodiscard]] static tests::ThirdPartyHpackTestCaseEntry
 get_case_from_json(const nlohmann::json& value, const std::string& suite_name,
-                   const std::string& test_name) {
+                   const std::string& test_name,
+                   const std::vector<consts::StrictErrorException>& strict_error_state_exceptions) {
 
 	size_t seqno = value["seqno"].get<size_t>();
 
@@ -55,8 +56,6 @@ get_case_from_json(const nlohmann::json& value, const std::string& suite_name,
 	const auto header_table_size = get_optional_header_size(value);
 
 	std::vector<std::string> strict_error_state{};
-
-	const auto& strict_error_state_exceptions = helpers::get_strict_error_state_exceptions();
 
 	for(const auto& header : headers) {
 		if(header.second == "") {
@@ -85,8 +84,9 @@ get_case_from_json(const nlohmann::json& value, const std::string& suite_name,
 	};
 }
 
-[[nodiscard]] static tests::ThirdPartyHpackTestCase
-get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
+[[nodiscard]] static tests::ThirdPartyHpackTestCase get_thirdparty_hpack_test_case(
+    const std::filesystem::path& path,
+    const std::vector<consts::StrictErrorException>& strict_error_state_exceptions) {
 
 	std::ifstream file_stream{ path };
 	nlohmann::json data = nlohmann::json::parse(file_stream);
@@ -106,7 +106,8 @@ get_thirdparty_hpack_test_case(const std::filesystem::path& path) {
 	for(size_t i = 0; i < data["cases"].size(); ++i) {
 		const auto& case_ = data["cases"].at(i);
 
-		const auto case_result = get_case_from_json(case_, suite_name, test_name);
+		const auto case_result =
+		    get_case_from_json(case_, suite_name, test_name, strict_error_state_exceptions);
 
 		cases.push_back(case_result);
 	}
@@ -194,13 +195,21 @@ hpack::get_thirdparty_hpack_test_cases(const std::string& name) {
 
 	std::vector<tests::ThirdPartyHpackTestCase> result{};
 
+	const auto& strict_error_state_exceptions = ::helpers::get_strict_error_state_exceptions();
+
+	if(vec_contains_duplicate(strict_error_state_exceptions)) {
+		throw std::runtime_error(
+		    "duplicate in strict_error_state_exceptions vector found, this is not allowed!");
+	}
+
 	for(auto const& dir_entry : std::filesystem::directory_iterator{ dir }) {
 
 		if(!dir_entry.is_regular_file()) {
 			continue;
 		}
 
-		const auto value = get_thirdparty_hpack_test_case(dir_entry.path());
+		const auto value =
+		    get_thirdparty_hpack_test_case(dir_entry.path(), strict_error_state_exceptions);
 
 		result.push_back(value);
 	}
