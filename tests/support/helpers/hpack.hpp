@@ -50,12 +50,15 @@ struct HpackGlobalHandle {
 
 	HpackGlobalHandle operator=(HpackGlobalHandle&&) = delete;
 
-	~HpackGlobalHandle();
+	~HpackGlobalHandle() noexcept(false);
 };
 
 } // namespace hpack
 
 namespace hpack::hacky_trick {
+
+// NOTE: this is not usable from multiple threads, as the underlying thing is not synchronized and
+// dependend o a static "instance" like global variable!
 
 struct HpackDecodingErrorStateHack {
 	HpackDecodingErrorStateHack();
@@ -68,7 +71,7 @@ struct HpackDecodingErrorStateHack {
 
 	HpackDecodingErrorStateHack operator=(HpackDecodingErrorStateHack&&) = delete;
 
-	~HpackDecodingErrorStateHack();
+	~HpackDecodingErrorStateHack() noexcept(false);
 
 	[[nodiscard]] std::vector<std::string> get_errors() const;
 };

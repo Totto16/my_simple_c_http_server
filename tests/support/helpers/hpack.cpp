@@ -1,34 +1,124 @@
 
 #include "./hpack.hpp"
 
+#include "../helpers.hpp"
+
+#include <atomic>
+
 #define TEST_ENV_PREFIX "TOTTO_SIMPLE_HTTP_SERVER___ENV___HACK_IMPL"
 
-static void test_framework_setup_global_data() {
-	// TODO: remove this after hpack decompress doesn't use this anymore!
-	setenv(TEST_ENV_PREFIX "_IS_TEST", "TRUE", 1);
-	setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "FALSE", 1);
-}
-
-static void test_framework_free_global_data() {
-
-	unsetenv(TEST_ENV_PREFIX "_IS_TEST");
-	unsetenv(TEST_ENV_PREFIX "_STRICT_QUIET");
-}
-
 hpack::HpackGlobalHandle::HpackGlobalHandle() {
-
 	global_initialize_http2_hpack_data();
-	test_framework_setup_global_data();
+
+	// TODO. set  the value to a invalid length str, so that the code crashes, when we don't setup
+	// HpackDecodingErrorStateHack and use the function
+	//  	setenv(TEST_ENV_PREFIX "_CALLBACK_FN", (char*)cb_fn, 1);
 }
 
-hpack::HpackGlobalHandle::~HpackGlobalHandle() {
+hpack::HpackGlobalHandle::~HpackGlobalHandle() noexcept(false) {
 	global_free_http2_hpack_data();
-	test_framework_free_global_data();
+
+	const char* cb = getenv(TEST_ENV_PREFIX "_CALLBACK_FN");
+
+	if(cb != NULL) {
+		// we didn't run the cleanup correctly
+		throw std::runtime_error("The test CB env variable wasn't cleanup up correctly!");
+	}
 }
 
-// TODO: use callback function inside set env variable,as this can anyway onle be one static
-// instance! store 0 byte with 0 byte map, as one byte has to be non null, store if byte is nonnull,
-// modify null bytes and store
+typedef void (*CbFn)(const tstr* const str);
+
+void setup_global_env_for_hack();
+
+struct HpackGlobalTrickData {
+	std::atomic<bool> present;
+	std::vector<std::string> errors;
+
+	void setup() {
+		bool expected = false;
+		const auto res = this->present.compare_exchange_strong(expected, true);
+
+		if(!res) {
+			throw std::runtime_error(
+			    "only one HpackDecodingErrorStateHack struct can be used at a time!");
+		}
+
+		this->errors = {};
+
+		setup_global_env_for_hack();
+	}
+
+	void destroy() {
+		bool expected = true;
+		const auto res = this->present.compare_exchange_strong(expected, false);
+
+		if(!res) {
+			throw std::runtime_error("error in HpackDecodingErrorStateHack destructor");
+		}
+
+		this->errors = {};
+	}
+
+	void add_error(const tstr* const str) { this->errors.push_back(string_from_tstr(*str)); }
+};
+
+static HpackGlobalTrickData g_hack_trick_variable = { .present = false, .errors = {} };
+
+static void g_hack_trick_add_error(const tstr* const str) {
+	g_hack_trick_variable.errors.push_back(string_from_tstr(*str));
+}
+
+void setup_global_env_for_hack() {
+	void* cb_fn = malloc(sizeof(uint8_t) + sizeof(void*) + 1);
+
+	if(cb_fn == NULL) {
+		throw std::runtime_error("OOM");
+	}
+
+	// NOTE: cb_fn stores the function ptr and a mask, to specify not 0 bytes, so that the
+	// strlen(returns the correct thing, we patch the ptr in places where it has a 0 and set the
+	// bit of that position to 0, so that even if 7 bytes are 0 one has to be at least non zero
+	// to be a valid ptr, the byte nmask is also always non zero guaranteed)
+
+	{
+		uint8_t* const byte_mask_ptr = (uint8_t*)((uint8_t*)cb_fn + sizeof(void*));
+
+		static_assert(sizeof(void*) <= (sizeof(uint8_t) * 8));
+		*byte_mask_ptr = 0xFF;
+
+		// set 0 terminator
+		*(((uint8_t*)cb_fn) + (sizeof(uint8_t) + sizeof(void*))) = 0x00;
+
+		{
+			CbFn fn_ptr = &g_hack_trick_add_error;
+
+			memcpy(cb_fn, (void*)&fn_ptr, sizeof(void*));
+		}
+
+		{
+			uint8_t* const fn_values = (uint8_t*)cb_fn;
+
+			for(size_t i = 0; i < sizeof(void*); ++i) {
+				const uint8_t val = fn_values[i];
+
+				if(val == 0) {
+					*byte_mask_ptr = *byte_mask_ptr & (~(1 << i));
+					fn_values[i] = 0xFF;
+				}
+			}
+		}
+	}
+
+	const size_t cb_len = strlen((char*)cb_fn);
+
+	if(cb_len != (sizeof(void*) + sizeof(uint8_t))) {
+		throw std::runtime_error(std::string{ "invalid encoding of the ptr: size is " } +
+		                         std::to_string(cb_len) + " but not " +
+		                         std::to_string((sizeof(void*) + sizeof(uint8_t))));
+	}
+
+	setenv(TEST_ENV_PREFIX "_CALLBACK_FN", (char*)cb_fn, 1);
+}
 
 hpack::hacky_trick::HpackDecodingErrorStateHack::HpackDecodingErrorStateHack() {
 
@@ -37,45 +127,17 @@ hpack::hacky_trick::HpackDecodingErrorStateHack::HpackDecodingErrorStateHack() {
 	    "this class doesn't work in non debug mode, as than the library doesn't use this expensive global tracking"
 #endif
 
-	// set quiet, as we collect the result
-	setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "TRUE", 1);
-
-	setenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES", "", 1);
+	g_hack_trick_variable.setup();
 }
 
-hpack::hacky_trick::HpackDecodingErrorStateHack::~HpackDecodingErrorStateHack() {
-	setenv(TEST_ENV_PREFIX "_STRICT_QUIET", "FALSE", 1);
-	unsetenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES");
+hpack::hacky_trick::HpackDecodingErrorStateHack::~HpackDecodingErrorStateHack() noexcept(false) {
+	g_hack_trick_variable.destroy();
+	unsetenv(TEST_ENV_PREFIX "_CALLBACK_FN");
 }
 
 [[nodiscard]] std::vector<std::string>
 hpack::hacky_trick::HpackDecodingErrorStateHack::get_errors() const {
-
-	std::vector<std::string> result{};
-
-	const char* const values = getenv(TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES");
-
-	if(values == NULL) {
-		return result;
-	}
-
-	std::string cpp_values = std::string{ values };
-
-	if(cpp_values == "") {
-		return result;
-	}
-
-	size_t start = 0;
-	size_t end;
-
-	while((end = cpp_values.find('\1', start)) != std::string::npos) {
-		result.push_back(cpp_values.substr(start, end - start));
-		start = end + 1;
-	}
-
-	result.push_back(cpp_values.substr(start));
-
-	return result;
+	return g_hack_trick_variable.errors;
 }
 
 [[nodiscard]] static std::uint8_t parse_hex_byte(const char& val) {

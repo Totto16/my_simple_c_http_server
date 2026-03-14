@@ -260,45 +260,50 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 
 	#define TEST_ENV_PREFIX "TOTTO_SIMPLE_HTTP_SERVER___ENV___HACK_IMPL"
 
-		const char* const is_in_testing = getenv(TEST_ENV_PREFIX "_IS_TEST");
+		const char* const err_callback = getenv(TEST_ENV_PREFIX "_CALLBACK_FN");
 
-		if(is_in_testing != NULL && strcmp(is_in_testing, "TRUE") == 0) {
+		if(err_callback != NULL) {
 
-			const char* const strict_quiet_env = getenv(TEST_ENV_PREFIX "_STRICT_QUIET");
+			const size_t err_cb_size = strlen(err_callback);
 
-			const bool strict_quiet =
-			    strict_quiet_env != NULL && strcmp(strict_quiet_env, "TRUE") == 0;
-
-			if(!strict_quiet) {
+			if(err_cb_size == 0) {
 
 				fprintf(stderr,
-				        "STRICT VIOLATION, used value of entry with a null value, key: " TSTR_FMT
+				        "STRICT VIOLATION: used value of entry with a null value, key: " TSTR_FMT
 				        "\n",
 				        TSTR_FMT_ARGS(entry.key));
-			}
+			} else if(err_cb_size == (sizeof(void*) + sizeof(uint8_t))) {
 
-			const char* const env_name_failed_tests = TEST_ENV_PREFIX "_TEST_CASE_FAILED_KEY_NAMES";
+				typedef void (*CbFn)(const tstr* const str);
 
-			char* failed_key_names = getenv(env_name_failed_tests);
+				const void* const err_callback_bytes = (const void* const)err_callback;
 
-			StringBuilder* sb = string_builder_init();
+				const uint8_t mask_byte = *(((uint8_t*)err_callback_bytes) + sizeof(void*));
 
-			if(failed_key_names != NULL && strlen(failed_key_names) != 0) {
-				// TODO(Totto). is the env value malloced, so i need to free it before changing it?
-				string_builder_append_single(sb, failed_key_names);
-			}
+				void* cb_fn_raw = NULL;
+				memcpy((void*)&cb_fn_raw, (void*)err_callback_bytes, sizeof(void*));
 
-			if(string_builder_get_string_size(sb) == 0) {
-				STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "sb append");
-				                       , TSTR_FMT, TSTR_FMT_ARGS(entry.key));
+				{ // patch fn ptr
+
+					uint8_t* const raw_fb_ptr = (uint8_t*)(&cb_fn_raw);
+
+					for(size_t i = 0; i < sizeof(void*); ++i) {
+						if((mask_byte & (1 << i)) == 0) {
+							raw_fb_ptr[i] = 0x00;
+						}
+					}
+				}
+
+				CbFn cb_fn = (CbFn)(cb_fn_raw);
+
+				cb_fn(&entry.key);
 			} else {
-				STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "sb append");
-				                       , "\1" TSTR_FMT, TSTR_FMT_ARGS(entry.key));
+				fprintf(stderr,
+				        "ERROR: cb is wrongly formatted, it has size %zu (not equal to 0 or %zu), "
+				        "which means we have encoded it incorrectly, the text was: %s\n",
+				        err_cb_size, (sizeof(void*) + sizeof(uint8_t)), err_callback);
+				abort();
 			}
-
-			failed_key_names = string_builder_release_into_string(&sb);
-
-			setenv(env_name_failed_tests, failed_key_names, 1);
 		}
 
 		entry_value = tstr_init();
