@@ -991,16 +991,16 @@ using DynamicTableOperation = std::variant<hpack::DynamicEntry, std::optional<hp
 
 namespace dynamic_op {
 
-static DynamicTableOperation insert(hpack::DynamicEntry&& value) {
-	return DynamicTableOperation{ std::move(value) };
+static DynamicTableOperation insert_at_start(hpack::DynamicEntry&& value) {
+	return DynamicTableOperation{ hpack::DynamicEntry{ std::move(value) } };
 }
 
-static DynamicTableOperation remove(hpack::DynamicEntry&& value) {
-	return DynamicTableOperation{ std::move(value) };
+static DynamicTableOperation remove_at_end(hpack::DynamicEntry&& value) {
+	return DynamicTableOperation{ std::optional<hpack::DynamicEntry>{ std::move(value) } };
 }
 
-static DynamicTableOperation remove() {
-	return DynamicTableOperation{ std::nullopt };
+static DynamicTableOperation remove_at_end() {
+	return DynamicTableOperation{ std::optional<hpack::DynamicEntry>{ std::nullopt } };
 }
 } // namespace dynamic_op
 
@@ -1025,73 +1025,74 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 		    .description = "snothing to remove at the start",
 		    .operations =
 		        std::vector<DynamicTableOperation>{
-		            dynamic_op::remove(),
+		            dynamic_op::remove_at_end(),
 		        },
 		    .result = std::vector<hpack::DynamicEntry>{},
 		},
 		DynamicTableOperationsTest{
 		    .description = "some insertions, no removals",
 		    .operations =
-		        std::vector<DynamicTableOperation>{ dynamic_op::insert(hpack::DynamicEntry{
+		        std::vector<DynamicTableOperation>{ dynamic_op::insert_at_start(hpack::DynamicEntry{
 		                                                .key = "test_key1", .value = "value1" }),
-		                                            dynamic_op::insert(hpack::DynamicEntry{
+		                                            dynamic_op::insert_at_start(hpack::DynamicEntry{
 		                                                .key = "test_key2", .value = "value2" }),
-		                                            dynamic_op::insert(hpack::DynamicEntry{
+		                                            dynamic_op::insert_at_start(hpack::DynamicEntry{
 		                                                .key = "test_key3", .value = "value3" }),
-		                                            dynamic_op::insert(hpack::DynamicEntry{
+		                                            dynamic_op::insert_at_start(hpack::DynamicEntry{
 		                                                .key = "test_key4", .value = "value4" }) },
 		    .result =
 		        std::vector<hpack::DynamicEntry>{
-		            hpack::DynamicEntry{ .key = "test_key1", .value = "value1" },
-		            hpack::DynamicEntry{ .key = "test_key2", .value = "value2" },
+		            hpack::DynamicEntry{ .key = "test_key4", .value = "value4" },
 		            hpack::DynamicEntry{ .key = "test_key3", .value = "value3" },
-		            hpack::DynamicEntry{ .key = "test_key4", .value = "value4" } },
+		            hpack::DynamicEntry{ .key = "test_key2", .value = "value2" },
+		            hpack::DynamicEntry{ .key = "test_key1", .value = "value1" },
+		        },
 		},
 		DynamicTableOperationsTest{
 		    .description = "some insertions, some removals (not all)",
 		    .operations =
 		        std::vector<DynamicTableOperation>{
-		            dynamic_op::insert(
+		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key1", .value = "value1" }),
-		            dynamic_op::insert(
+		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key2", .value = "value2" }),
-		            dynamic_op::insert(
+		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key3", .value = "value3" }),
-		            dynamic_op::insert(
+		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key4", .value = "value4" }),
 		            //
-		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key4",
-		                                                    .value = "value4" }),
-		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key3",
-		                                                    .value = "value3" }),
-		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key2",
-		                                                    .value = "value2" }),
+		            dynamic_op::remove_at_end(
+		                hpack::DynamicEntry{ .key = "test_key1", .value = "value1" }),
+		            dynamic_op::remove_at_end(
+		                hpack::DynamicEntry{ .key = "test_key2", .value = "value2" }),
+		            dynamic_op::remove_at_end(
+		                hpack::DynamicEntry{ .key = "test_key3", .value = "value3" }),
 		        },
-		    .result = std::vector<hpack::DynamicEntry>{ hpack::DynamicEntry{ .key = "test_key1",
-		                                                                     .value = "value1" } },
+		    .result = std::vector<hpack::DynamicEntry>{ hpack::DynamicEntry{ .key = "test_key4",
+		                                                                     .value = "value4" } },
 		},
 		DynamicTableOperationsTest{
 		    .description = "some insertions, all get removed",
 		    .operations =
 		        std::vector<DynamicTableOperation>{
-		            dynamic_op::insert(
+		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key1", .value = "value1" }),
-		            dynamic_op::insert(
+		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key2", .value = "value2" }),
-		            dynamic_op::insert(
+		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key3", .value = "value3" }),
-		            dynamic_op::insert(
+		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key4", .value = "value4" }),
 		            //
-		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key4",
-		                                                    .value = "value4" }),
-		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key3",
-		                                                    .value = "value3" }),
-		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key2",
-		                                                    .value = "value2" }),
-		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key1",
-		                                                    .value = "value1" }),
-		            dynamic_op::remove() },
+		            dynamic_op::remove_at_end(
+		                hpack::DynamicEntry{ .key = "test_key1", .value = "value1" }),
+		            dynamic_op::remove_at_end(
+		                hpack::DynamicEntry{ .key = "test_key2", .value = "value2" }),
+		            dynamic_op::remove_at_end(
+		                hpack::DynamicEntry{ .key = "test_key3", .value = "value3" }),
+		            dynamic_op::remove_at_end(
+		                hpack::DynamicEntry{ .key = "test_key4", .value = "value4" }),
+		            dynamic_op::remove_at_end() },
 		    .result = std::vector<hpack::DynamicEntry>{},
 		},
 
@@ -1100,7 +1101,7 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 	// generate some tests
 
 	{ // test 1
-		std::vector<DynamicTableOperation> operations = { dynamic_op::remove() };
+		std::vector<DynamicTableOperation> operations = { dynamic_op::remove_at_end() };
 
 		const size_t amount = 1024;
 
@@ -1110,14 +1111,14 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 		};
 
 		for(size_t i = 0; i < amount; ++i) {
-			operations.emplace_back(dynamic_op::insert(get_entry(i)));
+			operations.emplace_back(dynamic_op::insert_at_start(get_entry(i)));
 		}
 
 		for(size_t i = 0; i < amount; ++i) {
-			operations.emplace_back(dynamic_op::remove(get_entry(i)));
+			operations.emplace_back(dynamic_op::remove_at_end(get_entry(i)));
 		}
 
-		operations.emplace_back(dynamic_op::remove());
+		operations.emplace_back(dynamic_op::remove_at_end());
 
 		std::vector<hpack::DynamicEntry> result = {};
 

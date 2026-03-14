@@ -60,8 +60,6 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 #define IMPL_GROWTH_FACTOR(cap) ((cap) == 0 ? 32 : (cap) * 2)
 
-// TODO: test this, as it failed on the second realloc alias the first one with previous data as 0
-// -> 32 has no real reallocations to make
 NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* const dynamic_table,
                                                    HpackHeaderDynamicEntry entry) {
 
