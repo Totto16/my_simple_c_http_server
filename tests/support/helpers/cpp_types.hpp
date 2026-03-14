@@ -19,7 +19,7 @@ std::ostream& operator<<(std::ostream& os, const std::pair<A, B>& pair) {
 	return os;
 }
 
-template <typename T> std::ostream& operator<<(std::ostream& os, const std::vector<T>& vector) {
+template <typename T> std::ostream& print_vector(std::ostream& os, const std::vector<T>& vector) {
 	if(vector.data() == NULL || vector.size() > details::vector_max_for_printing_content) {
 		os << "vector{data=" << vector.data() << ", size=" << vector.size() << "}";
 	} else {
@@ -44,6 +44,10 @@ template <typename T> std::ostream& operator<<(std::ostream& os, const std::vect
 		os << "} , size=" << vector.size() << "}";
 	}
 	return os;
+}
+
+template <typename T> std::ostream& operator<<(std::ostream& os, const std::vector<T>& vector) {
+	return print_vector(os, vector);
 }
 
 template <typename T> std::ostream& operator<<(std::ostream& os, const std::optional<T>& val) {

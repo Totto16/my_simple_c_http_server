@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "utils/utils.h"
 
 #include <tstr.h>
@@ -27,7 +31,7 @@ typedef struct {
 	size_t start;
 } HpackHeaderDynamicTable;
 
-NODISCARD HpackHeaderDynamicTable hpack_dynamic_table_empty(void);
+NODISCARD HpackHeaderDynamicTable hpack_dynamic_table_get_empty(void);
 
 NODISCARD HpackHeaderDynamicEntry
 hpack_dynamic_table_at(const HpackHeaderDynamicTable* dynamic_table, size_t index);
@@ -43,3 +47,7 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* dynamic_table);
 
 NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* dynamic_table,
                                                    HpackHeaderDynamicEntry entry);
+
+#ifdef __cplusplus
+}
+#endif

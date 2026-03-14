@@ -783,3 +783,210 @@ void helpers::free_huffman_encode_result(HuffmanEncodeResult* encode_result) {
 
 	return result;
 }
+
+hpack::DynamicTableC::DynamicTableC() {
+	this->m_table = hpack_dynamic_table_get_empty();
+}
+
+hpack::DynamicTableC::~DynamicTableC() {
+	hpack_dynamic_table_free(&(this->m_table));
+}
+
+[[nodiscard]] static hpack::DynamicEntry cpp_entry_from_c(const HpackHeaderDynamicEntry& entry) {
+
+	return hpack::DynamicEntry{ .key = string_from_tstr(entry.key),
+		                        .value = string_from_tstr(entry.value) };
+}
+
+[[nodiscard]] hpack::DynamicEntry hpack::DynamicTableC::operator[](size_t idx) const {
+	if(idx >= this->size()) {
+		throw std::out_of_range("index out of range");
+	}
+
+	const auto entry = hpack_dynamic_table_at(&(this->m_table), idx);
+
+	return cpp_entry_from_c(entry);
+}
+
+[[nodiscard]] size_t hpack::DynamicTableC::size() const {
+	return hpack_dynamic_table_size(&(this->m_table));
+}
+
+[[nodiscard]] std::optional<hpack::DynamicEntry> hpack::DynamicTableC::pop_at_end() {
+	const auto* const entry = hpack_dynamic_table_pop_at_end(&(this->m_table));
+
+	if(entry == nullptr) {
+		return std::nullopt;
+	}
+
+	const auto result = cpp_entry_from_c(*entry);
+
+	free_dynamic_entry(*entry);
+
+	return result;
+}
+
+[[nodiscard]] static HpackHeaderDynamicEntry c_entry_from_cpp(const hpack::DynamicEntry& entry) {
+
+	return HpackHeaderDynamicEntry{
+		.key = tstr_from_string(entry.key),
+		.value = tstr_from_string(entry.value),
+	};
+}
+
+[[nodiscard]] bool hpack::DynamicTableC::insert_at_start(const hpack::DynamicEntry& entry) {
+	const auto c_entry = c_entry_from_cpp(entry);
+
+	return hpack_dynamic_table_insert_at_start(&(this->m_table), c_entry);
+}
+
+hpack::DynamicTableCpp::DynamicTableCpp() : m_deque{} {}
+
+hpack::DynamicTableCpp::~DynamicTableCpp() = default;
+
+[[nodiscard]] hpack::DynamicEntry hpack::DynamicTableCpp::operator[](size_t idx) const {
+	return this->m_deque.at(idx);
+}
+
+[[nodiscard]] size_t hpack::DynamicTableCpp::size() const {
+	return this->m_deque.size();
+}
+
+[[nodiscard]] std::optional<hpack::DynamicEntry> hpack::DynamicTableCpp::pop_at_end() {
+	if(this->m_deque.empty()) {
+		return std::nullopt;
+	}
+
+	DynamicEntry last = this->m_deque.back();
+
+	this->m_deque.pop_back();
+
+	return last;
+}
+
+[[nodiscard]] bool hpack::DynamicTableCpp::insert_at_start(const hpack::DynamicEntry& entry) {
+
+	this->m_deque.push_front(entry);
+
+	return true;
+}
+
+[[nodiscard]] bool hpack::DynamicEntry::operator==(const DynamicEntry& lhs) const {
+
+	if(this->key != lhs.key) {
+		return false;
+	}
+
+	return this->value == lhs.value;
+}
+
+std::ostream& hpack::operator<<(std::ostream& os, const DynamicEntry& entry) {
+
+	os << "DynamicEntry{ .key = " << entry.key << ", .value = " << entry.value << "}";
+
+	return os;
+}
+
+[[nodiscard]] bool hpack::DynamicTableC::operator==(const DynamicTableC& lhs) const {
+	if(this->size() != lhs.size()) {
+		return false;
+	}
+
+	for(size_t i = 0; i < this->size(); ++i) {
+
+		if(this->operator[](i) != lhs[i]) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+[[nodiscard]] static std::vector<hpack::DynamicEntry>
+vector_from_dynamic_table_c(const hpack::DynamicTableC& table) {
+	std::vector<hpack::DynamicEntry> result{};
+
+	const size_t size = table.size();
+
+	result.reserve(size);
+
+	for(size_t i = 0; i < table.size(); ++i) {
+
+		result.emplace_back(table[i]);
+	}
+
+	return result;
+}
+
+[[nodiscard]] bool
+hpack::DynamicTableC::operator==(const std::vector<hpack::DynamicEntry>& lhs) const {
+	const auto self_vec = vector_from_dynamic_table_c(*this);
+
+	return self_vec == lhs;
+}
+
+std::ostream& hpack::operator<<(std::ostream& os, const hpack::DynamicTableC& table) {
+
+	const auto self_vec = vector_from_dynamic_table_c(table);
+
+	return print_vector(os, self_vec);
+}
+
+[[nodiscard]] bool hpack::DynamicTableCpp::operator==(const DynamicTableCpp& lhs) const {
+	if(this->size() != lhs.size()) {
+		return false;
+	}
+
+	for(size_t i = 0; i < this->size(); ++i) {
+
+		if(this->operator[](i) != lhs[i]) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+[[nodiscard]] static std::vector<hpack::DynamicEntry>
+vector_from_dynamic_table_cpp(const hpack::DynamicTableCpp& table) {
+	std::vector<hpack::DynamicEntry> result{};
+
+	const size_t size = table.size();
+
+	result.reserve(size);
+
+	for(size_t i = 0; i < table.size(); ++i) {
+
+		result.emplace_back(table[i]);
+	}
+
+	return result;
+}
+
+[[nodiscard]] bool hpack::DynamicTableCpp::operator==(const std::vector<DynamicEntry>& lhs) const {
+	const auto self_vec = vector_from_dynamic_table_cpp(*this);
+
+	return self_vec == lhs;
+}
+
+std::ostream& hpack::operator<<(std::ostream& os, const hpack::DynamicTableCpp& table) {
+	const auto self_vec = vector_from_dynamic_table_cpp(table);
+
+	return print_vector(os, self_vec);
+}
+
+[[nodiscard]] bool hpack::operator==(const DynamicTableC& rhs, const DynamicTableCpp& lhs) {
+	const auto rhs_vec = vector_from_dynamic_table_c(rhs);
+
+	const auto lhs_vec = vector_from_dynamic_table_cpp(lhs);
+
+	return rhs_vec == lhs_vec;
+}
+
+[[nodiscard]] bool hpack::operator==(const DynamicTableCpp& rhs, const DynamicTableC& lhs) {
+	const auto rhs_vec = vector_from_dynamic_table_cpp(rhs);
+
+	const auto lhs_vec = vector_from_dynamic_table_c(lhs);
+
+	return rhs_vec == lhs_vec;
+}

@@ -901,7 +901,7 @@ return_error:
 NODISCARD static HpackDynamicTableState
 get_default_hpack_dynamic_table_state(size_t max_dynamic_table_byte_size) {
 	return (HpackDynamicTableState){
-		.dynamic_table = hpack_dynamic_table_empty(),
+		.dynamic_table = hpack_dynamic_table_get_empty(),
 		.current_dynamic_table_byte_size = 0,
 		.max_dynamic_table_byte_size = max_dynamic_table_byte_size,
 	};

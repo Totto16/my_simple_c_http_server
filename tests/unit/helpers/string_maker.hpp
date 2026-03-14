@@ -84,4 +84,22 @@ template <> struct StringMaker<test::DynamicTable> {
 	}
 };
 
+template <> struct StringMaker<hpack::DynamicTableC> {
+	static String convert(const hpack::DynamicTableC& table) {
+		return ::os_stream_formattable_to_doctest(table);
+	}
+};
+
+template <> struct StringMaker<hpack::DynamicTableCpp> {
+	static String convert(const hpack::DynamicTableCpp& table) {
+		return ::os_stream_formattable_to_doctest(table);
+	}
+};
+
+template <> struct StringMaker<hpack::DynamicEntry> {
+	static String convert(const hpack::DynamicEntry& entry) {
+		return ::os_stream_formattable_to_doctest(entry);
+	}
+};
+
 } // namespace doctest

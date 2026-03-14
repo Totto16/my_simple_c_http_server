@@ -1,6 +1,6 @@
 #include "./dynamic_hpack_table.h"
 
-NODISCARD HpackHeaderDynamicTable hpack_dynamic_table_empty(void) {
+NODISCARD HpackHeaderDynamicTable hpack_dynamic_table_get_empty(void) {
 	return (HpackHeaderDynamicTable){
 		.entries = NULL,
 		.count = 0,
@@ -39,7 +39,7 @@ void hpack_dynamic_table_free(HpackHeaderDynamicTable* const dynamic_table) {
 
 	free(dynamic_table->entries);
 
-	*dynamic_table = hpack_dynamic_table_empty();
+	*dynamic_table = hpack_dynamic_table_get_empty();
 }
 
 NODISCARD HpackHeaderDynamicEntry*

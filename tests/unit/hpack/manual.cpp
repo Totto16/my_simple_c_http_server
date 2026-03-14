@@ -982,4 +982,202 @@ TEST_CASE("testing fast string comparison <fast_string_cmp>") {
 	}
 }
 
+enum class DynamicTableOperationType : std::uint8_t {
+	Insert,
+	Remove,
+};
+
+using DynamicTableOperation = std::variant<hpack::DynamicEntry, std::optional<hpack::DynamicEntry>>;
+
+namespace dynamic_op {
+
+static DynamicTableOperation insert(hpack::DynamicEntry&& value) {
+	return DynamicTableOperation{ std::move(value) };
+}
+
+static DynamicTableOperation remove(hpack::DynamicEntry&& value) {
+	return DynamicTableOperation{ std::move(value) };
+}
+
+static DynamicTableOperation remove() {
+	return DynamicTableOperation{ std::nullopt };
+}
+} // namespace dynamic_op
+
+namespace helper {
+
+template <class... Ts> struct Overloaded : Ts... {
+	using Ts::operator()...;
+};
+template <class... Ts> Overloaded(Ts...) -> Overloaded<Ts...>;
+} // namespace helper
+
+struct DynamicTableOperationsTest {
+	std::string description;
+	std::vector<DynamicTableOperation> operations;
+	std::vector<hpack::DynamicEntry> result;
+};
+
+TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
+
+	std::vector<DynamicTableOperationsTest> test_cases = {
+		DynamicTableOperationsTest{
+		    .description = "snothing to remove at the start",
+		    .operations =
+		        std::vector<DynamicTableOperation>{
+		            dynamic_op::remove(),
+		        },
+		    .result = std::vector<hpack::DynamicEntry>{},
+		},
+		DynamicTableOperationsTest{
+		    .description = "some insertions, no removals",
+		    .operations =
+		        std::vector<DynamicTableOperation>{ dynamic_op::insert(hpack::DynamicEntry{
+		                                                .key = "test_key1", .value = "value1" }),
+		                                            dynamic_op::insert(hpack::DynamicEntry{
+		                                                .key = "test_key2", .value = "value2" }),
+		                                            dynamic_op::insert(hpack::DynamicEntry{
+		                                                .key = "test_key3", .value = "value3" }),
+		                                            dynamic_op::insert(hpack::DynamicEntry{
+		                                                .key = "test_key4", .value = "value4" }) },
+		    .result =
+		        std::vector<hpack::DynamicEntry>{
+		            hpack::DynamicEntry{ .key = "test_key1", .value = "value1" },
+		            hpack::DynamicEntry{ .key = "test_key2", .value = "value2" },
+		            hpack::DynamicEntry{ .key = "test_key3", .value = "value3" },
+		            hpack::DynamicEntry{ .key = "test_key4", .value = "value4" } },
+		},
+		DynamicTableOperationsTest{
+		    .description = "some insertions, some removals (not all)",
+		    .operations =
+		        std::vector<DynamicTableOperation>{
+		            dynamic_op::insert(
+		                hpack::DynamicEntry{ .key = "test_key1", .value = "value1" }),
+		            dynamic_op::insert(
+		                hpack::DynamicEntry{ .key = "test_key2", .value = "value2" }),
+		            dynamic_op::insert(
+		                hpack::DynamicEntry{ .key = "test_key3", .value = "value3" }),
+		            dynamic_op::insert(
+		                hpack::DynamicEntry{ .key = "test_key4", .value = "value4" }),
+		            //
+		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key4",
+		                                                    .value = "value4" }),
+		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key3",
+		                                                    .value = "value3" }),
+		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key2",
+		                                                    .value = "value2" }),
+		        },
+		    .result = std::vector<hpack::DynamicEntry>{ hpack::DynamicEntry{ .key = "test_key1",
+		                                                                     .value = "value1" } },
+		},
+		DynamicTableOperationsTest{
+		    .description = "some insertions, all get removed",
+		    .operations =
+		        std::vector<DynamicTableOperation>{
+		            dynamic_op::insert(
+		                hpack::DynamicEntry{ .key = "test_key1", .value = "value1" }),
+		            dynamic_op::insert(
+		                hpack::DynamicEntry{ .key = "test_key2", .value = "value2" }),
+		            dynamic_op::insert(
+		                hpack::DynamicEntry{ .key = "test_key3", .value = "value3" }),
+		            dynamic_op::insert(
+		                hpack::DynamicEntry{ .key = "test_key4", .value = "value4" }),
+		            //
+		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key4",
+		                                                    .value = "value4" }),
+		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key3",
+		                                                    .value = "value3" }),
+		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key2",
+		                                                    .value = "value2" }),
+		            dynamic_op::remove(hpack::DynamicEntry{ .key = "test_key1",
+		                                                    .value = "value1" }),
+		            dynamic_op::remove() },
+		    .result = std::vector<hpack::DynamicEntry>{},
+		},
+
+	};
+
+	// generate some tests
+
+	{ // test 1
+		std::vector<DynamicTableOperation> operations = { dynamic_op::remove() };
+
+		const size_t amount = 1024;
+
+		auto get_entry = [](size_t i) {
+			return hpack::DynamicEntry{ .key = std::string{ "test_key_" } + std::to_string(i),
+				                        .value = std::string{ "test_value_" } + std::to_string(i) };
+		};
+
+		for(size_t i = 0; i < amount; ++i) {
+			operations.emplace_back(dynamic_op::insert(get_entry(i)));
+		}
+
+		for(size_t i = 0; i < amount; ++i) {
+			operations.emplace_back(dynamic_op::remove(get_entry(i)));
+		}
+
+		operations.emplace_back(dynamic_op::remove());
+
+		std::vector<hpack::DynamicEntry> result = {};
+
+		test_cases.emplace_back("many insertions and the same amount of removals",
+		                        std::move(operations), std::move(result));
+	}
+
+	for(size_t i = 0; i < test_cases.size(); ++i) {
+
+		const auto& test_case = test_cases.at(i);
+
+		const auto case_str = std::string{ "Subcase " } + std::to_string(i);
+		doctest::String case_name = doctest::String{ case_str.c_str() };
+
+		SUBCASE(case_name) {
+			[&test_case]() -> void {
+				INFO("test case description: ", test_case.description);
+
+				hpack::DynamicTableC table_c = {};
+				hpack::DynamicTableC table_cpp = {};
+
+				for(const auto& op : test_case.operations) {
+
+					std::visit(
+					    helper::Overloaded{
+					        [&table_c,
+					         &table_cpp](const hpack::DynamicEntry& insert_entry) -> void {
+						        const auto insert_c_result = table_c.insert_at_start(insert_entry);
+
+						        REQUIRE(insert_c_result);
+
+						        const auto insert_cpp_result =
+						            table_cpp.insert_at_start(insert_entry);
+
+						        REQUIRE(insert_cpp_result);
+					        },
+					        [&table_c, &table_cpp](
+					            const std::optional<hpack::DynamicEntry>& remove_result) -> void {
+						        const auto remove_c_result = table_c.pop_at_end();
+
+						        REQUIRE_EQ(remove_c_result, remove_result);
+
+						        const auto remove_cpp_result = table_cpp.pop_at_end();
+
+						        REQUIRE_EQ(remove_cpp_result, remove_result);
+
+						        REQUIRE_EQ(remove_c_result, remove_cpp_result);
+					        },
+					    },
+					    op);
+				}
+
+				REQUIRE_EQ(table_c, table_cpp);
+
+				REQUIRE_EQ(table_c, test_case.result);
+
+				REQUIRE_EQ(table_cpp, test_case.result);
+			}();
+		}
+	}
+}
+
 TEST_SUITE_END();

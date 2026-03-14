@@ -183,3 +183,93 @@ namespace hpack::huffman {
 
 [[nodiscard]] std::vector<std::uint8_t> all_values_vector();
 } // namespace hpack::huffman
+
+#include <deque>
+#include <http/dynamic_hpack_table.h>
+
+namespace hpack {
+
+struct DynamicEntry {
+	std::string key;
+	std::string value;
+
+	friend std::ostream& operator<<(std::ostream& os, const DynamicEntry& entry);
+
+	[[nodiscard]] bool operator==(const DynamicEntry& lhs) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const hpack::DynamicEntry& entry);
+
+struct DynamicTableC {
+  private:
+	HpackHeaderDynamicTable m_table;
+
+  public:
+	DynamicTableC();
+
+	DynamicTableC(DynamicTableC&&) = delete;
+
+	DynamicTableC(const DynamicTableC&) = delete;
+
+	DynamicTableC& operator=(const DynamicTableC&) = delete;
+
+	DynamicTableC operator=(DynamicTableC&&) = delete;
+
+	~DynamicTableC();
+
+	[[nodiscard]] DynamicEntry operator[](size_t idx) const;
+
+	[[nodiscard]] size_t size() const;
+
+	[[nodiscard]] std::optional<DynamicEntry> pop_at_end();
+
+	[[nodiscard]] bool insert_at_start(const DynamicEntry& entry);
+
+	friend std::ostream& operator<<(std::ostream& os, const DynamicTableC& table);
+
+	[[nodiscard]] bool operator==(const DynamicTableC& lhs) const;
+
+	[[nodiscard]] bool operator==(const std::vector<DynamicEntry>& lhs) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const hpack::DynamicTableC& table);
+
+struct DynamicTableCpp {
+  private:
+	std::deque<DynamicEntry> m_deque;
+
+  public:
+	DynamicTableCpp();
+
+	DynamicTableCpp(DynamicTableCpp&&) = delete;
+
+	DynamicTableCpp(const DynamicTableCpp&) = delete;
+
+	DynamicTableCpp& operator=(const DynamicTableCpp&) = delete;
+
+	DynamicTableCpp operator=(DynamicTableCpp&&) = delete;
+
+	~DynamicTableCpp();
+
+	[[nodiscard]] DynamicEntry operator[](size_t idx) const;
+
+	[[nodiscard]] size_t size() const;
+
+	[[nodiscard]] std::optional<DynamicEntry> pop_at_end();
+
+	[[nodiscard]] bool insert_at_start(const DynamicEntry& entry);
+
+	friend std::ostream& operator<<(std::ostream& os, const DynamicTableCpp& table);
+
+	[[nodiscard]] bool operator==(const DynamicTableCpp& lhs) const;
+
+	[[nodiscard]] bool operator==(const std::vector<DynamicEntry>& lhs) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const hpack::DynamicTableCpp& table);
+
+[[nodiscard]] bool operator==(const DynamicTableC& rhs, const DynamicTableCpp& lhs);
+
+[[nodiscard]] bool operator==(const DynamicTableCpp& rhs, const DynamicTableC& lhs);
+
+} // namespace hpack
