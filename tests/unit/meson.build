@@ -19,9 +19,9 @@ test_inc_dirs += include_directories('.')
 test_inc_dirs += support_inc
 
 test_src += files(
-    'helpers/main.cpp',
-    'helpers/json.hpp',
     'helpers/json.cpp',
+    'helpers/json.hpp',
+    'helpers/main.cpp',
     'helpers/string_maker.hpp',
 )
 
