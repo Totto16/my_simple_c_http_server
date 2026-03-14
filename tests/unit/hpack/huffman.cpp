@@ -68,7 +68,7 @@ TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decod
 
 				auto result = hpack_huffman_decode_bytes(input);
 				CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
-					                                    helpers::free_huffman_decode_result };
+					                                        helpers::free_huffman_decode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -107,7 +107,7 @@ TEST_CASE("testing hpack huffman decoding (ascii) - generated "
 
 				auto result = hpack_huffman_decode_bytes(input);
 				CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
-					                                    helpers::free_huffman_decode_result };
+					                                        helpers::free_huffman_decode_result };
 
 				REQUIRE_EQ(IsNotError{}, result);
 
@@ -146,7 +146,7 @@ TEST_CASE("testing hpack huffman decoding (utf8) - generated "
 
 				auto result = hpack_huffman_decode_bytes(input);
 				CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
-					                                    helpers::free_huffman_decode_result };
+					                                        helpers::free_huffman_decode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -209,7 +209,7 @@ TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encod
 
 				auto result = hpack_huffman_encode_value(&input);
 				CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
-					                                    helpers::free_huffman_encode_result };
+					                                        helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -244,7 +244,7 @@ TEST_CASE("testing hpack huffman encoding (ascii) - generated "
 
 				auto result = hpack_huffman_encode_value(&input);
 				CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
-					                                    helpers::free_huffman_encode_result };
+					                                        helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -279,7 +279,7 @@ TEST_CASE("testing hpack huffman encoding (utf8) - generated "
 
 				auto result = hpack_huffman_encode_value(&input);
 				CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
-					                                    helpers::free_huffman_encode_result };
+					                                        helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -323,7 +323,7 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 
 				auto result = hpack_huffman_encode_value(&input);
 				CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
-					                                    helpers::free_huffman_encode_result };
+					                                        helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -331,7 +331,7 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 
 				auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
 				CAutoFreePtr<HuffmanDecodeResult> defer2 = { &result_dec,
-					                                     helpers::free_huffman_decode_result };
+					                                         helpers::free_huffman_decode_result };
 
 				REQUIRE_IS_NOT_ERROR(result_dec);
 
