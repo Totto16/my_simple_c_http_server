@@ -7,13 +7,14 @@
 
 #define TEST_ENV_PREFIX "TOTTO_SIMPLE_HTTP_SERVER___ENV___HACK_IMPL"
 
+static const char* GLOBAL_CALLBACK_PLACEHOLDER =
+    "NOT SETUP PROPERLY, you need to use HpackDecodingErrorStateHack to call this function "
+    "in test mode";
+
 hpack::HpackGlobalHandle::HpackGlobalHandle() {
 	global_initialize_http2_hpack_data();
 
-	setenv(TEST_ENV_PREFIX "_CALLBACK_FN",
-	       "NOT SETUP PROPERLY, you need to use HpackDecodingErrorStateHack to call this function "
-	       "in test mode",
-	       1);
+	setenv(TEST_ENV_PREFIX "_CALLBACK_FN", GLOBAL_CALLBACK_PLACEHOLDER, 1);
 }
 
 hpack::HpackGlobalHandle::~HpackGlobalHandle() noexcept(false) {
@@ -22,8 +23,10 @@ hpack::HpackGlobalHandle::~HpackGlobalHandle() noexcept(false) {
 	const char* cb = getenv(TEST_ENV_PREFIX "_CALLBACK_FN");
 
 	if(cb != NULL) {
-		// we didn't run the cleanup correctly
-		throw std::runtime_error("The test CB env variable wasn't cleanup up correctly!");
+		if(strcmp(cb, GLOBAL_CALLBACK_PLACEHOLDER) != 0) {
+			// we didn't run the cleanup correctly
+			throw std::runtime_error("The test CB env variable wasn't cleaned up correctly!");
+		}
 	}
 }
 
