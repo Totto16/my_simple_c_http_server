@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <tstr.h>
@@ -11,7 +11,7 @@
 
 namespace details {
 constexpr const size_t vector_max_for_printing_content = 40;
-}
+} // namespace details
 
 template <typename A, typename B>
 std::ostream& operator<<(std::ostream& os, const std::pair<A, B>& pair) {
@@ -60,29 +60,7 @@ template <typename T> std::ostream& operator<<(std::ostream& os, const std::opti
 std::ostream& operator<<(std::ostream& os,
                          const std::vector<std::pair<std::string, std::string>>& string_map);
 
-template <typename T> struct CppDefer {
-  public:
-	using FreeFn = std::function<void(T*)>;
-
-  private:
-	T* m_state;
-	FreeFn m_free_fn;
-
-  public:
-	CppDefer(T* state, const FreeFn& free_fn) : m_state{ state }, m_free_fn{ free_fn } {}
-
-	CppDefer(CppDefer&&) = delete;
-
-	CppDefer(const CppDefer&) = delete;
-
-	CppDefer& operator=(const CppDefer&) = delete;
-
-	CppDefer operator=(CppDefer&&) = delete;
-
-	T const* get() const { return this->m_state; }
-
-	~CppDefer() { this->m_free_fn(this->m_state); }
-};
+template <typename T> using CAutoFreePtr = std::unique_ptr<T, void (*)(T*)>;
 
 [[nodiscard]] std::string string_from_tstr(const tstr& value);
 

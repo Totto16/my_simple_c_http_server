@@ -60,7 +60,8 @@ static void BM_hpack_huffman_decode_spec(benchmark::State& state) {
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
 			auto result = hpack_huffman_decode_bytes(input);
-			CppDefer<HuffmanDecodeResult> defer = { &result, helpers::free_huffman_decode_result };
+			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
+				                                        helpers::free_huffman_decode_result };
 
 			const char* error = nullptr;
 
@@ -98,7 +99,8 @@ static void BM_hpack_huffman_decode_ascii_generated(benchmark::State& state) {
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
 			auto result = hpack_huffman_decode_bytes(input);
-			CppDefer<HuffmanDecodeResult> defer = { &result, helpers::free_huffman_decode_result };
+			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
+				                                        helpers::free_huffman_decode_result };
 
 			const char* error = nullptr;
 
@@ -136,7 +138,8 @@ static void BM_hpack_huffman_decode_utf8_generated(benchmark::State& state) {
 			const auto input = buffer_from_raw_data(test_case.encoded);
 
 			auto result = hpack_huffman_decode_bytes(input);
-			CppDefer<HuffmanDecodeResult> defer = { &result, helpers::free_huffman_decode_result };
+			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
+				                                        helpers::free_huffman_decode_result };
 
 			const char* error = nullptr;
 
@@ -198,10 +201,11 @@ static void BM_hpack_huffman_encode_spec(benchmark::State& state) {
 			assert(g_global_huffman_data.present == true);
 
 			auto input = tstr_from_string(test_case.str);
-			CppDefer<tstr> defer_tstr = { &input, tstr_free };
+			CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);
-			CppDefer<HuffmanEncodeResult> defer = { &result, helpers::free_huffman_encode_result };
+			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
+				                                        helpers::free_huffman_encode_result };
 
 			const char* error = nullptr;
 
@@ -234,10 +238,11 @@ static void BM_hpack_huffman_encode_ascii_generated(benchmark::State& state) {
 			assert(g_global_huffman_data.present == true);
 
 			auto input = tstr_from_string(test_case.str);
-			CppDefer<tstr> defer_tstr = { &input, tstr_free };
+			CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);
-			CppDefer<HuffmanEncodeResult> defer = { &result, helpers::free_huffman_encode_result };
+			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
+				                                        helpers::free_huffman_encode_result };
 
 			const char* error = nullptr;
 
@@ -270,10 +275,11 @@ static void BM_hpack_huffman_encode_utf8_generated(benchmark::State& state) {
 			assert(g_global_huffman_data.present == true);
 
 			auto input = helpers::tstr_from_utf8_string(test_case.value);
-			CppDefer<tstr> defer_tstr = { &input, tstr_free };
+			CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);
-			CppDefer<HuffmanEncodeResult> defer = { &result, helpers::free_huffman_encode_result };
+			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
+				                                        helpers::free_huffman_encode_result };
 
 			const char* error = nullptr;
 
@@ -315,10 +321,11 @@ static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 			assert(g_global_huffman_data.present == true);
 
 			auto input = helpers::tstr_from_utf8_string(test_case.value);
-			CppDefer<tstr> defer_tstr = { &input, tstr_free };
+			CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
 
 			auto result = hpack_huffman_encode_value(&input);
-			CppDefer<HuffmanEncodeResult> defer = { &result, helpers::free_huffman_encode_result };
+			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
+				                                        helpers::free_huffman_encode_result };
 
 			const char* error = nullptr;
 
@@ -331,8 +338,8 @@ static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 			const auto intermediary_result = result.data.result;
 
 			auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
-			CppDefer<HuffmanDecodeResult> defer2 = { &result_dec,
-				                                     helpers::free_huffman_decode_result };
+			CAutoFreePtr<HuffmanDecodeResult> defer2 = { &result_dec,
+				                                         helpers::free_huffman_decode_result };
 
 			const char* error2 = nullptr;
 

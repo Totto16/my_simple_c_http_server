@@ -67,7 +67,7 @@ TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decod
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
 				auto result = hpack_huffman_decode_bytes(input);
-				CppDefer<HuffmanDecodeResult> defer = { &result,
+				CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
 					                                    helpers::free_huffman_decode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
@@ -106,7 +106,7 @@ TEST_CASE("testing hpack huffman decoding (ascii) - generated "
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
 				auto result = hpack_huffman_decode_bytes(input);
-				CppDefer<HuffmanDecodeResult> defer = { &result,
+				CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
 					                                    helpers::free_huffman_decode_result };
 
 				REQUIRE_EQ(IsNotError{}, result);
@@ -145,7 +145,7 @@ TEST_CASE("testing hpack huffman decoding (utf8) - generated "
 				const auto input = buffer_from_raw_data(test_case.encoded);
 
 				auto result = hpack_huffman_decode_bytes(input);
-				CppDefer<HuffmanDecodeResult> defer = { &result,
+				CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
 					                                    helpers::free_huffman_decode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
@@ -205,10 +205,10 @@ TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encod
 				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				auto input = tstr_from_string(test_case.str);
-				CppDefer<tstr> defer_tstr = { &input, tstr_free };
+				CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
-				CppDefer<HuffmanEncodeResult> defer = { &result,
+				CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
 					                                    helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
@@ -240,10 +240,10 @@ TEST_CASE("testing hpack huffman encoding (ascii) - generated "
 				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				auto input = tstr_from_string(test_case.str);
-				CppDefer<tstr> defer_tstr = { &input, tstr_free };
+				CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
-				CppDefer<HuffmanEncodeResult> defer = { &result,
+				CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
 					                                    helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
@@ -275,10 +275,10 @@ TEST_CASE("testing hpack huffman encoding (utf8) - generated "
 				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				auto input = helpers::tstr_from_utf8_string(test_case.value);
-				CppDefer<tstr> defer_tstr = { &input, tstr_free };
+				CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
-				CppDefer<HuffmanEncodeResult> defer = { &result,
+				CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
 					                                    helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
@@ -319,10 +319,10 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 				REQUIRE_EQ(g_global_huffman_data.present, true);
 
 				auto input = helpers::tstr_from_utf8_string(test_case.value);
-				CppDefer<tstr> defer_tstr = { &input, tstr_free };
+				CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
 
 				auto result = hpack_huffman_encode_value(&input);
-				CppDefer<HuffmanEncodeResult> defer = { &result,
+				CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
 					                                    helpers::free_huffman_encode_result };
 
 				REQUIRE_IS_NOT_ERROR(result);
@@ -330,7 +330,7 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 				const auto intermediary_result = result.data.result;
 
 				auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
-				CppDefer<HuffmanDecodeResult> defer2 = { &result_dec,
+				CAutoFreePtr<HuffmanDecodeResult> defer2 = { &result_dec,
 					                                     helpers::free_huffman_decode_result };
 
 				REQUIRE_IS_NOT_ERROR(result_dec);

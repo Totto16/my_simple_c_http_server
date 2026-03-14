@@ -101,19 +101,18 @@ std::vector<consts::StrictErrorException> get_strict_error_state_exceptions();
 [[nodiscard]] std::vector<std::pair<std::string, std::string>>
 get_cpp_headers(const HttpHeaderFields& fields);
 
-[[nodiscard]] CppDefer<HttpHeaderFields>
+[[nodiscard]] CAutoFreePtr<HttpHeaderFields>
 get_c_map_from_cpp(const std::vector<std::pair<std::string, std::string>>& map);
 } // namespace helpers
 
 namespace hpack {
 
-using HpackDecompressStateCpp =
-    std::unique_ptr<HpackDecompressState, void (*)(HpackDecompressState*)>;
+using HpackDecompressStateCpp = CAutoFreePtr<HpackDecompressState>;
 
 [[nodiscard]] HpackDecompressStateCpp
 get_default_hpack_decompress_state_cpp(size_t max_dynamic_table_byte_size);
 
-using HpackCompressStateCpp = std::unique_ptr<HpackCompressState, void (*)(HpackCompressState*)>;
+using HpackCompressStateCpp = CAutoFreePtr<HpackCompressState>;
 
 [[nodiscard]] HpackCompressStateCpp
 get_default_hpack_compress_state_cpp(size_t max_dynamic_table_byte_size);

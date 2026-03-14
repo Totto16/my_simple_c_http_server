@@ -55,7 +55,7 @@
 						hpack::hacky_trick::HpackDecodingErrorStateHack error_state_stack{}; \
 \
 						auto result = http2_hpack_decompress_data(decompress_state.get(), input); \
-						CppDefer<Http2HpackDecompressResult> defer = { \
+						CAutoFreePtr<Http2HpackDecompressResult> defer = { \
 							&result, hpack::free_hpack_decompress_result \
 						}; \
 \

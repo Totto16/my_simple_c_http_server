@@ -206,7 +206,7 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 				hpack::hacky_trick::HpackDecodingErrorStateHack error_state_stack{};
 
 				auto result = http2_hpack_decompress_data(decompress_state.get(), input);
-				CppDefer<Http2HpackDecompressResult> defer = {
+				CAutoFreePtr<Http2HpackDecompressResult> defer = {
 					&result, hpack::free_hpack_decompress_result
 				};
 
@@ -532,7 +532,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 					hpack::hacky_trick::HpackDecodingErrorStateHack error_state_stack{};
 
 					auto result = http2_hpack_decompress_data(decompress_state.get(), input);
-					CppDefer<Http2HpackDecompressResult> defer = {
+					CAutoFreePtr<Http2HpackDecompressResult> defer = {
 						&result, hpack::free_hpack_decompress_result
 					};
 
@@ -916,9 +916,9 @@ TEST_CASE("testing hpack serializing - manual tests <hpack_serialize_manual>") {
 
 					auto result = http2_hpack_compress_data(compress_state.get(), *input_c.get(),
 					                                        subcase.options);
-					CppDefer<SizedBuffer> defer = { &result, [](SizedBuffer* buf) -> void {
-						                               free_sized_buffer(*buf);
-						                           } };
+					CAutoFreePtr<SizedBuffer> defer = { &result, [](SizedBuffer* buf) -> void {
+						                                   free_sized_buffer(*buf);
+						                               } };
 
 					REQUIRE_NE(result.data, nullptr);
 

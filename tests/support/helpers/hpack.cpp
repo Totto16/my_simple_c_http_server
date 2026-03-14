@@ -271,7 +271,7 @@ helpers::get_cpp_headers(const HttpHeaderFields& fields) {
 	return result;
 }
 
-[[nodiscard]] CppDefer<HttpHeaderFields>
+[[nodiscard]] CAutoFreePtr<HttpHeaderFields>
 helpers::get_c_map_from_cpp(const std::vector<std::pair<std::string, std::string>>& map) {
 
 	auto* result = (HttpHeaderFields*)malloc(sizeof(HttpHeaderFields));
@@ -291,10 +291,10 @@ helpers::get_c_map_from_cpp(const std::vector<std::pair<std::string, std::string
 		assert(res == TvecResultOk);
 	}
 
-	return CppDefer<HttpHeaderFields>{ result, [](HttpHeaderFields* const fields) -> void {
-		                                  free_http_header_fields(fields);
-		                                  free(fields);
-		                              } };
+	return CAutoFreePtr<HttpHeaderFields>{ result, [](HttpHeaderFields* const fields) -> void {
+		                                      free_http_header_fields(fields);
+		                                      free(fields);
+		                                  } };
 }
 
 [[nodiscard]] hpack::HpackDecompressStateCpp
