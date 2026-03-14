@@ -4,17 +4,22 @@
 #include "utils/log.h"
 #include "utils/utils.h"
 
-#include <openssl/err.h>
-#include <openssl/ssl.h>
+#ifndef _SIMPLE_SERVER_SECURE_DISABLED
+	#include <openssl/err.h>
+	#include <openssl/ssl.h>
+#endif
+
 #include <stdio.h>
 #include <unistd.h>
 
 TVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
 
 // general notes: the openssl docs are quite extensive, even i didn't use them at the beginning, but
-// there are also exaples:
+// there are also examples:
 // e.g.: https://docs.openssl.org/3.5/man7/ossl-guide-tls-server-block/#name
 // docs url: https://docs.openssl.org/3.5/man7
+
+#ifndef _SIMPLE_SERVER_SECURE_DISABLED
 
 struct SecureDataImpl {
 	SSL_CTX* ssl_context;
@@ -25,17 +30,24 @@ typedef struct {
 	const SecureOptions* options;
 } SecureDataForContext;
 
-struct ConnectionContextImpl {
-	SecureOptionsType type;
-	union {
-		SecureDataForContext secure;
-	} data;
-};
-
 typedef struct {
 	SSL* ssl_structure;
 	ProtocolSelected protocol;
 } SecureConnectionData;
+
+#endif
+
+struct ConnectionContextImpl {
+	SecureOptionsType type;
+	union {
+#ifndef _SIMPLE_SERVER_SECURE_DISABLED
+		SecureDataForContext secure;
+#else
+		bool _nothing;
+#endif
+
+	} data;
+};
 
 typedef struct {
 	int fd;
@@ -44,7 +56,9 @@ typedef struct {
 struct ConnectionDescriptorImpl {
 	SecureOptionsType type;
 	union {
+#ifndef _SIMPLE_SERVER_SECURE_DISABLED
 		SecureConnectionData secure;
+#endif
 		NormalConnectionData normal;
 	} data;
 };
