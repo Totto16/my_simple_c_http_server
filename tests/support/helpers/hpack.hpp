@@ -221,6 +221,8 @@ struct DynamicTableC {
 
 	[[nodiscard]] size_t size() const;
 
+	[[nodiscard]] size_t capacity() const;
+
 	[[nodiscard]] std::optional<DynamicEntry> pop_at_end();
 
 	[[nodiscard]] bool insert_at_start(const DynamicEntry& entry);

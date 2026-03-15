@@ -44,7 +44,21 @@ void hpack_dynamic_table_free(HpackHeaderDynamicTable* const dynamic_table) {
 	*dynamic_table = hpack_dynamic_table_get_empty();
 }
 
-#define IMPL_GROWTH_FACTOR(cap) ((cap) == 0 ? 32 : (cap) * 2)
+#define IMPL_START_SIZE (32)
+#define IMPL_GROWTH_FACTOR (2)
+#define IMPL_SHRINK_FACTOR (IMPL_GROWTH_FACTOR * IMPL_GROWTH_FACTOR)
+
+#define IMPL_CALC_GROW(cap) ((cap) == 0 ? IMPL_START_SIZE : (cap) * IMPL_GROWTH_FACTOR)
+#define IMPL_SHOULD_SHRINK(count, cap) (count) < ((cap) / IMPL_SHRINK_FACTOR)
+
+#define IMPL_CALC_SHRINK(cap) ((cap) / IMPL_GROWTH_FACTOR)
+
+#define DYNAMIC_HPACK_TABLE_FORTIFIED 1
+
+#if !defined(DYNAMIC_HPACK_TABLE_FORTIFIED) || \
+    (DYNAMIC_HPACK_TABLE_FORTIFIED != 0 && DYNAMIC_HPACK_TABLE_FORTIFIED != 1)
+	#error "DYNAMIC_HPACK_TABLE_FORTIFIED not defined or wrong value"
+#endif
 
 NODISCARD HpackHeaderDynamicEntry*
 hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
@@ -53,11 +67,75 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 		return NULL;
 	}
 
+	if(IMPL_SHOULD_SHRINK(dynamic_table->count, dynamic_table->capacity)) {
+
+		const size_t new_capacity = IMPL_CALC_SHRINK(dynamic_table->capacity);
+
+		if(new_capacity < IMPL_START_SIZE) {
+			goto no_shrink;
+		}
+
+		// shrink the capcity, only shrink if we have 4 times the capcity, but we shrink it by 2, so
+		// leaving enough room, that another insert doesn't need another reallocation
+		assert(new_capacity != 0);
+
+		// first reallocate all entries into the first new_capacity entries
+		if(dynamic_table->start >= new_capacity) {
+			// start in the soon to be removed portion, realloc to the proper start
+
+			// do from the end, as the entries might overlap at the start, so if we fill them from
+			// behind, we don't overwrite anything
+			for(size_t i = dynamic_table->count; i != 0; --i) {
+				const size_t old_idx = (dynamic_table->start + i - 1) % dynamic_table->capacity;
+				const HpackHeaderDynamicEntry* const old_entry = &(dynamic_table->entries[old_idx]);
+
+				const size_t new_idx = i - 1;
+
+				assert(new_idx < dynamic_table->count && new_idx < new_capacity);
+
+				dynamic_table->entries[new_idx] = *old_entry;
+			}
+
+			dynamic_table->start = 0;
+
+		} else {
+			// we have to start inserting from the front, as we otherwise would overwrite existing
+			// entries
+			for(size_t i = 0; i < dynamic_table->count; ++i) {
+
+				// SHOULD NEVER wrap around, logically (it is count long, start before the half, so
+				// it should never reach the wraparound case)
+				assert((dynamic_table->start + i) < dynamic_table->capacity);
+				const size_t old_idx = (dynamic_table->start + i) % dynamic_table->capacity;
+				const HpackHeaderDynamicEntry* const old_entry = &(dynamic_table->entries[old_idx]);
+
+				assert(i < dynamic_table->count && i < new_capacity);
+
+				dynamic_table->entries[i] = *old_entry;
+			}
+
+			dynamic_table->start = 0;
+		}
+
+		// request the realloc, if it fails, we have a problem, we just set the capcity and
+		// leave the memory area bigger, but a realloc with a smaller size should never fail!
+		HpackHeaderDynamicEntry* new_entries = (HpackHeaderDynamicEntry*)realloc(
+		    (void*)dynamic_table->entries, new_capacity * sizeof(HpackHeaderDynamicEntry));
+
+		if(new_entries == NULL) {
+			UNREACHABLE();
+		}
+
+		dynamic_table->entries = new_entries;
+		dynamic_table->capacity = new_capacity;
+
+		//
+	}
+
+no_shrink:
+
 	size_t last_idx = (dynamic_table->start + dynamic_table->count - 1) % dynamic_table->capacity;
-
 	dynamic_table->count--;
-
-	// TODO(Totto): if we are small enough, resize and free some things!
 
 	return &(dynamic_table->entries[last_idx]);
 }
@@ -67,11 +145,11 @@ NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* cons
 
 	if(dynamic_table->count >= dynamic_table->capacity) {
 
-		const size_t new_capacity = IMPL_GROWTH_FACTOR(dynamic_table->capacity);
+		const size_t new_capacity = IMPL_CALC_GROW(dynamic_table->capacity);
 
 		HpackHeaderDynamicEntry* new_entries = (HpackHeaderDynamicEntry*)realloc(
 		    (void*)dynamic_table->entries, new_capacity * sizeof(HpackHeaderDynamicEntry));
-		if(!new_entries) {
+		if(new_entries == NULL) {
 			return false;
 		}
 		dynamic_table->entries = new_entries;
@@ -92,7 +170,7 @@ NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* cons
 					const size_t target_idx = dynamic_table->count + i;
 
 					dynamic_table->entries[target_idx] = dynamic_table->entries[i];
-#ifndef NDEBUG
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
 					{ // only for debug purposes, reset to tstr_null entries
 						dynamic_table->entries[i] = (HpackHeaderDynamicEntry){
 							.key = tstr_null(),
@@ -104,7 +182,7 @@ NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* cons
 			}
 		}
 
-#ifndef NDEBUG
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
 		{ // for debugging purpose, fill the unused entries with tstr_null values, as all 0s is a
 			// valid SSO tstr, that signifies empty
 

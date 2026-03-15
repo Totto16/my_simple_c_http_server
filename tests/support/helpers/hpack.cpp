@@ -812,6 +812,10 @@ hpack::DynamicTableC::~DynamicTableC() {
 	return hpack_dynamic_table_size(&(this->m_table));
 }
 
+[[nodiscard]] size_t hpack::DynamicTableC::capacity() const {
+	return this->m_table.capacity;
+}
+
 [[nodiscard]] std::optional<hpack::DynamicEntry> hpack::DynamicTableC::pop_at_end() {
 	const auto* const entry = hpack_dynamic_table_pop_at_end(&(this->m_table));
 

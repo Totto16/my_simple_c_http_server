@@ -722,7 +722,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	// +-------------------------------+
 
 	// NOTE: this is exactly the same as parse_hpack_literal_header_field_never_indexed, except the
-	// first 4 bytes, which this function doesnÄt care about
+	// first 4 bytes, which this function doesn't care about
 
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 4);
 
