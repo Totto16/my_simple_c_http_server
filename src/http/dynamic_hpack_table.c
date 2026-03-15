@@ -9,13 +9,15 @@ NODISCARD HpackHeaderDynamicTable hpack_dynamic_table_get_empty(void) {
 	};
 }
 
-NODISCARD HpackHeaderDynamicEntry
+NODISCARD const HpackHeaderDynamicEntry*
 hpack_dynamic_table_at(const HpackHeaderDynamicTable* const dynamic_table, const size_t index) {
-	assert(index < dynamic_table->count && "Dynamic table index out of bounds!");
+	if(index >= dynamic_table->count) {
+		return NULL;
+	}
 
 	size_t idx = (dynamic_table->start + index) % dynamic_table->capacity;
 
-	return dynamic_table->entries[idx];
+	return &(dynamic_table->entries[idx]);
 }
 
 NODISCARD size_t hpack_dynamic_table_size(const HpackHeaderDynamicTable* const dynamic_table) {
@@ -42,6 +44,8 @@ void hpack_dynamic_table_free(HpackHeaderDynamicTable* const dynamic_table) {
 	*dynamic_table = hpack_dynamic_table_get_empty();
 }
 
+#define IMPL_GROWTH_FACTOR(cap) ((cap) == 0 ? 32 : (cap) * 2)
+
 NODISCARD HpackHeaderDynamicEntry*
 hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
@@ -57,8 +61,6 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 	return &(dynamic_table->entries[last_idx]);
 }
-
-#define IMPL_GROWTH_FACTOR(cap) ((cap) == 0 ? 32 : (cap) * 2)
 
 NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* const dynamic_table,
                                                    HpackHeaderDynamicEntry entry) {

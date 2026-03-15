@@ -179,16 +179,20 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 		return (HpackHeaderEntryResult){ .is_error = true };
 	}
 
-	const HpackHeaderDynamicEntry dynamic_entry =
+	const HpackHeaderDynamicEntry* const dynamic_entry =
 	    hpack_dynamic_table_at(&(state->dynamic_table), dynamic_index);
 
+	if(dynamic_entry == NULL) {
+		return (HpackHeaderEntryResult){ .is_error = true };
+	}
+
 	// asserts errors in the underlying dynamic table
-	assert(!tstr_is_null(&dynamic_entry.key));
+	assert(!tstr_is_null(&(dynamic_entry->key)));
 
 	return (HpackHeaderEntryResult){ .is_error = false,
 		                             .value = (HpackHeaderDynamicEntry){
-		                                 .key = tstr_dup(&dynamic_entry.key),
-		                                 .value = tstr_dup(&dynamic_entry.value) } };
+		                                 .key = tstr_dup(&dynamic_entry->key),
+		                                 .value = tstr_dup(&dynamic_entry->value) } };
 }
 
 NODISCARD static int
@@ -2107,11 +2111,12 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 
 	for(size_t i = 0;
 	    i < hpack_dynamic_table_size(&(compress_state->dynamic_table_state.dynamic_table)); ++i) {
-		const HpackHeaderDynamicEntry dynamic_entry =
+		const HpackHeaderDynamicEntry* const dynamic_entry =
 		    hpack_dynamic_table_at(&(compress_state->dynamic_table_state.dynamic_table), i);
 
-		const TableFindResultType matches_entry =
-		    table_entry_matches_dynamic(field, &dynamic_entry);
+		assert(dynamic_entry != NULL);
+
+		const TableFindResultType matches_entry = table_entry_matches_dynamic(field, dynamic_entry);
 
 		switch(matches_entry) {
 			case TableFindResultTypeAllFound: {

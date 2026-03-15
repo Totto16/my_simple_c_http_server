@@ -33,7 +33,7 @@ typedef struct {
 
 NODISCARD HpackHeaderDynamicTable hpack_dynamic_table_get_empty(void);
 
-NODISCARD HpackHeaderDynamicEntry
+NODISCARD const HpackHeaderDynamicEntry*
 hpack_dynamic_table_at(const HpackHeaderDynamicTable* dynamic_table, size_t index);
 
 NODISCARD size_t hpack_dynamic_table_size(const HpackHeaderDynamicTable* dynamic_table);

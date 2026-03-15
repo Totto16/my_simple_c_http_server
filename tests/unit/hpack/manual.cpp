@@ -982,25 +982,42 @@ TEST_CASE("testing fast string comparison <fast_string_cmp>") {
 	}
 }
 
-enum class DynamicTableOperationType : std::uint8_t {
-	Insert,
-	Remove,
-};
-
-using DynamicTableOperation = std::variant<hpack::DynamicEntry, std::optional<hpack::DynamicEntry>>;
-
 namespace dynamic_op {
 
+enum class IsEmptyType : std::uint8_t {
+	PopAtEnd,
+	IndexThrows,
+	SizeIsZero,
+};
+
+struct IsEmpty {
+	IsEmptyType type;
+};
+
+struct InsertEntry {
+	hpack::DynamicEntry entry_to_insert;
+};
+
+struct RemoveEntry {
+	hpack::DynamicEntry remove_result;
+};
+
+using DynamicTableOperation = std::variant<IsEmpty, InsertEntry, RemoveEntry>;
+
 static DynamicTableOperation insert_at_start(hpack::DynamicEntry&& value) {
-	return DynamicTableOperation{ hpack::DynamicEntry{ std::move(value) } };
+	return DynamicTableOperation{ InsertEntry{ std::move(value) } };
 }
 
 static DynamicTableOperation remove_at_end(hpack::DynamicEntry&& value) {
-	return DynamicTableOperation{ std::optional<hpack::DynamicEntry>{ std::move(value) } };
+	return DynamicTableOperation{ RemoveEntry{ std::move(value) } };
 }
 
 static DynamicTableOperation remove_at_end() {
-	return DynamicTableOperation{ std::optional<hpack::DynamicEntry>{ std::nullopt } };
+	return DynamicTableOperation{ IsEmpty{ IsEmptyType::PopAtEnd } };
+}
+
+static DynamicTableOperation is_empty(IsEmptyType type = IsEmptyType::SizeIsZero) {
+	return DynamicTableOperation{ IsEmpty{ type } };
 }
 } // namespace dynamic_op
 
@@ -1014,7 +1031,7 @@ template <class... Ts> Overloaded(Ts...) -> Overloaded<Ts...>;
 
 struct DynamicTableOperationsTest {
 	std::string description;
-	std::vector<DynamicTableOperation> operations;
+	std::vector<dynamic_op::DynamicTableOperation> operations;
 	std::vector<hpack::DynamicEntry> result;
 };
 
@@ -1022,24 +1039,41 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 
 	std::vector<DynamicTableOperationsTest> test_cases = {
 		DynamicTableOperationsTest{
-		    .description = "snothing to remove at the start",
+		    .description = "nothing to remove at the start",
 		    .operations =
-		        std::vector<DynamicTableOperation>{
+		        std::vector<dynamic_op::DynamicTableOperation>{
 		            dynamic_op::remove_at_end(),
+		        },
+		    .result = std::vector<hpack::DynamicEntry>{},
+		},
+		DynamicTableOperationsTest{
+		    .description = "is empty at the start (size is 0)",
+		    .operations =
+		        std::vector<dynamic_op::DynamicTableOperation>{
+		            dynamic_op::is_empty(dynamic_op::IsEmptyType::SizeIsZero),
+		        },
+		    .result = std::vector<hpack::DynamicEntry>{},
+		},
+		DynamicTableOperationsTest{
+		    .description = "is empty at the start (index throws)",
+		    .operations =
+		        std::vector<dynamic_op::DynamicTableOperation>{
+		            dynamic_op::is_empty(dynamic_op::IsEmptyType::IndexThrows),
 		        },
 		    .result = std::vector<hpack::DynamicEntry>{},
 		},
 		DynamicTableOperationsTest{
 		    .description = "some insertions, no removals",
 		    .operations =
-		        std::vector<DynamicTableOperation>{ dynamic_op::insert_at_start(hpack::DynamicEntry{
-		                                                .key = "test_key1", .value = "value1" }),
-		                                            dynamic_op::insert_at_start(hpack::DynamicEntry{
-		                                                .key = "test_key2", .value = "value2" }),
-		                                            dynamic_op::insert_at_start(hpack::DynamicEntry{
-		                                                .key = "test_key3", .value = "value3" }),
-		                                            dynamic_op::insert_at_start(hpack::DynamicEntry{
-		                                                .key = "test_key4", .value = "value4" }) },
+		        std::vector<dynamic_op::DynamicTableOperation>{
+		            dynamic_op::insert_at_start(
+		                hpack::DynamicEntry{ .key = "test_key1", .value = "value1" }),
+		            dynamic_op::insert_at_start(
+		                hpack::DynamicEntry{ .key = "test_key2", .value = "value2" }),
+		            dynamic_op::insert_at_start(
+		                hpack::DynamicEntry{ .key = "test_key3", .value = "value3" }),
+		            dynamic_op::insert_at_start(
+		                hpack::DynamicEntry{ .key = "test_key4", .value = "value4" }) },
 		    .result =
 		        std::vector<hpack::DynamicEntry>{
 		            hpack::DynamicEntry{ .key = "test_key4", .value = "value4" },
@@ -1051,7 +1085,7 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 		DynamicTableOperationsTest{
 		    .description = "some insertions, some removals (not all)",
 		    .operations =
-		        std::vector<DynamicTableOperation>{
+		        std::vector<dynamic_op::DynamicTableOperation>{
 		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key1", .value = "value1" }),
 		            dynamic_op::insert_at_start(
@@ -1074,7 +1108,7 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 		DynamicTableOperationsTest{
 		    .description = "some insertions, all get removed",
 		    .operations =
-		        std::vector<DynamicTableOperation>{
+		        std::vector<dynamic_op::DynamicTableOperation>{
 		            dynamic_op::insert_at_start(
 		                hpack::DynamicEntry{ .key = "test_key1", .value = "value1" }),
 		            dynamic_op::insert_at_start(
@@ -1092,7 +1126,7 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 		                hpack::DynamicEntry{ .key = "test_key3", .value = "value3" }),
 		            dynamic_op::remove_at_end(
 		                hpack::DynamicEntry{ .key = "test_key4", .value = "value4" }),
-		            dynamic_op::remove_at_end() },
+		            dynamic_op::is_empty() },
 		    .result = std::vector<hpack::DynamicEntry>{},
 		},
 
@@ -1101,11 +1135,11 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 	// generate some tests
 
 	{ // test 1
-		std::vector<DynamicTableOperation> operations = { dynamic_op::remove_at_end() };
+		std::vector<dynamic_op::DynamicTableOperation> operations = { dynamic_op::is_empty() };
 
 		const size_t amount = 1024;
 
-		auto get_entry = [](size_t i) {
+		auto get_entry = [](size_t i) -> hpack::DynamicEntry {
 			return hpack::DynamicEntry{ .key = std::string{ "test_key_" } + std::to_string(i),
 				                        .value = std::string{ "test_value_" } + std::to_string(i) };
 		};
@@ -1118,7 +1152,7 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 			operations.emplace_back(dynamic_op::remove_at_end(get_entry(i)));
 		}
 
-		operations.emplace_back(dynamic_op::remove_at_end());
+		operations.emplace_back(dynamic_op::is_empty());
 
 		std::vector<hpack::DynamicEntry> result = {};
 
@@ -1145,27 +1179,95 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 					std::visit(
 					    helper::Overloaded{
 					        [&table_c,
-					         &table_cpp](const hpack::DynamicEntry& insert_entry) -> void {
-						        const auto insert_c_result = table_c.insert_at_start(insert_entry);
+					         &table_cpp](const dynamic_op::InsertEntry& insert_entry) -> void {
+						        const auto insert_c_result =
+						            table_c.insert_at_start(insert_entry.entry_to_insert);
 
 						        REQUIRE(insert_c_result);
 
 						        const auto insert_cpp_result =
-						            table_cpp.insert_at_start(insert_entry);
+						            table_cpp.insert_at_start(insert_entry.entry_to_insert);
 
 						        REQUIRE(insert_cpp_result);
 					        },
-					        [&table_c, &table_cpp](
-					            const std::optional<hpack::DynamicEntry>& remove_result) -> void {
+					        [&table_c,
+					         &table_cpp](const dynamic_op::RemoveEntry& remove_entry) -> void {
 						        const auto remove_c_result = table_c.pop_at_end();
 
-						        REQUIRE_EQ(remove_c_result, remove_result);
+						        REQUIRE_NE(remove_c_result,
+						                   std::optional<hpack::DynamicEntry>{ std::nullopt });
+
+						        REQUIRE_EQ(remove_c_result, remove_entry.remove_result);
 
 						        const auto remove_cpp_result = table_cpp.pop_at_end();
 
-						        REQUIRE_EQ(remove_cpp_result, remove_result);
+						        REQUIRE_NE(remove_cpp_result,
+						                   std::optional<hpack::DynamicEntry>{ std::nullopt });
+
+						        REQUIRE_EQ(remove_cpp_result, remove_entry.remove_result);
 
 						        REQUIRE_EQ(remove_c_result, remove_cpp_result);
+					        },
+					        [&table_c, &table_cpp](const dynamic_op::IsEmpty& is_empty) -> void {
+						        switch(is_empty.type) {
+							        case dynamic_op::IsEmptyType::PopAtEnd: {
+
+								        const auto remove_c_result = table_c.pop_at_end();
+
+								        REQUIRE_EQ(
+								            remove_c_result,
+								            std::optional<hpack::DynamicEntry>{ std::nullopt });
+
+								        const auto remove_cpp_result = table_cpp.pop_at_end();
+
+								        REQUIRE_EQ(
+								            remove_cpp_result,
+								            std::optional<hpack::DynamicEntry>{ std::nullopt });
+
+								        REQUIRE_EQ(remove_c_result, remove_cpp_result);
+
+								        break;
+							        }
+							        case dynamic_op::IsEmptyType::IndexThrows: {
+
+								        auto c_func = [&table_c]() -> void {
+									        const auto _ = table_c[1];
+								        };
+
+								        auto cpp_func = [&table_cpp]() -> void {
+									        const auto _ = table_cpp[1];
+								        };
+
+								        REQUIRE_THROWS_WITH_AS(c_func(), "index out of range",
+								                               const std::out_of_range&);
+
+								        REQUIRE_THROWS_WITH_AS(cpp_func(), "index out of range",
+								                               const std::out_of_range&);
+
+								        break;
+							        }
+							        case dynamic_op::IsEmptyType::SizeIsZero: {
+
+								        const auto c_size = table_c.size();
+
+								        REQUIRE_EQ(c_size, 0);
+
+								        const auto cpp_size = table_cpp.size();
+
+								        REQUIRE_EQ(cpp_size, 0);
+
+								        REQUIRE_EQ(c_size, cpp_size);
+
+								        break;
+							        }
+							        default: {
+								        UNREACHABLE();
+							        }
+
+								        // use index operator!
+
+								        return;
+						        }
 					        },
 					    },
 					    op);
