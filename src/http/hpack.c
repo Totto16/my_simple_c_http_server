@@ -179,20 +179,20 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 		return (HpackHeaderEntryResult){ .is_error = true };
 	}
 
-	const HpackHeaderDynamicEntry* const dynamic_entry =
+	const HpackHeaderDynamicEntryResult dynamic_entry_res =
 	    hpack_dynamic_table_at(&(state->dynamic_table), dynamic_index);
 
-	if(dynamic_entry == NULL) {
+	if(!dynamic_entry_res.ok) {
 		return (HpackHeaderEntryResult){ .is_error = true };
 	}
 
 	// asserts errors in the underlying dynamic table
-	assert(!tstr_is_null(&(dynamic_entry->key)));
+	assert(!tstr_is_null(&(dynamic_entry_res.entry.key)));
 
 	return (HpackHeaderEntryResult){ .is_error = false,
 		                             .value = (HpackHeaderDynamicEntry){
-		                                 .key = tstr_dup(&dynamic_entry->key),
-		                                 .value = tstr_dup(&dynamic_entry->value) } };
+		                                 .key = tstr_dup(&dynamic_entry_res.entry.key),
+		                                 .value = tstr_dup(&dynamic_entry_res.entry.value) } };
 }
 
 NODISCARD static int
@@ -225,7 +225,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 		return -3;
 	}
 
-	const HpackHeaderDynamicEntry entry = entry_res.value;
+	HpackHeaderDynamicEntry entry = entry_res.value;
 
 	// some tests we run use this, even if it's wrong, in the real usage (alias release mode) we
 	// just error oru, as this is a strict error in my opinion, the http2 hpack spec says, that the
@@ -322,7 +322,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
 
 	if(insert_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
-		free_dynamic_entry(entry);
+		free_dynamic_entry(&entry);
 		return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	}
 
@@ -453,16 +453,17 @@ static void insert_entry_into_dynamic_table(HpackDynamicTableState* const state,
 	// clean until we have space
 	while(state->current_dynamic_table_byte_size + new_size > state->max_dynamic_table_byte_size) {
 
-		HpackHeaderDynamicEntry* entry = hpack_dynamic_table_pop_at_end(&(state->dynamic_table));
+		HpackHeaderDynamicEntryResult entry_res =
+		    hpack_dynamic_table_pop_at_end(&(state->dynamic_table));
 
-		if(entry == NULL) {
+		if(!entry_res.ok) {
 			// should not occur, if new_size doesn't fit at all, we should be able to free the
 			// dynamic table with the if condition at the start
 			break;
 		}
 
-		const size_t entry_size = get_dynamic_entry_size(*entry);
-		free_dynamic_entry(*entry);
+		const size_t entry_size = get_dynamic_entry_size(entry_res.entry);
+		free_dynamic_entry(&(entry_res.entry));
 		state->current_dynamic_table_byte_size -= entry_size;
 	}
 
@@ -955,16 +956,17 @@ static void dynamic_table_evict_entries_on_table_change(HpackDynamicTableState* 
 
 	while(state->current_dynamic_table_byte_size > state->max_dynamic_table_byte_size) {
 
-		HpackHeaderDynamicEntry* entry = hpack_dynamic_table_pop_at_end(&(state->dynamic_table));
+		HpackHeaderDynamicEntryResult entry_res =
+		    hpack_dynamic_table_pop_at_end(&(state->dynamic_table));
 
-		if(entry == NULL) {
+		if(!entry_res.ok) {
 			// can occur if the max_dynamic_table_byte_size is smaller tan the size of the first
 			// entry (last to be popped)
 			break;
 		}
 
-		const size_t entry_size = get_dynamic_entry_size(*entry);
-		free_dynamic_entry(*entry);
+		const size_t entry_size = get_dynamic_entry_size(entry_res.entry);
+		free_dynamic_entry(&(entry_res.entry));
 		state->current_dynamic_table_byte_size -= entry_size;
 	}
 }
@@ -2111,12 +2113,13 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 
 	for(size_t i = 0;
 	    i < hpack_dynamic_table_size(&(compress_state->dynamic_table_state.dynamic_table)); ++i) {
-		const HpackHeaderDynamicEntry* const dynamic_entry =
+		const HpackHeaderDynamicEntryResult dynamic_entry_res =
 		    hpack_dynamic_table_at(&(compress_state->dynamic_table_state.dynamic_table), i);
 
-		assert(dynamic_entry != NULL);
+		assert(dynamic_entry_res.ok);
 
-		const TableFindResultType matches_entry = table_entry_matches_dynamic(field, dynamic_entry);
+		const TableFindResultType matches_entry =
+		    table_entry_matches_dynamic(field, &dynamic_entry_res.entry);
 
 		switch(matches_entry) {
 			case TableFindResultTypeAllFound: {

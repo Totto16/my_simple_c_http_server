@@ -34,22 +34,24 @@ typedef struct {
 
 NODISCARD HpackHeaderDynamicTable hpack_dynamic_table_get_empty(void);
 
-// returned entry pointers are not stable, after another "member function call" to the
-// dynamic_table, the pointer is invalidated, it is just a ptr, so that NULL can be used for an
-// invalid index
-NODISCARD const HpackHeaderDynamicEntry*
+typedef struct {
+	bool ok;
+	HpackHeaderDynamicEntry entry;
+} HpackHeaderDynamicEntryResult;
+
+NODISCARD HpackHeaderDynamicEntryResult
 hpack_dynamic_table_at(const HpackHeaderDynamicTable* dynamic_table, size_t index);
 
 NODISCARD size_t hpack_dynamic_table_size(const HpackHeaderDynamicTable* dynamic_table);
 
-void free_dynamic_entry(HpackHeaderDynamicEntry entry);
+void free_dynamic_entry(HpackHeaderDynamicEntry* entry);
 
 void hpack_dynamic_table_free(HpackHeaderDynamicTable* dynamic_table);
 
 // returned entry pointers are not stable, after another "member function call" to the
 // dynamic_table, the pointer is invalidated, it is just a ptr, so that NULL can be used for an
 // invalid pop (size == 0)
-NODISCARD HpackHeaderDynamicEntry*
+NODISCARD HpackHeaderDynamicEntryResult
 hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* dynamic_table);
 
 NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* dynamic_table,

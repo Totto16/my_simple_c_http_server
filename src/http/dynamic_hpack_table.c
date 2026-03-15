@@ -9,35 +9,56 @@ NODISCARD HpackHeaderDynamicTable hpack_dynamic_table_get_empty(void) {
 	};
 }
 
-NODISCARD const HpackHeaderDynamicEntry*
+NODISCARD HpackHeaderDynamicEntryResult
 hpack_dynamic_table_at(const HpackHeaderDynamicTable* const dynamic_table, const size_t index) {
 	if(index >= dynamic_table->count) {
-		return NULL;
+		return (HpackHeaderDynamicEntryResult){ .ok = false,
+			                                    .entry = (HpackHeaderDynamicEntry){
+			                                        .key = tstr_null(), .value = tstr_null() } };
 	}
 
 	size_t idx = (dynamic_table->start + index) % dynamic_table->capacity;
 
-	return &(dynamic_table->entries[idx]);
+	return (HpackHeaderDynamicEntryResult){ .ok = true, .entry = dynamic_table->entries[idx] };
 }
 
 NODISCARD size_t hpack_dynamic_table_size(const HpackHeaderDynamicTable* const dynamic_table) {
 	return dynamic_table->count;
 }
 
-void free_dynamic_entry(HpackHeaderDynamicEntry entry) {
-	tstr_free(&entry.key);
-	tstr_free(&entry.value);
+void free_dynamic_entry(HpackHeaderDynamicEntry* const entry) {
+	tstr_free(&(entry->key));
+	tstr_free(&(entry->value));
 }
+
+#define DYNAMIC_HPACK_TABLE_FORTIFIED 1
+
+#if !defined(DYNAMIC_HPACK_TABLE_FORTIFIED) || \
+    (DYNAMIC_HPACK_TABLE_FORTIFIED != 0 && DYNAMIC_HPACK_TABLE_FORTIFIED != 1)
+	#error "DYNAMIC_HPACK_TABLE_FORTIFIED not defined or wrong value"
+#endif
 
 void hpack_dynamic_table_free(HpackHeaderDynamicTable* const dynamic_table) {
 	for(size_t i = dynamic_table->start, rest_count = dynamic_table->count; rest_count != 0;
 	    i = (i + 1) % dynamic_table->capacity, rest_count--) {
-		HpackHeaderDynamicEntry entry = dynamic_table->entries[i];
+		HpackHeaderDynamicEntry* const entry = &(dynamic_table->entries[i]);
 
 		free_dynamic_entry(entry);
 	}
 
 	dynamic_table->count = 0;
+
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
+	{ // only for debug purposes, check if everything is tstr_null
+		for(size_t i = 0; i < dynamic_table->capacity; ++i) {
+			const HpackHeaderDynamicEntry entry = dynamic_table->entries[i];
+
+			assert(tstr_is_null(&entry.key));
+
+			assert(tstr_is_null(&entry.value));
+		}
+	}
+#endif
 
 	free(dynamic_table->entries);
 
@@ -53,19 +74,31 @@ void hpack_dynamic_table_free(HpackHeaderDynamicTable* const dynamic_table) {
 
 #define IMPL_CALC_SHRINK(cap) ((cap) / IMPL_GROWTH_FACTOR)
 
-#define DYNAMIC_HPACK_TABLE_FORTIFIED 1
-
-#if !defined(DYNAMIC_HPACK_TABLE_FORTIFIED) || \
-    (DYNAMIC_HPACK_TABLE_FORTIFIED != 0 && DYNAMIC_HPACK_TABLE_FORTIFIED != 1)
-	#error "DYNAMIC_HPACK_TABLE_FORTIFIED not defined or wrong value"
-#endif
-
-NODISCARD HpackHeaderDynamicEntry*
+NODISCARD HpackHeaderDynamicEntryResult
 hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 	if(dynamic_table->count == 0) {
-		return NULL;
+		return (HpackHeaderDynamicEntryResult){ .ok = false,
+			                                    .entry = (HpackHeaderDynamicEntry){
+			                                        .key = tstr_null(), .value = tstr_null() } };
 	}
+
+	size_t last_idx = (dynamic_table->start + dynamic_table->count - 1) % dynamic_table->capacity;
+	const HpackHeaderDynamicEntryResult result = { .ok = true,
+		                                           .entry = (dynamic_table->entries[last_idx]) };
+
+	// don't free, the caller has to free the result!
+
+	dynamic_table->count--;
+
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
+	{ // only for debug purposes, set the retrieved entry to null
+		dynamic_table->entries[last_idx] = (HpackHeaderDynamicEntry){
+			.key = tstr_null(),
+			.value = tstr_null(),
+		};
+	}
+#endif
 
 	if(IMPL_SHOULD_SHRINK(dynamic_table->count, dynamic_table->capacity)) {
 
@@ -87,13 +120,22 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 			// behind, we don't overwrite anything
 			for(size_t i = dynamic_table->count; i != 0; --i) {
 				const size_t old_idx = (dynamic_table->start + i - 1) % dynamic_table->capacity;
-				const HpackHeaderDynamicEntry* const old_entry = &(dynamic_table->entries[old_idx]);
+				const HpackHeaderDynamicEntry old_entry = dynamic_table->entries[old_idx];
 
 				const size_t new_idx = i - 1;
 
 				assert(new_idx < dynamic_table->count && new_idx < new_capacity);
 
-				dynamic_table->entries[new_idx] = *old_entry;
+				dynamic_table->entries[new_idx] = old_entry;
+
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
+				{ // only for debug purposes, reset to tstr_null entries
+					dynamic_table->entries[old_idx] = (HpackHeaderDynamicEntry){
+						.key = tstr_null(),
+						.value = tstr_null(),
+					};
+				}
+#endif
 			}
 
 			dynamic_table->start = 0;
@@ -107,11 +149,20 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 				// it should never reach the wraparound case)
 				assert((dynamic_table->start + i) < dynamic_table->capacity);
 				const size_t old_idx = (dynamic_table->start + i) % dynamic_table->capacity;
-				const HpackHeaderDynamicEntry* const old_entry = &(dynamic_table->entries[old_idx]);
+				const HpackHeaderDynamicEntry old_entry = dynamic_table->entries[old_idx];
 
 				assert(i < dynamic_table->count && i < new_capacity);
 
-				dynamic_table->entries[i] = *old_entry;
+				dynamic_table->entries[i] = old_entry;
+
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
+				{ // only for debug purposes, reset to tstr_null entries
+					dynamic_table->entries[old_idx] = (HpackHeaderDynamicEntry){
+						.key = tstr_null(),
+						.value = tstr_null(),
+					};
+				}
+#endif
 			}
 
 			dynamic_table->start = 0;
@@ -129,15 +180,29 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 		dynamic_table->entries = new_entries;
 		dynamic_table->capacity = new_capacity;
 
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
+		{ // only for debug purposes, check if all non used entires are null
+
+			const size_t free_size = dynamic_table->capacity - dynamic_table->count;
+			const size_t after_end =
+			    (dynamic_table->start + dynamic_table->count) % dynamic_table->capacity;
+
+			for(size_t i = 0; i < free_size; ++i) {
+				const size_t idx = (after_end + i) % dynamic_table->capacity;
+				const HpackHeaderDynamicEntry entry = dynamic_table->entries[idx];
+
+				assert(tstr_is_null(&entry.key));
+
+				assert(tstr_is_null(&entry.value));
+			}
+		}
+#endif
+
 		//
 	}
 
 no_shrink:
-
-	size_t last_idx = (dynamic_table->start + dynamic_table->count - 1) % dynamic_table->capacity;
-	dynamic_table->count--;
-
-	return &(dynamic_table->entries[last_idx]);
+	return result;
 }
 
 NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* const dynamic_table,

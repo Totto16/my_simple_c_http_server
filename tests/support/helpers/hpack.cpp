@@ -799,13 +799,13 @@ hpack::DynamicTableC::~DynamicTableC() {
 }
 
 [[nodiscard]] hpack::DynamicEntry hpack::DynamicTableC::operator[](size_t idx) const {
-	const auto* const entry = hpack_dynamic_table_at(&(this->m_table), idx);
+	const auto entry = hpack_dynamic_table_at(&(this->m_table), idx);
 
-	if(entry == nullptr || idx >= this->size()) {
+	if(!entry.ok || idx >= this->size()) {
 		throw std::out_of_range("index out of range");
 	}
 
-	return cpp_entry_from_c(*entry);
+	return cpp_entry_from_c(entry.entry);
 }
 
 [[nodiscard]] size_t hpack::DynamicTableC::size() const {
@@ -817,15 +817,15 @@ hpack::DynamicTableC::~DynamicTableC() {
 }
 
 [[nodiscard]] std::optional<hpack::DynamicEntry> hpack::DynamicTableC::pop_at_end() {
-	const auto* const entry = hpack_dynamic_table_pop_at_end(&(this->m_table));
+	auto entry = hpack_dynamic_table_pop_at_end(&(this->m_table));
 
-	if(entry == nullptr) {
+	if(!entry.ok || this->size() == 0) {
 		return std::nullopt;
 	}
 
-	const auto result = cpp_entry_from_c(*entry);
+	const auto result = cpp_entry_from_c(entry.entry);
 
-	free_dynamic_entry(*entry);
+	free_dynamic_entry(&(entry.entry));
 
 	return result;
 }
