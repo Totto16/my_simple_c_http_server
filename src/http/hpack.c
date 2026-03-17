@@ -244,7 +244,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 	// NULL!
 
 	if(tstr_is_null(&entry.value)) {
-		free_dynamic_entry(entry);
+		free_dynamic_entry(&entry);
 		return -4;
 	}
 

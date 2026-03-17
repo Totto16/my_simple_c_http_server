@@ -111,8 +111,8 @@ void hpack_dynamic_table_free(HpackHeaderDynamicTable* const dynamic_table) {
 	*dynamic_table = hpack_dynamic_table_get_empty();
 }
 
-#define IMPL_START_SIZE (32)
-#define IMPL_GROWTH_FACTOR (2)
+#define IMPL_START_SIZE (32UL)
+#define IMPL_GROWTH_FACTOR (2UL)
 #define IMPL_SHRINK_FACTOR (IMPL_GROWTH_FACTOR * IMPL_GROWTH_FACTOR)
 
 #define IMPL_CALC_GROW(cap) ((cap) == 0 ? IMPL_START_SIZE : (cap) * IMPL_GROWTH_FACTOR)
@@ -236,7 +236,7 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 		    (void*)dynamic_table->entries, new_capacity * sizeof(HpackHeaderDynamicEntry));
 
 		if(new_entries == NULL) {
-			UNREACHABLE();
+			UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
 		}
 
 		dynamic_table->entries = new_entries;
