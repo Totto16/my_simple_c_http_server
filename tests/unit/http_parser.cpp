@@ -27,7 +27,7 @@ TEST_CASE("testing parsing of the Accept-Encoding header <encoding_parser>") {
 	REQUIRE(is_compression_supported(CompressionTypeZstd));
 	REQUIRE(is_compression_supported(CompressionTypeCompress));
 
-	REQUIRE(!is_compression_supported((CompressionType)(CompressionTypeCompress + 2)));
+	REQUIRE_FALSE(is_compression_supported((CompressionType)(CompressionTypeCompress + 2)));
 
 	SUBCASE("no Accept-Encoding header") {
 		[]() -> void {
