@@ -265,6 +265,13 @@ if cc.get_id() == 'gcc'
 
 endif
 
+# use DYNAMIC_HPACK_TABLE_FORTIFIED if we are in the debug mode and have coverage enabled, otherwise not
+if get_option('buildtype') == 'debug' and get_option('b_coverage') == true
+    compile_flags += '-D_SIMPLE_SERVER_DYNAMIC_HPACK_TABLE_FORTIFIED=1'
+else
+    compile_flags += '-D_SIMPLE_SERVER_DYNAMIC_HPACK_TABLE_FORTIFIED=0'
+endif
+
 src_files = []
 inc_dirs = []
 

@@ -31,7 +31,7 @@ void free_dynamic_entry(HpackHeaderDynamicEntry* const entry) {
 	tstr_free(&(entry->value));
 }
 
-#define DYNAMIC_HPACK_TABLE_FORTIFIED 1
+#define DYNAMIC_HPACK_TABLE_FORTIFIED _SIMPLE_SERVER_DYNAMIC_HPACK_TABLE_FORTIFIED
 
 #if !defined(DYNAMIC_HPACK_TABLE_FORTIFIED) || \
     (DYNAMIC_HPACK_TABLE_FORTIFIED != 0 && DYNAMIC_HPACK_TABLE_FORTIFIED != 1)
@@ -172,7 +172,9 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 				assert(new_idx < dynamic_table->count && new_idx < new_capacity);
 
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
 				assert_is_null_entry(dynamic_table->entries[new_idx]);
+#endif
 
 				assert(old_idx != new_idx);
 
