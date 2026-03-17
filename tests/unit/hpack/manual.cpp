@@ -1317,7 +1317,7 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 		}
 	}
 
-	SUBCASE("capacity shrinking is implemented correctly") { // case two, not enough data
+	SUBCASE("capacity shrinking is implemented correctly") {
 		[]() -> void {
 			auto get_entry = [](size_t i) -> hpack::DynamicEntry {
 				return hpack::DynamicEntry{ .key = std::string{ "test_key_" } + std::to_string(i),
@@ -1333,6 +1333,81 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 			const size_t amount = 1024;
 
 			// insert many elements
+			for(size_t i = 0; i < amount; ++i) {
+
+				const auto& insert_entry = get_entry(i);
+
+				const auto insert_c_result = table_c.insert_at_start(insert_entry);
+
+				REQUIRE(insert_c_result);
+
+				const auto insert_cpp_result = table_cpp.insert_at_start(insert_entry);
+
+				REQUIRE(insert_cpp_result);
+			}
+
+			REQUIRE_GE(table_c.capacity(), amount);
+
+			// remove all
+			for(size_t i = 0; i < amount; ++i) {
+
+				const auto& remove_result = get_entry(i);
+
+				const auto remove_c_result = table_c.pop_at_end();
+
+				REQUIRE_NE(remove_c_result, std::optional<hpack::DynamicEntry>{ std::nullopt });
+
+				REQUIRE_EQ(remove_c_result, remove_result);
+
+				const auto remove_cpp_result = table_cpp.pop_at_end();
+
+				REQUIRE_NE(remove_cpp_result, std::optional<hpack::DynamicEntry>{ std::nullopt });
+
+				REQUIRE_EQ(remove_cpp_result, remove_result);
+
+				REQUIRE_EQ(remove_c_result, remove_cpp_result);
+			}
+
+			// should be empty
+			{
+				const auto c_size = table_c.size();
+
+				REQUIRE_EQ(c_size, 0);
+
+				const auto cpp_size = table_cpp.size();
+
+				REQUIRE_EQ(cpp_size, 0);
+
+				REQUIRE_EQ(c_size, cpp_size);
+			}
+
+			// should have shrunk capacity
+			{
+				REQUIRE_LT(table_c.capacity(), amount);
+
+				// implementation defined, can change at any time
+				REQUIRE_EQ(table_c.capacity(), 32);
+			}
+		}();
+	}
+
+	SUBCASE("capacity shrinking is implemented correctly (complicated case)") {
+		[]() -> void {
+			auto get_entry = [](size_t i) -> hpack::DynamicEntry {
+				return hpack::DynamicEntry{ .key = std::string{ "test_key_" } + std::to_string(i),
+					                        .value =
+					                            std::string{ "test_value_" } + std::to_string(i) };
+			};
+
+			hpack::DynamicTableC table_c = {};
+			hpack::DynamicTableC table_cpp = {};
+
+			REQUIRE_EQ(table_c.capacity(), 0);
+
+			// we need to generate a array, where start != 0 && start < capacity / 2, when
+			// shrinking
+			const size_t amount = 95;
+
 			for(size_t i = 0; i < amount; ++i) {
 
 				const auto& insert_entry = get_entry(i);

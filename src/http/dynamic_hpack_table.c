@@ -209,6 +209,10 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 				assert(new_idx < dynamic_table->count && new_idx < new_capacity);
 
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
+				assert_is_null_entry(dynamic_table->entries[new_idx]);
+#endif
+
 				assert(old_idx != new_idx);
 
 				dynamic_table->entries[new_idx] = old_entry;
