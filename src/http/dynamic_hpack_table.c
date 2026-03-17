@@ -38,6 +38,54 @@ void free_dynamic_entry(HpackHeaderDynamicEntry* const entry) {
 	#error "DYNAMIC_HPACK_TABLE_FORTIFIED not defined or wrong value"
 #endif
 
+#if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
+static void assert_is_null_entry(const HpackHeaderDynamicEntry entry) {
+	assert(tstr_is_null(&entry.key));
+
+	assert(tstr_is_null(&entry.value));
+}
+
+MAYBE_UNUSED static void print_table(const HpackHeaderDynamicTable* table) {
+
+	const size_t bound_lower = table->start;
+	const size_t bound_upper = (table->start + table->count) % table->capacity;
+
+	fprintf(stderr,
+	        "Table: start: %zu size: %zu capacity: %zu, bound_lower: %zu bound_upper: %zu\n",
+	        table->start, table->count, table->capacity, bound_lower, bound_upper);
+
+	for(size_t i = 0; i < table->capacity; ++i) {
+
+		const HpackHeaderDynamicEntry entry = table->entries[i];
+
+		fprintf(stderr, "entry at raw idx %zu: key: " TSTR_FMT " value: " TSTR_FMT "|", i,
+		        tstr_is_null(&entry.key) ? 6 : (int)tstr_len(&(entry.key)),
+		        tstr_is_null(&entry.key) ? "<null>" : tstr_cstr(&(entry.key)),
+		        TSTR_FMT_ARGS(entry.value));
+
+		size_t idx = 0;
+		bool is_idx = false;
+
+		if(bound_lower < bound_upper) {
+			is_idx = i >= bound_lower && i < bound_upper;
+			idx = i - bound_lower;
+		} else {
+			is_idx = i >= bound_lower || i < bound_upper;
+			idx = i >= bound_lower ? i - bound_lower : (table->capacity - bound_lower) + i;
+		}
+
+		if(is_idx) {
+			fprintf(stderr, " is valid ar idx: %zu\n", idx);
+		} else {
+			fprintf(stderr, " is out of used area\n");
+		}
+	}
+
+	fprintf(stderr, "END-------------------------------------------\n");
+}
+
+#endif
+
 void hpack_dynamic_table_free(HpackHeaderDynamicTable* const dynamic_table) {
 	for(size_t i = dynamic_table->start, rest_count = dynamic_table->count; rest_count != 0;
 	    i = (i + 1) % dynamic_table->capacity, rest_count--) {
@@ -53,9 +101,7 @@ void hpack_dynamic_table_free(HpackHeaderDynamicTable* const dynamic_table) {
 		for(size_t i = 0; i < dynamic_table->capacity; ++i) {
 			const HpackHeaderDynamicEntry entry = dynamic_table->entries[i];
 
-			assert(tstr_is_null(&entry.key));
-
-			assert(tstr_is_null(&entry.value));
+			assert_is_null_entry(entry);
 		}
 	}
 #endif
@@ -126,6 +172,10 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 				assert(new_idx < dynamic_table->count && new_idx < new_capacity);
 
+				assert_is_null_entry(dynamic_table->entries[new_idx]);
+
+				assert(old_idx != new_idx);
+
 				dynamic_table->entries[new_idx] = old_entry;
 
 #if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
@@ -140,6 +190,8 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 			dynamic_table->start = 0;
 
+		} else if(dynamic_table->start == 0) {
+			// nothing to do
 		} else {
 			// we have to start inserting from the front, as we otherwise would overwrite existing
 			// entries
@@ -151,9 +203,13 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 				const size_t old_idx = (dynamic_table->start + i) % dynamic_table->capacity;
 				const HpackHeaderDynamicEntry old_entry = dynamic_table->entries[old_idx];
 
-				assert(i < dynamic_table->count && i < new_capacity);
+				const size_t new_idx = i;
 
-				dynamic_table->entries[i] = old_entry;
+				assert(new_idx < dynamic_table->count && new_idx < new_capacity);
+
+				assert(old_idx != new_idx);
+
+				dynamic_table->entries[new_idx] = old_entry;
 
 #if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
 				{ // only for debug purposes, reset to tstr_null entries
@@ -191,9 +247,7 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 				const size_t idx = (after_end + i) % dynamic_table->capacity;
 				const HpackHeaderDynamicEntry entry = dynamic_table->entries[idx];
 
-				assert(tstr_is_null(&entry.key));
-
-				assert(tstr_is_null(&entry.value));
+				assert_is_null_entry(entry);
 			}
 		}
 #endif
