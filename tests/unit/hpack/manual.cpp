@@ -982,6 +982,14 @@ TEST_CASE("testing fast string comparison <fast_string_cmp>") {
 	}
 }
 
+namespace helper {
+
+template <class... Ts> struct Overloaded : Ts... {
+	using Ts::operator()...;
+};
+template <class... Ts> Overloaded(Ts...) -> Overloaded<Ts...>;
+} // namespace helper
+
 namespace dynamic_op {
 
 enum class IsEmptyType : std::uint8_t {
@@ -1004,6 +1012,41 @@ struct RemoveEntry {
 
 using DynamicTableOperation = std::variant<IsEmpty, InsertEntry, RemoveEntry>;
 
+static std::ostream& operator<<(std::ostream& os, const DynamicTableOperation& op) {
+	std::visit(helper::Overloaded{
+	               [&os](const dynamic_op::InsertEntry& insert_entry) -> void {
+		               os << "InsertEntry{ " << insert_entry.entry_to_insert << " }";
+	               },
+	               [&os](const dynamic_op::RemoveEntry& remove_entry) -> void {
+		               os << "RemoveEntry{ " << remove_entry.remove_result << " }";
+	               },
+	               [&os](const dynamic_op::IsEmpty& is_empty) -> void {
+		               os << "IsEmpty{ ";
+		               switch(is_empty.type) {
+			               case dynamic_op::IsEmptyType::PopAtEnd: {
+				               os << "'pop_at_end'";
+				               break;
+			               }
+			               case dynamic_op::IsEmptyType::IndexThrows: {
+				               os << "'index_throws'";
+				               break;
+			               }
+			               case dynamic_op::IsEmptyType::SizeIsZero: {
+				               os << "'size_is_zero'";
+				               break;
+			               }
+			               default: {
+				               UNREACHABLE();
+			               }
+		               }
+		               os << " }";
+	               },
+	           },
+	           op);
+
+	return os;
+}
+
 static DynamicTableOperation insert_at_start(hpack::DynamicEntry&& value) {
 	return DynamicTableOperation{ InsertEntry{ std::move(value) } };
 }
@@ -1020,14 +1063,6 @@ static DynamicTableOperation is_empty(IsEmptyType type = IsEmptyType::SizeIsZero
 	return DynamicTableOperation{ IsEmpty{ type } };
 }
 } // namespace dynamic_op
-
-namespace helper {
-
-template <class... Ts> struct Overloaded : Ts... {
-	using Ts::operator()...;
-};
-template <class... Ts> Overloaded(Ts...) -> Overloaded<Ts...>;
-} // namespace helper
 
 struct DynamicTableOperationsTest {
 	std::string description;
@@ -1176,6 +1211,8 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 
 				for(const auto& op : test_case.operations) {
 
+					INFO("op: ", op);
+
 					std::visit(
 					    helper::Overloaded{
 					        [&table_c,
@@ -1263,8 +1300,6 @@ TEST_CASE("testing dynamic hpack table <dynamic_hpack_table>") {
 							        default: {
 								        UNREACHABLE();
 							        }
-
-								        // use index operator!
 
 								        return;
 						        }

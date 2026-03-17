@@ -817,9 +817,11 @@ hpack::DynamicTableC::~DynamicTableC() {
 }
 
 [[nodiscard]] std::optional<hpack::DynamicEntry> hpack::DynamicTableC::pop_at_end() {
+	const auto prev_size = this->size();
+
 	auto entry = hpack_dynamic_table_pop_at_end(&(this->m_table));
 
-	if(!entry.ok || this->size() == 0) {
+	if(!entry.ok || prev_size == 0) {
 		return std::nullopt;
 	}
 
