@@ -263,6 +263,12 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 		// this is is in a library
 
 	#define TEST_ENV_PREFIX "TOTTO_SIMPLE_HTTP_SERVER___ENV___HACK_IMPL"
+	#define UNION_CAST_TRICK(Name, val) \
+		((union { \
+			void* v; \
+			Name fn; \
+		}){ .v = (val) }) \
+		    .fn
 
 		const char* const err_callback = getenv(TEST_ENV_PREFIX "_CALLBACK_FN");
 
@@ -298,7 +304,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 					}
 				}
 
-				CbFn cb_fn = (CbFn)(cb_fn_raw);
+				CbFn cb_fn = UNION_CAST_TRICK(CbFn, cb_fn_raw);
 
 				cb_fn(&entry.key);
 			} else {
