@@ -56,6 +56,9 @@ unit_tests:
     needs:
         - compile_clang
         - compile_gcc
+    variables:
+        GIT_SUBMODULE_STRATEGY: recursive
+        GIT_SUBMODULE_DEPTH: 0
     dependencies: []
     before_script:
         # install other dependencies
