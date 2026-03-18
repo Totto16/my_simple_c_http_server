@@ -646,7 +646,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 			                                                        "Implementation error" } } };
 	}
 
-#if defined(__linux__)
+#if defined(__linux__) && (!defined(__ANDROID__))
 	return authentication_provider_system_find_user_with_password_linux(username, password);
 #else
 	UNUSED(username);

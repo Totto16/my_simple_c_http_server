@@ -19,6 +19,7 @@ https://github.com/apache/httpd-tests
 curl tests?
 
 - [ ] android support: note, not that easily possible
+    as pthread_cancel is not supported, we would have to use manual atomix thread management!
 
 
 features:
