@@ -1030,14 +1030,17 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 
 	switch(analyze.connection.type) {
 		case HttpAnalyzeConnectionTypeKeepAlive: {
+			// TODO(Totto): implement keepalive, atm this ignores it, we send a conenction: close
+			// header, so the sender knows, we don't support it
+			break;
 			// keepalive not yet supported
-			return (HttpRequestResult){
-				.type = HttpRequestResultTypeError,
-				.value = { .error =
-				               (HttpRequestError){
-				                   .is_advanced = false,
-				                   .value = { .enum_value = HttpRequestErrorTypeNotSupported } } }
-			};
+			/* return (HttpRequestResult){
+			    .type = HttpRequestResultTypeError,
+			    .value = { .error =
+			                   (HttpRequestError){
+			                       .is_advanced = false,
+			                       .value = { .enum_value = HttpRequestErrorTypeNotSupported } } }
+			}; */
 		}
 		case HttpAnalyzeConnectionTypeUpgradeH2C: {
 			if(!first_request) {

@@ -159,6 +159,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HttpRequestErrorTypeNotSupported
 } HttpRequestErrorType;
 
+NODISCARD const char* get_error_string_for_http_request_error_type(HttpRequestErrorType type);
+
 typedef struct {
 	bool is_advanced;
 	union {

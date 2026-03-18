@@ -66,7 +66,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 		return send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 	}
 
-	LOG_MESSAGE(LogLevelWarn, "An enum error occurred: %d\n", error.value.enum_value);
+	LOG_MESSAGE(LogLevelWarn, "An enum error occurred: %s\n",
+	            get_error_string_for_http_request_error_type(error.value.enum_value));
 
 	switch(error.value.enum_value) {
 		case HttpRequestErrorTypeInvalidHttpVersion: {

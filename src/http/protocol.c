@@ -19,11 +19,24 @@ NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 }
 
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version) {
-
 	switch(protocol_version) {
 		case HTTPProtocolVersion1Dot0: return "HTTP/1.0";
 		case HTTPProtocolVersion1Dot1: return "HTTP/1.1";
 		case HTTPProtocolVersion2: return "HTTP/2.0";
+		default: return "<Unknown>";
+	}
+}
+
+NODISCARD const char*
+get_error_string_for_http_request_error_type(const HttpRequestErrorType type) {
+	switch(type) {
+		case HttpRequestErrorTypeInvalidHttpVersion: return "InvalidHttpVersion";
+		case HttpRequestErrorTypeMethodNotSupported: return "MethodNotSupported";
+		case HttpRequestErrorTypeInvalidNonEmptyBody: return "InvalidNonEmptyBody";
+		case HttpRequestErrorTypeInvalidHttp2Preface: return "InvalidHttp2Preface";
+		case HttpRequestErrorTypeLengthRequired: return "LengthRequired";
+		case HttpRequestErrorTypeProtocolError: return "ProtocolError";
+		case HttpRequestErrorTypeNotSupported: return "NotSupported";
 		default: return "<Unknown>";
 	}
 }
