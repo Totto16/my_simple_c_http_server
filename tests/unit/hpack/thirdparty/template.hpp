@@ -10,7 +10,8 @@
 	TEST_CASE("testing hpack deserializing - external tests (" HPACK_TEST_CASE_VALUE \
 	          ") <hpack_generated_ " HPACK_TEST_CASE_VALUE ">" * \
 	          doctest::description("hpack thirdparty test case (" HPACK_TEST_CASE_VALUE ")") * \
-	          doctest::timeout(60.0) * doctest::test_suite("hpack/thirdparty")) { \
+	          doctest::timeout(60.0 * g_doctest_timeout_multiplier) * \
+	          doctest::test_suite("hpack/thirdparty")) { \
 \
 		const auto hpack_cpp_global_handle = hpack::HpackGlobalHandle(); \
 \

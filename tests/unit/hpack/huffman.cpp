@@ -18,7 +18,7 @@ struct TestCaseManual {
 };
 
 TEST_SUITE_BEGIN("hpack/huffman" * doctest::description("hpack huffman tests") *
-                 doctest::timeout(2.0));
+                 doctest::timeout(2.0 * g_doctest_timeout_multiplier));
 
 TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decode_spec>") {
 

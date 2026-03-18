@@ -3,6 +3,29 @@
 
 #include <utils/log.h>
 
+#include <support/helpers.hpp>
+
+static void setup_global_timeout_multiplier() {
+
+	const char* const env_timeout = getenv("DOCTEST_TEST_MULTIPLIER");
+
+	if(env_timeout == NULL) {
+		g_doctest_timeout_multiplier = 1;
+		return;
+	}
+
+	bool success = false;
+
+	const size_t env_timeout_val = parse_size_t(env_timeout, &success);
+
+	if(!success) {
+		g_doctest_timeout_multiplier = 1;
+		return;
+	}
+
+	g_doctest_timeout_multiplier = env_timeout_val;
+}
+
 static void setup_library() {
 
 	LogLevel log_level =
@@ -18,6 +41,8 @@ static void setup_library() {
 	set_log_level(log_level);
 
 	set_thread_name("main thread");
+
+	setup_global_timeout_multiplier();
 }
 
 int main(int argc, char** argv) {

@@ -147,3 +147,5 @@ namespace helpers {
 
 [[nodiscard]] std::vector<std::uint8_t> raw_data_from_buffer(const SizedBuffer& buffer);
 }
+
+extern size_t g_doctest_timeout_multiplier;

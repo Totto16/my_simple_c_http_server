@@ -48,3 +48,5 @@ std::ostream& operator<<(std::ostream& os, const IsNotError& /* error */) {
 
 	return result;
 }
+
+size_t g_doctest_timeout_multiplier = 1;

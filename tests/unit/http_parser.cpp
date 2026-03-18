@@ -17,7 +17,8 @@
 
 #include "helpers/string_maker.hpp"
 
-TEST_SUITE_BEGIN("http_parser" * doctest::description("http parser tests") * doctest::timeout(2.0));
+TEST_SUITE_BEGIN("http_parser" * doctest::description("http parser tests") *
+                 doctest::timeout(2.0 * g_doctest_timeout_multiplier));
 
 TEST_CASE("testing parsing of the Accept-Encoding header <encoding_parser>") {
 

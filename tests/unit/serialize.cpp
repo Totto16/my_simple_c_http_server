@@ -21,7 +21,7 @@ struct TestCaseDeserialize32 {
 };
 
 TEST_SUITE_BEGIN("serialize" * doctest::description("serialize / deserialize tests") *
-                 doctest::timeout(2.0));
+                 doctest::timeout(2.0 * g_doctest_timeout_multiplier));
 
 TEST_CASE("testing deserializing u32 <deserialize_u32>") {
 
