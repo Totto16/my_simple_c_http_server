@@ -19,11 +19,24 @@ NODISCARD const char* get_http_method_string(HTTPRequestMethod method) {
 }
 
 NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion protocol_version) {
-
 	switch(protocol_version) {
 		case HTTPProtocolVersion1Dot0: return "HTTP/1.0";
 		case HTTPProtocolVersion1Dot1: return "HTTP/1.1";
 		case HTTPProtocolVersion2: return "HTTP/2.0";
+		default: return "<Unknown>";
+	}
+}
+
+NODISCARD const char*
+get_error_string_for_http_request_error_type(const HttpRequestErrorType type) {
+	switch(type) {
+		case HttpRequestErrorTypeInvalidHttpVersion: return "InvalidHttpVersion";
+		case HttpRequestErrorTypeMethodNotSupported: return "MethodNotSupported";
+		case HttpRequestErrorTypeInvalidNonEmptyBody: return "InvalidNonEmptyBody";
+		case HttpRequestErrorTypeInvalidHttp2Preface: return "InvalidHttp2Preface";
+		case HttpRequestErrorTypeLengthRequired: return "LengthRequired";
+		case HttpRequestErrorTypeProtocolError: return "ProtocolError";
+		case HttpRequestErrorTypeNotSupported: return "NotSupported";
 		default: return "<Unknown>";
 	}
 }
@@ -37,8 +50,8 @@ void free_http_request_head(HttpRequestHead head) {
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, head.header_fields); ++i) {
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, head.header_fields, i);
 
-		free(entry.key);
-		free(entry.value);
+		tstr_free(&entry.key);
+		tstr_free(&entry.value);
 	}
 	TVEC_FREE(HttpHeaderField, &head.header_fields);
 }
@@ -81,8 +94,8 @@ typedef struct {
 	} data;
 } HTTPContent;
 
-NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath search_path,
-                                                       const char* key) {
+NODISCARD const ParsedSearchPathEntry* find_search_key(const ParsedSearchPath search_path,
+                                                       const tstr key) {
 
 	if(TMAP_IS_EMPTY(ParsedSearchPathHashMap, &search_path.hash_map)) {
 		return NULL;
@@ -150,11 +163,11 @@ const char* get_status_message(HttpStatusCode status_code) {
 	return result;
 }
 
-NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const char* key) {
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const tstr key) {
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, array); ++i) {
 		HttpHeaderField* header = TVEC_GET_AT_MUT(HttpHeaderField, &array, i);
-		if(strcasecmp(header->key, key) == 0) {
+		if(tstr_eq_ignore_case(&(header->key), &key)) {
 			return header;
 		}
 	}
@@ -202,7 +215,7 @@ SendSettings get_send_settings(const RequestSettings request_settings) {
 
 	SendSettings result = {
 		.compression_to_use = CompressionTypeNone,
-		.protocol_to_use = request_settings.protocol_used,
+		.protocol_data = request_settings.protocol_data,
 	};
 
 	CompressionEntries entries = request_settings.compression_settings.entries;
@@ -247,9 +260,9 @@ break_for:
 	return result;
 }
 
-void free_http_header_field(const HttpHeaderField field) {
-	free(field.key);
-	free(field.value);
+void free_http_header_field(HttpHeaderField field) {
+	tstr_free(&field.key);
+	tstr_free(&field.value);
 }
 
 void free_http_header_fields(HttpHeaderFields* header_fields) {
@@ -263,22 +276,32 @@ void free_http_header_fields(HttpHeaderFields* header_fields) {
 	*header_fields = TVEC_EMPTY(HttpHeaderField);
 }
 
-static void add_http_header_field_raw(HttpHeaderFields* const header_fields, char* const key,
-                                      char* const value) {
+void add_http_header_field(HttpHeaderFields* const header_fields, const tstr key,
+                           const tstr value) {
 
 	HttpHeaderField field = { .key = key, .value = value };
 
-	auto _ = TVEC_PUSH(HttpHeaderField, header_fields, field);
-	UNUSED(_);
+	const TvecResult push_res = TVEC_PUSH(HttpHeaderField, header_fields, field);
+	OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 }
 
-void add_http_header_field_const_key_dynamic_value(HttpHeaderFields* const header_fields,
-                                                   const char* const key, char* const value) {
+void process_delimitered_header_value(const tstr_view value, const char* const delimiter,
+                                      ProcessHeaderValue callback_function,
+                                      void* callback_argument) {
 
-	add_http_header_field_raw(header_fields, strdup(key), value);
-}
+	tstr_split_iter iter = tstr_split_init(value, delimiter);
 
-void add_http_header_field_const_key_const_value(HttpHeaderFields* const header_fields,
-                                                 const char* const key, const char* const value) {
-	add_http_header_field_raw(header_fields, strdup(key), strdup(value));
+	while(true) {
+
+		tstr_view result;
+		const bool split_succeeded = tstr_split_next(&iter, &result);
+
+		if(!split_succeeded) {
+			break;
+		}
+
+		result = tstr_view_lstrip(result);
+
+		callback_function(result, callback_argument);
+	}
 }

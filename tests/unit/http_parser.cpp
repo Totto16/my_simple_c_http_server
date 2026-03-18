@@ -12,103 +12,15 @@
 #include <sstream>
 #include <string>
 
-#include "helpers/cpp_types.hpp"
+#include <support/helpers.hpp>
+#include <support/helpers/http.hpp>
 
-namespace {
-class CompressionSettingsCpp {
-  private:
-	CompressionSettings m_settings;
+#include "helpers/string_maker.hpp"
 
-  public:
-	CompressionSettingsCpp(HttpHeaderFields http_header_fields)
-	    : m_settings{ get_compression_settings(http_header_fields) } {}
+TEST_SUITE_BEGIN("http_parser" * doctest::description("http parser tests") *
+                 doctest::timeout(2.0 * g_doctest_timeout_multiplier));
 
-	CompressionSettingsCpp(CompressionSettings settings) : m_settings{ settings } {}
-
-	CompressionSettingsCpp(const char* const accept_encoding_value) {
-
-		HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
-
-		add_http_header_field_const_key_dynamic_value(
-		    &http_header_fields, HTTP_HEADER_NAME(accept_encoding), strdup(accept_encoding_value));
-
-		this->m_settings = get_compression_settings(http_header_fields);
-
-		free_http_header_fields(&http_header_fields);
-	}
-
-	[[nodiscard]] const CompressionEntries& entries() const { return this->m_settings.entries; }
-
-	CompressionSettingsCpp(CompressionSettingsCpp&&) = delete;
-
-	CompressionSettingsCpp(const CompressionSettingsCpp&) = delete;
-
-	CompressionSettingsCpp& operator=(const CompressionSettingsCpp&) = delete;
-
-	CompressionSettingsCpp operator=(CompressionSettingsCpp&&) = delete;
-
-	~CompressionSettingsCpp() { free_compression_settings(this->m_settings); }
-};
-
-[[nodiscard]] const char* compression_type_to_string(CompressionType type) {
-	return get_string_for_compress_format(type);
-}
-
-[[nodiscard]] const char* get_representation_for_compression_value(CompressionValue value) {
-	switch(value.type) {
-		case CompressionValueTypeNoEncoding: return "'identity'";
-		case CompressionValueTypeAllEncodings: return "'*'";
-		case CompressionValueTypeNormalEncoding: {
-			return compression_type_to_string(value.data.normal_compression);
-		}
-		default: {
-			UNREACHABLE();
-		}
-	}
-}
-
-[[nodiscard]] bool operator==(const CompressionValue& lhs, const CompressionValue& rhs) {
-
-	if(lhs.type != rhs.type) {
-		return false;
-	}
-
-	if(lhs.type == CompressionValueTypeNormalEncoding) {
-		return lhs.data.normal_compression == rhs.data.normal_compression;
-	}
-
-	return true;
-}
-
-} // namespace
-
-static std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
-	os << "CompressionEntry{value=" << get_representation_for_compression_value(entry.value)
-	   << ", weight=" << entry.weight << "}";
-	return os;
-}
-
-namespace doctest {
-template <> struct StringMaker<CompressionEntry> {
-	static String convert(const CompressionEntry& entry) {
-		return ::os_stream_formattable_to_doctest(entry);
-	}
-};
-
-} // namespace doctest
-
-[[nodiscard]] static bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs) {
-
-	if(lhs.value != rhs.value) {
-		return false;
-	}
-
-	return lhs.weight == rhs.weight;
-}
-
-TEST_SUITE_BEGIN("http_parser" * doctest::description("http parser tests") * doctest::timeout(2.0));
-
-TEST_CASE("testing parsing of the Accept-Encoding header") {
+TEST_CASE("testing parsing of the Accept-Encoding header <encoding_parser>") {
 
 	REQUIRE(is_compression_supported(CompressionTypeGzip));
 	REQUIRE(is_compression_supported(CompressionTypeDeflate));
@@ -116,14 +28,14 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 	REQUIRE(is_compression_supported(CompressionTypeZstd));
 	REQUIRE(is_compression_supported(CompressionTypeCompress));
 
-	REQUIRE(!is_compression_supported((CompressionType)(CompressionTypeCompress + 2)));
+	REQUIRE_FALSE(is_compression_supported((CompressionType)(CompressionTypeCompress + 2)));
 
 	SUBCASE("no Accept-Encoding header") {
 		[]() -> void {
 			HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
 
-			CompressionSettingsCpp compression_settings =
-			    CompressionSettingsCpp(http_header_fields);
+			compression::CompressionSettingsCpp compression_settings =
+			    compression::CompressionSettingsCpp(http_header_fields);
 
 			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
@@ -133,7 +45,8 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("standard simple list") {
 		[]() -> void {
-			CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" compress, gzip");
+			compression::CompressionSettingsCpp compression_settings =
+			    compression::CompressionSettingsCpp(" compress, gzip");
 
 			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
@@ -163,7 +76,8 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("empty value") {
 		[]() -> void {
-			CompressionSettingsCpp compression_settings = CompressionSettingsCpp("");
+			compression::CompressionSettingsCpp compression_settings =
+			    compression::CompressionSettingsCpp("");
 
 			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
@@ -173,7 +87,8 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("'*' value") {
 		[]() -> void {
-			CompressionSettingsCpp compression_settings = CompressionSettingsCpp(" *");
+			compression::CompressionSettingsCpp compression_settings =
+			    compression::CompressionSettingsCpp(" *");
 
 			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
@@ -191,8 +106,8 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("complicated list with weights") {
 		[]() -> void {
-			CompressionSettingsCpp compression_settings =
-			    CompressionSettingsCpp(" deflate;q=0.5, br;q=1.0");
+			compression::CompressionSettingsCpp compression_settings =
+			    compression::CompressionSettingsCpp(" deflate;q=0.5, br;q=1.0");
 
 			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
@@ -222,8 +137,8 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 
 	SUBCASE("complicated list with weights and 'identity'") {
 		[]() -> void {
-			CompressionSettingsCpp compression_settings =
-			    CompressionSettingsCpp(" zstd;q=1.0, identity; q=0.5, *;q=0");
+			compression::CompressionSettingsCpp compression_settings =
+			    compression::CompressionSettingsCpp(" zstd;q=1.0, identity; q=0.5, *;q=0");
 
 			size_t entries_length = TVEC_LENGTH(CompressionEntry, compression_settings.entries());
 
@@ -258,82 +173,17 @@ TEST_CASE("testing parsing of the Accept-Encoding header") {
 	}
 }
 
-namespace {
-
-struct ParsedURIWrapper {
-  private:
-	ParsedRequestURIResult m_result;
-
-  public:
-	ParsedURIWrapper(ParsedRequestURIResult result) : m_result{ result } {}
-
-	[[nodiscard]] const ParsedURLPath& path() const {
-		if(m_result.is_error) {
-			throw std::runtime_error("invalid parse url result: " +
-			                         std::string{ m_result.value.error });
-		}
-
-		switch(m_result.value.uri.type) {
-			case ParsedURITypeAbsoluteURI: {
-				return m_result.value.uri.data.uri.path;
-			};
-			case ParsedURITypeAbsPath: {
-				return m_result.value.uri.data.path;
-			}
-			default: {
-				throw std::runtime_error("invalid parse url result: " +
-				                         std::to_string(m_result.value.uri.type));
-			}
-		}
-	}
-
-	[[nodiscard]] const char* error() const {
-		if(m_result.is_error) {
-			return m_result.value.error;
-		}
-
-		return NULL;
-	}
-
-	ParsedURIWrapper(ParsedURIWrapper&&) = delete;
-
-	ParsedURIWrapper(const ParsedURIWrapper&) = delete;
-
-	ParsedURIWrapper& operator=(const ParsedURIWrapper&) = delete;
-
-	ParsedURIWrapper operator=(ParsedURIWrapper&&) = delete;
-
-	~ParsedURIWrapper() {
-		if(m_result.is_error) {
-			return;
-		}
-
-		free_parsed_request_uri(this->m_result.value.uri);
-	}
-};
-
-ParsedURIWrapper parse_uri(const char* value) {
-
-	std::string readable_copy = std::string{ value };
-
-	auto result = parse_request_uri(readable_copy.data());
-
-	return ParsedURIWrapper(result);
-}
-
-} // namespace
-
-TEST_CASE("testing the parsing of the http request - test url path parsing") {
+TEST_CASE("testing the parsing of the http request - test url path parsing <url_parser>") {
 
 	SUBCASE("simple url") {
 		[]() -> void {
-			auto parsed_path = parse_uri("/");
+			const auto parsed_path = http::ParsedURIWrapper::parse("/");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/");
 
@@ -343,13 +193,13 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 	SUBCASE("real path url") {
 		[]() -> void {
-			auto parsed_path = parse_uri("/test/hello");
+			const auto parsed_path = http::ParsedURIWrapper::parse("/test/hello");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
@@ -359,13 +209,14 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 	SUBCASE("path url with search parameters") {
 		[]() -> void {
-			auto parsed_path = parse_uri("/test/hello?param1=hello&param2&param3=");
+			const auto parsed_path =
+			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
@@ -375,39 +226,39 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param1");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param1");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "hello");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "hello");
 			}
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param2");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param2");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param3");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param3");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4"_tstr);
 
 				REQUIRE_EQ(entry, nullptr);
 			}
@@ -416,13 +267,14 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 	SUBCASE("path url with search parameters") {
 		[]() -> void {
-			auto parsed_path = parse_uri("/test/hello?param1=hello&param2&param3=");
+			const auto parsed_path =
+			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
 			REQUIRE_EQ(parsed_path.error(), nullptr);
 
 			const auto& path = parsed_path.path();
 
-			const auto path_comp = std::string{ path.path };
+			const auto path_comp = string_from_tstr(path.path);
 
 			REQUIRE_EQ(path_comp, "/test/hello");
 
@@ -432,39 +284,39 @@ TEST_CASE("testing the parsing of the http request - test url path parsing") {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param1");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param1");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "hello");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "hello");
 			}
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param2");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param2");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3"_tstr);
 
 				REQUIRE_NE(entry, nullptr);
 
-				REQUIRE_EQ(std::string{ entry->key }, "param3");
+				REQUIRE_EQ(string_from_tstr(entry->key), "param3");
 
-				REQUIRE_EQ(std::string{ entry->value.value }, "");
+				REQUIRE_EQ(string_from_tstr(entry->value.val), "");
 			}
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4");
+				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4"_tstr);
 
 				REQUIRE_EQ(entry, nullptr);
 			}

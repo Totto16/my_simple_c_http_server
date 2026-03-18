@@ -8,10 +8,6 @@
 NODISCARD int send_data_to_connection(const ConnectionDescriptor* descriptor, void* to_send,
                                       size_t length);
 
-// sends a string to the connection, makes all write calls under the hood, deals with arbitrary
-// large null terminated strings!
-NODISCARD int send_string_to_connection(const ConnectionDescriptor* descriptor, char* to_send);
-
 NODISCARD int send_sized_buffer_to_connection(const ConnectionDescriptor* descriptor,
                                               SizedBuffer buffer);
 

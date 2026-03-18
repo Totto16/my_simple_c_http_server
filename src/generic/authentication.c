@@ -14,7 +14,7 @@ typedef struct {
 	UserRole role;
 } SimpleAccountEntry;
 
-TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, SimpleAccountEntry,
+TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(tstr, TSTR_KEYNAME, SimpleAccountEntry,
                                    SimpleAccountEntryHashMap)
 
 typedef struct {
@@ -114,8 +114,8 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
     AuthenticationProvider* simple_authentication_provider,
-    const char* username, // NOLINT(bugprone-easily-swappable-parameters)
-    const char* password, UserRole role) {
+    const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
+    const tstr* const password, UserRole role) {
 
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 	UNUSED(simple_authentication_provider);
@@ -131,8 +131,9 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 
 	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
 
-	//Note: this may take some time, as bcrypt takes some time, depending on work factor
-	HashSaltResultType* hash_salted_password = hash_salt_string(data->settings, password);
+	// Note: this may take some time, as bcrypt takes some time, depending on work factor
+	HashSaltResultType* hash_salted_password =
+	    hash_salt_string(data->settings, tstr_cstr(password));
 
 	return add_user_to_simple_authentication_provider_data_password_hash_salted(
 	    simple_authentication_provider, username, hash_salted_password, role);
@@ -140,7 +141,7 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
-    AuthenticationProvider* simple_authentication_provider, const char* const username,
+    AuthenticationProvider* simple_authentication_provider, const tstr* const username,
     HashSaltResultType* hash_salted_password, UserRole role) {
 
 	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
@@ -151,13 +152,13 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 
 	SimpleAccountEntry entry = { .hash_salted_password = hash_salted_password, .role = role };
 
-	char* username_dup = strdup(username);
+	tstr username_dup = tstr_dup(username);
 
 	TmapInsertResult insert_result =
 	    TMAP_INSERT(SimpleAccountEntryHashMap, &(data->entries), username_dup, entry, false);
 
 	if(insert_result != TmapInsertResultOk) {
-		free(username_dup);
+		tstr_free(&username_dup);
 		return false;
 	}
 
@@ -177,7 +178,7 @@ static void free_simple_authentication_provider(SimpleAuthenticationProviderData
 
 	while(TMAP_ITER_NEXT(SimpleAccountEntryHashMap, &iter, &value)) {
 		free_hash_salted_result(value.value.hash_salted_password);
-		free(value.key);
+		tstr_free(&value.key);
 	}
 
 	TMAP_FREE(SimpleAccountEntryHashMap, &data.entries);
@@ -216,14 +217,14 @@ void free_authentication_providers(AuthenticationProviders* auth_providers) {
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
 NODISCARD static const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) *
-    find_user_by_name_simple(SimpleAuthenticationProviderData* data, char* username) {
+    find_user_by_name_simple(SimpleAuthenticationProviderData* data, const tstr* const username) {
 
 	if(TMAP_IS_EMPTY(SimpleAccountEntryHashMap, &(data->entries))) {
 		return NULL;
 	}
 
 	const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
-	    TMAP_GET_ENTRY(SimpleAccountEntryHashMap, &(data->entries), username);
+	    TMAP_GET_ENTRY(SimpleAccountEntryHashMap, &(data->entries), *username);
 
 	if(entry == NULL) {
 		return NULL;
@@ -234,8 +235,8 @@ NODISCARD static const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) *
 
 NODISCARD static AuthenticationFindResult authentication_provider_simple_find_user_with_password(
     AuthenticationProvider* auth_provider,
-    char* username, // NOLINT(bugprone-easily-swappable-parameters)
-    char* password) {
+    const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
+    const tstr* const password) {
 
 	if(auth_provider->type != AuthenticationProviderTypeSimple) {
 
@@ -254,7 +255,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 			                               .data = {} };
 	}
 
-	bool is_valid_pw = is_string_equal_to_hash_salted_string(data->settings, password,
+	bool is_valid_pw = is_string_equal_to_hash_salted_string(data->settings, tstr_cstr(password),
 	                                                         entry->value.hash_salted_password);
 
 	if(!is_valid_pw) {
@@ -263,7 +264,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 	}
 
 	// TODO(Totto): maybe don't allocate this?
-	AuthUser user = { .username = strdup(entry->key), .role = entry->value.role };
+	AuthUser user = { .username = tstr_dup(&(entry->key)), .role = entry->value.role };
 
 	return (AuthenticationFindResult){
 		.validity = AuthenticationValidityOk,
@@ -577,8 +578,8 @@ pam_is_user_password_combo_ok(const char* username, // NOLINT(bugprone-easily-sw
 
 NODISCARD static AuthenticationFindResult
 authentication_provider_system_find_user_with_password_linux(
-    const char* username, // NOLINT(bugprone-easily-swappable-parameters)
-    const char* password) {
+    const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
+    const tstr* const password) {
 
 	#ifndef _SIMPLE_SERVER_HAVE_PAM
 	UNUSED(username);
@@ -591,7 +592,7 @@ authentication_provider_system_find_user_with_password_linux(
 
 	gid_t group_id = 0;
 
-	int does_user_exist = check_for_user_linux(username, &group_id);
+	int does_user_exist = check_for_user_linux(tstr_cstr(username), &group_id);
 
 	if(does_user_exist < 0) {
 		return (AuthenticationFindResult){
@@ -605,7 +606,7 @@ authentication_provider_system_find_user_with_password_linux(
 			                               .data = {} };
 	}
 
-	int password_matches = pam_is_user_password_combo_ok(username, password);
+	int password_matches = pam_is_user_password_combo_ok(tstr_cstr(username), tstr_cstr(password));
 
 	if(password_matches < 0) {
 		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
@@ -618,10 +619,10 @@ authentication_provider_system_find_user_with_password_linux(
 			                               .data = {} };
 	}
 
-	UserRole role = get_role_for_linux_user(username, group_id);
+	UserRole role = get_role_for_linux_user(tstr_cstr(username), group_id);
 
 	// TODO(Totto): maybe don't allocate this?
-	AuthUser user = { .username = strdup(username), .role = role };
+	AuthUser user = { .username = tstr_dup(username), .role = role };
 
 	return (AuthenticationFindResult){
 		.validity = AuthenticationValidityOk,
@@ -635,8 +636,8 @@ authentication_provider_system_find_user_with_password_linux(
 
 NODISCARD static AuthenticationFindResult authentication_provider_system_find_user_with_password(
     const AuthenticationProvider* auth_provider,
-    const char* username, // NOLINT(bugprone-easily-swappable-parameters)
-    const char* password) {
+    const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
+    const tstr* const password) {
 
 	if(auth_provider->type != AuthenticationProviderTypeSystem) {
 
@@ -680,8 +681,8 @@ TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AuthenticationFindResult)
 
 NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
     const AuthenticationProviders* auth_providers,
-    char* username, // NOLINT(bugprone-easily-swappable-parameters)
-    char* password) {
+    const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
+    const tstr* const password) {
 
 	TVEC_TYPENAME(AuthenticationFindResult) results = TVEC_EMPTY(AuthenticationFindResult);
 

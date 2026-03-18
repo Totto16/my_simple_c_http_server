@@ -32,11 +32,6 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } Http2FrameType;
 
 typedef struct {
-	bool _reserved : 1;
-	uint32_t identifier : 31; // only 31 bits!
-} Http2Identifier;
-
-typedef struct {
 	SizedBuffer content;
 	bool is_end;
 	Http2Identifier identifier;
@@ -142,7 +137,7 @@ typedef struct {
 } Http2GoawayFrame;
 
 typedef struct {
-	bool _reserved : 1; // for padding
+	bool _reserved : 1; // for padding //NOLINT(readability-identifier-naming)
 	uint32_t window_size_increment : 31;
 	Http2Identifier identifier;
 } Http2WindowUpdateFrame;
@@ -168,10 +163,6 @@ typedef struct {
 		Http2ContinuationFrame continuation;
 	} value;
 } Http2Frame;
-
-TVEC_DEFINE_VEC_TYPE(Http2Frame)
-
-typedef TVEC_TYPENAME(Http2Frame) Http2Frames;
 
 typedef struct {
 	uint32_t header_table_size;
@@ -216,11 +207,11 @@ typedef struct {
 	Http2FramePriority priority;
 } Http2Stream;
 
-// TODO: => v
-//  Http2Stream is either a rec or send request, depending if th identifier is odd or even,
+// TODO(totto): => v
+//  Http2Stream is either a rec or send request, depending if the identifier is odd or even,
 //  also, keep track of the last stream id in the state, so that creating and sending a new one is
 //  easy
-// TODO: make sure that the new send identifier are even and the received are odd!
+// TODO(Totto): make sure that the new send identifier are even and the received are odd!
 
 TMAP_DEFINE_MAP_TYPE(Http2Identifier, StreamIdentifier, Http2Stream, Http2StreamMap)
 
@@ -242,15 +233,19 @@ typedef struct {
 } Http2State;
 
 typedef struct {
+	HpackCompressState* compress_state;
+	HpackDecompressState* decompress_state;
+} Http2HpackState;
+
+typedef struct {
 	Http2Identifier last_stream_id;
 	Http2State state;
-	HpackState* hpack_state;
+	Http2HpackState hpack_state;
 } Http2ContextState;
 
 typedef struct {
 	Http2Settings settings;
 	Http2StreamMap streams;
-	Http2Frames frames;
 	Http2ContextState state;
 } HTTP2Context;
 
@@ -280,10 +275,16 @@ typedef struct {
 NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* context,
                                                           BufferedReader* reader);
 
+NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* context, BufferedReader* reader,
+                                                      SizedBuffer settings_data,
+                                                      HttpRequest original_request);
+
 NODISCARD int http2_send_connection_error(const ConnectionDescriptor* descriptor,
-                                          Http2ErrorCode error_code, const char* error);
+                                          const HTTP2Context* context, Http2ErrorCode error_code,
+                                          const char* error);
 
 NODISCARD int http2_send_connection_error_with_data(const ConnectionDescriptor* descriptor,
+                                                    const HTTP2Context* context,
                                                     Http2ErrorCode error_code,
                                                     SizedBuffer debug_data);
 
@@ -298,5 +299,3 @@ NODISCARD int http2_send_headers(const ConnectionDescriptor* descriptor, Http2Id
 
 NODISCARD int http2_send_data(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
                               Http2Settings settings, SizedBuffer buffer);
-
-NODISCARD Http2Identifier get_new_http2_identifier(HTTP2Context* context);

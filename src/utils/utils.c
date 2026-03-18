@@ -122,16 +122,18 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 	return (uint16_t)result;
 }
 
-NODISCARD float parse_float(char* value) {
+NODISCARD float parse_float(const char* const value, OUT_PARAM(bool) success) {
 	char* endpointer = NULL;
 	errno = 0;
 	float result = strtof(value, &endpointer);
 
 	// it isn't a number, if either errno is set or if the endpointer is not a '\0
 	if(*endpointer != '\0' || errno != 0) {
+		*success = false;
 		return NAN;
 	}
 
+	*success = true;
 	return result;
 }
 

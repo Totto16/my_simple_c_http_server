@@ -797,7 +797,9 @@ function get_bit_array_from_bits(bits: string, bit_len: number, hex_value: strin
 
     }
 
-
+    if (result.size > 32) {
+        throw new Error(`Bits size has to be <= 32 but was: ${result.size}`);
+    }
 
     return result;
 
@@ -851,12 +853,12 @@ function check_and_map_raw_code(code: RawHuffmanCode): HuffmanCode {
 
 }
 
-interface HuffManNodeNodeNode {
-    bit_0: HuffManNode;
-    bit_1: HuffManNode;
+interface HuffmanNodeNodeNode {
+    bit_0: HuffmanNode;
+    bit_1: HuffmanNode;
 }
 
-class HuffManNodeBasic {
+class HuffmanNodeBasic {
     id: null | bigint
 
     constructor(id: null | bigint) {
@@ -864,21 +866,21 @@ class HuffManNodeBasic {
     }
 }
 
-class HuffManNodeNode extends HuffManNodeBasic {
+class HuffmanNodeNode extends HuffmanNodeBasic {
     type: "node"
-    node: HuffManNodeNodeNode;
+    node: HuffmanNodeNodeNode;
 
-    constructor(node: HuffManNodeNodeNode | null) {
+    constructor(node: HuffmanNodeNodeNode | null) {
         super(null);
 
         this.type = "node";
-        this.node = node === null ? { bit_0: new HuffManNodeEnd(null), bit_1: new HuffManNodeEnd(null) } : node;
+        this.node = node === null ? { bit_0: new HuffmanNodeEnd(null), bit_1: new HuffmanNodeEnd(null) } : node;
     }
 }
 
 type EndValue = bigint | "EOS"
 
-class HuffManNodeEnd extends HuffManNodeBasic {
+class HuffmanNodeEnd extends HuffmanNodeBasic {
     type: "end"
     value: EndValue | null
 
@@ -890,10 +892,10 @@ class HuffManNodeEnd extends HuffManNodeBasic {
     }
 }
 
-type HuffManNode = HuffManNodeNode | HuffManNodeEnd
+type HuffmanNode = HuffmanNodeNode | HuffmanNodeEnd
 
 interface HuffmanTree {
-    root: HuffManNode;
+    root: HuffmanNode;
 }
 
 function getValue(code: HuffmanCode): EndValue {
@@ -908,7 +910,7 @@ function getValue(code: HuffmanCode): EndValue {
     throw new Error("Error")
 }
 
-function check_valid_root(root: HuffManNode): void {
+function check_valid_root_tree_1(root: HuffmanNode): void {
 
     if (root.id === null) {
         throw new Error("NULL id on node")
@@ -923,8 +925,8 @@ function check_valid_root(root: HuffManNode): void {
 
     const node = root.node
 
-    check_valid_root(node.bit_0)
-    check_valid_root(node.bit_1)
+    check_valid_root_tree_1(node.bit_0)
+    check_valid_root_tree_1(node.bit_1)
 
 }
 
@@ -935,10 +937,10 @@ interface TreeResult {
 
 function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
-    const root: HuffManNode = new HuffManNodeNode(null)
+    const root: HuffmanNode = new HuffmanNodeNode(null)
 
     for (const code of codes) {
-        let currentNode: HuffManNode = root
+        let currentNode: HuffmanNode = root
 
         for (let i = 0; i < code.bytes.size; ++i) {
             const bit = code.bytes.get(i);
@@ -953,18 +955,18 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
                 if (bit) {
                     if (currentNode.node.bit_1 === null) {
-                        currentNode.node.bit_1 = new HuffManNodeEnd(getValue(code))
+                        currentNode.node.bit_1 = new HuffmanNodeEnd(getValue(code))
                     } else if (currentNode.node.bit_1.type == "end") {
                         if (currentNode.node.bit_1.value != null) {
                             console.error(currentNode.node.bit_1)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_1 = new HuffManNodeEnd(getValue(code))
+                        currentNode.node.bit_1 = new HuffmanNodeEnd(getValue(code))
                     }
                 } else {
                     if (currentNode.node.bit_0 === null) {
-                        currentNode.node.bit_0 = new HuffManNodeEnd(getValue(code))
+                        currentNode.node.bit_0 = new HuffmanNodeEnd(getValue(code))
                     } else if (currentNode.node.bit_0.type == "end") {
                         if (currentNode.node.bit_0.value != null) {
                             console.error(currentNode.node.bit_0)
@@ -972,7 +974,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_0 = new HuffManNodeEnd(getValue(code))
+                        currentNode.node.bit_0 = new HuffmanNodeEnd(getValue(code))
                     }
                 }
 
@@ -986,27 +988,27 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
                 if (bit) {
                     if (currentNode.node.bit_1 === null) {
-                        currentNode.node.bit_1 = new HuffManNodeNode(null)
+                        currentNode.node.bit_1 = new HuffmanNodeNode(null)
                     } else if (currentNode.node.bit_1.type == "end") {
                         if (currentNode.node.bit_1.value != null) {
                             console.error(currentNode.node.bit_1)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_1 = new HuffManNodeNode(null)
+                        currentNode.node.bit_1 = new HuffmanNodeNode(null)
                     }
 
                     currentNode = currentNode.node.bit_1;
                 } else {
                     if (currentNode.node.bit_0 === null) {
-                        currentNode.node.bit_0 = new HuffManNodeNode(null)
+                        currentNode.node.bit_0 = new HuffmanNodeNode(null)
                     } else if (currentNode.node.bit_0.type == "end") {
                         if (currentNode.node.bit_0.value != null) {
                             console.error(currentNode.node.bit_0)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_0 = new HuffManNodeNode(null)
+                        currentNode.node.bit_0 = new HuffmanNodeNode(null)
                     }
 
                     currentNode = currentNode.node.bit_0;
@@ -1023,11 +1025,11 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
     }
 
-    const nodes: HuffManNode[] = [root]
+    const nodes: HuffmanNode[] = [root]
 
     let id: bigint = 0n;
 
-    // make an id for each node
+    // make an id for each node, BFS style
     while (nodes.length != 0) {
 
         const node = nodes.pop()!;
@@ -1042,7 +1044,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
     }
 
-    check_valid_root(root)
+    check_valid_root_tree_1(root)
 
     const tree: HuffmanTree = { root: root }
 
@@ -1050,7 +1052,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
 }
 
-type HuffmanEncodingMap = Record<string, HuffmanCodeNormal | undefined>;
+type HuffmanEncodingMap = Record<number, HuffmanCodeNormal | undefined>;
 
 function codes_to_map(codes: HuffmanCode[]): HuffmanEncodingMap {
 
@@ -1077,13 +1079,13 @@ function codes_to_map(codes: HuffmanCode[]): HuffmanEncodingMap {
 }
 
 
-function to_c_node(node: HuffManNode, nodes_array_value: string): string {
+function to_c_node(node: HuffmanNode, nodes_array_value: string): string {
 
     if (node.type == "end") {
 
         if (node.value === "EOS") {
 
-            return `((HuffManNode){ .type = HuffManNodeTypeError, .data = { .error = "EOS received" } })`
+            return `((HuffmanNode){ .type = HuffmanNodeTypeError, .data = { .error = "EOS received" } })`
 
 
         }
@@ -1096,12 +1098,12 @@ function to_c_node(node: HuffManNode, nodes_array_value: string): string {
             throw new Error("invalid node value")
         }
 
-        return `((HuffManNode){ .type = HuffManNodeTypeEnd, .data = { .end = ${node.value.toString()} } })`
+        return `((HuffmanNode){ .type = HuffmanNodeTypeEnd, .data = { .end = ${node.value.toString()} } })`
 
     }
 
 
-    return `((HuffManNode){ .type = HuffManNodeTypeNode, .data = { .node = (HuffManNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id}) } } })`
+    return `((HuffmanNode){ .type = HuffmanNodeTypeNode, .data = { .node = (HuffmanNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id}) } } })`
 
 
 }
@@ -1142,9 +1144,9 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
 
     }
 
-    const nodes: HuffManNode[] = [tree.root]
+    const nodes: HuffmanNode[] = [tree.root]
 
-    // traverse all nodes
+    // traverse all nodes, BFS style
     while (nodes.length != 0) {
 
         const node = nodes.pop()!;
@@ -1159,52 +1161,715 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
     }
 
     return values;
+}
+
+
+function encode_node_c(code: HuffmanCodeNormal): string {
+
+    let str: string = ""
+
+    for (let i = 0; i < code.bytes.size; ++i) {
+        str += (code.bytes.get(i) ? "1" : "0")
+    }
+
+    const finalStr: string = `0b${str.split("").reverse().join("")}`
+
+    const encodeValueLSB: bigint = BigInt(finalStr);
+
+    const byteLength: number = Math.ceil(code.bytes.size / 8);
+
+    return `(HuffmanEncodeEntry){ .bit_size = ${code.bytes.size}, .value = ${toHexString(encodeValueLSB, byteLength)}}`
+}
+
+function map_to_encode_nodes(map: HuffmanEncodingMap): string[] {
+
+    const result: string[] = new Array(256).fill(undefined);
+
+    for (let i = 0; i < 256; ++i) {
+        const code = map[i];
+        if (code === undefined) {
+            throw new Error(`Code ${i} has to be defined`)
+        }
+        result[i] = encode_node_c(code);
+
+    }
+
+    return result;
+
 
 }
 
-function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult): void {
+class FastStringCompareNodeBasic {
+    id: null | bigint
 
-    console.assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
+    constructor(id: null | bigint) {
+        this.id = id;
+    }
+}
+
+type FastStringCompareNodeResult = number
+
+class FastStringCompareNodeEnd extends FastStringCompareNodeBasic {
+    type: "end"
+    result: FastStringCompareNodeResult | null
+
+    constructor(result: FastStringCompareNodeResult | null) {
+        super(null);
+
+        this.type = "end";
+        this.result = result
+    }
+}
+
+
+
+
+class FastStringComparePrefix extends FastStringCompareNodeBasic {
+    type: "prefix"
+    prefix: string
+    node: FastStringCompareNode
+
+    constructor(
+        prefix: string,
+        node: FastStringCompareNode) {
+        super(null);
+
+        this.type = "prefix";
+        this.prefix = prefix;
+        this.node = node;
+    }
+}
+
+class FastStringCompareNodeNormal extends FastStringCompareNodeBasic {
+    type: "normal"
+    prefix_len: number
+    prefixes: FastStringComparePrefix[]
+    prefix_offset: number | null
+
+    constructor(prefix_len: number,
+        prefixes: FastStringComparePrefix[]) {
+        super(null);
+
+        this.type = "normal";
+        this.prefix_len = prefix_len;
+        this.prefixes = prefixes;
+        this.prefix_offset = null
+    }
+}
+
+
+type FastStringCompareNode = FastStringCompareNodeEnd | FastStringCompareNodeNormal
+
+function isNormalNode(node: FastStringCompareNode): node is FastStringCompareNodeNormal {
+    return node.type == "normal"
+}
+
+interface StringWithIdx {
+    str: string
+    idx: number
+}
+
+interface FastStringCompareTree {
+    root: FastStringCompareNode
+    node_amount: bigint
+    prefix_amount: bigint
+    strings: StringWithIdx[]
+}
+
+type FastStringCompare = Record<number, FastStringCompareTree>
+
+
+interface FastStringComparePrefixesWithOffset {
+    offset: number
+    prefixes: FastStringComparePrefix[]
+}
+
+interface NodesAndPrefixes {
+    nodes: FastStringCompareNode[]
+    prefixes: FastStringComparePrefixesWithOffset[]
+}
+
+function nodes_and_prefixes_from_str_tree(tree: FastStringCompareTree): NodesAndPrefixes {
+
+    const nodes: FastStringCompareNode[] = []
+    const prefixes: FastStringComparePrefixesWithOffset[] = []
+
+    const temp_nodes: FastStringCompareNode[] = [tree.root]
+
+    // iterate nodes BFS style
+    while (temp_nodes.length != 0) {
+
+        const node = temp_nodes.pop()!;
+
+        nodes.push(node)
+
+        if (node.type != "end") {
+            for (const data of node.prefixes) {
+                temp_nodes.push(data.node)
+            }
+
+            if (node.prefix_offset == null) {
+                throw new Error("Implementation error")
+            }
+
+
+            const prefix: FastStringComparePrefixesWithOffset = { prefixes: node.prefixes, offset: node.prefix_offset }
+
+            prefixes.push(prefix)
+
+        }
+
+    }
+
+    return { nodes, prefixes };
+}
+
+function check_valid_root_tree_2(root: FastStringCompareNode): void {
+
+    if (root.id === null) {
+        throw new Error("NULL id on node")
+    }
+
+    if (root.type === "end") {
+        if (root.result === null) {
+            throw new Error("NULL end node")
+        }
+        return;
+    }
+
+    if (root.prefixes.length === 0) {
+        throw new Error("empty subnodes in normal node")
+    }
+
+    if (root.prefix_offset === null) {
+        throw new Error("NULL prefix offset")
+    }
+
+    for (const prefix of root.prefixes) {
+        if (prefix.id === null) {
+            throw new Error("NULL prefix id on node")
+        }
+        check_valid_root_tree_2(prefix.node)
+    }
+
+}
+
+function to_c_str(str: string): string {
+
+    assert(str !== null && str !== undefined && typeof str == "string", "has to be a string");
+
+    return `"${str}"`
+}
+
+function fast_string_prefix_to_c(prefix: FastStringComparePrefix, array_name: string): string {
+    return `(FastStringCmpPrefix){ .prefix = ${to_c_str(prefix.prefix)}, .node = &(${array_name}[${prefix.node.id}])}`
+}
+
+function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes: string): string {
+
+    if (!isNormalNode(node)) {
+
+        if (node.result == null) {
+            throw new Error("Implementation error")
+        }
+
+        return `(FastStringCmpNode){ .is_result = true, .data = { .result = (FastStringCompareResult){ .found = true, .index = ${node.result} } }}`
+
+    }
+
+    return `(FastStringCmpNode){ .is_result = false, .data = { .prefixes = (FastStringCmpPrefixes){ .prefix_len = ${node.prefix_len}, .array = (FastStringCmpPrefixArray) { .len = ${node.prefixes.length}, .data = &(${array_name_prefixes}[${node.prefix_offset}]) } } } }`
+
+}
+
+
+
+function cleanup_short_paths_fast_compare(root: FastStringCompareNodeNormal): FastStringCompareNode {
+
+
+    interface FastStringCompareNodeWithParent {
+        inner: FastStringCompareNode
+        parent: FastStringCompareNodeWithParent | null
+    }
+
+    const traverse_root: FastStringCompareNodeWithParent = { inner: root, parent: null }
+
+
+    // iterate nodes DFS style
+
+    function iterate_node(node: FastStringCompareNodeWithParent): FastStringCompareNodeWithParent & { changed?: boolean | undefined } {
+        if (node.inner.type != "end") {
+            let changed = false;
+            node.inner.prefixes = node.inner.prefixes.map((prefix): FastStringComparePrefix => {
+                const result = iterate_node({ inner: prefix.node, parent: node })
+
+                if (result.changed) {
+                    changed = true;
+                }
+
+                prefix.node = result.inner;
+
+                return prefix
+            }
+            )
+            return { inner: node.inner, parent: node.parent, changed };
+        }
+
+        if (node.parent === null || node.parent.inner.type === "end") {
+            return node;
+        }
+
+        if (node.parent.parent === null || node.parent.parent.inner.type === "end") {
+            return node;
+        }
+
+        if (node.parent.inner.prefixes.length == 1 && node.parent.parent.inner.prefixes.length == 1) {
+            const prefix_len: number = node.parent.inner.prefix_len + node.parent.parent.inner.prefix_len
+
+            const prefix: string = `${node.parent.parent.inner.prefixes[0]!.prefix}${node.parent.inner.prefixes[0]!.prefix}`
+
+            node.parent.parent.inner = new FastStringCompareNodeNormal(prefix_len, [new FastStringComparePrefix(prefix, node.inner)])
+            return { inner: node.inner, parent: node.parent, changed: true };
+        }
+
+        return node;
+
+    }
+
+    let result = iterate_node(traverse_root)
+
+    while (result.changed) {
+        result = iterate_node(result)
+    }
+
+    if (result.changed || result.parent !== null) {
+        throw new Error("Implementation error")
+    }
+
+    return result.inner
+}
+
+function process_string_fast_compare(input: string[]): FastStringCompare {
+
+    const step1: Record<number, { cases: StringWithIdx[] } | undefined> = {}
+
+    for (let i = 0; i < input.length; ++i) {
+        const inp = input.at(i)!
+
+        if (is_utf8_string(inp)) {
+            throw new Error(`fast compare string fields need to be ascii, to be usable for this algorithmn`)
+        }
+
+        if (inp.length == 0) {
+            throw new Error(`fast compare string fields need to be at least one byte long!`)
+        }
+
+
+        const len = inp.length
+
+        if (step1[len] === undefined) {
+            step1[len] = { cases: [] }
+        }
+
+        step1[len].cases.push({ str: inp, idx: i })
+    }
+
+    const result: Record<number, FastStringCompareTree> = {}
+
+    for (const [key, value] of Object.entries(step1)) {
+
+
+        let root: FastStringCompareNode = new FastStringCompareNodeEnd(null);
+
+        const cazes = value!.cases
+
+        if (cazes.length == 0) {
+            throw new Error("Unrechable")
+        } else if (cazes.length == 1) {
+            const caze = cazes[0]!
+            root = new FastStringCompareNodeNormal(caze.str.length, [
+                new FastStringComparePrefix(
+                    caze.str,
+                    new FastStringCompareNodeEnd(caze.idx)
+                )
+            ]
+            );
+        } else {
+
+            root = new FastStringCompareNodeNormal(
+                1, []
+            )
+
+            for (const caze of cazes) {
+
+                let node: FastStringCompareNode = root
+
+                for (let i = 0; i < caze.str.length;) {
+
+                    if (!isNormalNode(node)) {
+                        throw new Error("algorithmn error")
+                    }
+
+                    const inc: number = node.prefix_len
+
+                    const char_value = caze.str.substring(i, i + inc)
+
+                    const foundIndex: number = node.prefixes.findIndex((val) => {
+                        return val.prefix == char_value
+                    })
+
+                    if (foundIndex < 0) {
+                        const next_node: FastStringCompareNode = i + inc >= caze.str.length ? new FastStringCompareNodeEnd(
+                            caze.idx
+                        ) : new FastStringCompareNodeNormal(1, []);
+
+
+                        node.prefixes.push(new FastStringComparePrefix(char_value,
+                            next_node
+                        ))
+
+                        node = next_node
+                    } else {
+                        node = node.prefixes[foundIndex]!.node;
+                    }
+
+                    i += inc;
+                }
+
+            }
+
+            root = cleanup_short_paths_fast_compare(root)
+        }
+
+        const nodes: FastStringCompareNode[] = [root]
+
+        let id: bigint = 0n;
+        let prefix_id: bigint = 0n;
+        let prefix_offset: number = 0;
+
+        // make an id for each node, BFS style
+        while (nodes.length != 0) {
+
+            const node = nodes.pop()!;
+
+            node.id = id;
+            ++id;
+
+            if (node.type != "end") {
+                node.prefix_offset = prefix_offset
+
+                for (const prefix of node.prefixes) {
+                    nodes.push(prefix.node)
+                    prefix.id = prefix_id;
+                    ++prefix_id;
+                }
+                prefix_offset += node.prefixes.length
+            }
+
+        }
+
+        check_valid_root_tree_2(root)
+
+        const tree: FastStringCompareTree = { root: root, node_amount: id, strings: cazes, prefix_amount: prefix_id };
+
+        result[key as unknown as number] = tree;
+    }
+
+
+    return result
+}
+
+function generate_fast_string_compare_decl(function_name: string): string {
+    return `
+NODISCARD FastStringCompareResult ${function_name}(tstr_view str_view);`
+}
+
+function generate_types_for_fast_compare(): string {
+    return `
+typedef struct FastStringCmpNodeImpl FastStringCmpNode;
+
+typedef struct {
+	const char* prefix;
+	FastStringCmpNode* node;
+} FastStringCmpPrefix;
+
+typedef struct {
+	size_t len;
+	FastStringCmpPrefix* data;
+} FastStringCmpPrefixArray;
+
+typedef struct {
+	size_t prefix_len;
+	FastStringCmpPrefixArray array;
+} FastStringCmpPrefixes;
+
+struct FastStringCmpNodeImpl {
+	bool is_result;
+	union {
+		FastStringCompareResult result;
+		FastStringCmpPrefixes prefixes;
+	} data;
+};
+
+typedef struct {
+	FastStringCmpNode* root;
+} FastStringCmpTree;
+`
+}
+
+interface StringCompareFlags {
+    first_gen_call: boolean
+    static: boolean
+}
+
+function generate_fast_string_compare_impl(function_name: string, list_of_strings: string[], flags: StringCompareFlags = { first_gen_call: false, static: false }): string {
+
+    const preprocessed_compare: FastStringCompare = process_string_fast_compare(list_of_strings)
+
+    return `
+${!flags.first_gen_call ? "" : generate_types_for_fast_compare()}
+
+${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
+	
+	const FastStringCmpNode* node = tree.root;
+	size_t index = 0;
+
+	assert(!(node->is_result) && "first node can't be a result!");
+	while(index < str_view.len){
+		if(node->is_result){
+			return node->data.result;
+		}
+
+		const FastStringCmpPrefixes prefixes = node->data.prefixes;
+
+		if(index + prefixes.prefix_len > str_view.len){
+			// can't perform comparisons
+			return (FastStringCompareResult){ .found = false, .index = 0 };
+		}
+
+		bool found = false;
+		for(size_t j = 0; j < prefixes.array.len; ++j){
+			const FastStringCmpPrefix prefix = prefixes.array.data[j];
+
+			if(prefixes.prefix_len == 1){
+				assert(prefix.prefix[1] == '\\0' && "valid 1 length c string");
+				if(str_view.data[index] == prefix.prefix[0]){
+					node = prefix.node;
+					found = true;
+					break;
+				}
+
+				continue;
+			}
+
+			if(strncmp((((const char*)str_view.data) + index), prefix.prefix, prefixes.prefix_len) == 0){
+				node = prefix.node;
+				found = true;
+				break;
+			}
+		}
+
+		if(!found){
+			return (FastStringCompareResult){ .found = false, .index = 0 };
+		}
+
+		index += prefixes.prefix_len;
+
+		if(index == str_view.len){
+			if(node->is_result){
+				return node->data.result;
+			}
+			return (FastStringCompareResult){ .found = false, .index = 0 };
+		}
+	
+	}
+	
+	return (FastStringCompareResult){ .found = false, .index = 0 };
+}
+`}
+
+NODISCARD ${flags.static ? "static " : ""}FastStringCompareResult ${function_name}(const tstr_view str_view){
+	switch(str_view.len){
+${Object.entries(preprocessed_compare).map(([key, tree]): string => {
+
+        const array_name: string = `fast_string_cmp_nodes_${key}`;
+        const array_name_prefixes: string = `fast_string_cmp_prefixes_${key}`;
+
+        const values = nodes_and_prefixes_from_str_tree(tree)
+
+        if (tree.strings.length == 1) {
+
+            const str: StringWithIdx = tree.strings[0]!
+
+            return `		case ${key}: {
+			if(strncmp(str_view.data, ${to_c_str(str.str)}, ${key}) == 0){
+				return (FastStringCompareResult){ .found = true, .index = ${str.idx} };
+			}
+			return (FastStringCompareResult){ .found = false, .index = 0 };
+		}`
+        } else {
+
+            return `		case ${key}: {
+			FastStringCmpNode ${array_name}[${tree.node_amount}] = {};
+			FastStringCmpPrefix ${array_name_prefixes}[${tree.prefix_amount}] = {};
+
+			// handling strings: ${tree.strings.map(str => `${to_c_str(str.str)}`).join(", ")}
+			{
+			// nodes
+${values.nodes.map((node): string => {
+                return `				${array_name}[${node.id}] = ${fast_string_node_to_c(node, array_name_prefixes)};`
+            }).join("\n")}
+			// prefixes
+${values.prefixes.map((prefixes): string => {
+
+                return prefixes.prefixes.map((prefix, idx): string => {
+
+                    const totalIdx = prefixes.offset + idx;
+
+                    return `				${array_name_prefixes}[${totalIdx}] = ${fast_string_prefix_to_c(prefix, array_name)};`
+                }).join("\n");
+            }).join("\n")}
+			}
+
+			FastStringCmpTree fast_string_cmp_tree_${key} = { .root = &(${array_name}[${tree.root.id}])};
+
+			return fast_compare_string_with_tree(fast_string_cmp_tree_${key}, str_view);
+		}`
+        }
+
+
+    }).join("\n")}
+
+		default:{
+			return (FastStringCompareResult){ .found = false, .index = 0 };
+		}
+	}
+}
+`
+}
+
+function assert(val: boolean, message: string): never | void {
+    if (!val) {
+        throw new Error(message)
+    }
+
+}
+
+function getOtherFile(inp_file: string, expected_ext: string, other_ext: string): string {
+
+
+    assert(path.extname(inp_file) == expected_ext, `file has to end in "${expected_ext}"`)
+
+    assert(other_ext.includes("."), `"${other_ext}" has to have a dot '.'`)
+
+    const other_file = path.join(path.dirname(inp_file), path.basename(inp_file).replace(expected_ext, other_ext))
+
+    return other_file;
+}
+
+function unique_arr<T>(arr: T[]): T[] {
+    return [...new Set<T>(arr)]
+}
+
+function arr_eq<T>(arr1: T[], arr2: T[]): boolean {
+    if (arr1.length != arr2.length) {
+        return false;
+    }
+
+    for (let i = 0; i < arr1.length; ++i) {
+        if (arr1.at(i) != arr2.at(i)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
+
+    assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
 
     const h_data = `
 #pragma once
 
 #include "utils/utils.h"
 
-typedef struct HuffManTreeImpl HuffManTree;
+#include <tstr.h>
 
-typedef struct HuffManNodeImpl HuffManNode;
+#include <http/protocol.h>
+
+typedef struct HuffmanTreeImpl HuffmanTree;
+
+typedef struct HuffmanNodeImpl HuffmanNode;
 
 typedef struct {
-	HuffManNode* bit_0;
-	HuffManNode* bit_1;
-} HuffManNodeNode;
+	HuffmanNode* bit_0;
+	HuffmanNode* bit_1;
+} HuffmanNodeNode;
 
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HuffManNodeTypeNode = 0,
-	HuffManNodeTypeEnd,
-	HuffManNodeTypeError
-} HuffManNodeType;
+	HuffmanNodeTypeNode = 0,
+	HuffmanNodeTypeEnd,
+	HuffmanNodeTypeError
+} HuffmanNodeType;
 
-struct HuffManNodeImpl {
-	HuffManNodeType type;
+struct HuffmanNodeImpl {
+	HuffmanNodeType type;
 	union {
-		HuffManNodeNode node;
+		HuffmanNodeNode node;
 		uint8_t end;
 		const char* error;
 	} data;
 };
 
-struct HuffManTreeImpl {
-	HuffManNode* root;
+struct HuffmanTreeImpl {
+	HuffmanNode* root;
 	void* memory;
 };
 
+NODISCARD HuffmanTree* get_hpack_huffman_tree(void);
 
+void free_hpack_huffman_tree(HuffmanTree* tree);
 
-NODISCARD HuffManTree* get_hpack_huffman_tree(void);
+typedef struct {
+	size_t bit_size;
+	uint32_t value;
+} HuffmanEncodeEntry;
 
-void free_hpack_huffman_tree(HuffManTree* tree);
+// hold mappings from all 8 bit values to a HuffmanEncodeEntry
+typedef struct  {
+	HuffmanEncodeEntry entries[256]; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+} HuffmanEncodeMap;
+
+NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void);
+
+void free_hpack_huffman_encode_map(HuffmanEncodeMap* map);
+
+typedef struct {
+	bool found;
+	size_t index;
+} FastStringCompareResult;
+
+${generate_fast_string_compare_decl("hpack_generated_is_common_field_key_fast_cmp")}
+
+NODISCARD bool hpack_generated_is_common_field_key_fast(tstr_view str_view);
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	StaticTableFindResultTypeNotFound = 0,
+	StaticTableFindResultTypeKeyFound,
+	StaticTableFindResultTypeAllFound,
+} StaticTableFindResultType;
+
+typedef struct {
+	StaticTableFindResultType type;
+	union {
+		size_t index;
+	} data;
+} StaticTableFindResult;
+
+NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* field);
 `
 
     writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
@@ -1215,21 +1880,50 @@ void free_hpack_huffman_tree(HuffManTree* tree);
 
     const nodes: string[] = tree_to_nodes(tree, node_amount, nodes_array_value)
 
+    const encode_nodes: string[] = map_to_encode_nodes(map)
+
+    // note: hpack header keys are always small cased
+    const common_hpack_key_names: string[] = ["date", "cookie", "server", "content-encoding", "host", "user-agent"]
+
+    const key_of_static_table: string[] = unique_arr(raw_header_table.map(header => {
+        return header.key
+    }))
+
+    const value_by_key_static_table_strings: Record<string, RawHeaderTable[] | undefined> = {}
+
+    for (const hdr_key of key_of_static_table) {
+        const values = raw_header_table.filter((header): boolean => {
+            return header.key == hdr_key
+        })
+
+        if (values.length <= 1) {
+            continue;
+        }
+
+        value_by_key_static_table_strings[hdr_key] = values
+
+    }
+
+    function static_table_fast_cmp_value_for(key: string): string {
+        return `hpack_generated_is_value_of_static_table_with_key_${key.replace(":", "dp_")}_fast_cmp`
+    }
+
+
     const c_data = `
 #include "./${path.basename(generated_hpack_huffman_file_h)}"
 
 #define HUFFMAN_NODE_AMOUNT ${node_amount.toString()}
 
-NODISCARD HuffManTree* get_hpack_huffman_tree(void) {
+NODISCARD HuffmanTree* get_hpack_huffman_tree(void) {
 
-	HuffManTree* tree = malloc(sizeof(HuffManTree));
+	HuffmanTree* tree = malloc(sizeof(HuffmanTree));
 
 	if(tree == NULL) {
 		return NULL;
 	}
 
 	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
-	HuffManNode* ${nodes_array_value} = malloc(sizeof(HuffManNode) * HUFFMAN_NODE_AMOUNT);
+	HuffmanNode* ${nodes_array_value} = malloc(sizeof(HuffmanNode) * HUFFMAN_NODE_AMOUNT);
 
 	if(${nodes_array_value} == NULL) {
 		free(tree);
@@ -1245,24 +1939,149 @@ ${nodes.map((val, i) => {
 
 	}
 
-	HuffManNode* root = (${nodes_array_value} + ${tree.root.id});
+	HuffmanNode* root = (${nodes_array_value} + ${tree.root.id});
 
-	*tree = (HuffManTree){ .root = root, .memory = (void*)${nodes_array_value} };
+	*tree = (HuffmanTree){ .root = root, .memory = (void*)${nodes_array_value} };
 
 	return tree;
 }
 
-void free_hpack_huffman_tree(HuffManTree* const tree) {
+void free_hpack_huffman_tree(HuffmanTree* const tree) {
+	if(tree == NULL){
+		return;
+	}
 	free(tree->memory);
 	free(tree);
 }
+
+NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void){
+	HuffmanEncodeMap* map = malloc(sizeof(HuffmanEncodeMap));
+
+	if(map == NULL) {
+		return NULL;
+	}
+
+	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
+
+	{
+		${encode_nodes.map((val, idx) => {
+        return `map->entries[${idx}] = ${val};`
+    }).join("\n		")}
+	}
+
+	return map;
+}
+
+void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
+	free(map);
+}
+
+${generate_fast_string_compare_impl("hpack_generated_is_common_field_key_fast_cmp", common_hpack_key_names, { first_gen_call: true, static: false })}
+
+NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view){
+	const size_t len = str_view.len;
+
+	if(len == 0){
+		return false;
+	}
+
+	// a pseudo header field is alaways considered common
+	if(str_view.data[0] == ':'){
+		return true;
+	}
+
+	return hpack_generated_is_common_field_key_fast_cmp(str_view).found;
+}
+
+${generate_fast_string_compare_impl("hpack_generated_is_key_of_static_table_fast_cmp", key_of_static_table, { first_gen_call: false, static: true })}
+
+${Object.entries(value_by_key_static_table_strings).map((val): string => {
+
+        const name = static_table_fast_cmp_value_for(val[0])
+
+        return `
+
+${generate_fast_string_compare_impl(name, val[1]!.map((value): string => {
+
+            if (value.value === null) {
+                throw new Error("Implementation error")
+            }
+
+            return value.value;
+
+        }), { first_gen_call: false, static: true })}
+
 `
 
-    const generated_hpack_huffman_file_c = path.join(path.dirname(generated_hpack_huffman_file_h), path.basename(generated_hpack_huffman_file_h).replace(".h", ".c"))
+    }).join("\n\n")}
+
+NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* const field){
+
+	const FastStringCompareResult result = hpack_generated_is_key_of_static_table_fast_cmp(tstr_as_view(&field->key));
+
+	if(!result.found){
+		return (StaticTableFindResult){ .type = StaticTableFindResultTypeNotFound };
+	}
+
+	switch(result.index){
+${key_of_static_table.map((str, idx) => {
+
+        const values = raw_header_table.filter((header): boolean => {
+            return header.key == str
+        })
+
+        if (values.length == 0) {
+            throw new Error("Implementation error")
+        }
+
+        if (values.length == 1) {
+
+            const value = values[0]!
+
+            if (value.value === null) {
+                return `		case ${idx}: {
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index} } };
+		}`
+            }
+
+            return `		case ${idx}: {
+			if(strncmp(tstr_cstr(&(field->value)), ${to_c_str(value.value)}, ${value.value.length}) == 0){
+				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = ${value.index} } };
+			}
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index} } };
+		}`
+        }
+
+        if (value_by_key_static_table_strings[str] === undefined || !arr_eq(values, value_by_key_static_table_strings[str])) {
+            throw new Error("generated and used strings have to be the same!")
+
+        }
+
+        return `		case ${idx}: {
+			const FastStringCompareResult value_cmp_res = ${static_table_fast_cmp_value_for(str)}(tstr_as_view(&(field->value)));
+
+			if(value_cmp_res.found){
+				const size_t index_map[${values.length}] = {${values.map(value => {
+            return `${value.index}`
+        })}};
+
+				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = index_map[value_cmp_res.index] } };
+			}
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${values[0]!.index} } };
+		}`
+
+    }).join("\n")}
+		default: {
+			assert(false && "UNREACHABLE");
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeNotFound };
+		}
+	}
+}
+`
+
+    const generated_hpack_huffman_file_c = getOtherFile(generated_hpack_huffman_file_h, ".h", ".c")
 
     writeFileAndDirs(generated_hpack_huffman_file_c, c_data)
-
-
 
 }
 
@@ -1274,14 +2093,14 @@ interface HeaderTable {
 
 function header_to_c_value(header: HeaderTable): string {
 
-    const value: string = header.value === null ? "NULL" : `"${header.value}"`
+    const value: string = header.value === null ? "tstr_null()" : `TSTR_LIT(${to_c_str(header.value)})`
 
-    return `(HpackHeaderStaticEntry){ .key = "${header.key}", .value = ${value} }`
+    return `(HpackHeaderStaticEntry){ .key = TSTR_LIT(${to_c_str(header.key)}), .value = ${value} }`
 }
 
 function generated_hpack_headerable_code_h(generated_hpack_header_table_h: string): void {
 
-    console.assert(path.extname(generated_hpack_header_table_h) == ".h", "hpack header table file has to end in .h")
+    assert(path.extname(generated_hpack_header_table_h) == ".h", "hpack header table file has to end in .h")
 
 
     const header_map: Record<number, HeaderTable> = {}
@@ -1305,7 +2124,7 @@ function generated_hpack_headerable_code_h(generated_hpack_header_table_h: strin
             throw new Error("Missing header table index")
         }
 
-        console.assert(headers.length == i, "insertion is linear")
+        assert(headers.length == i, "insertion is linear")
         headers.push(header_to_c_value(value))
     }
 
@@ -1315,12 +2134,13 @@ function generated_hpack_headerable_code_h(generated_hpack_header_table_h: strin
 #pragma once
 
 #include "utils/utils.h"
+#include <tstr.h>
 
 #define HPACK_STATIC_HEADER_TABLE_SIZE ${max_size}
 
 typedef struct {
-	const char* key;
-	const char* value;
+	tstr key;
+	tstr value;
 } HpackHeaderStaticEntry;
 
 NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void);
@@ -1362,7 +2182,7 @@ void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* const entrie
 }
 `
 
-    const generated_hpack_header_table_c = path.join(path.dirname(generated_hpack_header_table_h), path.basename(generated_hpack_header_table_h).replace(".h", ".c"))
+    const generated_hpack_header_table_c = getOtherFile(generated_hpack_header_table_h, ".h", ".c")
 
     writeFileAndDirs(generated_hpack_header_table_c, c_data)
 
@@ -1394,7 +2214,7 @@ class EncodedHuffman {
             size += 8 - (size % 8);
         }
 
-        console.assert((size % 8) == 0, "implementation error")
+        assert((size % 8) == 0, "implementation error")
 
         const result = new BitArray(size);
 
@@ -1523,16 +2343,16 @@ function encode_string_with_huffman(map: HuffmanEncodingMap, text: string): Enco
 }
 
 
-function toHexString(num: number): string {
+function toHexString(num: number | bigint, byteAmount = 1): string {
 
-    return `0x${num.toString(16).padStart(2, "0")}`
+    return `0x${num.toString(16).padStart(byteAmount * 2, "0")}`
 }
 
 function normal_test_to_cpp(caze: EncodedHuffmanAscii): string {
 
     const arr: number[] = caze.encoded.toNumArray();
 
-    return `		TestCaseAscii{ .str = std::string{"${caze.value}"}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
+    return `		TestCaseAscii{ .str = std::string{${to_c_str(caze.value)}}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
 }
 
@@ -1574,7 +2394,7 @@ function get_manual_test_arr(manual_test_arr: ManualTest[]): number[] {
         size += 8 - (size % 8);
     }
 
-    console.assert((size % 8) == 0, "implementation error")
+    assert((size % 8) == 0, "implementation error")
 
     const result = new BitArray(size);
 
@@ -1625,9 +2445,9 @@ function num_array_is_eq(arr1: number[], arr2: number[]): boolean {
 
 }
 
-function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string, map: HuffmanEncodingMap): void {
+function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file_hpp: string, map: HuffmanEncodingMap): void {
 
-    console.assert(path.extname(generated_hpack_test_cases_file) == ".hpp", "hpack huffman test file has to end in .hpp")
+    assert(path.extname(generated_hpack_test_cases_file_hpp) == ".hpp", "hpack huffman test file has to end in .hpp")
 
     { // test js encoding
         const test_test_result = encode_normal_string_with_huffman(map, "307");
@@ -1654,7 +2474,7 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
 
     { // test utf8 detection
 
-        console.assert(is_utf8_string("UTF-8: üöäß "), "utf-8 string detected correctly")
+        assert(is_utf8_string("UTF-8: üöäß "), "utf-8 string detected correctly")
 
 
     }
@@ -1683,7 +2503,9 @@ function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file: string,
         return encoded;
     });
 
-    const cpp_data = `
+    const fast_string_compare_test_data: string[] = ["hello", "hallo", "common", "common2", "similar", "test", "toast", "help", "helo", "one", "two", "onq", "loooooooooongstring", "0", "01", "02", "03", "04", "123456", "193456", "hells"]
+
+    const hpp_data = `
 #pragma once
 
 #include <cstdint>
@@ -1711,9 +2533,53 @@ ${utf8_tests_to_cpp(final_test_case).join(",\n")}
 	}; 
 
 } // namespace generated::tests
+
+namespace generated::c_test_fns {
+	std::vector<std::string> get_test_data_strings();
+} // namespace generated::c_test_fns
+
+extern "C" {
+
+	#include "generated_hpack_huffman.h"
+
+	${generate_fast_string_compare_decl("generated_c_test_fns_fast_string_compare_test_data")}
+}
+
 `
 
-    writeFileAndDirs(generated_hpack_test_cases_file, cpp_data)
+    writeFileAndDirs(generated_hpack_test_cases_file_hpp, hpp_data)
+
+
+    const generated_hpack_test_cases_file_cpp = getOtherFile(generated_hpack_test_cases_file_hpp, ".hpp", ".cpp")
+
+
+    const cpp_data = `
+#include "./${path.basename(generated_hpack_test_cases_file_hpp)}"
+
+
+std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
+	return std::vector<std::string>{${fast_string_compare_test_data.map((str): string => `${to_c_str(str)}`).join(", ")}};
+}
+`
+
+
+    writeFileAndDirs(generated_hpack_test_cases_file_cpp, cpp_data)
+
+    const generated_hpack_test_cases_file_c = getOtherFile(generated_hpack_test_cases_file_hpp, ".hpp", ".c")
+
+
+    const c_data = `
+#include "generated_hpack_huffman.h"
+
+${generate_fast_string_compare_decl("generated_c_test_fns_fast_string_compare_test_data")}
+
+${generate_fast_string_compare_impl("generated_c_test_fns_fast_string_compare_test_data", fast_string_compare_test_data, { first_gen_call: true, static: false })}
+
+`
+
+    writeFileAndDirs(generated_hpack_test_cases_file_c, c_data)
+
+
 
 }
 
@@ -1727,10 +2593,10 @@ function generateFile(options: GenerateOptions): void {
 
     if (options.type === "c_hpack_huffman") {
         const tree_result = codes_to_tree(codes)
-        generated_hpack_huffman_code_c(options.output, tree_result)
+        const map = codes_to_map(codes)
+        generated_hpack_huffman_code_c(options.output, tree_result, map)
         return;
     } else if (options.type === "c_header_table") {
-        const tree_result = codes_to_tree(codes)
         generated_hpack_headerable_code_h(options.output)
         return;
     } else if (options.type === "cpp_tests") {

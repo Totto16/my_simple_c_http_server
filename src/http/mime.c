@@ -3,7 +3,7 @@
 #include "./mime.h"
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-TMAP_IMPLEMENT_MAP_TYPE(char*, CHAR_PTR_KEYNAME, char*, MimeTypeEntryHashMap)
+TMAP_IMPLEMENT_MAP_TYPE(tstr_view, TStringView, tstr, MimeTypeEntryHashMap)
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
 #if defined(__GNUC__) && !defined(__clang__)
@@ -29,7 +29,7 @@ MimeTypeMappings
 
 #define TMAP_INSERT_AND_ASSERT_MIME_ENTRY(key, value) \
 	/*NOLINT(clang-analyzer-unix.Malloc)*/ TMAP_INSERT_AND_ASSERT( \
-	    MimeTypeEntryHashMap, &g_mime_type_mappings.entries, strdup(key), strdup(value))
+	    MimeTypeEntryHashMap, &g_mime_type_mappings.entries, TSTR_TSV(key), TSTR_LIT(value))
 
 static void initialize_mime_type_mappings(void) {
 
@@ -115,20 +115,20 @@ void global_free_mime_map(void) {
 
 	while(TMAP_ITER_NEXT(MimeTypeEntryHashMap, &iter, &value)) {
 
-		free(value.value);
-		free(value.key);
+		// nothing to free
+		UNUSED(value);
 	}
 
 	TMAP_FREE(MimeTypeEntryHashMap, &g_mime_type_mappings.entries);
 }
 
-NODISCARD const char* get_mime_type_for_ext(const char* ext) {
+NODISCARD NODISCARD tstr get_mime_type_for_ext(const tstr_view ext) {
 
 	if(TMAP_IS_EMPTY(MimeTypeEntryHashMap, &g_mime_type_mappings.entries)) {
 		initialize_mime_type_mappings();
 	}
 
-	char* const* result = TMAP_GET(MimeTypeEntryHashMap, &g_mime_type_mappings.entries, ext);
+	const tstr* const result = TMAP_GET(MimeTypeEntryHashMap, &g_mime_type_mappings.entries, ext);
 
 	if(result == NULL) {
 		return UNRECOGNIZED_MIME_TYPE;

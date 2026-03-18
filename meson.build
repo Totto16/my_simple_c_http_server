@@ -11,7 +11,7 @@ project(
         'werror': 'true',
         'b_ndebug': 'if-release',
     },
-    version: '3.5.0-alpha',
+    version: '3.5.1',
 )
 
 deps = []
@@ -180,6 +180,14 @@ deps += dependency(
     allow_fallback: true,
 )
 
+deps += dependency(
+    'tstr.h',
+    allow_fallback: true,
+    default_options: {
+        'static_string_modification_behavior': 'error',
+    },
+)
+
 cc = meson.get_compiler('c')
 
 deps += cc.find_library(
@@ -188,7 +196,6 @@ deps += cc.find_library(
 )
 
 internal_c_args = []
-
 
 
 internal_c_args += cc.get_supported_arguments(
@@ -245,6 +252,7 @@ internal_c_args += cc.get_supported_arguments(
     '-Wfloat-conversion',
     '-Wno-nullability-extension',
     '-Wno-nullability-completeness',
+    '-ftime-trace',
 )
 
 if cc.get_id() == 'gcc'
@@ -256,6 +264,13 @@ if cc.get_id() == 'gcc'
         internal_c_args += cc.get_supported_arguments('-fno-tree-sra')
     endif
 
+endif
+
+# use DYNAMIC_HPACK_TABLE_FORTIFIED if we are in the debug mode and have coverage enabled, otherwise not
+if get_option('buildtype') == 'debug' and get_option('b_coverage') == true
+    compile_flags += '-D_SIMPLE_SERVER_DYNAMIC_HPACK_TABLE_FORTIFIED=1'
+else
+    compile_flags += '-D_SIMPLE_SERVER_DYNAMIC_HPACK_TABLE_FORTIFIED=0'
 endif
 
 src_files = []

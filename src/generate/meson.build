@@ -17,19 +17,44 @@ hpack_script_depend_files = files('hpack.ts', 'package.json', 'tsconfig.json')
 hpack_script_depends = []
 
 if npx.found() and pnpm.found()
-    type_check_hpack_ts = custom_target(
-        'hpack.ts',
+
+    meson_wrapper_sh = find_program(meson.current_source_dir() / 'meson_wrapper.sh')
+
+    install_dependencies = custom_target(
+        'install dependencies (hpack generator)',
         command: [
+            meson_wrapper_sh,
+            '--wrapper-generate',
+            '@OUTPUT@',
             pnpm,
             '--dir',
             meson.current_source_dir(),
             'exec',
-            npx,
+            pnpm,
+            'install',
+            '--loglevel',
+            'error',
+        ],
+        output: ['install_dependencies_date.txt'],
+        depend_files: [hpack_script_depend_files, 'pnpm-lock.yaml'],
+    )
+    hpack_script_depends += install_dependencies
+
+    type_check_hpack_ts = custom_target(
+        'typecheck hpack.ts',
+        command: [
+            meson_wrapper_sh,
+            '--wrapper-generate',
+            '@OUTPUT@',
+            pnpm,
+            '--dir',
+            meson.current_source_dir(),
+            'exec',
             'tsc',
             '-p',
             'tsconfig.json',
         ],
-        output: ['nothing.txt'],
+        output: ['typecheck_hpack.ts_date.txt'],
         depend_files: hpack_script_depend_files,
     )
     hpack_script_depends += type_check_hpack_ts
@@ -106,12 +131,18 @@ generated_hpack_file_cpp = custom_target(
         '--type',
         'cpp_tests',
         '-o',
-        '@OUTPUT@',
+        '@OUTPUT0@',
     ],
-    output: ['generated_hpack_tests.hpp'],
+    output: ['generated_hpack_tests.hpp', 'generated_hpack_tests.cpp', 'generated_hpack_tests.c'],
     depend_files: hpack_script_depend_files,
     depends: hpack_script_depends,
 )
 
-
 generated_cpp_hpack_tests += generated_hpack_file_cpp
+
+alias_target(
+    'generated_sources',
+    generated_hpack_huffman_file_c,
+    generated_hpack_header_h,
+    generated_hpack_file_cpp,
+)

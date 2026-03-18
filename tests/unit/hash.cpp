@@ -1,142 +1,16 @@
 #include <generic/hash.h>
 
-#include "helpers/c_types.hpp"
-#include "helpers/cpp_types.hpp"
-
-#include <cstdint>
 #include <vector>
 
-namespace {
+#include <doctest.h>
 
-[[nodiscard]] consteval std::uint8_t single_hex_number(char input, OUT_PARAM(bool) success) {
-	if(input >= '0' && input <= '9') {
-		*success = true;
-		return static_cast<std::uint8_t>(input - '0');
-	}
-
-	if(input >= 'A' && input <= 'F') {
-		*success = true;
-		return static_cast<std::uint8_t>(input - 'A' + 10);
-	}
-
-	if(input >= 'a' && input <= 'f') {
-		*success = true;
-		return static_cast<std::uint8_t>(input - 'a' + 10);
-	}
-
-	*success = false;
-	return 0;
-	;
-}
-
-[[nodiscard]] consteval std::uint8_t single_hex_value(const char* input, OUT_PARAM(bool) success) {
-
-	const auto first = single_hex_number(input[0], success);
-
-	if(!(*success)) {
-		return 0;
-	}
-
-	const auto second = single_hex_number(input[1], success);
-
-	if(!(*success)) {
-		return 0;
-	}
-
-	*success = true;
-	return (first << 4) | second;
-}
-
-constexpr const size_t sha1_buffer_size = 20;
-
-struct Sha1BufferType {
-  public:
-	using ValueType = std::uint8_t;
-	using UnderlyingType = std::array<ValueType, sha1_buffer_size>;
-
-  private:
-	UnderlyingType m_value;
-	bool m_is_error;
-
-  public:
-	constexpr Sha1BufferType(UnderlyingType&& value)
-	    : m_value{ std::move(value) }, m_is_error{ false } {}
-
-	constexpr Sha1BufferType(bool is_error) : m_value{}, m_is_error{ is_error } {}
-
-	constexpr ValueType& operator[](UnderlyingType::size_type n) noexcept { return m_value[n]; }
-
-	[[nodiscard]] constexpr bool is_error() const { return m_is_error; }
-
-	constexpr void set_error(bool error) { m_is_error = error; }
-
-	[[nodiscard]] constexpr SizedBuffer get_sized_buffer() const {
-		SizedBuffer sized_buffer = { .data = (void*)&this->m_value, .size = sha1_buffer_size };
-		return sized_buffer;
-	}
-
-	friend std::ostream& operator<<(std::ostream& os, const Sha1BufferType& buffer);
-
-	[[nodiscard]] bool operator==(const SizedBuffer& lhs) const {
-
-		SizedBuffer rhs_sized_buffer = this->get_sized_buffer();
-
-		return lhs == rhs_sized_buffer;
-	}
-};
-
-std::ostream& operator<<(std::ostream& os, const Sha1BufferType& buffer) {
-	SizedBuffer sized_buffer = buffer.get_sized_buffer();
-	os << sized_buffer;
-	return os;
-}
-
-[[nodiscard]] consteval Sha1BufferType get_expected_sha1_from_string(const char* input,
-                                                                     std::size_t size) {
-
-	Sha1BufferType result = { false };
-
-	if(size == 0) {
-		return result;
-	}
-
-	if(size % 2 != 0) {
-		return result;
-	}
-
-	size_t buffer_size = size / 2;
-
-	if(buffer_size != sha1_buffer_size) {
-		return result;
-	}
-
-	for(size_t i = 0; i < buffer_size; ++i) {
-		bool success_sub = true;
-		std::uint8_t value = single_hex_value(input + (i * 2), &success_sub);
-		if(!success_sub) {
-			return result;
-		}
-		result[i] = value;
-	}
-
-	result.set_error(false);
-	return result;
-}
-
-[[nodiscard]] consteval Sha1BufferType operator""_sha1(const char* input, std::size_t size) {
-	const auto result = get_expected_sha1_from_string(input, size);
-
-	if(result.is_error()) {
-		assert(false && "ERROR in consteval");
-	}
-
-	return result;
-}
+#include <support/helpers.hpp>
+#include <support/support.hpp>
 
 struct TestCaseSha1 {
 	doctest::String name;
 	std::string input;
-	Sha1BufferType result;
+	sha1::Sha1BufferType result;
 };
 
 struct TestCaseBase64 {
@@ -145,11 +19,10 @@ struct TestCaseBase64 {
 	std::string base64;
 };
 
-} // namespace
+TEST_SUITE_BEGIN("hash" * doctest::description("hash tests") *
+                 doctest::timeout(2.0 * g_doctest_timeout_multiplier));
 
-TEST_SUITE_BEGIN("hash" * doctest::description("hash tests") * doctest::timeout(2.0));
-
-TEST_CASE("testing sha1 generation with openssl") {
+TEST_CASE("testing sha1 generation with openssl <sha1>") {
 
 	std::string sha1_provider = get_sha1_provider();
 	REQUIRE_EQ(sha1_provider, "openssl (EVP)");
@@ -366,7 +239,6 @@ TEST_CASE("testing sha1 generation with openssl") {
 	}
 }
 
-namespace {
 std::vector<TestCaseBase64> base64_test_cases = {
 	{ .name = "empty string", .raw = "", .base64 = "" },
 	{ .name = "simple string", .raw = "hello world", .base64 = "aGVsbG8gd29ybGQ=" },
@@ -376,13 +248,7 @@ std::vector<TestCaseBase64> base64_test_cases = {
 
 };
 
-[[nodiscard]] SizedBuffer buffer_from_string(const std::string& inp) {
-	return { .data = (void*)inp.c_str(), .size = inp.size() };
-}
-
-} // namespace
-
-TEST_CASE("testing base64 decoding with openssl") {
+TEST_CASE("testing base64 decoding with openssl <base64_dec>") {
 
 	std::string base64_provider = get_base64_provider();
 	REQUIRE_EQ(base64_provider, "openssl");
@@ -391,7 +257,7 @@ TEST_CASE("testing base64 decoding with openssl") {
 
 		SUBCASE(test_case.name) {
 			[&test_case]() -> void {
-				SizedBuffer input = buffer_from_string(test_case.base64);
+				SizedBuffer input = helpers::buffer_from_string(test_case.base64);
 
 				const SizedBuffer result = base64_decode_buffer(input);
 
@@ -403,7 +269,7 @@ TEST_CASE("testing base64 decoding with openssl") {
 					REQUIRE_EQ(result.size, 0);
 				}
 
-				SizedBuffer expected_result = buffer_from_string(test_case.raw);
+				SizedBuffer expected_result = helpers::buffer_from_string(test_case.raw);
 
 				REQUIRE_EQ(result, expected_result);
 
@@ -413,7 +279,7 @@ TEST_CASE("testing base64 decoding with openssl") {
 	}
 }
 
-TEST_CASE("testing base64 encoding with openssl") {
+TEST_CASE("testing base64 encoding with openssl <base64_enc>") {
 
 	std::string base64_provider = get_base64_provider();
 	REQUIRE_EQ(base64_provider, "openssl");
@@ -422,7 +288,7 @@ TEST_CASE("testing base64 encoding with openssl") {
 
 		SUBCASE(test_case.name) {
 			[&test_case]() -> void {
-				SizedBuffer input = buffer_from_string(test_case.raw);
+				SizedBuffer input = helpers::buffer_from_string(test_case.raw);
 
 				char* result = base64_encode_buffer(input);
 
@@ -448,18 +314,16 @@ TEST_CASE("testing base64 encoding with openssl") {
 
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
-namespace {
 struct TestCaseBaseBcrypt {
 	doctest::String name;
 	std::string password;
 	HashSaltSettings settings;
 };
 
-} // namespace
-
 	#define BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS 10
 
-TEST_CASE("testing password hashing with bcrypt" * doctest::timeout(10.0)) {
+TEST_CASE("testing password hashing with bcrypt <bcrypt>" *
+          doctest::timeout(10.0 * g_doctest_timeout_multiplier)) {
 
 	std::vector<TestCaseBaseBcrypt> test_cases = {
 		{ .name = "normal password (bcrypt)",

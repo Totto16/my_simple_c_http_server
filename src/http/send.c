@@ -29,31 +29,49 @@ send_concatted_http1_response_to_connection(const ConnectionDescriptor* const de
 	return result;
 }
 
+// may size of uint61_t is 65535 alias 5 chars, + h2="" => 5 + 1 for 0 byte
+#define SIZE_OF_GLOBAL_ALT_SVC_DATA ((5 + 1) + 5)
+
+// support h2 alt-sv, populate it once, use it after that
+char g_alt_svc_constant_data // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    [SIZE_OF_GLOBAL_ALT_SVC_DATA] = { 'h', '2', '=', '"', 0, 0, 0, 0, 0, '"', '\0' };
+
+void global_setup_port_data(uint16_t port) {
+	size_t result =
+	    snprintf(g_alt_svc_constant_data, SIZE_OF_GLOBAL_ALT_SVC_DATA, "h2=\"%u\"", port);
+
+	assert(result <= SIZE_OF_GLOBAL_ALT_SVC_DATA);
+	UNUSED(result);
+}
+
 static bool construct_http1_headers_for_request(
-    SendSettings send_settings, HttpHeaderFields* const result_header_fields,
-    const char* const mime_type, HttpHeaderFields additional_headers,
-    CompressionType compression_format, const SizedBuffer body, const HttpStatusCode status) {
+    SendSettings send_settings, HttpHeaderFields* const result_header_fields, const tstr mime_type,
+    HttpHeaderFields additional_headers, CompressionType compression_format, const SizedBuffer body,
+    const HttpStatusCode status) {
 
 	// add standard fields
 
 	{
 		// MIME TYPE
 
-		const char* const actual_mime_type = mime_type == NULL ? DEFAULT_MIME_TYPE : mime_type;
+		const tstr actual_mime_type =
+		    tstr_is_null(&mime_type) // NOLINT(readability-implicit-bool-conversion)
+		        ? DEFAULT_MIME_TYPE
+		        : mime_type;
 
-		add_http_header_field_const_key_const_value(
-		    result_header_fields, HTTP_HEADER_NAME(content_type), actual_mime_type);
+		add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_type),
+		                      actual_mime_type);
 	}
 
 	{
-		if(send_settings.protocol_to_use != HTTPProtocolVersion2) {
+		if(send_settings.protocol_data.version != HTTPProtocolVersion2) {
 			// CONTENT LENGTH
 
 			char* content_length_buffer = NULL;
 			FORMAT_STRING(&content_length_buffer, return NULL;, "%ld", body.size);
 
-			add_http_header_field_const_key_dynamic_value(
-			    result_header_fields, HTTP_HEADER_NAME(content_length), content_length_buffer);
+			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_length),
+			                      tstr_own_cstr(content_length_buffer));
 		}
 	}
 
@@ -63,22 +81,33 @@ static bool construct_http1_headers_for_request(
 
 		// TODO(Totto): once we support http1.1 keepalive, remove this
 
-		if(send_settings.protocol_to_use != HTTPProtocolVersion2 &&
+		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
 		   status != HttpStatusSwitchingProtocols) {
 
-			add_http_header_field_const_key_const_value(result_header_fields,
-			                                            HTTP_HEADER_NAME(connection), "close");
+			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(connection),
+			                      TSTR_LIT("close"));
 		}
-		UNUSED(send_settings);
 	}
 
 	{
 		// Server
 
-		const char* const server_value = "Simple C HTTP Server: v" STRINGIFY(VERSION_STRING);
+		const tstr server_value = TSTR_LIT("Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
-		add_http_header_field_const_key_const_value(result_header_fields, HTTP_HEADER_NAME(server),
-		                                            server_value);
+		add_http_header_field(result_header_fields, HTTP_HEADER_NAME(server), server_value);
+	}
+
+	{
+		// Alt-Svc
+		// see: https://datatracker.ietf.org/doc/html/rfc7838
+
+		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
+		   status != HttpStatusSwitchingProtocols) {
+
+			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(alt_svc),
+			                      tstr_from_static_cstr_with_len(g_alt_svc_constant_data,
+			                                                     SIZE_OF_GLOBAL_ALT_SVC_DATA - 1));
+		}
 	}
 
 	{
@@ -87,10 +116,10 @@ static bool construct_http1_headers_for_request(
 
 		if(compression_format != CompressionTypeNone) {
 
-			const char* const content_encoding = get_string_for_compress_format(compression_format);
+			const tstr content_encoding = get_string_for_compress_format(compression_format);
 
-			add_http_header_field_const_key_const_value(
-			    result_header_fields, HTTP_HEADER_NAME(content_encoding), content_encoding);
+			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_encoding),
+			                      content_encoding);
 		}
 	}
 
@@ -98,16 +127,28 @@ static bool construct_http1_headers_for_request(
 
 	size_t additional_headers_size = TVEC_LENGTH(HttpHeaderField, additional_headers);
 
-	auto _ = TVEC_RESERVE(HttpHeaderField, result_header_fields,
-	                      current_array_size + additional_headers_size);
-	UNUSED(_);
+	const TvecResult push_res = TVEC_RESERVE(HttpHeaderField, result_header_fields,
+	                                         current_array_size + additional_headers_size);
+	if(push_res != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
+
+		if(additional_headers_size > 0) {
+			TVEC_FREE(HttpHeaderField, &additional_headers);
+		}
+		return false;
+	}
 
 	for(size_t i = 0; i < additional_headers_size; ++i) {
 
 		HttpHeaderField field = TVEC_AT(HttpHeaderField, additional_headers, i);
 
-		auto _1 = TVEC_PUSH(HttpHeaderField, result_header_fields, field);
-		UNUSED(_1);
+		const TvecResult push_res1 = TVEC_PUSH(HttpHeaderField, result_header_fields, field);
+		if(push_res1 != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
+
+			if(additional_headers_size > 0) {
+				TVEC_FREE(HttpHeaderField, &additional_headers);
+			}
+			return false;
+		}
 	}
 
 	// if additional Headers are specified free them now
@@ -119,17 +160,17 @@ static bool construct_http1_headers_for_request(
 }
 
 static bool construct_http2_headers_for_request(
-    SendSettings send_settings, HttpHeaderFields* const result_header_fields,
-    const char* const mime_type, HttpHeaderFields additional_headers,
-    CompressionType compression_format, const SizedBuffer body, const HttpStatusCode status) {
+    SendSettings send_settings, HttpHeaderFields* const result_header_fields, const tstr mime_type,
+    HttpHeaderFields additional_headers, CompressionType compression_format, const SizedBuffer body,
+    const HttpStatusCode status) {
 
 	*result_header_fields = TVEC_EMPTY(HttpHeaderField);
 
 	char* status_code_buffer = NULL;
 	FORMAT_STRING(&status_code_buffer, return false;, "%u", status);
 
-	add_http_header_field_const_key_dynamic_value(
-	    result_header_fields, HTTP_HEADER_NAME(http2_pseudo_status), status_code_buffer);
+	add_http_header_field(result_header_fields, HTTP_HEADER_NAME(http2_pseudo_status),
+	                      tstr_own_cstr(status_code_buffer));
 
 	return construct_http1_headers_for_request(send_settings, result_header_fields, mime_type,
 	                                           additional_headers, compression_format, body,
@@ -139,6 +180,7 @@ static bool construct_http2_headers_for_request(
 typedef struct {
 	SizedBuffer hpack_encoded_headers;
 	SizedBuffer body;
+	Http2Identifier stream_identifier;
 } Http2Response;
 
 NODISCARD static int send_http2_response_to_connection(const ConnectionDescriptor* const descriptor,
@@ -148,9 +190,7 @@ NODISCARD static int send_http2_response_to_connection(const ConnectionDescripto
 
 	bool headers_are_end_stream = response->body.data == NULL;
 
-	Http2Identifier new_stream_identifier = get_new_http2_identifier(context);
-
-	int result = http2_send_headers(descriptor, new_stream_identifier, context->settings,
+	int result = http2_send_headers(descriptor, response->stream_identifier, context->settings,
 	                                response->hpack_encoded_headers, headers_are_end_stream);
 
 	if(result < 0) {
@@ -158,8 +198,8 @@ NODISCARD static int send_http2_response_to_connection(const ConnectionDescripto
 	}
 
 	if(response->body.data != NULL) {
-		result =
-		    http2_send_data(descriptor, new_stream_identifier, context->settings, response->body);
+		result = http2_send_data(descriptor, response->stream_identifier, context->settings,
+		                         response->body);
 		if(result < 0) {
 			return result;
 		}
@@ -169,9 +209,27 @@ NODISCARD static int send_http2_response_to_connection(const ConnectionDescripto
 }
 
 typedef struct {
-	HttpResponseHead head;
+	tstr protocol_version;
+	tstr status_code_str;
+	tstr status_message;
+} Http1ResponseLine;
+
+typedef struct {
+	Http1ResponseLine response_line;
+	HttpHeaderFields header_fields;
+} Http1ResponseHead;
+
+typedef struct {
+	Http1ResponseHead head;
 	SizedBuffer body;
 } Http1Response;
+
+static void free_http1_response(Http1Response* response);
+
+#define FREE_AT_END() \
+	do { \
+		free_http1_response(response); \
+	} while(false)
 
 // simple http Response constructor using string builder, headers can be NULL, when header_size is
 // also null!
@@ -186,31 +244,30 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 		return NULL;
 	}
 
-	*response = (Http1Response){ .head = {
-		.header_fields = 	TVEC_EMPTY(HttpHeaderField),
-		.response_line = {
-			.protocol_version = NULL,.status_code = 0,
-			.status_message = NULL,
-		} 
-	}, .body = (SizedBuffer){ .data = NULL, .size = 0 } };
+	*response = (Http1Response){ 
+		.head = {
+			.header_fields = 	TVEC_EMPTY(HttpHeaderField),
+			.response_line = {
+				.protocol_version = tstr_null(),
+				.status_code_str =  tstr_null(),
+				.status_message = tstr_null(),
+			} 
+		},
+		.body = (SizedBuffer){ .data = NULL, .size = 0 } };
 
-	HTTPProtocolVersion version_to_use = send_settings.protocol_to_use;
+	HTTPProtocolVersion version_to_use = send_settings.protocol_data.version;
 
 	const char* protocol_version = get_http_protocol_version_string(version_to_use);
 
-	size_t protocol_length = strlen(protocol_version);
 	const char* status_message = get_status_message(to_send.status);
 
 	// using the same trick as before, \0 in the malloced string :)
-	char* response_line_buffer = NULL;
-	FORMAT_STRING(&response_line_buffer, return NULL;
-	              , "%s%c%d%c%s", protocol_version, '\0', to_send.status, '\0', status_message);
+	char* status_code_buffer = NULL;
+	FORMAT_STRING(&status_code_buffer, FREE_AT_END(); return NULL;, "%d", to_send.status);
 
-	response->head.response_line.protocol_version = response_line_buffer;
-	response->head.response_line.status_code = response_line_buffer + protocol_length + 1;
-	response->head.response_line.status_message =
-	    response_line_buffer + protocol_length +
-	    strlen(response_line_buffer + protocol_length + 1) + 2;
+	response->head.response_line.protocol_version = tstr_from(protocol_version);
+	response->head.response_line.status_code_str = tstr_own_cstr(status_code_buffer);
+	response->head.response_line.status_message = tstr_from(status_message);
 
 	CompressionType format_used = send_settings.compression_to_use;
 
@@ -223,10 +280,12 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 			    compress_buffer_with(to_send.body.content, send_settings.compression_to_use);
 
 			if(!new_body.data) {
-				LOG_MESSAGE(
-				    LogLevelError,
-				    "An error occurred while compressing the body with the compression format %s\n",
-				    get_string_for_compress_format(send_settings.compression_to_use));
+				const tstr str = get_string_for_compress_format(send_settings.compression_to_use);
+
+				LOG_MESSAGE(LogLevelError,
+				            "An error occurred while compressing the body with the compression "
+				            "format " TSTR_FMT "\n",
+				            TSTR_FMT_ARGS(str));
 				format_used = CompressionTypeNone;
 				response->body = to_send.body.content;
 			} else {
@@ -243,7 +302,7 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 
 	if(!construct_http1_headers_for_request(send_settings, &(response->head.header_fields),
 	                                        to_send.mime_type, to_send.additional_headers,
-	                                        format_used, response->body,to_send.status)) {
+	                                        format_used, response->body, to_send.status)) {
 		// TODO(Totto): free things accordingly
 		return NULL;
 	}
@@ -258,6 +317,15 @@ NODISCARD static Http1Response* construct_http1_response(HTTPResponseToSend to_s
 	return response;
 }
 
+#undef FREE_AT_END
+
+static void free_http2_response(Http2Response* response);
+
+#define FREE_AT_END() \
+	do { \
+		free_http2_response(response); \
+	} while(false)
+
 NODISCARD static Http2Response* construct_http2_response(Http2ContextState* const state,
                                                          HTTPResponseToSend to_send,
                                                          SendSettings send_settings) {
@@ -270,8 +338,11 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 		return NULL;
 	}
 
-	*response = (Http2Response){ .hpack_encoded_headers = (SizedBuffer){ .data = NULL, .size = 0 },
-		                         .body = (SizedBuffer){ .data = NULL, .size = 0 } };
+	*response = (Http2Response){
+		.hpack_encoded_headers = (SizedBuffer){ .data = NULL, .size = 0 },
+		.body = (SizedBuffer){ .data = NULL, .size = 0 },
+		.stream_identifier = send_settings.protocol_data.value.v2.stream_identifier,
+	};
 
 	CompressionType format_used = send_settings.compression_to_use;
 
@@ -284,10 +355,12 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 			    compress_buffer_with(to_send.body.content, send_settings.compression_to_use);
 
 			if(!new_body.data) {
-				LOG_MESSAGE(
-				    LogLevelError,
-				    "An error occurred while compressing the body with the compression format %s\n",
-				    get_string_for_compress_format(send_settings.compression_to_use));
+				const tstr str = get_string_for_compress_format(send_settings.compression_to_use);
+
+				LOG_MESSAGE(LogLevelError,
+				            "An error occurred while compressing the body with the compression "
+				            "format " TSTR_FMT "\n",
+				            TSTR_FMT_ARGS(str));
 				format_used = CompressionTypeNone;
 				response->body = to_send.body.content;
 			} else {
@@ -307,7 +380,9 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 	if(!construct_http2_headers_for_request(send_settings, &result_headers, to_send.mime_type,
 	                                        to_send.additional_headers, format_used, response->body,
 	                                        to_send.status)) {
-		// TODO(Totto): free things accordingly
+
+		FREE_AT_END();
+
 		return NULL;
 	}
 
@@ -316,17 +391,32 @@ NODISCARD static Http2Response* construct_http2_response(Http2ContextState* cons
 		response->body = get_empty_sized_buffer();
 	}
 
-	response->hpack_encoded_headers = http2_hpack_compress_data(state->hpack_state, result_headers);
+	const Http2HpackCompressOptions default_compress_options = {
+		.huffman_usage = Http2HpackHuffmanUsageAuto,
+		.type = Http2HpackCompressTypeStaticTableUsage,
+		.table_add_type = Http2HpackTableAddTypeCommon,
+	};
+
+	response->hpack_encoded_headers = http2_hpack_compress_data(
+	    state->hpack_state.compress_state, result_headers, default_compress_options);
 
 	free_http_header_fields(&result_headers);
 
 	if(response->hpack_encoded_headers.data == NULL) {
+		FREE_AT_END();
 		return NULL;
 	}
 
 	// finally retuning the malloced http_response
 	return response;
 }
+
+#undef FREE_AT_END
+
+#define FREE_AT_END() \
+	do { \
+		free(concatted_response); \
+	} while(false)
 
 // makes a string_builder + a sized body from the HttpResponse, just does the opposite of parsing
 // a Request, but with some slight modification
@@ -335,6 +425,7 @@ NODISCARD static Http1ConcattedResponse* http1_response_concat(Http1Response* re
 	    (Http1ConcattedResponse*)malloc(sizeof(Http1ConcattedResponse));
 
 	if(response == NULL) {
+		FREE_AT_END();
 		return NULL;
 	}
 
@@ -348,17 +439,19 @@ NODISCARD static Http1ConcattedResponse* http1_response_concat(Http1Response* re
 
 	StringBuilder* result = string_builder_init();
 
-	STRING_BUILDER_APPENDF(result, return NULL;
-	                       , "%s %s %s%s", response->head.response_line.protocol_version,
-	                       response->head.response_line.status_code,
-	                       response->head.response_line.status_message, HTTP_LINE_SEPERATORS);
+	STRING_BUILDER_APPENDF(
+	    result, FREE_AT_END(); return NULL;
+	    , "%s %s %s%s", tstr_cstr(&response->head.response_line.protocol_version),
+	    tstr_cstr(&response->head.response_line.status_code_str),
+	    tstr_cstr(&response->head.response_line.status_message), HTTP_LINE_SEPERATORS);
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, response->head.header_fields); ++i) {
 
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, response->head.header_fields, i);
 
-		STRING_BUILDER_APPENDF(result, return NULL;
-		                       , "%s: %s%s", entry.key, entry.value, HTTP_LINE_SEPERATORS);
+		STRING_BUILDER_APPENDF(result, FREE_AT_END(); return NULL;
+		                       , "%s: %s%s", tstr_cstr(&entry.key), tstr_cstr(&entry.value),
+		                       HTTP_LINE_SEPERATORS);
 	}
 
 	string_builder_append_single(result, HTTP_LINE_SEPERATORS);
@@ -369,10 +462,17 @@ NODISCARD static Http1ConcattedResponse* http1_response_concat(Http1Response* re
 	return concatted_response;
 }
 
+#undef FREE_AT_END
+
+static void free_http1_response_line(Http1ResponseLine* line) {
+	tstr_free(&line->protocol_version);
+	tstr_free(&line->status_code_str);
+	tstr_free(&line->status_message);
+}
+
 // free the HttpResponse, just freeing everything necessary
 static void free_http1_response(Http1Response* response) {
-	// elegantly freeing three at once :)
-	free(response->head.response_line.protocol_version);
+	free_http1_response_line(&(response->head.response_line));
 	free_http_header_fields(&response->head.header_fields);
 
 	free_sized_buffer(response->body);
@@ -430,10 +530,10 @@ NODISCARD static inline int send_message_to_connection(HTTPGeneralContext* const
                                                        HTTPResponseToSend to_send,
                                                        SendSettings send_settings) {
 
-	if(send_settings.protocol_to_use == HTTPProtocolVersion2) {
+	if(send_settings.protocol_data.version == HTTPProtocolVersion2) {
 		HTTP2Context* const context = http_general_context_get_http2_context(general_context);
 		if(context == NULL) {
-			return -143;
+			return -143; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 		}
 		return send_message_to_connection_http2(context, descriptor, to_send, send_settings);
 	}

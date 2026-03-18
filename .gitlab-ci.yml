@@ -17,6 +17,9 @@ compile_clang:
         - export CXX="clang++-21"
         # install meson
         - pip install meson --break-system-packages
+        # install node 24
+        - wget -qO- https://deb.nodesource.com/setup_24.x | bash -
+        - apt-get install -y nodejs
     script:
         - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
         - meson compile -C build
@@ -31,11 +34,14 @@ compile_gcc:
     before_script:
         # install gcc + other dependencies
         - apt-get update
-        - apt-get install gcc-14 g++-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libgmp-dev libpam0g-dev --no-install-recommends -y
+        - apt-get install wget gcc-14 g++-14 libc-dev-bin libc6-dev python3-pip ninja-build pkg-config openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev git patch libgmp-dev libpam0g-dev --no-install-recommends -y
         - export CC="gcc-14"
         - export CXX="g++-14"
         # install meson
         - pip install meson --break-system-packages
+        # install node 24
+        - wget -qO- https://deb.nodesource.com/setup_24.x | bash -
+        - apt-get install -y nodejs
     script:
         - meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
         - meson compile -C build
@@ -50,6 +56,9 @@ unit_tests:
     needs:
         - compile_clang
         - compile_gcc
+    variables:
+        GIT_SUBMODULE_STRATEGY: recursive
+        GIT_SUBMODULE_DEPTH: 0
     dependencies: []
     before_script:
         # install other dependencies
@@ -64,11 +73,14 @@ unit_tests:
         - export CXX="clang++-21"
         # install meson
         - pip install meson --break-system-packages
+        # install node 24
+        - wget -qO- https://deb.nodesource.com/setup_24.x | bash -
+        - apt-get install -y nodejs
     script:
         # run unit tests
         - meson setup test_build -Dbuildtype=debug -Db_coverage=true -Dtests=true -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
         - meson compile -C test_build
-        - meson test -C test_build --verbose
+        - DOCTEST_TEST_MULTIPLIER=3 meson test -C test_build --verbose -j $(nproc) -t 3
         - ninja coverage -C test_build
 
     artifacts:
@@ -103,6 +115,9 @@ ws_tests:
         - export CXX="clang++-21"
         # install meson
         - pip install meson --break-system-packages
+        # install node 24
+        - wget -qO- https://deb.nodesource.com/setup_24.x | bash -
+        - apt-get install -y nodejs
         # install pypy2
         - export KEEP_AUTO_PACKAGES_INSTALLED="true"
         - ./tests/autobahn/install_pypy2.sh

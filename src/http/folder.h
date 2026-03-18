@@ -19,15 +19,15 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } ServeFolderResultType;
 
 typedef struct {
-	const char* mime_type;
+	tstr mime_type;
 	SizedBuffer file_content;
-	char* file_name;
+	tstr file_name;
 } ServeFolderFileInfo;
 
 // NOTe. similar to some ftp type, but with less info
 typedef struct {
 	bool dir;
-	char* file_name;
+	tstr file_name;
 	Time date;
 	size_t size;
 } ServeFolderFolderEntry;
@@ -55,4 +55,4 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 void free_serve_folder_result(ServeFolderResult* serve_folder_result);
 
 NODISCARD StringBuilder* folder_content_to_html(ServeFolderFolderInfo folder_info,
-                                                const char* folder_path);
+                                                const tstr* folder_path);

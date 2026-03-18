@@ -19,11 +19,11 @@ AccountInfo* alloc_default_account(void) {
 void free_account_data(AccountInfo* account) {
 	switch(account->state) {
 		case AccountStateOk: {
-			free(account->data.ok_data.username);
+			tstr_free(&(account->data.ok_data.username));
 			break;
 		}
 		case AccountStateOnlyUser: {
-			free(account->data.temp_data.username);
+			tstr_free(&(account->data.temp_data.username));
 			break;
 		}
 		case AccountStateEmpty:
@@ -33,9 +33,10 @@ void free_account_data(AccountInfo* account) {
 	}
 }
 
-UserValidity account_verify(const AuthenticationProviders* auth_providers,
-                            char* username, // NOLINT(bugprone-easily-swappable-parameters)
-                            char* password) {
+UserValidity
+account_verify(const AuthenticationProviders* auth_providers,
+               const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
+               const tstr* const password) {
 
 	const AuthenticationFindResult result =
 	    authentication_providers_find_user_with_password(auth_providers, username, password);

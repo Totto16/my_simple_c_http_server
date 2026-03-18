@@ -73,24 +73,30 @@
 		do { \
 			UNUSED((x)); \
 		} while(false)
-#else
 
-	#include <assert.h>
-
-#endif
-
-#ifdef NDEBUG
 	#define UNREACHABLE() \
 		do { \
-			fprintf(stderr, "[%s %s:%d]: UNREACHABLE", __func__, __FILE__, __LINE__); \
+			fprintf(stderr, "[%s %s:%d]: UNREACHABLE\n", __func__, __FILE__, __LINE__); \
 			exit(EXIT_FAILURE); \
 		} while(false)
+
+	#define OOM_ASSERT(value, message) \
+		do { \
+			if(!(value)) { \
+				fprintf(stderr, "[%s %s:%d]: OOM: %s\n", __func__, __FILE__, __LINE__, (message)); \
+				exit(EXIT_FAILURE); \
+			} \
+		} while(false)
+
 #else
+	#include <assert.h>
 
 	#define UNREACHABLE() \
 		do { \
 			assert(false && "UNREACHABLE"); \
 		} while(false)
+
+	#define OOM_ASSERT(value, message) assert((value) && (message));
 
 #endif
 
@@ -175,7 +181,7 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 
 #define IMPL_STDERR_LOGGER(format, ...) fprintf(stderr, format, __VA_ARGS__)
 
-NODISCARD float parse_float(char* value);
+NODISCARD float parse_float(const char* value, OUT_PARAM(bool) success);
 
 NODISCARD uint32_t get_random_byte(void);
 
@@ -183,7 +189,10 @@ NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max);
 
 NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
 
-#define CHAR_PTR_KEYNAME CString
+#define TSTR_KEYNAME TString
 
 #define STRINGIFY(a) STR_IMPL(a)
 #define STR_IMPL(a) #a
+
+#define ZERO_STRUCT(Type) (Type){ 0 }
+#define ZERO_ARRAY() { 0 }

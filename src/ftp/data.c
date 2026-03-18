@@ -435,14 +435,14 @@ nts_internal_data_connections_to_close(DataController* const data_controller,
 					}
 				}
 
-				auto _ = TVEC_PUSH(ConnectionDescriptorPtr, connections_to_close,
-				                   current_conn->descriptor);
-				UNUSED(_);
+				const TvecResult push_res = TVEC_PUSH(ConnectionDescriptorPtr, connections_to_close,
+				                                      current_conn->descriptor);
+				OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 			} else {
 
-				auto _ = TVEC_PUSH(DataConnectionPtr, &new_connections, current_conn);
-
-				UNUSED(_);
+				const TvecResult push_res =
+				    TVEC_PUSH(DataConnectionPtr, &new_connections, current_conn);
+				OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 			}
 		}
 
@@ -563,6 +563,8 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 #endif
 
 	struct sockaddr_in* connect_addr = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in));
+
+	*connect_addr = ZERO_STRUCT(struct sockaddr_in);
 
 	connect_addr->sin_family = AF_INET;
 	// hto functions are used for networking, since there every number is BIG ENDIAN and linux

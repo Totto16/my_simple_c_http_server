@@ -15,8 +15,8 @@ WebSocketAction websocket_function(WebSocketConnection* connection, WebSocketMes
 				LOG_MESSAGE(LogLevelInfo, "Received TEXT message of length %zu\n",
 				            message->buffer.size);
 			} else {
-				LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '%.*s'\n",
-				            (int)(message->buffer.size), (char*)message->buffer.data);
+				LOG_MESSAGE(LogLevelInfo, "Received TEXT message: '" SIZED_BUFFER_FMT "'\n",
+				            SIZED_BUFFER_FMT_ARGS(message->buffer));
 			}
 		} else {
 			LOG_MESSAGE(LogLevelInfo, "Received BIN message of length %zu\n", message->buffer.size);

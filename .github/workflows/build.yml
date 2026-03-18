@@ -76,6 +76,12 @@ jobs:
                   version: 14
                   platform: x64 # note, this isn't really correct
 
+            # todo: remove this , that just fixes a current CI bug in MacOS x86_64
+            - name: Fix LLVM 18 (MacOS x86_64)
+              if: matrix.config.os == 'macos' && matrix.config.arm == false
+              run: |
+                  brew unlink llvm@18
+
             - name: Setup Clang (MacOS)
               if: matrix.config.os == 'macos'
               run: |
@@ -122,7 +128,12 @@ jobs:
                   brew install openssl@3.0 zstd zlib brotli git gmp bcrypt
 
             - name: Configure
-              run: meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=${{( matrix.config.os  == 'macos') && 'bcrypt' || 'bcrypt,pam' }} --fatal-meson-warnings
+              run: |
+                meson setup build -Dbuildtype=release -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=${{( matrix.config.os  == 'macos') && 'bcrypt' || 'bcrypt,pam' }} --fatal-meson-warnings
+
+                meson setup build_no_secure -Dbuildtype=release -Dsecure=disabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=${{( matrix.config.os  == 'macos') && 'bcrypt' || 'bcrypt,pam' }} --fatal-meson-warnings
 
             - name: Build
-              run: meson compile -C build
+              run: |
+                meson compile -C build
+                meson compile -C build_no_secure

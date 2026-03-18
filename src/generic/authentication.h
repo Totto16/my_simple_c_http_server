@@ -5,6 +5,8 @@
 #include "./hash.h"
 #include "utils/utils.h"
 
+#include <tstr.h>
+
 typedef struct AuthenticationProvidersImpl AuthenticationProviders;
 
 typedef struct AuthenticationProviderImpl AuthenticationProvider;
@@ -42,11 +44,11 @@ void free_authentication_provider(AuthenticationProvider* auth_provider);
 NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void);
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
-    AuthenticationProvider* simple_authentication_provider, const char* username,
-    const char* password, UserRole role);
+    AuthenticationProvider* simple_authentication_provider, const tstr* username,
+    const tstr* password, UserRole role);
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
-    AuthenticationProvider* simple_authentication_provider, const char* username,
+    AuthenticationProvider* simple_authentication_provider, const tstr* username,
     HashSaltResultType* hash_salted_password, UserRole role);
 
 void free_authentication_providers(AuthenticationProviders* auth_providers);
@@ -62,7 +64,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } AuthenticationValidity;
 
 typedef struct {
-	char* username;
+	tstr username;
 	UserRole role;
 } AuthUser;
 
@@ -82,4 +84,4 @@ typedef struct {
 } AuthenticationFindResult;
 
 NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
-    const AuthenticationProviders* auth_providers, char* username, char* password);
+    const AuthenticationProviders* auth_providers, const tstr* username, const tstr* password);
