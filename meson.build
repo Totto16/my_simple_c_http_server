@@ -11,7 +11,7 @@ project(
         'werror': 'true',
         'b_ndebug': 'if-release',
     },
-    version: '3.5.0-alpha',
+    version: '3.5.1',
 )
 
 deps = []
@@ -252,6 +252,7 @@ internal_c_args += cc.get_supported_arguments(
     '-Wfloat-conversion',
     '-Wno-nullability-extension',
     '-Wno-nullability-completeness',
+    '-ftime-trace',
 )
 
 if cc.get_id() == 'gcc'
