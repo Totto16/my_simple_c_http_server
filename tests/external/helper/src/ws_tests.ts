@@ -3,6 +3,7 @@ import os from "node:os"
 import fs from "node:fs"
 import fsAsync from "node:fs/promises"
 import path from "node:path"
+import child_process from "node:child_process";
 
 interface WaitOptions {
     host: string,
@@ -145,7 +146,7 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
             const serverName = normalizeServerName(server.name)
 
             const tempDir = await fsAsync.mkdtemp(
-                path.join(os.tmpdir(), `ws_tests-${index}-${serverName}-`)
+                path.join(os.tmpdir(), `ws_tests-${serverName}-${index}-`)
             );
 
 
@@ -186,9 +187,97 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
 }
 
 
+interface ExecuteResult {
+    stdout: string,
+    stderr: string,
+    code: number
+}
+
+async function executeAsync(cmd: string, args: string[]): Promise<ExecuteResult> {
+
+    return new Promise<ExecuteResult>((resolve, reject) => {
+        const child = child_process.spawn(
+            cmd, args,
+        );
+
+        const result: ExecuteResult = { stderr: "", stdout: "", code: 0 }
+
+        child.on('close', (code, signal) => {
+            if (code === null && signal === null) {
+                reject(new Error(`invalid state`));
+                return;
+            }
+
+            if (signal !== null) {
+                reject(new Error(`Exited with signal ${signal}`));
+                return;
+            }
+
+            if (code !== 0) {
+                reject(new Error(`Exited with exit code ${code}`));
+                return;
+            }
+
+
+            result.code = code;
+            resolve(result);
+            return;
+        });
+
+        child.on('exit', (code, signal) => {
+            if (code === null && signal === null) {
+                reject(new Error(`invalid state`));
+                return;
+            }
+
+            if (signal !== null) {
+                reject(new Error(`Exited with signal ${signal}`));
+                return;
+            }
+
+            if (code !== 0) {
+                reject(new Error(`Exited with exit code ${code}`));
+                return;
+            }
+
+            result.code = code;
+            resolve(result);
+            return;
+        });
+
+        child.on('error', (err) => {
+            reject(new Error(`Exited with error: ${err}`));
+            return;
+        });
+
+        child.stdout.on("data", (chunk) => {
+            result.stdout += chunk.toString()
+        })
+
+        child.stderr.on("data", (chunk) => {
+            result.stderr += chunk.toString()
+        })
+
+    });
+
+}
+
+async function launchWsTestProcessSingle(cfgFile: string): Promise<void> {
+
+    const result = await executeAsync("pypy", ["-m", "autobahntestsuite.wstest", "--mode", "fuzzingclient", "--spec", cfgFile])
+
+    if (result.stderr != "") {
+        console.error(result.stderr)
+    }
+}
+
 async function launchWsTestProcess(cfg: SplitConfigValue): Promise<void> {
 
-    throw new Error("TODO")
+    // launch the individual servers separate, this is already parallelized
+
+    for (const single of cfg.servers) {
+        await launchWsTestProcessSingle(single.configFile);
+    }
 
 }
 
@@ -225,40 +314,44 @@ export async function runWsTests(): Promise<void> {
 
     const split_cfg = await splitConfigs(cpu_amount, config)
 
-    const processes: Promise<void>[] = []
-
-    for (const cfg of split_cfg.split) {
-        processes.push(launchWsTestProcess(cfg)
-        )
-    }
-
-    await Promise.all(processes)
-
-
-    await makeHttpRequest("GET", "http://localhost:8080/shutdown")
-
-    // expect the server to be down
     try {
 
-        connectTo(waitOptions.host, waitOptions.port, 1000)
-        throw new Error("Server still alive")
-    } catch (err) {
-        //success
+        const processes: Promise<void>[] = []
+
+        for (const cfg of split_cfg.split) {
+            processes.push(launchWsTestProcess(cfg)
+            )
+        }
+
+        await Promise.all(processes)
+
+
+        await makeHttpRequest("GET", "http://localhost:8080/shutdown")
+
+        // expect the server to be down
+        try {
+
+            connectTo(waitOptions.host, waitOptions.port, 1000)
+            throw new Error("Server still alive")
+        } catch (err) {
+            //success
+        }
+
+        // scan results
+        throw new Error("TODO: scan results")
+
+    } finally {
+
+        const cleanup_calls: Promise<void>[] = []
+
+        for (const cfg of split_cfg.split) {
+            for (const server of cfg.servers) {
+                cleanup_calls.push(fsAsync.unlink(server.configFile))
+            }
+        }
+
+        await Promise.all(cleanup_calls)
+
     }
 
-    // scan results
-
 }
-
-
-
-
-const commands = [
-
-
-
-    "pypy -m autobahntestsuite.wstest --mode fuzzingclient --spec './tests/autobahn/config/fuzzingclient.json'",
-]
-
-
-

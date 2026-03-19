@@ -17,7 +17,7 @@ async function main(): Promise<void> {
     for (let i = 0; i < process.argv.length; ++i) {
         const value = process.argv[i]!
 
-        if (value.endsWith('deno')) {
+        if (value.endsWith('deno') || value.endsWith('node') || value.endsWith('bun')) {
             continue
         }
 
