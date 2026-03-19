@@ -41,7 +41,7 @@ if npx.found() and pnpm.found()
     hpack_script_depends += install_dependencies
 
     type_check_hpack_ts = custom_target(
-        'typecheck hpack.ts',
+        'typecheck code (hpack generator)',
         command: [
             meson_wrapper_sh,
             '--wrapper-generate',
@@ -54,7 +54,7 @@ if npx.found() and pnpm.found()
             '-p',
             'tsconfig.json',
         ],
-        output: ['typecheck_hpack.ts_date.txt'],
+        output: ['typecheck_code_date.txt'],
         depend_files: hpack_script_depend_files,
     )
     hpack_script_depends += type_check_hpack_ts
@@ -138,10 +138,10 @@ generated_hpack_file_cpp = custom_target(
     depends: hpack_script_depends,
 )
 
-generated_cpp_hpack_tests += generated_hpack_file_cpp
+generated_cpp_tests += generated_hpack_file_cpp
 
-alias_target(
-    'generated_sources',
+generated_sources += alias_target(
+    'generated_sources_hpack',
     generated_hpack_huffman_file_c,
     generated_hpack_header_h,
     generated_hpack_file_cpp,

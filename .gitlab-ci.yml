@@ -126,6 +126,9 @@ ws_tests:
         # instal openssl 3
         - apt-get install openssl libssl-dev --no-install-recommends -y
     script:
+        # this script is outdated
+        - echo "This script is outdated" >&2
+        - exit 2
         # setup ws tests
         - meson setup build -Dbuildtype=debug -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
         - meson compile -C build

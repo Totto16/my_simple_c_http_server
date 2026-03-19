@@ -12,3 +12,11 @@
 
 // curl -s -H 'Accept-Encoding: compress' "http://localhost:8080/json" | uncompress
 
+
+
+export function generateTestFiles(output_base: string): void {
+
+    throw new Error("TODO")
+
+
+}
