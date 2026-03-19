@@ -16,6 +16,12 @@ interface WaitOptions {
 async function connectTo(host: string, port: number, timeout: number): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         const socket = net.createConnection({ port, host, timeout }, () => {
+
+            socket.write("GET / HTTP/1.1\r\n\r\n");
+
+            socket.end()
+
+            socket.destroy();
             resolve()
             return;
         })
