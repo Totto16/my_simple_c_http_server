@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "./tqueue.h"
 #include "generic/sem.h"
-#include "myqueue.h"
 #include "utils.h"
 
 // defining the type defs
@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct {
 	size_t worker_threads_amount;
-	Myqueue jobqueue;
+	TQueue job_queue;
 	MyThreadPoolThreadInformation* worker_threads;
 	LifecycleFunctions fns;
 	SemaphoreType jobs_available;
@@ -47,6 +47,7 @@ typedef struct {
 
 typedef struct JobIdImpl JobId;
 
+// TODO: rename My... things to something better
 typedef struct {
 	MyThreadPoolThreadInformation* information;
 	ThreadPool* thread_pool;

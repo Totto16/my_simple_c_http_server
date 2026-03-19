@@ -905,7 +905,7 @@ cleanup:
 
 // implemented specifically for the http Server, it just gets the internal value, but it's better to
 // not access that, since additional steps can be required, like  boundary checks!
-static int myqueue_size(Myqueue* queue) {
+static int tqueue_size(TQueue* queue) {
 	if(queue->size < 0) {
 		LOG_MESSAGE(LogLevelCritical,
 		            "internal size implementation error in the queue, value negative: %d!",
@@ -1005,7 +1005,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(myqueue_push(argument.job_ids, pool_submit(argument.pool, http_socket_connection_handler,
+		if(tqueue_push(argument.job_id_queue, pool_submit(argument.pool, http_socket_connection_handler,
 		                                              connection_argument)) < 0) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
@@ -1015,12 +1015,12 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// so its super fast,but if not doing that, the queue would overflow, nothing in
 		// here is a cancellation point, so it's safe to cancel here, since only accept then
 		// really cancels
-		int size = myqueue_size(argument.job_ids);
+		int size = tqueue_size(argument.job_id_queue);
 		if(size > HTTP_MAX_QUEUE_SIZE) {
 			int boundary = size / 2;
 			while(size > boundary) {
 
-				JobId* job_id = (JobId*)myqueue_pop(argument.job_ids);
+				JobId* job_id = (JobId*)tqueue_pop(argument.job_id_queue);
 
 				JobError result = pool_await(job_id);
 
@@ -1303,10 +1303,10 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		return EXIT_FAILURE;
 	}
 
-	// this is a internal synchronized queue! myqueue_init creates a semaphore that handles
+	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
-	Myqueue job_ids;
-	if(myqueue_init(&job_ids) < 0) {
+	TQueue job_id_queue;
+	if(tqueue_init(&job_id_queue) < 0) {
 		return EXIT_FAILURE;
 	};
 
@@ -1364,7 +1364,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	// necessary arguments
 	pthread_t listener_thread = {};
 	HTTPThreadArgument thread_argument = { .pool = &pool,
-		                                   .job_ids = &job_ids,
+		                                   .job_id_queue = &job_id_queue,
 		                                   .contexts = contexts,
 		                                   .socket_fd = socket_fd,
 		                                   .web_socket_manager = web_socket_manager,
@@ -1400,8 +1400,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 	// since the listener doesn't wait on the jobs, the main thread has to do that work!
 	// the queue can be filled, which can lead to a problem!!
-	while(!myqueue_is_empty(&job_ids)) {
-		JobId* job_id = (JobId*)myqueue_pop(&job_ids);
+	while(!tqueue_is_empty(&job_id_queue)) {
+		JobId* job_id = (JobId*)tqueue_pop(&job_id_queue);
 
 		JobError job_result = pool_await(job_id);
 
@@ -1423,7 +1423,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	}
 
 	// then the queue is destroyed
-	if(myqueue_destroy(&job_ids) < 0) {
+	if(tqueue_destroy(&job_id_queue) < 0) {
 		return EXIT_FAILURE;
 	}
 

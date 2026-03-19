@@ -30,6 +30,8 @@ struct ConnectionNodeImpl {
 
 struct WebSocketThreadManagerImpl {
 	pthread_mutex_t mutex;
+	// TODO: why did i use a infinite linked list for that here?
+	// find a better solution
 	ConnectionNode* head;
 };
 
