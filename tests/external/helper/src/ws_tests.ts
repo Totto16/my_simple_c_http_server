@@ -4,6 +4,8 @@ import fs from "node:fs"
 import fsAsync from "node:fs/promises"
 import path from "node:path"
 import child_process from "node:child_process";
+import http from "node:http"
+import https from "node:https"
 
 interface WaitOptions {
     host: string,
@@ -38,7 +40,7 @@ async function connectTo(host: string, port: number, timeout: number): Promise<v
 async function waitForPort(options: WaitOptions): Promise<void> {
 
     function error(reason: string): void {
-        throw new Error(`Failed to wait for ${options.host}:${options.port}. ${reason}`)
+        throw new Error(`Failed to wait for '${options.host}:${options.port}': ${reason}`)
     }
 
     const finalTimeout = setTimeout((): void => {
@@ -281,8 +283,60 @@ async function launchWsTestProcess(cfg: SplitConfigValue): Promise<void> {
 
 }
 
-async function makeHttpRequest(method: string, url: string): Promise<void> {
-    throw new Error("TODO")
+async function makeHttpGetRequest(url: URL): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+
+        const options: http.RequestOptions = { method: "GET" }
+
+        if (url.protocol === "https:") {
+
+            https.get(url, options, (res) => {
+                if (res.statusCode == undefined) {
+                    reject(new Error(`Failed: no status code received`));
+                    return;
+                }
+
+
+                if (res.statusCode !== 200) {
+                    reject(new Error(`Failed: ${res.statusCode}`));
+                    return;
+                }
+
+
+                res.on('finish', () => {
+                    resolve();
+                });
+            }).on('error', (err) => {
+                reject(err);
+            });
+
+
+        } else if (url.protocol === "http:") {
+            http.get(url, options, (res) => {
+                if (res.statusCode == undefined) {
+                    reject(new Error(`Failed: no status code received`));
+                    return;
+                }
+
+                if (res.statusCode !== 200) {
+                    reject(new Error(`Failed: ${res.statusCode}`));
+                    return;
+                }
+
+
+                res.on('finish', () => {
+                    resolve();
+                });
+            }).on('error', (err) => {
+                reject(err);
+            });
+
+        } else {
+            reject(new Error(`Invalid URL protocol: ${url.protocol}`))
+        }
+    });
+
+
 }
 
 
@@ -306,7 +360,7 @@ export async function runWsTests(): Promise<void> {
 
     const waitOptions: WaitOptions = { host: "localhost", port: 8080, timeout: 120 }
 
-    waitForPort(waitOptions)
+    await waitForPort(waitOptions)
 
     const cpu_amount = os.cpus().length;
 
@@ -326,7 +380,7 @@ export async function runWsTests(): Promise<void> {
         await Promise.all(processes)
 
 
-        await makeHttpRequest("GET", "http://localhost:8080/shutdown")
+        await makeHttpGetRequest(new URL("http://localhost:8080/shutdown"))
 
         // expect the server to be down
         try {
