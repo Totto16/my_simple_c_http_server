@@ -454,7 +454,6 @@ class ProcessDetailedResults {
         this.results[behavior]++;
     }
 
-
     public merge(other: ProcessDetailedResults): void {
         this._total += other._total;
         for (const [key, value] of Object.entries(other.results)) {
@@ -474,24 +473,23 @@ class ProcessDetailedResults {
 
 }
 
-
-interface ProcessResult {
+interface ProcessResultSingle {
     errors: ProcessResultError[]
     details: ProcessDetailedResults
+    server: string
 }
-
 
 const validBehaviors: ProcessBehavior[] = [
     "NON-STRICT", "OK", "INFORMATIONAL"
 ] as const
 
-async function process_single_result(server: SplitConfigServer, cases: string[]): Promise<ProcessResult> {
+async function process_single_result(server: SplitConfigServer, cases: string[]): Promise<ProcessResultSingle> {
 
     const index_file = path.join(server.outdir, "index.json");
 
-    function single_error(err: ProcessResultError): ProcessResult {
+    function single_error(err: ProcessResultError): ProcessResultSingle {
         return {
-            details: ProcessDetailedResults.default(), errors: [err]
+            details: ProcessDetailedResults.default(), errors: [err], server: server.name
         }
     }
 
@@ -513,7 +511,7 @@ async function process_single_result(server: SplitConfigServer, cases: string[])
         return single_error({ type: "error", error: "the index file doesn't contain the server information", where: { server: server.name, case: "<None>" }, more: { json: index_json, server: server.name } })
     }
 
-    const results: ProcessResult = { details: ProcessDetailedResults.default(), errors: [] }
+    const results: ProcessResultSingle = { details: ProcessDetailedResults.default(), errors: [], server: server.name }
 
     for (const case_ of cases) {
         const result = sever_value[case_]
@@ -531,15 +529,19 @@ async function process_single_result(server: SplitConfigServer, cases: string[])
         results.details.add(result.behavior)
     }
 
-
     return results
-
-
 }
 
-async function process_results(split_cfg: SplitConfig): Promise<ProcessResult> {
+interface ProcessResultAll {
+    errors: ProcessResultError[]
+    details: ProcessDetailedResults
+}
 
-    const to_process: Promise<ProcessResult>[] = []
+type ProcessResults = Record<string, ProcessResultAll>
+
+async function process_results(split_cfg: SplitConfig): Promise<ProcessResults> {
+
+    const to_process: Promise<ProcessResultSingle>[] = []
 
     for (const cfg of split_cfg.split) {
         for (const server of cfg.servers) {
@@ -547,13 +549,18 @@ async function process_results(split_cfg: SplitConfig): Promise<ProcessResult> {
         }
     }
 
-    const results: ProcessResult[] = await Promise.all(to_process)
+    const results: ProcessResultSingle[] = await Promise.all(to_process)
 
-    const result: ProcessResult = results.reduce((acc, value) => {
-        acc.details.merge(value.details)
-        acc.errors.push(...value.errors)
+    const result: ProcessResults = results.reduce((acc, value) => {
+        if (!acc[value.server]) {
+            acc[value.server] = { errors: [], details: ProcessDetailedResults.default() };
+        }
+
+        acc[value.server]!.details.merge(value.details)
+        acc[value.server]!.errors.push(...value.errors)
+
         return acc;
-    }, { details: ProcessDetailedResults.default(), errors: [] })
+    }, {} as ProcessResults)
 
     return result;
 }
@@ -575,8 +582,6 @@ const global_config: FuzzClientConfig = {
 }
 
 export async function runWsTests(jobs: number): Promise<void> {
-    //TODO: ws tests, run autobahn and scan resulting json files
-
     const waitOptions: WaitOptions = { host: "localhost", port: 8080, timeout: 120 }
 
     await waitForPort(waitOptions)
@@ -597,7 +602,6 @@ export async function runWsTests(jobs: number): Promise<void> {
 
         await Promise.all(processes)
 
-
         await makeHttpGetRequest(new URL("http://localhost:8080/shutdown"))
 
         // expect the server to be down
@@ -616,20 +620,32 @@ export async function runWsTests(jobs: number): Promise<void> {
         }
 
         // scan results
-        const result: ProcessResult = await process_results(split_cfg)
+        const results: ProcessResults = await process_results(split_cfg)
 
-        if (result.errors.length != 0) {
+        let error_amount = 0;
 
-            for (const err of result.errors) {
-                console.error(err)
+        for (const [server, result] of Object.entries(results)) {
+            console.log(`Server: ${server}`)
+
+            if (result.errors.length != 0) {
+
+                for (const err of result.errors) {
+                    console.error(err)
+                }
+
+                console.error(`Got ${result.errors.length} errors`)
+                error_amount += result.errors.length;
+                continue;
             }
 
-            throw new Error(`Got ${result.errors.length} errors`)
+            console.log(`Successfully ran ${result.details.total} tests with ${amount} jobs`)
+            for (const [behavior, amount] of result.details) {
+                console.log(`Got ${amount} cases with result ${behavior}`)
+            }
         }
 
-        console.log(`Successfully ran ${result.details.total} tests with ${amount} jobs`)
-        for (const [behavior, amount] of result.details) {
-            console.log(`Got ${amount} cases with result ${behavior}`)
+        if (error_amount != 0) {
+            throw new Error(`Got ${error_amount} errors in total`)
         }
 
     } catch (err) {
