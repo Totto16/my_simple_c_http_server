@@ -1,73 +1,78 @@
 name: WS Test CI
 
 on:
-    push:
-        branches: ["main"]
-    pull_request:
-    workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
-    ws_test:
-        name: WS Test - ${{ matrix.config.name }}
-        runs-on: ${{ matrix.config.os }}-${{ matrix.config.os-version }}
+  ws_test:
+    name: WS Test - ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}-${{ matrix.config.os-version }}
 
-        strategy:
-            fail-fast: false
-            matrix:
-                config:
-                    - name: x86_64
-                      os: ubuntu
-                      os-version: 24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: x86_64
+            os: ubuntu
+            os-version: 24.04
 
-        steps:
-            - uses: actions/checkout@v6
-              with:
-                  fetch-depth: "0"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: "0"
 
-            - name: Setup Clang
-              run: |
-                  wget https://apt.llvm.org/llvm.sh
-                  chmod +x llvm.sh
-                  sudo ./llvm.sh 21
-                  sudo apt-get install libc++-21* libc++abi*21* llvm-21 libclang-rt-21-dev -y --no-install-recommends
-                  echo "CC=clang-21" >> "$GITHUB_ENV"
-                  echo "CXX=clang++-21" >> "$GITHUB_ENV"
+      - name: Setup Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 21
+          sudo apt-get install libc++-21* libc++abi*21* llvm-21 libclang-rt-21-dev -y --no-install-recommends
+          echo "CC=clang-21" >> "$GITHUB_ENV"
+          echo "CXX=clang++-21" >> "$GITHUB_ENV"
 
-            # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
-            - name: Setup meson
-              run: |
-                  pip install meson --break-system-packages
+      # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
+      - name: Setup meson
+        run: |
+          pip install meson --break-system-packages
 
-            - name: Setup node
-              uses: actions/setup-node@v6
-              with:
-                node-version: 24
+      - name: Setup node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
 
-            - name: Install dependencies
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 gcovr libgmp-dev libpam0g-dev -y --no-install-recommends
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 gcovr libgmp-dev libpam0g-dev -y --no-install-recommends
 
-            - name: Install pypy2 and autobahn
-              run: |
-                  export KEEP_AUTO_PACKAGES_INSTALLED="true"
-                  ./tests/autobahn/install_pypy2.sh
-                  ./tests/autobahn/install_autobahn.sh
-                  sudo apt-get install openssl libssl-dev --no-install-recommends -y
+      - name: Install pypy2 and autobahn
+        run: |
+          export KEEP_AUTO_PACKAGES_INSTALLED="true"
+          ./tests/autobahn/install_pypy2.sh
+          ./tests/autobahn/install_autobahn.sh
+          sudo apt-get install openssl libssl-dev --no-install-recommends -y
 
-            - name: Configure
-              run: meson setup build -Dbuildtype=debugoptimized -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
+      - name: Configure
+        run: meson setup build -Dbuildtype=debugoptimized -Dsecure=enabled -Dcompression_features=zstd,br,deflate,gzip,compress -Dother_features=bcrypt,pam --fatal-meson-warnings
 
-            - name: Build
-              run: meson compile -C build
+      - name: Build
+        run: meson compile -C build
 
-            - name: WS Tests
-              run: |
-                  ./build/server http 8080 -l error &
-                  node ./tests/external/helper/index.ts --type run_ws_tests
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
-            - uses: actions/upload-artifact@v6
-              with:
-                  name: ws test results - ${{ matrix.config.name }}
-                  path: |
-                      ./reports/servers/**
+      # use bun, as we can just run the ts files, ts imports are found and no additional things are required :)
+      - name: WS Tests
+        run: |
+          ./build/server http 8080 -l error &
+          bun ./tests/external/helper/index.ts --type run_ws_tests
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: ws test results - ${{ matrix.config.name }}
+          path: |
+            ./reports/servers/**
