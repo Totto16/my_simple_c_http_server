@@ -13,8 +13,8 @@
 
 #define FTP_SOCKET_BACKLOG_SIZE 10
 
-//TODO: refactor tqueue_size into the main tqueue file
-//TODO: use a dynamic table like in hpack for a better queue, that doesnt use a linked list
+// TODO(Totto): refactor tqueue_size into the main tqueue file
+// TODO(Totto): use a dynamic table like in hpack for a better queue, that doesn't use a linked list
 #define FTP_MAX_QUEUE_SIZE 100
 
 typedef struct {

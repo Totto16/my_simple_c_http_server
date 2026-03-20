@@ -1005,8 +1005,9 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(tqueue_push(argument.job_id_queue, pool_submit(argument.pool, http_socket_connection_handler,
-		                                              connection_argument)) < 0) {
+		if(tqueue_push(argument.job_id_queue,
+		               pool_submit(argument.pool, http_socket_connection_handler,
+		                           connection_argument)) < 0) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 
