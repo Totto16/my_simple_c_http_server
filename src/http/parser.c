@@ -370,6 +370,8 @@ NODISCARD static HttpRequestProperties get_http_properties(const HttpRequest htt
 	HttpRequestProperties http_properties = { .type = HTTPPropertyTypeInvalid };
 
 	ParsedRequestURI uri = http_request.head.request_line.uri;
+	// TODO: require host either via this or via headers!!!!
+	// this is also needed for nginx style configs hosting
 
 	const ParsedURLPath* path = NULL;
 
