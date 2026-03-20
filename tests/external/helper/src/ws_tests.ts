@@ -180,6 +180,18 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
 
     const globalOutdir: string = path.resolve(config.outdir)
 
+    { //create .gitignore file
+
+        if (!fs.existsSync(globalOutdir)) {
+            await fsAsync.mkdir(globalOutdir, { recursive: true })
+        }
+
+        const gitignore_file = path.join(globalOutdir, ".gitignore")
+
+        await fsAsync.writeFile(gitignore_file, "*")
+
+    }
+
     const splitCases: string[][] = splitCasesBy(amount, allCases)
 
     if (splitCases.length != amount) {
