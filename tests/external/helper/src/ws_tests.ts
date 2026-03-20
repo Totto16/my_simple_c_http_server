@@ -632,7 +632,7 @@ export async function runWsTests(jobs: number): Promise<void> {
 
         let error: Error | null = null;
         try {
-            connectTo(waitOptions.host, waitOptions.port, 1000)
+            await connectTo(waitOptions.host, waitOptions.port, 1000)
             error = new Error("Server still alive")
         } catch (err) {
             //success
@@ -670,6 +670,8 @@ export async function runWsTests(jobs: number): Promise<void> {
 
         if (error_amount != 0) {
             throw new Error(`Got ${error_amount} errors in total`)
+        } else {
+            logger.info(`Success`)
         }
 
     } catch (err) {
