@@ -7,6 +7,7 @@ import child_process from "node:child_process";
 import http from "node:http"
 import https from "node:https"
 import { AllCases, all_cases } from "./all_cases"
+import { Logger } from "./log"
 
 interface WaitOptions {
     host: string,
@@ -117,6 +118,7 @@ interface SplitConfigValue {
 
 interface SplitConfig {
     split: SplitConfigValue[]
+    total_cases: number
 }
 
 function normalizeServerName(name: string): string {
@@ -247,7 +249,7 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
     }
 
 
-    return { split }
+    return { split, total_cases: Object.keys(allCases).length }
 }
 
 
@@ -300,8 +302,7 @@ async function executeAsync(cmd: string, args: string[]): Promise<ExecuteResult>
             }
 
             if (code !== 0) {
-                console.error(result.stderr)
-                reject(new Error(`Exited with exit code ${code}`));
+                reject(new Error(`Exited with exit code ${code}\n${result.stderr}`));
                 return;
             }
 
@@ -332,7 +333,7 @@ async function launchWsTestProcessSingle(cfgFile: string): Promise<void> {
     const result = await executeAsync("pypy", ["-m", "autobahntestsuite.wstest", "--mode", "fuzzingclient", "--spec", cfgFile])
 
     if (result.stderr != "") {
-        console.error(result.stderr)
+        throw new Error(result.stderr)
     }
 }
 
@@ -420,6 +421,10 @@ interface ProcessResultError {
     error: string
     where: ErrorWHere
     more: any
+}
+
+function format_process_error(err: ProcessResultError): string {
+    return `${err.error} at server ${err.where.server} case ${err.where.case}\n${JSON.stringify(err.more)}`
 }
 
 
@@ -594,8 +599,12 @@ const global_config: FuzzClientConfig = {
 }
 
 export async function runWsTests(jobs: number): Promise<void> {
+
+    const logger = Logger.getLogger()
+
     const waitOptions: WaitOptions = { host: "localhost", port: 8080, timeout: 120 }
 
+    logger.info(`Wait ${waitOptions.timeout}s for ${waitOptions.host}:${waitOptions.port}`)
     await waitForPort(waitOptions)
 
     const amount = resolveJobs(jobs)
@@ -606,6 +615,8 @@ export async function runWsTests(jobs: number): Promise<void> {
 
     try {
 
+        logger.info(`Running ${split_cfg.total_cases} cases for ${config.servers.length} server`)
+
         const processes: Promise<void>[] = []
 
         for (const cfg of split_cfg.split) {
@@ -614,6 +625,7 @@ export async function runWsTests(jobs: number): Promise<void> {
 
         await Promise.all(processes)
 
+        logger.info(`Shutting server down`)
         await makeHttpGetRequest(new URL("http://localhost:8080/shutdown"))
 
         // expect the server to be down
@@ -637,22 +649,22 @@ export async function runWsTests(jobs: number): Promise<void> {
         let error_amount = 0;
 
         for (const [server, result] of Object.entries(results)) {
-            console.log(`Server: ${server}`)
+            logger.info(`Server: ${server}`)
 
             if (result.errors.length != 0) {
 
                 for (const err of result.errors) {
-                    console.error(err)
+                    logger.error(format_process_error(err))
                 }
 
-                console.error(`Got ${result.errors.length} errors`)
+                logger.error(`Got ${result.errors.length} errors`)
                 error_amount += result.errors.length;
                 continue;
             }
 
-            console.log(`Successfully ran ${result.details.total} tests with ${amount} jobs`)
+            logger.info(`Successfully ran ${result.details.total} tests with ${amount} jobs`)
             for (const [behavior, amount] of result.details) {
-                console.log(`Got ${amount} cases with result ${behavior}`)
+                logger.info(`Got ${amount} cases with result ${behavior}`)
             }
         }
 
@@ -661,7 +673,7 @@ export async function runWsTests(jobs: number): Promise<void> {
         }
 
     } catch (err) {
-        throw err;
+        logger.fail(err as Error)
     } finally {
 
         const cleanup_calls: Promise<void>[] = []
