@@ -8,10 +8,12 @@ type GenerateType = "cpp_tests" | "run_ws_tests"
 interface GenerateOptions {
     output: string,
     type: GenerateType
+    jobs: number
 }
 
 async function main(): Promise<void> {
     const options: Partial<GenerateOptions> = {
+        jobs: 0
     }
 
     for (let i = 0; i < process.argv.length; ++i) {
@@ -40,6 +42,29 @@ async function main(): Promise<void> {
             const output = path.resolve(process.argv[i + 1]!)
 
             options.output = output
+            ++i
+            continue
+        }
+
+        if (value == '-j' || value == '--jobs') {
+            if (i + 1 >= process.argv.length) {
+                throw new Error(
+                    `Expected another argument for the jobs argument`
+                )
+            }
+
+            const jobRaw = process.argv[i + 1]!
+
+            const jobs = parseInt(jobRaw)
+
+            if (isNaN(jobs)) {
+                throw new Error(
+                    `Invalid jobs value: ${jobRaw}`
+                )
+            }
+
+            options.jobs = jobs
+
             ++i
             continue
         }
@@ -84,7 +109,7 @@ async function main(): Promise<void> {
             return generateTestFiles(options.output)
         }
         case "run_ws_tests": {
-            return await runWsTests()
+            return await runWsTests(options.jobs ?? 0)
         }
         default: {
             throw new Error(

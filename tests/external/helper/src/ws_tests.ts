@@ -1,5 +1,6 @@
 import net from "node:net"
 import os from "node:os"
+import fs from "node:fs"
 import fsAsync from "node:fs/promises"
 import path from "node:path"
 import child_process from "node:child_process";
@@ -287,6 +288,7 @@ async function executeAsync(cmd: string, args: string[]): Promise<ExecuteResult>
             }
 
             if (code !== 0) {
+                console.error(result.stderr)
                 reject(new Error(`Exited with exit code ${code}`));
                 return;
             }
@@ -385,7 +387,175 @@ async function makeHttpGetRequest(url: URL): Promise<void> {
         }
     });
 
+}
 
+function resolveJobs(jobs: number): number {
+    if (jobs <= 0) {
+        const cpu_amount = os.cpus().length;
+        return cpu_amount;
+    }
+
+    return jobs;
+}
+
+interface ErrorWHere {
+    server: string
+    case: string
+}
+
+interface ProcessResultError {
+    type: "error"
+    error: string
+    where: ErrorWHere
+    more: any
+}
+
+
+function parseJSONSafe(input: string): Record<string, unknown> | null {
+    try {
+        return JSON.parse(input)
+    } catch (err) {
+        return null;
+    }
+
+}
+
+
+type ProcessBehavior = "OK" | "NON-STRICT" | "INFORMATIONAL"
+    /* TODO: not encountered atm, check error values*/ | "ERROR"
+
+
+interface CaseDescriptionRaw {
+    behavior: ProcessBehavior,
+    duration: number,
+    reportfile: string
+}
+
+type DetailedResultsDict = Record<ProcessBehavior, number>
+
+class ProcessDetailedResults {
+    private results: DetailedResultsDict
+    private _total: number
+
+    constructor(results: DetailedResultsDict) {
+        this.results = results
+        this._total = ProcessDetailedResults.getTotal(this.results)
+    }
+
+    private static getTotal(results: DetailedResultsDict): number {
+        return Object.values(results).reduce((acc, val) => acc + val, 0)
+    }
+
+    static default(): ProcessDetailedResults {
+        return new ProcessDetailedResults({ "NON-STRICT": 0, ERROR: 0, INFORMATIONAL: 0, OK: 0 });
+    }
+
+    public add(behavior: ProcessBehavior): void {
+        this.results[behavior]++;
+    }
+
+
+    public merge(other: ProcessDetailedResults): void {
+        this._total += other._total;
+        for (const [key, value] of Object.entries(other.results)) {
+            this.results[key as ProcessBehavior] += value
+        }
+    }
+
+    public get total(): number {
+        return this._total
+    }
+
+    public [Symbol.iterator](): Iterator<[behavior: ProcessBehavior, amount: number]> {
+        const entries: [behavior: ProcessBehavior, amount: number][] = Object.entries(this.results) as [behavior: ProcessBehavior, amount: number][];
+
+        return entries[Symbol.iterator]()
+    }
+
+}
+
+
+interface ProcessResult {
+    errors: ProcessResultError[]
+    details: ProcessDetailedResults
+}
+
+
+const validBehaviors: ProcessBehavior[] = [
+    "NON-STRICT", "OK", "INFORMATIONAL"
+] as const
+
+async function process_single_result(server: SplitConfigServer, cases: string[]): Promise<ProcessResult> {
+
+    const index_file = path.join(server.outdir, "index.json");
+
+    function single_error(err: ProcessResultError): ProcessResult {
+        return {
+            details: ProcessDetailedResults.default(), errors: [err]
+        }
+    }
+
+    if (!fs.existsSync(index_file)) {
+        return single_error({ type: "error", error: "index file doesn't exist", where: { server: server.name, case: "<None>" }, more: { file: index_file } })
+    }
+
+    const index_content = (await fsAsync.readFile(index_file)).toString()
+
+    const index_json = parseJSONSafe(index_content)
+
+    if (index_json === null) {
+        return single_error({ type: "error", error: "index file isn't valid JSON", where: { server: server.name, case: "<None>" }, more: { raw: index_content } })
+    }
+
+    const sever_value = index_json[server.name] as Record<string, CaseDescriptionRaw | undefined> | null | undefined;
+
+    if (!sever_value) {
+        return single_error({ type: "error", error: "the index file doesn't contain the server information", where: { server: server.name, case: "<None>" }, more: { json: index_json, server: server.name } })
+    }
+
+    const results: ProcessResult = { details: ProcessDetailedResults.default(), errors: [] }
+
+    for (const case_ of cases) {
+        const result = sever_value[case_]
+
+        if (!result) {
+            results.errors.push({ type: "error", error: `case ${case_} not present in index file`, where: { server: server.name, case: case_ }, more: { value: sever_value, case: case_ } })
+            continue;
+        }
+
+        if (!validBehaviors.includes(result.behavior)) {
+            results.errors.push({ type: "error", error: `invalid behavior ${result.behavior} for case ${case_}`, where: { server: server.name, case: case_ }, more: { result: result } })
+            // the missing continue is intended
+        }
+
+        results.details.add(result.behavior)
+    }
+
+
+    return results
+
+
+}
+
+async function process_results(split_cfg: SplitConfig): Promise<ProcessResult> {
+
+    const to_process: Promise<ProcessResult>[] = []
+
+    for (const cfg of split_cfg.split) {
+        for (const server of cfg.servers) {
+            to_process.push(process_single_result(server, cfg.cases))
+        }
+    }
+
+    const results: ProcessResult[] = await Promise.all(to_process)
+
+    const result: ProcessResult = results.reduce((acc, value) => {
+        acc.details.merge(value.details)
+        acc.errors.push(...value.errors)
+        return acc;
+    }, { details: ProcessDetailedResults.default(), errors: [] })
+
+    return result;
 }
 
 
@@ -404,26 +574,25 @@ const global_config: FuzzClientConfig = {
     "cases": "all"
 }
 
-export async function runWsTests(): Promise<void> {
+export async function runWsTests(jobs: number): Promise<void> {
     //TODO: ws tests, run autobahn and scan resulting json files
 
     const waitOptions: WaitOptions = { host: "localhost", port: 8080, timeout: 120 }
 
     await waitForPort(waitOptions)
 
-    const cpu_amount = os.cpus().length;
+    const amount = resolveJobs(jobs)
 
     const config: FuzzClientConfig = global_config;
 
-    const split_cfg = await splitConfigs(cpu_amount, config)
+    const split_cfg = await splitConfigs(amount, config)
 
     try {
 
         const processes: Promise<void>[] = []
 
         for (const cfg of split_cfg.split) {
-            processes.push(launchWsTestProcess(cfg)
-            )
+            processes.push(launchWsTestProcess(cfg))
         }
 
         await Promise.all(processes)
@@ -432,16 +601,36 @@ export async function runWsTests(): Promise<void> {
         await makeHttpGetRequest(new URL("http://localhost:8080/shutdown"))
 
         // expect the server to be down
-        try {
 
+        let error: Error | null = null;
+        try {
             connectTo(waitOptions.host, waitOptions.port, 1000)
-            throw new Error("Server still alive")
+            error = new Error("Server still alive")
         } catch (err) {
             //success
+            error = null
+        }
+
+        if (error !== null) {
+            throw error;
         }
 
         // scan results
-        throw new Error("TODO: scan results")
+        const result: ProcessResult = await process_results(split_cfg)
+
+        if (result.errors.length != 0) {
+
+            for (const err of result.errors) {
+                console.error(err)
+            }
+
+            throw new Error(`Got ${result.errors.length} errors`)
+        }
+
+        console.log(`Successfully ran ${result.details.total} tests with ${amount} jobs`)
+        for (const [behavior, amount] of result.details) {
+            console.log(`Got ${amount} cases with result ${behavior}`)
+        }
 
     } catch (err) {
         throw err;
