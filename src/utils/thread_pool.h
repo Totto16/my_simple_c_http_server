@@ -47,7 +47,7 @@ typedef struct {
 
 typedef struct JobIdImpl JobId;
 
-// TODO: rename My... things to something better
+// TODO(Totto): rename My... things to something better
 typedef struct {
 	MyThreadPoolThreadInformation* information;
 	ThreadPool* thread_pool;
