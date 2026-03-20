@@ -15,6 +15,12 @@ interface WaitOptions {
     timeout: number
 }
 
+async function sleep(ms: number): Promise<void> {
+    return new Promise<void>((resolve) => {
+        setTimeout(resolve, ms)
+    })
+}
+
 async function connectTo(host: string, port: number, timeout: number): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         const socket = net.createConnection({ port, host, timeout }, () => {
@@ -45,7 +51,9 @@ async function connectTo(host: string, port: number, timeout: number): Promise<v
 
 }
 
-async function waitForPort(options: WaitOptions): Promise<void> {
+async function waitForPort(options: WaitOptions): Promise<number> {
+
+    const start = new Date();
 
     function error(reason: string): void {
         throw new Error(`Failed to wait for '${options.host}:${options.port}': ${reason}`)
@@ -55,8 +63,10 @@ async function waitForPort(options: WaitOptions): Promise<void> {
         error("timeout");
     }, options.timeout * 1000)
 
-    function success(): void {
+    function success(): number {
         clearTimeout(finalTimeout)
+        const now = new Date()
+        return now.getTime() - start.getTime()
     }
 
     const connectionTimeout = 1000;
@@ -64,8 +74,7 @@ async function waitForPort(options: WaitOptions): Promise<void> {
     while (true) {
         try {
             await connectTo(options.host, options.port, connectionTimeout)
-            success();
-            return;
+            return success();
         } catch (err) {
             // ignore
         }
@@ -366,10 +375,9 @@ async function makeHttpGetRequest(url: URL): Promise<void> {
                     return;
                 }
 
+                resolve();
+                return;
 
-                res.on('finish', () => {
-                    resolve();
-                });
             }).on('error', (err) => {
                 reject(err);
             });
@@ -387,16 +395,17 @@ async function makeHttpGetRequest(url: URL): Promise<void> {
                     return;
                 }
 
+                resolve();
+                return;
 
-                res.on('finish', () => {
-                    resolve();
-                });
             }).on('error', (err) => {
                 reject(err);
+                return;
             });
 
         } else {
             reject(new Error(`Invalid URL protocol: ${url.protocol}`))
+            return;
         }
     });
 
@@ -605,7 +614,8 @@ export async function runWsTests(jobs: number): Promise<void> {
     const waitOptions: WaitOptions = { host: "localhost", port: 8080, timeout: 120 }
 
     logger.info(`Wait ${waitOptions.timeout}s for ${waitOptions.host}:${waitOptions.port}`)
-    await waitForPort(waitOptions)
+    const waitedFor = await waitForPort(waitOptions)
+    logger.info(`Waited for ${waitedFor}ms`)
 
     const amount = resolveJobs(jobs)
 
@@ -629,9 +639,9 @@ export async function runWsTests(jobs: number): Promise<void> {
         await makeHttpGetRequest(new URL("http://localhost:8080/shutdown"))
 
         // expect the server to be down
-
         let error: Error | null = null;
         try {
+            await sleep(100)
             await connectTo(waitOptions.host, waitOptions.port, 1000)
             error = new Error("Server still alive")
         } catch (err) {
