@@ -1423,7 +1423,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 // implemented specifically for the ftp Server, it just gets the internal value, but it's better
 // to not access that, since additional steps can be required, like  boundary checks!
-static int myqueue_size(Myqueue* queue) {
+static int tqueue_size(TQueue* queue) {
 	if(queue->size < 0) {
 		LOG_MESSAGE(LogLevelCritical,
 		            "internal size implementation error in the queue, value negative: %d!",
@@ -1546,9 +1546,9 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(myqueue_push(argument.job_ids,
-		                pool_submit(argument.pool, ftp_control_socket_connection_handler,
-		                            connection_argument)) < 0) {
+		if(tqueue_push(argument.job_id_queue,
+		               pool_submit(argument.pool, ftp_control_socket_connection_handler,
+		                           connection_argument)) < 0) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 
@@ -1557,12 +1557,12 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		// so its super fast,but if not doing that, the queue would overflow, nothing in
 		// here is a cancellation point, so it's safe to cancel here, since only accept then
 		// really cancels
-		int size = myqueue_size(argument.job_ids);
+		int size = tqueue_size(argument.job_id_queue);
 		if(size > FTP_MAX_QUEUE_SIZE) {
 			int boundary = size / 2;
 			while(size > boundary) {
 
-				JobId* job_id = (JobId*)myqueue_pop(argument.job_ids);
+				JobId* job_id = (JobId*)tqueue_pop(argument.job_id_queue);
 
 				JobError result = pool_await(job_id);
 
@@ -1925,10 +1925,10 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 		return EXIT_FAILURE;
 	}
 
-	// this is a internal synchronized queue! myqueue_init creates a semaphore that handles
+	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
-	Myqueue control_job_ids;
-	if(myqueue_init(&control_job_ids) < 0) {
+	TQueue control_job_id_queue;
+	if(tqueue_init(&control_job_id_queue) < 0) {
 		return EXIT_FAILURE;
 	};
 
@@ -2004,7 +2004,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	pthread_t control_listener_thread = {};
 	FTPControlThreadArgument control_thread_argument = {
 		.pool = &control_pool,
-		.job_ids = &control_job_ids,
+		.job_id_queue = &control_job_id_queue,
 		.contexts = control_contexts,
 		.socket_fd = control_socket_fd,
 		.global_folder = folder,
@@ -2064,8 +2064,8 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 
 	// since the listener doesn't wait on the jobs, the main thread has to do that work!
 	// the queue can be filled, which can lead to a problem!!
-	while(!myqueue_is_empty(&control_job_ids)) {
-		JobId* job_id = (JobId*)myqueue_pop(&control_job_ids);
+	while(!tqueue_is_empty(&control_job_id_queue)) {
+		JobId* job_id = (JobId*)tqueue_pop(&control_job_id_queue);
 
 		JobError result = pool_await(job_id);
 
@@ -2087,7 +2087,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	}
 
 	// then the queue is destroyed
-	if(myqueue_destroy(&control_job_ids) < 0) {
+	if(tqueue_destroy(&control_job_id_queue) < 0) {
 		return EXIT_FAILURE;
 	}
 

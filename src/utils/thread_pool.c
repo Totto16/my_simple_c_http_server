@@ -49,7 +49,7 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) arg)
 	// of that function!
 	MyThreadPoolThreadArgument argument = *((MyThreadPoolThreadArgument*)arg);
 	// extracting the queue for later use
-	Myqueue* jobs_queue = &(argument.thread_pool->jobqueue);
+	TQueue* jobs_queue = &(argument.thread_pool->job_queue);
 
 	RUN_LIFECYCLE_FN(argument.thread_pool->fns.startup_fn);
 
@@ -63,7 +63,7 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) arg)
 
 		// that here is an assert, but it'S that important, so that I wrote it without assertions,
 		// since there is a way to  disable assertions!
-		if(myqueue_is_empty(jobs_queue)) {
+		if(tqueue_is_empty(jobs_queue)) {
 			LOG_MESSAGE_SIMPLE(LogLevelError,
 			                   "Expected to have elements in the queue at this stage in internal "
 			                   "thread pool implementation, but got nothing!\n");
@@ -72,7 +72,7 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) arg)
 		}
 
 		// getting the job from the queue, the queue is synchronized INTERNALLY!
-		JobId* current_job = (JobId*)myqueue_pop(jobs_queue);
+		JobId* current_job = (JobId*)tqueue_pop(jobs_queue);
 
 		// when receiving shutdown signal, It breaks out of the while loop and finsishes
 		if(current_job->job_function == THREAD_SHUTDOWN_JOB) {
@@ -131,7 +131,7 @@ int pool_create(ThreadPool* pool, size_t size) {
 	// initialize the queue, this queue is synchronized internally, so it has to do some work with a
 	// synchronization method (here not necessary to know how it's implemented, but it'S a
 	// semaphore)
-	if(myqueue_init(&(pool->jobqueue)) < 0) {
+	if(tqueue_init(&(pool->job_queue)) < 0) {
 		return CreateErrorQueueInit;
 	}
 
@@ -226,7 +226,7 @@ static JobId* int_pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_T
 	                "Couldn't initialize the internal thread pool Semaphore for a single job",
 	                return SUBMIT_ERROR_SEM_INIT;);
 	// then finally push the job to the queue, so it can worked upon
-	if(myqueue_push(&(pool->jobqueue), job_escription) < 0) {
+	if(tqueue_push(&(pool->job_queue), job_escription) < 0) {
 		return SUBMIT_ERROR_QUEUE_PUSH;
 	}
 	// after the push the semaphore gets posted, so a worker can get the job already, if available
@@ -319,7 +319,7 @@ int pool_destroy(ThreadPool* pool) {
 	free(pool->worker_threads);
 
 	// destroy the queue!
-	if(myqueue_destroy(&(pool->jobqueue)) < 0) {
+	if(tqueue_destroy(&(pool->job_queue)) < 0) {
 		return -1;
 	}
 

@@ -276,7 +276,9 @@ endif
 src_files = []
 inc_dirs = []
 
-generated_cpp_hpack_tests = []
+generated_cpp_tests = []
+generated_sources = []
+
 
 subdir('src')
 
@@ -307,3 +309,5 @@ executable(
 if get_option('tests')
     subdir('tests')
 endif
+
+alias_target('generated_sources', generated_sources)

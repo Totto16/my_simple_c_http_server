@@ -1,0 +1,26 @@
+{
+	"name": "c_tests_helper",
+	"version": "0.0.1",
+	"description": "",
+	"scripts": {},
+	"license": "MIT",
+	"devDependencies": {
+		"@tsconfig/strictest": "^2.0.8",
+		"@types/node": "^24.12.0",
+		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"@actions/core": "^3.0.0"
+	},
+	"packageManager": "pnpm@10.32.1",
+	"engines": {
+		"node": "24.11.1"
+	},
+	"type": "module",
+	"private": true,
+	"pnpm": {
+		"onlyBuiltDependencies": [],
+		"ignoredBuiltDependencies": [],
+		"ignorePatchFailures": false
+	}
+}

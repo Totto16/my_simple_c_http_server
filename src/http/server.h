@@ -29,7 +29,7 @@
 
 typedef struct {
 	ThreadPool* pool;
-	Myqueue* job_ids;
+	TQueue* job_id_queue;
 	ConnectionContextPtrs contexts;
 	int socket_fd;
 	WebSocketThreadManager* web_socket_manager;

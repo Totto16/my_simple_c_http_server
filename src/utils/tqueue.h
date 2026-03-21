@@ -14,37 +14,37 @@
 // in here there are several utilities that are used across all .h and .c files
 #include "./utils.h"
 
-// taken from previous lecture, added the internal semaphore (not mutex, since they ar not
+// taken from previous lecture, added the internal semaphore (not mutex, since they are not
 // lock/unlockable from different threads (they can be with an attr, but thats not supported
 // everywhere) ), so that it is thread-safe
 // you don't have do to anything when callling the queue manipulation functions, they're
 // synchronized on themeself
 
-typedef struct MyqueueEntryImpl MyqueueEntry;
+typedef struct TQueueEntryImpl TQueueEntry;
 
-struct MyqueueEntryImpl {
+struct TQueueEntryImpl {
 	void* value;
-	STAILQ_ENTRY(MyqueueEntryImpl) entries;
+	STAILQ_ENTRY(TQueueEntryImpl) entries;
 };
 
-typedef struct MyqueueHeadImpl MyqueueHead;
+typedef struct TQueueHeadImpl TQueueHead;
 
-STAILQ_HEAD(MyqueueHeadImpl, MyqueueEntryImpl);
+STAILQ_HEAD(TQueueHeadImpl, TQueueEntryImpl);
 
 typedef struct {
-	MyqueueHead head;
+	TQueueHead head;
 	SemaphoreType can_access;
 	int size;
-} Myqueue;
+} TQueue;
 
-NODISCARD int myqueue_init(Myqueue* queue);
+NODISCARD int tqueue_init(TQueue* queue);
 
-NODISCARD int myqueue_destroy(Myqueue* queue);
+NODISCARD int tqueue_destroy(TQueue* queue);
 
-NODISCARD bool myqueue_is_empty(Myqueue* queue);
+NODISCARD bool tqueue_is_empty(TQueue* queue);
 
 // not checked for error code of malloc :(
 // modified to use void * instead of int as stored value
-NODISCARD int myqueue_push(Myqueue* queue, void* value);
+NODISCARD int tqueue_push(TQueue* queue, void* value);
 
-NODISCARD void* myqueue_pop(Myqueue* queue);
+NODISCARD void* tqueue_pop(TQueue* queue);

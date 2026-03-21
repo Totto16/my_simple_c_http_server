@@ -6,3 +6,5 @@ support_inc = include_directories('.')
 
 subdir('unit')
 subdir('bench')
+subdir('external/helper')
+

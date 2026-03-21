@@ -25,7 +25,7 @@ test_src += files(
     'helpers/string_maker.hpp',
 )
 
-test_src += generated_cpp_hpack_tests
+test_src += generated_cpp_tests
 
 add_languages(
     'cpp',

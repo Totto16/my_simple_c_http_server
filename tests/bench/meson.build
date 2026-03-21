@@ -21,7 +21,7 @@ bench_inc_dirs += support_inc
 
 bench_src += files('main.cpp')
 
-bench_src += generated_cpp_hpack_tests
+bench_src += generated_cpp_tests
 
 add_languages(
     'cpp',
