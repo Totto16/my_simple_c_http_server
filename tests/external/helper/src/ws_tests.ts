@@ -478,6 +478,7 @@ class ProcessDetailedResults {
 
     public add(behavior: ProcessBehavior): void {
         this.results[behavior]++;
+        this._total++;
     }
 
     public merge(other: ProcessDetailedResults): void {
