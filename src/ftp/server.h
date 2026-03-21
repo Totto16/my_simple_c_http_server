@@ -22,7 +22,7 @@ typedef struct {
 	TQueue* job_id_queue;
 	ConnectionContextPtrs contexts;
 	int socket_fd;
-	const char* const global_folder;
+	const tstr global_folder;
 	DataController* data_controller;
 	pthread_t data_orchestrator;
 	const AuthenticationProviders* auth_providers;
@@ -77,5 +77,5 @@ NODISCARD ANY_TYPE(ListenerError*)
 NODISCARD ANY_TYPE(ListenerError*)
     ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
 
-NODISCARD int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options,
+NODISCARD int start_ftp_server(FTPPortField control_port, tstr folder, SecureOptions* options,
                                AuthenticationProviders* auth_providers);

@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "utils/utils.h"
+#include <tstr.h>
 
 /**
  * @enum value
@@ -102,7 +103,7 @@ void set_thread_name(const char* name);
 void unset_thread_name(void);
 
 // IS thread safe
-NODISCARD int parse_log_level(const char* level);
+NODISCARD LogLevel parse_log_level(tstr_static level, OUT_PARAM(bool) success);
 
 NODISCARD const char* get_level_name(LogLevel level);
 

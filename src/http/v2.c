@@ -2607,11 +2607,11 @@ static void update_last_stream_id(HTTP2Context* const context, const Http2Identi
 
 // for annotation purposes, "moves" the value from the stack inot the function, than it can be used
 // in the function and freed inside that, not optimal, but required in at least one place
-#define MOVED(Type) Type* const
+#define MOVED_VALUE(Type) Type* const
 #define MOVE_INTO(value) &value
 
 NODISCARD static Http2ProcessFrameResult
-process_http2_frame(HTTP2Context* const context, MOVED(Http2Frame) frame,
+process_http2_frame(HTTP2Context* const context, MOVED_VALUE(Http2Frame) frame,
                     ConnectionDescriptor* const descriptor) {
 
 	const Http2FrameCategory frame_category = get_http2_frame_category(*frame);

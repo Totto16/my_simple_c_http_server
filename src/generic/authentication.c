@@ -99,8 +99,8 @@ NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void
 	return auth_provider;
 }
 
-NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_providers,
-                                           AuthenticationProvider* provider) {
+NODISCARD bool add_authentication_provider(AuthenticationProviders* const auth_providers,
+                                           AuthenticationProvider* const provider) {
 
 	if(!provider) {
 		return false;

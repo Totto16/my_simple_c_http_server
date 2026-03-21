@@ -92,7 +92,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 typedef struct {
 	HTTPRouteServeFolderType type;
-	char* folder_path;
+	tstr folder_path;
 } HTTPRouteServeFolder;
 
 /**

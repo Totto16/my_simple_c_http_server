@@ -680,9 +680,10 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 						connection->control_state = DataConnectionControlStateRetrieved;
 						bool ignore = nts_internal_set_last_change_to_now(connection);
 						UNUSED(ignore);
+
 						// TODO(Totto): where do we get eventual ssl conetxts here?
-						const SecureOptions* const options =
-						    initialize_secure_options(false, "", "");
+						const SecureOptions* const options = initialize_secure_options(
+						    false, tstr_static_null(), tstr_static_null());
 
 						ConnectionContext* context = get_connection_context(options);
 

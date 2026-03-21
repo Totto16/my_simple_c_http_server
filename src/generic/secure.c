@@ -82,8 +82,8 @@ static_assert((sizeof(ALPN_PROTO_H1_1) / (sizeof(ALPN_PROTO_H1_1[0]))) - 1 == H1
 
 #ifndef _SIMPLE_SERVER_SECURE_DISABLED
 
-static bool file_exists(const char* const file) {
-	return access(file, R_OK) == 0; // NOLINT(readability-implicit-bool-conversion)
+static bool file_exists(const tstr_static file) {
+	return access(file.ptr, R_OK) == 0; // NOLINT(readability-implicit-bool-conversion)
 }
 
 // NOTE: this has to return the number of bytes written, if this returns <= 0, the error reporting
@@ -119,16 +119,18 @@ static int alpn_select_cb(SSL* /* ssl */, const unsigned char** out, unsigned ch
 	return SSL_TLSEXT_ERR_ALERT_FATAL;
 }
 
-static SecureData* initialize_secure_data(const char* const public_cert_file,
-                                          const char* const private_cert_file) {
+static SecureData* initialize_secure_data(const tstr_static public_cert_file,
+                                          const tstr_static private_cert_file) {
 
 	if(!file_exists(public_cert_file)) {
-		LOG_MESSAGE(LogLevelError, "public_cert_file '%s' doesn't exist\n", public_cert_file);
+		LOG_MESSAGE(LogLevelError, "public_cert_file '" TSTR_FMT "' doesn't exist\n",
+		            TSTR_STATIC_FMT_ARGS(public_cert_file));
 		return NULL;
 	}
 
 	if(!file_exists(private_cert_file)) {
-		LOG_MESSAGE(LogLevelError, "private_cert_file '%s' doesn't exist\n", private_cert_file);
+		LOG_MESSAGE(LogLevelError, "private_cert_file '" TSTR_FMT "' doesn't exist\n",
+		            TSTR_STATIC_FMT_ARGS(private_cert_file));
 		return NULL;
 	}
 
@@ -194,7 +196,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 		UNUSED(new_opts);
 	}
 
-	result = SSL_CTX_use_certificate_file(ssl_context, public_cert_file, SSL_FILETYPE_PEM);
+	result = SSL_CTX_use_certificate_file(ssl_context, public_cert_file.ptr, SSL_FILETYPE_PEM);
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_use_certificate_file failed:\n");
 		ERR_print_errors_cb(error_logger, NULL);
@@ -204,7 +206,7 @@ static SecureData* initialize_secure_data(const char* const public_cert_file,
 		return NULL;
 	}
 
-	result = SSL_CTX_use_PrivateKey_file(ssl_context, private_cert_file, SSL_FILETYPE_PEM);
+	result = SSL_CTX_use_PrivateKey_file(ssl_context, private_cert_file.ptr, SSL_FILETYPE_PEM);
 
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_use_PrivateKey_file failed:\n");
@@ -263,8 +265,8 @@ static void free_secure_data(SecureData* data) {
 
 #endif
 
-SecureOptions* initialize_secure_options(bool secure, const char* const public_cert_file,
-                                         const char* const private_cert_file) {
+SecureOptions* initialize_secure_options(const bool secure, const tstr_static public_cert_file,
+                                         const tstr_static private_cert_file) {
 
 	SecureOptions* options = malloc(sizeof(SecureOptions));
 

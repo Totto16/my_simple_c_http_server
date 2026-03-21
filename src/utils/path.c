@@ -7,30 +7,35 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-NODISCARD char* get_serve_folder(const char* folder_to_resolve) {
-	char* folder = realpath(folder_to_resolve, NULL);
+NODISCARD tstr get_serve_folder(const tstr* const folder_to_resolve) {
+	char* folder_impl = realpath(tstr_cstr(folder_to_resolve), NULL);
 
-	if(folder == NULL) {
-		fprintf(stderr, "Couldn't resolve folder '%s': %s\n", folder_to_resolve, strerror(errno));
-		return NULL;
+	if(folder_impl == NULL) {
+		fprintf(stderr, "Couldn't resolve folder '" TSTR_FMT "': %s\n",
+		        TSTR_FMT_ARGS(*folder_to_resolve), strerror(errno));
+		return tstr_null();
 	}
 
+	const tstr folder = tstr_from(folder_impl);
+
 	struct stat stat_result;
-	int result = stat(folder, &stat_result);
+	int result = stat(tstr_cstr(&folder), &stat_result);
 
 	if(result != 0) {
-		fprintf(stderr, "Couldn't stat folder '%s': %s\n", folder, strerror(errno));
-		return NULL;
+		fprintf(stderr, "Couldn't stat folder '" TSTR_FMT "': %s\n", TSTR_FMT_ARGS(folder),
+		        strerror(errno));
+		return tstr_null();
 	}
 
 	if(!(S_ISDIR(stat_result.st_mode))) {
-		fprintf(stderr, "Folder '%s' is not a directory\n", folder);
-		return NULL;
+		fprintf(stderr, "Folder '" TSTR_FMT "' is not a directory\n", TSTR_FMT_ARGS(folder));
+		return tstr_null();
 	}
 
-	if(access(folder, R_OK) != 0) {
-		fprintf(stderr, "Can't read from folder '%s': %s\n", folder, strerror(errno));
-		return NULL;
+	if(access(tstr_cstr(&folder), R_OK) != 0) {
+		fprintf(stderr, "Can't read from folder '" TSTR_FMT "': %s\n", TSTR_FMT_ARGS(folder),
+		        strerror(errno));
+		return tstr_null();
 	}
 
 	return folder;

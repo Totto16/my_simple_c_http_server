@@ -597,9 +597,9 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 
 		static const char* s_folder_env_variable = "WEBSERVER_TEST_WEBROOT";
 
-		char* folder_path = getenv(s_folder_env_variable);
+		char* folder_path_impl = getenv(s_folder_env_variable);
 
-		if(folder_path == NULL) {
+		if(folder_path_impl == NULL) {
 			LOG_MESSAGE(LogLevelError, "Couldn't find required env variable '%s'\n",
 			            s_folder_env_variable);
 
@@ -607,9 +607,11 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			return NULL;
 		}
 
-		char* folder_path_resolved = get_serve_folder(folder_path);
+		const tstr folder_path = tstr_own_cstr(folder_path_impl);
 
-		if(folder_path_resolved == NULL) {
+		const tstr folder_path_resolved = get_serve_folder(&folder_path);
+
+		if(tstr_is_null(&folder_path_resolved)) {
 			FREE_AT_END();
 			return NULL;
 		}
@@ -633,7 +635,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 		const TvecResult push_res = TVEC_PUSH(HTTPRoute, &routes->routes, serve_route);
 		OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 
-		HTTPFreeFn free_route = { .data = folder_path_resolved, .fn = free };
+		HTTPFreeFn free_route = { .data = folder_path_impl, .fn = free };
 
 		const TvecResult push_res1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
 		OOM_ASSERT(push_res1 == TvecResultOk, "Vec push error");

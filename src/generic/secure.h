@@ -8,6 +8,7 @@
 
 #include "utils/utils.h"
 
+#include <tstr.h>
 #include <tvec.h>
 
 typedef struct SecureDataImpl SecureData;
@@ -39,8 +40,8 @@ NODISCARD bool is_secure(const SecureOptions* options);
 
 NODISCARD bool is_secure_context(const ConnectionContext* context);
 
-NODISCARD SecureOptions* initialize_secure_options(bool secure, const char* public_cert_file,
-                                                   const char* private_cert_file);
+NODISCARD SecureOptions* initialize_secure_options(bool secure, tstr_static public_cert_file,
+                                                   tstr_static private_cert_file);
 
 void free_secure_options(SecureOptions* options);
 

@@ -209,31 +209,39 @@ void unset_thread_name(void) {
 	g_global_value_log_thread_state.name = NULL;
 }
 
-int parse_log_level(const char* level) {
+NODISCARD LogLevel parse_log_level(const tstr_static level, OUT_PARAM(bool) success) {
 
-	if(strcmp(level, "trace") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("trace"))) {
+		*success = true;
 		return LogLevelTrace;
 	}
-	if(strcmp(level, "debug") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("debug"))) {
+		*success = true;
 		return LogLevelDebug;
 	}
-	if(strcmp(level, "info") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("info"))) {
+		*success = true;
 		return LogLevelInfo;
 	}
-	if(strcmp(level, "warn") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("warn"))) {
+		*success = true;
 		return LogLevelWarn;
 	}
-	if(strcmp(level, "error") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("error"))) {
+		*success = true;
 		return LogLevelError;
 	}
-	if(strcmp(level, "critical") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("critical"))) {
+		*success = true;
 		return LogLevelCritical;
 	}
-	if(strcmp(level, "off") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("off"))) {
+		*success = true;
 		return LogLevelOff;
 	}
 
-	return -1;
+	*success = false;
+	return LogLevelError;
 }
 
 const char* get_level_name(LogLevel level) {

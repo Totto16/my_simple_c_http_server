@@ -669,9 +669,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			// NOTE: we allow overwrites, as the ftp spec says
 
-			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
+			const tstr final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
 
-			if(!final_file_path) {
+			if(tstr_is_null(&final_file_path)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 				                               "Path resolve error");
 
@@ -679,7 +679,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			}
 
 			struct stat stat_result;
-			int result = stat(final_file_path, &stat_result);
+			int result = stat(tstr_cstr(&final_file_path), &stat_result);
 
 			if(result != 0) {
 				if(errno != ENOENT) {
@@ -825,7 +825,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				}
 
 				// store data
-				bool success = write_to_file(final_file_path, resulting_data.value.buffer);
+				bool success =
+				    write_to_file(tstr_cstr(&final_file_path), resulting_data.value.buffer);
 
 				free_buffered_reader(data_conn_reader);
 
@@ -863,9 +864,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
+			const tstr final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
 
-			if(!final_file_path) {
+			if(tstr_is_null(&final_file_path)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 				                               "Path resolve error");
 
@@ -873,7 +874,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			}
 
 			struct stat stat_result;
-			int result = stat(final_file_path, &stat_result);
+			int result = stat(tstr_cstr(&final_file_path), &stat_result);
 
 			if(result != 0) {
 				if(errno == ENOENT) {
@@ -897,7 +898,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			if(access(final_file_path, R_OK) != 0) {
+			if(access(tstr_cstr(&final_file_path), R_OK) != 0) {
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 				                               "Access to file denied");
@@ -1025,7 +1026,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				SendData* data_to_send = get_data_to_send_for_retr(final_file_path);
+				SendData* data_to_send = get_data_to_send_for_retr(tstr_cstr(&final_file_path));
 
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
@@ -1102,9 +1103,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				actual_arg = arg.value;
 			}
 
-			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&actual_arg));
+			tstr final_file_path = resolve_path_in_cwd(state, tstr_cstr(&actual_arg));
 
-			if(!final_file_path) {
+			if(tstr_is_null(&final_file_path)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 				                               "Path resolve error");
 
@@ -1114,11 +1115,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 #undef FREE_AT_END
 #define FREE_AT_END() \
 	do { \
-		free(final_file_path); \
+		tstr_free(&final_file_path); \
 	} while(false)
 
 			struct stat stat_result;
-			int stat_ret = stat(final_file_path, &stat_result);
+			int stat_ret = stat(tstr_cstr(&final_file_path), &stat_result);
 
 			if(stat_ret != 0) {
 				FREE_AT_END();
@@ -1138,7 +1139,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			bool is_folder = S_ISDIR(stat_result.st_mode);
 
-			if(access(final_file_path, R_OK) != 0) {
+			if(access(tstr_cstr(&final_file_path), R_OK) != 0) {
 				const char* file_type_str =
 				    is_folder ? "folder" : "file"; // NOLINT(readability-implicit-bool-conversion)
 
@@ -1280,8 +1281,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				SendData* data_to_send = get_data_to_send_for_list(is_folder, final_file_path,
-				                                                   state->options->send_format);
+				SendData* data_to_send = get_data_to_send_for_list(
+				    is_folder, tstr_cstr(&final_file_path), state->options->send_format);
 
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
@@ -1296,7 +1297,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				SendProgress* send_progress = setup_send_progress(data_to_send, send_mode);
 
 				while(!send_progress_is_finished(send_progress)) {
-
 					if(!send_data_to_send(data_to_send, data_conn_descriptor, send_mode,
 					                      send_progress)) {
 						free_send_data(data_to_send);
@@ -1705,7 +1705,9 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		// TODO(Totto): get correct context, in future if we use tls
 		// TODO(Totto): should we also support tls here? Answer, there is a separate FTP rfc
 		// extension to set the encryption state of the data connection, per default it is off
-		const SecureOptions* const options = initialize_secure_options(false, "", "");
+
+		const SecureOptions* const options =
+		    initialize_secure_options(false, tstr_static_null(), tstr_static_null());
 
 		ConnectionContext* context = get_connection_context(options);
 
@@ -1850,7 +1852,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 	                : LISTENER_ERROR_NONE;
 }
 
-int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options,
+int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions* const options,
                      AuthenticationProviders* const auth_providers) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
@@ -1947,7 +1949,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// TODO(Totto): implement implicit TLS
 	const SecureOptions* const final_options =
 	    is_secure(options) // NOLINT(readability-implicit-bool-conversion)
-	        ? initialize_secure_options(false, "", "")
+	        ? initialize_secure_options(false, tstr_static_null(), tstr_static_null())
 	        : options;
 
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
@@ -2106,7 +2108,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 		free_connection_context(TVEC_AT(ConnectionContextPtr, control_contexts, i));
 	}
 
-	free(folder);
+	tstr_free(&folder);
 
 	free_authentication_providers(auth_providers);
 

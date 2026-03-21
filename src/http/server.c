@@ -1049,8 +1049,8 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 	RUN_LIFECYCLE_FN(argument.fns.shutdown_fn);
 }
 
-int start_http_server(uint16_t port, SecureOptions* const options,
-                      AuthenticationProviders* const auth_providers, HTTPRoutes* routes) {
+int start_http_server(const uint16_t port, SecureOptions* const options,
+                      AuthenticationProviders* const auth_providers, HTTPRoutes* const routes) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -1266,7 +1266,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 						const HTTPRouteServeFolder data = route.data.value.serve_folder;
 
 						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
-						            "Serve Folder: %s\n", data.folder_path);
+						            "Serve Folder: " TSTR_FMT "\n",
+						            TSTR_FMT_ARGS(data.folder_path));
 
 						break;
 					}

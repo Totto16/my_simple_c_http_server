@@ -58,8 +58,9 @@ NODISCARD ANY_TYPE(JobError*)
 // trough the argument
 NODISCARD ANY_TYPE(NULL) http_listener_thread_function(ANY_TYPE(HTTPThreadArgument*) arg);
 
-NODISCARD int start_http_server(uint16_t port, SecureOptions* options,
-                                AuthenticationProviders* auth_providers, HTTPRoutes* routes);
+NODISCARD int start_http_server(uint16_t port, MOVED(SecureOptions* options),
+                                MOVED(AuthenticationProviders* auth_providers),
+                                MOVED(HTTPRoutes* routes));
 
 void global_initialize_http_global_data(void);
 

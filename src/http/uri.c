@@ -292,7 +292,7 @@ NODISCARD static ParsedRequestURIResult parse_uri_or_authority(const tstr_view p
 	if(after_authority.len == 0) {
 		// the path is empty
 
-		ParsedURLPath parsed_path =  {.path=tstr_from("/"), .search_path= {
+		ParsedURLPath parsed_path =  {.path=TSTR_LIT("/"), .search_path= {
 		                         .hash_map = TMAP_INIT(ParsedSearchPathHashMap),
 		                     },.fragment = tstr_null()};
 
@@ -317,7 +317,7 @@ NODISCARD ParsedRequestURIResult parse_request_uri(const tstr_view path) {
 
 	if(path.len == 0) {
 		result.type = ParsedURITypeAbsPath;
-		result.data.path = (ParsedURLPath){.path=tstr_from("/"), .search_path= {
+		result.data.path = (ParsedURLPath){.path=TSTR_LIT("/"), .search_path= {
 		                         .hash_map = TMAP_INIT(ParsedSearchPathHashMap),
 		                     },.fragment = tstr_null()};
 
@@ -494,7 +494,7 @@ NODISCARD tstr get_request_uri_as_string(ParsedRequestURI uri) {
 
 	switch(uri.type) {
 		case ParsedURITypeAsterisk: {
-			return tstr_from("*");
+			return TSTR_LIT("*");
 		}
 		case ParsedURITypeAbsoluteURI: {
 			return get_uri_as_string(uri.data.uri);

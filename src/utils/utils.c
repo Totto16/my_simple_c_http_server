@@ -49,6 +49,7 @@ static long parse_long_impl(const char* to_parse, const char* description,
 }
 
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
+// TODO: refatcor this, i do't like the error reporting of that function
 long parse_long_safely(const char* to_parse, const char* description) {
 
 	bool success = true;

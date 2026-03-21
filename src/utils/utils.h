@@ -196,3 +196,7 @@ NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
 
 #define ZERO_STRUCT(Type) (Type){ 0 }
 #define ZERO_ARRAY() { 0 }
+
+// juts annotations
+#define MOVE(x) x
+#define MOVED(x) x

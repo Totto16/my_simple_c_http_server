@@ -19,7 +19,7 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 	// slash after each of them, but that is no entirely correct
 	// TODO(Totto): redirect /dir requests to /dir/ with 310 or 302!
 
-	size_t data_len = strlen(data.folder_path);
+	size_t data_len = tstr_len(&data.folder_path);
 	size_t request_len = tstr_len(&request_path.path);
 
 	char* result_path = NULL;
@@ -39,7 +39,7 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 				break;
 			}
 
-			memcpy(result_path, data.folder_path, data_len);
+			memcpy(result_path, tstr_cstr(&data.folder_path), data_len);
 			result_path[data_len] = '/';
 
 			memcpy(result_path + data_len + 1, route_path, route_len);
@@ -59,7 +59,7 @@ static char* get_final_file_path(HTTPRouteServeFolder data, const char* const ro
 				break;
 			}
 
-			memcpy(result_path, data.folder_path, data_len);
+			memcpy(result_path, tstr_cstr(&data.folder_path), data_len);
 			result_path[data_len] = '/';
 
 			memcpy(result_path + data_len + 1, tstr_cstr(&request_path.path), request_len);
@@ -401,14 +401,14 @@ NODISCARD static inline uint64_t abs_i64(int64_t value) {
  * @param path2
  * @return NODISCARD
  */
-NODISCARD static bool is_the_same_path(const char* path1, const char* path2) {
+NODISCARD static bool is_the_same_path(const tstr* const path1, const tstr* const path2) {
 
-	const size_t len1 = strlen(path1);
+	const size_t len1 = tstr_len(path1);
 
-	const size_t len2 = strlen(path2);
+	const size_t len2 = tstr_len(path2);
 
 	if(len1 == len2) {
-		return strncmp(path1, path2, len1) == 0;
+		return tstr_eq(path1, path2);
 	}
 
 	uint64_t diff = abs_i64((int64_t)len1) - ((int64_t)len2);
@@ -420,7 +420,7 @@ NODISCARD static bool is_the_same_path(const char* path1, const char* path2) {
 	if(diff == 1) {
 
 		size_t min = 0;
-		const char* has_slash = NULL;
+		const tstr* has_slash = NULL;
 		size_t hash_len = 0;
 
 		if(len1 < len2) {
@@ -433,11 +433,11 @@ NODISCARD static bool is_the_same_path(const char* path1, const char* path2) {
 			hash_len = len1;
 		}
 
-		if(has_slash[hash_len - 1] != '/') {
+		if(tstr_cstr(has_slash)[hash_len - 1] != '/') {
 			return false;
 		}
 
-		return strncmp(path1, path2, min) == 0;
+		return strncmp(tstr_cstr(path1), tstr_cstr(path2), min) == 0;
 	}
 
 	return false;
@@ -456,7 +456,7 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 
 	result->type = ServeFolderResultTypeServerError;
 
-	if(!file_is_absolute(data.folder_path)) {
+	if(!file_is_absolute(tstr_cstr(&data.folder_path))) {
 		result->type = ServeFolderResultTypeServerError;
 		return result;
 	}
@@ -468,27 +468,30 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 
 	const ParsedURLPath normal_data = http_properties.data.normal;
 
-	char* final_path = get_final_file_path(data, selected_route_data.original_path, normal_data);
+	const char* final_path_impl =
+	    get_final_file_path(data, selected_route_data.original_path, normal_data);
 
-	if(final_path == NULL) {
+	if(final_path_impl == NULL) {
 		result->type = ServeFolderResultTypeServerError;
 		return result;
 	}
 
+	tstr final_path = tstr_from(final_path_impl);
+
 	// invariant check, the new result is a subfolder or the same of the serve_directory (prevents
 	// ".." path traversal)
-	if(strstr(final_path, data.folder_path) != final_path) {
+	if(strstr(tstr_cstr(&final_path), tstr_cstr(&data.folder_path)) != tstr_cstr(&final_path)) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
-		            "folder invariant violated: %s\n", final_path);
+		            "folder invariant violated: " TSTR_FMT "\n", TSTR_FMT_ARGS(final_path));
 
-		free(final_path);
+		tstr_free(&final_path);
 
 		result->type = ServeFolderResultTypeServerError;
 		return result;
 	}
 
 	struct stat stat_result;
-	int stat_result_int = stat(final_path, &stat_result);
+	int stat_result_int = stat(tstr_cstr(&final_path), &stat_result);
 
 	if(stat_result_int != 0) {
 		switch(errno) {
@@ -503,7 +506,7 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 			}
 		}
 
-		free(final_path);
+		tstr_free(&final_path);
 
 		return result;
 	}
@@ -514,16 +517,14 @@ NODISCARD ServeFolderResult* get_serve_folder_content(HttpRequestProperties http
 
 		const bool has_valid_parent =
 		    !is_the_same_path( // NOLINT(readability-implicit-bool-conversion)
-		        final_path, data.folder_path);
+		        &final_path, &data.folder_path);
 
-		*result = get_serve_folder_content_for_folder(final_path, has_valid_parent);
+		*result = get_serve_folder_content_for_folder(tstr_cstr(&final_path), has_valid_parent);
 	} else {
-		const tstr path = tstr_own_cstr(final_path);
-
-		*result = get_serve_folder_content_for_file(&path, send_body);
+		*result = get_serve_folder_content_for_file(&final_path, send_body);
 	}
 
-	free(final_path);
+	tstr_free(&final_path);
 
 	return result;
 }
