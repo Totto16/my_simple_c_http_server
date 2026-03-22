@@ -1,6 +1,6 @@
 # taken from https://github.com/cpp-linter/cpp-linter-action/blob/main/demo/.clang-tidy
 ---
-Checks: "clang-diagnostic-*,clang-analyzer-*,bugprone-*,misc-*,performance-*,readability-*,portability-*,modernize-*,cppcoreguidelines-*,google-*,llvm-*,cert-*,-llvm-header-guard,-modernize-use-nullptr,-misc-include-cleaner,-cert-err33-c,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,-cppcoreguidelines-macro-to-enum,-modernize-macro-to-enum,-readability-function-cognitive-complexity,-google-readability-function-size,-readability-function-size,-modernize-use-trailing-return-type,-portability-avoid-pragma-once,-readability-use-concise-preprocessor-directives,custom-*,custom-http-server-style-*"
+Checks: "clang-diagnostic-*,clang-analyzer-*,bugprone-*,misc-*,performance-*,readability-*,portability-*,modernize-*,cppcoreguidelines-*,google-*,llvm-*,cert-*,-llvm-header-guard,-modernize-use-nullptr,-misc-include-cleaner,-cert-err33-c,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,-cppcoreguidelines-macro-to-enum,-modernize-macro-to-enum,-readability-function-cognitive-complexity,-google-readability-function-size,-readability-function-size,-modernize-use-trailing-return-type,-portability-avoid-pragma-once,-readability-use-concise-preprocessor-directives,custom-*"
 WarningsAsErrors: "custom-*"
 HeaderFilterRegex: "src/.*"
 ExcludeHeaderFilterRegex: src/thirdparty/.*|subprojects/.*
@@ -170,27 +170,35 @@ CheckOptions:
 # see: https://clang.llvm.org/docs/LibASTMatchersReference.html
 # for matcher docs
 CustomChecks:
-  - Name: http-server-style-use-const-in-implementation
-    # match any paramater of a function, that is not const qualified (at the top level) and it has to have a function definition as ancestor(the paramater has to be part of that function defintion)
+  - Name: use-const-in-fn-defintion
+    # match any function declaration, not defintion, with at least one paramater, that is not const qualified (at the top level), the function name can't match the regex "[A-Z_]*" alias macro "functions"
     Query: |
-      match parmVarDecl(
+      match functionDecl(
               allOf(
-                unless(
-                  hasType(
-                    isConstQualified()
-                  )
+                isDefinition(),
+                hasDescendant(
+                  parmVarDecl(
+                    unless(
+                      hasType(
+                        isConstQualified()
+                      )
+                    )
+                  ).bind("param") 
                 ),
-                hasAncestor(
-                  functionDecl(
-                    isDefinition()
+                unless(
+                  matchesName(
+                    "[A-Z_]*"
                   )
                 )
               )
-            ).bind("param")
+            ).bind("func")
     Diagnostic:
       - BindName: param
         Message: Not const qualified paramater
         Level: Warning
+      - BindName: func
+        Message: Function that uses this parameter
+        Level: Note
 
 #TODO:
 # don't use string literals, always wrap them in TSTR_LIT or TSTR_STATIC_LIT
