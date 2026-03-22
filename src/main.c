@@ -203,7 +203,7 @@ NODISCARD static int subcommand_http(tstr_static program_name, const ProgramArgs
 	}
 
 	// parse the port
-	// TODO: don't use the .ptr here
+	// TODO(Totto): don't use the .ptr here
 	const uint16_t port = parse_u16_safely(arg0.ptr, "<port>");
 
 	bool secure = false;
@@ -309,8 +309,8 @@ NODISCARD static int subcommand_http(tstr_static program_name, const ProgramArgs
 
 	LOG_MESSAGE(LogLevelTrace, "Setting LogLevel to %s\n", get_level_name(log_level));
 	const tstr_static secure_string =
-	    secure ? TSTR_STATIC_LIT("true")
-	           : TSTR_STATIC_LIT("false"); // NOLINT(readability-implicit-bool-conversion)
+	    secure ? TSTR_STATIC_LIT("true") // NOLINT(readability-implicit-bool-conversion)
+	           : TSTR_STATIC_LIT("false");
 	LOG_MESSAGE(LogLevelTrace, "Using secure connections: " TSTR_FMT "\n",
 	            TSTR_STATIC_FMT_ARGS(secure_string));
 
@@ -371,7 +371,7 @@ NODISCARD static int subcommand_ftp(tstr_static program_name, const ProgramArgs 
 		return EXIT_SUCCESS;
 	}
 
-	// TODO: don't use the .ptr here
+	// TODO(Totto): don't use the .ptr here
 	const uint16_t control_port = parse_u16_safely(arg0.ptr, "<port>");
 
 	bool secure = false;
@@ -473,8 +473,8 @@ NODISCARD static int subcommand_ftp(tstr_static program_name, const ProgramArgs 
 	LOG_MESSAGE(LogLevelTrace, "Setting LogLevel to %s\n", get_level_name(log_level));
 
 	const tstr_static secure_string =
-	    secure ? TSTR_STATIC_LIT("true")
-	           : TSTR_STATIC_LIT("false"); // NOLINT(readability-implicit-bool-conversion)
+	    secure ? TSTR_STATIC_LIT("true") // NOLINT(readability-implicit-bool-conversion)
+	           : TSTR_STATIC_LIT("false");
 	LOG_MESSAGE(LogLevelTrace, "Providing implicit TLS: " TSTR_FMT "\n",
 	            TSTR_STATIC_FMT_ARGS(secure_string));
 
