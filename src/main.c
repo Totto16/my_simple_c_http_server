@@ -173,7 +173,7 @@ typedef struct {
 #define PROGRAM_ARGS_AT(args, index) \
 	(assert((index) < (args).size), tstr_static_from_static_cstr((args).data[(index)]))
 
-static inline ProgramArgs advance_program_args(const ProgramArgs args, size_t amount) {
+static inline ProgramArgs advance_program_args(const ProgramArgs args, const size_t amount) {
 	assert(args.size >= amount);
 	return (ProgramArgs){ .size = args.size - amount, .data = args.data + amount };
 }
@@ -186,7 +186,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	RouteIdentifierTestSuiteWebserverTester,
 } RouteIdentifier;
 
-NODISCARD static int subcommand_http(tstr_static program_name, const ProgramArgs args) {
+NODISCARD static int subcommand_http(const tstr_static program_name, const ProgramArgs args) {
 
 	if(args.size < 1) {
 		fprintf(stderr, "missing <port>\n");
@@ -355,7 +355,7 @@ NODISCARD static int subcommand_http(tstr_static program_name, const ProgramArgs
 	return start_http_server(port, MOVE(options), MOVE(auth_providers), MOVE(routes));
 }
 
-NODISCARD static int subcommand_ftp(tstr_static program_name, const ProgramArgs args) {
+NODISCARD static int subcommand_ftp(const tstr_static program_name, const ProgramArgs args) {
 
 	if(args.size < 1) {
 		fprintf(stderr, "missing <port>\n");
@@ -537,7 +537,7 @@ static int rich_main(const ProgramArgs args) {
 	return EXIT_FAILURE;
 }
 
-int main(const int argc, const char* const argv[]) {
+int main(const int argc, const char* const* const argv) {
 	ProgramArgs args = { .size = argc, .data = argv };
 	return rich_main(args);
 }

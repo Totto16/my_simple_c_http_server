@@ -10,8 +10,8 @@
 #include <time.h>
 
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-static long parse_long_impl(const char* to_parse, const char* description,
-                            OUT_PARAM(bool) success) {
+static long parse_long_impl(const char* const to_parse, const char* const description,
+                            OUT_PARAM(bool) const success) {
 	// this is just allocated, so that strtol can write an address into it,
 	// therefore it doesn't need to be initialized
 	char* endpointer = NULL;
@@ -34,8 +34,9 @@ static long parse_long_impl(const char* to_parse, const char* description,
 		}
 		*success = false;
 		return 0;
+	}
 
-	} else if(errno != 0) {
+	if(errno != 0) {
 
 		if(description != NULL) {
 			LOG_MESSAGE(LogLevelWarn, "Couldn't parse the incorrect long: %s\n", strerror(errno));
@@ -49,7 +50,7 @@ static long parse_long_impl(const char* to_parse, const char* description,
 }
 
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-// TODO: refatcor this, i do't like the error reporting of that function
+// TODO(Totto): refactor this, i do't like the error reporting of that function
 long parse_long_safely(const char* to_parse, const char* description) {
 
 	bool success = true;
@@ -87,8 +88,9 @@ static size_t parse_size_t_impl(const char* to_parse, OUT_PARAM(bool) success) {
 	if(*endpointer != '\0') {
 		*success = false;
 		return 0;
+	}
 
-	} else if(errno != 0) {
+	if(errno != 0) {
 		*success = false;
 		return 0;
 	}
