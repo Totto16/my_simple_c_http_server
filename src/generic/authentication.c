@@ -31,11 +31,6 @@ struct AuthenticationProviderImpl {
 	} data;
 };
 
-// TODO(Totto): the no-lint here is because the custom check doesn't recognize macro vs real
-// function invocation :(
-
-// NOLINT(custom-http-server-style-use-const-in-implementation)
-
 //  TODO(Totto): do we really need to store ptrs here
 /* NOLINTBEGIN(misc-use-internal-linkage) */
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(AuthenticationProvider*, AuthenticationProviderPtr)
