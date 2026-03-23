@@ -26,7 +26,7 @@ Checks: >
   -modernize-use-trailing-return-type,
   -portability-avoid-pragma-once,
   -readability-use-concise-preprocessor-directives,
-  custom-*"
+  custom-*
 WarningsAsErrors: "custom-*"
 HeaderFilterRegex: "src/.*"
 ExcludeHeaderFilterRegex: src/thirdparty/.*|subprojects/.*
@@ -213,7 +213,7 @@ CustomChecks:
                 ),
                 unless(
                   matchesName(
-                    "[A-Z_]*"
+                    "^[A-Z_]*$"
                   )
                 )
               )
