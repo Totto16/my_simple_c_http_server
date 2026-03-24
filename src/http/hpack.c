@@ -288,10 +288,10 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 
 				const void* const err_callback_bytes = (const void* const)err_callback;
 
-				const uint8_t mask_byte = *(((uint8_t*)err_callback_bytes) + sizeof(void*));
+				const uint8_t mask_byte = *(((const uint8_t*)err_callback_bytes) + sizeof(void*));
 
 				void* cb_fn_raw = NULL;
-				memcpy((void*)&cb_fn_raw, (void*)err_callback_bytes, sizeof(void*));
+				memcpy((void*)&cb_fn_raw, err_callback_bytes, sizeof(void*));
 
 				{ // patch fn ptr
 
@@ -389,15 +389,13 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 		};
 	}
 
-	const SizedBuffer raw_bytes = {
-		.data = (void*)(data + (*pos)),
-		.size = length,
-	};
+	const void* raw_data = data + (*pos);
+	const size_t raw_size = length;
 
 	(*pos) += length;
 
 	if(is_huffman) {
-		const HuffmanDecodeResult huffman_res = hpack_huffman_decode_bytes(raw_bytes);
+		const HuffmanDecodeResult huffman_res = hpack_huffman_decode_bytes(raw_data, raw_size);
 
 		if(huffman_res.is_error) {
 			return (LiteralStringResult){ .is_error = true,
@@ -423,7 +421,7 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 	}
 
 	value[length] = 0;
-	memcpy(value, raw_bytes.data, raw_bytes.size);
+	memcpy(value, raw_data, raw_size);
 
 	const tstr result = tstr_own(value, length, length);
 

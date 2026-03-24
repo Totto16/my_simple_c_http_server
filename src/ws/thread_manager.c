@@ -286,14 +286,15 @@ read_raw_message(WebSocketConnection* connection,
 	return result;
 }
 
-NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connection,
-                                                  WebSocketRawMessage raw_message, bool has_mask) {
+NODISCARD static GenericResult ws_send_message_raw_internal(WebSocketConnection* connection,
+                                                            WebSocketRawMessage raw_message,
+                                                            bool has_mask) {
 
 	if(raw_message.payload.data == NULL) {
 		if(raw_message.payload.size != 0) {
 
 			LOG_MESSAGE_SIMPLE(LogLevelWarn, "payload and payload length have to match\n");
-			return -1;
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 	}
 
@@ -316,7 +317,7 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 	if(resulting_frame == NULL) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	uint8_t header_one =
@@ -378,7 +379,7 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 			                   "Control frame payload is fragmented, that isn't allowed\n");
 
 			free(resulting_frame);
-			return -2;
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 
 		if(raw_message.payload.size > MAX_CONTROL_FRAME_PAYLOAD) {
@@ -387,11 +388,11 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 			            raw_message.payload.size, MAX_CONTROL_FRAME_PAYLOAD);
 
 			free(resulting_frame);
-			return -3;
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 	}
 
-	int result = send_data_to_connection(
+	const GenericResult result = send_data_to_connection(
 	    buffered_reader_get_connection_descriptor(connection->reader), resulting_frame, size);
 
 	free(resulting_frame);
@@ -399,9 +400,9 @@ NODISCARD static int ws_send_message_raw_internal(WebSocketConnection* connectio
 	return result;
 }
 
-NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connection,
-                                                     WebSocketMessage* message, bool mask,
-                                                     ExtensionSendState* extension_send_state) {
+NODISCARD static GenericResult
+ws_send_message_internal_normal(WebSocketConnection* connection, WebSocketMessage* message,
+                                bool mask, ExtensionSendState* extension_send_state) {
 
 	WsOpcode op_code = message->is_text // NOLINT(readability-implicit-bool-conversion)
 	                       ? WsOpcodeText
@@ -422,10 +423,10 @@ NODISCARD static int ws_send_message_internal_normal(WebSocketConnection* connec
 // according to rfc
 #define WS_MINIMUM_FRAGMENT_SIZE 16
 
-NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* connection,
-                                                         WebSocketMessage* message, bool mask,
-                                                         uint64_t fragment_size,
-                                                         ExtensionSendState* extension_send_state) {
+NODISCARD static GenericResult
+ws_send_message_internal_fragmented(WebSocketConnection* connection, WebSocketMessage* message,
+                                    bool mask, uint64_t fragment_size,
+                                    ExtensionSendState* extension_send_state) {
 
 	// this is the minimum we set, so that everything (header + eventual mask) can be sent
 	if(fragment_size < WS_MINIMUM_FRAGMENT_SIZE) {
@@ -472,22 +473,22 @@ NODISCARD static int ws_send_message_internal_fragmented(WebSocketConnection* co
 			extension_send_pipeline_process_cont_message(extension_send_state, &raw_message);
 		}
 
-		int result = ws_send_message_raw_internal(connection, raw_message, mask);
+		const GenericResult result = ws_send_message_raw_internal(connection, raw_message, mask);
 
-		if(result < 0) {
+		if(result.is_error) {
 			return result;
 		}
 	}
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
 #define DEFAULT_AUTO_FRAGMENT_SIZE 4096
 
-NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
-                                              WebSocketMessage* message, bool mask,
-                                              WsConnectionArgs args,
-                                              ExtensionSendState* extension_send_state) {
+NODISCARD static GenericResult ws_send_message_internal(WebSocketConnection* connection,
+                                                        WebSocketMessage* message, bool mask,
+                                                        WsConnectionArgs args,
+                                                        ExtensionSendState* extension_send_state) {
 
 	char* extension_error =
 	    extension_send_pipeline_process_initial_message(extension_send_state, message);
@@ -495,7 +496,7 @@ NODISCARD static int ws_send_message_internal(WebSocketConnection* connection,
 	if(extension_error != NULL) {
 		LOG_MESSAGE(LogLevelError, "Extension send error: %s\n", extension_error);
 		free(extension_error);
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	if(args.fragment_option.type == WsFragmentOptionTypeOff) {
@@ -671,8 +672,8 @@ NODISCARD static bool is_valid_close_code(uint16_t close_code) {
 	return false;
 }
 
-NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* connection,
-                                                        CloseReason reason) {
+NODISCARD static GenericResult ws_send_close_message_raw_internal(WebSocketConnection* connection,
+                                                                  CloseReason reason) {
 
 	size_t reason_msg_len =
 	    (reason.message_len < 0 ? strlen(reason.message) : (size_t)reason.message_len);
@@ -686,7 +687,7 @@ NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* con
 	if(payload.data == NULL) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const SerializeResult16 serialized_reason_code = serialize_u16_host_to_be(reason.code);
@@ -706,16 +707,16 @@ NODISCARD static int ws_send_close_message_raw_internal(WebSocketConnection* con
 	// TODO(Totto): once we support extensions, that needs to be run on control message, we need to
 	// add that pipline step also here
 
-	int result = ws_send_message_raw_internal(connection, raw_message, false);
+	const GenericResult result = ws_send_message_raw_internal(connection, raw_message, false);
 
 	free_sized_buffer(payload);
 
 	return result;
 }
 
-NODISCARD static const char* close_websocket_connection(WebSocketConnection** connection,
-                                                        WebSocketThreadManager* manager,
-                                                        CloseReason reason) {
+NODISCARD static GenericResult close_websocket_connection(WebSocketConnection** connection,
+                                                          WebSocketThreadManager* manager,
+                                                          CloseReason reason) {
 
 	if(reason.message != NULL) {
 		int message_size =
@@ -735,15 +736,15 @@ NODISCARD static const char* close_websocket_connection(WebSocketConnection** co
 
 	*connection = NULL;
 
-	if(result < 0) {
-		return "send error";
+	if(result.is_error) {
+		return GENERIC_RES_ERR("send error");
 	}
 
-	if(result2 < 0) {
-		return "thread manager remove error";
+	if(result2.is_error) {
+		return GENERIC_RES_ERR("thread manager remove error");
 	}
 
-	return NULL;
+	return GENERIC_RES_OK();
 }
 
 // TODO(Totto): at the moment we adhere to the RFC, by only checking TEXT as a whole after we got
@@ -878,15 +879,15 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message = error_message,
 					                   .message_len = -1 };
 
-				const char* result =
+				const GenericResult result =
 				    close_websocket_connection(&connection, argument->manager, reason);
 
 				free(error_message);
 
-				if(result != NULL) {
+				if(result.is_error) {
 					LOG_MESSAGE(LogLevelError,
 					            "Error while closing the websocket connection: read error: %s\n",
-					            result);
+					            result.value.error);
 				}
 
 				FREE_AT_END();
@@ -914,14 +915,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						                   .message = "Received fragmented control frame",
 						                   .message_len = -1 };
 
-					const char* result =
+					const GenericResult result =
 					    close_websocket_connection(&connection, argument->manager, reason);
 
-					if(result != NULL) {
+					if(result.is_error) {
 						LOG_MESSAGE(LogLevelError,
 						            "Error while closing the websocket connection: "
 						            "fragmented control frame: %s\n",
-						            result);
+						            result.value.error);
 					}
 
 					FREE_AT_END();
@@ -933,14 +934,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						                   .message = "Control frame payload to large",
 						                   .message_len = -1 };
 
-					const char* result =
+					const GenericResult result =
 					    close_websocket_connection(&connection, argument->manager, reason);
 
-					if(result != NULL) {
+					if(result.is_error) {
 						LOG_MESSAGE(LogLevelError,
 						            "Error while closing the websocket connection: "
 						            "Control frame payload to large: %s\n",
-						            result);
+						            result.value.error);
 					}
 
 					FREE_AT_END();
@@ -960,14 +961,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                              "to be at least 2 bytes long",
 								                   .message_len = -1 };
 
-							const char* result =
+							const GenericResult result =
 							    close_websocket_connection(&connection, argument->manager, reason);
 
-							if(result != NULL) {
+							if(result.is_error) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
 								            "Close data has invalid code: %s\n",
-								            result);
+								            result.value.error);
 							}
 
 							FREE_AT_END();
@@ -993,16 +994,16 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message = error_message,
 								                   .message_len = -1 };
 
-							const char* result =
+							const GenericResult result =
 							    close_websocket_connection(&connection, argument->manager, reason);
 
 							free(error_message);
 
-							if(result != NULL) {
+							if(result.is_error) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
 								            "Invalid utf8 payload in control frame: %s\n",
-								            result);
+								            result.value.error);
 							}
 
 							FREE_AT_END();
@@ -1026,14 +1027,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							.message_len = -1
 						};
 
-						const char* result =
+						const GenericResult result =
 						    close_websocket_connection(&connection, argument->manager, reason);
 
-						if(result != NULL) {
+						if(result.is_error) {
 							LOG_MESSAGE(
 							    LogLevelError,
 							    "Error while closing the websocket connection: CONT error: %s\n",
-							    result);
+							    result.value.error);
 						}
 
 						FREE_AT_END();
@@ -1048,16 +1049,16 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							                   .message = extension_error,
 							                   .message_len = -1 };
 
-						const char* result =
+						const GenericResult result =
 						    close_websocket_connection(&connection, argument->manager, reason);
 
 						free(extension_error);
 
-						if(result != NULL) {
+						if(result.is_error) {
 							LOG_MESSAGE(
 							    LogLevelError,
 							    "Error while closing the websocket connection: CONT error: %s\n",
-							    result);
+							    result.value.error);
 						}
 
 						FREE_AT_END();
@@ -1101,16 +1102,16 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							                   .message = error_message,
 							                   .message_len = -1 };
 
-						const char* result =
+						const GenericResult result =
 						    close_websocket_connection(&connection, argument->manager, reason);
 
 						free(error_message);
 
-						if(result != NULL) {
+						if(result.is_error) {
 							LOG_MESSAGE(LogLevelError,
 							            "Error while closing the websocket connection: "
 							            "Extension pipeline error: %s\n",
-							            result);
+							            result.value.error);
 						}
 
 						FREE_AT_END();
@@ -1133,16 +1134,16 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message = error_message,
 								                   .message_len = -1 };
 
-							const char* result =
+							const GenericResult result =
 							    close_websocket_connection(&connection, argument->manager, reason);
 
 							free(error_message);
 
-							if(result != NULL) {
+							if(result.is_error) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
 								            "Invalid utf8 payload in fragmented message: %s\n",
-								            result);
+								            result.value.error);
 							}
 
 							FREE_AT_END();
@@ -1167,14 +1168,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							.message_len = -1
 						};
 
-						const char* result =
+						const GenericResult result =
 						    close_websocket_connection(&connection, argument->manager, reason);
 
-						if(result != NULL) {
+						if(result.is_error) {
 							LOG_MESSAGE(
 							    LogLevelError,
 							    "Error while closing the websocket connection: no CONT error: %s\n",
-							    result);
+							    result.value.error);
 						}
 
 						FREE_AT_END();
@@ -1212,16 +1213,16 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							.message_len = -1,
 						};
 
-						const char* result =
+						const GenericResult result =
 						    close_websocket_connection(&connection, argument->manager, reason);
 
 						free(error_message);
 
-						if(result != NULL) {
+						if(result.is_error) {
 							LOG_MESSAGE(LogLevelError,
 							            "Error while closing the websocket connection: "
 							            "Extension pipeline error: %s\n",
-							            result);
+							            result.value.error);
 						}
 
 						FREE_AT_END();
@@ -1247,16 +1248,16 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								                   .message = error_message,
 								                   .message_len = -1 };
 
-							const char* result =
+							const GenericResult result =
 							    close_websocket_connection(&connection, argument->manager, reason);
 
 							free(error_message);
 
-							if(result != NULL) {
+							if(result.is_error) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
 								            "Invalid utf8 payload in un-fragmented message: %s\n",
-								            result);
+								            result.value.error);
 							}
 
 							FREE_AT_END();
@@ -1292,14 +1293,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 									.message_len = -1
 								};
 
-								const char* result = close_websocket_connection(
+								const GenericResult result = close_websocket_connection(
 								    &connection, argument->manager, invalid_close_code_reason);
 
-								if(result != NULL) {
+								if(result.is_error) {
 									LOG_MESSAGE(LogLevelError,
 									            "Error while closing the websocket connection: "
 									            "Invalid Close Code: %s\n",
-									            result);
+									            result.value.error);
 								}
 
 								FREE_AT_END();
@@ -1310,14 +1311,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						}
 					}
 
-					const char* result =
+					const GenericResult result =
 					    close_websocket_connection(&connection, argument->manager, reason);
 
-					if(result != NULL) {
+					if(result.is_error) {
 						LOG_MESSAGE(LogLevelError,
 						            "Error while closing the websocket connection: planned "
 						            "close: %s\n",
-						            result);
+						            result.value.error);
 					}
 
 					FREE_AT_END();
@@ -1336,25 +1337,26 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					// message, we need to
 					// add that pipline step also here
 
-					int result = ws_send_message_raw_internal(connection, message_raw, false);
+					const GenericResult result =
+					    ws_send_message_raw_internal(connection, message_raw, false);
 
 					FREE_WS_RAW_MESSAGE();
 
-					if(result < 0) {
+					if(result.is_error) {
 						CloseReason reason = {
 							.code = CloseCodeProtocolError,
 							.message = "Couldn't send PONG op_code",
 							.message_len = -1,
 						};
 
-						const char* result1 =
+						const GenericResult result1 =
 						    close_websocket_connection(&connection, argument->manager, reason);
 
-						if(result1 != NULL) {
+						if(result1.is_error) {
 							LOG_MESSAGE(LogLevelError,
 							            "Error while closing the websocket connection: PONG send "
 							            "error: %s\n",
-							            result1);
+							            result1.value.error);
 						}
 
 						FREE_AT_END();
@@ -1379,14 +1381,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						.message_len = -1,
 					};
 
-					const char* result =
+					const GenericResult result =
 					    close_websocket_connection(&connection, argument->manager, reason);
 
-					if(result != NULL) {
+					if(result.is_error) {
 						LOG_MESSAGE(LogLevelError,
 						            "Error while closing the websocket connection: "
 						            "Unsupported op_code: %s\n",
-						            result);
+						            result.value.error);
 					}
 
 					FREE_AT_END();
@@ -1413,10 +1415,10 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message = "Coudln't form the send extension state",
 					                   .message_len = -1 };
 
-				const char* result =
+				const GenericResult result =
 				    close_websocket_connection(&connection, argument->manager, reason);
 
-				if(result != NULL) {
+				if(result.is_error) {
 					LOG_MESSAGE_SIMPLE(LogLevelError,
 					                   "Error while closing the websocket connection: "
 					                   "send extension state allocation error\n");
@@ -1443,14 +1445,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					.message_len = -1,
 				};
 
-				const char* result =
+				const GenericResult result =
 				    close_websocket_connection(&connection, argument->manager, reason);
 
-				if(result != NULL) {
+				if(result.is_error) {
 					LOG_MESSAGE(
 					    LogLevelError,
 					    "Error while closing the websocket connection: shutdown requested: %s\n",
-					    result);
+					    result.value.error);
 				}
 
 				FREE_AT_END();
@@ -1462,14 +1464,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					                   .message = "ServerApplication callback has an error",
 					                   .message_len = -1 };
 
-				const char* result =
+				const GenericResult result =
 				    close_websocket_connection(&connection, argument->manager, reason);
 
-				if(result != NULL) {
+				if(result.is_error) {
 					LOG_MESSAGE(LogLevelError,
 					            "Error while closing the websocket connection: "
 					            "callback has error: %s\n",
-					            result);
+					            result.value.error);
 				}
 
 				FREE_AT_END();
@@ -1502,8 +1504,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 #undef FREE_AT_END_ONE
 #undef FREE_AT_END
 
-int ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
-                    WsConnectionArgs args, ExtensionSendState* extension_send_state) {
+GenericResult ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
+                              WsConnectionArgs args, ExtensionSendState* extension_send_state) {
 	return ws_send_message_internal(connection, message, false, args, extension_send_state);
 }
 
@@ -1630,9 +1632,9 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 		CloseReason reason = { .code = CloseCodeGoingAway,
 			                   .message = "Server is shutting down",
 			                   .message_len = -1 };
-		int result = ws_send_close_message_raw_internal(connection, reason);
+		const GenericResult result = ws_send_close_message_raw_internal(connection, reason);
 
-		if(result < 0) {
+		if(result.is_error) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error while closing the websocket connection: close "
 			                                  "reason: server shutting down\n");
 		}
@@ -1652,23 +1654,23 @@ GenericResult thread_manager_remove_connection(WebSocketThreadManager* manager,
                                                WebSocketConnection* connection) {
 
 	if(connection == NULL) {
-		return GENERIC_ERR_UNIQUE();
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	int result = pthread_mutex_lock(&manager->mutex);
 	// TODO(Totto): better report error
 	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to lock the mutex for the WebSocketThreadManager",
-	    return GENERIC_ERR_UNIQUE(););
+	    return GENERIC_RES_ERR_UNIQUE(););
 
 	ConnectionNode* current_node = manager->head;
 	ConnectionNode* previous_node = NULL;
 
-	GenericResult return_value = GENERIC_ERR_UNIQUE();
+	GenericResult return_value = GENERIC_RES_ERR_UNIQUE();
 
 	while(true) {
 		if(current_node == NULL) {
-			return_value = GENERIC_ERR_UNIQUE();
+			return_value = GENERIC_RES_ERR_UNIQUE();
 			break;
 		}
 
@@ -1688,7 +1690,7 @@ GenericResult thread_manager_remove_connection(WebSocketThreadManager* manager,
 			}
 
 			free(current_node);
-			return_value = GENERIC_OK();
+			return_value = GENERIC_RES_OK();
 			break;
 		}
 
@@ -1700,7 +1702,7 @@ GenericResult thread_manager_remove_connection(WebSocketThreadManager* manager,
 	// TODO(Totto): better report error
 	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the WebSocketThreadManager",
-	    return GENERIC_ERR_UNIQUE(););
+	    return GENERIC_RES_ERR_UNIQUE(););
 
 	return return_value;
 }

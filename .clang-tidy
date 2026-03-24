@@ -258,4 +258,4 @@ CustomChecks:
 # no char* or const char* as argument or return type!
 # never pass tstr by value as its hge
 # always pass tstr_static by value!
-
+# don't use manual tagged unions (WIP)

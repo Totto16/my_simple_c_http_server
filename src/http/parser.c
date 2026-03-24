@@ -661,7 +661,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
-		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
+		const HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
 		if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(content_length))) {
 			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
@@ -749,9 +749,8 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			}
 		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(http2_settings))) {
 
-			const SizedBuffer input = sized_buffer_from_tstr(&header.value);
-
-			h2state.settings_buffer = base64_decode_buffer(input);
+			h2state.settings_buffer =
+			    base64_decode(tstr_cstr(&header.value), tstr_len(&header.value));
 		}
 	}
 
@@ -885,12 +884,12 @@ process_http2_upgrade_request(const HTTPResultOk ok_res, HTTPReader* const reade
 
 		SendSettings send_settings = get_send_settings(ok_res.settings);
 
-		int result = send_http_message_to_connection(
+		const GenericResult result = send_http_message_to_connection(
 		    &(reader->general_context),
 		    buffered_reader_get_connection_descriptor(reader->buffered_reader), to_send,
 		    send_settings);
 
-		if(result < 0) {
+		if(result.is_error) {
 			return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error = (HttpRequestError){

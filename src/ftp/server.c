@@ -151,22 +151,23 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 	BufferedReader* buffered_reader = get_buffered_reader(descriptor);
 
 	if(!buffered_reader) {
-		int result = send_ftp_message_to_connection_tstr(
+		const GenericResult result = send_ftp_message_to_connection_tstr(
 		    descriptor, FtpReturnCodeSyntaxError,
 		    TSTR_LIT("Request couldn't be read, a connection error occurred!"));
 
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
+		if(result.is_error) {
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			            "Error in sending response: %s\n", result.value.error);
 		}
 
 		goto cleanup;
 	}
 
-	int hello_result = send_ftp_message_to_connection_tstr(descriptor, FtpReturnCodeSrvcReady,
-	                                                       TSTR_LIT("Simple FTP Server"));
-	if(hello_result < 0) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending hello message\n");
+	const GenericResult hello_result = send_ftp_message_to_connection_tstr(
+	    descriptor, FtpReturnCodeSrvcReady, TSTR_LIT("Simple FTP Server"));
+	if(hello_result.is_error) {
+		LOG_MESSAGE(LogLevelError, "Error in sending hello message: %s\n",
+		            hello_result.value.error);
 		goto cleanup;
 	}
 
@@ -182,10 +183,10 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		// ftp_commands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
 		if(ftp_command == NULL) {
-			int result = send_ftp_message_to_connection_tstr(descriptor, FtpReturnCodeSyntaxError,
-			                                                 TSTR_LIT("Invalid Command Sequence"));
+			const GenericResult result = send_ftp_message_to_connection_tstr(
+			    descriptor, FtpReturnCodeSyntaxError, TSTR_LIT("Invalid Command Sequence"));
 
-			if(result < 0) {
+			if(result.is_error) {
 				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 				                   "Error in sending response\n");
 				goto cleanup;
@@ -223,10 +224,11 @@ cleanup:
 
 #define SEND_RESPONSE_WITH_ERROR_CHECK(code, msg) \
 	do { \
-		int send_result = send_ftp_message_to_connection_tstr(descriptor, code, TSTR_LIT(msg)); \
-		if(send_result < 0) { \
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
-			                   "Error in sending response\n"); \
+		const GenericResult send_result = \
+		    send_ftp_message_to_connection_tstr(descriptor, code, TSTR_LIT(msg)); \
+		if(send_result.is_error) { \
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
+			            "Error in sending response: %s\n", send_result.value.error); \
 			return false; \
 		} \
 	} while(false)
@@ -235,10 +237,11 @@ cleanup:
 	do { \
 		StringBuilder* string_builder = string_builder_init(); \
 		STRING_BUILDER_APPENDF(string_builder, return false;, format, __VA_ARGS__); \
-		int send_result = send_ftp_message_to_connection_sb(descriptor, code, string_builder); \
-		if(send_result < 0) { \
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
-			                   "Error in sending response\n"); \
+		const GenericResult send_result = \
+		    send_ftp_message_to_connection_sb(descriptor, code, string_builder); \
+		if(send_result.is_error) { \
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
+			            "Error in sending response: %s\n", send_result.value.error); \
 			return false; \
 		} \
 	} while(false)
@@ -585,8 +588,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				STRING_BUILDER_APPENDF(string_builder, return false;
 				                       , "%03d-Extensions supported:", FtpReturnCodeFeatureList);
-				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
-				if(send_result < 0) {
+				const GenericResult send_result =
+				    send_string_builder_to_connection(descriptor, &string_builder);
+				if(send_result.is_error) {
 					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending start feature response\n");
 					return false;
@@ -611,10 +615,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					                       , " " TSTR_FMT, TSTR_FMT_ARGS(feature.arguments));
 				}
 
-				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
-				if(send_result < 0) {
-					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-					                   "Error in sending manual feature response\n");
+				const GenericResult send_result =
+				    send_string_builder_to_connection(descriptor, &string_builder);
+				if(send_result.is_error) {
+					LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+					            "Error in sending manual feature response: %s\n",
+					            send_result.value.error);
 					return false;
 				}
 			}
@@ -712,7 +718,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					int _ = close_connection_descriptor(connection_to_close);
+					const GenericResult _ = close_connection_descriptor(connection_to_close);
 					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -918,7 +924,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					int _ = close_connection_descriptor(connection_to_close);
+					GenericResult _ = close_connection_descriptor(connection_to_close);
 					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -1162,7 +1168,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					int _ = close_connection_descriptor(connection_to_close);
+					GenericResult _ = close_connection_descriptor(connection_to_close);
 					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -1421,17 +1427,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 	}
 }
 
-// implemented specifically for the ftp Server, it just gets the internal value, but it's better
-// to not access that, since additional steps can be required, like  boundary checks!
-static int tqueue_size(TQueue* queue) {
-	if(queue->size < 0) {
-		LOG_MESSAGE(LogLevelCritical,
-		            "internal size implementation error in the queue, value negative: %d!",
-		            queue->size);
-	}
-	return queue->size;
-}
-
 static volatile sig_atomic_t
     g_signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     0;
@@ -1506,7 +1501,8 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		socklen_t addr_len = sizeof(client_addr);
 
 		// would be better to set cancel state in the right places!!
-		const NativeFd connection_fd = accept(argument.socket_fd, (struct sockaddr*)&client_addr, &addr_len);
+		const NativeFd connection_fd =
+		    accept(argument.socket_fd, (struct sockaddr*)&client_addr, &addr_len);
 		CHECK_FOR_ERROR(connection_fd, "While Trying to accept a socket",
 		                return LISTENER_ERROR_ACCEPT;);
 
@@ -1548,7 +1544,8 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		// ready to accept new connections
 		if(tqueue_push(argument.job_id_queue,
 		               pool_submit(argument.pool, ftp_control_socket_connection_handler,
-		                           connection_argument)) < 0) {
+		                           connection_argument))
+		       .is_error) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 
@@ -1557,10 +1554,12 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		// so its super fast,but if not doing that, the queue would overflow, nothing in
 		// here is a cancellation point, so it's safe to cancel here, since only accept then
 		// really cancels
-		int size = tqueue_size(argument.job_id_queue);
+		// TODO(Totto): can I access this size, or is it a race condition?
+		const size_t size = argument.job_id_queue->size;
 		if(size > FTP_MAX_QUEUE_SIZE) {
-			int boundary = size / 2;
-			while(size > boundary) {
+			const size_t boundary = size / 2;
+			size_t remaining_size = size;
+			while(remaining_size > boundary) {
 
 				JobId* job_id = (JobId*)tqueue_pop(argument.job_id_queue);
 
@@ -1578,7 +1577,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 					            result);
 				}
 
-				--size;
+				--remaining_size;
 			}
 		}
 
@@ -1668,7 +1667,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					int _ = close_connection_descriptor(connection_to_close);
+					GenericResult _ = close_connection_descriptor(connection_to_close);
 					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -1733,7 +1732,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			    ++i) {
 				ConnectionDescriptor* connection_to_close =
 				    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-				int _ = close_connection_descriptor(connection_to_close);
+				const GenericResult _ = close_connection_descriptor(connection_to_close);
 				UNUSED(_);
 			}
 			TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -1852,8 +1851,9 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 	                : LISTENER_ERROR_NONE;
 }
 
-ExitCode start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions* const options,
-                     AuthenticationProviders* const auth_providers) {
+ExitCode start_ftp_server(const FTPPortField control_port, tstr folder,
+                          SecureOptions* const options,
+                          AuthenticationProviders* const auth_providers) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -1891,7 +1891,8 @@ ExitCode start_ftp_server(const FTPPortField control_port, tstr folder, SecureOp
 	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
 	// getting that is being root, or executing as root: sudo ...)
 	int result1 = bind(control_socket_fd, (struct sockaddr*)&control_addr, sizeof(control_addr));
-	CHECK_FOR_ERROR(result1, "While trying to bind control socket to port", return ExitCodeFailure;);
+	CHECK_FOR_ERROR(result1, "While trying to bind control socket to port",
+	                return ExitCodeFailure;);
 
 	// FTP_SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
@@ -1930,7 +1931,7 @@ ExitCode start_ftp_server(const FTPPortField control_port, tstr folder, SecureOp
 	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
 	TQueue control_job_id_queue;
-	if(tqueue_init(&control_job_id_queue) < 0) {
+	if(tqueue_init(&control_job_id_queue).is_error) {
 		return ExitCodeFailure;
 	};
 
@@ -2089,7 +2090,7 @@ ExitCode start_ftp_server(const FTPPortField control_port, tstr folder, SecureOp
 	}
 
 	// then the queue is destroyed
-	if(tqueue_destroy(&control_job_id_queue) < 0) {
+	if(tqueue_destroy(&control_job_id_queue).is_error) {
 		return ExitCodeFailure;
 	}
 

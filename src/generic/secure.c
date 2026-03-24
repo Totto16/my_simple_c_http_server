@@ -108,13 +108,20 @@ static const unsigned char g_alpn_protos[] = {
 static int alpn_select_cb(SSL* /* ssl */, const unsigned char** out, unsigned char* outlen,
                           const unsigned char* in_buf, unsigned int inlen, void* /* arg */) {
 
-	// check if the clinet support one of our protocols, if so, this fn return
+	// this is an exception, as we don't modify the char that the pointer double points too, but
+	// the function signature says that, but ut isn't true
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wcast-qual"
+
+	// check if the client supports one of our protocols, if so, this fn return
 	// OPENSSL_NPN_NEGOTIATED and sets out and outlen, so the exact thing the cb function expects,
 	// so nothing to except return OK
 	if(SSL_select_next_proto((unsigned char**)out, outlen, g_alpn_protos, sizeof(g_alpn_protos),
 	                         in_buf, inlen) == OPENSSL_NPN_NEGOTIATED) {
 		return SSL_TLSEXT_ERR_OK;
 	}
+
+	#pragma GCC diagnostic pop
 
 	return SSL_TLSEXT_ERR_ALERT_FATAL;
 }
@@ -525,7 +532,16 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 		//  shutdown(fd, SHUT_WR);
 		int result = close(descriptor->data.normal.fd); // NOLINT(totto-use-fixed-width-types-var)
 		free(descriptor);
-		return result;
+
+		if(result == 0) {
+			return GENERIC_RES_OK();
+		}
+
+		if(result == -1) {
+			return GENERIC_RES_ERR(strerror(errno));
+		}
+
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
@@ -555,8 +571,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 
 			LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_shutdown failed:\n");
 			ERR_print_errors_cb(error_logger, NULL);
-			errno = ESSL;
-			return -1;
+			return GENERIC_RES_ERR("SSL error");
 		}
 
 	} while(result == 0);
@@ -583,8 +598,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 		if(result != 1) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_clear failed:\n");
 			ERR_print_errors_cb(error_logger, NULL);
-			errno = ESSL;
-			return -1;
+			return GENERIC_RES_ERR("SSL error");
 		}
 
 	} else {
@@ -597,15 +611,14 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 			    new_ssl_structure_from_ctx(context->data.secure.options->value.data->ssl_context);
 
 			if(context->data.secure.ssl_structure == NULL) {
-				errno = ESSL;
-				return -1;
+				return GENERIC_RES_ERR("SSL error");
 			}
 		}
 	}
 
 	free(descriptor);
 
-	return 0;
+	return GENERIC_RES_OK();
 #endif
 }
 
@@ -684,9 +697,9 @@ NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
                                        OpaqueError opaque_error) {
 
 	if(!is_secure_descriptor(descriptor)) {
-		// TODO(Totto): note for thread safe usage we should use strerror_r, but it doesn't matter that
-		// much, if errors occur while error handling, it is not really necessary to handle error
-		// messges without errors xD
+		// TODO(Totto): note for thread safe usage we should use strerror_r, but it doesn't matter
+		// that much, if errors occur while error handling, it is not really necessary to handle
+		// error messges without errors xD
 		return strerror(opaque_error.errno_error);
 	}
 

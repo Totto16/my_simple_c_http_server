@@ -2,21 +2,23 @@
 #include "./tqueue.h"
 #include "utils/log.h"
 
-int tqueue_init(TQueue* queue) {
+GenericResult tqueue_init(TQueue* queue) {
 	int result = comp_sem_init(&(queue->can_access), 1, false);
-	CHECK_FOR_ERROR(result, "Couldn't initialize the internal queue Semaphore", return -1;);
+	CHECK_FOR_ERROR(result, "Couldn't initialize the internal queue Semaphore",
+	                return GENERIC_RES_ERR_UNIQUE(););
 
 	TQueueHead* q_head = &(queue->head);
 	STAILQ_INIT(q_head);
 	queue->size = 0;
-	return 0;
+	return GENERIC_RES_OK();
 }
 
-int tqueue_destroy(TQueue* queue) {
+GenericResult tqueue_destroy(TQueue* queue) {
 	// to clean up, the mutex has to be destroyed
 	int result = comp_sem_destroy(&(queue->can_access));
-	CHECK_FOR_ERROR(result, "Couldn't destroy the internal queue Semaphore", return -1;);
-	return 0;
+	CHECK_FOR_ERROR(result, "Couldn't destroy the internal queue Semaphore",
+	                return GENERIC_RES_ERR_UNIQUE(););
+	return GENERIC_RES_OK();
 }
 
 bool tqueue_is_empty(TQueue* queue) {
@@ -37,10 +39,11 @@ bool tqueue_is_empty(TQueue* queue) {
 
 // not checked for error code of malloc :(
 // modified to use void * instead of int as stored value
-int tqueue_push(TQueue* queue, void* value) {
+GenericResult tqueue_push(TQueue* queue, void* value) {
 
 	int result = comp_sem_wait(&(queue->can_access));
-	CHECK_FOR_ERROR(result, "Couldn't wait for the internal queue Semaphore", return -1;);
+	CHECK_FOR_ERROR(result, "Couldn't wait for the internal queue Semaphore",
+	                return GENERIC_RES_ERR_UNIQUE(););
 
 	TQueueHead* q_head = &(queue->head);
 	TQueueEntry* entry = (TQueueEntry*)malloc(sizeof(TQueueEntry));
@@ -51,9 +54,10 @@ int tqueue_push(TQueue* queue, void* value) {
 
 	// now say that it can be accessed
 	result = comp_sem_post(&(queue->can_access));
-	CHECK_FOR_ERROR(result, "Couldn't post the internal queue Semaphore", return -1;);
+	CHECK_FOR_ERROR(result, "Couldn't post the internal queue Semaphore",
+	                return GENERIC_RES_ERR_UNIQUE(););
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
 void* tqueue_pop(TQueue* queue) {

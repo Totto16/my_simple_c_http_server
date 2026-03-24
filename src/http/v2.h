@@ -281,11 +281,11 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* context, Buf
 
 NODISCARD GenericResult http2_send_connection_error(const ConnectionDescriptor* descriptor,
                                                     const HTTP2Context* context,
-                                                    Http2ErrorCode error_code, const char* error);
+                                                    Http2ErrorCode error_code, tstr_static error);
 
 NODISCARD GenericResult http2_send_connection_error_with_data(
     const ConnectionDescriptor* descriptor, const HTTP2Context* context, Http2ErrorCode error_code,
-    SizedBuffer debug_data);
+    const void* debug_data_ptr, size_t debug_data_size);
 
 NODISCARD GenericResult http2_send_stream_error(const ConnectionDescriptor* descriptor,
                                                 Http2ErrorCode error_code,

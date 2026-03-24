@@ -934,8 +934,9 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				return false;
 			}
 
-			int send_result = send_string_builder_to_connection(descriptor, &string_builder);
-			if(send_result < 0) {
+			const GenericResult send_result =
+			    send_string_builder_to_connection(descriptor, &string_builder);
+			if(send_result.is_error) {
 				return false;
 			}
 

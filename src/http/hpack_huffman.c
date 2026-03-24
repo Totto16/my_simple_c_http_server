@@ -26,20 +26,20 @@ static void bit_pos_inc(BitPos* const bit_pos) {
 }
 
 NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree* const tree,
-                                                               const SizedBuffer input) {
+                                                               const void* const data,
+                                                               const size_t size) {
 
 	if(tree == NULL) {
 		return (HuffmanDecodeResult){ .is_error = true, .data = { .error = "tree is NULL" } };
 	}
 
-	if(input.size == 0 || input.data == NULL) {
+	if(size == 0 || data == NULL) {
 		return (HuffmanDecodeResult){ .is_error = true,
 			                          .data = { .error = "input is NULL or empty" } };
 	}
 
 	size_t memory_size =
-	    (((input.size *
-	       8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	    (((size * 8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
 	      (MIN_HPACK_BITS_PER_CHAR - 1)) /
 	     MIN_HPACK_BITS_PER_CHAR);
 
@@ -54,8 +54,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 	// the index gets the bit at position of that index
 	const uint8_t bit_pos_mask[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
 
-	const size_t size = input.size;
-	const uint8_t* const data = (uint8_t*)input.data;
+	const uint8_t* const char_data = (const uint8_t*)data;
 
 	size_t values_idx = 0;
 
@@ -68,7 +67,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 	while(current_pos.pos < size) {
 		assert(current_node->type == HuffmanNodeTypeNode);
 
-		const bool bit = ((data[current_pos.pos]) & (bit_pos_mask[current_pos.bits_pos])) != 0;
+		const bool bit = ((char_data[current_pos.pos]) & (bit_pos_mask[current_pos.bits_pos])) != 0;
 
 		const HuffmanNode* const next_node =
 		    bit ? current_node->data.node.bit_1 // NOLINT(readability-implicit-bool-conversion)
@@ -141,7 +140,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 
 	uint8_t bits_mask = ((1 << bits_not_decoded) - 1);
 
-	if((data[last_pos.pos] & bits_mask) != (EOS_BYTE & bits_mask)) {
+	if((char_data[last_pos.pos] & bits_mask) != (EOS_BYTE & bits_mask)) {
 		// last not decoded bits are not the eos bytes
 		return (HuffmanDecodeResult){
 			.is_error = true, .data = { .error = "last not decoded bits are not the EOS bytes" }
@@ -192,13 +191,14 @@ void global_free_http2_hpack_huffman_data(void) {
 	g_huffman_data.map = NULL;
 }
 
-NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(const SizedBuffer input) {
+NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(const void* const data,
+                                                         const size_t size) {
 	if(g_huffman_data.tree == NULL) {
 		return (HuffmanDecodeResult){ .is_error = true,
 			                          .data = { .error = "global tree is not initialized" } };
 	}
 
-	return decode_bytes_huffman_impl(g_huffman_data.tree, input);
+	return decode_bytes_huffman_impl(g_huffman_data.tree, data, size);
 }
 
 NODISCARD static size_t hpack_huffman_get_encoded_size_impl(const HuffmanEncodeMap* const map,
@@ -206,7 +206,7 @@ NODISCARD static size_t hpack_huffman_get_encoded_size_impl(const HuffmanEncodeM
 
 	size_t result_bits = 0;
 
-	uint8_t* str_ptr = (uint8_t*)tstr_cstr(str);
+	const uint8_t* const str_ptr = (const uint8_t*)tstr_cstr(str);
 
 	for(size_t i = 0; i < tstr_len(str); ++i) {
 		const uint8_t value = str_ptr[i];
@@ -244,7 +244,7 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 
 	uint8_t* data_ptr = (uint8_t*)data;
 
-	uint8_t* str_ptr = (uint8_t*)tstr_cstr(str);
+	const uint8_t* const str_ptr = (const uint8_t*)tstr_cstr(str);
 
 	BitPos current_pos = { .pos = 0, .bits_pos = 0 };
 

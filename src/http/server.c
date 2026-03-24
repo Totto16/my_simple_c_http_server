@@ -42,10 +42,11 @@ static void receive_signal(int signal_number) {
 
 #define INT_ERROR_FROM_VOID_PTR(ERR) (-((int)((uintptr_t)(ERR))))
 
-NODISCARD static int process_http_error(const HttpRequestError error,
-                                        ConnectionDescriptor* const descriptor,
-                                        HTTPGeneralContext* general_context,
-                                        const SendSettings send_settings, const bool send_body) {
+NODISCARD static GenericResult process_http_error(const HttpRequestError error,
+                                                  ConnectionDescriptor* const descriptor,
+                                                  HTTPGeneralContext* general_context,
+                                                  const SendSettings send_settings,
+                                                  const bool send_body) {
 
 	if(error.is_advanced) {
 
@@ -152,7 +153,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 		case HttpRequestErrorTypeInvalidHttp2Preface: {
 			return http2_send_connection_error(
 			    descriptor, http_general_context_get_http2_context(general_context),
-			    Http2ErrorCodeProtocolError, "invalid http2 preface");
+			    Http2ErrorCodeProtocolError, TSTR_STATIC_LIT("invalid http2 preface"));
 		}
 		case HttpRequestErrorTypeLengthRequired: {
 			HTTPResponseToSend to_send = { .status = HttpStatusLengthRequired,
@@ -616,7 +617,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						                           .mime_type = file.mime_type,
 						                           .additional_headers = additional_headers };
 
-					// TODO: files on nginx send also this:
+					// TODO(Totto): files on nginx send also this:
 					//  we also need to accapt range request (detect the header field),
 					//  this should not be done in theadditional headers, as it should
 					//  be done in the generic handler, so we need a send binary handler
@@ -797,7 +798,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-		int result =
+		const GenericResult result =
 		    send_http_message_to_connection(NULL, // not yet available!
 		                                    descriptor, to_send,
 		                                    (SendSettings){
@@ -805,7 +806,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 		                                        .protocol_data = DEFAULT_RESPONSE_PROTOCOL_DATA,
 		                                    });
 
-		if(result < 0) {
+		if(result.is_error) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 			                   "Error in sending response\n");
 		}
@@ -828,10 +829,11 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 					.protocol_data = DEFAULT_RESPONSE_PROTOCOL_DATA,
 				};
 
-				int result = process_http_error(http_request_result.value.error, descriptor,
-				                                general_context, default_send_settings, true);
+				const GenericResult result =
+				    process_http_error(http_request_result.value.error, descriptor, general_context,
+				                       default_send_settings, true);
 
-				if(result < 0) {
+				if(result.is_error) {
 					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending response\n");
 				}
@@ -899,17 +901,6 @@ cleanup:
 }
 
 #undef FREE_AT_END
-
-// implemented specifically for the http Server, it just gets the internal value, but it's better to
-// not access that, since additional steps can be required, like  boundary checks!
-static int tqueue_size(TQueue* queue) {
-	if(queue->size < 0) {
-		LOG_MESSAGE(LogLevelCritical,
-		            "internal size implementation error in the queue, value negative: %d!",
-		            queue->size);
-	}
-	return queue->size;
-}
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
@@ -1002,9 +993,10 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(tqueue_push(argument.job_id_queue,
-		               pool_submit(argument.pool, http_socket_connection_handler,
-		                           connection_argument)) < 0) {
+		if(tqueue_push(
+		       argument.job_id_queue,
+		       pool_submit(argument.pool, http_socket_connection_handler, connection_argument))
+		       .is_error) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 
@@ -1013,10 +1005,12 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// so its super fast,but if not doing that, the queue would overflow, nothing in
 		// here is a cancellation point, so it's safe to cancel here, since only accept then
 		// really cancels
-		int size = tqueue_size(argument.job_id_queue);
+		// TODO(Totto): can I access this size, or is it a race condition?
+		const size_t size = argument.job_id_queue->size;
 		if(size > HTTP_MAX_QUEUE_SIZE) {
-			int boundary = size / 2;
-			while(size > boundary) {
+			const size_t boundary = size / 2;
+			size_t remaining_size = size;
+			while(remaining_size > boundary) {
 
 				JobId* job_id = (JobId*)tqueue_pop(argument.job_id_queue);
 
@@ -1034,7 +1028,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 					            result);
 				}
 
-				--size;
+				--remaining_size;
 			}
 		}
 
@@ -1046,8 +1040,9 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 	RUN_LIFECYCLE_FN(argument.fns.shutdown_fn);
 }
 
-int start_http_server(const uint16_t port, SecureOptions* const options,
-                      AuthenticationProviders* const auth_providers, HTTPRoutes* const routes) {
+ExitCode start_http_server(const uint16_t port, SecureOptions* const options,
+                           AuthenticationProviders* const auth_providers,
+                           HTTPRoutes* const routes) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -1065,7 +1060,7 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	global_setup_port_data(port);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
-	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
+	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
 	struct sockaddr_in addr = ZERO_STRUCT(struct sockaddr_in);
@@ -1173,7 +1168,7 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 						const HTTPAuthorizationComplicatedData data = route.auth.data.complicated;
 
 						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
-						            "Complicated: (TODO %d)\n", data.todo);
+						            "Complicated: (TODO %zu)\n", data.todo);
 
 						break;
 					}
@@ -1305,7 +1300,7 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
 	TQueue job_id_queue;
-	if(tqueue_init(&job_id_queue) < 0) {
+	if(tqueue_init(&job_id_queue).is_error) {
 		return ExitCodeFailure;
 	};
 
@@ -1417,12 +1412,12 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	}
 
 	// then after all were awaited the pool is destroyed
-	if(pool_destroy(&pool) < 0) {
+	if(pool_destroy(&pool).is_error) {
 		return ExitCodeFailure;
 	}
 
 	// then the queue is destroyed
-	if(tqueue_destroy(&job_id_queue) < 0) {
+	if(tqueue_destroy(&job_id_queue).is_error) {
 		return ExitCodeFailure;
 	}
 

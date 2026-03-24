@@ -2690,6 +2690,6 @@ function main(): void {
     generateFile(options as GenerateOptions)
 }
 
-
+//TODO: make generating tagged unions here too!
 
 main()

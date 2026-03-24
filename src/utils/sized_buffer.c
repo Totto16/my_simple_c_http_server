@@ -20,20 +20,16 @@ NODISCARD SizedBuffer allocate_sized_buffer(size_t size) {
 	return (SizedBuffer){ .data = data, .size = size };
 }
 
-NODISCARD SizedBuffer sized_buffer_from_cstr(const char* const value) {
-	return (SizedBuffer){ .data = (void*)value, .size = strlen(value) };
-}
-
 NODISCARD SizedBuffer sized_buffer_get_exact_clone(SizedBuffer buffer) {
 	return (SizedBuffer){ .data = buffer.data, .size = buffer.size };
 }
 
 NODISCARD bool sized_buffer_eq(const SizedBuffer buf1, const SizedBuffer buf2) {
-	return sized_buffer_eq_with_data(buf1, buf2.data, buf2.size);
+	return sized_buffer_eq_data(buf1, buf2.data, buf2.size);
 }
 
-NODISCARD bool sized_buffer_eq_with_data(const SizedBuffer buf1, const void* const data,
-                                         const size_t size) {
+NODISCARD bool sized_buffer_eq_data(const SizedBuffer buf1, const void* const data,
+                                    const size_t size) {
 	if(buf1.size != size) {
 		return false;
 	}
@@ -64,8 +60,4 @@ NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer) {
 
 NODISCARD tstr_view tstr_view_from_buffer(const SizedBuffer buffer) {
 	return (tstr_view){ .data = buffer.data, .len = buffer.size };
-}
-
-NODISCARD SizedBuffer sized_buffer_from_tstr(const tstr* const value) {
-	return (SizedBuffer){ .data = (void*)tstr_cstr(value), .size = tstr_len(value) };
 }

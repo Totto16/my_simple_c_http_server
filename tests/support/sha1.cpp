@@ -8,7 +8,8 @@
 		assert(false && "can't get the buffer from a value with an error");
 		return SizedBuffer{ .data = NULL, .size = 0 };
 	}
-	SizedBuffer sized_buffer = { .data = (void*)reinterpret_cast<const void*>(this->m_value.data()),
+	SizedBuffer sized_buffer = { .data = const_cast<void*>(
+		                             reinterpret_cast<const void*>(this->m_value.data())),
 		                         .size = sha1_buffer_size };
 	return sized_buffer;
 }
