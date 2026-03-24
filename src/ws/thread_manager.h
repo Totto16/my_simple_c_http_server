@@ -24,7 +24,8 @@ typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,
                                              ExtensionSendState* extension_send_state);
 
 NODISCARD GenericResult ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
-                              WsConnectionArgs args, ExtensionSendState* extension_send_state);
+                                        WsConnectionArgs args,
+                                        ExtensionSendState* extension_send_state);
 
 void free_ws_message(WebSocketMessage message);
 

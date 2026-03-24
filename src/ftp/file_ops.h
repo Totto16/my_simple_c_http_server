@@ -32,7 +32,8 @@ NODISCARD SendProgress* setup_send_progress(const SendData* data, SendMode send_
 
 NODISCARD bool send_progress_is_finished(SendProgress* progress);
 
-NODISCARD SendData* get_data_to_send_for_list(bool is_folder, const char* path, FileSendFormat format);
+NODISCARD SendData* get_data_to_send_for_list(bool is_folder, const char* path,
+                                              FileSendFormat format);
 
 NODISCARD SendData* get_data_to_send_for_retr(const char* path);
 

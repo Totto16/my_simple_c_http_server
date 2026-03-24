@@ -35,7 +35,7 @@ NODISCARD const char* get_name_for_user_role(UserRole role);
 NODISCARD AuthenticationProviders* initialize_authentication_providers(void);
 
 NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_providers,
-                                            AuthenticationProvider* provider);
+                                           AuthenticationProvider* provider);
 
 NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void);
 
