@@ -29,13 +29,14 @@ NODISCARD StringBuilder* string_builder_init(void);
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-int string_builder_append_string(StringBuilder* string_builder, char* string);
+GenericResult string_builder_append_string(StringBuilder* string_builder, char* string);
 
-int string_builder_append_string_builder(StringBuilder* string_builder,
-                                         StringBuilder** string_builder2);
+GenericResult string_builder_append_string_builder(StringBuilder* string_builder,
+                                                   StringBuilder** string_builder2);
 
 // simple wrapper if just a constant string has to be appended
-int string_builder_append_single(StringBuilder* string_builder, const char* static_string);
+GenericResult string_builder_append_single(StringBuilder* string_builder,
+                                           const char* static_string);
 
 NODISCARD char* string_builder_release_into_string(StringBuilder** string_builder);
 

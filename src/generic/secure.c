@@ -511,18 +511,19 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 #endif
 }
 
-int close_connection_descriptor(ConnectionDescriptor* descriptor) {
+GenericResult close_connection_descriptor(ConnectionDescriptor* descriptor) {
 
 	return close_connection_descriptor_advanced(descriptor, NULL, false);
 }
 
-int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
-                                         ConnectionContext* const context, bool allow_reuse) {
+GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
+                                                   ConnectionContext* const context,
+                                                   bool allow_reuse) {
 
 	if(!is_secure_descriptor(descriptor)) {
 		// TODO(Totto): we use shutdown in the ssl variant, should we use it here too?
 		//  shutdown(fd, SHUT_WR);
-		int result = close(descriptor->data.normal.fd);
+		int result = close(descriptor->data.normal.fd); // NOLINT(totto-use-fixed-width-types-var)
 		free(descriptor);
 		return result;
 	}
@@ -683,9 +684,9 @@ NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
                                        OpaqueError opaque_error) {
 
 	if(!is_secure_descriptor(descriptor)) {
-		// note for thread safe usage we should use strerror_r, but it doesn't matter that much, if
-		// errors occur while error handling, it is not really necessary to handle error messges
-		// without errors xD
+		// TODO(Totto): note for thread safe usage we should use strerror_r, but it doesn't matter that
+		// much, if errors occur while error handling, it is not really necessary to handle error
+		// messges without errors xD
 		return strerror(opaque_error.errno_error);
 	}
 

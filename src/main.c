@@ -167,7 +167,7 @@ NODISCARD static AuthenticationProviders* initialize_default_authentication_prov
 
 typedef struct {
 	size_t size;
-	const char* const* data;
+	const char* const* data; // NOLINT(totto-use-fixed-width-types-var) "interfacing with libc"
 } ProgramArgs;
 
 #define PROGRAM_ARGS_AT(args, index) \
@@ -186,12 +186,12 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	RouteIdentifierTestSuiteWebserverTester,
 } RouteIdentifier;
 
-NODISCARD static int subcommand_http(const tstr_static program_name, const ProgramArgs args) {
+NODISCARD static ExitCode subcommand_http(const tstr_static program_name, const ProgramArgs args) {
 
 	if(args.size < 1) {
 		fprintf(stderr, "missing <port>\n");
 		print_usage(program_name, UsageCommandHttp);
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	const tstr_static arg0 = PROGRAM_ARGS_AT(args, 0);
@@ -199,7 +199,7 @@ NODISCARD static int subcommand_http(const tstr_static program_name, const Progr
 	if(is_help_string(arg0)) {
 		printf("'http' command help menu:\n");
 		print_usage(program_name, UsageCommandHttp);
-		return EXIT_SUCCESS;
+		return ExitCodeSuccess;
 	}
 
 	// parse the port
@@ -232,13 +232,13 @@ NODISCARD static int subcommand_http(const tstr_static program_name, const Progr
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
 			fprintf(stderr, "Server was build without support for 'secure'\n");
 			print_usage(program_name, UsageCommandHttp);
-			return EXIT_FAILURE;
+			return ExitCodeFailure;
 #else
 			secure = true;
 			if(processed_args + 3 > args.size) {
 				fprintf(stderr, "Not enough arguments for the 'secure' option\n");
 				print_usage(program_name, UsageCommandHttp);
-				return EXIT_FAILURE;
+				return ExitCodeFailure;
 			}
 
 			public_cert_file = PROGRAM_ARGS_AT(args, processed_args + 1);
@@ -250,7 +250,7 @@ NODISCARD static int subcommand_http(const tstr_static program_name, const Progr
 			if(processed_args + 2 > args.size) {
 				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
 				print_usage(program_name, UsageCommandHttp);
-				return EXIT_FAILURE;
+				return ExitCodeFailure;
 			}
 
 			const tstr_static loglevel_arg = PROGRAM_ARGS_AT(args, processed_args + 1);
@@ -264,7 +264,7 @@ NODISCARD static int subcommand_http(const tstr_static program_name, const Progr
 				        "\n",
 				        TSTR_STATIC_FMT_ARGS(loglevel_arg));
 				print_usage(program_name, UsageCommandHttp);
-				return EXIT_FAILURE;
+				return ExitCodeFailure;
 			}
 
 			log_level = parsed_level;
@@ -275,7 +275,7 @@ NODISCARD static int subcommand_http(const tstr_static program_name, const Progr
 			if(processed_args + 2 > args.size) {
 				fprintf(stderr, "Not enough arguments for the 'route' option\n");
 				print_usage(program_name, UsageCommandHttp);
-				return EXIT_FAILURE;
+				return ExitCodeFailure;
 			}
 
 			const tstr_static route_name = PROGRAM_ARGS_AT(args, processed_args + 1);
@@ -290,14 +290,14 @@ NODISCARD static int subcommand_http(const tstr_static program_name, const Progr
 				        "\n",
 				        TSTR_STATIC_FMT_ARGS(route_name));
 				print_usage(program_name, UsageCommandHttp);
-				return EXIT_FAILURE;
+				return ExitCodeFailure;
 			}
 
 			processed_args += 2;
 		} else {
 			fprintf(stderr, "Unrecognized option: " TSTR_FMT "\n", TSTR_STATIC_FMT_ARGS(arg));
 			print_usage(program_name, UsageCommandHttp);
-			return EXIT_FAILURE;
+			return ExitCodeFailure;
 		}
 	}
 
@@ -319,7 +319,7 @@ NODISCARD static int subcommand_http(const tstr_static program_name, const Progr
 
 	if(options == NULL) {
 		fprintf(stderr, "Couldn't initialize secure options\n");
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	AuthenticationProviders* const auth_providers = initialize_default_authentication_providers();
@@ -327,7 +327,7 @@ NODISCARD static int subcommand_http(const tstr_static program_name, const Progr
 	if(auth_providers == NULL) {
 		fprintf(stderr, "Couldn't initialize authentication providers\n");
 		free_secure_options(options);
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	HTTPRoutes* routes = NULL;
@@ -349,18 +349,18 @@ NODISCARD static int subcommand_http(const tstr_static program_name, const Progr
 
 	if(routes == NULL) {
 		fprintf(stderr, "Couldn't initialize routes\n");
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	return start_http_server(port, MOVE(options), MOVE(auth_providers), MOVE(routes));
 }
 
-NODISCARD static int subcommand_ftp(const tstr_static program_name, const ProgramArgs args) {
+NODISCARD static ExitCode subcommand_ftp(const tstr_static program_name, const ProgramArgs args) {
 
 	if(args.size < 1) {
 		fprintf(stderr, "missing <port>\n");
 		print_usage(program_name, UsageCommandFtp);
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	const tstr_static arg0 = PROGRAM_ARGS_AT(args, 0);
@@ -368,7 +368,7 @@ NODISCARD static int subcommand_ftp(const tstr_static program_name, const Progra
 	if(is_help_string(arg0)) {
 		printf("'ftp' command help menu:\n");
 		print_usage(program_name, UsageCommandFtp);
-		return EXIT_SUCCESS;
+		return ExitCodeSuccess;
 	}
 
 	// TODO(Totto): don't use the .ptr here
@@ -400,13 +400,13 @@ NODISCARD static int subcommand_ftp(const tstr_static program_name, const Progra
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
 			fprintf(stderr, "Server was build without support for 'secure'\n");
 			print_usage(program_name, UsageCommandFtp);
-			return EXIT_FAILURE;
+			return ExitCodeFailure;
 #else
 			secure = true;
 			if(processed_args + 3 > args.size) {
 				fprintf(stderr, "Not enough arguments for the 'secure' option\n");
 				print_usage(program_name, UsageCommandHttp);
-				return EXIT_FAILURE;
+				return ExitCodeFailure;
 			}
 
 			public_cert_file = PROGRAM_ARGS_AT(args, processed_args + 1);
@@ -418,7 +418,7 @@ NODISCARD static int subcommand_ftp(const tstr_static program_name, const Progra
 			if(processed_args + 2 > args.size) {
 				fprintf(stderr, "Not enough arguments for the 'folder' option\n");
 				print_usage(program_name, UsageCommandFtp);
-				return EXIT_FAILURE;
+				return ExitCodeFailure;
 			}
 
 			folder_to_resolve = PROGRAM_ARGS_AT(args, processed_args + 1);
@@ -429,7 +429,7 @@ NODISCARD static int subcommand_ftp(const tstr_static program_name, const Progra
 			if(processed_args + 2 > args.size) {
 				fprintf(stderr, "Not enough arguments for the 'loglevel' option\n");
 				print_usage(program_name, UsageCommandFtp);
-				return EXIT_FAILURE;
+				return ExitCodeFailure;
 			}
 
 			const tstr_static loglevel_arg = PROGRAM_ARGS_AT(args, processed_args + 1);
@@ -443,7 +443,7 @@ NODISCARD static int subcommand_ftp(const tstr_static program_name, const Progra
 				        "\n",
 				        TSTR_STATIC_FMT_ARGS(loglevel_arg));
 				print_usage(program_name, UsageCommandFtp);
-				return EXIT_FAILURE;
+				return ExitCodeFailure;
 			}
 
 			log_level = parsed_level;
@@ -452,7 +452,7 @@ NODISCARD static int subcommand_ftp(const tstr_static program_name, const Progra
 		} else {
 			fprintf(stderr, "Unrecognized option: " TSTR_FMT "\n", TSTR_STATIC_FMT_ARGS(arg));
 			print_usage(program_name, UsageCommandFtp);
-			return EXIT_FAILURE;
+			return ExitCodeFailure;
 		}
 	}
 
@@ -461,7 +461,7 @@ NODISCARD static int subcommand_ftp(const tstr_static program_name, const Progra
 	const tstr folder = get_serve_folder(&folder_to_resolve_temp);
 
 	if(tstr_is_null(&folder)) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	initialize_logger();
@@ -483,23 +483,23 @@ NODISCARD static int subcommand_ftp(const tstr_static program_name, const Progra
 
 	if(options == NULL) {
 		fprintf(stderr, "Couldn't initialize secure options\n");
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	AuthenticationProviders* const auth_providers = initialize_default_authentication_providers();
 
 	if(auth_providers == NULL) {
 		fprintf(stderr, "Couldn't initialize authentication providers\n");
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	return start_ftp_server(control_port, folder, options, auth_providers);
 }
 
-static int rich_main(const ProgramArgs args) {
+static ExitCode rich_main(const ProgramArgs args) {
 	if(args.size < 1) {
 		fprintf(stderr, "No program name specified: FATAL ERROR\n");
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	const tstr_static program_name = PROGRAM_ARGS_AT(args, 0);
@@ -508,7 +508,7 @@ static int rich_main(const ProgramArgs args) {
 	if(args.size < 2) {
 		fprintf(stderr, "No command specified\n");
 		print_usage(program_name, UsageCommandAll);
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	const tstr_static command = PROGRAM_ARGS_AT(args, 1);
@@ -524,20 +524,21 @@ static int rich_main(const ProgramArgs args) {
 	if(is_help_string(command)) {
 		printf("General help menu:\n");
 		print_usage(program_name, UsageCommandAll);
-		return EXIT_SUCCESS;
+		return ExitCodeSuccess;
 	}
 
 	if(is_version_string(command)) {
 		printf(STRINGIFY(VERSION_STRING) "\n");
-		return EXIT_SUCCESS;
+		return ExitCodeSuccess;
 	}
 
 	fprintf(stderr, "Invalid command '" TSTR_FMT "'\n", TSTR_STATIC_FMT_ARGS(command));
 	print_usage(program_name, UsageCommandAll);
-	return EXIT_FAILURE;
+	return ExitCodeFailure;
 }
 
-int main(const int argc, const char* const* const argv) { // NOLINT(totto-use-fixed-width-types-var)
+int main(const int argc, // NOLINT(totto-use-fixed-width-types-var) "interfacing with libc"
+         const char* const* const argv) { // NOLINT(totto-use-fixed-width-types-var)
 	const ProgramArgs args = { .size = argc, .data = argv };
 	return rich_main(args);
 }

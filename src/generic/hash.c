@@ -187,7 +187,7 @@ SizedBuffer get_sha1_from_string(const char* const string) {
 		return get_empty_sized_buffer();
 	}
 
-	result = EVP_DigestUpdate(evp_context, (uint8_t*)string, strlen(string));
+	result = EVP_DigestUpdate(evp_context, (const void*)string, strlen(string));
 
 	if(result != 1) {
 		EVP_MD_CTX_free(evp_context);
@@ -283,8 +283,8 @@ NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 
 	#define B64_CHUNK_SIZE 512
 
-NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
-	if(input_buffer.size == 0) {
+NODISCARD SizedBuffer base64_decode(const void* const data, const size_t size) {
+	if(size == 0) {
 
 		char* empty_str = malloc(1);
 
@@ -300,7 +300,7 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 	SizedBuffer output_buffer = { .data = output_buffer_current, .size = 0 };
 
 	b64_filter = BIO_new(BIO_f_base64());
-	mem_input = BIO_new_mem_buf(input_buffer.data, (int)input_buffer.size);
+	mem_input = BIO_new_mem_buf(data, (int)size);
 	mem_input = BIO_push(b64_filter, mem_input);
 
 	// Ignore newlines, when reading, (even if there are none)
@@ -337,8 +337,8 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 
 	#include <b64/b64.h>
 
-NODISCARD char* base64_encode_buffer(const SizedBuffer input_buffer) {
-	return b64_encode(input_buffer.data, input_buffer.size);
+NODISCARD SizedBuffer base64_decode(const void* const data, const size_t size) {
+	return b64_encode(data, size);
 }
 
 NODISCARD SizedBuffer base64_decode_buffer(const SizedBuffer input_buffer) {
@@ -349,6 +349,10 @@ NODISCARD SizedBuffer base64_decode_buffer(const SizedBuffer input_buffer) {
 }
 
 #endif
+
+NODISCARD SizedBuffer base64_decode_buffer(const SizedBuffer input_buffer) {
+	return base64_decode(input_buffer.data, input_buffer.size);
+}
 
 NODISCARD const char* get_sha1_provider(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL_FOR_HASHING

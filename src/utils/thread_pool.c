@@ -1,6 +1,5 @@
 
 #include "thread_pool.h"
-#include "errors.h"
 #include "generic/hash.h"
 #include "utils/log.h"
 
@@ -68,7 +67,7 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) arg)
 			                   "Expected to have elements in the queue at this stage in internal "
 			                   "thread pool implementation, but got nothing!\n");
 			// TODO(Totto): don't exit here
-			exit(EXIT_FAILURE);
+			exit(ExitCodeFailure);
 		}
 
 		// getting the job from the queue, the queue is synchronized INTERNALLY!
@@ -112,7 +111,7 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) arg)
 // recommended, since then this pool is more efficient, on every system
 // pool is a address of an already declared, either malloced or on the stack (please ensure the
 // lifetime is sufficient) thread_pool
-int pool_create(ThreadPool* pool, size_t size) {
+CreateError pool_create(ThreadPool* pool, size_t size) {
 	// writing the values to the struct
 	pool->worker_threads_amount = size;
 	// allocating the worker Threads array, they are freed in destroy!

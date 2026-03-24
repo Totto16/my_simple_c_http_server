@@ -31,7 +31,7 @@ typedef struct {
 	ThreadPool* pool;
 	TQueue* job_id_queue;
 	ConnectionContextPtrs contexts;
-	int socket_fd;
+	NativeFd socket_fd;
 	WebSocketThreadManager* web_socket_manager;
 	const RouteManager* route_manager;
 	LifecycleFunctions fns;
@@ -40,7 +40,7 @@ typedef struct {
 typedef struct {
 	ConnectionContextPtrs contexts;
 	pthread_t listener_thread;
-	int connection_fd;
+	NativeFd connection_fd;
 	WebSocketThreadManager* web_socket_manager;
 	const RouteManager* route_manager;
 	IPAddress address;
@@ -58,9 +58,9 @@ NODISCARD ANY_TYPE(JobError*)
 // trough the argument
 NODISCARD ANY_TYPE(NULL) http_listener_thread_function(ANY_TYPE(HTTPThreadArgument*) arg);
 
-NODISCARD int start_http_server(uint16_t port, MOVED(SecureOptions* options),
-                                MOVED(AuthenticationProviders* auth_providers),
-                                MOVED(HTTPRoutes* routes));
+NODISCARD ExitCode start_http_server(uint16_t port, MOVED(SecureOptions* options),
+                                     MOVED(AuthenticationProviders* auth_providers),
+                                     MOVED(HTTPRoutes* routes));
 
 void global_initialize_http_global_data(void);
 

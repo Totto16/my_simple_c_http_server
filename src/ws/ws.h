@@ -30,7 +30,7 @@ typedef struct {
 	bool trace;
 } WsConnectionArgs;
 
-NODISCARD int handle_ws_handshake(HttpRequest http_request, const ConnectionDescriptor* descriptor,
+NODISCARD GenericResult handle_ws_handshake(HttpRequest http_request, const ConnectionDescriptor* descriptor,
                                   HTTPGeneralContext* general_context, SendSettings send_settings,
                                   WSExtensions* extensions);
 

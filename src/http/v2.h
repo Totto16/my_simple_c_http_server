@@ -279,23 +279,24 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* context, Buf
                                                       SizedBuffer settings_data,
                                                       HttpRequest original_request);
 
-NODISCARD int http2_send_connection_error(const ConnectionDescriptor* descriptor,
-                                          const HTTP2Context* context, Http2ErrorCode error_code,
-                                          const char* error);
-
-NODISCARD int http2_send_connection_error_with_data(const ConnectionDescriptor* descriptor,
+NODISCARD GenericResult http2_send_connection_error(const ConnectionDescriptor* descriptor,
                                                     const HTTP2Context* context,
-                                                    Http2ErrorCode error_code,
-                                                    SizedBuffer debug_data);
+                                                    Http2ErrorCode error_code, const char* error);
 
-NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
-                                      Http2ErrorCode error_code, Http2Identifier stream_identifier);
+NODISCARD GenericResult http2_send_connection_error_with_data(
+    const ConnectionDescriptor* descriptor, const HTTP2Context* context, Http2ErrorCode error_code,
+    SizedBuffer debug_data);
+
+NODISCARD GenericResult http2_send_stream_error(const ConnectionDescriptor* descriptor,
+                                                Http2ErrorCode error_code,
+                                                Http2Identifier stream_identifier);
 
 void free_http2_context(HTTP2Context context);
 
-NODISCARD int http2_send_headers(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
-                                 Http2Settings settings, SizedBuffer buffer,
-                                 bool headers_are_end_stream);
+NODISCARD GenericResult http2_send_headers(const ConnectionDescriptor* descriptor,
+                                           Http2Identifier identifier, Http2Settings settings,
+                                           SizedBuffer buffer, bool headers_are_end_stream);
 
-NODISCARD int http2_send_data(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
-                              Http2Settings settings, SizedBuffer buffer);
+NODISCARD GenericResult http2_send_data(const ConnectionDescriptor* descriptor,
+                                        Http2Identifier identifier, Http2Settings settings,
+                                        SizedBuffer buffer);

@@ -726,12 +726,12 @@ NODISCARD static const char* close_websocket_connection(WebSocketConnection** co
 		LOG_MESSAGE_SIMPLE(LogLevelTrace, "Closing the websocket connection: (no message)\n");
 	}
 
-	int result = ws_send_close_message_raw_internal(*connection, reason);
+	GenericResult result = ws_send_close_message_raw_internal(*connection, reason);
 
 	RUN_LIFECYCLE_FN((*connection)->fns.shutdown_fn);
 
 	// even if above failed, we need to remove the connection nevertheless
-	int result2 = thread_manager_remove_connection(manager, *connection);
+	GenericResult result2 = thread_manager_remove_connection(manager, *connection);
 
 	*connection = NULL;
 
@@ -1648,27 +1648,27 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 	free(connection);
 }
 
-int thread_manager_remove_connection(WebSocketThreadManager* manager,
-                                     WebSocketConnection* connection) {
+GenericResult thread_manager_remove_connection(WebSocketThreadManager* manager,
+                                               WebSocketConnection* connection) {
 
 	if(connection == NULL) {
-		return -1;
+		return GENERIC_ERR_UNIQUE();
 	}
 
 	int result = pthread_mutex_lock(&manager->mutex);
 	// TODO(Totto): better report error
 	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to lock the mutex for the WebSocketThreadManager",
-	    return -2;);
+	    return GENERIC_ERR_UNIQUE(););
 
 	ConnectionNode* current_node = manager->head;
 	ConnectionNode* previous_node = NULL;
 
-	int return_value = -3;
+	GenericResult return_value = GENERIC_ERR_UNIQUE();
 
 	while(true) {
 		if(current_node == NULL) {
-			return_value = -4;
+			return_value = GENERIC_ERR_UNIQUE();
 			break;
 		}
 
@@ -1688,7 +1688,7 @@ int thread_manager_remove_connection(WebSocketThreadManager* manager,
 			}
 
 			free(current_node);
-			return_value = 0;
+			return_value = GENERIC_OK();
 			break;
 		}
 
@@ -1700,7 +1700,7 @@ int thread_manager_remove_connection(WebSocketThreadManager* manager,
 	// TODO(Totto): better report error
 	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to unlock the mutex for the WebSocketThreadManager",
-	    return false;);
+	    return GENERIC_ERR_UNIQUE(););
 
 	return return_value;
 }

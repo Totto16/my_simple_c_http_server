@@ -195,7 +195,7 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 		                                 .value = tstr_dup(&dynamic_entry_res.entry.value) } };
 }
 
-NODISCARD static int
+NODISCARD static GenericResult
 parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* const data,
                                  HttpHeaderFields* const headers,
                                  const HpackDecompressState* const decompress_state) {
@@ -209,20 +209,20 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 7);
 
 	if(index_res.is_error) {
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HpackVariableInteger index = index_res.data.value;
 
 	if(index == 0) {
-		return -2;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HpackHeaderEntryResult entry_res =
 	    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
 	if(entry_res.is_error) {
-		return -3;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	HpackHeaderDynamicEntry entry = entry_res.value;
@@ -245,7 +245,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 
 	if(tstr_is_null(&entry.value)) {
 		free_dynamic_entry(&entry);
-		return -4;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HttpHeaderField header_field = { .key = entry.key, .value = entry.value };
@@ -329,10 +329,10 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 
 	if(insert_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		free_dynamic_entry(&entry);
-		return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
 typedef struct {
@@ -487,7 +487,7 @@ static void insert_entry_into_dynamic_table(HpackDynamicTableState* const state,
 	state->current_dynamic_table_byte_size += new_size;
 }
 
-NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
+NODISCARD static GenericResult parse_hpack_literal_header_field_with_incremental_indexing(
     size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers,
     HpackDecompressState* const decompress_state) {
 	// Literal Header Field with Incremental Indexing:
@@ -519,7 +519,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 6);
 
 	if(index_res.is_error) {
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HpackVariableInteger index = index_res.data.value;
@@ -534,7 +534,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 		    parse_literal_string_value(pos, size, data);
 
 		if(string_literal_result.is_error) {
-			return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 
 		header_key = string_literal_result.data.value;
@@ -546,7 +546,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
 		if(entry.is_error) {
-			return -3;
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 
 		header_key = entry.value.key;
@@ -554,13 +554,13 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 	}
 
 	if(*pos >= size) {
-		return -8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const LiteralStringResult header_value = parse_literal_string_value(pos, size, data);
 
 	if(header_value.is_error) {
-		return -6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HttpHeaderField header_field = {
@@ -572,7 +572,7 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 
 	if(insert_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		free_http_header_field(header_field);
-		return -3;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HpackHeaderDynamicEntry entry = {
@@ -582,10 +582,10 @@ NODISCARD static int parse_hpack_literal_header_field_with_incremental_indexing(
 
 	insert_entry_into_dynamic_table(&(decompress_state->dynamic_table_state), entry);
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
-NODISCARD static int
+NODISCARD static GenericResult
 parse_hpack_dynamic_table_size_update(size_t* pos, const size_t size, const uint8_t* const data,
                                       HpackDecompressState* const decompress_state) {
 	// Dynamic Table Size Update:
@@ -598,17 +598,17 @@ parse_hpack_dynamic_table_size_update(size_t* pos, const size_t size, const uint
 	const HpackVariableIntegerResult new_size = decode_hpack_variable_integer(pos, size, data, 5);
 
 	if(new_size.is_error) {
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	// TODO(Totto): this can't be greater than the http2 setting, but this is mostly used for
 	// setting it to 0, to evict things, so not a priority to check that right now
 	set_hpack_decompress_state_setting(decompress_state, new_size.data.value);
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
-NODISCARD static int parse_hpack_literal_header_field_never_indexed(
+NODISCARD static GenericResult parse_hpack_literal_header_field_never_indexed(
     size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers,
     const HpackDecompressState* const decompress_state) {
 	// Literal Header Field Never Indexed:
@@ -640,7 +640,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 4);
 
 	if(index_res.is_error) {
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HpackVariableInteger index = index_res.data.value;
@@ -655,7 +655,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 		    parse_literal_string_value(pos, size, data);
 
 		if(string_literal_result.is_error) {
-			return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 
 		header_key = string_literal_result.data.value;
@@ -667,7 +667,7 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
 		if(entry.is_error) {
-			return -3;
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 
 		header_key = entry.value.key;
@@ -675,13 +675,13 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 	}
 
 	if(*pos >= size) {
-		return -8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const LiteralStringResult header_value = parse_literal_string_value(pos, size, data);
 
 	if(header_value.is_error) {
-		return -6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HttpHeaderField header_field = {
@@ -693,13 +693,13 @@ NODISCARD static int parse_hpack_literal_header_field_never_indexed(
 
 	if(insert_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		free_http_header_field(header_field);
-		return -3;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
-NODISCARD static int parse_hpack_literal_header_field_without_indexing(
+NODISCARD static GenericResult parse_hpack_literal_header_field_without_indexing(
     size_t* pos, const size_t size, const uint8_t* const data, HttpHeaderFields* const headers,
     const HpackDecompressState* const decompress_state) {
 	// Literal Header Field without Indexing:
@@ -734,7 +734,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 4);
 
 	if(index_res.is_error) {
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HpackVariableInteger index = index_res.data.value;
@@ -749,7 +749,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 		    parse_literal_string_value(pos, size, data);
 
 		if(string_literal_result.is_error) {
-			return -5; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 
 		header_key = string_literal_result.data.value;
@@ -761,7 +761,7 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
 		if(entry.is_error) {
-			return -3;
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 
 		header_key = entry.value.key;
@@ -769,13 +769,13 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 	}
 
 	if(*pos >= size) {
-		return -8; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const LiteralStringResult header_value = parse_literal_string_value(pos, size, data);
 
 	if(header_value.is_error) {
-		return -6; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	const HttpHeaderField header_field = {
@@ -787,10 +787,10 @@ NODISCARD static int parse_hpack_literal_header_field_without_indexing(
 
 	if(insert_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		free_http_header_field(header_field);
-		return -3;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
 NODISCARD static Http2HpackDecompressResult
@@ -817,9 +817,9 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			//  +---+---+---+---+---+---+---+---+
 			//  | 1 |        Index (7+)         |
 			//  +---+---------------------------+
-			const int res =
+			const GenericResult res =
 			    parse_hpack_indexed_header_field(&pos, size, data, &result, decompress_state);
-			if(res < 0) {
+			if(res.is_error) {
 				error = "error in parsing indexed header field";
 				goto return_error;
 			}
@@ -834,9 +834,9 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			// | 0 | 1 |      Index (6+)       |
 			// +---+---+-----------------------+
 			// ...
-			const int res = parse_hpack_literal_header_field_with_incremental_indexing(
+			const GenericResult res = parse_hpack_literal_header_field_with_incremental_indexing(
 			    &pos, size, data, &result, decompress_state);
-			if(res < 0) {
+			if(res.is_error) {
 				error = "error in parsing literal header field with incremental indexing";
 				goto return_error;
 			}
@@ -850,9 +850,9 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			// +---+---+---+---+---+---+---+---+
 			// | 0 | 0 | 1 |   Max size (5+)   |
 			// +---+---------------------------+
-			const int res =
+			const GenericResult res =
 			    parse_hpack_dynamic_table_size_update(&pos, size, data, decompress_state);
-			if(res < 0) {
+			if(res.is_error) {
 				error = "error in parsing dynamic table size update";
 				goto return_error;
 			}
@@ -867,9 +867,9 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			// | 0 | 0 | 0 | 1 |  Index (4+)   |
 			// +---+---+-----------------------+
 			// ...
-			const int res = parse_hpack_literal_header_field_never_indexed(
+			const GenericResult res = parse_hpack_literal_header_field_never_indexed(
 			    &pos, size, data, &result, decompress_state);
-			if(res < 0) {
+			if(res.is_error) {
 				error = "error in parsing literal header field never indexed";
 				goto return_error;
 			}
@@ -885,11 +885,10 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			// | 0 | 0 | 0 | 0 |  Index (4+)   |
 			// +---+---+-----------------------+
 			// ...
-			const int res = parse_hpack_literal_header_field_without_indexing(
+			const GenericResult res = parse_hpack_literal_header_field_without_indexing(
 			    &pos, size, data, &result, decompress_state);
-			if(res < 0) {
+			if(res.is_error) {
 				error = "error in parsing literal header field without indexing";
-				LOG_MESSAGE(LogLevelError, "res: %d, offset: %zu\n", res, pos);
 				goto return_error;
 			}
 		}

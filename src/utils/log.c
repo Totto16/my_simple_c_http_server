@@ -143,7 +143,7 @@ void log_lock_mutex(void) {
 		 * directly*/
 		fprintf(stderr, "An Error occurred while trying to lock the mutex for the logger: %s\n",
 		        strerror(result));
-		exit(EXIT_FAILURE);
+		exit(ExitCodeFailure);
 	}
 }
 
@@ -155,7 +155,7 @@ void log_unlock_mutex(void) {
 		 * directly*/
 		fprintf(stderr, "An Error occurred while trying to unlock the mutex for the logger: %s\n",
 		        strerror(result));
-		exit(EXIT_FAILURE);
+		exit(ExitCodeFailure);
 	}
 }
 

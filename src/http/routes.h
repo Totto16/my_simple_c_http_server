@@ -104,12 +104,10 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPAuthorizationTypeComplicated,
 } HTTPAuthorizationType;
 
-typedef
-
-    struct {
-	int todo; // TODO(Totto): support mapping roles and or users to if the request is
-	          // possible or not, via a callback function, that gets the user and returns
-	          // true or false!
+typedef struct {
+	uint64_t todo; // TODO(Totto): support mapping roles and or users to if the request is
+	               // possible or not, via a callback function, that gets the user and returns
+	               // true or false!
 } HTTPAuthorizationComplicatedData;
 
 typedef struct {
@@ -233,9 +231,8 @@ NODISCARD SelectedRoute* route_manager_get_route_for_request(const RouteManager*
 
 NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* route);
 
-NODISCARD int route_manager_execute_route(const RouteManager* route_manager, HTTPRouteFn route,
-                                          const ConnectionDescriptor* descriptor,
-                                          HTTPGeneralContext* general_context,
-                                          SendSettings send_settings, HttpRequest http_request,
-                                          const ConnectionContext* context, ParsedURLPath path,
-                                          AuthUserWithContext* auth_user, IPAddress address);
+NODISCARD GenericResult route_manager_execute_route(
+    const RouteManager* route_manager, HTTPRouteFn route, const ConnectionDescriptor* descriptor,
+    HTTPGeneralContext* general_context, SendSettings send_settings, HttpRequest http_request,
+    const ConnectionContext* context, ParsedURLPath path, AuthUserWithContext* auth_user,
+    IPAddress address);

@@ -957,8 +957,9 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				send_length = progress->data.total_count - offset;
 			}
 
-			int send_result = send_data_to_connection(descriptor, to_send, send_length);
-			if(send_result < 0) {
+			const GenericResult send_result =
+			    send_data_to_connection(descriptor, to_send, send_length);
+			if(send_result.is_error) {
 				return false;
 			}
 

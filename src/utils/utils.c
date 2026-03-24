@@ -58,7 +58,7 @@ long parse_long_safely(const char* to_parse, const char* description) {
 	long result = parse_long_impl(to_parse, description, &success);
 
 	if(!success) {
-		exit(EXIT_FAILURE);
+		exit(ExitCodeFailure);
 	}
 
 	return result;
@@ -112,14 +112,14 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 		            "Number not correct, '%ld' is negative, only positive numbers are allowed: "
 		            "%s!\n",
 		            result, description);
-		exit(EXIT_FAILURE);
+		exit(ExitCodeFailure);
 	}
 
 	if(result > UINT16_MAX) {
 		LOG_MESSAGE(LogLevelError,
 		            "Number not correct, '%ld' is too big for %s, the maximum is %d!\n", result,
 		            description, UINT16_MAX);
-		exit(EXIT_FAILURE);
+		exit(ExitCodeFailure);
 	}
 
 	return (uint16_t)result;

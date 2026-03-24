@@ -225,7 +225,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 	if(selected_route == NULL) {
 
-		int result = 0;
+		GenericResult result = GENERIC_RES_ERR_UNIQUE();
 
 		switch(http_request.head.request_line.method) {
 			case HTTPRequestMethodGet:
@@ -327,9 +327,9 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 			}
 		}
 
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
+		if(result.is_error) {
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			            "Error in sending response: %s\n", result.value.error);
 		}
 
 		return JOB_ERROR_NONE;
@@ -339,7 +339,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 	HTTPRouteData route_data = selected_route_data.data;
 
-	int result = -1;
+	GenericResult result = GENERIC_RES_ERR_UNIQUE();
 
 	switch(route_data.type) {
 		case HTTPRouteTypeSpecial: {
@@ -431,13 +431,13 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					WSExtensions extensions = TVEC_EMPTY(WSExtension);
 
-					int ws_request_successful = handle_ws_handshake(
+					const GenericResult ws_request_successful = handle_ws_handshake(
 					    http_request, descriptor, general_context, send_settings, &extensions);
 
 					WsConnectionArgs websocket_args =
 					    get_ws_args_from_http_request(selected_route_data.path, extensions);
 
-					if(ws_request_successful >= 0) {
+					if(!ws_request_successful.is_error) {
 						// move the context so that we can use it in the long standing web
 						// socket thread
 						ConnectionContext* new_context = copy_connection_context(context);
@@ -473,10 +473,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					break;
 				}
 				default: {
-					// TODO(Totto): refactor all these arbitrary -<int> error numbers into
-					// some error enum, e.g also -11
-					result =
-					    -10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+					result = GENERIC_RES_ERR_UNIQUE();
 					break;
 				}
 			}
@@ -732,9 +729,9 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 	free_selected_route(selected_route);
 
-	if(result < 0) {
-		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-		                   "Error in sending response\n");
+	if(result.is_error) {
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "Error in sending response: %s\n", result.value.error);
 	}
 
 	return JOB_ERROR_NONE;
@@ -936,7 +933,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 	int sig_fd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	CHECK_FOR_ERROR(sig_fd, "While trying to cancel the listener Thread on signal",
-	                exit(EXIT_FAILURE););
+	                exit(ExitCodeFailure););
 
 	poll_fds[1].fd = sig_fd;
 	poll_fds[1].events = POLLIN;
@@ -1057,13 +1054,13 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	// the socket type is SOCK_STREAM, meaning it has reliable read and write capabilities,
 	// all other types are not that well suited for that example
 	int socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	CHECK_FOR_ERROR(socket_fd, "While Trying to create socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(socket_fd, "While Trying to create socket", return ExitCodeFailure;);
 
 	// set the reuse port option to the socket, so it can be reused
 	const int optval = 1;
 	int option_return = setsockopt(socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 	CHECK_FOR_ERROR(option_return, "While Trying to set socket option 'SO_REUSEPORT'",
-	                return EXIT_FAILURE;);
+	                return ExitCodeFailure;);
 
 	global_setup_port_data(port);
 
@@ -1088,14 +1085,14 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
 	// getting that is being root, or executing as root: sudo ...)
 	int result = bind(socket_fd, (struct sockaddr*)&addr, sizeof(addr));
-	CHECK_FOR_ERROR(result, "While trying to bind socket to port", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result, "While trying to bind socket to port", return ExitCodeFailure;);
 
 	// SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
 	// the protocol discards these requests listen starts listening on that socket, meaning
 	// new connections can be accepted
 	result = listen(socket_fd, HTTP_SOCKET_BACKLOG_SIZE);
-	CHECK_FOR_ERROR(result, "While trying to listen on socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result, "While trying to listen on socket", return ExitCodeFailure;);
 
 	const char* protocol_string =
 	    is_secure(options) ? "https" : "http"; // NOLINT(readability-implicit-bool-conversion)
@@ -1104,7 +1101,7 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	            protocol_string, port);
 
 	if(routes == NULL) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", TVEC_LENGTH(HTTPRoute, routes->routes));
@@ -1292,7 +1289,7 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	int result1 = sigaction(SIGINT, &action, NULL);
 	if(result1 < 0 || empty_set_result < 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't set signal interception: %s\n", strerror(errno));
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// create pool and queue! then initializing both!
@@ -1302,14 +1299,14 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	int create_result = pool_create_dynamic(&pool);
 	if(create_result < 0) {
 		print_create_error(-create_result);
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
 	TQueue job_id_queue;
 	if(tqueue_init(&job_id_queue) < 0) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	};
 
 	// this is an array of pointers
@@ -1321,7 +1318,7 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	if(allocate_result == TvecResultErr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
@@ -1340,7 +1337,7 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 		}
 		TVEC_FREE(ConnectionContextPtr, &contexts);
 
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	RouteManager* route_manager = initialize_route_manager(routes, auth_providers);
@@ -1353,10 +1350,10 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 		TVEC_FREE(ConnectionContextPtr, &contexts);
 
 		if(!free_thread_manager(web_socket_manager)) {
-			return EXIT_FAILURE;
+			return ExitCodeFailure;
 		}
 
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// create global http arguments
@@ -1377,14 +1374,14 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	result =
 	    pthread_create(&listener_thread, NULL, http_listener_thread_function, &thread_argument);
 	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to create a new Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
 	ListenerError return_value = LISTENER_ERROR_NONE;
 	result = pthread_join(listener_thread, &return_value);
 	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to wait for a Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	if(is_listener_error(return_value)) {
 		if(return_value != LISTENER_ERROR_NONE) {
@@ -1421,12 +1418,12 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 
 	// then after all were awaited the pool is destroyed
 	if(pool_destroy(&pool) < 0) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// then the queue is destroyed
 	if(tqueue_destroy(&job_id_queue) < 0) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// finally closing the whole socket, so that the port is useable by other programs or by
@@ -1436,7 +1433,7 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	// essentially saying, also correctly closed sockets aren't available after a certain
 	// time, even if closed correctly!
 	result = close(socket_fd);
-	CHECK_FOR_ERROR(result, "While trying to close the socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result, "While trying to close the socket", return ExitCodeFailure;);
 
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 		ConnectionContext* context = TVEC_AT(ConnectionContextPtr, contexts, i);
@@ -1444,11 +1441,11 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 	}
 
 	if(!thread_manager_remove_all_connections(web_socket_manager)) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	if(!free_thread_manager(web_socket_manager)) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	free_route_manager(route_manager);
@@ -1465,7 +1462,7 @@ int start_http_server(const uint16_t port, SecureOptions* const options,
 
 	global_free_http_global_data();
 
-	return EXIT_SUCCESS;
+	return ExitCodeSuccess;
 }
 
 void global_initialize_http_global_data(void) {

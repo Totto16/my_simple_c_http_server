@@ -3,7 +3,6 @@
 
 #ifndef _SIMPLE_SERVER_SECURE_DISABLED
 	#include <openssl/ssl.h>
-	#define ESSL 167
 #endif
 
 #include "utils/utils.h"
@@ -56,10 +55,11 @@ typedef int NativeFd;
 NODISCARD ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* context,
                                                           NativeFd native_fd);
 
-NODISCARD int close_connection_descriptor(ConnectionDescriptor* descriptor);
+NODISCARD GenericResult close_connection_descriptor(ConnectionDescriptor* descriptor);
 
-NODISCARD int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
-                                                   ConnectionContext* context, bool allow_reuse);
+NODISCARD GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
+                                                             ConnectionContext* context,
+                                                             bool allow_reuse);
 
 /**
  * @enum value
@@ -71,8 +71,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } ReadResultType;
 
 typedef union {
-	int errno_error;
-	unsigned long ssl_error;
+	int errno_error;         // allow-unfixed-width("interfacing with libc")
+	unsigned long ssl_error; // allow-unfixed-width("interfacing with openssl")
 } OpaqueError;
 
 typedef struct {
@@ -92,7 +92,7 @@ NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
 NODISCARD ssize_t write_to_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
                                       size_t n_bytes);
 
-NODISCARD int get_underlying_socket(const ConnectionDescriptor* descriptor);
+NODISCARD NativeFd get_underlying_socket(const ConnectionDescriptor* descriptor);
 
 /**
  * @enum value

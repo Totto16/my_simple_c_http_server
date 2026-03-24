@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "./errors.h"
 #include "./tqueue.h"
 #include "generic/sem.h"
 #include "utils.h"
@@ -68,7 +69,9 @@ NODISCARD ANY_TYPE(NULL)
 // recommended, since then this pool is more efficient, on every system
 // pool is a address of an already declared, either mallcoed or on the stack (please ensure the
 // lifetime is sufficient) thread_pool
-NODISCARD int pool_create(ThreadPool* pool, size_t size);
+// TODO(Totto): use 0 instead of pool_create_dynamic for signaling a dynamic value, return the
+// created size
+NODISCARD CreateError pool_create(ThreadPool* pool, size_t size);
 
 // using get_nprocs_conf to make a dynamic amount of worker Threads
 // returns the used dynamic thread amount, to use it in some way (maybe print it)
@@ -89,4 +92,4 @@ NODISCARD ANY_TYPE(JobResult*) pool_await(JobId* job_description);
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined
 // behaviour! this cn also block, until all jobs are finished
-NODISCARD int pool_destroy(ThreadPool* pool);
+NODISCARD GenericResult pool_destroy(ThreadPool* pool);

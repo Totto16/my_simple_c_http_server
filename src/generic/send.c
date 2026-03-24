@@ -5,8 +5,8 @@
 
 #include <errno.h>
 
-int send_data_to_connection(const ConnectionDescriptor* const descriptor, void* to_send,
-                            size_t length) {
+GenericResult send_data_to_connection(const ConnectionDescriptor* const descriptor, void* to_send,
+                                      size_t length) {
 
 	size_t remaining_length = length;
 
@@ -18,7 +18,9 @@ int send_data_to_connection(const ConnectionDescriptor* const descriptor, void* 
 
 		if(wrote_bytes == -1) {
 			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));
-			return -errno;
+			// TODO(Totto): don't use strerror, as it uses an internal buffer, use better memory
+			// management and maybe don't use the current locale!
+			return GENERIC_RES_ERR(strerror(errno));
 		}
 
 		if(wrote_bytes == (ssize_t)remaining_length) {
@@ -31,7 +33,7 @@ int send_data_to_connection(const ConnectionDescriptor* const descriptor, void* 
 			LOG_MESSAGE(LogLevelCritical,
 			            "Write has an unsupported state: written %lu of %lu bytes\n",
 			            already_written, length);
-			return -2;
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 
 		// otherwise repeat until that happened
@@ -39,21 +41,21 @@ int send_data_to_connection(const ConnectionDescriptor* const descriptor, void* 
 		already_written += wrote_bytes;
 	}
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
-NODISCARD int send_sized_buffer_to_connection(const ConnectionDescriptor* const descriptor,
-                                              SizedBuffer buffer) {
+NODISCARD GenericResult
+send_sized_buffer_to_connection(const ConnectionDescriptor* const descriptor, SizedBuffer buffer) {
 	return send_data_to_connection(descriptor, buffer.data, buffer.size);
 }
 
 // just a warpper to send a string buffer to a connection, it also frees the string buffer!
-int send_string_builder_to_connection(const ConnectionDescriptor* const descriptor,
-                                      StringBuilder** string_builder) {
+GenericResult send_string_builder_to_connection(const ConnectionDescriptor* const descriptor,
+                                                StringBuilder** string_builder) {
 
 	SizedBuffer string_buffer = string_builder_release_into_sized_buffer(string_builder);
 
-	int result = send_sized_buffer_to_connection(descriptor, string_buffer);
+	GenericResult result = send_sized_buffer_to_connection(descriptor, string_buffer);
 	free_sized_buffer(string_buffer);
 	return result;
 }

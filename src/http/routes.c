@@ -832,8 +832,7 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view v
 				                          .data = { .error = "data was empty" } };
 		}
 
-		SizedBuffer decoded = base64_decode_buffer(
-		    (SizedBuffer){ .data = (void*)auth_param.data, .size = auth_param.len });
+		SizedBuffer decoded = base64_decode(auth_param.data, auth_param.len);
 
 		if(!decoded.data) {
 			return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
@@ -1193,14 +1192,14 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const r
 }
 
 NODISCARD
-int route_manager_execute_route(const RouteManager* const route_manager, HTTPRouteFn route,
-                                const ConnectionDescriptor* const descriptor,
-                                HTTPGeneralContext* general_context, SendSettings send_settings,
-                                const HttpRequest http_request,
-                                const ConnectionContext* const context, ParsedURLPath path,
-                                AuthUserWithContext* auth_user, IPAddress address) {
+GenericResult
+route_manager_execute_route(const RouteManager* const route_manager, HTTPRouteFn route,
+                            const ConnectionDescriptor* const descriptor,
+                            HTTPGeneralContext* general_context, SendSettings send_settings,
+                            const HttpRequest http_request, const ConnectionContext* const context,
+                            ParsedURLPath path, AuthUserWithContext* auth_user, IPAddress address) {
 
-	HTTPResponseToSend response = {};
+	HTTPResponseToSend response;
 
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
@@ -1233,7 +1232,7 @@ int route_manager_execute_route(const RouteManager* const route_manager, HTTPRou
 			break;
 		}
 		default: {
-			return -11; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			return GENERIC_RES_ERR_UNIQUE();
 			break;
 		}
 	}
@@ -1250,7 +1249,7 @@ int route_manager_execute_route(const RouteManager* const route_manager, HTTPRou
 		}
 	}
 
-	int result =
+	GenericResult result =
 	    send_http_message_to_connection(general_context, descriptor, response, send_settings);
 
 	return result;

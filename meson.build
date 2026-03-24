@@ -251,7 +251,10 @@ internal_c_args += cc.get_supported_arguments(
     '-Wshadow',
     '-Wfloat-conversion',
     '-Wno-nullability-extension',
-    '-Wno-nullability-completeness'
+    '-Wno-nullability-completeness',
+    '-Wcast-qual',
+    '-Wwrite-strings',
+    '-Wdiscarded-qualifiers',
 )
 
 if cc.get_id() == 'gcc'

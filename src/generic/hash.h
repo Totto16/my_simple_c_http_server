@@ -32,6 +32,8 @@ NODISCARD SizedBuffer get_sha1_from_string(const char* string);
 
 NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer);
 
+NODISCARD SizedBuffer base64_decode(const void* data, size_t size);
+
 NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer);
 
 NODISCARD const char* get_sha1_provider(void);

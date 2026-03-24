@@ -77,14 +77,14 @@
 	#define UNREACHABLE() \
 		do { \
 			fprintf(stderr, "[%s %s:%d]: UNREACHABLE\n", __func__, __FILE__, __LINE__); \
-			exit(EXIT_FAILURE); \
+			exit(ExitCodeFailure); \
 		} while(false)
 
 	#define OOM_ASSERT(value, message) \
 		do { \
 			if(!(value)) { \
 				fprintf(stderr, "[%s %s:%d]: OOM: %s\n", __func__, __FILE__, __LINE__, (message)); \
-				exit(EXIT_FAILURE); \
+				exit(ExitCodeFailure); \
 			} \
 		} while(false)
 
@@ -124,10 +124,11 @@
 #define CHECK_RESULT_FOR_THREAD_ERROR(errorString, statement) \
 	CHECK_FOR_THREAD_ERROR(result, errorString, statement)
 
+// TODO(Totto): remove this kind of API, where we print the errro internally
 // copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-NODISCARD long parse_long_safely(const char* to_parse, const char* description);
+NODISCARD int64_t parse_i64_safely(const char* to_parse, const char* description);
 
-NODISCARD long parse_long(const char* to_parse, OUT_PARAM(bool) success);
+NODISCARD int64_t parse_i64(const char* to_parse, OUT_PARAM(bool) success);
 
 NODISCARD size_t parse_size_t(const char* to_parse, OUT_PARAM(bool) success);
 
@@ -187,7 +188,19 @@ NODISCARD uint32_t get_random_byte(void);
 
 NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max);
 
-NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
+typedef struct {
+	bool is_error;
+	union {
+		const char* error;
+	} value;
+} GenericResult;
+
+#define GENERIC_RES_OK() ((GenericResult){ .is_error = false })
+#define GENERIC_RES_ERR(err) ((GenericResult){ .is_error = true, .value = { .error = (err) } })
+
+#define GENERIC_RES_ERR_UNIQUE() GENERIC_RES_ERR("" __FILE__ ":" STRINGIFY(__LINE__))
+
+NODISCARD GenericResult get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
 
 #define TSTR_KEYNAME TString
 
@@ -200,3 +213,11 @@ NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
 // juts annotations
 #define MOVE(x) x
 #define MOVED(x) x
+
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ExitCodeFailure = EXIT_FAILURE,
+	ExitCodeSuccess = EXIT_SUCCESS,
+} ExitCode;

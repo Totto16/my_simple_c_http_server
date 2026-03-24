@@ -1462,7 +1462,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 	int sig_fd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	CHECK_FOR_ERROR(sig_fd, "While trying to cancel the listener Thread on signal",
-	                exit(EXIT_FAILURE););
+	                exit(ExitCodeFailure););
 
 	poll_fds[1].fd = sig_fd;
 	poll_fds[1].events = POLLIN;
@@ -1618,7 +1618,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 	int sig_fd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	CHECK_FOR_ERROR(sig_fd, "While trying to cancel a data listener Thread on signal",
-	                exit(EXIT_FAILURE););
+	                exit(ExitCodeFailure););
 
 	poll_fds[POLL_SIG_ARR_INDEX].fd = sig_fd;
 	poll_fds[POLL_SIG_ARR_INDEX].events = POLLIN;
@@ -1852,7 +1852,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 	                : LISTENER_ERROR_NONE;
 }
 
-int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions* const options,
+ExitCode start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions* const options,
                      AuthenticationProviders* const auth_providers) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
@@ -1861,14 +1861,14 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	// all other types are not that well suited for that example
 	int control_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	CHECK_FOR_ERROR(control_socket_fd, "While Trying to create control socket",
-	                return EXIT_FAILURE;);
+	                return ExitCodeFailure;);
 
 	// set the reuse port option to the socket, so it can be reused
 	const int optval = 1;
 	int option_return1 =
 	    setsockopt(control_socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 	CHECK_FOR_ERROR(option_return1, "While Trying to set the control socket option 'SO_REUSEPORT'",
-	                return EXIT_FAILURE;);
+	                return ExitCodeFailure;);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
 	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
@@ -1891,14 +1891,14 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
 	// getting that is being root, or executing as root: sudo ...)
 	int result1 = bind(control_socket_fd, (struct sockaddr*)&control_addr, sizeof(control_addr));
-	CHECK_FOR_ERROR(result1, "While trying to bind control socket to port", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result1, "While trying to bind control socket to port", return ExitCodeFailure;);
 
 	// FTP_SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
 	// the protocol discards these requests listen starts listening on that socket, meaning
 	// new connections can be accepted
 	result1 = listen(control_socket_fd, FTP_SOCKET_BACKLOG_SIZE);
-	CHECK_FOR_ERROR(result1, "While trying to listen on control socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result1, "While trying to listen on control socket", return ExitCodeFailure;);
 
 	LOG_MESSAGE(LogLevelInfo, "To use this simple FTP Server visit ftp://localhost:%d'.\n",
 	            control_port);
@@ -1914,7 +1914,7 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	int result_act = sigaction(SIGINT, &action, NULL);
 	if(result_act < 0 || empty_set_result < 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't set signal interception: %s\n", strerror(errno));
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// create pool and queue! then initializing both!
@@ -1924,14 +1924,14 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	int create_result1 = pool_create_dynamic(&control_pool);
 	if(create_result1 < 0) {
 		print_create_error(-create_result1);
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
 	TQueue control_job_id_queue;
 	if(tqueue_init(&control_job_id_queue) < 0) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	};
 
 	// this is an array of pointers
@@ -1943,7 +1943,7 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	if(allocate_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// TODO(Totto): implement implicit TLS
@@ -1960,7 +1960,7 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 
 		if(push_res != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 			TVEC_FREE(ConnectionContextPtr, &control_contexts);
-			return EXIT_FAILURE;
+			return ExitCodeFailure;
 		}
 	}
 
@@ -1976,7 +1976,7 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 			free_connection_context(TVEC_AT(ConnectionContextPtr, control_contexts, i));
 		}
 		TVEC_FREE(ConnectionContextPtr, &control_contexts);
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	FTPPortField* ports = (FTPPortField*)malloc(port_amount * sizeof(FTPPortField));
@@ -2001,7 +2001,7 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	                             ftp_data_orchestrator_thread_function, &data_thread_argument);
 	CHECK_FOR_THREAD_ERROR(result2,
 	                       "An Error occurred while trying to create a new data listener Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	pthread_t control_listener_thread = {};
 	FTPControlThreadArgument control_thread_argument = {
@@ -2020,14 +2020,14 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	                         &control_thread_argument);
 	CHECK_FOR_THREAD_ERROR(result1,
 	                       "An Error occurred while trying to create a new control listener Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
 	ListenerError control_return_value = LISTENER_ERROR_NONE;
 	result1 = pthread_join(control_listener_thread, &control_return_value);
 	CHECK_FOR_THREAD_ERROR(result1, "An Error occurred while trying to wait for a control Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	if(is_listener_error(control_return_value)) {
 		if(control_return_value != LISTENER_ERROR_NONE) {
@@ -2047,7 +2047,7 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	ListenerError data_return_value = LISTENER_ERROR_NONE;
 	result2 = pthread_join(data_orchestrator_thread, &data_return_value);
 	CHECK_FOR_THREAD_ERROR(result2, "An Error occurred while trying to wait for a data Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	if(is_listener_error(data_return_value)) {
 		if(data_return_value != LISTENER_ERROR_NONE) {
@@ -2084,13 +2084,13 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	}
 
 	// then after all were awaited the pool is destroyed
-	if(pool_destroy(&control_pool) < 0) {
-		return EXIT_FAILURE;
+	if(pool_destroy(&control_pool).is_error) {
+		return ExitCodeFailure;
 	}
 
 	// then the queue is destroyed
 	if(tqueue_destroy(&control_job_id_queue) < 0) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// finally closing the whole socket, so that the port is useable by other programs or by
@@ -2100,7 +2100,7 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	// essentially saying, also correctly closed sockets aren't available after a certain
 	// time, even if closed correctly!
 	result1 = close(control_socket_fd);
-	CHECK_FOR_ERROR(result1, "While trying to close the control socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result1, "While trying to close the control socket", return ExitCodeFailure;);
 
 	free(ports);
 
@@ -2116,5 +2116,5 @@ int start_ftp_server(const FTPPortField control_port, tstr folder, SecureOptions
 	openssl_cleanup_global_state();
 #endif
 
-	return EXIT_SUCCESS;
+	return ExitCodeSuccess;
 }

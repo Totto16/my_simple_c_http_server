@@ -28,17 +28,17 @@ NODISCARD SizedBuffer sized_buffer_get_exact_clone(SizedBuffer buffer) {
 	return (SizedBuffer){ .data = buffer.data, .size = buffer.size };
 }
 
-NODISCARD int sized_buffer_cmp(const SizedBuffer buf1, const SizedBuffer buf2) {
-	return sized_buffer_cmp_with_data(buf1, buf2.data, buf2.size);
+NODISCARD bool sized_buffer_eq(const SizedBuffer buf1, const SizedBuffer buf2) {
+	return sized_buffer_eq_with_data(buf1, buf2.data, buf2.size);
 }
 
-NODISCARD int sized_buffer_cmp_with_data(const SizedBuffer buf1, const void* const data,
+NODISCARD bool sized_buffer_eq_with_data(const SizedBuffer buf1, const void* const data,
                                          const size_t size) {
 	if(buf1.size != size) {
-		return (int)size - (int)buf1.size;
+		return false;
 	}
 
-	return memcmp(buf1.data, data, buf1.size);
+	return memcmp(buf1.data, data, buf1.size) == 0;
 }
 
 NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer) {

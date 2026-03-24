@@ -183,8 +183,8 @@ typedef struct {
 	HTTPPropertyType type;
 	union {
 		ParsedURLPath normal; // Method: POST | GET | HEAD
-		int todo_options;     // Method: OPTIONS
-		int todo_connect;     // Method: CONNECT
+		uint64_t todo_options;     // Method: OPTIONS
+		uint64_t todo_connect;     // Method: CONNECT
 	} data;
 } HttpRequestProperties;
 

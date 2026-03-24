@@ -58,14 +58,14 @@ LevelAndFlags get_level_and_flags(FLAGS_TYPE level_and_flags);
 
 #define LOG_MESSAGE(level_and_flags, msg, ...) \
 	do { \
-		LevelAndFlags destructured = get_level_and_flags(level_and_flags); \
-		LogLevel level = destructured.level; \
-		LogFlags flags = destructured.flags; \
+		const LevelAndFlags destructured = get_level_and_flags(level_and_flags); \
+		const LogLevel level = destructured.level; \
+		const LogFlags flags = destructured.flags; \
 		if(log_should_log(level)) { \
-			bool should_log_to_stderr = log_should_log_to_stderr(level); \
-			bool should_use_color = log_should_use_color(should_log_to_stderr); \
-			const char* level_name = get_level_name_internal(level, should_use_color); \
-			const char* thread_name = get_thread_name(); \
+			const bool should_log_to_stderr = log_should_log_to_stderr(level); \
+			const bool should_use_color = log_should_use_color(should_log_to_stderr); \
+			const char* const level_name = get_level_name_internal(level, should_use_color); \
+			const char* const thread_name = get_thread_name(); \
 			log_lock_mutex(); \
 			FILE* file_stream = should_log_to_stderr ? stderr : stdout; \
 			if(!has_flag(flags, LogPrintNoPrelude)) { \
