@@ -216,8 +216,8 @@ NODISCARD static ExitCode subcommand_http(const tstr_static program_name, const 
 
 	if(parsed > UINT16_MAX) {
 		LOG_MESSAGE(LogLevelError,
-		            "Number not correct, '%zu' is too big for <port>, the maximum is %d!\n", parsed,
-		            UINT16_MAX);
+		            "Number not correct, '%" PRIu64 "' is too big for <port>, the maximum is %d!\n",
+		            parsed, UINT16_MAX);
 		return ExitCodeFailure;
 	}
 
@@ -401,8 +401,8 @@ NODISCARD static ExitCode subcommand_ftp(const tstr_static program_name, const P
 
 	if(parsed > UINT16_MAX) {
 		LOG_MESSAGE(LogLevelError,
-		            "Number not correct, '%zu' is too big for <port>, the maximum is %d!\n", parsed,
-		            UINT16_MAX);
+		            "Number not correct, '%" PRIu64 "' is too big for <port>, the maximum is %d!\n",
+		            parsed, UINT16_MAX);
 		return ExitCodeFailure;
 	}
 
