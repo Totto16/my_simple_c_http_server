@@ -19,14 +19,24 @@ static void setup_global_timeout_multiplier() {
 
 	const tstr env_timeout_tstr = tstr_own_cstr(env_timeout);
 
-	const size_t env_timeout_val = parse_size_t(tstr_as_view(&env_timeout_tstr), &success);
+	const uint64_t env_timeout_val = parse_u64(tstr_as_view(&env_timeout_tstr), &success);
 
 	if(!success) {
-		g_doctest_timeout_multiplier = 1;
-		return;
+		goto set_default;
 	}
 
-	g_doctest_timeout_multiplier = env_timeout_val;
+	if(SIZE_MAX != UINT64_MAX) {
+		if(env_timeout_val > SIZE_MAX) {
+			goto set_default;
+		}
+	}
+
+	g_doctest_timeout_multiplier = (size_t)env_timeout_val;
+	return;
+
+set_default:
+	g_doctest_timeout_multiplier = 1;
+	return;
 }
 
 static void setup_library() {

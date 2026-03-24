@@ -3,6 +3,7 @@
 #include "generic/secure.h"
 #include "http/server.h"
 #include "utils/log.h"
+#include "utils/number_parsing.h"
 #include "utils/path.h"
 
 #include <stdlib.h>
@@ -202,9 +203,25 @@ NODISCARD static ExitCode subcommand_http(const tstr_static program_name, const 
 		return ExitCodeSuccess;
 	}
 
-	// parse the port
-	// TODO(Totto): don't use the .ptr here
-	const uint16_t port = parse_u16_safely(arg0.ptr, "<port>");
+	bool success = false;
+	const uint64_t parsed = parse_u64(tstr_static_as_view(arg0), &success);
+
+	if(!success) {
+		LOG_MESSAGE(LogLevelError,
+		            "Couldn't parse the incorrect integer " TSTR_FMT " for the argument <port>!\n",
+		            TSTR_STATIC_FMT_ARGS(arg0));
+
+		return ExitCodeFailure;
+	}
+
+	if(parsed > UINT16_MAX) {
+		LOG_MESSAGE(LogLevelError,
+		            "Number not correct, '%zu' is too big for <port>, the maximum is %d!\n", parsed,
+		            UINT16_MAX);
+		return ExitCodeFailure;
+	}
+
+	const uint16_t port = (uint16_t)parsed;
 
 	bool secure = false;
 	tstr_static public_cert_file = tstr_static_null();
@@ -255,7 +272,7 @@ NODISCARD static ExitCode subcommand_http(const tstr_static program_name, const 
 
 			const tstr_static loglevel_arg = PROGRAM_ARGS_AT(args, processed_args + 1);
 
-			bool success = false;
+			success = false;
 			const LogLevel parsed_level = parse_log_level(loglevel_arg, &success);
 
 			if(!success) {
@@ -371,8 +388,25 @@ NODISCARD static ExitCode subcommand_ftp(const tstr_static program_name, const P
 		return ExitCodeSuccess;
 	}
 
-	// TODO(Totto): don't use the .ptr here
-	const uint16_t control_port = parse_u16_safely(arg0.ptr, "<port>");
+	bool success = false;
+	const uint64_t parsed = parse_u64(tstr_static_as_view(arg0), &success);
+
+	if(!success) {
+		LOG_MESSAGE(LogLevelError,
+		            "Couldn't parse the incorrect integer " TSTR_FMT " for the argument <port>!\n",
+		            TSTR_STATIC_FMT_ARGS(arg0));
+
+		return ExitCodeFailure;
+	}
+
+	if(parsed > UINT16_MAX) {
+		LOG_MESSAGE(LogLevelError,
+		            "Number not correct, '%zu' is too big for <port>, the maximum is %d!\n", parsed,
+		            UINT16_MAX);
+		return ExitCodeFailure;
+	}
+
+	const uint16_t control_port = (uint16_t)parsed;
 
 	bool secure = false;
 	tstr_static public_cert_file = tstr_static_null();
@@ -434,7 +468,7 @@ NODISCARD static ExitCode subcommand_ftp(const tstr_static program_name, const P
 
 			const tstr_static loglevel_arg = PROGRAM_ARGS_AT(args, processed_args + 1);
 
-			bool success = false;
+			success = false;
 			const LogLevel parsed_level = parse_log_level(loglevel_arg, &success);
 
 			if(!success) {
