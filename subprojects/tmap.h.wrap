@@ -1,7 +1,7 @@
 [wrap-git]
 directory = tmap.h
 url = https://github.com/Totto16/tmap.h.git
-revision = 88a7b81fa56fcf6afd1aae417fb06a18333ed927
+revision = 25d381767509929e0c4b09d8a90c62927c585076 
 depth = 1
 
 [provide]

@@ -16,8 +16,8 @@ TMAP_HASH_FUNC_SIG(Http2Identifier, StreamIdentifier) {
 	return TMAP_HASH_SCALAR(value);
 }
 
-TMAP_COMPARE_FUNC_SIG(Http2Identifier, StreamIdentifier) {
-	return (int32_t)(key1.identifier) - ((int32_t)key2.identifier);
+TMAP_EQ_FUNC_SIG(Http2Identifier, StreamIdentifier) {
+	return (int32_t)(key1.identifier) == ((int32_t)key2.identifier);
 }
 
 #define HTTP2_HEADER_SIZE 9
