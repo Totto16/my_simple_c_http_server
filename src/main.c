@@ -6,6 +6,7 @@
 #include "utils/number_parsing.h"
 #include "utils/path.h"
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
