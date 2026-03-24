@@ -62,6 +62,7 @@ if cpp.get_id() == 'gcc'
 endif
 
 test_files_manual = [
+    'basic.cpp',
     'hash.cpp',
     'http_parser.cpp',
     'serialize.cpp',
