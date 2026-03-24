@@ -27,11 +27,6 @@ IsNotError::IsNotError() {}
 	return tstr_from_len(value.c_str(), value.size());
 }
 
-[[nodiscard]] SizedBuffer buffer_from_raw_data(const std::vector<std::uint8_t>& data) {
-	const SizedBuffer buffer = { .data = (void*)data.data(), .size = data.size() };
-	return buffer;
-}
-
 std::ostream& operator<<(std::ostream& os, const IsNotError& /* error */) {
 	os << "{}";
 	return os;

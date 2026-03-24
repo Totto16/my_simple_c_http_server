@@ -760,7 +760,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(http2_settings))) {
 
 			h2state.settings_buffer =
-			    base64_decode(tstr_cstr(&header.value), tstr_len(&header.value));
+			    base64_decode_buffer(readonly_buffer_from_tstr(&header.value));
 		}
 	}
 

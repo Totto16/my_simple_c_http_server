@@ -22,7 +22,7 @@ send_concatted_http1_response_to_connection(const ConnectionDescriptor* const de
 	}
 
 	if(concatted_response->body.data != NULL) {
-		result = send_sized_buffer_to_connection(descriptor, concatted_response->body);
+		result = send_buffer_to_connection(descriptor, concatted_response->body);
 	}
 
 	free(concatted_response);

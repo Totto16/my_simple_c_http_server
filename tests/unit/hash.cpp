@@ -257,7 +257,7 @@ TEST_CASE("testing base64 decoding with openssl <base64_dec>") {
 
 		SUBCASE(test_case.name) {
 			[&test_case]() -> void {
-				SizedBuffer input = helpers::buffer_from_string(test_case.base64);
+				ReadonlyBuffer input = helpers::buffer_from_string(test_case.base64);
 
 				const SizedBuffer result = base64_decode_buffer(input);
 
@@ -269,7 +269,7 @@ TEST_CASE("testing base64 decoding with openssl <base64_dec>") {
 					REQUIRE_EQ(result.size, 0);
 				}
 
-				SizedBuffer expected_result = helpers::buffer_from_string(test_case.raw);
+				ReadonlyBuffer expected_result = helpers::buffer_from_string(test_case.raw);
 
 				REQUIRE_EQ(result, expected_result);
 
@@ -288,13 +288,14 @@ TEST_CASE("testing base64 encoding with openssl <base64_enc>") {
 
 		SUBCASE(test_case.name) {
 			[&test_case]() -> void {
-				SizedBuffer input = helpers::buffer_from_string(test_case.raw);
+				ReadonlyBuffer input = helpers::buffer_from_string(test_case.raw);
 
-				char* result = base64_encode_buffer(input);
+				tstr result = base64_encode_buffer(input);
+				CAutoFreePtr<tstr> defer_tstr = { &result, tstr_free };
 
-				REQUIRE_NE(result, nullptr);
+				REQUIRE_FALSE(tstr_is_null(&result));
 
-				std::string result_str{ result };
+				std::string result_str = string_from_tstr(result);
 
 				if(input.size != 0) {
 					REQUIRE_NE(result_str.size(), 0);
@@ -304,9 +305,9 @@ TEST_CASE("testing base64 encoding with openssl <base64_enc>") {
 
 				const std::string& expected_result = test_case.base64;
 
-				REQUIRE_EQ(result, expected_result);
+				const std::string& actual_result = string_from_tstr(result);
 
-				free(result);
+				REQUIRE_EQ(actual_result, expected_result);
 			}();
 		}
 	}

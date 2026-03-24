@@ -389,13 +389,12 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 		};
 	}
 
-	const void* raw_data = data + (*pos);
-	const size_t raw_size = length;
+	const ReadonlyBuffer raw_bytes = { .data = data + (*pos), .size = length };
 
 	(*pos) += length;
 
 	if(is_huffman) {
-		const HuffmanDecodeResult huffman_res = hpack_huffman_decode_bytes(raw_data, raw_size);
+		const HuffmanDecodeResult huffman_res = hpack_huffman_decode_bytes(raw_bytes);
 
 		if(huffman_res.is_error) {
 			return (LiteralStringResult){ .is_error = true,
@@ -421,7 +420,7 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 	}
 
 	value[length] = 0;
-	memcpy(value, raw_data, raw_size);
+	memcpy(value, raw_bytes.data, raw_bytes.size);
 
 	const tstr result = tstr_own(value, length, length);
 
@@ -793,12 +792,12 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_without_indexing
 
 NODISCARD static Http2HpackDecompressResult
 http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
-                                 const SizedBuffer input) {
+                                 const ReadonlyBuffer input) {
 
 	size_t pos = 0;
 	const size_t size = input.size;
 
-	const uint8_t* const data = (uint8_t*)input.data;
+	const uint8_t* const data = (const uint8_t*)input.data;
 
 	HttpHeaderFields result = TVEC_EMPTY(HttpHeaderField);
 	const char* error = "None"; // NOLINT(clang-analyzer-deadcode.DeadStores)
@@ -1004,8 +1003,8 @@ void free_hpack_compress_state(HpackCompressState* compress_state) {
 	free(compress_state);
 }
 
-NODISCARD Http2HpackDecompressResult
-http2_hpack_decompress_data(HpackDecompressState* const decompress_state, const SizedBuffer input) {
+NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(
+    HpackDecompressState* const decompress_state, const ReadonlyBuffer input) {
 
 	if(decompress_state == NULL) {
 		return (Http2HpackDecompressResult){ .is_error = true,

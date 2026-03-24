@@ -185,7 +185,7 @@ NODISCARD static GenericResult http2_send_raw_frame(const ConnectionDescriptor* 
 		return result;
 	}
 
-	result = send_sized_buffer_to_connection(descriptor, data);
+	result = send_buffer_to_connection(descriptor, data);
 
 	return result;
 }
@@ -197,10 +197,9 @@ NODISCARD static GenericResult http2_send_raw_frame(const ConnectionDescriptor* 
 NODISCARD static GenericResult http2_send_goaway_frame(const ConnectionDescriptor* const descriptor,
                                                        const Http2Identifier last_stream_id,
                                                        const Http2ErrorCode error_code,
-                                                       const void* const additional_debug_data_ptr,
-                                                       const size_t additional_debug_data_size) {
+                                                       const ReadonlyBuffer additional_debug_data) {
 
-	uint32_t length = additional_debug_data_size + HTTP2_FRAME_GOAWAY_BASE_SIZE;
+	uint32_t length = additional_debug_data.size + HTTP2_FRAME_GOAWAY_BASE_SIZE;
 
 	Http2RawHeader header = {
 		.length = length,
@@ -235,9 +234,9 @@ NODISCARD static GenericResult http2_send_goaway_frame(const ConnectionDescripto
 		data[i++] = error_code_res.bytes[3];
 
 		/* Optional debug data */
-		if(additional_debug_data_size > 0) {
-			memcpy((void*)(data + i), additional_debug_data_ptr, additional_debug_data_size);
-			i += additional_debug_data_size;
+		if(additional_debug_data.size > 0) {
+			memcpy((void*)(data + i), additional_debug_data.data, additional_debug_data.size);
+			i += additional_debug_data.size;
 		}
 
 		assert(i == length && "implemented goaway serialization incorrectly");
@@ -500,19 +499,20 @@ NODISCARD GenericResult http2_send_connection_error(const ConnectionDescriptor* 
                                                     const tstr_static error) {
 
 	if(tstr_static_is_null(error)) {
-		return http2_send_connection_error_with_data(descriptor, context, error_code, NULL, 0);
+		return http2_send_connection_error_with_data(descriptor, context, error_code,
+		                                             (ReadonlyBuffer){ .data = NULL, .size = 0 });
 	};
 
-	return http2_send_connection_error_with_data(descriptor, context, error_code, error.ptr,
-	                                             error.len);
+	return http2_send_connection_error_with_data(
+	    descriptor, context, error_code, (ReadonlyBuffer){ .data = error.ptr, .size = error.len });
 }
 
 NODISCARD GenericResult http2_send_connection_error_with_data(
     const ConnectionDescriptor* const descriptor, const HTTP2Context* const context,
-    Http2ErrorCode error_code, const void* const debug_data_ptr, const size_t debug_data_size) {
+    Http2ErrorCode error_code, const ReadonlyBuffer debug_data) {
 
 	return http2_send_goaway_frame(descriptor, context->state.last_stream_id, error_code,
-	                               debug_data_ptr, debug_data_size);
+	                               debug_data);
 }
 
 NODISCARD GenericResult http2_send_stream_error(const ConnectionDescriptor* descriptor,
@@ -2837,8 +2837,8 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 	}
 	const SizedBuffer header_value = header_value_res.result;
 
-	const Http2HpackDecompressResult header_result =
-	    http2_hpack_decompress_data(hpack_decompress_state, header_value);
+	const Http2HpackDecompressResult header_result = http2_hpack_decompress_data(
+	    hpack_decompress_state, readonly_buffer_from_sized_buffer(header_value));
 
 	free_sized_buffer(header_value);
 
@@ -3562,7 +3562,7 @@ NODISCARD GenericResult http2_send_headers(const ConnectionDescriptor* descripto
 
 NODISCARD GenericResult http2_send_data(const ConnectionDescriptor* descriptor,
                                         Http2Identifier identifier, Http2Settings settings,
-                                        SizedBuffer buffer) {
+                                        const SizedBuffer buffer) {
 
 	const size_t max_data_payload_size = get_max_data_content_size(settings);
 
@@ -3572,7 +3572,7 @@ NODISCARD GenericResult http2_send_data(const ConnectionDescriptor* descriptor,
 		                        ? buffer.size - offset
 		                        : max_data_payload_size;
 
-		SizedBuffer content = {
+		const SizedBuffer content = {
 			.data = ((uint8_t*)buffer.data) + offset,
 			.size = size,
 		};

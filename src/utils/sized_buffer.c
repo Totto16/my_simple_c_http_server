@@ -61,3 +61,11 @@ NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer) {
 NODISCARD tstr_view tstr_view_from_buffer(const SizedBuffer buffer) {
 	return (tstr_view){ .data = buffer.data, .len = buffer.size };
 }
+
+NODISCARD ReadonlyBuffer readonly_buffer_from_sized_buffer(const SizedBuffer buffer) {
+	return (ReadonlyBuffer){ .data = (const void*)buffer.data, .size = buffer.size };
+}
+
+NODISCARD ReadonlyBuffer readonly_buffer_from_tstr(const tstr* const str) {
+	return (ReadonlyBuffer){ .data = tstr_cstr(str), .size = tstr_len(str) };
+}

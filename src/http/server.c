@@ -1172,7 +1172,7 @@ ExitCode start_http_server(const uint16_t port, SecureOptions* const options,
 						const HTTPAuthorizationComplicatedData data = route.auth.data.complicated;
 
 						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
-						            "Complicated: (TODO %zu)\n", data.todo);
+						            "Complicated: (TODO %" PRIu64 ")\n", data.todo);
 
 						break;
 					}

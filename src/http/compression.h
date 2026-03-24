@@ -33,7 +33,8 @@ NODISCARD tstr get_string_for_compress_format(CompressionType format);
 NODISCARD SizedBuffer decompress_buffer_with_zlib_for_ws(SizedBuffer buffer,
                                                          size_t max_window_bits);
 
-NODISCARD SizedBuffer compress_buffer_with_zlib_for_ws(SizedBuffer buffer, size_t max_window_bits);
+NODISCARD SizedBuffer compress_buffer_with_zlib_for_ws(SizedBuffer buffer,
+                                                       size_t max_window_bits);
 
 #endif
 

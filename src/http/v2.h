@@ -285,7 +285,7 @@ NODISCARD GenericResult http2_send_connection_error(const ConnectionDescriptor* 
 
 NODISCARD GenericResult http2_send_connection_error_with_data(
     const ConnectionDescriptor* descriptor, const HTTP2Context* context, Http2ErrorCode error_code,
-    const void* debug_data_ptr, size_t debug_data_size);
+    ReadonlyBuffer debug_data);
 
 NODISCARD GenericResult http2_send_stream_error(const ConnectionDescriptor* descriptor,
                                                 Http2ErrorCode error_code,

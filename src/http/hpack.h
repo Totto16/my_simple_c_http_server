@@ -26,7 +26,7 @@ typedef struct {
 } Http2HpackDecompressResult;
 
 NODISCARD Http2HpackDecompressResult
-http2_hpack_decompress_data(HpackDecompressState* decompress_state, SizedBuffer input);
+http2_hpack_decompress_data(HpackDecompressState* decompress_state, ReadonlyBuffer input);
 
 typedef struct HpackCompressStateImpl HpackCompressState;
 

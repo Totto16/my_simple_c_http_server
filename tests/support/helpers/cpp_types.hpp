@@ -74,8 +74,6 @@ template <typename T> using CAutoFreePtr = std::unique_ptr<T, void (*)(T*)>;
 	return tstr_from_static_cstr_with_len(str, len);
 }
 
-[[nodiscard]] SizedBuffer buffer_from_raw_data(const std::vector<std::uint8_t>& data);
-
 template <typename T>
 [[nodiscard]] static inline bool vec_contains(const std::vector<T>& vec, const T& val) {
 	return std::find(vec.cbegin(), vec.cend(), val) != vec.cend();

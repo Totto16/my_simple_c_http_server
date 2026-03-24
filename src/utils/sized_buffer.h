@@ -38,6 +38,15 @@ NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer);
 
 NODISCARD tstr_view tstr_view_from_buffer(SizedBuffer buffer);
 
+typedef struct {
+	const void* data;
+	size_t size;
+} ReadonlyBuffer;
+
+NODISCARD ReadonlyBuffer readonly_buffer_from_sized_buffer(SizedBuffer buffer);
+
+NODISCARD ReadonlyBuffer readonly_buffer_from_tstr(const tstr* str);
+
 #define SIZED_BUFFER_FMT "%.*s"
 
 #define SIZED_BUFFER_FMT_ARGS(n) ((int)(n).size), ((char*)(n).data)

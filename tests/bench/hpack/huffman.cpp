@@ -57,8 +57,9 @@ static void BM_hpack_huffman_decode_spec(benchmark::State& state) {
 
 			assert(g_global_huffman_data.present == true);
 
-			auto result =
-			    hpack_huffman_decode_bytes(test_case.encoded.data(), test_case.encoded.size());
+			const auto input = helpers::buffer_from_raw_data(test_case.encoded);
+
+			auto result = hpack_huffman_decode_bytes(input);
 			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
 				                                        helpers::free_huffman_decode_result };
 
@@ -95,8 +96,9 @@ static void BM_hpack_huffman_decode_ascii_generated(benchmark::State& state) {
 
 			assert(g_global_huffman_data.present == true);
 
-			auto result =
-			    hpack_huffman_decode_bytes(test_case.encoded.data(), test_case.encoded.size());
+			const auto input = helpers::buffer_from_raw_data(test_case.encoded);
+
+			auto result = hpack_huffman_decode_bytes(input);
 			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
 				                                        helpers::free_huffman_decode_result };
 
@@ -133,8 +135,9 @@ static void BM_hpack_huffman_decode_utf8_generated(benchmark::State& state) {
 
 			assert(g_global_huffman_data.present == true);
 
-			auto result =
-			    hpack_huffman_decode_bytes(test_case.encoded.data(), test_case.encoded.size());
+			const auto input = helpers::buffer_from_raw_data(test_case.encoded);
+
+			auto result = hpack_huffman_decode_bytes(input);
 			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
 				                                        helpers::free_huffman_decode_result };
 
@@ -148,7 +151,7 @@ static void BM_hpack_huffman_decode_utf8_generated(benchmark::State& state) {
 
 			const auto actual_result = result.data.result;
 
-			const auto expected_result = buffer_from_raw_data(test_case.value);
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.value);
 
 			assert(actual_result == expected_result);
 		}
@@ -214,7 +217,7 @@ static void BM_hpack_huffman_encode_spec(benchmark::State& state) {
 
 			const auto actual_result = result.data.result;
 
-			const auto expected_result = buffer_from_raw_data(test_case.encoded);
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
 
 			assert(actual_result == expected_result);
 		}
@@ -251,7 +254,7 @@ static void BM_hpack_huffman_encode_ascii_generated(benchmark::State& state) {
 
 			const auto actual_result = result.data.result;
 
-			const auto expected_result = buffer_from_raw_data(test_case.encoded);
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
 
 			assert(actual_result == expected_result);
 		}
@@ -288,7 +291,7 @@ static void BM_hpack_huffman_encode_utf8_generated(benchmark::State& state) {
 
 			const auto actual_result = result.data.result;
 
-			const auto expected_result = buffer_from_raw_data(test_case.encoded);
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
 
 			assert(actual_result == expected_result);
 		}
@@ -332,10 +335,9 @@ static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 
 			assert(error == nullptr);
 
-			const auto intermediary_result = result.data.result;
+			const auto intermediary_result = readonly_buffer_from_sized_buffer(result.data.result);
 
-			auto result_dec =
-			    hpack_huffman_decode_bytes(intermediary_result.data, intermediary_result.size);
+			auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
 			CAutoFreePtr<HuffmanDecodeResult> defer2 = { &result_dec,
 				                                         helpers::free_huffman_decode_result };
 
@@ -349,7 +351,7 @@ static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 
 			const auto actual_result = result_dec.data.result;
 
-			const auto expected_result = buffer_from_raw_data(test_case.value);
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.value);
 
 			assert(actual_result == expected_result);
 		}

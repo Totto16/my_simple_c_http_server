@@ -1,4 +1,5 @@
 
+#include <support/generic.hpp>
 #include <support/helpers.hpp>
 #include <support/helpers/hpack.hpp>
 
@@ -41,7 +42,7 @@
 \
 						REQUIRE_EQ(single_case.seqno, i); \
 \
-						const auto input = buffer_from_raw_data(single_case.wire_data); \
+						const auto input = helpers::buffer_from_raw_data(single_case.wire_data); \
 \
 						if(!test_case.header_mode.all_the_same && \
 						   single_case.header_table_size.has_value()) { \

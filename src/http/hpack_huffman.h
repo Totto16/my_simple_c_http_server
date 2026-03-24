@@ -18,7 +18,7 @@ typedef struct {
 	} data;
 } HuffmanDecodeResult;
 
-NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(const void* data, size_t size);
+NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(ReadonlyBuffer buffer);
 
 NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* str);
 

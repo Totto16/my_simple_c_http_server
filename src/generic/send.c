@@ -44,8 +44,8 @@ GenericResult send_data_to_connection(const ConnectionDescriptor* const descript
 	return GENERIC_RES_OK();
 }
 
-NODISCARD GenericResult
-send_sized_buffer_to_connection(const ConnectionDescriptor* const descriptor, SizedBuffer buffer) {
+NODISCARD GenericResult send_buffer_to_connection(const ConnectionDescriptor* const descriptor,
+                                                  SizedBuffer buffer) {
 	return send_data_to_connection(descriptor, buffer.data, buffer.size);
 }
 
@@ -55,7 +55,7 @@ GenericResult send_string_builder_to_connection(const ConnectionDescriptor* cons
 
 	SizedBuffer string_buffer = string_builder_release_into_sized_buffer(string_builder);
 
-	GenericResult result = send_sized_buffer_to_connection(descriptor, string_buffer);
+	GenericResult result = send_buffer_to_connection(descriptor, string_buffer);
 	free_sized_buffer(string_buffer);
 	return result;
 }

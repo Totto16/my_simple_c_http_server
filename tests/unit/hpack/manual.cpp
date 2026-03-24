@@ -3,6 +3,7 @@
 
 #include "generated_hpack_tests.hpp"
 
+#include <support/generic.hpp>
 #include <support/helpers.hpp>
 #include <support/helpers/hpack.hpp>
 
@@ -38,12 +39,12 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 
 		SUBCASE(case_name) {
 			[&test_case]() -> void {
-				const auto input = buffer_from_raw_data(test_case.values);
+				const auto input = helpers::buffer_from_raw_data(test_case.values);
 
 				size_t pos = 0;
 
 				const auto result = decode_hpack_variable_integer(
-				    &pos, input.size, (std::uint8_t*)input.data, test_case.prefix_bits);
+				    &pos, input.size, (const std::uint8_t*)input.data, test_case.prefix_bits);
 
 				REQUIRE_IS_NOT_ERROR(result);
 
@@ -66,12 +67,12 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const size_t prefix_bits = 5;
 
 			//
-			const auto input = buffer_from_raw_data(raw_data);
+			const auto input = helpers::buffer_from_raw_data(raw_data);
 
 			size_t pos = 0;
 
 			const auto result = decode_hpack_variable_integer(
-			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
+			    &pos, input.size, (const std::uint8_t*)input.data, prefix_bits);
 
 			REQUIRE_IS_NOT_ERROR(result);
 
@@ -85,12 +86,12 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const size_t prefix_bits = 5;
 
 			//
-			const auto input = buffer_from_raw_data(raw_data);
+			const auto input = helpers::buffer_from_raw_data(raw_data);
 
 			size_t pos = 0;
 
 			const auto result = decode_hpack_variable_integer(
-			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
+			    &pos, input.size, (const std::uint8_t*)input.data, prefix_bits);
 
 			REQUIRE(result.is_error);
 
@@ -111,12 +112,12 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const size_t prefix_bits = 5;
 
 			//
-			const auto input = buffer_from_raw_data(raw_data);
+			const auto input = helpers::buffer_from_raw_data(raw_data);
 
 			size_t pos = 0;
 
 			const auto result = decode_hpack_variable_integer(
-			    &pos, input.size, (std::uint8_t*)input.data, prefix_bits);
+			    &pos, input.size, (const std::uint8_t*)input.data, prefix_bits);
 
 			REQUIRE(result.is_error);
 
@@ -201,7 +202,7 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 				        consts::default_header_table_size);
 				REQUIRE_NE(decompress_state.get(), nullptr);
 
-				const auto input = buffer_from_raw_data(test_case.raw_data);
+				const auto input = helpers::buffer_from_raw_data(test_case.raw_data);
 
 				hpack::hacky_trick::HpackDecodingErrorStateHack error_state_stack{};
 
@@ -527,7 +528,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 
 					const auto& subcase = test_case.cases.at(i);
 
-					const auto input = buffer_from_raw_data(subcase.raw_data);
+					const auto input = helpers::buffer_from_raw_data(subcase.raw_data);
 
 					hpack::hacky_trick::HpackDecodingErrorStateHack error_state_stack{};
 

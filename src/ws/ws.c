@@ -90,7 +90,7 @@ send_failed_handshake_message(const ConnectionDescriptor* const descriptor,
 #define EXPECTED_WS_HEADER_SEC_KEY_LENGTH 16
 
 NODISCARD static bool is_valid_sec_key(const tstr* const key) {
-	SizedBuffer b64_result = base64_decode(tstr_cstr(key), tstr_len(key));
+	SizedBuffer b64_result = base64_decode_buffer(readonly_buffer_from_tstr(key));
 	if(!b64_result.data) {
 		return false;
 	}
@@ -102,15 +102,15 @@ NODISCARD static bool is_valid_sec_key(const tstr* const key) {
 
 static const char* const key_accept_constant = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-static char* generate_key_answer(const tstr* const sec_key) {
+static tstr generate_key_answer(const tstr* const sec_key) {
 
 	char* key_to_hash_buffer = NULL;
-	FORMAT_STRING(&key_to_hash_buffer, return NULL;
+	FORMAT_STRING(&key_to_hash_buffer, return tstr_null();
 	              , "%s%s", tstr_cstr(sec_key), key_accept_constant);
 
 	SizedBuffer sha1_hash = get_sha1_from_string(key_to_hash_buffer);
 
-	char* result = base64_encode_buffer(sha1_hash);
+	const tstr result = base64_encode_buffer(readonly_buffer_from_sized_buffer(sha1_hash));
 
 	free_sized_buffer(sha1_hash);
 	free(key_to_hash_buffer);
@@ -329,12 +329,12 @@ GenericResult handle_ws_handshake(const HttpRequest http_request,
 		                      TSTR_LIT("upgrade"));
 	}
 
-	char* key_answer = generate_key_answer(&sec_key);
+	const tstr key_answer = generate_key_answer(&sec_key);
 
-	if(key_answer != NULL) {
+	if(!tstr_is_null(&key_answer)) {
 
 		add_http_header_field(&additional_headers, HTTP_HEADER_NAME(ws_sec_websocket_accept),
-		                      tstr_own_cstr(key_answer));
+		                      key_answer);
 	}
 
 	if(!TVEC_IS_EMPTY(WSExtension, *extensions)) {

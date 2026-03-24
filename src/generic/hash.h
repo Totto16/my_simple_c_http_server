@@ -30,11 +30,9 @@ void free_hash_salted_result(HashSaltResultType* hash_salted_string);
 
 NODISCARD SizedBuffer get_sha1_from_string(const char* string);
 
-NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer);
+NODISCARD tstr base64_encode_buffer(ReadonlyBuffer input_buffer);
 
-NODISCARD SizedBuffer base64_decode(const void* data, size_t size);
-
-NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer);
+NODISCARD SizedBuffer base64_decode_buffer(ReadonlyBuffer input_buffer);
 
 NODISCARD const char* get_sha1_provider(void);
 

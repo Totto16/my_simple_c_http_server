@@ -832,7 +832,8 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view v
 				                          .data = { .error = "data was empty" } };
 		}
 
-		SizedBuffer decoded = base64_decode(auth_param.data, auth_param.len);
+		SizedBuffer decoded = base64_decode_buffer(
+		    (ReadonlyBuffer){ .data = auth_param.data, .size = auth_param.len });
 
 		if(!decoded.data) {
 			return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,

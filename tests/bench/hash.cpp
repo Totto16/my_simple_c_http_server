@@ -255,19 +255,19 @@ static void BM_base64_dec(benchmark::State& state) {
 
 		for(const auto& test_case : base64_test_cases) {
 
-			SizedBuffer input = helpers::buffer_from_string(test_case.base64);
+			ReadonlyBuffer input = helpers::buffer_from_string(test_case.base64);
 
 			const SizedBuffer result = base64_decode_buffer(input);
 
 			assert(result.data != nullptr);
 
-			if(input.size != 0) {
+			if(test_case.base64.size() != 0) {
 				assert(result.size != 0);
 			} else {
 				assert(result.size == 0);
 			}
 
-			SizedBuffer expected_result = helpers::buffer_from_string(test_case.raw);
+			const auto expected_result = helpers::vector_from_string(test_case.raw);
 
 			assert(result == expected_result);
 
@@ -285,16 +285,16 @@ static void BM_base64_enc(benchmark::State& state) {
 		// This code gets timed
 
 		for(const auto& test_case : base64_test_cases) {
+			ReadonlyBuffer input = helpers::buffer_from_string(test_case.raw);
 
-			SizedBuffer input = helpers::buffer_from_string(test_case.raw);
+			tstr result = base64_encode_buffer(input);
+			CAutoFreePtr<tstr> defer_tstr = { &result, tstr_free };
 
-			char* result = base64_encode_buffer(input);
+			assert(!tstr_is_null(&result));
 
-			assert(result != nullptr);
+			std::string result_str = string_from_tstr(result);
 
-			std::string result_str{ result };
-
-			if(input.size != 0) {
+			if(test_case.raw.size() != 0) {
 				assert(result_str.size() != 0);
 			} else {
 				assert(result_str.size() == 0);
@@ -302,9 +302,9 @@ static void BM_base64_enc(benchmark::State& state) {
 
 			const std::string& expected_result = test_case.base64;
 
-			assert(result == expected_result);
+			const std::string& actual_result = string_from_tstr(result);
 
-			free(result);
+			assert(actual_result == expected_result);
 		}
 	}
 }
