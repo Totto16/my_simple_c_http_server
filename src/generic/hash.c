@@ -231,7 +231,7 @@ SizedBuffer get_sha1_from_string(const char* const string) {
 
 	SHA1Init(&sha_context);
 
-	SHA1Update(&sha_context, (uint8_t*)string, strlen(string));
+	SHA1Update(&sha_context, (const uint8_t*)string, strlen(string));
 
 	uint8_t* sha1_result = malloc(SHA1_LEN * sizeof(uint8_t));
 
@@ -336,6 +336,11 @@ NODISCARD SizedBuffer base64_decode_buffer(const ReadonlyBuffer input_buffer) {
 #else
 
 	#include <b64/b64.h>
+
+NODISCARD tstr base64_encode_buffer(const ReadonlyBuffer input_buffer) {
+	char* const result = b64_encode(input_buffer.data, input_buffer.size);
+	return tstr_own_cstr(result);
+}
 
 NODISCARD SizedBuffer base64_decode_buffer(const ReadonlyBuffer input_buffer) {
 	size_t result_size = 0;
