@@ -8,7 +8,7 @@
 
 static void setup_global_timeout_multiplier() {
 
-	char* const env_timeout = getenv("DOCTEST_TEST_MULTIPLIER");
+	const char* const env_timeout = getenv("DOCTEST_TEST_MULTIPLIER");
 
 	if(env_timeout == NULL) {
 		g_doctest_timeout_multiplier = 1;
@@ -17,9 +17,9 @@ static void setup_global_timeout_multiplier() {
 
 	bool success = false;
 
-	const tstr env_timeout_tstr = tstr_own_cstr(env_timeout);
+	const tstr_view env_timeout_view = tstr_view_from(env_timeout);
 
-	const uint64_t env_timeout_val = parse_u64(tstr_as_view(&env_timeout_tstr), &success);
+	const uint64_t env_timeout_val = parse_u64(env_timeout_view, &success);
 
 	if(!success) {
 		goto set_default;
