@@ -181,7 +181,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	Http2StreamStateReserved,
 	Http2StreamStateOpen,
 	Http2StreamStateHalfClosed,
-	Http2StreamStateClosed
+	Http2StreamStateClosed,
 } Http2StreamState;
 
 TVEC_DEFINE_VEC_TYPE(SizedBuffer)
@@ -259,7 +259,7 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* context, BufferedR
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	Http2PrefaceStatusOk = 0,
 	Http2PrefaceStatusErr,
-	Http2PrefaceStatusNotEnoughData
+	Http2PrefaceStatusNotEnoughData,
 } Http2PrefaceStatus;
 
 NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,

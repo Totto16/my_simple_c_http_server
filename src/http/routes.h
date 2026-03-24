@@ -19,7 +19,7 @@ typedef struct RouteManagerImpl RouteManager;
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRouteFnTypeExecutor = 0,
 	HTTPRouteFnTypeExecutorExtended,
-	HTTPRouteFnTypeExecutorAuth
+	HTTPRouteFnTypeExecutorAuth,
 } HTTPRouteFnType;
 
 typedef HTTPResponseToSend (*HTTPRouteFnExecutor)(ParsedURLPath path, bool send_body);
@@ -53,7 +53,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRouteTypeNormal = 0,
 	HTTPRouteTypeSpecial,
 	HTTPRouteTypeInternal,
-	HTTPRouteTypeServeFolder
+	HTTPRouteTypeServeFolder,
 } HTTPRouteType;
 
 /**

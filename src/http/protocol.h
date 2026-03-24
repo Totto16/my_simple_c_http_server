@@ -87,7 +87,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRequestMethodHead,
 	HTTPRequestMethodOptions,
 	HTTPRequestMethodConnect,
-	HTTPRequestMethodPRI
+	HTTPRequestMethodPRI,
 } HTTPRequestMethod;
 
 /**
@@ -156,7 +156,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HttpRequestErrorTypeInvalidHttp2Preface,
 	HttpRequestErrorTypeLengthRequired,
 	HttpRequestErrorTypeProtocolError,
-	HttpRequestErrorTypeNotSupported
+	HttpRequestErrorTypeNotSupported,
 } HttpRequestErrorType;
 
 NODISCARD const char* get_error_string_for_http_request_error_type(HttpRequestErrorType type);

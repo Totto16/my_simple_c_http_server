@@ -16,7 +16,7 @@ typedef struct WebSocketConnectionImpl WebSocketConnection;
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	WebSocketActionContinue = 0,
 	WebSocketActionError,
-	WebSocketActionClose
+	WebSocketActionClose,
 } WebSocketAction;
 
 typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,

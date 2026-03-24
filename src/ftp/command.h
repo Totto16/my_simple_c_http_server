@@ -58,7 +58,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FtpCommandEnc,
 	// see: https://datatracker.ietf.org/doc/html/rfc2389
 	FtpCommandFeat,
-	FtpCommandOpts
+	FtpCommandOpts,
 } FtpCommandEnum;
 
 typedef struct {

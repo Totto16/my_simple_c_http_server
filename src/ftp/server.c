@@ -1506,7 +1506,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		socklen_t addr_len = sizeof(client_addr);
 
 		// would be better to set cancel state in the right places!!
-		int connection_fd = accept(argument.socket_fd, (struct sockaddr*)&client_addr, &addr_len);
+		const NativeFd connection_fd = accept(argument.socket_fd, (struct sockaddr*)&client_addr, &addr_len);
 		CHECK_FOR_ERROR(connection_fd, "While Trying to accept a socket",
 		                return LISTENER_ERROR_ACCEPT;);
 

@@ -13,7 +13,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	AccountPermissionsNone = 0x00,
 	AccountPermissionsRead = 0x01,
 	AccountPermissionsWrite = 0x02,
-	AccountPermissionsReadWrite = AccountPermissionsRead | AccountPermissionsWrite
+	AccountPermissionsReadWrite = AccountPermissionsRead | AccountPermissionsWrite,
 } AccountPermissions;
 
 /**

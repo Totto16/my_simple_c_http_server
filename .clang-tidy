@@ -26,8 +26,14 @@ Checks: >
   -modernize-use-trailing-return-type,
   -portability-avoid-pragma-once,
   -readability-use-concise-preprocessor-directives,
-  custom-*
-WarningsAsErrors: "custom-*"
+  -modernize-redundant-void-arg,
+  -readability-trailing-comma,
+  -readability-redundant-parentheses,
+  custom-*,
+  totto-*
+WarningsAsErrors: >
+  custom-*,
+  totto-*
 HeaderFilterRegex: "src/.*"
 ExcludeHeaderFilterRegex: src/thirdparty/.*|subprojects/.*
 FormatStyle: "file"
@@ -225,12 +231,27 @@ CustomChecks:
       - BindName: func
         Message: Function that uses this parameter
         Level: Note
+  - Name: no-auto.usage
+    # Description todo
+    Query: |
+      match varDecl(
+              hasType(
+                qualType(
+                  hasCanonicalType(
+                    autoType(
+                    ) 
+                  )
+                )
+              )
+            ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: Don't use auto in C
+        Level: Warning
 
 #TODO:
 # don't use string literals, always wrap them in TSTR_LIT or TSTR_STATIC_LIT
 # don't use char* or const char*, only us tstr or tstr_static!
-# always use const for paramaters in the implementation!
-# don't use int or long or short, use fixed width values!
 # don't use strcmp or memcmp
 # don't pass tstr pointer to memcpy or functions with void*, never able to convert to void*!!
 # don't use strlen

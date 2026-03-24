@@ -46,7 +46,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FtpStructureFile = 0,
 	FtpStructureRecord,
-	FtpStructurePage
+	FtpStructurePage,
 } FtpStructure;
 
 /**

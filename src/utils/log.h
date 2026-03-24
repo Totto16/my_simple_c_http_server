@@ -60,7 +60,7 @@ LevelAndFlags get_level_and_flags(FLAGS_TYPE level_and_flags);
 	do { \
 		LevelAndFlags destructured = get_level_and_flags(level_and_flags); \
 		LogLevel level = destructured.level; \
-		int flags = destructured.flags; \
+		LogFlags flags = destructured.flags; \
 		if(log_should_log(level)) { \
 			bool should_log_to_stderr = log_should_log_to_stderr(level); \
 			bool should_use_color = log_should_use_color(should_log_to_stderr); \

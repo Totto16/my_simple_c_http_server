@@ -51,8 +51,10 @@ NODISCARD ConnectionContext* copy_connection_context(const ConnectionContext* ol
 
 void free_connection_context(ConnectionContext* context);
 
+typedef int NativeFd;
+
 NODISCARD ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* context,
-                                                          int native_fd);
+                                                          NativeFd native_fd);
 
 NODISCARD int close_connection_descriptor(ConnectionDescriptor* descriptor);
 

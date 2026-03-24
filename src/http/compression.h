@@ -20,7 +20,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	CompressionTypeDeflate,
 	CompressionTypeBr,
 	CompressionTypeZstd,
-	CompressionTypeCompress
+	CompressionTypeCompress,
 } CompressionType;
 
 NODISCARD bool is_compression_supported(CompressionType format);

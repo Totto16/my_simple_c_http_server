@@ -127,7 +127,7 @@ NODISCARD static AuthenticationProviders* initialize_default_authentication_prov
 	} else {
 
 		const SimpleUserEntry entries[] = {
-			{ .username = TSTR_LIT("admin"), .password = TSTR_LIT("admin"), .role = UserRoleAdmin }
+			{ .username = TSTR_LIT("admin"), .password = TSTR_LIT("admin"), .role = UserRoleAdmin },
 		};
 
 		for(size_t i = 0; i < sizeof(entries) / sizeof(*entries); ++i) {
@@ -537,7 +537,7 @@ static int rich_main(const ProgramArgs args) {
 	return EXIT_FAILURE;
 }
 
-int main(const int argc, const char* const* const argv) {
-	ProgramArgs args = { .size = argc, .data = argv };
+int main(const int argc, const char* const* const argv) { // NOLINT(totto-use-fixed-width-types-var)
+	const ProgramArgs args = { .size = argc, .data = argv };
 	return rich_main(args);
 }

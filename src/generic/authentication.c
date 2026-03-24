@@ -84,8 +84,10 @@ NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void
 	auth_provider->type = AuthenticationProviderTypeSimple;
 	auth_provider->data.simple =
 	    (SimpleAuthenticationProviderData){ .entries = TMAP_INIT(SimpleAccountEntryHashMap),
-		                                    .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
-		                                                  .use_sha512 = true } };
+		                                    .settings = {
+		                                        .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
+		                                        .use_sha512 = true,
+		                                    } };
 
 	return auth_provider;
 #endif
@@ -287,8 +289,17 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 	#define INITIAL_SIZE_FOR_LINUX_FUNCS 0xFF
 
-NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* const username,
-                                                       gid_t* const group_id) {
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	LinuxUserResponseError = 0,
+	LinuxUserResponseOk,
+	LinuxUserResponseNoSuchUser,
+} LinuxUserResponse;
+
+NODISCARD MAYBE_UNUSED static LinuxUserResponse check_for_user_linux(const char* const username,
+                                                                     gid_t* const group_id) {
 
 	struct passwd result = {};
 
@@ -296,7 +307,7 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* const usernam
 
 	SizedBuffer buffer = { .data = NULL, .size = 0 };
 
-	long initial_size = sysconf(_SC_GETPW_R_SIZE_MAX);
+	long initial_size = sysconf(_SC_GETPW_R_SIZE_MAX); // NOLINT(totto-use-fixed-width-types-var)
 
 	if(initial_size < 0) {
 		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
@@ -305,23 +316,24 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* const usernam
 	buffer.data = malloc(initial_size);
 
 	if(!buffer.data) {
-		return -1;
+		return LinuxUserResponseError;
 	}
 
 	buffer.size = initial_size;
 
 	while(true) {
 
-		int res = getpwnam_r(username, &result, buffer.data, buffer.size, &result_ptr);
+		int res = // NOLINT(totto-use-fixed-width-types-var)
+		    getpwnam_r(username, &result, buffer.data, buffer.size, &result_ptr);
 
 		if(res == 0) {
 			free_sized_buffer(buffer);
 			if(result_ptr == NULL) {
-				return 0;
+				return LinuxUserResponseNoSuchUser;
 			}
 
 			*group_id = result_ptr->pw_gid;
-			return 1;
+			return LinuxUserResponseOk;
 		}
 
 		if(res == ERANGE) {
@@ -331,7 +343,7 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* const usernam
 				free(buffer.data); // not calling free_sized_buffer, as the size is invalid, and if
 				                   // we in the future might use free_sized with own memory
 				                   // allocator, it could go wrong
-				return -1;
+				return LinuxUserResponseError;
 			}
 
 			buffer.data = new_data;
@@ -339,7 +351,7 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* const usernam
 		}
 
 		free_sized_buffer(buffer);
-		return -1;
+		return LinuxUserResponseError;
 	}
 }
 
@@ -353,7 +365,7 @@ NODISCARD static char* get_group_name(const gid_t group_id) {
 
 	SizedBuffer buffer = { .data = NULL, .size = 0 };
 
-	long initial_size = sysconf(_SC_GETGR_R_SIZE_MAX);
+	long initial_size = sysconf(_SC_GETGR_R_SIZE_MAX); // NOLINT(totto-use-fixed-width-types-var)
 
 	if(initial_size < 0) {
 		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
@@ -369,7 +381,8 @@ NODISCARD static char* get_group_name(const gid_t group_id) {
 
 	while(true) {
 
-		int res = getgrgid_r(group_id, &result, buffer.data, buffer.size, &result_ptr);
+		int res = // NOLINT(totto-use-fixed-width-types-var)
+		    getgrgid_r(group_id, &result, buffer.data, buffer.size, &result_ptr);
 
 		if(res == 0) {
 			if(result_ptr == NULL) {
@@ -404,9 +417,10 @@ NODISCARD static char* get_group_name(const gid_t group_id) {
 NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* const username,
                                                                const gid_t group_id) {
 
-	int ngroups = 0;
+	int ngroups = 0; // NOLINT(totto-use-fixed-width-types-var)
 
-	int res = getgrouplist(username, group_id, NULL, &ngroups);
+	int res = // NOLINT(totto-use-fixed-width-types-var)
+	    getgrouplist(username, group_id, NULL, &ngroups);
 
 	if(res != -1) {
 		return UserRoleNone;
@@ -416,7 +430,7 @@ NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* const
 
 	res = getgrouplist(username, ngroups, group_ids, &ngroups);
 
-	if(res < 0) {
+	if(res < 0 || ngroups < 0) {
 		free(group_ids);
 		return UserRoleNone;
 	}
@@ -425,7 +439,7 @@ NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* const
 	// admin etc
 	UserRole role = UserRoleNone;
 
-	for(int i = 0; i < ngroups; i++) {
+	for(size_t i = 0; i < (size_t)ngroups; i++) {
 		char* name = get_group_name(group_ids[i]);
 		if(name == NULL) {
 			continue;
@@ -473,10 +487,11 @@ typedef struct {
 
 // based on
 // https://github.com/linux-pam/linux-pam/blob/e3b66a60e4209e019cf6a45f521858cec2dbefa1/libpam_misc/misc_conv.c#L280
-NODISCARD static int pam_conversation_for_password(const int num_msg,
-                                                   const struct pam_message** const msgs,
-                                                   struct pam_response** const resp,
-                                                   ANY_TYPE(PamAppdata) const appdata_ptr) {
+NODISCARD static int
+pam_conversation_for_password(const int num_msg, // NOLINT(totto-use-fixed-width-types-var)
+                              const struct pam_message** const msgs,
+                              struct pam_response** const resp,
+                              ANY_TYPE(PamAppdata) const appdata_ptr) {
 
 	const PamAppdata* const appdata = (PamAppdata* const)appdata_ptr;
 
@@ -489,7 +504,7 @@ NODISCARD static int pam_conversation_for_password(const int num_msg,
 		return PAM_CONV_ERR;
 	}
 
-	for(int i = 0; i < num_msg; ++i) {
+	for(size_t i = 0; i < (size_t)num_msg; ++i) {
 		const struct pam_message* msg = msgs[i];
 
 		switch(msg->msg_style) {
@@ -536,14 +551,14 @@ NODISCARD static PamUserResponse pam_is_user_password_combo_ok(
 
 	pam_handle_t* pamh = NULL;
 
-	PamAppdata app__data = { .password = password };
+	PamAppdata app_data = { .password = password };
 
-	struct pam_conv conv = { .conv = pam_conversation_for_password, .appdata_ptr = &app__data };
+	struct pam_conv conv = { .conv = pam_conversation_for_password, .appdata_ptr = &app_data };
 
-	int res = pam_start("check_user", username, &conv, &pamh);
+	int res = // NOLINT(totto-use-fixed-width-types-var)
+	    pam_start("check_user", username, &conv, &pamh);
 
 	if(res != PAM_SUCCESS) {
-
 		LOG_MESSAGE(LogLevelError, "pam_start failed: %s\n", pam_strerror(pamh, res));
 		return PamUserResponseError;
 	}
@@ -572,7 +587,7 @@ NODISCARD static PamUserResponse pam_is_user_password_combo_ok(
 		}
 	}
 
-	int pam_end_res = pam_end(pamh, res);
+	int pam_end_res = pam_end(pamh, res); // NOLINT(totto-use-fixed-width-types-var)
 
 	if(pam_end_res != PAM_SUCCESS) {
 		return PamUserResponseError;
@@ -599,31 +614,46 @@ authentication_provider_system_find_user_with_password_linux(
 
 	gid_t group_id = 0;
 
-	int does_user_exist = check_for_user_linux(tstr_cstr(username), &group_id);
+	const LinuxUserResponse user_response = check_for_user_linux(tstr_cstr(username), &group_id);
 
-	if(does_user_exist < 0) {
-		return (AuthenticationFindResult){
-			.validity = AuthenticationValidityError,
-			.data = { .error = { .error_message = "couldn'T fetch user information" } }
-		};
+	switch(user_response) {
+		case LinuxUserResponseNoSuchUser: {
+			return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
+				                               .data = {} };
+		}
+		case LinuxUserResponseOk: {
+			break;
+		}
+		case LinuxUserResponseError:
+		default: {
+			return (AuthenticationFindResult){
+				.validity = AuthenticationValidityError,
+				.data = { .error = { .error_message = "couldn't fetch user information" } }
+			};
+		}
 	}
 
-	if(!does_user_exist) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
-			                               .data = {} };
-	}
+	const PamUserResponse pam_response =
+	    pam_is_user_password_combo_ok(tstr_cstr(username), tstr_cstr(password));
 
-	int password_matches = pam_is_user_password_combo_ok(tstr_cstr(username), tstr_cstr(password));
+	switch(pam_response) {
 
-	if(password_matches < 0) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
-			                               .data = { .error = { .error_message =
-			                                                        "pam checking failed" } } };
-	}
-
-	if(!password_matches) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
-			                               .data = {} };
+		case PamUserResponseNoSuchUser: {
+			return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
+				                               .data = {} };
+		}
+		case PamUserResponseOk: {
+			break;
+		}
+		case PamUserResponseError: {
+			return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
+				                               .data = {} };
+		}
+		default: {
+			return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
+				                               .data = { .error = { .error_message =
+				                                                        "pam checking failed" } } };
+		}
 	}
 
 	UserRole role = get_role_for_linux_user(tstr_cstr(username), group_id);

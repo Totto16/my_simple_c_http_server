@@ -1,7 +1,7 @@
 [wrap-git]
 directory = tvec.h
 url = https://github.com/Totto16/tvec.h.git
-revision = acfff1ad0015843e3482f7a4f0a9ae2d1a5bbf31
+revision = ade64e60c98377aaaaee68faa3ec456aa7dfe6aa
 depth = 1
 
 [provide]
