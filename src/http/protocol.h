@@ -159,13 +159,13 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HttpRequestErrorTypeNotSupported,
 } HttpRequestErrorType;
 
-NODISCARD const char* get_error_string_for_http_request_error_type(HttpRequestErrorType type);
+NODISCARD tstr_static get_error_string_for_http_request_error_type(HttpRequestErrorType type);
 
 typedef struct {
 	bool is_advanced;
 	union {
 		HttpRequestErrorType enum_value;
-		const char* advanced;
+		tstr_static advanced;
 	} value;
 } HttpRequestError;
 
@@ -182,9 +182,9 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 typedef struct {
 	HTTPPropertyType type;
 	union {
-		ParsedURLPath normal; // Method: POST | GET | HEAD
-		uint64_t todo_options;     // Method: OPTIONS
-		uint64_t todo_connect;     // Method: CONNECT
+		ParsedURLPath normal;  // Method: POST | GET | HEAD
+		uint64_t todo_options; // Method: OPTIONS
+		uint64_t todo_connect; // Method: CONNECT
 	} data;
 } HttpRequestProperties;
 

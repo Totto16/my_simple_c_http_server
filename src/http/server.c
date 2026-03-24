@@ -54,9 +54,10 @@ NODISCARD static GenericResult process_http_error(const HttpRequestError error,
 
 		string_builder_append_single(string_builder, "Bad Request: ");
 
-		string_builder_append_single(string_builder, error.value.advanced);
+		string_builder_append_tstr_static(string_builder, error.value.advanced);
 
-		LOG_MESSAGE(LogLevelError, "An advanced error occurred: %s\n", error.value.advanced);
+		LOG_MESSAGE(LogLevelError, "An advanced error occurred: " TSTR_FMT "\n",
+		            TSTR_STATIC_FMT_ARGS(error.value.advanced));
 
 		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
 			                           .body = http_response_body_from_string_builder(
@@ -67,8 +68,11 @@ NODISCARD static GenericResult process_http_error(const HttpRequestError error,
 		return send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 	}
 
-	LOG_MESSAGE(LogLevelWarn, "An enum error occurred: %s\n",
-	            get_error_string_for_http_request_error_type(error.value.enum_value));
+	const tstr_static enum_err =
+	    get_error_string_for_http_request_error_type(error.value.enum_value);
+
+	LOG_MESSAGE(LogLevelWarn, "An enum error occurred: " TSTR_FMT "\n",
+	            TSTR_STATIC_FMT_ARGS(enum_err));
 
 	switch(error.value.enum_value) {
 		case HttpRequestErrorTypeInvalidHttpVersion: {

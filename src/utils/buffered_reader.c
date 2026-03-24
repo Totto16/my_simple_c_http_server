@@ -398,8 +398,13 @@ bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* con
 	// TODO(Totto): maybe half close the tcp connection and check if more data is given, that would
 	// be a client error!
 
-	GenericResult result = close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
-	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", { return false; });
+	GenericResult result =
+	    close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
+	if(result.is_error) {
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "While trying to close the connection descriptor: %s\n", strerror(errno));
+		return false;
+	}
 
 	free_buffered_reader(reader);
 

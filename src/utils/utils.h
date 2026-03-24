@@ -124,16 +124,6 @@
 #define CHECK_RESULT_FOR_THREAD_ERROR(errorString, statement) \
 	CHECK_FOR_THREAD_ERROR(result, errorString, statement)
 
-// TODO(Totto): remove this kind of API, where we print the errro internally
-// copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-NODISCARD int64_t parse_i64_safely(const char* to_parse, const char* description);
-
-NODISCARD int64_t parse_i64(const char* to_parse, OUT_PARAM(bool) success);
-
-NODISCARD size_t parse_size_t(const char* to_parse, OUT_PARAM(bool) success);
-
-NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* description);
-
 // a hacky but good and understandable way that is used with pthread functions
 // to annotate which type the really represent
 #define ANY void*
@@ -181,8 +171,6 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 	LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation), format, __VA_ARGS__)
 
 #define IMPL_STDERR_LOGGER(format, ...) fprintf(stderr, format, __VA_ARGS__)
-
-NODISCARD float parse_float(const char* value, OUT_PARAM(bool) success);
 
 NODISCARD uint32_t get_random_byte(void);
 

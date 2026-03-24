@@ -8,11 +8,12 @@
 #include "http/protocol.h"
 #include "http/send.h"
 #include "utils/log.h"
+#include "utils/number_parsing.h"
 #include "utils/string_builder.h"
 
 #include <strings.h>
 
-NODISCARD static int
+NODISCARD static GenericResult
 send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const descriptor,
                                                HTTPGeneralContext* general_context,
                                                SendSettings send_settings) {
@@ -39,26 +40,30 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 		                           .mime_type = MIME_TYPE_TEXT,
 		                           .additional_headers = additional_headers };
 
-	int result =
+	const GenericResult result =
 	    send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 
-	if(result < 0) {
+	if(result.is_error) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in send_failed_handshake_message)\n");
+		return result;
 	}
-	return -1;
+
+	// note always returning an error, so we can just return ("chain") this value instead of
+	// returning an error, where this is used
+	return GENERIC_RES_ERR_UNIQUE();
 }
 
-NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* const descriptor,
-                                                   HTTPGeneralContext* general_context,
-                                                   const char* error_reason,
-                                                   SendSettings send_settings) {
+NODISCARD static GenericResult
+send_failed_handshake_message(const ConnectionDescriptor* const descriptor,
+                              HTTPGeneralContext* general_context, const char* error_reason,
+                              SendSettings send_settings) {
 
 	LOG_MESSAGE(LogLevelTrace, "Failed WS handshake: %s\n", error_reason);
 
 	StringBuilder* message = string_builder_init();
 
-	STRING_BUILDER_APPENDF(message, return false;
+	STRING_BUILDER_APPENDF(message, return GENERIC_RES_ERR_UNIQUE();
 	                       , "Error: The client handshake was invalid: %s", error_reason);
 
 	HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
@@ -68,20 +73,24 @@ NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* c
 
 	free_string_builder(message);
 
-	int result =
+	const GenericResult result =
 	    send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 
-	if(result < 0) {
+	if(result.is_error) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in send_failed_handshake_message)\n");
+		return result;
 	}
-	return -1;
+
+	// note always returning an error, so we can just return ("chain") this value instead of
+	// returning an error, where this is used
+	return GENERIC_RES_ERR_UNIQUE();
 }
 
 #define EXPECTED_WS_HEADER_SEC_KEY_LENGTH 16
 
 NODISCARD static bool is_valid_sec_key(const tstr* const key) {
-	SizedBuffer b64_result = base64_decode_buffer(sized_buffer_from_tstr(key));
+	SizedBuffer b64_result = base64_decode(tstr_cstr(key), tstr_len(key));
 	if(!b64_result.data) {
 		return false;
 	}
@@ -123,14 +132,15 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HandshakeHeaderHeaderAllFound = 0b11111,
 } NeededHeaderForHandshake;
 
-NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const descriptor,
-                                              HTTPGeneralContext* general_context,
-                                              SendSettings send_settings, WSExtensions extensions) {
+NODISCARD static GenericResult
+are_extensions_supported(const ConnectionDescriptor* const descriptor,
+                         HTTPGeneralContext* general_context, SendSettings send_settings,
+                         WSExtensions extensions) {
 
 	size_t extension_length = TVEC_LENGTH(WSExtension, extensions);
 
 	if(extension_length == 0) {
-		return 0;
+		return GENERIC_RES_OK();
 	}
 
 	// TODO(Totto): support more extensions
@@ -177,7 +187,7 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 		}
 	}
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
 static const bool send_http_upgrade_required_status_code = true;
@@ -196,10 +206,10 @@ static void process_ws_header(const tstr_view value, void* argument) {
 	}
 }
 
-int handle_ws_handshake(const HttpRequest http_request,
-                        const ConnectionDescriptor* const descriptor,
-                        HTTPGeneralContext* general_context, SendSettings send_settings,
-                        WSExtensions* extensions) {
+GenericResult handle_ws_handshake(const HttpRequest http_request,
+                                  const ConnectionDescriptor* const descriptor,
+                                  HTTPGeneralContext* general_context, SendSettings send_settings,
+                                  WSExtensions* extensions) {
 
 	// check if it is a valid Websocket request
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
@@ -300,8 +310,11 @@ int handle_ws_handshake(const HttpRequest http_request,
 		                                     "missing required headers", send_settings);
 	}
 
-	if(are_extensions_supported(descriptor, general_context, send_settings, *extensions) < 0) {
-		return -1;
+	const GenericResult result =
+	    are_extensions_supported(descriptor, general_context, send_settings, *extensions);
+
+	if(result.is_error) {
+		return result;
 	}
 
 	// send server handshake
@@ -361,15 +374,12 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedU
 
 		bool success = true;
 
-		long parsed_long =
-		    parse_long_tstr(tstr_as_view(&fragment_size_parameter->value.val), &success);
+		const size_t parsed =
+		    parse_size_t(tstr_as_view(&fragment_size_parameter->value.val), &success);
 
 		if(success) {
-
-			if(parsed_long >= 0 && (size_t)parsed_long < SIZE_MAX) {
-				result.type = WsFragmentOptionTypeSet;
-				result.data.set.fragment_size = (size_t)parsed_long;
-			}
+			result.type = WsFragmentOptionTypeSet;
+			result.data.set.fragment_size = parsed;
 		}
 	}
 

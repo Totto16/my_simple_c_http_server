@@ -2616,8 +2616,8 @@ process_http2_frame_for_stream(const Http2Identifier stream_identifier, HTTP2Con
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
 				                              .value = {
 				                                  .error = { .is_connection_error = true,
-				                                             .message =
-				                                                 TSTR_STATIC_LIT("unkown frame type to process"9 },
+				                                             .message = TSTR_STATIC_LIT(
+				                                                 "unkown frame type to process") },
 				                              } };
 		}
 	}
@@ -2695,16 +2695,17 @@ process_http2_frame_for_connection(HTTP2Context* const context, const Http2Frame
 			    Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
 				                          .value = {
 				                              .error = { .is_connection_error = true,
-				                                         .message =
+				                                         .message = TSTR_STATIC_LIT(
 				                                             "invalid frame type to process for "
-				                                             "a connection" },
+				                                             "a connection") },
 				                          } };
 		}
 		default: {
 			return (Http2ProcessFrameResult){ .type = Http2ProcessFrameResultTypeError,
 				                              .value = {
 				                                  .error = { .is_connection_error = true,
-				                                             "unkown frame type to process" },
+				                                             TSTR_STATIC_LIT(
+				                                                 "unkown frame type to process") },
 				                              } };
 		}
 	}
@@ -3022,7 +3023,7 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 				                            .error =
 				                                (HttpRequestError){
 				                                    .is_advanced = true,
-				                                    .value = { .advanced = "parse error in parsing http2 headers" ,}
+				                                    .value = { .advanced = TSTR_STATIC_LIT("parse error in parsing http2 headers") ,}
 
 				                                },
 				                        } };
@@ -3040,7 +3041,7 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 				                            .error =
 				                                (HttpRequestError){
 				                                    .is_advanced = true,
-				                                    .value = { .advanced = "error in constructing the body data" ,}
+				                                    .value = { .advanced = TSTR_STATIC_LIT("error in constructing the body data") ,}
 
 				                                },
 				                        } };
@@ -3148,7 +3149,7 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 				                            .error =
 				                                (HttpRequestError){
 				                                    .is_advanced = true,
-				                                    .value = { .advanced = "invalid process frame result type" ,}
+				                                    .value = { .advanced = TSTR_STATIC_LIT("invalid process frame result type") ,}
 
 				                                },
 				                        } };
@@ -3197,8 +3198,8 @@ NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
 		return Http2PrefaceStatusNotEnoughData;
 	}
 
-	if(sized_buffer_eq_with_data(res.value.buffer, HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE,
-	                             SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE)) {
+	if(sized_buffer_eq_data(res.value.buffer, HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE,
+	                        SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE)) {
 
 		return Http2PrefaceStatusOk;
 	}
@@ -3246,7 +3247,8 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 	if(result.is_error) {
 		return (Http2StartResult){
 			.is_error = true,
-			.value = { .error = "error in sending settings frame (server preface)" }
+			.value = { .error =
+			               TSTR_STATIC_LIT("error in sending settings frame (server preface)") }
 		};
 	}
 
@@ -3261,7 +3263,8 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 
 	if(frame.type != Http2FrameTypeSettings) {
 		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = "first frame has to be a settings frame" } };
+			                       .value = { .error = TSTR_STATIC_LIT(
+			                                      "first frame has to be a settings frame") } };
 	}
 
 	// after the parsing of the frame, we can discard that data
@@ -3271,10 +3274,11 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 	    context, MOVE_INTO(frame), buffered_reader_get_connection_descriptor(reader));
 
 	if(process_result.type != Http2ProcessFrameResultTypeOk) {
-		const char* error =
+		const tstr_static error =
 		    (process_result.type == Http2ProcessFrameResultTypeError)
 		        ? process_result.value.error.message
-		        : "error: implementation error (settings frame can't result in a request)";
+		        : TSTR_STATIC_LIT(
+		              "error: implementation error (settings frame can't result in a request)");
 		return (Http2StartResult){ .is_error = true, .value = { .error = error } };
 	}
 
@@ -3291,7 +3295,8 @@ NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context*
 	if(read_result.type != BufferedReadResultTypeOk) {
 
 		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = "unable to read magic http2 preface" } };
+			                       .value = { .error = TSTR_STATIC_LIT(
+			                                      "unable to read magic http2 preface") } };
 	}
 
 	const SizedBuffer buffer = read_result.value.buffer;
@@ -3299,7 +3304,8 @@ NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context*
 	if(!sized_buffer_eq_data(buffer, HTTP2_CLIENT_PREFACE, SIZEOF_HTTP2_CLIENT_PREFACE)) {
 
 		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = "magic http2 preface not correct" } };
+			                       .value = { .error = TSTR_STATIC_LIT(
+			                                      "magic http2 preface not correct") } };
 	}
 
 	Http2FrameResult frame_result = parse_http2_frame(context, reader);
@@ -3313,7 +3319,8 @@ NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context*
 
 	if(frame.type != Http2FrameTypeSettings) {
 		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = "first frame has to be a settings frame" } };
+			                       .value = { .error = TSTR_STATIC_LIT(
+			                                      "first frame has to be a settings frame") } };
 	}
 
 	// after the parsing of the frame, we can discard that data
@@ -3323,10 +3330,11 @@ NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context*
 	    context, MOVE_INTO(frame), buffered_reader_get_connection_descriptor(reader));
 
 	if(process_result.type != Http2ProcessFrameResultTypeOk) {
-		const char* error =
+		const tstr_static error =
 		    process_result.type == Http2ProcessFrameResultTypeError
 		        ? process_result.value.error.message
-		        : "error: implementation error (settings frame can't result in a request)";
+		        : TSTR_STATIC_LIT(
+		              "error: implementation error (settings frame can't result in a request)");
 		return (Http2StartResult){ .is_error = true, .value = { .error = error } };
 	}
 
@@ -3341,12 +3349,12 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 	// send settings frame first:
 	const Http2SettingsFrame frame_to_send = get_start_settings_frame(&(context->state));
 
-	int result =
+	const GenericResult result =
 	    http2_send_settings_frame(buffered_reader_get_connection_descriptor(reader), frame_to_send);
 
 	free_http2_settings_frame(frame_to_send);
 
-	if(result < 0) {
+	if(result.is_error) {
 		free_sized_buffer(settings_data);
 
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
@@ -3354,7 +3362,7 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 				                            .error =
 				                                (HttpRequestError){
 				                                    .is_advanced = true,
-				                                    .value = { .advanced = "error in sending settings frame (server preface)" ,}
+				                                    .value = { .advanced = TSTR_STATIC_LIT("error in sending settings frame (server preface)") ,}
 
 				                                },
 				                        } };
@@ -3390,7 +3398,7 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 				                            .error =
 				                                (HttpRequestError){
 				                                    .is_advanced = true,
-				                                    .value = { .advanced = "error: implementation error parsing settings frame didn't result in one",}
+				                                    .value = { .advanced = TSTR_STATIC_LIT("error: implementation error parsing settings frame didn't result in one"),}
 
 				                                },
 				                        } };
@@ -3427,11 +3435,11 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 	};
 
 	if(!add_new_http2_stream(context, stream_identifier, new_stream)) {
-		return (
-		    HttpRequestResult){ .type = HttpRequestResultTypeError,
-			                    .value = { .error = (HttpRequestError){
-			                                   .is_advanced = true,
-			                                   .value = { .advanced = "stream insert error" } } } };
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
+			                        .value = { .error = (HttpRequestError){
+			                                       .is_advanced = true,
+			                                       .value = { .advanced = TSTR_STATIC_LIT(
+			                                                      "stream insert error") } } } };
 	}
 
 	new_http2_request.head.request_line.protocol_data =
@@ -3531,7 +3539,7 @@ NODISCARD GenericResult http2_send_headers(const ConnectionDescriptor* descripto
 				.identifier = identifier,
 			};
 			const GenericResult result = http2_send_headers_frame(descriptor, frame);
-			if(result < 0) {
+			if(result.is_error) {
 				return result;
 			}
 		} else {

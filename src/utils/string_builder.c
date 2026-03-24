@@ -26,15 +26,15 @@ StringBuilder* string_builder_init() {
 
 // the actual append method, it accepts a string builder where to append and then appends the body
 // string there
-static int string_builder_append_string_impl(StringBuilder* string_builder, const char* string,
-                                             size_t size) {
+static GenericResult string_builder_append_string_impl(StringBuilder* string_builder,
+                                                       const char* string, size_t size) {
 
 	if(size == 0) {
-		return 0;
+		return GENERIC_RES_OK();
 	}
 
 	if(string_builder == NULL) {
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	size_t current_size = TVEC_LENGTH(char, string_builder->value);
@@ -52,13 +52,13 @@ static int string_builder_append_string_impl(StringBuilder* string_builder, cons
 	// TODO(Totto): make this a public function on the TVEC
 	memcpy(string_builder->value.data + current_size - (current_size == 0 ? 0 : 1), string, size);
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
-int string_builder_append_string(StringBuilder* string_builder, char* string) {
+GenericResult string_builder_append_string(StringBuilder* string_builder, char* string) {
 	size_t length = strlen(string);
 
-	int result = string_builder_append_string_impl(string_builder, string, length);
+	const GenericResult result = string_builder_append_string_impl(string_builder, string, length);
 
 	free(string);
 
@@ -66,27 +66,33 @@ int string_builder_append_string(StringBuilder* string_builder, char* string) {
 }
 
 // simple wrapper if just a constant string has to be appended
-int string_builder_append_single(StringBuilder* string_builder, const char* static_string) {
+GenericResult string_builder_append_single(StringBuilder* string_builder,
+                                           const char* static_string) {
 	size_t length = strlen(static_string);
 
 	return string_builder_append_string_impl(string_builder, static_string, length);
 }
 
-int string_builder_append_string_builder(StringBuilder* string_builder,
-                                         StringBuilder** string_builder2) {
+GenericResult string_builder_append_tstr_static(StringBuilder* string_builder,
+                                                tstr_static static_string) {
+	return string_builder_append_string_impl(string_builder, static_string.ptr, static_string.len);
+}
+
+GenericResult string_builder_append_string_builder(StringBuilder* string_builder,
+                                                   StringBuilder** string_builder2) {
 
 	if(string_builder2 == NULL) {
-		return -1;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	if(*string_builder2 == NULL) {
-		return -2;
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
 	SizedBuffer string_builder_2_buffer = string_builder_release_into_sized_buffer(string_builder2);
 
-	int result = string_builder_append_string_impl(string_builder, string_builder_2_buffer.data,
-	                                               string_builder_2_buffer.size);
+	const GenericResult result = string_builder_append_string_impl(
+	    string_builder, string_builder_2_buffer.data, string_builder_2_buffer.size);
 
 	free_sized_buffer(string_builder_2_buffer);
 

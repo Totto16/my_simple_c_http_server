@@ -130,7 +130,7 @@ CreateError pool_create(ThreadPool* pool, size_t size) {
 	// initialize the queue, this queue is synchronized internally, so it has to do some work with a
 	// synchronization method (here not necessary to know how it's implemented, but it'S a
 	// semaphore)
-	if(tqueue_init(&(pool->job_queue)) < 0) {
+	if(tqueue_init(&(pool->job_queue)).is_error) {
 		return CreateErrorQueueInit;
 	}
 
@@ -225,7 +225,7 @@ static JobId* int_pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_T
 	                "Couldn't initialize the internal thread pool Semaphore for a single job",
 	                return SUBMIT_ERROR_SEM_INIT;);
 	// then finally push the job to the queue, so it can worked upon
-	if(tqueue_push(&(pool->job_queue), job_escription) < 0) {
+	if(tqueue_push(&(pool->job_queue), job_escription).is_error) {
 		return SUBMIT_ERROR_QUEUE_PUSH;
 	}
 	// after the push the semaphore gets posted, so a worker can get the job already, if available
@@ -290,7 +290,7 @@ ANY_TYPE(JobResult) pool_await(JobId* job_escription) {
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined
 // behaviour! this cn also block, until all jobs are finished
-int pool_destroy(ThreadPool* pool) {
+GenericResult pool_destroy(ThreadPool* pool) {
 
 	// first set shutdown Flag to true for all, then afterwards check if they did, (or are waiting
 	// for the semaphore to increment)
@@ -311,20 +311,22 @@ int pool_destroy(ThreadPool* pool) {
 		CHECK_FOR_THREAD_ERROR(result,
 		                       "An Error occurred while trying to wait for a Worker "
 		                       "Thread in the implementation of thread pool",
-		                       return -2;);
+		                       return GENERIC_RES_ERR_UNIQUE(););
 	}
 
 	// free the struct allocated by pool_create
 	free(pool->worker_threads);
 
 	// destroy the queue!
-	if(tqueue_destroy(&(pool->job_queue)) < 0) {
-		return -1;
+	const GenericResult destroy_result = tqueue_destroy(&(pool->job_queue));
+	if(destroy_result.is_error) {
+		return destroy_result;
 	}
 
 	// and the finally the semaphore, that is responsible for the jobs
 	int result = comp_sem_destroy(&(pool->jobs_available));
-	CHECK_FOR_ERROR(result, "Couldn't destroy the internal thread pool Semaphore", return -1;);
+	CHECK_FOR_ERROR(result, "Couldn't destroy the internal thread pool Semaphore",
+	                return GENERIC_RES_ERR_UNIQUE(););
 
-	return 0;
+	return GENERIC_RES_OK();
 }

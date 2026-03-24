@@ -27,17 +27,17 @@ NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion proto
 	}
 }
 
-NODISCARD const char*
+NODISCARD tstr_static
 get_error_string_for_http_request_error_type(const HttpRequestErrorType type) {
 	switch(type) {
-		case HttpRequestErrorTypeInvalidHttpVersion: return "InvalidHttpVersion";
-		case HttpRequestErrorTypeMethodNotSupported: return "MethodNotSupported";
-		case HttpRequestErrorTypeInvalidNonEmptyBody: return "InvalidNonEmptyBody";
-		case HttpRequestErrorTypeInvalidHttp2Preface: return "InvalidHttp2Preface";
-		case HttpRequestErrorTypeLengthRequired: return "LengthRequired";
-		case HttpRequestErrorTypeProtocolError: return "ProtocolError";
-		case HttpRequestErrorTypeNotSupported: return "NotSupported";
-		default: return "<Unknown>";
+		case HttpRequestErrorTypeInvalidHttpVersion: return TSTR_STATIC_LIT("InvalidHttpVersion");
+		case HttpRequestErrorTypeMethodNotSupported: return TSTR_STATIC_LIT("MethodNotSupported");
+		case HttpRequestErrorTypeInvalidNonEmptyBody: return TSTR_STATIC_LIT("InvalidNonEmptyBody");
+		case HttpRequestErrorTypeInvalidHttp2Preface: return TSTR_STATIC_LIT("InvalidHttp2Preface");
+		case HttpRequestErrorTypeLengthRequired: return TSTR_STATIC_LIT("LengthRequired");
+		case HttpRequestErrorTypeProtocolError: return TSTR_STATIC_LIT("ProtocolError");
+		case HttpRequestErrorTypeNotSupported: return TSTR_STATIC_LIT("NotSupported");
+		default: return TSTR_STATIC_LIT("<Unknown>");
 	}
 }
 

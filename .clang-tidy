@@ -259,3 +259,4 @@ CustomChecks:
 # never pass tstr by value as its hge
 # always pass tstr_static by value!
 # don't use manual tagged unions (WIP)
+# use PP Callbacks to make includes either <> or "./"

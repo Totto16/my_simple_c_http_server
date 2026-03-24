@@ -2,12 +2,13 @@
 #include <doctest.h>
 
 #include <utils/log.h>
+#include <utils/number_parsing.h>
 
 #include <support/helpers.hpp>
 
 static void setup_global_timeout_multiplier() {
 
-	const char* const env_timeout = getenv("DOCTEST_TEST_MULTIPLIER");
+	char* const env_timeout = getenv("DOCTEST_TEST_MULTIPLIER");
 
 	if(env_timeout == NULL) {
 		g_doctest_timeout_multiplier = 1;
@@ -16,7 +17,9 @@ static void setup_global_timeout_multiplier() {
 
 	bool success = false;
 
-	const size_t env_timeout_val = parse_size_t(env_timeout, &success);
+	const tstr env_timeout_tstr = tstr_own_cstr(env_timeout);
+
+	const size_t env_timeout_val = parse_size_t(tstr_as_view(&env_timeout_tstr), &success);
 
 	if(!success) {
 		g_doctest_timeout_multiplier = 1;

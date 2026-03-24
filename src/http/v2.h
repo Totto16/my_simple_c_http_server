@@ -268,7 +268,7 @@ NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
 typedef struct {
 	bool is_error;
 	union {
-		const char* error;
+		tstr_static error;
 	} value;
 } Http2StartResult;
 
