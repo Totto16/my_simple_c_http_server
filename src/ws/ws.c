@@ -374,12 +374,19 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedU
 
 		bool success = true;
 
-		const size_t parsed =
-		    parse_size_t(tstr_as_view(&fragment_size_parameter->value.val), &success);
+		const uint64_t parsed =
+		    parse_u64(tstr_as_view(&fragment_size_parameter->value.val), &success);
 
 		if(success) {
-			result.type = WsFragmentOptionTypeSet;
-			result.data.set.fragment_size = parsed;
+			if(SIZE_MAX != UINT64_MAX) {
+				if(parsed <= SIZE_MAX) {
+					result.type = WsFragmentOptionTypeSet;
+					result.data.set.fragment_size = (size_t)parsed;
+				}
+			} else {
+				result.type = WsFragmentOptionTypeSet;
+				result.data.set.fragment_size = (size_t)parsed;
+			}
 		}
 	}
 
