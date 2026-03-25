@@ -7,7 +7,8 @@
 // https://stackoverflow.com/questions/27736618/why-are-sem-init-sem-getvalue-sem-destroy-deprecated-on-mac-os-x-and-w
 // see https://www.unix.com/man_page/mojave/3/dispatch_semaphore_create/
 
-int comp_sem_init(SemaphoreType* sem, uint32_t value, bool shared) {
+int comp_sem_init(SemaphoreType* sem, uint32_t value, // NOLINT(totto-use-fixed-width-types-var)
+                  bool shared) {
 #ifdef __APPLE__
 	*sem = dispatch_semaphore_create(value);
 	(void)shared;
@@ -17,7 +18,7 @@ int comp_sem_init(SemaphoreType* sem, uint32_t value, bool shared) {
 #endif
 }
 
-int comp_sem_wait(SemaphoreType* sem) {
+int comp_sem_wait(SemaphoreType* sem) { // NOLINT(totto-use-fixed-width-types-var)
 
 #ifdef __APPLE__
 	return dispatch_semaphore_wait(*sem, DISPATCH_TIME_FOREVER);
@@ -26,7 +27,7 @@ int comp_sem_wait(SemaphoreType* sem) {
 #endif
 }
 
-int comp_sem_post(SemaphoreType* sem) {
+int comp_sem_post(SemaphoreType* sem) { // NOLINT(totto-use-fixed-width-types-var)
 
 #ifdef __APPLE__
 	return dispatch_semaphore_signal(*sem);
@@ -35,7 +36,7 @@ int comp_sem_post(SemaphoreType* sem) {
 #endif
 }
 
-int comp_sem_destroy(SemaphoreType* sem) {
+int comp_sem_destroy(SemaphoreType* sem) { // NOLINT(totto-use-fixed-width-types-var)
 
 #ifdef __APPLE__
 	dispatch_release(*sem);
