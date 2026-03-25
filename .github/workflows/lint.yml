@@ -28,6 +28,18 @@ jobs:
           echo "CC=clang-22" >> "$GITHUB_ENV"
           echo "CXX=clang++-22" >> "$GITHUB_ENV"
 
+      - name: Setup Custom clang-tidy
+        run: |
+          wget https://apt.totto.lt/built/static/clang-tidy-22-custom-build.tar.gz
+          wget https://apt.totto.lt/built/static/clang-tidy-22-custom-build.sha256
+          cat ./clang-tidy-22-custom-build.sha256 | sha256sum --check --strict -
+          tar xvzf clang-tidy-22-custom-build.tar.gz
+          sudo mkdir -p /opt/clang-22-custom/
+          sudo mv ./clang-tidy /opt/clang-22-custom/
+          sudo chmod +x /opt/clang-22-custom/clang-tidy
+          sudo rm /usr/bin/clang-tidy-22
+          sudo ln -sv /opt/clang-22-custom/clang-tidy /usr/bin/clang-tidy-22
+
       - name: Setup node
         uses: actions/setup-node@v6
         with:
@@ -58,7 +70,7 @@ jobs:
           step-summary: true
           file-annotations: true
           ignore: subprojects|build|src/thirdparty|src/ws/macos_endian_compat.h|tests/unit|tests/bench|tests/support
-          extra-args: '--experimental-custom-checks'
+          extra-args: "--experimental-custom-checks"
 
       - name: Fail CI run if linter checks failed
         if: steps.linter.outputs.checks-failed != 0
