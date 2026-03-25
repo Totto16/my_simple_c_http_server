@@ -13,7 +13,7 @@ GenericResult send_data_to_connection(const ConnectionDescriptor* const descript
 	size_t already_written = 0;
 	// write bytes until all are written
 	while(true) {
-		ssize_t wrote_bytes = write_to_descriptor(
+		const ssize_t wrote_bytes = write_to_descriptor(
 		    descriptor, (ReadonlyBuffer){ .data = ((uint8_t*)to_send) + already_written,
 		                                  .size = remaining_length });
 
@@ -54,9 +54,9 @@ NODISCARD GenericResult send_buffer_to_connection(const ConnectionDescriptor* co
 GenericResult send_string_builder_to_connection(const ConnectionDescriptor* const descriptor,
                                                 StringBuilder** string_builder) {
 
-	SizedBuffer string_buffer = string_builder_release_into_sized_buffer(string_builder);
+	const SizedBuffer string_buffer = string_builder_release_into_sized_buffer(string_builder);
 
-	GenericResult result = send_buffer_to_connection(descriptor, string_buffer);
+	const GenericResult result = send_buffer_to_connection(descriptor, string_buffer);
 	free_sized_buffer(string_buffer);
 	return result;
 }
