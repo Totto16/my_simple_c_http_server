@@ -19,9 +19,11 @@ bool setup_sigpipe_signal_handler(void) {
 
 	action.sa_handler = SIG_IGN;
 	// initialize the mask to be empty
-	int empty_set_result = sigemptyset(&action.sa_mask);
+	const int empty_set_result = // NOLINT(totto-use-fixed-width-types-var)
+	    sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, SIGPIPE);
-	int result1 = sigaction(SIGPIPE, &action, NULL);
+	const int result1 = // NOLINT(totto-use-fixed-width-types-var)
+	    sigaction(SIGPIPE, &action, NULL);
 	if(result1 < 0 || empty_set_result < 0) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't set signal interception: %s\n", strerror(errno));
 		return false;
