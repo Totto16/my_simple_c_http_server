@@ -60,7 +60,7 @@
 
 NODISCARD static inline uint64_t deserialize_u64_host_to_host(const uint8_t* const bytes) {
 
-	uint64_t value;
+	uint64_t value = 0;
 	memcpy(&value, bytes, sizeof(uint64_t));
 
 	return value;
@@ -68,7 +68,7 @@ NODISCARD static inline uint64_t deserialize_u64_host_to_host(const uint8_t* con
 
 NODISCARD static inline uint32_t deserialize_u32_host_to_host(const uint8_t* const bytes) {
 
-	uint32_t value;
+	uint32_t value = 0;
 	memcpy(&value, bytes, sizeof(uint32_t));
 
 	return value;
@@ -76,7 +76,7 @@ NODISCARD static inline uint32_t deserialize_u32_host_to_host(const uint8_t* con
 
 NODISCARD static inline uint16_t deserialize_u16_host_to_host(const uint8_t* const bytes) {
 
-	uint16_t value;
+	uint16_t value = 0;
 	memcpy(&value, bytes, sizeof(uint16_t));
 
 	return value;
