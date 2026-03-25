@@ -43,7 +43,7 @@ GenericResult string_builder_append_tstr_static(StringBuilder* string_builder,
 
 NODISCARD char* string_builder_release_into_string(StringBuilder** string_builder);
 
-NODISCARD size_t string_builder_get_string_size(StringBuilder* string_builder);
+NODISCARD size_t string_builder_get_string_size(const StringBuilder* string_builder);
 
 NODISCARD SizedBuffer string_builder_release_into_sized_buffer(StringBuilder** string_builder);
 

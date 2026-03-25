@@ -3,7 +3,9 @@
 
 #include <tvec.h>
 
+/* NOLINTBEGIN(misc-use-internal-linkage,totto-use-fixed-width-types-var) */
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(char)
+/* NOLINTEND(misc-use-internal-linkage,totto-use-fixed-width-types-var) */
 
 typedef TVEC_TYPENAME(char) CString;
 
@@ -37,10 +39,10 @@ static GenericResult string_builder_append_string_impl(StringBuilder* string_bui
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	size_t current_size = TVEC_LENGTH(char, string_builder->value);
+	const size_t current_size = TVEC_LENGTH(char, string_builder->value);
 
 	// allocate 0 byte at the end, if needed
-	size_t new_size = current_size + size + (current_size == 0 ? 1 : 0);
+	const size_t new_size = current_size + size + (current_size == 0 ? 1 : 0);
 
 	const TvecResult allocate_res =
 	    TVEC_ALLOCATE_UNINITIALIZED(char, &string_builder->value, new_size);
@@ -56,7 +58,7 @@ static GenericResult string_builder_append_string_impl(StringBuilder* string_bui
 }
 
 GenericResult string_builder_append_string(StringBuilder* string_builder, char* string) {
-	size_t length = strlen(string);
+	const size_t length = strlen(string);
 
 	const GenericResult result = string_builder_append_string_impl(string_builder, string, length);
 
@@ -66,20 +68,20 @@ GenericResult string_builder_append_string(StringBuilder* string_builder, char* 
 }
 
 // simple wrapper if just a constant string has to be appended
-GenericResult string_builder_append_single(StringBuilder* string_builder,
-                                           const char* static_string) {
-	size_t length = strlen(static_string);
+GenericResult string_builder_append_single(StringBuilder* const string_builder,
+                                           const char* const static_string) {
+	const size_t length = strlen(static_string);
 
 	return string_builder_append_string_impl(string_builder, static_string, length);
 }
 
-GenericResult string_builder_append_tstr_static(StringBuilder* string_builder,
-                                                tstr_static static_string) {
+GenericResult string_builder_append_tstr_static(StringBuilder* const string_builder,
+                                                const tstr_static static_string) {
 	return string_builder_append_string_impl(string_builder, static_string.ptr, static_string.len);
 }
 
-GenericResult string_builder_append_string_builder(StringBuilder* string_builder,
-                                                   StringBuilder** string_builder2) {
+GenericResult string_builder_append_string_builder(StringBuilder* const string_builder,
+                                                   StringBuilder** const string_builder2) {
 
 	if(string_builder2 == NULL) {
 		return GENERIC_RES_ERR_UNIQUE();
@@ -89,7 +91,8 @@ GenericResult string_builder_append_string_builder(StringBuilder* string_builder
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	SizedBuffer string_builder_2_buffer = string_builder_release_into_sized_buffer(string_builder2);
+	const SizedBuffer string_builder_2_buffer =
+	    string_builder_release_into_sized_buffer(string_builder2);
 
 	const GenericResult result = string_builder_append_string_impl(
 	    string_builder, string_builder_2_buffer.data, string_builder_2_buffer.size);
@@ -99,7 +102,7 @@ GenericResult string_builder_append_string_builder(StringBuilder* string_builder
 	return result;
 }
 
-NODISCARD char* string_builder_release_into_string(StringBuilder** string_builder) {
+NODISCARD char* string_builder_release_into_string(StringBuilder** const string_builder) {
 
 	if(string_builder == NULL) {
 		return NULL;
@@ -110,7 +113,7 @@ NODISCARD char* string_builder_release_into_string(StringBuilder** string_builde
 	}
 
 	// getting the data and then just free the container around, this is safe to do with the TVEC
-	char* value = (*string_builder)->value.data;
+	char* const value = (*string_builder)->value.data;
 
 	free(*string_builder);
 
@@ -119,15 +122,15 @@ NODISCARD char* string_builder_release_into_string(StringBuilder** string_builde
 	return value;
 }
 
-NODISCARD size_t string_builder_get_string_size(StringBuilder* string_builder) {
+NODISCARD size_t string_builder_get_string_size(const StringBuilder* const string_builder) {
 
 	if(string_builder == NULL) {
 		return 0;
 	}
 
-	size_t current_size = TVEC_LENGTH(char, string_builder->value);
+	const size_t current_size = TVEC_LENGTH(char, string_builder->value);
 
-	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
+	const size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
 	return current_string_size;
 }
 
@@ -146,14 +149,14 @@ NODISCARD SizedBuffer string_builder_release_into_sized_buffer(StringBuilder** s
 		return get_empty_sized_buffer();
 	}
 
-	size_t current_size = TVEC_LENGTH(char, (*string_builder)->value);
+	const size_t current_size = TVEC_LENGTH(char, (*string_builder)->value);
 
-	size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
+	const size_t current_string_size = current_size == 0 ? 0 : current_size - 1;
 
 	// getting the data and then just free the container around, this is safe to do with the TVEC
-	char* value = (*string_builder)->value.data;
+	char* const value = (*string_builder)->value.data; // NOLINT(totto-const-correctness-c)
 
-	SizedBuffer result = { .data = value, .size = current_string_size };
+	const SizedBuffer result = { .data = value, .size = current_string_size };
 
 	free(*string_builder);
 

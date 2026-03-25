@@ -14,10 +14,10 @@ typedef struct {
 	UserRole role;
 } SimpleAccountEntry;
 
-/* NOLINTBEGIN(misc-use-internal-linkage) */
+/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type) */
 TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(tstr, TSTR_KEYNAME, SimpleAccountEntry,
                                    SimpleAccountEntryHashMap)
-/* NOLINTEND(misc-use-internal-linkage) */
+/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 
 typedef struct {
 	TMAP_TYPENAME_MAP(SimpleAccountEntryHashMap) entries;
@@ -776,8 +776,8 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		}
 
 		// TODO(Totto): remove all auto_ = things, properly return in that cases
-		auto _ = TVEC_PUSH(AuthenticationFindResult, &results, result);
-		UNUSED(_);
+		const TvecResult push_res = TVEC_PUSH(AuthenticationFindResult, &results, result);
+		OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 	}
 
 	const size_t results_length = TVEC_LENGTH(AuthenticationFindResult, results);
