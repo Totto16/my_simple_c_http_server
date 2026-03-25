@@ -25,6 +25,7 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 22
+          sudo apt-get install clang-tidy-22 -y --no-install-recommends
           echo "CC=clang-22" >> "$GITHUB_ENV"
           echo "CXX=clang++-22" >> "$GITHUB_ENV"
 
@@ -32,11 +33,16 @@ jobs:
         run: |
           wget https://apt.totto.lt/built/static/clang-tidy-22-custom-build.tar.gz
           wget https://apt.totto.lt/built/static/clang-tidy-22-custom-build.sha256
+
           cat ./clang-tidy-22-custom-build.sha256 | sha256sum --check --strict -
+
           tar xvzf clang-tidy-22-custom-build.tar.gz
+
           sudo mkdir -p /opt/clang-22-custom/
           sudo mv ./clang-tidy /opt/clang-22-custom/
           sudo chmod +x /opt/clang-22-custom/clang-tidy
+
+          sudo rm /usr/bin/clang-tidy
           sudo rm /usr/bin/clang-tidy-22
           sudo ln -sv /opt/clang-22-custom/clang-tidy /usr/bin/clang-tidy-22
 
