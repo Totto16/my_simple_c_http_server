@@ -19,14 +19,14 @@ typedef sem_t SemaphoreType;
 
 #include "utils/utils.h"
 
-NODISCARD int // allow-unfixed-width("helper function interfacing with libc or macos")
+NODISCARD int // NOLINT(totto-use-fixed-width-types-var)
 comp_sem_init(SemaphoreType* sem, uint32_t value, bool shared);
 
-NODISCARD int // allow-unfixed-width("helper function interfacing with libc or macos")
+NODISCARD int // NOLINT(totto-use-fixed-width-types-var)
 comp_sem_wait(SemaphoreType* sem);
 
-NODISCARD int // allow-unfixed-width("helper function interfacing with libc or macos")
+NODISCARD int // NOLINT(totto-use-fixed-width-types-var)
 comp_sem_post(SemaphoreType* sem);
 
-NODISCARD int // allow-unfixed-width("helper function interfacing with libc or macos")
+NODISCARD int // NOLINT(totto-use-fixed-width-types-var)
 comp_sem_destroy(SemaphoreType* sem);

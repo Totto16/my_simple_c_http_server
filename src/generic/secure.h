@@ -71,8 +71,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } ReadResultType;
 
 typedef union {
-	int errno_error;         // allow-unfixed-width("interfacing with libc")
-	unsigned long ssl_error; // allow-unfixed-width("interfacing with openssl")
+	int errno_error;         // NOLINT(totto-use-fixed-width-types-var)
+	unsigned long ssl_error; // NOLINT(totto-use-fixed-width-types-var)
 } OpaqueError;
 
 typedef struct {

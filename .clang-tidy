@@ -203,7 +203,7 @@ CheckOptions:
 # for matcher docs
 CustomChecks:
   - Name: use-const-in-fn-defintion
-    # match any function declaration, not defintion, with at least one paramater, that is not const qualified (at the top level), the function name can't match the regex "[A-Z_]*" alias macro "functions"
+    # match any function declaration, not defintion, with at least one paramater, that is not const qualified (at the top level), the function name can't match the regex "[A-Z_]*" alias macro "functions" it also can't match things that are expanded in the main file (the current file, that is being scanned)
     Query: |
       match functionDecl(
               allOf(
@@ -221,6 +221,9 @@ CustomChecks:
                   matchesName(
                     "^[A-Z_]*$"
                   )
+                ),
+                unless(
+                  isExpansionInMainFile()
                 )
               )
             ).bind("func")
@@ -231,8 +234,8 @@ CustomChecks:
       - BindName: func
         Message: Function that uses this parameter
         Level: Note
-  - Name: no-auto.usage
-    # Description todo
+  - Name: no-auto-usage-c
+    # matches any variable delcaration, which type is auto, canonical type means, it resolves tru typedefs and macros
     Query: |
       match varDecl(
               hasType(
