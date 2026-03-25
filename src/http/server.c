@@ -1296,9 +1296,9 @@ ExitCode start_http_server(const uint16_t port, SecureOptions* const options,
 	// the pool is created and destroyed outside of the listener, so the listener can be
 	// cancelled and then the main thread destroys everything accordingly
 	ThreadPool pool;
-	int create_result = pool_create_dynamic(&pool);
-	if(create_result < 0) {
-		print_create_error(-create_result);
+	const CreateResult create_result = pool_create(&pool, 0);
+	if(create_result.error != CreateErrorNone) {
+		print_create_error(create_result.error);
 		return ExitCodeFailure;
 	}
 

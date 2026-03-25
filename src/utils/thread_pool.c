@@ -1,13 +1,8 @@
 
 #include "thread_pool.h"
 #include "generic/hash.h"
+#include "generic/helper.h"
 #include "utils/log.h"
-
-#ifdef _DONT_HAVE_SYS_SYSINFO
-	#include <unistd.h>
-#else
-	#include <sys/sysinfo.h>
-#endif
 
 #define THREAD_SHUTDOWN_JOB_INTERNAL 0x02
 
@@ -105,13 +100,43 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) arg)
 	return WORKER_ERROR_NONE;
 }
 
+// using get_nprocs_conf to make a dynamic amount of worker Threads
+// returns the used dynamic thread amount, to use it in some way (maybe print it)
+// this does the same as the pool_create method, but is recommended, since it calculates the worker
+// threads on the fly, so it's better suited for every system, and no hardcoded worker threads are
+// required!
+static CreateResult pool_create_dynamic(ThreadPool* pool) {
+	// can't fail according to man pages
+	size_t active_cpu_cores = get_active_cpu_cores();
+
+	if(active_cpu_cores == 0) {
+		return (CreateResult){ .error = CreateErrorQueueInit };
+	}
+
+	// + 1 since not all threads run all the time, so the extra one thread is used for compensating
+	// the idle time of a core
+	size_t worker_threads_amount = active_cpu_cores + 1;
+
+	// the just calling pool create with that number
+	const CreateResult result = pool_create(pool, worker_threads_amount);
+	if(result.error != CreateErrorNone) {
+		return result;
+	}
+
+	return (CreateResult){ .error = CreateErrorNone, .value = { .size = worker_threads_amount } };
+}
+
 // creates a pool, the size denotes the size of the worker threads, if you don't know how to choose
 // this value, use pool_create_dynamic to have an adjusted value, to your running system, it
 // determines the right amount of threads to use in the CURRENTLY running system, that is
 // recommended, since then this pool is more efficient, on every system
 // pool is a address of an already declared, either malloced or on the stack (please ensure the
 // lifetime is sufficient) thread_pool
-CreateError pool_create(ThreadPool* pool, size_t size) {
+CreateResult pool_create(ThreadPool* const pool, const size_t size) {
+	if(size == 0) {
+		return pool_create_dynamic(pool);
+	}
+
 	// writing the values to the struct
 	pool->worker_threads_amount = size;
 	// allocating the worker Threads array, they are freed in destroy!
@@ -124,14 +149,14 @@ CreateError pool_create(ThreadPool* pool, size_t size) {
 	if(!pool->worker_threads) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
-		return CreateErrorMalloc;
+		return (CreateResult){ .error = CreateErrorMalloc };
 	}
 
 	// initialize the queue, this queue is synchronized internally, so it has to do some work with a
 	// synchronization method (here not necessary to know how it's implemented, but it'S a
 	// semaphore)
 	if(tqueue_init(&(pool->job_queue)).is_error) {
-		return CreateErrorQueueInit;
+		return (CreateResult){ .error = CreateErrorQueueInit };
 	}
 
 	// now initialize the thread jobs_available sempahore, it denotes how many jobs are in the
@@ -139,7 +164,7 @@ CreateError pool_create(ThreadPool* pool, size_t size) {
 	// since it'S shared between threads!
 	int result = comp_sem_init(&(pool->jobs_available), 0, true);
 	CHECK_FOR_ERROR(result, "Couldn't initialize the internal thread pool Semaphore",
-	                return CreateErrorSemInit;);
+	                return (CreateResult){ .error = CreateErrorSemInit };);
 
 	for(size_t i = 0; i < size; i++) {
 		// doing a malloc for every single one, so that it can be freed after the threads is
@@ -151,7 +176,7 @@ CreateError pool_create(ThreadPool* pool, size_t size) {
 		if(!thread_argument) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 			                   "Couldn't allocate memory!\n");
-			return CreateErrorMalloc;
+			return (CreateResult){ .error = CreateErrorMalloc };
 		}
 
 		// initializing the struct with the necessary values
@@ -164,39 +189,10 @@ CreateError pool_create(ThreadPool* pool, size_t size) {
 		CHECK_FOR_THREAD_ERROR(result,
 		                       "An Error occurred while trying to create a new Worker "
 		                       "Thread in the implementation of thread pool",
-		                       return CreateErrorThreadCreate);
+		                       return (CreateResult){ .error = CreateErrorThreadCreate });
 	}
 
-	return CreateErrorNone;
-}
-
-NODISCARD static int get_active_cpu_core(void) {
-#ifdef _DONT_HAVE_SYS_SYSINFO
-	// see https://www.unix.com/man_page/osx/3/sysconf
-	return sysconf(_SC_NPROCESSORS_ONLN);
-#else
-	return get_nprocs();
-#endif
-}
-
-// using get_nprocs_conf to make a dynamic amount of worker Threads
-// returns the used dynamic thread amount, to use it in some way (maybe print it)
-// this does the same as the pool_create method, but is recommended, since it calculates the worker
-// threads on the fly, so it's better suited for every system, and no hardcoded worker threads are
-// required!
-int pool_create_dynamic(ThreadPool* pool) {
-	// can't fail according to man pages
-	int active_cpu_cores = get_active_cpu_core();
-	// + 1 since not all threads run all the time, so the extra one thread is used for compensating
-	// the idle time of a core
-	size_t worker_threads_amount = (size_t)active_cpu_cores + 1;
-	// the just calling pool create with that number
-	int result = pool_create(pool, worker_threads_amount);
-	if(result != CreateErrorNone) {
-		return -result;
-	}
-
-	return (int)worker_threads_amount;
+	return (CreateResult){ .error = CreateErrorNone, .value = { .size = size } };
 }
 
 // submits a function with argument to the job queue, returns a job_id struct, that HAS to be used

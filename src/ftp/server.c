@@ -1922,9 +1922,9 @@ ExitCode start_ftp_server(const FTPPortField control_port, tstr folder,
 	// the pool is created and destroyed outside of the listener, so the listener can be
 	// cancelled and then the main thread destroys everything accordingly
 	ThreadPool control_pool;
-	int create_result1 = pool_create_dynamic(&control_pool);
-	if(create_result1 < 0) {
-		print_create_error(-create_result1);
+	const CreateResult create_result1 = pool_create(&control_pool, 0);
+	if(create_result1.error != CreateErrorNone) {
+		print_create_error(create_result1.error);
 		return ExitCodeFailure;
 	}
 

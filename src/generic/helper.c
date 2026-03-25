@@ -5,6 +5,12 @@
 
 #include <signal.h>
 
+#ifdef _DONT_HAVE_SYS_SYSINFO
+	#include <unistd.h>
+#else
+	#include <sys/sysinfo.h>
+#endif
+
 bool setup_sigpipe_signal_handler(void) {
 
 	// set up the signal handler
@@ -22,4 +28,13 @@ bool setup_sigpipe_signal_handler(void) {
 	}
 
 	return true;
+}
+
+NODISCARD size_t get_active_cpu_cores(void) {
+#ifdef _DONT_HAVE_SYS_SYSINFO
+	// see https://www.unix.com/man_page/osx/3/sysconf
+	return sysconf(_SC_NPROCESSORS_ONLN);
+#else
+	return get_nprocs();
+#endif
 }
