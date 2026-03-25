@@ -74,16 +74,16 @@ NODISCARD char* ipv_to_string(IPAddress address) {
 
 NODISCARD IPV4Address get_ipv4_address_from_host_bytes(const uint8_t* bytes) {
 
-	uint32_t addr = deserialize_u32_le_to_no(bytes);
+	const uint32_t addr = deserialize_u32_le_to_no(bytes);
 
-	struct in_addr value = { .s_addr = addr };
+	const struct in_addr value = { .s_addr = addr };
 
 	return (IPV4Address){ .underlying = value };
 }
 
 NODISCARD IPV4RawBytes get_raw_bytes_as_host_bytes_from_ipv4_address(IPV4Address address) {
 
-	SerializeResult32 result = serialize_u32_no_to_host(address.underlying.s_addr);
+	const SerializeResult32 result = serialize_u32_no_to_host(address.underlying.s_addr);
 
 	return (IPV4RawBytes){ .bytes = {
 		                       result.bytes[0],
