@@ -245,12 +245,7 @@ CustomChecks:
     Query: |
       match varDecl(
               hasType(
-                qualType(
-                  hasCanonicalType(
-                    autoType(
-                    ) 
-                  )
-                )
+                autoType()
               )
             ).bind("decl")
     Diagnostic:
