@@ -10,6 +10,8 @@
 #include <tstr.h>
 #include <tvec.h>
 
+#include "utils/sized_buffer.h"
+
 typedef struct SecureDataImpl SecureData;
 
 /**
@@ -89,8 +91,8 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* descriptor
 NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
                                        OpaqueError opaque_error);
 
-NODISCARD ssize_t write_to_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
-                                      size_t n_bytes);
+NODISCARD ssize_t write_to_descriptor(const ConnectionDescriptor* descriptor,
+                                      ReadonlyBuffer buffer);
 
 NODISCARD NativeFd get_underlying_socket(const ConnectionDescriptor* descriptor);
 

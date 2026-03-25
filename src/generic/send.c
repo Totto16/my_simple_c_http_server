@@ -13,8 +13,9 @@ GenericResult send_data_to_connection(const ConnectionDescriptor* const descript
 	size_t already_written = 0;
 	// write bytes until all are written
 	while(true) {
-		ssize_t wrote_bytes = write_to_descriptor(descriptor, ((uint8_t*)to_send) + already_written,
-		                                          remaining_length);
+		ssize_t wrote_bytes = write_to_descriptor(
+		    descriptor, (ReadonlyBuffer){ .data = ((uint8_t*)to_send) + already_written,
+		                                  .size = remaining_length });
 
 		if(wrote_bytes == -1) {
 			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));

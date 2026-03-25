@@ -50,7 +50,7 @@ struct ConnectionContextImpl {
 };
 
 typedef struct {
-	int fd;
+	NativeFd fd;
 } NormalConnectionData;
 
 struct ConnectionDescriptorImpl {
@@ -89,7 +89,9 @@ static bool file_exists(const tstr_static file) {
 // NOTE: this has to return the number of bytes written, if this returns <= 0, the error reporting
 // stops, see
 // https://github.com/openssl/openssl/blob/3b90a847ece93b3886f14adc7061e70456d564e1/crypto/err/err_prn.c#L44
-static int error_logger(const char* str, size_t len, void* user_data) {
+static int error_logger(const char* const str, // NOLINT(totto-use-fixed-width-types-var)
+                        const size_t len,
+                        void* const user_data) { // NOLINT(totto-const-correctness-c)
 
 	UNUSED(user_data);
 
@@ -105,8 +107,12 @@ static const unsigned char g_alpn_protos[] = {
 
 // inspired by the docs and
 // https://github.com/openssl/openssl/blob/master/demos/guide/quic-server-block.c#L95
-static int alpn_select_cb(SSL* /* ssl */, const unsigned char** out, unsigned char* outlen,
-                          const unsigned char* in_buf, unsigned int inlen, void* /* arg */) {
+static int alpn_select_cb(SSL* const /* ssl */,        // NOLINT(totto-use-fixed-width-types-var)
+                          const unsigned char** out,   // NOLINT(totto-use-fixed-width-types-var)
+                          unsigned char* const outlen, // NOLINT(totto-use-fixed-width-types-var)
+                          const unsigned char* in_buf, // NOLINT(totto-use-fixed-width-types-var)
+                          unsigned int inlen,          // NOLINT(totto-use-fixed-width-types-var)
+                          void* /* arg */) {
 
 	// this is an exception, as we don't modify the char that the pointer double points too, but
 	// the function signature says that, but ut isn't true
@@ -163,7 +169,8 @@ static SecureData* initialize_secure_data(const tstr_static public_cert_file,
 	 * TLS versions older than TLS 1.2 are deprecated by IETF and SHOULD
 	 * be avoided if possible.
 	 */
-	int result = SSL_CTX_set_min_proto_version(ssl_context, TLS1_2_VERSION);
+	int result = SSL_CTX_set_min_proto_version( // NOLINT(totto-use-fixed-width-types-var)
+	    ssl_context, TLS1_2_VERSION);
 
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_set_min_proto_version failed:\n");
@@ -199,7 +206,7 @@ static SecureData* initialize_secure_data(const tstr_static public_cert_file,
 
 		// set by default in new openssl versions: SSL_OP_NO_COMPRESSION
 
-		uint64_t new_opts = SSL_CTX_set_options(ssl_context, opts);
+		const uint64_t new_opts = SSL_CTX_set_options(ssl_context, opts);
 		UNUSED(new_opts);
 	}
 
@@ -365,9 +372,9 @@ ConnectionContext* get_connection_context(const SecureOptions* const options) {
 
 	context->type = SecureOptionsTypeSecure;
 
-	SecureData* data = options->value.data;
+	const SecureData* const data = options->value.data;
 
-	SSL* ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
+	SSL* const ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
 
 	if(ssl_structure == NULL) {
 		free(context);
@@ -404,9 +411,9 @@ ConnectionContext* copy_connection_context(const ConnectionContext* const old_co
 
 	const SecureOptions* const options = old_context->data.secure.options;
 
-	SecureData* data = options->value.data;
+	const SecureData* const data = options->value.data;
 
-	SSL* ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
+	SSL* const ssl_structure = new_ssl_structure_from_ctx(data->ssl_context);
 
 	if(ssl_structure == NULL) {
 		free(context);
@@ -443,9 +450,9 @@ static bool is_secure_descriptor(const ConnectionDescriptor* const descriptor) {
 }
 
 ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const context,
-                                                int native_fd) {
+                                                const NativeFd native_fd) {
 
-	ConnectionDescriptor* descriptor = malloc(sizeof(ConnectionDescriptor));
+	ConnectionDescriptor* const descriptor = malloc(sizeof(ConnectionDescriptor));
 
 	if(!descriptor) {
 		// TODO(Totto): better report error
@@ -465,9 +472,10 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 
 	descriptor->type = SecureOptionsTypeSecure;
 
-	SSL* ssl_structure = context->data.secure.ssl_structure;
+	SSL* const ssl_structure = context->data.secure.ssl_structure;
 
-	int result = SSL_set_fd(ssl_structure, native_fd);
+	const int result = // NOLINT(totto-use-fixed-width-types-var)
+	    SSL_set_fd(ssl_structure, native_fd);
 
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_set_fd failed:\n");
@@ -476,7 +484,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 		return NULL;
 	}
 
-	int ssl_result = SSL_accept(ssl_structure);
+	const int ssl_result = SSL_accept(ssl_structure); // NOLINT(totto-use-fixed-width-types-var)
 
 	if(ssl_result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_accept failed:\n");
@@ -492,8 +500,8 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 
 	{ // get selected protocol
 
-		const unsigned char* proto = NULL;
-		unsigned int proto_len = 0;
+		const unsigned char* proto = NULL; // NOLINT(totto-use-fixed-width-types-var)
+		unsigned int proto_len = 0;        // NOLINT(totto-use-fixed-width-types-var)
 
 		SSL_get0_alpn_selected(ssl_structure, &proto, &proto_len);
 
@@ -530,7 +538,8 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 	if(!is_secure_descriptor(descriptor)) {
 		// TODO(Totto): we use shutdown in the ssl variant, should we use it here too?
 		//  shutdown(fd, SHUT_WR);
-		int result = close(descriptor->data.normal.fd); // NOLINT(totto-use-fixed-width-types-var)
+		const int result = // NOLINT(totto-use-fixed-width-types-var)
+		    close(descriptor->data.normal.fd);
 		free(descriptor);
 
 		if(result == 0) {
@@ -552,7 +561,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 
 	SSL* ssl_structure = descriptor->data.secure.ssl_structure;
 
-	int result = 0;
+	int result = 0; // NOLINT(totto-use-fixed-width-types-var)
 
 	// do a bidirectional shutdown, if SSL_shutdown returns 0, we have to repeat the call, if it
 	// returns 1, we where successful
@@ -563,7 +572,8 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 			// if we already shutdown on our side, it is not strictly speaking an error, the other
 			// side did not terminate correctly, but we shouldn't error out because of that
 
-			int shutdown_flags = SSL_get_shutdown(ssl_structure);
+			const int shutdown_flags = // NOLINT(totto-use-fixed-width-types-var)
+			    SSL_get_shutdown(ssl_structure);
 
 			if((shutdown_flags & SSL_SENT_SHUTDOWN) != 0) {
 				break;
@@ -578,7 +588,8 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 
 	// check the way the connection was closed, either both ends closed it correctly, or the other
 	// side didn't clean up correctly
-	int shutdown_flags = SSL_get_shutdown(ssl_structure);
+	const int shutdown_flags = // NOLINT(totto-use-fixed-width-types-var)
+	    SSL_get_shutdown(ssl_structure);
 	bool was_closed_correctly = false;
 
 	if((shutdown_flags & SSL_SENT_SHUTDOWN) != 0 && (shutdown_flags & SSL_RECEIVED_SHUTDOWN) != 0) {
@@ -625,7 +636,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const descriptor,
                                           void* buffer, size_t n_bytes) {
 	if(!is_secure_descriptor(descriptor)) {
-		ssize_t result = read(descriptor->data.normal.fd, buffer, n_bytes);
+		const ssize_t result = read(descriptor->data.normal.fd, buffer, n_bytes);
 
 		if(result > 0) {
 			return (ReadResult){
@@ -653,7 +664,8 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const desc
 
 	size_t bytes_read = 0;
 
-	int result = SSL_read_ex(ssl_structure, buffer, (int)n_bytes, &bytes_read);
+	const int result = // NOLINT(totto-use-fixed-width-types-var)
+	    SSL_read_ex(ssl_structure, buffer, (int)n_bytes, &bytes_read);
 
 	if(result > 0) {
 		return (ReadResult){
@@ -662,9 +674,10 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const desc
 		};
 	}
 
-	int error = SSL_get_error(ssl_structure, result);
+	const int error = // NOLINT(totto-use-fixed-width-types-var)
+	    SSL_get_error(ssl_structure, result);
 
-	unsigned long ssl_error = 0;
+	unsigned long ssl_error = 0; // NOLINT(totto-use-fixed-width-types-var)
 
 	switch(error) {
 		case SSL_ERROR_ZERO_RETURN: {
@@ -712,11 +725,11 @@ NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
 #endif
 }
 
-ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* buffer,
-                            size_t n_bytes) {
+ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor,
+                            const ReadonlyBuffer buffer) {
 
 	if(!is_secure_descriptor(descriptor)) {
-		return write(descriptor->data.normal.fd, buffer, n_bytes);
+		return write(descriptor->data.normal.fd, buffer.data, buffer.size);
 	}
 
 #ifdef _SIMPLE_SERVER_SECURE_DISABLED
@@ -726,7 +739,7 @@ ssize_t write_to_descriptor(const ConnectionDescriptor* const descriptor, void* 
 
 	SSL* ssl_structure = descriptor->data.secure.ssl_structure;
 
-	return SSL_write(ssl_structure, buffer, (int)n_bytes);
+	return SSL_write(ssl_structure, buffer.data, (int)buffer.size);
 #endif
 }
 
@@ -739,9 +752,9 @@ int get_underlying_socket(const ConnectionDescriptor* const descriptor) {
 	UNREACHABLE();
 #else
 
-	SSL* ssl_structure = descriptor->data.secure.ssl_structure;
+	const SSL* const ssl_structure = descriptor->data.secure.ssl_structure;
 
-	int ssl_fd = SSL_get_fd(ssl_structure);
+	const NativeFd ssl_fd = SSL_get_fd(ssl_structure);
 
 	if(ssl_fd < 0) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_get_fd failed:\n");
