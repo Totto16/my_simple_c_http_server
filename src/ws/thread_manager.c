@@ -109,12 +109,10 @@ static void thread_manager_thread_shutdown_function(void) {
 NODISCARD static RawHeaderOneResult
 get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allowed_rsv_bytes) {
 	bool fin = (header_bytes[0] >> // NOLINT(readability-implicit-bool-conversion)
-	            7 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	            7                  // NOLINT(readability-magic-numbers)
 	            ) &
 	           0b1; // NOLINT(readability-implicit-bool-conversion)
-	uint8_t rsv_bytes =
-	    (header_bytes[0] >> 4) &
-	    0b111; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint8_t rsv_bytes = (header_bytes[0] >> 4) & 0b111; // NOLINT(readability-magic-numbers)
 
 	if(allowed_rsv_bytes == 0) {
 		if(rsv_bytes != 0) {
@@ -133,16 +131,12 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allo
 		}
 	}
 
-	WsOpcode op_code =
-	    header_bytes[0] &
-	    0b1111; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	WsOpcode op_code = header_bytes[0] & 0b1111; // NOLINT(readability-magic-numbers)
 
-	bool has_mask = (header_bytes[1] >> // NOLINT(readability-implicit-bool-conversion)
-	                 7) & // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	                0b1;  // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	uint8_t payload_len =
-	    header_bytes[1] &
-	    0x7F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	bool has_mask = (header_bytes[1] >>           // NOLINT(readability-implicit-bool-conversion)
+	                 7) &                         // NOLINT(readability-magic-numbers)
+	                0b1;                          // NOLINT(readability-magic-numbers)
+	uint8_t payload_len = header_bytes[1] & 0x7F; // NOLINT(readability-magic-numbers)
 
 	RawHeaderOne header = { .fin = fin,
 		                    .op_code = op_code,
@@ -159,12 +153,12 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allo
 
 NODISCARD static bool is_control_op_code(WsOpcode op_code) {
 	// wrong opcodes, they only can be 4 bytes large
-	if(op_code > 0xF) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	if(op_code > 0xF) { // NOLINT(readability-magic-numbers)
 		return false;
 	}
 
 	return (op_code &  // NOLINT(readability-implicit-bool-conversion)
-	        0b1000) != // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	        0b1000) != // NOLINT(readability-magic-numbers)
 	       0;
 }
 
@@ -304,9 +298,9 @@ NODISCARD static GenericResult ws_send_message_raw_internal(WebSocketConnection*
 	    raw_message.payload.size < EXTENDED_PAYLOAD_MAGIC_NUMBER1
 	        ? 0
 	        : (raw_message.payload.size < // NOLINT(readability-avoid-nested-conditional-operator)
-	                   0x10000 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	                   0x10000            // NOLINT(readability-magic-numbers)
 	               ? 2
-	               : 8); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	               : 8); // NOLINT(readability-magic-numbers)
 
 	uint64_t header_offset = RAW_MESSAGE_HEADER_SIZE + payload_additional_len + mask_len;
 
@@ -320,12 +314,10 @@ NODISCARD static GenericResult ws_send_message_raw_internal(WebSocketConnection*
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	uint8_t header_one =
-	    ((raw_message.fin & 0b1) // NOLINT(readability-implicit-bool-conversion)
-	     << 7) // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	    | ((raw_message.rsv_bytes & 0b111) << 4) |
-	    (raw_message.op_code &
-	     0b1111); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint8_t header_one = ((raw_message.fin & 0b1) // NOLINT(readability-implicit-bool-conversion)
+	                      << 7)                   // NOLINT(readability-magic-numbers)
+	                     | ((raw_message.rsv_bytes & 0b111) << 4) |
+	                     (raw_message.op_code & 0b1111); // NOLINT(readability-magic-numbers)
 
 	uint8_t additional_payload_len_2 = payload_additional_len == 2 ? EXTENDED_PAYLOAD_MAGIC_NUMBER1
 	                                                               : EXTENDED_PAYLOAD_MAGIC_NUMBER2;
@@ -333,11 +325,9 @@ NODISCARD static GenericResult ws_send_message_raw_internal(WebSocketConnection*
 	uint8_t payload_len_1 =
 	    payload_additional_len == 0 ? raw_message.payload.size : additional_payload_len_2;
 
-	uint8_t header_two =
-	    ((has_mask & 0b1) // NOLINT(readability-implicit-bool-conversion)
-	     << 7) |          // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	    (payload_len_1 &
-	     0x7F); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint8_t header_two = ((has_mask & 0b1)       // NOLINT(readability-implicit-bool-conversion)
+	                      << 7) |                // NOLINT(readability-magic-numbers)
+	                     (payload_len_1 & 0x7F); // NOLINT(readability-magic-numbers)
 
 	resulting_frame[0] = header_one;
 	resulting_frame[1] = header_two;
@@ -348,8 +338,7 @@ NODISCARD static GenericResult ws_send_message_raw_internal(WebSocketConnection*
 		    serialize_u16_host_to_be((uint16_t)(raw_message.payload.size));
 		memcpy(resulting_frame + 2, payload_len_serialized.bytes, sizeof(uint16_t));
 
-	} else if(payload_additional_len ==
-	          8) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	} else if(payload_additional_len == 8) { // NOLINT(readability-magic-numbers)
 
 		SerializeResult64 payload_len_serialized =
 		    serialize_u64_host_to_be(raw_message.payload.size);
@@ -637,31 +626,23 @@ NODISCARD static CloseReasonResult maybe_parse_close_reason(WebSocketRawMessage 
 // see: https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.2
 // and https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.1
 NODISCARD static bool is_valid_close_code(uint16_t close_code) {
-	if(close_code <=
-	   999) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	if(close_code <= 999) { // NOLINT(readability-magic-numbers)
 		return false;
 	}
 
-	if(close_code >=
-	       3000 && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	   close_code <=
-	       4999) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	if(close_code >= 3000 && // NOLINT(readability-magic-numbers)
+	   close_code <= 4999) { // NOLINT(readability-magic-numbers)
 		return true;
 	}
 
-	if(close_code >=
-	       1000 && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	   close_code <=
-	       2999) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-		if(close_code >=
-		       1004 && // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-		   close_code <=
-		       1006) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	if(close_code >= 1000 &&     // NOLINT(readability-magic-numbers)
+	   close_code <= 2999) {     // NOLINT(readability-magic-numbers)
+		if(close_code >= 1004 && // NOLINT(readability-magic-numbers)
+		   close_code <= 1006) { // NOLINT(readability-magic-numbers)
 			return false;
 		}
 
-		if(close_code >=
-		   1015) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		if(close_code >= 1015) { // NOLINT(readability-magic-numbers)
 			return false;
 		}
 

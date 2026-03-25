@@ -140,8 +140,8 @@ static char json_get_random_char(void) {
 }
 
 static char* json_get_random_string(void) {
-	uint32_t random_key_length = get_random_byte_in_range(
-	    6, 30); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint32_t random_key_length =
+	    get_random_byte_in_range(6, 30); // NOLINT(readability-magic-numbers)
 
 	char* key = malloc((size_t)random_key_length + 3);
 
@@ -182,8 +182,7 @@ static char* json_get_null(void) {
 }
 
 static char* json_get_random_primitive_value(void) {
-	uint32_t random_type = get_random_byte_in_range(
-	    0, 4); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint32_t random_type = get_random_byte_in_range(0, 4); // NOLINT(readability-magic-numbers)
 
 	switch(random_type) {
 		case 0: return json_get_random_string();
@@ -214,8 +213,8 @@ static void add_random_object_key_and_value(StringBuilder* string_builder, bool 
 
 static void add_random_json_object(StringBuilder* string_builder, bool pretty) {
 
-	uint32_t random_key_amount = get_random_byte_in_range(
-	    4, 20); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint32_t random_key_amount =
+	    get_random_byte_in_range(4, 20); // NOLINT(readability-magic-numbers)
 
 	string_builder_append_single(string_builder, "{");
 	if(pretty) {
@@ -252,8 +251,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 	}
 
 	// for compression tests, has to be at least  1 MB big, so that it can be tested accordingly
-	size_t minimum_size =
-	    1 << 20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	size_t minimum_size = 1 << 20; // NOLINT(readability-magic-numbers)
 
 	while(string_builder_get_string_size(string_builder) < minimum_size) {
 		if(pretty) {

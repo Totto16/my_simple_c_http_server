@@ -18,8 +18,7 @@ static void bit_pos_inc(BitPos* const bit_pos) {
 
 	bit_pos->bits_pos++;
 
-	if(bit_pos->bits_pos >=
-	   8) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	if(bit_pos->bits_pos >= 8) { // NOLINT(readability-magic-numbers)
 		bit_pos->bits_pos = 0;
 		bit_pos->pos++;
 	}
@@ -37,11 +36,9 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 			                          .data = { .error = "input is NULL or empty" } };
 	}
 
-	size_t memory_size =
-	    (((buffer.size *
-	       8) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	      (MIN_HPACK_BITS_PER_CHAR - 1)) /
-	     MIN_HPACK_BITS_PER_CHAR);
+	size_t memory_size = (((buffer.size * 8) + // NOLINT(readability-magic-numbers)
+	                       (MIN_HPACK_BITS_PER_CHAR - 1)) /
+	                      MIN_HPACK_BITS_PER_CHAR);
 
 	uint8_t* const values = malloc(memory_size + 1);
 
@@ -126,12 +123,10 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 		};
 	}
 
-	size_t bits_not_decoded =
-	    8 - // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	    last_pos.bits_pos;
+	size_t bits_not_decoded = 8 - // NOLINT(readability-magic-numbers)
+	                          last_pos.bits_pos;
 
-	if(bits_not_decoded >=
-	   8) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	if(bits_not_decoded >= 8) { // NOLINT(readability-magic-numbers)
 		// 8 bits not decoded, is also invalid
 		return (HuffmanDecodeResult){
 			.is_error = true, .data = { .error = "8 or more bits not decoded, is also invalid" }
@@ -213,9 +208,8 @@ NODISCARD static size_t hpack_huffman_get_encoded_size_impl(const HuffmanEncodeM
 	}
 
 	// do + 7 to ceil it in a simple fashion
-	return (result_bits +
-	        7) / // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	       8;    // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	return (result_bits + 7) / // NOLINT(readability-magic-numbers)
+	       8;                  // NOLINT(readability-magic-numbers)
 }
 
 NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* const str) {
@@ -269,10 +263,8 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 			value = value >> 1;
 
 			data_ptr[current_pos.pos] =
-			    data_ptr[current_pos.pos] |
-			    (bit
-			     << (7 - // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-			         current_pos.bits_pos));
+			    data_ptr[current_pos.pos] | (bit << (7 - // NOLINT(readability-magic-numbers)
+			                                         current_pos.bits_pos));
 
 			bit_pos_inc(&current_pos);
 		}

@@ -943,9 +943,8 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// since it aborts on POLLIN from the socket_fd or the signalFd
 		int status = 0;
 		while(status == 0) {
-			status = poll(
-			    poll_fds, POLL_FD_AMOUNT,
-			    5000); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			status = poll(poll_fds, POLL_FD_AMOUNT,
+			              5000); // NOLINT(readability-magic-numbers)
 			if(status < 0) {
 				LOG_MESSAGE(LogLevelError, "poll failed: %s\n", strerror(errno));
 				continue;

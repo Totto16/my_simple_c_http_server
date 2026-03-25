@@ -307,7 +307,7 @@ NODISCARD static bool parse_compression_quality_float_tstr(const tstr_view view,
 
 	float result = 0.0F;
 	bool had_dot = false;
-	float frac = 10.0F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	float frac = 10.0F; // NOLINT(readability-magic-numbers)
 
 	for(size_t i = 0; i < view.len; i++) {
 		const char val = view.data[i];
@@ -329,13 +329,10 @@ NODISCARD static bool parse_compression_quality_float_tstr(const tstr_view view,
 
 		if(had_dot) {
 			result = result + (valf / frac);
-			frac = frac *
-			       10.0F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			frac = frac * 10.0F; // NOLINT(readability-magic-numbers)
 		} else {
-			result =
-			    (result *
-			     10.0F) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-			    valf;
+			result = (result * 10.0F) + // NOLINT(readability-magic-numbers)
+			         valf;
 		}
 	}
 

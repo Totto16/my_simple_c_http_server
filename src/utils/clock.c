@@ -56,7 +56,7 @@ static bool impl_get_time(Time* time, clockid_t clockid) {
 		return false;
 	}
 
-	int result = clock_gettime(clockid, &time->_impl_value);
+	const int result = clock_gettime(clockid, &time->_impl_value);
 
 	if(result != 0) {
 		LOG_MESSAGE(LogLevelError, "Error in getting time for clock: %s\n", strerror(errno));
@@ -249,7 +249,7 @@ NODISCARD char* get_date_string(Time time, TimeFormat format) {
 			locale_to_use = get_http_locale();
 			use_utc = true;
 			// just a guess, should suffice
-			max_bytes = 64;
+			max_bytes = 64UL;
 			break;
 		}
 		case TimeFormatCommonLog: {
@@ -258,7 +258,7 @@ NODISCARD char* get_date_string(Time time, TimeFormat format) {
 			locale_to_use = (locale_t)0;
 			use_utc = false;
 			// just a guess, should suffice
-			max_bytes = 64;
+			max_bytes = 64UL;
 			break;
 		}
 		default: {
@@ -273,7 +273,7 @@ NODISCARD char* get_date_string(Time time, TimeFormat format) {
 	}
 
 	struct tm converted_time = ZERO_STRUCT(struct tm);
-	struct tm* convert_result = NULL;
+	const struct tm* convert_result = NULL;
 
 	if(use_utc) {
 		convert_result = gmtime_r(&time._impl_value.tv_sec, &converted_time);

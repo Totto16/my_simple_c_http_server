@@ -29,6 +29,7 @@ Checks: >
   -modernize-redundant-void-arg,
   -readability-trailing-comma,
   -readability-redundant-parentheses,
+  -cppcoreguidelines-avoid-magic-numbers,
   custom-*,
   totto-*
 WarningsAsErrors: >

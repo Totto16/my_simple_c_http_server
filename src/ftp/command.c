@@ -75,8 +75,7 @@ NODISCARD static bool parse_u8_into(const tstr_view input, uint8_t* const result
 		return false;
 	}
 
-	if(result < 0 ||
-	   result > 0xFF) { // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	if(result < 0 || result > 0xFF) { // NOLINT(readability-magic-numbers)
 		return false;
 	}
 

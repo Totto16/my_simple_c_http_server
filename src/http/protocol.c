@@ -203,9 +203,8 @@ compare_function_entries(const CompressionEntry* // NOLINT(bugprone-easily-swapp
 	// note weight is between 0.0 and 1.0
 
 	if(entry1->weight != entry2->weight) {
-		return (
-		    int)((entry1->weight - entry2->weight) *
-		         10000.0F); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return (int)((entry1->weight - entry2->weight) *
+		             10000.0F); // NOLINT(readability-magic-numbers)
 	}
 
 	return 0;

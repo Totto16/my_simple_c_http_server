@@ -510,10 +510,8 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 			if(proto_len == 2 && memcmp(proto, ALPN_PROTO_H2, H2_PROTO_SIZE) == 0) {
 				// HTTP/2 selected
 				secure_data.protocol = ProtocolSelectedHttp2;
-			} else if(
-			    proto_len ==
-			        8 // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-			    && memcmp(proto, ALPN_PROTO_H1_1, H1_1_PROTO_SIZE) == 0) {
+			} else if(proto_len == 8 // NOLINT(readability-magic-numbers)
+			          && memcmp(proto, ALPN_PROTO_H1_1, H1_1_PROTO_SIZE) == 0) {
 				// HTTP/1.1 selected
 				secure_data.protocol = ProtocolSelectedHttp1Dot1;
 			}

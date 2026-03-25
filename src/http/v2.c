@@ -57,8 +57,8 @@ NODISCARD static Http2RawHeader parse_http2_raw_header(const uint8_t* const head
 
 	uint32_t length = special_impl_deserialize_u24_be_to_host(header_data);
 
-	Http2Identifier stream_identifier = deserialize_identifier(
-	    header_data + 5); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	Http2Identifier stream_identifier =
+	    deserialize_identifier(header_data + 5); // NOLINT(readability-magic-numbers)
 
 	// MUST be ignored in receiving
 	// bool reserved = ((stream_identifier_raw >> 31) & 1) == 1;
@@ -338,7 +338,7 @@ http2_send_settings_frame(const ConnectionDescriptor* const descriptor, Http2Set
 			data[i + 2] = value_res.bytes[0];
 			data[i + 3] = value_res.bytes[1];
 			data[i + 4] = value_res.bytes[2];
-			data[i + 5] = // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			data[i + 5] = // NOLINT(readability-magic-numbers)
 			    value_res.bytes[3];
 		}
 	}
@@ -669,12 +669,10 @@ get_http2_priority_info_from_raw_data(const SizedBuffer raw_data) {
 	uint32_t stream_dependency_identifier_raw = deserialize_u32_be_to_host(priority_data_raw);
 
 	uint32_t dependency_identifier =
-	    stream_dependency_identifier_raw &
-	    0x7FFFFFFF; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	    stream_dependency_identifier_raw & 0x7FFFFFFF; // NOLINT(readability-magic-numbers)
 
 	bool exclusive =
-	    (stream_dependency_identifier_raw >>
-	     31) != // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	    (stream_dependency_identifier_raw >> 31) != // NOLINT(readability-magic-numbers)
 	    0;
 
 	uint8_t weight = priority_data_raw[4];

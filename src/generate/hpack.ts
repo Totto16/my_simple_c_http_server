@@ -1837,7 +1837,7 @@ typedef struct {
 
 // hold mappings from all 8 bit values to a HuffmanEncodeEntry
 typedef struct  {
-	HuffmanEncodeEntry entries[256]; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	HuffmanEncodeEntry entries[256]; // NOLINT(readability-magic-numbers)
 } HuffmanEncodeMap;
 
 NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void);
