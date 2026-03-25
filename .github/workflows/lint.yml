@@ -24,8 +24,9 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 21
-          echo "CC=clang-21" >> "$GITHUB_ENV"
+          sudo ./llvm.sh 22
+          echo "CC=clang-22" >> "$GITHUB_ENV"
+          echo "CXX=clang++-22" >> "$GITHUB_ENV"
 
       - name: Setup node
         uses: actions/setup-node@v6
@@ -48,7 +49,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: file
-          version: 21
+          version: 22
           database: build
           files-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
           lines-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
