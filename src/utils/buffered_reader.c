@@ -23,7 +23,7 @@ struct BufferedReaderImpl {
 	BufferedData data;
 };
 
-// TODO: this shopuld use non blockign reads internally everyhwere, but how to handle waits and
+// TODO(Totto): this should use non blocking reads internally everywere, but how to handle waits and
 // where? NOTE: creation should pass a timer of some sort and an interval, so that internally we
 // wait for that long, if we don't have data, and error with timeout is returned
 
@@ -78,7 +78,7 @@ static size_t buffered_reader_get_more_data_partially(BufferedReader* const read
 
 	reader->data.buffer.data = new_buffer;
 
-	ReadResult res = read_from_descriptor(reader->descriptor, buffer, amount);
+	const ReadResult res = read_from_descriptor(reader->descriptor, buffer, amount);
 
 	if(res.type == ReadResultTypeEOF) {
 		reader->state = StreamStateClosed;
@@ -190,7 +190,7 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader, const tst
 
 				++reader->data.cursor;
 
-				SizedBuffer buffer = {
+				const SizedBuffer buffer = {
 					.data = (Byte*)reader->data.buffer.data + start_cursor,
 					.size = (reader->data.cursor - start_cursor - delimiter.len),
 				};
@@ -226,7 +226,7 @@ NODISCARD BufferedReadResult buffered_reader_get_until_end(BufferedReader* const
 
 		if(reader->state == StreamStateClosed) {
 
-			SizedBuffer buffer = {
+			const SizedBuffer buffer = {
 				.data = NULL,
 				.size = 0,
 			};
@@ -272,7 +272,7 @@ break_while_outer:
 	UNUSED(start_cursor);
 	assert(reader->data.cursor == start_cursor && "check if old wrong behaviour is fixed");
 
-	SizedBuffer buffer = {
+	const SizedBuffer buffer = {
 		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
 		.size = (reader->data.buffer.size - reader->data.cursor),
 	};
@@ -326,7 +326,7 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const re
 			                     .value = { .error = "Failed to get more data in get amount" } };
 	}
 
-	SizedBuffer buffer = {
+	const SizedBuffer buffer = {
 		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
 		.size = amount,
 	};
@@ -398,7 +398,7 @@ bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* con
 	// TODO(Totto): maybe half close the tcp connection and check if more data is given, that would
 	// be a client error!
 
-	GenericResult result =
+	const GenericResult result =
 	    close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
 	if(result.is_error) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
@@ -411,8 +411,8 @@ bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* con
 	return true;
 }
 
-NODISCARD ConnectionDescriptor*
-buffered_reader_get_connection_descriptor(BufferedReader* const reader) {
+NODISCARD ConnectionDescriptor* buffered_reader_get_connection_descriptor(
+    BufferedReader* const reader) { // NOLINT(totto-const-correctness-c)
 	return reader->descriptor;
 }
 
