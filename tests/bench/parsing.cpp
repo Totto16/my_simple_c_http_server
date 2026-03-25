@@ -224,7 +224,8 @@ static void BM_url_parser(benchmark::State& state) {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1"_tstr);
+				const ParsedSearchPathEntry* entry =
+				    find_search_key(search_path, "param1"_tstr_static);
 
 				assert(entry != nullptr);
 
@@ -235,7 +236,8 @@ static void BM_url_parser(benchmark::State& state) {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2"_tstr);
+				const ParsedSearchPathEntry* entry =
+				    find_search_key(search_path, "param2"_tstr_static);
 
 				assert(entry != nullptr);
 
@@ -245,7 +247,8 @@ static void BM_url_parser(benchmark::State& state) {
 			}
 
 			{
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3"_tstr);
+				const ParsedSearchPathEntry* entry =
+				    find_search_key(search_path, "param3"_tstr_static);
 
 				assert(entry != nullptr);
 
@@ -256,7 +259,8 @@ static void BM_url_parser(benchmark::State& state) {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4"_tstr);
+				const ParsedSearchPathEntry* entry =
+				    find_search_key(search_path, "param4"_tstr_static);
 
 				assert(entry == nullptr);
 			}
@@ -282,7 +286,8 @@ static void BM_url_parser(benchmark::State& state) {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param1"_tstr);
+				const ParsedSearchPathEntry* entry =
+				    find_search_key(search_path, "param1"_tstr_static);
 
 				assert(entry != nullptr);
 
@@ -293,7 +298,8 @@ static void BM_url_parser(benchmark::State& state) {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param2"_tstr);
+				const ParsedSearchPathEntry* entry =
+				    find_search_key(search_path, "param2"_tstr_static);
 
 				assert(entry != nullptr);
 
@@ -303,7 +309,8 @@ static void BM_url_parser(benchmark::State& state) {
 			}
 
 			{
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param3"_tstr);
+				const ParsedSearchPathEntry* entry =
+				    find_search_key(search_path, "param3"_tstr_static);
 
 				assert(entry != nullptr);
 
@@ -314,7 +321,8 @@ static void BM_url_parser(benchmark::State& state) {
 
 			{
 
-				const ParsedSearchPathEntry* entry = find_search_key(search_path, "param4"_tstr);
+				const ParsedSearchPathEntry* entry =
+				    find_search_key(search_path, "param4"_tstr_static);
 
 				assert(entry == nullptr);
 			}

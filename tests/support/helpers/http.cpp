@@ -11,7 +11,8 @@ compression::CompressionSettingsCpp::CompressionSettingsCpp(
 
 	HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
 
-	add_http_header_field(&http_header_fields, HTTP_HEADER_NAME(accept_encoding),
+	add_http_header_field(&http_header_fields,
+	                      tstr_from_static_tstr(HTTP_HEADER_NAME(accept_encoding)),
 	                      tstr_from(accept_encoding_value));
 
 	this->m_settings = get_compression_settings(http_header_fields);

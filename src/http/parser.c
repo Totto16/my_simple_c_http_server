@@ -627,9 +627,9 @@ static void process_connection_header(const tstr_view value, void* argument) {
 
 	ConnectionHeaderType* state = (ConnectionHeaderType*)argument;
 
-	if(tstr_view_eq_ignore_case(value, "upgrade")) {
+	if(tstr_view_eq_ignore_case(value, TSTR_TSV("upgrade"))) {
 		*state = *state | ConnectionHeaderTypeUpgrade;
-	} else if(tstr_view_eq_ignore_case(value, "http2-settings")) {
+	} else if(tstr_view_eq_ignore_case(value, TSTR_TSV("http2-settings"))) {
 		*state = *state | ConnectionHeaderTypeHTTP2Settings;
 	} else {
 		*state = *state | ConnectionHeaderTypeOther;
@@ -661,7 +661,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
 		const HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
-		if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(content_length))) {
+		if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(content_length))) {
 			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
 
@@ -696,7 +696,8 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			analyze_result.length.type = HTTPRequestLengthTypeContentLength;
 			analyze_result.length.value.length = (size_t)content_length;
 
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(transfer_encoding))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key,
+		                                          HTTP_HEADER_NAME(transfer_encoding))) {
 
 			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
@@ -712,7 +713,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 			// TODO(Totto): support more than chunked, as also compression can be used with
 			// chunked!
-			if(!tstr_eq_ignore_case_cstr(&header.value, "chunked")) {
+			if(!tstr_eq_ignore_case_static_tstr(&header.value, TSTR_STATIC_LIT("chunked"))) {
 				FREE_AT_END();
 				return (HTTPAnalyzeHeadersResult){
 					.is_error = true,
@@ -721,11 +722,12 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			}
 			analyze_result.length.value.encoding = HTTPEncodingChunked;
 
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(connection))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(connection))) {
 			// see https://datatracker.ietf.org/doc/html/rfc7230#section-6.1
-			if(tstr_eq_ignore_case_cstr(&header.value, "close")) {
+			if(tstr_eq_ignore_case_static_tstr(&header.value, TSTR_STATIC_LIT("close"))) {
 				analyze_result.length.type = HTTPRequestLengthTypeClose;
-			} else if(tstr_eq_ignore_case_cstr(&header.value, "keep-alive")) {
+			} else if(tstr_eq_ignore_case_static_tstr(&header.value,
+			                                          TSTR_STATIC_LIT("keep-alive"))) {
 				if(analyze_result.connection.type != HttpAnalyzeConnectionTypeNothingSpecial) {
 					FREE_AT_END();
 					return (HTTPAnalyzeHeadersResult){
@@ -748,13 +750,13 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 					h2state.connection_has_both_upgrade_and_h2_settings = true;
 				}
 			}
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(upgrade))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(upgrade))) {
 			// see: https://datatracker.ietf.org/doc/html/rfc7230#section-6.7
 
 			if(tstr_eq_ignore_case_cstr(&header.value, "h2c")) {
 				h2state.upgrade_h2c_present = true;
 			}
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(http2_settings))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(http2_settings))) {
 
 			h2state.settings_buffer =
 			    base64_decode_buffer(readonly_buffer_from_tstr(&header.value));
@@ -878,9 +880,12 @@ process_http2_upgrade_request(const HTTPResultOk ok_res, HTTPReader* const reade
 		HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 		{
-			add_http_header_field(&additional_headers, HTTP_HEADER_NAME(upgrade), TSTR_LIT("h2c"));
+			add_http_header_field(&additional_headers,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(upgrade)),
+			                      TSTR_LIT("h2c"));
 
-			add_http_header_field(&additional_headers, HTTP_HEADER_NAME(connection),
+			add_http_header_field(&additional_headers,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(connection)),
 			                      TSTR_LIT("upgrade"));
 		}
 

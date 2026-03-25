@@ -125,7 +125,8 @@ typedef struct {
 } FTPState;
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
-NODISCARD FTPState* alloc_default_state(tstr global_folder);
+NODISCARD FTPState* alloc_default_state(MOVED(tstr) // NOLINT(totto-function-passing-type)
+                                        global_folder);
 
 void free_state(FTPState* state);
 

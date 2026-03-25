@@ -77,5 +77,7 @@ NODISCARD ANY_TYPE(ListenerError*)
 NODISCARD ANY_TYPE(ListenerError*)
     ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
 
-NODISCARD ExitCode start_ftp_server(FTPPortField control_port, tstr folder, SecureOptions* options,
+NODISCARD ExitCode start_ftp_server(FTPPortField control_port,
+                                    MOVED(tstr) folder, // NOLINT(totto-function-passing-type)
+                                    SecureOptions* options,
                                     AuthenticationProviders* auth_providers);

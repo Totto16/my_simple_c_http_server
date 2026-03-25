@@ -200,6 +200,11 @@ CheckOptions:
     value: 50
   - key: bugprone-assert-side-effect.AssertMacros
     value: "assert"
+  - key: totto-function-passing-type.ByValue
+    value: "^(tstr_static)$"
+  - key: totto-function-passing-type.ByPtr
+    value: "^(tstr)$"
+
 # see: https://clang.llvm.org/docs/LibASTMatchersReference.html
 # for matcher docs
 CustomChecks:
@@ -260,7 +265,5 @@ CustomChecks:
 # don't pass tstr pointer to memcpy or functions with void*, never able to convert to void*!!
 # don't use strlen
 # no char* or const char* as argument or return type!
-# never pass tstr by value as its hge
-# always pass tstr_static by value!
 # don't use manual tagged unions (WIP)
 # use PP Callbacks to make includes either <> or "./"

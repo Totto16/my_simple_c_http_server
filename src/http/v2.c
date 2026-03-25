@@ -2893,7 +2893,7 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 
 			PseudoHeadersForHttp2 new_pseudo_header = PseudoHeadersForHttp2None;
 
-			if(tstr_eq(&entry.key, &HTTP_HEADER_NAME(http2_pseudo_method))) {
+			if(tstr_eq_static_tstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_method))) {
 
 				bool success = false;
 
@@ -2910,13 +2910,13 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 				result.request_line.method = method;
 				new_pseudo_header = PseudoHeadersForHttp2Method;
 
-			} else if(tstr_eq(&entry.key, &HTTP_HEADER_NAME(http2_pseudo_scheme))) {
+			} else if(tstr_eq_static_tstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_scheme))) {
 
 				assert(result.request_line.uri.type == ParsedURITypeAbsoluteURI);
 				result.request_line.uri.data.uri.scheme = tstr_dup(&entry.value);
 				new_pseudo_header = PseudoHeadersForHttp2Scheme;
 
-			} else if(tstr_eq(&entry.key, &HTTP_HEADER_NAME(http2_pseudo_authority))) {
+			} else if(tstr_eq_static_tstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_authority))) {
 
 				AuthorityResult authority_parse_result =
 				    parse_authority(tstr_as_view(&entry.value));
@@ -2943,7 +2943,7 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 				result.request_line.uri.data.uri.authority = authority_parse_result.authority;
 				new_pseudo_header = PseudoHeadersForHttp2Authority;
 
-			} else if(tstr_eq(&entry.key, &HTTP_HEADER_NAME(http2_pseudo_path))) {
+			} else if(tstr_eq_static_tstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_path))) {
 
 				const ParsedURLPath path = parse_url_path(tstr_as_view(&entry.value));
 
@@ -2951,7 +2951,7 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 				result.request_line.uri.data.uri.path = path;
 				new_pseudo_header = PseudoHeadersForHttp2Path;
 
-			} else if(tstr_eq(&entry.key, &HTTP_HEADER_NAME(http2_pseudo_status))) {
+			} else if(tstr_eq_static_tstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_status))) {
 				return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 					                                .data = {
 					                                    .error = "pseudo header status not allowed "

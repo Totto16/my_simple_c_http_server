@@ -60,7 +60,8 @@ static bool construct_http1_headers_for_request(
 		        ? DEFAULT_MIME_TYPE
 		        : mime_type;
 
-		add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_type),
+		add_http_header_field(result_header_fields,
+		                      tstr_from_static_tstr(HTTP_HEADER_NAME(content_type)),
 		                      actual_mime_type);
 	}
 
@@ -71,7 +72,8 @@ static bool construct_http1_headers_for_request(
 			char* content_length_buffer = NULL;
 			FORMAT_STRING(&content_length_buffer, return NULL;, "%ld", body.size);
 
-			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_length),
+			add_http_header_field(result_header_fields,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(content_length)),
 			                      tstr_own_cstr(content_length_buffer));
 		}
 	}
@@ -85,7 +87,8 @@ static bool construct_http1_headers_for_request(
 		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
 		   status != HttpStatusSwitchingProtocols) {
 
-			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(connection),
+			add_http_header_field(result_header_fields,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(connection)),
 			                      TSTR_LIT("close"));
 		}
 	}
@@ -95,7 +98,8 @@ static bool construct_http1_headers_for_request(
 
 		const tstr server_value = TSTR_LIT("Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
-		add_http_header_field(result_header_fields, HTTP_HEADER_NAME(server), server_value);
+		add_http_header_field(result_header_fields, tstr_from_static_tstr(HTTP_HEADER_NAME(server)),
+		                      server_value);
 	}
 
 	{
@@ -105,7 +109,8 @@ static bool construct_http1_headers_for_request(
 		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
 		   status != HttpStatusSwitchingProtocols) {
 
-			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(alt_svc),
+			add_http_header_field(result_header_fields,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(alt_svc)),
 			                      tstr_from_static_cstr_with_len(g_alt_svc_constant_data,
 			                                                     SIZE_OF_GLOBAL_ALT_SVC_DATA - 1));
 		}
@@ -119,7 +124,8 @@ static bool construct_http1_headers_for_request(
 
 			const tstr content_encoding = get_string_for_compress_format(compression_format);
 
-			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_encoding),
+			add_http_header_field(result_header_fields,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(content_encoding)),
 			                      content_encoding);
 		}
 	}
@@ -170,7 +176,8 @@ static bool construct_http2_headers_for_request(
 	char* status_code_buffer = NULL;
 	FORMAT_STRING(&status_code_buffer, return false;, "%u", status);
 
-	add_http_header_field(result_header_fields, HTTP_HEADER_NAME(http2_pseudo_status),
+	add_http_header_field(result_header_fields,
+	                      tstr_from_static_tstr(HTTP_HEADER_NAME(http2_pseudo_status)),
 	                      tstr_own_cstr(status_code_buffer));
 
 	return construct_http1_headers_for_request(send_settings, result_header_fields, mime_type,

@@ -253,13 +253,13 @@ void free_http_request(HttpRequest request);
 
 void free_http_request_result(HTTPResultOk result);
 
-NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, tstr key);
+NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, tstr_static key);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);
 
-NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, tstr key);
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, tstr_static key);
 
 typedef struct {
 	CompressionType compression_to_use;
@@ -272,7 +272,9 @@ void free_http_header_field(HttpHeaderField field);
 
 void free_http_header_fields(HttpHeaderFields* header_fields);
 
-void add_http_header_field(HttpHeaderFields* header_fields, tstr key, tstr value);
+void add_http_header_field(HttpHeaderFields* header_fields,
+                           MOVED(tstr) key,    // NOLINT(totto-function-passing-type)
+                           MOVED(tstr) value); // NOLINT(totto-function-passing-type)
 
 #define HTTP_LINE_SEPERATORS "\r\n"
 

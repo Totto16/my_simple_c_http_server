@@ -6,9 +6,9 @@
 
 #ifdef HTTP_HEADER_IMPL
 	#define HTTP_HEADER_MAKE(name, content) \
-		const tstr HTTP_HEADER_NAME(name) = TSTR_LIT_CONST(content)
+		const tstr_static HTTP_HEADER_NAME(name) = TSTR_STATIC_LIT_CONST(content)
 #else
-	#define HTTP_HEADER_MAKE(name, content) extern const tstr HTTP_HEADER_NAME(name)
+	#define HTTP_HEADER_MAKE(name, content) extern const tstr_static HTTP_HEADER_NAME(name)
 #endif
 
 HTTP_HEADER_MAKE(authorization, "authorization");

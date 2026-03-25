@@ -279,7 +279,8 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_body) {
 
-	const ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, TSTR_LIT("pretty"));
+	const ParsedSearchPathEntry* pretty_key =
+	    find_search_key(path.search_path, TSTR_STATIC_LIT("pretty"));
 
 	bool pretty = pretty_key != NULL;
 
@@ -822,7 +823,7 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view v
 	// TODO(Totto): support more auth-schemes
 
 	// see: https://www.iana.org/assignments/http-authschemes/http-authschemes.xhtml
-	if(tstr_view_eq_ignore_case(auth_scheme, "Basic")) {
+	if(tstr_view_eq_ignore_case(auth_scheme, TSTR_TSV("Basic"))) {
 		// see https://datatracker.ietf.org/doc/html/rfc7617
 
 		if(auth_param.len == 0) {
@@ -1049,11 +1050,13 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				    },
 				    "Basic realm=\"%s\", charset=\"UTF-8\"", DEFAULT_AUTH_REALM);
 
-				add_http_header_field(&additional_headers, HTTP_HEADER_NAME(www_authenticate),
+				add_http_header_field(&additional_headers,
+				                      tstr_from_static_tstr(HTTP_HEADER_NAME(www_authenticate)),
 				                      tstr_own_cstr(www_authenticate_buffer));
 
 #ifndef NDEBUG
-				add_http_header_field(&additional_headers, HTTP_HEADER_NAME(x_special_reason),
+				add_http_header_field(&additional_headers,
+				                      tstr_from_static_tstr(HTTP_HEADER_NAME(x_special_reason)),
 				                      auth_status.data.unauthorized.reason);
 
 #endif

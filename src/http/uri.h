@@ -20,8 +20,9 @@ typedef struct {
 typedef struct {
 	tstr val;
 } ParsedSearchPathValue;
-
+/* NOLINTBEGIN(totto-function-passing-type) */
 TMAP_DEFINE_MAP_TYPE(tstr, TSTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
+/* NOLINTEND(totto-function-passing-type) */
 
 typedef TMAP_TYPENAME_ENTRY(ParsedSearchPathHashMap) ParsedSearchPathEntry;
 

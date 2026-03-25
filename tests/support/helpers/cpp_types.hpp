@@ -74,6 +74,11 @@ template <typename T> using CAutoFreePtr = std::unique_ptr<T, void (*)(T*)>;
 	return tstr_from_static_cstr_with_len(str, len);
 }
 
+[[nodiscard]] static constexpr tstr_static operator""_tstr_static(const char* str,
+                                                                  std::size_t len) {
+	return tstr_static_from_static_cstr_with_len(str, len);
+}
+
 template <typename T>
 [[nodiscard]] static inline bool vec_contains(const std::vector<T>& vec, const T& val) {
 	return std::find(vec.cbegin(), vec.cend(), val) != vec.cend();
