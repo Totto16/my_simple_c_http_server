@@ -56,7 +56,8 @@ static bool impl_get_time(Time* time, clockid_t clockid) {
 		return false;
 	}
 
-	const int result = clock_gettime(clockid, &time->_impl_value);
+	const int result = // NOLINT(totto-use-fixed-width-types-var)
+	    clock_gettime(clockid, &time->_impl_value);
 
 	if(result != 0) {
 		LOG_MESSAGE(LogLevelError, "Error in getting time for clock: %s\n", strerror(errno));
@@ -148,14 +149,14 @@ static TimeDiff impl_time_diff(Time time1, Time time2) {
 
 	if(time2_ns > time1_ns) {
 		result.neg = true;
-		uint64_t temp = time1_ns;
+		const uint64_t temp = time1_ns;
 		time1_ns = time2_ns;
 		time2_ns = temp;
 	}
 
-	uint64_t diff_ns = time1_ns - time2_ns;
+	const uint64_t diff_ns = time1_ns - time2_ns;
 
-	time_t diff_s_part = (time_t)(diff_ns / ((uint64_t)(S_TO_NS_RATE)));
+	const time_t diff_s_part = (time_t)(diff_ns / ((uint64_t)(S_TO_NS_RATE)));
 
 	result.diff._impl_value.tv_sec = diff_s_part;
 	result.diff._impl_value.tv_nsec = (long)(diff_ns - (diff_s_part * ((time_t)(S_TO_NS_RATE))));
@@ -165,7 +166,7 @@ static TimeDiff impl_time_diff(Time time1, Time time2) {
 
 double time_diff_in_exact_seconds(Time time1, Time time2) {
 
-	TimeDiff diff = impl_time_diff(time1, time2);
+	const TimeDiff diff = impl_time_diff(time1, time2);
 
 	double exact_seconds = get_time_in_seconds_exact(diff.diff);
 
@@ -180,9 +181,10 @@ typedef struct {
 	locale_t http_locale;
 } GlobalClockData;
 
-GlobalClockData g_clock_data = {
-	.http_locale = (locale_t)0,
-};
+static GlobalClockData g_clock_data = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    {
+	    .http_locale = (locale_t)0,
+    };
 
 static void initialize_http_locale(void) {
 	locale_t c_locale = newlocale(LC_TIME_MASK, "C", (locale_t)0);
@@ -215,11 +217,16 @@ static locale_t get_http_locale(void) {
 	return g_clock_data.http_locale;
 }
 
+// see filezilla source code at src/engine/directorylistingparser.cpp:1094 at
+// CDirectoryListingParser::ParseUnixDateTime on why this exact format is used, it
+// has the most available information, while being recognized
 #define FTP_TIME_FORMAT "%Y-%m-%d %H:%M"
 
-// IMF-fixdate from https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.1.1
+// according to RFC c7231 - IMF-fixdate:
+// https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.1.1
 #define HTTP1_1_RFC_7231_TIME_FORMAT "%a, %d %b %Y %H:%M:%S GMT"
 
+// see: https://en.wikipedia.org/wiki/Common_Log_Format
 #define COMMON_LOG_TIME_FORMAT "%d/%b/%Y:%H:%M:%S %z"
 
 NODISCARD char* get_date_string(Time time, TimeFormat format) {
@@ -231,34 +238,28 @@ NODISCARD char* get_date_string(Time time, TimeFormat format) {
 
 	switch(format) {
 		case TimeFormatFTP: {
-			// see filezilla source code at src/engine/directorylistingparser.cpp:1094 at
-			// CDirectoryListingParser::ParseUnixDateTime on why this exact format is used, it
-			// has the most available information, while being recognized
 
 			format_str = FTP_TIME_FORMAT;
 			locale_to_use = (locale_t)0;
 			use_utc = false;
 			// just a guess, should suffice
-			max_bytes = 0xFF;
+			max_bytes = 0xFF; // NOLINT(readability-magic-numbers)
 			break;
 		}
 		case TimeFormatHTTP1Dot1: {
-			// according to RFC c7231 - IMF-fixdate:
-			// https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.1.1
 			format_str = HTTP1_1_RFC_7231_TIME_FORMAT;
 			locale_to_use = get_http_locale();
 			use_utc = true;
 			// just a guess, should suffice
-			max_bytes = 64UL;
+			max_bytes = 64UL; // NOLINT(readability-magic-numbers)
 			break;
 		}
 		case TimeFormatCommonLog: {
-			// see: https://en.wikipedia.org/wiki/Common_Log_Format
 			format_str = COMMON_LOG_TIME_FORMAT;
 			locale_to_use = (locale_t)0;
 			use_utc = false;
 			// just a guess, should suffice
-			max_bytes = 64UL;
+			max_bytes = 64UL; // NOLINT(readability-magic-numbers)
 			break;
 		}
 		default: {
