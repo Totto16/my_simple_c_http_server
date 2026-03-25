@@ -3,10 +3,12 @@
 #include "../http/mime.h"
 #include "../http/protocol.h"
 
+// NOLINTNEXTLINE(totto-function-passing-type)
 TMAP_HASH_FUNC_SIG(tstr, TSTR_KEYNAME) {
 	return TMAP_HASH_BYTES(tstr_cstr(&key), tstr_len(&key));
 }
 
+// NOLINTNEXTLINE(totto-function-passing-type)
 TMAP_EQ_FUNC_SIG(tstr, TSTR_KEYNAME) {
 	return tstr_eq(&key1, &key2);
 }
