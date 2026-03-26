@@ -1,6 +1,3 @@
-
-
-
 npx = find_program(
     'npx',
     required: false,
@@ -11,8 +8,17 @@ pnpm = find_program(
     required: false,
 )
 
-
-helper_script_depend_files = files('index.ts', 'package.json', 'tsconfig.json')
+helper_script_depend_files = files(
+    'index.ts',
+    'package.json',
+    'src/all_cases.ts',
+    'src/compression.ts',
+    'src/hpack.ts',
+    'src/log.ts',
+    'src/subcommands.ts',
+    'src/ws_tests.ts',
+    'tsconfig.json',
+)
 
 helper_script_depends = []
 
@@ -21,7 +27,7 @@ if npx.found() and pnpm.found()
     meson_wrapper_sh = find_program(meson.current_source_dir() / 'meson_wrapper.sh')
 
     install_dependencies = custom_target(
-        'install dependencies (tests helper)',
+        'install dependencies (helper script)',
         command: [
             meson_wrapper_sh,
             '--wrapper-generate',
@@ -40,8 +46,8 @@ if npx.found() and pnpm.found()
     )
     helper_script_depends += install_dependencies
 
-    type_check_index_ts = custom_target(
-        'typecheck code (tests helper)',
+    type_check_helper_script = custom_target(
+        'typecheck code (helper script)',
         command: [
             meson_wrapper_sh,
             '--wrapper-generate',
@@ -57,7 +63,7 @@ if npx.found() and pnpm.found()
         output: ['typecheck_code_date.txt'],
         depend_files: helper_script_depend_files,
     )
-    helper_script_depends += type_check_index_ts
+    helper_script_depends += type_check_helper_script
 endif
 
 node = find_program(
@@ -88,24 +94,64 @@ else
     error('No JS runtime to geneate sources')
 endif
 
-generated_test_file_cpp = custom_target(
-    'generated_tests.hpp',
+generated_hpack_huffman_file_c = custom_target(
+    'generated_hpack_huffman.c',
     command: [
         node_like_runtime,
         '@CURRENT_SOURCE_DIR@/index.ts',
+        'generator',
+        '--type',
+        'c_hpack_huffman',
+        '-o',
+        '@OUTPUT0@',
+    ],
+    output: ['generated_hpack_huffman.h', 'generated_hpack_huffman.c'],
+    depend_files: helper_script_depend_files,
+    depends: helper_script_depends,
+)
+
+src_files += generated_hpack_huffman_file_c
+
+generated_hpack_header_h = custom_target(
+    'generated_hpack.h',
+    command: [
+        node_like_runtime,
+        '@CURRENT_SOURCE_DIR@/index.ts',
+        'generator',
+        '--type',
+        'c_header_table',
+        '-o',
+        '@OUTPUT0@',
+    ],
+    output: ['generated_hpack.h', 'generated_hpack.c'],
+    depend_files: helper_script_depend_files,
+    depends: helper_script_depends,
+)
+
+
+src_files += generated_hpack_header_h
+
+generated_hpack_file_cpp = custom_target(
+    'generated_hpack_tests.hpp',
+    command: [
+        node_like_runtime,
+        '@CURRENT_SOURCE_DIR@/index.ts',
+        'generator',
         '--type',
         'cpp_tests',
         '-o',
         '@OUTPUT0@',
     ],
-    output: ['generated_tests.hpp', 'generated_tests.cpp'],
+    output: ['generated_hpack_tests.hpp', 'generated_hpack_tests.cpp', 'generated_hpack_tests.c'],
     depend_files: helper_script_depend_files,
     depends: helper_script_depends,
 )
 
-generated_cpp_tests += generated_test_file_cpp
+generated_cpp_tests += generated_hpack_file_cpp
 
-generated_sources += alias_target(
-    'generated_sources_generic',
-    generated_test_file_cpp,
+generated_sources = alias_target(
+    'generated_sources',
+    generated_hpack_huffman_file_c,
+    generated_hpack_header_h,
+    generated_hpack_file_cpp,
 )

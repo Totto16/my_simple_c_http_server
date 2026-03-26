@@ -16,7 +16,6 @@
 
 export function generateTestFiles(output_base: string): void {
 
-    throw new Error("TODO")
-
+    throw new Error(`TODO: ${output_base}`)
 
 }

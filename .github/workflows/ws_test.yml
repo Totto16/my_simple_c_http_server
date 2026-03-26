@@ -69,7 +69,7 @@ jobs:
       - name: WS Tests
         run: |
           ./build/server http 8080 -l error &
-          bun ./tools/helper/index.ts run_ws_tests
+          bun ./tools/helper/index.ts ws_tests
 
       - uses: actions/upload-artifact@v6
         with:

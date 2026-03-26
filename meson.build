@@ -279,10 +279,9 @@ src_files = []
 inc_dirs = []
 
 generated_cpp_tests = []
-generated_sources = []
-
 
 subdir('src')
+subdir('tools/helper')
 
 http_server_lib = library(
     'http_server',
@@ -307,9 +306,6 @@ executable(
     dependencies: [http_server_dep],
 )
 
-
 if get_option('tests')
     subdir('tests')
 endif
-
-alias_target('generated_sources', generated_sources)
