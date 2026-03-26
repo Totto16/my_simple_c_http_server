@@ -308,7 +308,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_PASS));
 
-			
 			IF_ACCOUNT_INFO_IS_OK((*state->account)) {
 
 				if(tstr_eq_ignore_case_cstr( // NOLINT(readability-implicit-bool-conversion)
@@ -321,17 +320,17 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			}
 
 			// TODO(Totto): allow user changing
-			if(state->account->state != AccountStateOnlyUser) {
+			IF_ACCOUNT_INFO_IS_NOT_ONLY_USER((*state->account)) {
 				free_account_data(state->account);
 
-				state->account->state = AccountStateEmpty;
+				*state->account = new_account_info_empty();
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeBadSequence, "No user specified!");
 
 				return true;
 			}
 
-			const tstr username = state->account->data.temp_data.username;
+			const tstr username = account_info_get_as_only_user(state->account).username;
 
 			const tstr* passwd = arg;
 
@@ -341,10 +340,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			switch(user_validity) {
 				case UserValidityOk: {
 
-					free_account_data(state->account);
-
-					state->account->state = AccountStateOk;
-
 					const tstr duped_username = tstr_dup(&username);
 
 					if(tstr_is_null(&duped_username)) {
@@ -353,10 +348,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						return true;
 					}
 
-					AccountOkData ok_data = { .permissions = AccountPermissionsReadWrite,
-						                      .username = duped_username };
+					const AccountOkData ok_data = { .permissions = AccountPermissionsReadWrite,
+						                            .username = duped_username };
 
-					state->account->data.ok_data = ok_data;
+					free_account_data(state->account);
+
+					*state->account = new_account_info_ok(ok_data);
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn, "Logged In as user!");
 
@@ -366,7 +363,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					free_account_data(state->account);
 
-					state->account->state = AccountStateEmpty;
+					*state->account = new_account_info_empty();
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn, "No such user found!");
 
@@ -375,7 +372,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				case UserValidityWrongPassword: {
 					free_account_data(state->account);
 
-					state->account->state = AccountStateEmpty;
+					*state->account = new_account_info_empty();
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn, "Wrong password!");
 
@@ -385,7 +382,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				default: {
 					free_account_data(state->account);
 
-					state->account->state = AccountStateEmpty;
+					*state->account = new_account_info_empty();
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn, "Internal Error!");
 
@@ -398,7 +395,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandPwd: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_PWD == FTP_COMMAND_TYPE_NONE);
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
@@ -427,7 +424,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_CWD));
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
@@ -481,7 +478,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandCdup: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_CDUP == FTP_COMMAND_TYPE_NONE);
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
@@ -490,7 +487,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const char* cdup_argument = "..";
 
-			DirChangeResult dir_change_result = change_dirname_to(state, cdup_argument);
+			const DirChangeResult dir_change_result = change_dirname_to(state, cdup_argument);
 
 			switch(dir_change_result) {
 				case DirChangeResultOk: {
@@ -650,7 +647,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_STOR));
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't upload files!");
 
@@ -854,7 +851,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_RETR));
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
@@ -1082,7 +1079,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			const OptionalString arg =
 			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_LIST);
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 

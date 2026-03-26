@@ -527,6 +527,11 @@ function if_macro_name(union_name: TaggedName<"union">, member_name: TaggedName<
     return `IF_${union_name.inner.MACRO_NAME()}_IS_${member_name.inner.MACRO_NAME()}`
 }
 
+function if_not_macro_name(union_name: TaggedName<"union">, member_name: TaggedName<"member">): string {
+    return `IF_${union_name.inner.MACRO_NAME()}_IS_NOT_${member_name.inner.MACRO_NAME()}`
+}
+
+
 const for_macro_trick_name = "_for_macro_trick_impl_once_variant_"
 
 function generate_if_macro(mem: TaggedMember, tagged_union: TaggedUnion): string {
@@ -562,6 +567,12 @@ function generate_if_macro(mem: TaggedMember, tagged_union: TaggedUnion): string
 
 }
 
+function generate_if_not_macro(mem: TaggedMember, tagged_union: TaggedUnion): string {
+
+    return `#define ${if_not_macro_name(tagged_union.name, mem.name)}(variant_entry)
+	if((variant_entry).${getUnionTagName(tagged_union.name)} != ${memberNameForEnum(mem, tagged_union.enum.name)})`
+}
+
 function toCStr(str: string): string {
     return `"${str}"`
 }
@@ -591,7 +602,10 @@ function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
 	
 	${generatePoisonPragma([tag_name, data_name, get_state_function_name(tagged_union.name), for_macro_trick_name])}`)
 
-    const macros: string[] = [generate_macro, ...tagged_union.member.map((mem): string => generate_if_macro(mem, tagged_union))
+    const macros: string[] = [
+        generate_macro,
+        ...tagged_union.member.map((mem): string => generate_if_macro(mem, tagged_union)),
+        ...tagged_union.member.map((mem): string => generate_if_not_macro(mem, tagged_union))
     ]
 
 

@@ -11,7 +11,7 @@ AccountInfo* alloc_default_account(void) {
 		return NULL;
 	}
 
-	account->state = AccountStateEmpty;
+	*account = new_account_info_empty();
 
 	return account;
 }
