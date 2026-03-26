@@ -549,8 +549,6 @@ function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStr
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
 		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
 			for (${mem.type.name}${mutable ? "" : " const"} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
-        //TODO: make one for with , from two "for"s
-
     } else {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(getBrand(mem.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")

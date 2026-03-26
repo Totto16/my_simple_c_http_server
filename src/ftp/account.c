@@ -26,7 +26,7 @@ void free_account_data(AccountInfo* account) {
 			tstr_free(&(only_user.username));
 		}
 		break;
-		CASE_ACCOUNT_INFO_IS_EMPTY() {}
+		CASE_ACCOUNT_INFO_IS_EMPTY_CONST() {}
 		default: {
 			break;
 		}
