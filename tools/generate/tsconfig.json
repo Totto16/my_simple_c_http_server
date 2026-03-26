@@ -25,7 +25,7 @@
 		"node_modules/"
 	],
 	"files": [
-		"hpack.ts"
+		"index.ts"
 	],
 	"ts-node": {
 		"compilerOptions": {
