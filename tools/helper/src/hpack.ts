@@ -983,7 +983,7 @@ function toCNode(node: HuffmanNode, nodesArrayValue: string): string {
 
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return `((HuffmanNode){ .type = HuffmanNodeTypeNode, .data = { .node = (HuffmanNodeNode){ .bitZero = (${nodesArrayValue} + ${node.node.bitZero.id!.toString()}), .bitOne = (${nodesArrayValue} + ${node.node.bitOne.id!.toString()}) } } })`
+    return `((HuffmanNode){ .type = HuffmanNodeTypeNode, .data = { .node = (HuffmanNodeNode){ .bit_0 = (${nodesArrayValue} + ${node.node.bitZero.id!.toString()}), .bit_1 = (${nodesArrayValue} + ${node.node.bitOne.id!.toString()}) } } })`
 
 
 }
@@ -1680,8 +1680,8 @@ typedef struct HuffmanTreeImpl HuffmanTree;
 typedef struct HuffmanNodeImpl HuffmanNode;
 
 typedef struct {
-	HuffmanNode* bitZero;
-	HuffmanNode* bitOne;
+	HuffmanNode* bit_0;
+	HuffmanNode* bit_1;
 } HuffmanNodeNode;
 
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
