@@ -2,7 +2,10 @@
 	"name": "tools_helper",
 	"version": "0.0.1",
 	"description": "",
-	"scripts": {},
+	"main": "build/index.js",
+	"scripts": {
+		"build": "tsc"
+	},
 	"license": "MIT",
 	"devDependencies": {
 		"@tsconfig/strictest": "^2.0.8",

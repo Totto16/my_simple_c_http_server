@@ -1,11 +1,6 @@
-npx = find_program(
-    'npx',
-    required: false,
-)
-
 pnpm = find_program(
     'pnpm',
-    required: false,
+    required: true,
 )
 
 helper_script_depend_files = files(
@@ -22,49 +17,64 @@ helper_script_depend_files = files(
 
 helper_script_depends = []
 
-if npx.found() and pnpm.found()
+meson_wrapper_sh = find_program(meson.current_source_dir() / 'meson_wrapper.sh')
 
-    meson_wrapper_sh = find_program(meson.current_source_dir() / 'meson_wrapper.sh')
+install_dependencies = custom_target(
+    'install dependencies (helper script)',
+    command: [
+        meson_wrapper_sh,
+        '--wrapper-generate',
+        '@OUTPUT@',
+        pnpm,
+        '--dir',
+        meson.current_source_dir(),
+        'exec',
+        pnpm,
+        'install',
+        '--loglevel',
+        'error',
+    ],
+    output: ['install_dependencies_date.txt'],
+    depend_files: [helper_script_depend_files, 'pnpm-lock.yaml'],
+)
+helper_script_depends += install_dependencies
 
-    install_dependencies = custom_target(
-        'install dependencies (helper script)',
-        command: [
-            meson_wrapper_sh,
-            '--wrapper-generate',
-            '@OUTPUT@',
-            pnpm,
-            '--dir',
-            meson.current_source_dir(),
-            'exec',
-            pnpm,
-            'install',
-            '--loglevel',
-            'error',
-        ],
-        output: ['install_dependencies_date.txt'],
-        depend_files: [helper_script_depend_files, 'pnpm-lock.yaml'],
-    )
-    helper_script_depends += install_dependencies
+type_check_helper_script = custom_target(
+    'typecheck code (helper script)',
+    command: [
+        meson_wrapper_sh,
+        '--wrapper-generate',
+        '@OUTPUT@',
+        pnpm,
+        '--dir',
+        meson.current_source_dir(),
+        'exec',
+        'tsc',
+        '-p',
+        'tsconfig.json',
+    ],
+    output: ['typecheck_code_date.txt'],
+    depend_files: helper_script_depend_files,
+)
+helper_script_depends += type_check_helper_script
 
-    type_check_helper_script = custom_target(
-        'typecheck code (helper script)',
-        command: [
-            meson_wrapper_sh,
-            '--wrapper-generate',
-            '@OUTPUT@',
-            pnpm,
-            '--dir',
-            meson.current_source_dir(),
-            'exec',
-            'tsc',
-            '-p',
-            'tsconfig.json',
-        ],
-        output: ['typecheck_code_date.txt'],
-        depend_files: helper_script_depend_files,
-    )
-    helper_script_depends += type_check_helper_script
-endif
+build_helper_script = custom_target(
+    'build typescript code (helper script)',
+    command: [
+        meson_wrapper_sh,
+        '--wrapper-generate',
+        '@OUTPUT@',
+        pnpm,
+        '--dir',
+        meson.current_source_dir(),
+        'run',
+        'build',
+    ],
+    output: ['build_code_date.txt'],
+    depend_files: helper_script_depend_files,
+)
+helper_script_depends += build_helper_script
+
 
 node = find_program(
     'node',
@@ -91,14 +101,15 @@ elif deno.found()
 elif bun.found()
     node_like_runtime = bun
 else
-    error('No JS runtime to geneate sources')
+    error('No JS runtime to generate sources')
 endif
+
 
 generated_hpack_huffman_file_c = custom_target(
     'generated_hpack_huffman.c',
     command: [
         node_like_runtime,
-        '@CURRENT_SOURCE_DIR@/index.ts',
+        '@CURRENT_SOURCE_DIR@',
         'generator',
         '--type',
         'c_hpack_huffman',
@@ -116,7 +127,7 @@ generated_hpack_header_h = custom_target(
     'generated_hpack.h',
     command: [
         node_like_runtime,
-        '@CURRENT_SOURCE_DIR@/index.ts',
+        '@CURRENT_SOURCE_DIR@',
         'generator',
         '--type',
         'c_header_table',
@@ -135,7 +146,7 @@ generated_hpack_file_cpp = custom_target(
     'generated_hpack_tests.hpp',
     command: [
         node_like_runtime,
-        '@CURRENT_SOURCE_DIR@/index.ts',
+        '@CURRENT_SOURCE_DIR@',
         'generator',
         '--type',
         'cpp_tests',

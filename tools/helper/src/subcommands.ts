@@ -1,6 +1,6 @@
 import path from "node:path"
-import { generateFile, GenerateOptions } from "./hpack"
-import { runWsTests } from "./ws_tests"
+import { generateFile, GenerateOptions } from "./hpack.js"
+import { runWsTests } from "./ws_tests.js"
 
 export async function subcommandGenerator(args: string[]): Promise<void> {
     const options: Partial<GenerateOptions> = {

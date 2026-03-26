@@ -6,8 +6,9 @@ import path from "node:path"
 import child_process from "node:child_process";
 import http from "node:http"
 import https from "node:https"
-import { AllCases, all_cases } from "./all_cases"
-import { Logger } from "./log"
+
+import { AllCases, all_cases } from "./all_cases.js"
+import { Logger } from "./log.js"
 
 interface WaitOptions {
     host: string,

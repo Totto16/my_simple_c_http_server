@@ -1,4 +1,4 @@
-import { subcommandGenerator, subcommandWsTests } from "./src/subcommands"
+import { subcommandGenerator, subcommandWsTests } from "./src/subcommands.js"
 
 
 type SubCommand = "ws_tests" | "generator"
