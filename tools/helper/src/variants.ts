@@ -109,6 +109,7 @@ type CType = string
 
 interface StructMember {
     name: string,
+    //TODO: test  nested anonymous structs in all places
     type: CType | CAnonymousStruct
 }
 
@@ -245,10 +246,9 @@ function typeForMember(val: string | CAnonymousStruct): string {
     if (typeof (val) == "string") {
         return val;
     }
-
     return `struct {
 	${val.members.map(mem => {
-        return `${mem.type} ${mem.name};`
+        return `${typeForMember(mem.type)} ${mem.name};`
     }).join("\n	")}
 }`
 
@@ -262,7 +262,7 @@ function generateVariantDeclaration(tagged_union: TaggedUnion): string {
 
 
     return `
-/* tagged union implementation */
+/* tagged union (variant) implementation */
 typedef struct {
 	${tagged_union.enum.name.PascalCase()} ${tag_name};
 	union {
@@ -284,6 +284,95 @@ function generatePoisonPragma(names: string[]): string {
     return `_Pragma ("GCC poison ${names.join(" ")}")`
 }
 
+function function_for_new_variant(mem: TaggedMember, tagged_union: TaggedUnion): string {
+
+    return `new_${tagged_union.name.snake_case()}_${mem.name.snake_case()}`
+
+}
+
+interface FlatStructMember {
+    names: string[],
+    type: CType
+}
+
+function flattenCAnonymousStruct(struct: CAnonymousStruct): FlatStructMember[] {
+    const values: FlatStructMember[] = []
+
+    for (const mem of struct.members) {
+
+        if (typeof (mem.type) === "string") {
+            values.push({ names: [mem.name], type: mem.type })
+        } else {
+            const inner = flattenCAnonymousStruct(mem.type)
+            values.push(...inner.map(i => {
+                return { names: [mem.name, ...i.names], type: i.type }
+            }))
+        }
+
+    }
+
+    return values
+
+}
+
+function initialize_anonymous_struct(struct: CAnonymousStruct, outer_prefixes: string[] = []): string {
+
+    function nameFor(nm: string): string {
+        return [...outer_prefixes, nm].join("_")
+    }
+
+    const values: string[] = []
+
+    for (const mem of struct.members) {
+
+        if (typeof (mem.type) === "string") {
+            values.push(`.${mem.name} = ${nameFor(mem.name)}`)
+        } else {
+            values.push(initialize_anonymous_struct(mem.type, [...outer_prefixes, mem.name]))
+        }
+
+    }
+
+    return `{ ${values.join(", ")} }`
+
+}
+
+function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUnion): string {
+
+    if (mem.value === null) {
+        return `static inline ${tagged_union.name.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(void){
+	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)} };
+}
+`
+
+
+    } else if (typeof (mem.value) === "string") {
+        return `static inline ${tagged_union.name.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(const ${mem.name.PascalCase()} value){
+	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.enum.name)} = { .${mem.name.snake_case()} = value } };
+}
+`
+
+    } else {
+        assert(mem.value.type === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+
+        const flatParamaters = flattenCAnonymousStruct(mem.value)
+
+
+        return `static inline ${tagged_union.name.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(${flatParamaters.map(m => {
+            return `const ${m.type} ${m.names.join("_")}`
+        }).join(", ")}){
+	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.enum.name)} = { .${mem.name.snake_case()} = ${initialize_anonymous_struct(mem.value)} } };
+}
+`
+
+
+    }
+
+
+
+
+}
+
 
 const state_str_fn_prefix = "_impl_get_state_string_for_variant_"
 
@@ -294,16 +383,22 @@ function generateFunctions(tagged_union: TaggedUnion): string {
 		${tagged_union.member.map(mem => {
         return `case ${memberNameForEnum(mem, tagged_union.enum.name)}: {
 	return TSTR_STATIC_LIT("${mem.name.snake_case()}");
-}`
-
-    }).join("\n").split("\n").join("\n		")}
-	default: {
-		return TSTR_STATIC_LIT("<unknown>");
+}`}).join("\n").split("\n").join("\n		")}
+		default: {
+			return TSTR_STATIC_LIT("<unknown>");
 		}
 	}
-}`
+}
+
+${tagged_union.member.map(mem => {
+
+            return generateMemberFunctionsForMem(mem, tagged_union);
+
+        }).join("\n")}
+`
 
 }
+
 
 function toCStr(str: string): string {
     return `"${str}"`
