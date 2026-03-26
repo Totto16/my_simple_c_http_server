@@ -302,6 +302,7 @@ http_server_dep = declare_dependency(
 executable(
     'server',
     files('src/main.c'),
+    variants_generated,
     c_args: [internal_c_args],
     dependencies: [http_server_dep],
 )

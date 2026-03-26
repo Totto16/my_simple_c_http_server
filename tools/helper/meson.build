@@ -185,4 +185,5 @@ generated_sources = alias_target(
     generated_hpack_huffman_file_c,
     generated_hpack_header_h,
     generated_hpack_file_cpp,
+    variants_generated
 )

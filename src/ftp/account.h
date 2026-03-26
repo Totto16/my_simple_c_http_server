@@ -5,7 +5,8 @@
 #include "generic/authentication.h"
 #include "utils/utils.h"
 #include <tstr.h>
-#include <variants.h>
+
+#include "variants.h"
 
 /**
  * @enum MASK / FLAGS
@@ -23,16 +24,6 @@ typedef struct {
 } AccountOkData;
 
 GENERATE_VARIANT_ACCOUNT_INFO
-
-typedef struct {
-	AccountState state;
-	union {
-		AccountOkData ok_data;
-		struct {
-			tstr username;
-		} temp_data;
-	} data;
-} AccountInfo;
 
 NODISCARD AccountInfo* alloc_default_account(void);
 

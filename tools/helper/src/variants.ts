@@ -96,6 +96,13 @@ class CaseName {
         }).join("_")
     }
 
+    public snake_case(): string {
+        return this._parts.map((p) => {
+            assert(p === p.toLowerCase(), "all parts need to be lowercase")
+            return p;
+        }).join("_")
+    }
+
 }
 
 type CType = string
@@ -205,8 +212,6 @@ function generateEnumDeclaration(tu_enum: TaggedUnionEnum, member: TaggedMember[
 
     const underlying_type: CEnumType | null = resolveUnderlyingType(tu_enum.underlying_type, member.length)
 
-
-
     return `
 /* @enum value */
 typedef enum${underlying_type === null ? "" : ` C_23_NARROW_ENUM_TO(${c_type_for_enum(underlying_type)})`} {
@@ -222,10 +227,61 @@ typedef enum${underlying_type === null ? "" : ` C_23_NARROW_ENUM_TO(${c_type_for
 
         return memberNameForEnum(mem, tu_enum.name)
     }).join(",\n	")}
-} AccountState;
+} ${tu_enum.name.PascalCase()};
 `
 
 
+}
+
+function getUnionTagName(name: CaseName): string {
+    return `_variant_tag_for_${name.snake_case()}_tag_member`
+}
+
+function getUnionDataName(name: CaseName): string {
+    return `_variant_data_for_${name.snake_case()}_data_member`
+}
+
+function typeForMember(val: string | CAnonymousStruct): string {
+    if (typeof (val) == "string") {
+        return val;
+    }
+
+    return `struct {
+	${val.members.map(mem => {
+        return `${mem.type} ${mem.name};`
+    }).join("\n	")}
+}`
+
+}
+
+function generateVariantDeclaration(tagged_union: TaggedUnion): string {
+
+    const tag_name: string = getUnionTagName(tagged_union.name);
+
+    const data_name: string = getUnionDataName(tagged_union.name);
+
+
+    return `
+/* tagged union implementation */
+typedef struct {
+	${tagged_union.enum.name.PascalCase()} ${tag_name};
+	union {
+		${tagged_union.member.filter(mem => mem.value !== null).map((mem) => {
+
+        if (mem.value === null) {
+            throw new Error("IMPLEMENTATION ERROR")
+        }
+
+        return `${typeForMember(mem.value)} ${mem.name.snake_case()};`.split("\n").join("\n		")
+
+    }).join("\n		")}
+	} ${data_name};
+} ${tagged_union.name.PascalCase()};
+`
+}
+
+function generatePoisonPragma(names: string[]): string {
+    return `_Pragma ("GCC poison ${names.join(" ")}")`
 }
 
 
@@ -237,11 +293,19 @@ function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
 
     const enumString = generateEnumDeclaration(tagged_union.enum, tagged_union.member)
 
+    const variantString = generateVariantDeclaration(tagged_union)
 
-    return `#define GENERATE_VARIANT_${tagged_union.name.MACRO_NAME()} \
-	${enumString.split("\n").join("\\\n	")}
+    const tag_name: string = getUnionTagName(tagged_union.name);
 
-`
+    const data_name: string = getUnionDataName(tagged_union.name);
+
+
+
+    return `#define GENERATE_VARIANT_${tagged_union.name.MACRO_NAME()}
+	${enumString.split("\n").join("\n	")}
+	${variantString.split("\n").join("\n	")}
+	${generatePoisonPragma([tag_name, data_name])}
+`.split("\n").join("\\\n")
 
 
 
