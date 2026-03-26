@@ -308,7 +308,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_PASS));
 
-			IF_ACCOUNT_INFO_IS_OK((*state->account)) {
+			IF_ACCOUNT_INFO_IS_OK_CONST((*state->account)) {
 
 				if(tstr_eq_ignore_case_cstr( // NOLINT(readability-implicit-bool-conversion)
 				       &(ok.username), ANON_USERNAME)) {
