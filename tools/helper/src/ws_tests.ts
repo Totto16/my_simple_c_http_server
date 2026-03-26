@@ -7,7 +7,7 @@ import child_process from "node:child_process";
 import http from "node:http"
 import https from "node:https"
 
-import { AllCases, all_cases } from "./all_cases.js"
+import { type AllCases, all_cases } from "./all_cases.js"
 import { Logger } from "./log.js"
 
 interface WaitOptions {
@@ -57,7 +57,7 @@ async function waitForPort(options: WaitOptions): Promise<number> {
     const start = new Date();
 
     function error(reason: string): void {
-        throw new Error(`Failed to wait for '${options.host}:${options.port}': ${reason}`)
+        throw new Error(`Failed to wait for '${options.host}:${options.port.toString()}': ${reason}`)
     }
 
     const finalTimeout = setTimeout((): void => {
@@ -615,9 +615,9 @@ export async function runWsTests(jobs: number): Promise<void> {
 
     const waitOptions: WaitOptions = { host: "localhost", port: 8080, timeout: 120 }
 
-    logger.info(`Wait ${waitOptions.timeout}s for ${waitOptions.host}:${waitOptions.port}`)
+    logger.info(`Wait ${waitOptions.timeout.toString()}s for ${waitOptions.host}:${waitOptions.port.toString()}`)
     const waitedFor = await waitForPort(waitOptions)
-    logger.info(`Waited for ${waitedFor}ms`)
+    logger.info(`Waited for ${waitedFor.toString()}ms`)
 
     const amount = resolveJobs(jobs)
 
@@ -627,7 +627,7 @@ export async function runWsTests(jobs: number): Promise<void> {
 
     try {
 
-        logger.info(`Running ${split_cfg.total_cases} cases for ${config.servers.length} server`)
+        logger.info(`Running ${split_cfg.total_cases.toString()} cases for ${config.servers.length.toString()} server`)
 
         const processes: Promise<void>[] = []
 

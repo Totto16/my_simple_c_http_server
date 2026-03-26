@@ -774,6 +774,7 @@ function getValue(code: HuffmanCode): EndValue {
         return code.value
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (code.special === "EOS") {
         return "EOS"
     }
@@ -819,12 +820,14 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
             const final = i == code.bytes.size - 1;
 
             if (final) {
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 if (currentNode.type != "node") {
                     console.error(currentNode)
                     throw new Error("Error")
                 }
 
                 if (bit) {
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (currentNode.node.bit_1 === null) {
                         currentNode.node.bit_1 = new HuffmanNodeEnd(getValue(code))
                     } else if (currentNode.node.bit_1.type == "end") {
@@ -836,6 +839,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
                         currentNode.node.bit_1 = new HuffmanNodeEnd(getValue(code))
                     }
                 } else {
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (currentNode.node.bit_0 === null) {
                         currentNode.node.bit_0 = new HuffmanNodeEnd(getValue(code))
                     } else if (currentNode.node.bit_0.type == "end") {
@@ -851,6 +855,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
             } else {
 
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 if (currentNode.type != "node") {
                     console.error(currentNode)
                     throw new Error("Error")
@@ -858,6 +863,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
                 }
 
                 if (bit) {
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (currentNode.node.bit_1 === null) {
                         currentNode.node.bit_1 = new HuffmanNodeNode(null)
                     } else if (currentNode.node.bit_1.type == "end") {
@@ -871,6 +877,7 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
                     currentNode = currentNode.node.bit_1;
                 } else {
+                    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                     if (currentNode.node.bit_0 === null) {
                         currentNode.node.bit_0 = new HuffmanNodeNode(null)
                     } else if (currentNode.node.bit_0.type == "end") {
@@ -898,11 +905,12 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
     const nodes: HuffmanNode[] = [root]
 
-    let id: bigint = 0n;
+    let id = 0n;
 
     // make an id for each node, BFS style
     while (nodes.length != 0) {
 
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const node = nodes.pop()!;
 
         node.id = id;
@@ -974,7 +982,8 @@ function to_c_node(node: HuffmanNode, nodes_array_value: string): string {
     }
 
 
-    return `((HuffmanNode){ .type = HuffmanNodeTypeNode, .data = { .node = (HuffmanNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id}) } } })`
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return `((HuffmanNode){ .type = HuffmanNodeTypeNode, .data = { .node = (HuffmanNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id!.toString()}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id!.toString()}) } } })`
 
 
 }
@@ -984,9 +993,9 @@ function to_c_node(node: HuffmanNode, nodes_array_value: string): string {
 
 function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value: string): string[] {
 
-    const values: string[] = new Array(Number(node_amount)).fill(undefined);
+    const values: string[] = new Array(Number(node_amount)).fill(undefined) as string[];
 
-    function set_array_at(index: bigint | null, value: string) {
+    function set_array_at(index: bigint | null, value: string): void {
 
         if (index === null) {
             throw new Error("Invalid value")
@@ -1009,6 +1018,7 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
     // traverse all nodes, BFS style
     while (nodes.length != 0) {
 
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const node = nodes.pop()!;
 
         set_array_at(node.id, to_c_node(node, nodes_array_value));
@@ -1026,29 +1036,29 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
 
 function encode_node_c(code: HuffmanCodeNormal): string {
 
-    let str: string = ""
+    let str = ""
 
     for (let i = 0; i < code.bytes.size; ++i) {
         str += (code.bytes.get(i) ? "1" : "0")
     }
 
-    const finalStr: string = `0b${str.split("").reverse().join("")}`
+    const finalStr = `0b${str.split("").reverse().join("")}`
 
-    const encodeValueLSB: bigint = BigInt(finalStr);
+    const encodeValueLSB = BigInt(finalStr);
 
     const byteLength: number = Math.ceil(code.bytes.size / 8);
 
-    return `(HuffmanEncodeEntry){ .bit_size = ${code.bytes.size}, .value = ${toHexString(encodeValueLSB, byteLength)}}`
+    return `(HuffmanEncodeEntry){ .bit_size = ${code.bytes.size.toString()}, .value = ${toHexString(encodeValueLSB, byteLength)}}`
 }
 
 function map_to_encode_nodes(map: HuffmanEncodingMap): string[] {
 
-    const result: string[] = new Array(256).fill(undefined);
+    const result: string[] = new Array(256).fill(undefined) as string[];
 
     for (let i = 0; i < 256; ++i) {
         const code = map[i];
         if (code === undefined) {
-            throw new Error(`Code ${i} has to be defined`)
+            throw new Error(`Code ${i.toString()} has to be defined`)
         }
         result[i] = encode_node_c(code);
 
@@ -1159,6 +1169,7 @@ function nodes_and_prefixes_from_str_tree(tree: FastStringCompareTree): NodesAnd
     // iterate nodes BFS style
     while (temp_nodes.length != 0) {
 
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const node = temp_nodes.pop()!;
 
         nodes.push(node)
@@ -1216,13 +1227,15 @@ function check_valid_root_tree_2(root: FastStringCompareNode): void {
 
 function to_c_str(str: string): string {
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     assert(str !== null && str !== undefined && typeof str == "string", "has to be a string");
 
     return `"${str}"`
 }
 
 function fast_string_prefix_to_c(prefix: FastStringComparePrefix, array_name: string): string {
-    return `(FastStringCmpPrefix){ .prefix = ${to_c_str(prefix.prefix)}, .node = &(${array_name}[${prefix.node.id}])}`
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return `(FastStringCmpPrefix){ .prefix = ${to_c_str(prefix.prefix)}, .node = &(${array_name}[${prefix.node.id!.toString()}])}`
 }
 
 function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes: string): string {
@@ -1233,11 +1246,12 @@ function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes:
             throw new Error("Implementation error")
         }
 
-        return `(FastStringCmpNode){ .is_result = true, .data = { .result = (FastStringCompareResult){ .found = true, .index = ${node.result} } }}`
+        return `(FastStringCmpNode){ .is_result = true, .data = { .result = (FastStringCompareResult){ .found = true, .index = ${node.result.toString()} } }}`
 
     }
 
-    return `(FastStringCmpNode){ .is_result = false, .data = { .prefixes = (FastStringCmpPrefixes){ .prefix_len = ${node.prefix_len}, .array = (FastStringCmpPrefixArray) { .len = ${node.prefixes.length}, .data = &(${array_name_prefixes}[${node.prefix_offset}]) } } } }`
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return `(FastStringCmpNode){ .is_result = false, .data = { .prefixes = (FastStringCmpPrefixes){ .prefix_len = ${node.prefix_len.toString()}, .array = (FastStringCmpPrefixArray) { .len = ${node.prefixes.length.toString()}, .data = &(${array_name_prefixes}[${node.prefix_offset!.toString()}]) } } } }`
 
 }
 
@@ -1285,7 +1299,8 @@ function cleanup_short_paths_fast_compare(root: FastStringCompareNodeNormal): Fa
         if (node.parent.inner.prefixes.length == 1 && node.parent.parent.inner.prefixes.length == 1) {
             const prefix_len: number = node.parent.inner.prefix_len + node.parent.parent.inner.prefix_len
 
-            const prefix: string = `${node.parent.parent.inner.prefixes[0]!.prefix}${node.parent.inner.prefixes[0]!.prefix}`
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            const prefix = `${node.parent.parent.inner.prefixes[0]!.prefix}${node.parent.inner.prefixes[0]!.prefix}`
 
             node.parent.parent.inner = new FastStringCompareNodeNormal(prefix_len, [new FastStringComparePrefix(prefix, node.inner)])
             return { inner: node.inner, parent: node.parent, changed: true };
@@ -1301,6 +1316,7 @@ function cleanup_short_paths_fast_compare(root: FastStringCompareNodeNormal): Fa
         result = iterate_node(result)
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (result.changed || result.parent !== null) {
         throw new Error("Implementation error")
     }
@@ -1313,6 +1329,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
     const step1: Record<number, { cases: StringWithIdx[] } | undefined> = {}
 
     for (let i = 0; i < input.length; ++i) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const inp = input.at(i)!
 
         if (is_utf8_string(inp)) {
@@ -1338,13 +1355,16 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
     for (const [key, value] of Object.entries(step1)) {
 
 
+        // eslint-disable-next-line no-useless-assignment
         let root: FastStringCompareNode = new FastStringCompareNodeEnd(null);
 
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const cazes = value!.cases
 
         if (cazes.length == 0) {
             throw new Error("Unrechable")
         } else if (cazes.length == 1) {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const caze = cazes[0]!
             root = new FastStringCompareNodeNormal(caze.str.length, [
                 new FastStringComparePrefix(
@@ -1389,6 +1409,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
                         node = next_node
                     } else {
+                        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                         node = node.prefixes[foundIndex]!.node;
                     }
 
@@ -1402,13 +1423,14 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
         const nodes: FastStringCompareNode[] = [root]
 
-        let id: bigint = 0n;
-        let prefix_id: bigint = 0n;
-        let prefix_offset: number = 0;
+        let id = 0n;
+        let prefix_id = 0n;
+        let prefix_offset = 0;
 
         // make an id for each node, BFS style
         while (nodes.length != 0) {
 
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const node = nodes.pop()!;
 
             node.id = id;
@@ -1551,32 +1573,34 @@ NODISCARD ${flags.static ? "static " : ""}FastStringCompareResult ${function_nam
 	switch(str_view.len){
 ${Object.entries(preprocessed_compare).map(([key, tree]): string => {
 
-        const array_name: string = `fast_string_cmp_nodes_${key}`;
-        const array_name_prefixes: string = `fast_string_cmp_prefixes_${key}`;
+        const array_name = `fast_string_cmp_nodes_${key}`;
+        const array_name_prefixes = `fast_string_cmp_prefixes_${key}`;
 
         const values = nodes_and_prefixes_from_str_tree(tree)
 
         if (tree.strings.length == 1) {
 
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const str: StringWithIdx = tree.strings[0]!
 
             return `		case ${key}: {
 			if(strncmp(str_view.data, ${to_c_str(str.str)}, ${key}) == 0){
-				return (FastStringCompareResult){ .found = true, .index = ${str.idx} };
+				return (FastStringCompareResult){ .found = true, .index = ${str.idx.toString()} };
 			}
 			return (FastStringCompareResult){ .found = false, .index = 0 };
 		}`
         } else {
 
             return `		case ${key}: {
-			FastStringCmpNode ${array_name}[${tree.node_amount}] = {};
-			FastStringCmpPrefix ${array_name_prefixes}[${tree.prefix_amount}] = {};
+			FastStringCmpNode ${array_name}[${tree.node_amount.toString()}] = {};
+			FastStringCmpPrefix ${array_name_prefixes}[${tree.prefix_amount.toString()}] = {};
 
-			// handling strings: ${tree.strings.map(str => `${to_c_str(str.str)}`).join(", ")}
+			// handling strings: ${tree.strings.map(str => to_c_str(str.str)).join(", ")}
 			{
 			// nodes
 ${values.nodes.map((node): string => {
-                return `				${array_name}[${node.id}] = ${fast_string_node_to_c(node, array_name_prefixes)};`
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                return `				${array_name}[${node.id!.toString()}] = ${fast_string_node_to_c(node, array_name_prefixes)};`
             }).join("\n")}
 			// prefixes
 ${values.prefixes.map((prefixes): string => {
@@ -1585,12 +1609,15 @@ ${values.prefixes.map((prefixes): string => {
 
                     const totalIdx = prefixes.offset + idx;
 
-                    return `				${array_name_prefixes}[${totalIdx}] = ${fast_string_prefix_to_c(prefix, array_name)};`
+                    return `				${array_name_prefixes}[${totalIdx.toString()}] = ${fast_string_prefix_to_c(prefix, array_name)};`
                 }).join("\n");
             }).join("\n")}
 			}
 
-			FastStringCmpTree fast_string_cmp_tree_${key} = { .root = &(${array_name}[${tree.root.id}])};
+			FastStringCmpTree fast_string_cmp_tree_${key} = { .root = &(${array_name}[${
+                /* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */
+                tree.root.id!.toString()
+                }])};
 
 			return fast_compare_string_with_tree(fast_string_cmp_tree_${key}, str_view);
 		}`

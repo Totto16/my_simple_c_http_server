@@ -10,18 +10,23 @@ export async function generateFile(options: GenerateOptions): Promise<void> {
 
     if (options.type === "c_hpack_huffman") {
 
-        return await generate_hpack_huffman_code_c(options.output)
+        await generate_hpack_huffman_code_c(options.output)
+        return;
     } else if (options.type === "c_header_table") {
-        return await generate_hpack_headerable_code_h(options.output)
+        await generate_hpack_headerable_code_h(options.output)
+        return;
     } else if (options.type === "cpp_tests") {
 
-        return await generate_hpack_test_cases_cpp(options.output)
+        await generate_hpack_test_cases_cpp(options.output)
+        return;
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     } else if (options.type === "c_variants") {
-        return await generate_variant_code_c(options.output)
+        await generate_variant_code_c(options.output)
+        return;
     }
 
 
-    throw new Error(`Unrecognized type: ${options.type}`)
+    throw new Error(`Unrecognized type: ${options.type as string}`)
 
 }
 

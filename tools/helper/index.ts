@@ -41,7 +41,7 @@ function isCallingThisScript(value: string): boolean {
         return this_package_json == package_json;
 
 
-    } catch (err) {
+    } catch (_err) {
         return false;
     }
 
@@ -55,8 +55,7 @@ async function main(): Promise<void> {
     let subcommand: SubCommand | null = null
     const args: string[] = []
 
-    for (let i = 0; i < process.argv.length; ++i) {
-        const value = process.argv[i]!
+    for (const value of process.argv) {
 
         if (value.endsWith('deno') || value.endsWith('node') || value.endsWith('bun')) {
             continue
@@ -98,14 +97,16 @@ async function main(): Promise<void> {
 
     switch (subcommand) {
         case "generator": {
-            return await subcommandGenerator(args);
+            await subcommandGenerator(args);
+            return;
         }
         case "ws_tests": {
-            return await subcommandWsTests(args);
+            await subcommandWsTests(args);
+            return;
         }
         default: {
             throw new Error(
-                `No subcommand specified: ${subcommand}`
+                `No subcommand specified: ${subcommand as unknown as string}`
             )
         }
     }
@@ -113,4 +114,4 @@ async function main(): Promise<void> {
 }
 
 
-main()
+void main()

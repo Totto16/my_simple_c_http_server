@@ -62,6 +62,7 @@ export default [
 			'@typescript-eslint/explicit-function-return-type': 'error',
 			'@typescript-eslint/consistent-type-exports': 'error',
 			'@typescript-eslint/consistent-type-imports': 'error',
+			"@typescript-eslint/prefer-nullish-coalescing": "off"
 		},
 	},
 	{
