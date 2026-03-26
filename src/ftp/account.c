@@ -17,16 +17,16 @@ AccountInfo* alloc_default_account(void) {
 }
 
 void free_account_data(AccountInfo* account) {
-	switch(account->state) {
-		case AccountStateOk: {
-			tstr_free(&(account->data.ok_data.username));
-			break;
+	SWITCH_ACCOUNT_INFO((*account)) {
+		CASE_ACCOUNT_INFO_IS_OK_MUT(*account) {
+			tstr_free(&(ok.username));
 		}
-		case AccountStateOnlyUser: {
-			tstr_free(&(account->data.temp_data.username));
-			break;
+		break;
+		CASE_ACCOUNT_INFO_IS_ONLY_USER_MUT(*account) {
+			tstr_free(&(only_user.username));
 		}
-		case AccountStateEmpty:
+		break;
+		CASE_ACCOUNT_INFO_IS_EMPTY() {}
 		default: {
 			break;
 		}

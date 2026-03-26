@@ -519,12 +519,21 @@ function getIfMacroName(unionName: TaggedName<"union">, memberName: TaggedName<"
     return `IF_${unionName.inner.MACRO_NAME()}_IS_${memberName.inner.MACRO_NAME()}`
 }
 
-function ifNotMacroName(unionName: TaggedName<"union">, memberName: TaggedName<"member">): string {
+function getIfNotMacroName(unionName: TaggedName<"union">, memberName: TaggedName<"member">): string {
     return `IF_${unionName.inner.MACRO_NAME()}_IS_NOT_${memberName.inner.MACRO_NAME()}`
 }
 
 
-const nameForMacroTrick = "_for_macro_trick_impl_once_variant_"
+function getSwitchMacroName(unionName: TaggedName<"union">): string {
+    return `SWITCH_${unionName.inner.MACRO_NAME()}`
+}
+
+function getCaseMacroName(unionName: TaggedName<"union">, memberName: TaggedName<"member">, mutable: boolean): string {
+    return `CASE_${unionName.inner.MACRO_NAME()}_IS_${memberName.inner.MACRO_NAME()}${mutable ? "_MUT" : ""}`
+}
+
+
+const nameTrickForIfExpression = "_for_macro_trick_for_if_expr_impl_once_variant_"
 
 function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
@@ -538,8 +547,8 @@ function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStr
 
         return `#define ${getIfMacroName(taggedUnion.name, mem.name)}(variant_entry)
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
-		for (bool ${nameForMacroTrick} = true; ${nameForMacroTrick}; ${nameForMacroTrick} = false)
-			for (${mem.type.name} const ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameForMacroTrick}; ${nameForMacroTrick} = false)`
+		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
+			for (${mem.type.name} const ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
 
     } else {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -547,20 +556,57 @@ function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStr
 
         return `#define ${getIfMacroName(taggedUnion.name, mem.name)}(variant_entry)
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
-		for (bool ${nameForMacroTrick} = true; ${nameForMacroTrick}; ${nameForMacroTrick} = false)
-			for (const ${getNameForUnnamedStruct(mem.type, unnamedStructMap)} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameForMacroTrick}; ${nameForMacroTrick} = false)`
-
+		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
+			for (const ${getNameForUnnamedStruct(mem.type, unnamedStructMap)} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
 
 
     }
-
 
 }
 
 function generateIfNotMacro(mem: TaggedMember, taggedUnion: TaggedUnion): string {
 
-    return `#define ${ifNotMacroName(taggedUnion.name, mem.name)}(variant_entry)
+    return `#define ${getIfNotMacroName(taggedUnion.name, mem.name)}(variant_entry)
 	if((variant_entry).${getUnionTagName(taggedUnion.name)} != ${memberNameForEnum(mem, taggedUnion.enum.name)})`
+}
+
+function generateSwitchMacro(taggedUnion: TaggedUnion): string {
+
+    return `#define ${getSwitchMacroName(taggedUnion.name)}(variant_entry)
+	switch((variant_entry).${getUnionTagName(taggedUnion.name)})`
+}
+
+
+const nameTrickForCaseExpression = "_for_macro_trick_for_case_expr_impl_once_variant_"
+
+
+function generateCaseMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap, mutable: boolean): string {
+
+
+    if (mem.type === null) {
+
+        return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}()
+	case ${memberNameForEnum(mem, taggedUnion.enum.name)}: `
+
+    } else if (isSimpleTaggedType(mem.type)) {
+
+        return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
+	case ${memberNameForEnum(mem, taggedUnion.enum.name)}: 
+		for (bool ${nameTrickForCaseExpression} = true; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)
+			for (${mem.type.name}${mutable ? "" : "const"} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)`
+
+    } else {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        assert(getBrand(mem.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+
+        return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
+	case ${memberNameForEnum(mem, taggedUnion.enum.name)}: 
+		for (bool ${nameTrickForCaseExpression} = true; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)
+			for (${mutable ? "" : "const"} ${getNameForUnnamedStruct(mem.type, unnamedStructMap)} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)`
+
+
+    }
+
 }
 
 function toCStr(str: string): string {
@@ -649,7 +695,7 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 	
 	${functionsString.split("\n").join("\n	")}
 	
-	${generatePoisonPragma([tagName, dataName, getStateFunctionName(taggedUnion.name), nameForMacroTrick, ...Object.values(unnamedStructMap).map((val): string => {
+	${generatePoisonPragma([tagName, dataName, getStateFunctionName(taggedUnion.name), nameTrickForIfExpression, nameTrickForCaseExpression, ...Object.values(unnamedStructMap).map((val): string => {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             return val!
         })])}`)
@@ -657,7 +703,10 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
     const macros: string[] = [
         generateMacro,
         ...taggedUnion.member.map((mem): string => generateIfMacro(mem, taggedUnion, unnamedStructMap)),
-        ...taggedUnion.member.map((mem): string => generateIfNotMacro(mem, taggedUnion))
+        ...taggedUnion.member.map((mem): string => generateIfNotMacro(mem, taggedUnion)),
+        generateSwitchMacro(taggedUnion),
+        ...taggedUnion.member.map((mem): string => generateCaseMacro(mem, taggedUnion, unnamedStructMap, true)),
+        ...taggedUnion.member.map((mem): string => generateCaseMacro(mem, taggedUnion, unnamedStructMap, false)),
     ]
 
 
