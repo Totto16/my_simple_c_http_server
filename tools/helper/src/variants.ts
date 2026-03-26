@@ -493,12 +493,16 @@ function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUn
 
 }
 
-
 const state_str_fn_prefix = "_impl_get_state_string_for_variant_"
+
+
+function get_state_function_name(name: TaggedName<"union">): string {
+    return `${state_str_fn_prefix}${name.inner.snake_case()}`
+}
 
 function generateFunctions(tagged_union: TaggedUnion): string {
 
-    return `static inline tstr_static ${state_str_fn_prefix}${tagged_union.name.inner.snake_case()}(const ${tagged_union.enum.name.inner.PascalCase()} enum_value){
+    return `static inline tstr_static ${get_state_function_name(tagged_union.name)}(const ${tagged_union.enum.name.inner.PascalCase()} enum_value){
 	switch(enum_value){
 		${tagged_union.member.map(mem => {
         return `case ${memberNameForEnum(mem, tagged_union.enum.name)}: {
@@ -519,6 +523,44 @@ ${tagged_union.member.map(mem => {
 
 }
 
+function if_macro_name(union_name: TaggedName<"union">, member_name: TaggedName<"member">): string {
+    return `IF_${union_name.inner.MACRO_NAME()}_IS_${member_name.inner.MACRO_NAME()}`
+}
+
+const for_macro_trick_name = "_for_macro_trick_impl_once_variant_"
+
+function generate_if_macro(mem: TaggedMember, tagged_union: TaggedUnion): string {
+
+
+    if (mem.type === null) {
+
+        return `#define ${if_macro_name(tagged_union.name, mem.name)}(variant_entry)
+	if((variant_entry).${getUnionTagName(tagged_union.name)} == ${memberNameForEnum(mem, tagged_union.enum.name)})`
+
+    } else if (isSimpleTaggedType(mem.type)) {
+
+        return `#define ${if_macro_name(tagged_union.name, mem.name)}(variant_entry)
+	if ((variant_entry).${getUnionTagName(tagged_union.name)} == ${memberNameForEnum(mem, tagged_union.enum.name)})
+		for (bool ${for_macro_trick_name} = true; ${for_macro_trick_name}; ${for_macro_trick_name} = false)
+			for (${mem.type.name} const ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(tagged_union.name)}.${mem.name.inner.snake_case()}; ${for_macro_trick_name}; ${for_macro_trick_name} = false)`
+
+    } else {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        assert(mem.type.struct[__brand_tag_dont_use] === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+
+        //TODO: don't use auto, but how?
+
+        return `#define ${if_macro_name(tagged_union.name, mem.name)}(variant_entry)
+	if ((variant_entry).${getUnionTagName(tagged_union.name)} == ${memberNameForEnum(mem, tagged_union.enum.name)})
+		for (bool ${for_macro_trick_name} = true; ${for_macro_trick_name}; ${for_macro_trick_name} = false)
+			for (const auto ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(tagged_union.name)}.${mem.name.inner.snake_case()}; ${for_macro_trick_name}; ${for_macro_trick_name} = false)`
+
+
+
+    }
+
+
+}
 
 function toCStr(str: string): string {
     return `"${str}"`
@@ -547,14 +589,17 @@ function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
 	
 	${functionsString.split("\n").join("\n	")}
 	
-	${generatePoisonPragma([tag_name, data_name])}
-`)
+	${generatePoisonPragma([tag_name, data_name, get_state_function_name(tagged_union.name), for_macro_trick_name])}`)
+
+    const macros: string[] = [generate_macro, ...tagged_union.member.map((mem): string => generate_if_macro(mem, tagged_union))
+    ]
 
 
     return (
-        `#define VARIANT_${tagged_union.name.inner.MACRO_NAME()}_STATE_ASSERT(state, expected_state) VARIANT_STATE_ASSERT(state, expected_state, ${tagged_union.name.inner.snake_case()}, ${toCStr(tagged_union.name.inner.PascalCase())})
+        `#define VARIANT_${tagged_union.name.inner.MACRO_NAME()} _STATE_ASSERT(state, expected_state) VARIANT_STATE_ASSERT(state, expected_state, ${tagged_union.name.inner.snake_case()}, ${toCStr(tagged_union.name.inner.PascalCase())
+        })
 	
-${generate_macro.split("\n").join(" \\\n")}
+${macros.map(a => a.split("\n").join(" \\\n")).join("\n\n")}
 `)
 
 
@@ -603,18 +648,18 @@ export async function generate_variant_code_c(generated_variants_file_h: string)
     assert(path.extname(generated_variants_file_h) == ".h", "variant file has to end in .h")
 
     const h_preamble = `#define VARIANT_STATE_ASSERT(state, expected_state, variant_name, VariantName)
-	do {
-		if((state) != (expected_state)) {
-			const tstr_static state_str = ${state_str_fn_prefix}##variant_name(state);
-			const tstr_static expected_state_str = ${state_str_fn_prefix}##variant_name(expected_state);
-			fprintf(stderr,
-				"[%s %s:%d]: Invalid variant access for variant '%s': state was " TSTR_FMT
+do {
+	if ((state) != (expected_state)) {
+		const tstr_static state_str = ${state_str_fn_prefix}##variant_name(state);
+		const tstr_static expected_state_str = ${state_str_fn_prefix}##variant_name(expected_state);
+		fprintf(stderr,
+			"[%s %s:%d]: Invalid variant access for variant '%s': state was " TSTR_FMT
 				" but expected " TSTR_FMT "\\n",
-				__func__, __FILE__, __LINE__, VariantName, TSTR_STATIC_FMT_ARGS(state_str),
-				TSTR_STATIC_FMT_ARGS(expected_state_str));
-			UNREACHABLE();
-		}
-	} while(false)
+			__func__, __FILE__, __LINE__, VariantName, TSTR_STATIC_FMT_ARGS(state_str),
+			TSTR_STATIC_FMT_ARGS(expected_state_str));
+		UNREACHABLE();
+	}
+} while (false)
 `
 
     const h_data = `
@@ -633,7 +678,7 @@ ${unitagged_unions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
     const c_data = `
 #include "./${path.basename(generated_variants_file_h)}"
 
-`
+    `
 
     const generated_variants_file_c = getOtherFile(generated_variants_file_h, ".h", ".c")
 

@@ -266,9 +266,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			// see https://datatracker.ietf.org/doc/html/rfc1635
 			if(tstr_eq_ignore_case_cstr(arg, ANON_USERNAME)) {
-				free_account_data(state->account);
-
-				state->account->state = AccountStateOk;
 
 				const tstr duped_username = tstr_dup(arg);
 
@@ -278,19 +275,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				AccountOkData ok_data = { .permissions = AccountPermissionsRead,
-					                      .username = duped_username };
+				const AccountOkData ok_data = { .permissions = AccountPermissionsRead,
+					                            .username = duped_username };
 
-				state->account->data.ok_data = ok_data;
+				free_account_data(state->account);
+				*state->account = new_account_info_ok(ok_data);
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn, "Logged In as anon!");
 
 				return true;
 			}
-
-			free_account_data(state->account);
-
-			state->account->state = AccountStateOnlyUser;
 
 			const tstr duped_username = tstr_dup(arg);
 
@@ -300,7 +294,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			state->account->data.temp_data.username = duped_username;
+			free_account_data(state->account);
+
+			*state->account = new_account_info_only_user(duped_username);
 
 			SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNeedPswd, "Need Password!");
 
@@ -312,13 +308,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_PASS));
 
-			if(state->account->state == AccountStateOk &&
-			   tstr_eq_ignore_case_cstr( // NOLINT(readability-implicit-bool-conversion)
-			       &(state->account->data.ok_data.username), ANON_USERNAME)) {
-				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn,
-				                               "Already logged in as anon!");
+			
+			IF_ACCOUNT_INFO_IS_OK((*state->account)) {
 
-				return true;
+				if(tstr_eq_ignore_case_cstr( // NOLINT(readability-implicit-bool-conversion)
+				       &(ok.username), ANON_USERNAME)) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn,
+					                               "Already logged in as anon!");
+
+					return true;
+				}
 			}
 
 			// TODO(Totto): allow user changing
