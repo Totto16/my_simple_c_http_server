@@ -20,8 +20,10 @@ export class BitArray {
         const bitIndex = 7 - (index & 7);
 
         if (value) {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             this.bytes[byteIndex]! |= (1 << bitIndex);
         } else {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             this.bytes[byteIndex]! &= ~(1 << bitIndex);
         }
     }
@@ -35,6 +37,7 @@ export class BitArray {
         const bitIndex = 7 - (index & 7);
 
 
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         return ((this.bytes[byteIndex]! >> bitIndex) & 0x1) != 0;
     }
 
@@ -66,7 +69,7 @@ export function num_array_is_eq(arr1: number[], arr2: number[]): boolean {
 }
 
 
-export function test_bitarray() {
+export function test_bitarray(): void {
 
     const values: [number, number, number[]][] = [[0b10101011, 8, [0b10101011]], [0xFF, 8, [0xFF]], [0xA8, 8, [0xA8]], [0x56F1, 16, [0x56, 0xF1]]]
 
@@ -85,7 +88,7 @@ export function test_bitarray() {
         const temp_res = temp.toNumberArray();
 
         if (!num_array_is_eq(temp_res, value_arr)) {
-            throw new Error(`The bitarray doesn't work as expected: ${temp_res} - ${value_arr}`)
+            throw new Error(`The bitarray doesn't work as expected: ${temp_res.join(", ")} - ${value_arr.join(", ")}`)
         }
 
     }
@@ -100,6 +103,7 @@ export function get_bit_array_from_bits(bits: string, bit_len: number, hex_value
         throw new Error("not a valid bits string")
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const size = (values.length - 1) * 8 + values.at(-1)!.length;
 
     if (bit_len != size) {
@@ -111,12 +115,13 @@ export function get_bit_array_from_bits(bits: string, bit_len: number, hex_value
     const hex_b2 = BigInt(`0b${values.join("")}`)
 
     if (hex_b != hex_b2) {
-        throw new Error(`not a valid bits string: ${hex_b} != ${hex_b2}`)
+        throw new Error(`not a valid bits string: ${hex_b.toString()} != ${hex_b2.toString()}`)
     }
 
     const result = new BitArray(size)
 
     for (let i = 0; i < values.length; ++i) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const value = values[i]!
         if (i != values.length - 1) {
             if (value.length != 8) {
@@ -144,7 +149,7 @@ export function get_bit_array_from_bits(bits: string, bit_len: number, hex_value
     }
 
     if (result.size > 32) {
-        throw new Error(`Bits size has to be <= 32 but was: ${result.size}`);
+        throw new Error(`Bits size has to be <= 32 but was: ${result.size.toString()}`);
     }
 
     return result;

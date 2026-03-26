@@ -1,5 +1,5 @@
 import path from "node:path"
-import { generateFile, GenerateOptions, GenerateType } from "./generator.js"
+import { generateFile, type GenerateOptions, type GenerateType } from "./generator.js"
 import { runWsTests } from "./ws_tests.js"
 
 export async function subcommandGenerator(args: string[]): Promise<void> {
@@ -9,6 +9,7 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
     const allTypes: GenerateType[] = ["c_hpack_huffman", "c_header_table", "cpp_tests", "c_variants"] as const
 
     for (let i = 0; i < args.length; ++i) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const value = args[i]!
 
 
@@ -20,6 +21,7 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
             }
 
 
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const output = path.resolve(args[i + 1]!)
 
             options.output = output
@@ -34,6 +36,7 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
                 )
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const typeRaw = args[i + 1]!
 
             //TODO: make generating tagged unions here too!
@@ -65,7 +68,7 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
         throw new Error(`No output given`)
     }
 
-    return await generateFile(options as GenerateOptions)
+    await generateFile(options as GenerateOptions)
 }
 
 
@@ -81,6 +84,7 @@ export async function subcommandWsTests(args: string[]): Promise<void> {
     }
 
     for (let i = 0; i < args.length; ++i) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const value = args[i]!
 
         if (value == '-j' || value == '--jobs') {
@@ -90,6 +94,7 @@ export async function subcommandWsTests(args: string[]): Promise<void> {
                 )
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const jobRaw = args[i + 1]!
 
             const jobs = parseInt(jobRaw)
@@ -112,6 +117,6 @@ export async function subcommandWsTests(args: string[]): Promise<void> {
 
 
 
-    return await runWsTests(options.jobs ?? 0)
+    await runWsTests(options.jobs ?? 0)
 
 }

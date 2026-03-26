@@ -72,11 +72,12 @@ async function waitForPort(options: WaitOptions): Promise<number> {
 
     const connectionTimeout = 1000;
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     while (true) {
         try {
             await connectTo(options.host, options.port, connectionTimeout)
             return success();
-        } catch (err) {
+        } catch (_err) {
             // ignore
         }
 
@@ -579,16 +580,18 @@ async function process_results(split_cfg: SplitConfig): Promise<ProcessResults> 
 
     const results: ProcessResultSingle[] = await Promise.all(to_process)
 
-    const result: ProcessResults = results.reduce((acc, value) => {
+    const result: ProcessResults = results.reduce<ProcessResults>((acc, value) => {
         if (!acc[value.server]) {
             acc[value.server] = { errors: [], details: ProcessDetailedResults.default() };
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         acc[value.server]!.details.merge(value.details)
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         acc[value.server]!.errors.push(...value.errors)
 
         return acc;
-    }, {} as ProcessResults)
+    }, {})
 
     return result;
 }
@@ -646,7 +649,7 @@ export async function runWsTests(jobs: number): Promise<void> {
             await sleep(100)
             await connectTo(waitOptions.host, waitOptions.port, 1000)
             error = new Error("Server still alive")
-        } catch (err) {
+        } catch (_err) {
             //success
             error = null
         }
@@ -669,19 +672,19 @@ export async function runWsTests(jobs: number): Promise<void> {
                     logger.error(format_process_error(err))
                 }
 
-                logger.error(`Got ${result.errors.length} errors`)
+                logger.error(`Got ${result.errors.length.toString()} errors`)
                 error_amount += result.errors.length;
                 continue;
             }
 
-            logger.info(`Successfully ran ${result.details.total} tests with ${amount} jobs`)
+            logger.info(`Successfully ran ${result.details.total.toString()} tests with ${amount.toString()} jobs`)
             for (const [behavior, amount] of result.details) {
-                logger.info(`Got ${amount} cases with result ${behavior}`)
+                logger.info(`Got ${amount.toString()} cases with result ${behavior}`)
             }
         }
 
         if (error_amount != 0) {
-            throw new Error(`Got ${error_amount} errors in total`)
+            throw new Error(`Got ${error_amount.toString()} errors in total`)
         } else {
             logger.info(`Success`)
         }

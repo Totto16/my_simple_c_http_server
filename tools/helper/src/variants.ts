@@ -1,7 +1,7 @@
 import path from "node:path"
 import { assert, getOtherFile, is_utf8_string, writeFileAndDirs } from "./utils.js"
 
-function isUpperCase(str: string) {
+function isUpperCase(str: string): boolean {
     if (str.length != 1) {
         throw new Error("Not of length 1")
     }
@@ -25,6 +25,7 @@ class CaseName {
             throw new Error(`Unicode strings not yet supported: ${str}`)
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         if (!isUpperCase(str[0]!)) {
             throw new Error(`First character has to be uppercase: ${str}`)
         }
@@ -40,9 +41,11 @@ class CaseName {
             })).map(([_, idx]) => idx)
 
             for (let i = 0; i < indexes.length; ++i) {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 const start = indexes[i]!
 
                 if (i - 1 < indexes.length) {
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                     const end = indexes[i + 1]!
 
                     if ((end - start) == 1) {
@@ -86,7 +89,8 @@ class CaseName {
             if (p.length === 1) {
                 throw new Error("wrongfully constructed CaseName, one part has a size one string!")
             }
-            return `${p[0]?.toUpperCase()}${p.substring(1)}`
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            return `${p[0]!.toUpperCase()}${p.substring(1)}`
         }).join("")
     }
 
@@ -353,6 +357,7 @@ function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUn
 `
 
     } else {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(mem.value.type === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
         const flatParamaters = flattenCAnonymousStruct(mem.value)

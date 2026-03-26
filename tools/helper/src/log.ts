@@ -20,7 +20,7 @@ type CiStatus = "None" | "CI" | "DebugCI"
 
 function get_ci_status(): CiStatus {
     // see: https://docs.github.com/en/actions/reference/workflows-and-actions/variables#default-environment-variables
-    if (process.env["GITHUB_ACTIONS"] === "true") {
+    if (process.env.GITHUB_ACTIONS === "true") {
         if (core.isDebug()) {
             return "DebugCI"
         }
@@ -101,10 +101,6 @@ class NormalGroup extends Group {
 
 
 class NormalLogger extends Logger {
-
-    constructor() {
-        super()
-    }
 
     fail(err: string | Error): never {
         console.error(`Failed with: ${err}`)
