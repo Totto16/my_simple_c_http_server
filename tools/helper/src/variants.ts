@@ -325,8 +325,7 @@ typedef enum${underlyingType === null ? "" : ` C_23_NARROW_ENUM_TO(${cTypeForEnu
 
         return memberNameForEnum(mem, unionEnum.name)
     }).join(",\n	")}
-} ${unionEnum.name.inner.PascalCase()};
-`
+} ${unionEnum.name.inner.PascalCase()};`
 
 
 }
@@ -340,27 +339,24 @@ function getUnionDataName(name: TaggedName<"union">): string {
 }
 
 
-function typeForMember(val: TaggedType): string {
+function typeForMember(val: TaggedType, unnamedStructMap: UnnamedStructMap): string {
     if (isSimpleTaggedType(val)) {
         return val.name;
     }
-    return `struct {
-	${val.struct.members.map(mem => {
-        return `${mem.typeName} ${mem.name};`
-    }).join("\n	")}
-}`
+
+    return getNameForUnnamedStruct(val, unnamedStructMap)
+
 
 }
 
-function generateVariantDeclaration(taggedUnion: TaggedUnion): string {
+function generateVariantDeclaration(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
     const tagName: string = getUnionTagName(taggedUnion.name);
 
     const dataName: string = getUnionDataName(taggedUnion.name);
 
 
-    return `
-/* tagged union (variant) implementation */
+    return `	/* tagged union (variant) implementation */
 typedef struct {
 	${taggedUnion.enum.name.inner.PascalCase()} ${tagName};
 	union {
@@ -370,13 +366,23 @@ typedef struct {
             throw new Error("IMPLEMENTATION ERROR")
         }
 
-        return `${typeForMember(mem.type)} ${mem.name.inner.snake_case()};`.split("\n").join("\n		")
+        return `${typeForMember(mem.type, unnamedStructMap)} ${mem.name.inner.snake_case()};`.split("\n").join("\n		")
 
     }).join("\n		")}
 	} ${dataName};
-} ${taggedUnion.name.inner.PascalCase()};
-`
+} ${taggedUnion.name.inner.PascalCase()};`
 }
+
+
+function generateUnnamedStruct(struct: TaggedTypeStruct, unnamedStructMap: UnnamedStructMap): string {
+
+    return `	typedef struct {
+	${struct.struct.members.map(mem => {
+        return `${mem.typeName} ${mem.name};`
+    }).join("\n	")}
+} ${getNameForUnnamedStruct(struct, unnamedStructMap)};`
+}
+
 
 function generatePoisonPragma(names: string[]): string {
     return `_Pragma ("GCC poison ${names.join(" ")}")`
@@ -489,7 +495,7 @@ function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStr
         return `#define ${getIfMacroName(taggedUnion.name, mem.name)}(variant_entry)
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
 		for (bool ${nameForMacroTrick} = true; ${nameForMacroTrick}; ${nameForMacroTrick} = false)
-			for (const ${getNameForUnnamedStruct(mem.type, unnamedStructMap)}} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameForMacroTrick}; ${nameForMacroTrick} = false)`
+			for (const ${getNameForUnnamedStruct(mem.type, unnamedStructMap)} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameForMacroTrick}; ${nameForMacroTrick} = false)`
 
 
 
@@ -508,8 +514,8 @@ function toCStr(str: string): string {
     return `"${str}"`
 }
 
-function generateNameForUnnamedStruct(unionName: TaggedName<"union">, id: ID): string {
-    return `_variant_impl_unnamed_struct_for_variant_${unionName.inner.snake_case()}_id_${id.toString()}_impl_`
+function generateNameForUnnamedStruct(unionName: TaggedName<"union">, id: ID, memberName: TaggedName<"member">): string {
+    return `_variant_impl_unnamed_struct_for_variant_${unionName.inner.snake_case()}_id_${id.toString()}_name_${memberName.inner.snake_case()}_impl_`
 }
 
 type UnnamedStructMap = Record<ID, string | undefined>
@@ -527,7 +533,7 @@ function generateUnnamedStructMap(taggedUnion: TaggedUnion): UnnamedStructMap {
             continue
         }
 
-        map[member.type.id] = generateNameForUnnamedStruct(taggedUnion.name, member.type.id)
+        map[member.type.id] = generateNameForUnnamedStruct(taggedUnion.name, member.type.id, member.name)
     }
 
     return map;
@@ -554,9 +560,23 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
     const unnamedStructMap: UnnamedStructMap = generateUnnamedStructMap(taggedUnion);
 
-    const enumString = generateEnumDeclaration(taggedUnion.enum, taggedUnion.member)
 
-    const variantString: string = generateVariantDeclaration(taggedUnion)
+    const declarations: string[] = [
+        generateEnumDeclaration(taggedUnion.enum, taggedUnion.member),
+        ...taggedUnion.member.map((mem): string | null => {
+            if (mem.type === null) {
+                return null;
+            }
+
+            if (isSimpleTaggedType(mem.type)) {
+                return null;
+            }
+
+            return generateUnnamedStruct(mem.type, unnamedStructMap)
+
+        }).filter(m => m !== null),
+        generateVariantDeclaration(taggedUnion, unnamedStructMap)
+    ]
 
     const functionsString: string = generateFunctions(taggedUnion, unnamedStructMap)
 
@@ -566,8 +586,7 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
     const generateMacro = (
         `#define GENERATE_VARIANT_${taggedUnion.name.inner.MACRO_NAME()}
-	${enumString.split("\n").join("\n	")}
-	${variantString.split("\n").join("\n	")}
+	${declarations.map(decl => decl.split("\n").join("\n	")).join("\n	\n")}
 	
 	${functionsString.split("\n").join("\n	")}
 	
