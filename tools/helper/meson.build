@@ -61,6 +61,23 @@ type_check_helper_script = custom_target(
 )
 helper_script_depends += type_check_helper_script
 
+lint_helper_script = custom_target(
+    'lint code (helper script)',
+    command: [
+        meson_wrapper_sh,
+        '--wrapper-generate',
+        '@OUTPUT@',
+        pnpm,
+        '--dir',
+        meson.current_source_dir(),
+        'run',
+        'lint',
+    ],
+    output: ['lint_code_date.txt'],
+    depend_files: helper_script_depend_files,
+)
+helper_script_depends += lint_helper_script
+
 build_helper_script = custom_target(
     'build typescript code (helper script)',
     command: [
