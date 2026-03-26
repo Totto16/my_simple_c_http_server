@@ -3,11 +3,11 @@ import os from "node:os"
 import fs from "node:fs"
 import fsAsync from "node:fs/promises"
 import path from "node:path"
-import child_process from "node:child_process";
+import childProcess from "node:child_process";
 import http from "node:http"
 import https from "node:https"
 
-import { type AllCases, all_cases } from "./all_cases.js"
+import { type AllCases, globalAllCases } from "./all_cases.js"
 import { Logger } from "./log.js"
 
 interface WaitOptions {
@@ -104,10 +104,10 @@ function expandCases(cases: CasesDescription): AllCases {
     switch (cases) {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         case "all": {
-            if (Object.keys(all_cases).length != 517) {
+            if (Object.keys(globalAllCases).length != 517) {
                 throw new Error("Invalid test case length")
             }
-            return all_cases
+            return globalAllCases
         }
         default: {
             throw new Error("Unimplemented")
@@ -130,7 +130,7 @@ interface SplitConfigValue {
 
 interface SplitConfig {
     split: SplitConfigValue[]
-    total_cases: number
+    totalCases: number
 }
 
 function normalizeServerName(name: string): string {
@@ -139,18 +139,18 @@ function normalizeServerName(name: string): string {
 
 
 
-function splitCasesBy(amount: number, allCases: AllCases): string[][] {
+function splitCasesBy(amount: number, casesInput: AllCases): string[][] {
 
     interface Result {
         values: string[];
-        total_duration: number
+        totalDuration: number
     }
 
-    const result: Result[] = new Array(amount).fill(undefined).map(_ => ({ total_duration: 0, values: [] }))
+    const result: Result[] = new Array(amount).fill(undefined).map(_ => ({ totalDuration: 0, values: [] }))
 
     interface Flattended { name: string, duration: number }
 
-    const flattended: Flattended[] = Object.entries(allCases).map(([key, val]): Flattended => {
+    const flattended: Flattended[] = Object.entries(casesInput).map(([key, val]): Flattended => {
         return { name: key, duration: val.duration }
     }
     )
@@ -165,14 +165,14 @@ function splitCasesBy(amount: number, allCases: AllCases): string[][] {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         let minRes: Result = result[0]!;
         for (const res of result) {
-            if (res.total_duration < minRes.total_duration) {
+            if (res.totalDuration < minRes.totalDuration) {
                 minRes = res;
             }
         }
 
         // add the new item to the result with the min total duration, so that bigger ones get inserted earlier and the smaller ones fill in gaps, this works fairly well for these cases (manually checked for 16 cores, but should also work for 8, 6 etc)
         minRes.values.push(item.name);
-        minRes.total_duration += item.duration;
+        minRes.totalDuration += item.duration;
     }
 
     return result.map(res => res.values)
@@ -181,7 +181,7 @@ function splitCasesBy(amount: number, allCases: AllCases): string[][] {
 
 async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<SplitConfig> {
 
-    const allCases: AllCases = expandCases(config.cases)
+    const expandedCases: AllCases = expandCases(config.cases)
 
     interface WsServerRaw {
         agent: string,
@@ -201,13 +201,13 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
             await fsAsync.mkdir(globalOutdir, { recursive: true })
         }
 
-        const gitignore_file = path.join(globalOutdir, ".gitignore")
+        const gitignoreFile = path.join(globalOutdir, ".gitignore")
 
-        await fsAsync.writeFile(gitignore_file, "*")
+        await fsAsync.writeFile(gitignoreFile, "*")
 
     }
 
-    const splitCases: string[][] = splitCasesBy(amount, allCases)
+    const splitCases: string[][] = splitCasesBy(amount, expandedCases)
 
     if (splitCases.length != amount) {
         throw new Error("Implementation error")
@@ -234,7 +234,7 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
 
             const outdir = path.join(globalOutdir, serverName, index.toString())
 
-            const raw_cfg: RawCfg =
+            const rawCfg: RawCfg =
             {
                 "outdir": outdir,
                 "servers": [
@@ -246,7 +246,7 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
                 cases
             }
 
-            await fsAsync.writeFile(configFilePath, JSON.stringify(raw_cfg))
+            await fsAsync.writeFile(configFilePath, JSON.stringify(rawCfg))
 
             const serverCfg: SplitConfigServer = {
                 configFile: configFilePath,
@@ -263,7 +263,7 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
     }
 
 
-    return { split, total_cases: Object.keys(allCases).length }
+    return { split, totalCases: Object.keys(expandedCases).length }
 }
 
 
@@ -276,7 +276,7 @@ interface ExecuteResult {
 async function executeAsync(cmd: string, args: string[]): Promise<ExecuteResult> {
 
     return new Promise<ExecuteResult>((resolve, reject) => {
-        const child = child_process.spawn(
+        const child = childProcess.spawn(
             cmd, args,
         );
 
@@ -420,8 +420,8 @@ async function makeHttpGetRequest(url: URL): Promise<void> {
 
 function resolveJobs(jobs: number): number {
     if (jobs <= 0) {
-        const cpu_amount = os.cpus().length;
-        return cpu_amount;
+        const cpuAmount = os.cpus().length;
+        return cpuAmount;
     }
 
     return jobs;
@@ -439,7 +439,7 @@ interface ProcessResultError {
     more: unknown
 }
 
-function format_process_error(err: ProcessResultError): string {
+function formatProcessError(err: ProcessResultError): string {
     return `${err.error} at server ${err.where.server} case ${err.where.case}\n${JSON.stringify(err.more)}`
 }
 
@@ -517,41 +517,41 @@ const validBehaviors: ProcessBehavior[] = [
     "NON-STRICT", "OK", "INFORMATIONAL"
 ] as const
 
-async function process_single_result(server: SplitConfigServer, cases: string[]): Promise<ProcessResultSingle> {
+async function processSingleResult(server: SplitConfigServer, cases: string[]): Promise<ProcessResultSingle> {
 
-    const index_file = path.join(server.outdir, "index.json");
+    const indexFile = path.join(server.outdir, "index.json");
 
-    function single_error(err: ProcessResultError): ProcessResultSingle {
+    function singleError(err: ProcessResultError): ProcessResultSingle {
         return {
             details: ProcessDetailedResults.default(), errors: [err], server: server.name
         }
     }
 
-    if (!fs.existsSync(index_file)) {
-        return single_error({ type: "error", error: "index file doesn't exist", where: { server: server.name, case: "<None>" }, more: { file: index_file } })
+    if (!fs.existsSync(indexFile)) {
+        return singleError({ type: "error", error: "index file doesn't exist", where: { server: server.name, case: "<None>" }, more: { file: indexFile } })
     }
 
-    const index_content = (await fsAsync.readFile(index_file)).toString()
+    const indexContent = (await fsAsync.readFile(indexFile)).toString()
 
-    const index_json = parseJSONSafe(index_content)
+    const indexJson = parseJSONSafe(indexContent)
 
-    if (index_json === null) {
-        return single_error({ type: "error", error: "index file isn't valid JSON", where: { server: server.name, case: "<None>" }, more: { raw: index_content } })
+    if (indexJson === null) {
+        return singleError({ type: "error", error: "index file isn't valid JSON", where: { server: server.name, case: "<None>" }, more: { raw: indexContent } })
     }
 
-    const sever_value = index_json[server.name] as Record<string, CaseDescriptionRaw | undefined> | null | undefined;
+    const severValue = indexJson[server.name] as Record<string, CaseDescriptionRaw | undefined> | null | undefined;
 
-    if (!sever_value) {
-        return single_error({ type: "error", error: "the index file doesn't contain the server information", where: { server: server.name, case: "<None>" }, more: { json: index_json, server: server.name } })
+    if (!severValue) {
+        return singleError({ type: "error", error: "the index file doesn't contain the server information", where: { server: server.name, case: "<None>" }, more: { json: indexJson, server: server.name } })
     }
 
     const results: ProcessResultSingle = { details: ProcessDetailedResults.default(), errors: [], server: server.name }
 
     for (const case_ of cases) {
-        const result = sever_value[case_]
+        const result = severValue[case_]
 
         if (!result) {
-            results.errors.push({ type: "error", error: `case ${case_} not present in index file`, where: { server: server.name, case: case_ }, more: { value: sever_value, case: case_ } })
+            results.errors.push({ type: "error", error: `case ${case_} not present in index file`, where: { server: server.name, case: case_ }, more: { value: severValue, case: case_ } })
             continue;
         }
 
@@ -573,17 +573,17 @@ interface ProcessResultAll {
 
 type ProcessResults = Record<string, ProcessResultAll>
 
-async function process_results(split_cfg: SplitConfig): Promise<ProcessResults> {
+async function processResults(splitCfg: SplitConfig): Promise<ProcessResults> {
 
-    const to_process: Promise<ProcessResultSingle>[] = []
+    const toProcess: Promise<ProcessResultSingle>[] = []
 
-    for (const cfg of split_cfg.split) {
+    for (const cfg of splitCfg.split) {
         for (const server of cfg.servers) {
-            to_process.push(process_single_result(server, cfg.cases))
+            toProcess.push(processSingleResult(server, cfg.cases))
         }
     }
 
-    const results: ProcessResultSingle[] = await Promise.all(to_process)
+    const results: ProcessResultSingle[] = await Promise.all(toProcess)
 
     const result: ProcessResults = results.reduce<ProcessResults>((acc, value) => {
         if (!acc[value.server]) {
@@ -602,7 +602,7 @@ async function process_results(split_cfg: SplitConfig): Promise<ProcessResults> 
 }
 
 
-const global_config: FuzzClientConfig = {
+const globalConfig: FuzzClientConfig = {
     "outdir": "./reports/servers",
     "servers": [
         {
@@ -629,17 +629,17 @@ export async function runWsTests(jobs: number): Promise<void> {
 
     const amount = resolveJobs(jobs)
 
-    const config: FuzzClientConfig = global_config;
+    const config: FuzzClientConfig = globalConfig;
 
-    const split_cfg = await splitConfigs(amount, config)
+    const splitCfg = await splitConfigs(amount, config)
 
     try {
 
-        logger.info(`Running ${split_cfg.total_cases.toString()} cases for ${config.servers.length.toString()} server`)
+        logger.info(`Running ${splitCfg.totalCases.toString()} cases for ${config.servers.length.toString()} server`)
 
         const processes: Promise<void>[] = []
 
-        for (const cfg of split_cfg.split) {
+        for (const cfg of splitCfg.split) {
             processes.push(launchWsTestProcess(cfg))
         }
 
@@ -664,9 +664,9 @@ export async function runWsTests(jobs: number): Promise<void> {
         }
 
         // scan results
-        const results: ProcessResults = await process_results(split_cfg)
+        const results: ProcessResults = await processResults(splitCfg)
 
-        let error_amount = 0;
+        let errorAmount = 0;
 
         for (const [server, result] of Object.entries(results)) {
             logger.info(`Server: ${server}`)
@@ -674,11 +674,11 @@ export async function runWsTests(jobs: number): Promise<void> {
             if (result.errors.length != 0) {
 
                 for (const err of result.errors) {
-                    logger.error(format_process_error(err))
+                    logger.error(formatProcessError(err))
                 }
 
                 logger.error(`Got ${result.errors.length.toString()} errors`)
-                error_amount += result.errors.length;
+                errorAmount += result.errors.length;
                 continue;
             }
 
@@ -688,8 +688,8 @@ export async function runWsTests(jobs: number): Promise<void> {
             }
         }
 
-        if (error_amount != 0) {
-            throw new Error(`Got ${error_amount.toString()} errors in total`)
+        if (errorAmount != 0) {
+            throw new Error(`Got ${errorAmount.toString()} errors in total`)
         } else {
             logger.info(`Success`)
         }
@@ -698,15 +698,15 @@ export async function runWsTests(jobs: number): Promise<void> {
         logger.fail(err as Error)
     } finally {
 
-        const cleanup_calls: Promise<void>[] = []
+        const cleanupCalls: Promise<void>[] = []
 
-        for (const cfg of split_cfg.split) {
+        for (const cfg of splitCfg.split) {
             for (const server of cfg.servers) {
-                cleanup_calls.push(fsAsync.unlink(server.configFile))
+                cleanupCalls.push(fsAsync.unlink(server.configFile))
             }
         }
 
-        await Promise.all(cleanup_calls)
+        await Promise.all(cleanupCalls)
 
     }
 

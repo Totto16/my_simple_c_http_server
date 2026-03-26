@@ -10,9 +10,9 @@ function isCallingThisScript(value: string): boolean {
 
         const actualPath: string = path.resolve(value)
 
-        const package_json = path.join(actualPath, "package.json")
+        const packageJson = path.join(actualPath, "package.json")
 
-        if (!fs.existsSync(package_json)) {
+        if (!fs.existsSync(packageJson)) {
             return false;
         }
 
@@ -32,13 +32,13 @@ function isCallingThisScript(value: string): boolean {
             throw new Error(`Invalid extension: ${ext}`)
         }
 
-        const this_package_json = path.join(thisPkgRoot, "package.json")
+        const thisPackageJson = path.join(thisPkgRoot, "package.json")
 
-        if (!fs.existsSync(this_package_json)) {
+        if (!fs.existsSync(thisPackageJson)) {
             throw new Error(`Invalid local package detection`)
         }
 
-        return this_package_json == package_json;
+        return thisPackageJson == packageJson;
 
 
     } catch (_err) {
