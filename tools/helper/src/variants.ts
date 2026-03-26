@@ -142,7 +142,7 @@ interface StructMemberNested extends Brand<"nested"> {
     nested: CAnonymousStruct
 }
 
- //TODO: test  nested anonymous structs in all places
+//TODO: test  nested anonymous structs in all places
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function makeNestedMember(name: string, members: StructMember[]): StructMemberNested {
     return {
@@ -351,7 +351,7 @@ function getUnionDataName(name: TaggedName<"union">): string {
 
 function typeForMemberStruct(val: StructMember): string {
     if (isSimpleStructMember(val)) {
-        return val.name;
+        return val.type_name;
     }
     return `struct {
 	${val.nested.members.map(mem => {
@@ -466,7 +466,7 @@ function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUn
 
 
     } else if (isSimpleTaggedType(mem.type)) {
-        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(const ${mem.name.inner.PascalCase()} value){
+        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(const ${mem.type.name} value){
 	return (${tagged_union.name.inner.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.inner.snake_case()} = value } };
 }
 `
