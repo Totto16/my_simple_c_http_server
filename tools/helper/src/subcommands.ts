@@ -60,7 +60,7 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
         throw new Error(`No output given`)
     }
 
-    generateFile(options as GenerateOptions)
+    return await generateFile(options as GenerateOptions)
 }
 
 

@@ -335,6 +335,7 @@
 
 import fs from "node:fs"
 import path from "node:path"
+import fsAsync from "node:fs/promises"
 
 interface RawHuffmanCode {
     sym: number,
@@ -1108,16 +1109,15 @@ function to_c_node(node: HuffmanNode, nodes_array_value: string): string {
 
 }
 
-function writeFileAndDirs(file: string, content: string): void {
+async function writeFileAndDirs(file: string, content: string): Promise<void> {
 
     const dir = path.dirname(file)
 
     if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true })
+        await fsAsync.mkdir(dir, { recursive: true })
     }
 
-    fs.writeFileSync(file, content)
-
+    await fsAsync.writeFile(file, content)
 
 }
 
@@ -1784,7 +1784,9 @@ function arr_eq<T>(arr1: T[], arr2: T[]): boolean {
     return true;
 }
 
-function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): void {
+async function generated_hpack_huffman_code_c(generated_hpack_huffman_file_h: string, tree_result: TreeResult, map: HuffmanEncodingMap): Promise<void> {
+
+    const tasks: Promise<void>[] = []
 
     assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
 
@@ -1872,7 +1874,7 @@ typedef struct {
 NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* field);
 `
 
-    writeFileAndDirs(generated_hpack_huffman_file_h, h_data)
+    tasks.push(writeFileAndDirs(generated_hpack_huffman_file_h, h_data))
 
     const nodes_array_value = "nodes_array"
 
@@ -2081,7 +2083,9 @@ ${key_of_static_table.map((str, idx) => {
 
     const generated_hpack_huffman_file_c = getOtherFile(generated_hpack_huffman_file_h, ".h", ".c")
 
-    writeFileAndDirs(generated_hpack_huffman_file_c, c_data)
+    tasks.push(writeFileAndDirs(generated_hpack_huffman_file_c, c_data))
+
+    await Promise.all(tasks)
 
 }
 
@@ -2098,7 +2102,9 @@ function header_to_c_value(header: HeaderTable): string {
     return `(HpackHeaderStaticEntry){ .key = TSTR_LIT(${to_c_str(header.key)}), .value = ${value} }`
 }
 
-function generated_hpack_headerable_code_h(generated_hpack_header_table_h: string): void {
+async function generated_hpack_headerable_code_h(generated_hpack_header_table_h: string): Promise<void> {
+
+    const tasks: Promise<void>[] = []
 
     assert(path.extname(generated_hpack_header_table_h) == ".h", "hpack header table file has to end in .h")
 
@@ -2148,7 +2154,7 @@ NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void);
 void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* entries);
 `
 
-    writeFileAndDirs(generated_hpack_header_table_h, h_data)
+    tasks.push(writeFileAndDirs(generated_hpack_header_table_h, h_data))
 
     const header_nodes_value = "local_entries_impl"
 
@@ -2184,10 +2190,9 @@ void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* const entrie
 
     const generated_hpack_header_table_c = getOtherFile(generated_hpack_header_table_h, ".h", ".c")
 
-    writeFileAndDirs(generated_hpack_header_table_c, c_data)
+    tasks.push(writeFileAndDirs(generated_hpack_header_table_c, c_data))
 
-
-
+    await Promise.all(tasks)
 }
 
 
@@ -2445,7 +2450,9 @@ function num_array_is_eq(arr1: number[], arr2: number[]): boolean {
 
 }
 
-function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file_hpp: string, map: HuffmanEncodingMap): void {
+async function generated_hpack_test_cases_cpp(generated_hpack_test_cases_file_hpp: string, map: HuffmanEncodingMap): Promise<void> {
+
+    const tasks: Promise<void>[] = []
 
     assert(path.extname(generated_hpack_test_cases_file_hpp) == ".hpp", "hpack huffman test file has to end in .hpp")
 
@@ -2547,7 +2554,7 @@ extern "C" {
 
 `
 
-    writeFileAndDirs(generated_hpack_test_cases_file_hpp, hpp_data)
+    tasks.push(writeFileAndDirs(generated_hpack_test_cases_file_hpp, hpp_data))
 
 
     const generated_hpack_test_cases_file_cpp = getOtherFile(generated_hpack_test_cases_file_hpp, ".hpp", ".cpp")
@@ -2563,7 +2570,7 @@ std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
 `
 
 
-    writeFileAndDirs(generated_hpack_test_cases_file_cpp, cpp_data)
+    tasks.push(writeFileAndDirs(generated_hpack_test_cases_file_cpp, cpp_data))
 
     const generated_hpack_test_cases_file_c = getOtherFile(generated_hpack_test_cases_file_hpp, ".hpp", ".c")
 
@@ -2577,14 +2584,14 @@ ${generate_fast_string_compare_impl("generated_c_test_fns_fast_string_compare_te
 
 `
 
-    writeFileAndDirs(generated_hpack_test_cases_file_c, c_data)
+    tasks.push(writeFileAndDirs(generated_hpack_test_cases_file_c, c_data))
 
-
+    await Promise.all(tasks)
 
 }
 
 
-export function generateFile(options: GenerateOptions): void {
+export async function generateFile(options: GenerateOptions): Promise<void> {
 
     test_bitarray();
 
@@ -2593,19 +2600,15 @@ export function generateFile(options: GenerateOptions): void {
     if (options.type === "c_hpack_huffman") {
         const tree_result = codes_to_tree(codes)
         const map = codes_to_map(codes)
-        generated_hpack_huffman_code_c(options.output, tree_result, map)
-        return;
+        return await generated_hpack_huffman_code_c(options.output, tree_result, map)
     } else if (options.type === "c_header_table") {
-        generated_hpack_headerable_code_h(options.output)
-        return;
+        return await generated_hpack_headerable_code_h(options.output)
     } else if (options.type === "cpp_tests") {
         const map = codes_to_map(codes)
-        generated_hpack_test_cases_cpp(options.output, map)
-        return;
+        return await generated_hpack_test_cases_cpp(options.output, map)
     }
 
     throw new Error(`Unrecognized type: ${options.type}`)
-
 
 }
 
