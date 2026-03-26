@@ -203,8 +203,8 @@ function c_type_for_enum(tpe: CEnumType): string {
     }
 }
 
-function memberNameForEnum(member: TaggedMember, union_name: CaseName): string {
-    return union_name.combine(member.name).PascalCase()
+function memberNameForEnum(member: TaggedMember, enum_name: CaseName): string {
+    return enum_name.combine(member.name).PascalCase()
 }
 
 
@@ -285,6 +285,30 @@ function generatePoisonPragma(names: string[]): string {
 }
 
 
+const state_str_fn_prefix = "_impl_get_state_string_for_variant_"
+
+function generateFunctions(tagged_union: TaggedUnion): string {
+
+    return `static inline tstr_static ${state_str_fn_prefix}${tagged_union.name.snake_case()}(const ${tagged_union.enum.name.PascalCase()} enum_value){
+	switch(enum_value){
+		${tagged_union.member.map(mem => {
+        return `case ${memberNameForEnum(mem, tagged_union.enum.name)}: {
+	return TSTR_STATIC_LIT("${mem.name.snake_case()}");
+}`
+
+    }).join("\n").split("\n").join("\n		")}
+	default: {
+		return TSTR_STATIC_LIT("<unknown>");
+		}
+	}
+}`
+
+}
+
+function toCStr(str: string): string {
+    return `"${str}"`
+}
+
 function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
 
     assert(tagged_union.member.length >= 2, "at least two member are required")
@@ -293,19 +317,31 @@ function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
 
     const enumString = generateEnumDeclaration(tagged_union.enum, tagged_union.member)
 
-    const variantString = generateVariantDeclaration(tagged_union)
+    const variantString: string = generateVariantDeclaration(tagged_union)
+
+    const functionsString: string = generateFunctions(tagged_union)
 
     const tag_name: string = getUnionTagName(tagged_union.name);
 
     const data_name: string = getUnionDataName(tagged_union.name);
 
-
-
-    return `#define GENERATE_VARIANT_${tagged_union.name.MACRO_NAME()}
+    const generate_macro = (
+        `#define GENERATE_VARIANT_${tagged_union.name.MACRO_NAME()}
 	${enumString.split("\n").join("\n	")}
 	${variantString.split("\n").join("\n	")}
+	
+	${functionsString.split("\n").join("\n	")}
+	
 	${generatePoisonPragma([tag_name, data_name])}
-`.split("\n").join("\\\n")
+`)
+
+
+    return (
+        `#define VARIANT_${tagged_union.name.MACRO_NAME()}_STATE_ASSERT(state, expected_state) VARIANT_STATE_ASSERT(state, expected_state, ${tagged_union.name.snake_case()}, ${toCStr(tagged_union.name.PascalCase())})
+	
+${generate_macro.split("\n").join(" \\\n")}
+`)
+
 
 
 
@@ -353,8 +389,26 @@ export async function generate_variant_code_c(generated_variants_file_h: string)
 
     assert(path.extname(generated_variants_file_h) == ".h", "variant file has to end in .h")
 
+    const h_preamble = `#define VARIANT_STATE_ASSERT(state, expected_state, variant_name, VariantName)
+	do {
+		if((state) != (expected_state)) {
+			const tstr_static state_str = ${state_str_fn_prefix}##variant_name(state);
+			const tstr_static expected_state_str = ${state_str_fn_prefix}##variant_name(expected_state);
+			fprintf(stderr,
+				"[%s %s:%d]: Invalid variant access for variant '%s': state was " TSTR_FMT
+				" but expected " TSTR_FMT "\\n",
+				__func__, __FILE__, __LINE__, VariantName, TSTR_STATIC_FMT_ARGS(state_str),
+				TSTR_STATIC_FMT_ARGS(expected_state_str));
+			UNREACHABLE();
+		}
+	} while(false)
+`
+
     const h_data = `
 #pragma once
+
+${h_preamble.split("\n").join(" \\\n")}
+
 
 ${unitagged_unions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 
