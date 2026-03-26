@@ -1812,12 +1812,14 @@ NODISCARD HuffmanTree* get_hpack_huffman_tree(void) {
 	
 ${nodes.map((val, i) => {
 
-        return `		${nodes_array_value}[${i}] = ${val};`;
+        return `		${nodes_array_value}[${i.toString()}] = ${val};`;
     }).join("\n")}
 
 	}
 
-	HuffmanNode* root = (${nodes_array_value} + ${tree.root.id});
+	HuffmanNode* root = (${nodes_array_value} + ${
+        /* eslint-disable-next-line @typescript-eslint/no-non-null-assertion*/
+        tree.root.id!.toString()});
 
 	*tree = (HuffmanTree){ .root = root, .memory = (void*)${nodes_array_value} };
 
@@ -1843,8 +1845,8 @@ NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void){
 
 	{
 		${encode_nodes.map((val, idx) => {
-        return `map->entries[${idx}] = ${val};`
-    }).join("\n		")}
+            return `map->entries[${idx.toString()}] = ${val};`
+        }).join("\n		")}
 	}
 
 	return map;
@@ -1875,23 +1877,25 @@ ${generate_fast_string_compare_impl("hpack_generated_is_key_of_static_table_fast
 
 ${Object.entries(value_by_key_static_table_strings).map((val): string => {
 
-        const name = static_table_fast_cmp_value_for(val[0])
+            const name = static_table_fast_cmp_value_for(val[0])
 
-        return `
+            return `
 
-${generate_fast_string_compare_impl(name, val[1]!.map((value): string => {
+${
+                /* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */
+                generate_fast_string_compare_impl(name, val[1]!.map((value): string => {
 
-            if (value.value === null) {
-                throw new Error("Implementation error")
-            }
+                    if (value.value === null) {
+                        throw new Error("Implementation error")
+                    }
 
-            return value.value;
+                    return value.value;
 
-        }), { first_gen_call: false, static: true })}
+                }), { first_gen_call: false, static: true })}
 
 `
 
-    }).join("\n\n")}
+        }).join("\n\n")}
 
 NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* const field){
 
@@ -1904,51 +1908,54 @@ NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const 
 	switch(result.index){
 ${key_of_static_table.map((str, idx) => {
 
-        const values = raw_header_table.filter((header): boolean => {
-            return header.key == str
-        })
+            const values = raw_header_table.filter((header): boolean => {
+                return header.key == str
+            })
 
-        if (values.length == 0) {
-            throw new Error("Implementation error")
-        }
+            if (values.length == 0) {
+                throw new Error("Implementation error")
+            }
 
-        if (values.length == 1) {
+            if (values.length == 1) {
 
-            const value = values[0]!
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const value = values[0]!
 
-            if (value.value === null) {
-                return `		case ${idx}: {
-			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index} } };
+                if (value.value === null) {
+                    return `		case ${idx.toString()}: {
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index.toString()} } };
+		}`
+                }
+
+                return `		case ${idx.toString()}: {
+			if(strncmp(tstr_cstr(&(field->value)), ${to_c_str(value.value)}, ${value.value.length.toString()}) == 0){
+				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = ${value.index.toString()} } };
+			}
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index.toString()} } };
 		}`
             }
 
-            return `		case ${idx}: {
-			if(strncmp(tstr_cstr(&(field->value)), ${to_c_str(value.value)}, ${value.value.length}) == 0){
-				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = ${value.index} } };
-			}
-			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index} } };
-		}`
-        }
+            if (value_by_key_static_table_strings[str] === undefined || !arr_eq(values, value_by_key_static_table_strings[str])) {
+                throw new Error("generated and used strings have to be the same!")
 
-        if (value_by_key_static_table_strings[str] === undefined || !arr_eq(values, value_by_key_static_table_strings[str])) {
-            throw new Error("generated and used strings have to be the same!")
+            }
 
-        }
-
-        return `		case ${idx}: {
+            return `		case ${idx.toString()}: {
 			const FastStringCompareResult value_cmp_res = ${static_table_fast_cmp_value_for(str)}(tstr_as_view(&(field->value)));
 
 			if(value_cmp_res.found){
-				const size_t index_map[${values.length}] = {${values.map(value => {
-            return `${value.index}`
-        })}};
+				const size_t index_map[${values.length.toString()}] = {${values.map((value): string => {
+                return value.index.toString()
+            }).join(", ")}};
 
 				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = index_map[value_cmp_res.index] } };
 			}
-			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${values[0]!.index} } };
+			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${
+                /* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */
+                values[0]!.index.toString()} } };
 		}`
 
-    }).join("\n")}
+        }).join("\n")}
 		default: {
 			assert(false && "UNREACHABLE");
 			return (StaticTableFindResult){ .type = StaticTableFindResultTypeNotFound };
@@ -1987,7 +1994,7 @@ export async function generate_hpack_headerable_code_h(generated_hpack_header_ta
 
     const header_map: Record<number, HeaderTable> = {}
 
-    let max_size: number = -Infinity;
+    let max_size = -Infinity;
 
     for (const header of raw_header_table) {
         if (header_map[header.index] !== undefined) {
@@ -2018,7 +2025,7 @@ export async function generate_hpack_headerable_code_h(generated_hpack_header_ta
 #include "utils/utils.h"
 #include <tstr.h>
 
-#define HPACK_STATIC_HEADER_TABLE_SIZE ${max_size}
+#define HPACK_STATIC_HEADER_TABLE_SIZE ${max_size.toString()}
 
 typedef struct {
 	tstr key;
@@ -2050,7 +2057,7 @@ NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void){
 	
 ${headers.map((val, i) => {
 
-        return `		${header_nodes_value}[${i}] = ${val};`;
+        return `		${header_nodes_value}[${i.toString()}] = ${val};`;
     }).join("\n")}
 
 	}
@@ -2085,7 +2092,7 @@ class EncodedHuffman {
 
     toArray(): BitArray {
 
-        let size: number = 0;
+        let size = 0;
 
         for (const value of this.values) {
             size += value.bytes.size;
@@ -2104,17 +2111,17 @@ class EncodedHuffman {
         for (const value of this.values) {
 
             const b_size = value.bytes.size;
-            for (let i = 0; i < b_size; ++i) [
+            for (let i = 0; i < b_size; ++i) {
                 result.set(index + i, value.bytes.get(i))
-            ]
+            }
 
             index += b_size;
         }
 
         // set EOS bits
-        for (let i = index; i < size; ++i) [
+        for (let i = index; i < size; ++i) {
             result.set(i, true)
-        ]
+        }
 
 
         return result
@@ -2294,9 +2301,9 @@ function get_manual_test_arr(manual_test_arr: ManualTest[]): number[] {
 
 
     // set EOS bits
-    for (let i = offset; i < size; ++i) [
+    for (let i = offset; i < size; ++i) {
         result.set(i, true)
-    ]
+    }
 
 
     return result.toNumberArray();
@@ -2326,11 +2333,11 @@ export async function generate_hpack_test_cases_cpp(generated_hpack_test_cases_f
         const test_test_arr_manual = get_manual_test_arr([[0b011001, 6], [0b00000, 5], [0b011101, 6]])
 
         if (!num_array_is_eq(test_test_arr_manual, test_test_arr_expected)) {
-            throw new Error(`The manual encoding is not done correctly, as the manual and the expected array differ: ${test_test_arr_manual} - ${test_test_arr_expected}`)
+            throw new Error(`The manual encoding is not done correctly, as the manual and the expected array differ: ${test_test_arr_manual.join(", ")} - ${test_test_arr_expected.join(", ")}`)
         }
 
         if (!num_array_is_eq(test_test_arr, test_test_arr_expected)) {
-            throw new Error(`The js encoding is not done correctly, as the js encoded and the expected array differ: ${test_test_arr} - ${test_test_arr_expected}`)
+            throw new Error(`The js encoding is not done correctly, as the js encoded and the expected array differ: ${test_test_arr.join(", ")} - ${test_test_arr_expected.join(", ")}`)
         }
 
     }
@@ -2423,7 +2430,7 @@ extern "C" {
 
 
 std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
-	return std::vector<std::string>{${fast_string_compare_test_data.map((str): string => `${to_c_str(str)}`).join(", ")}};
+	return std::vector<std::string>{${fast_string_compare_test_data.map((str): string => to_c_str(str)).join(", ")}};
 }
 `
 
