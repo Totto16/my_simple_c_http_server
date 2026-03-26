@@ -111,33 +111,136 @@ class CaseName {
 
 type CType = string
 
-interface StructMember {
-    name: string,
-    //TODO: test  nested anonymous structs in all places
-    type: CType | CAnonymousStruct
+const __brand_tag_dont_use: unique symbol = Symbol("brandTag");
+
+interface Brand<T> {
+    readonly [__brand_tag_dont_use]: T;
 }
 
-interface CAnonymousStruct {
-    type: "c_anonymous_struct"
+function makeBranded<T>(value: T): Brand<T> {
+    return {
+        [__brand_tag_dont_use]: value,
+    };
+}
+
+interface StructMemberSimple extends Brand<"simple"> {
+    name: string,
+    type_name: CType
+}
+
+function makeSimpleMember(name: string, type_name: CType): StructMemberSimple {
+    return {
+        ...(makeBranded<"simple">("simple")),
+        name,
+        type_name
+    }
+}
+
+interface StructMemberNested extends Brand<"nested"> {
+    name: string,
+    //TODO: test  nested anonymous structs in all places
+    nested: CAnonymousStruct
+}
+
+ //TODO: test  nested anonymous structs in all places
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function makeNestedMember(name: string, members: StructMember[]): StructMemberNested {
+    return {
+        ...(makeBranded<"nested">("nested")),
+        name,
+        nested: makeCAnonymousStruct(members)
+    }
+}
+
+
+type StructMember = StructMemberSimple | StructMemberNested
+
+function isSimpleStructMember(s: StructMember): s is StructMemberSimple {
+    return s[__brand_tag_dont_use] == "simple"
+}
+
+interface CAnonymousStruct extends Brand<"c_anonymous_struct"> {
     members: StructMember[]
+}
+
+function makeCAnonymousStruct(members: StructMember[]): CAnonymousStruct {
+    return {
+        ...(makeBranded<"c_anonymous_struct">("c_anonymous_struct")),
+        members: members
+    }
 }
 
 type CEnumType = "bool" | "u8" | "u16" | "u32" | "u64"
 
+interface TaggedName<T> extends Brand<"tagged_name"> {
+    name_type: T,
+    inner: CaseName
+}
+
+function makeTaggedName<T>(value: T, name: CaseName): TaggedName<T> {
+    return {
+        ...(makeBranded<"tagged_name">("tagged_name")),
+        name_type: value,
+        inner: name
+    }
+}
+
+
+interface TaggedTypeSimple extends Brand<"simple"> {
+    name: CType
+}
+
+function makeSimpleType(name: CType): TaggedTypeSimple {
+    return {
+        ...(makeBranded<"simple">("simple")),
+        name: name
+    }
+}
+
+interface TaggedTypeStruct extends Brand<"struct"> {
+    struct: CAnonymousStruct
+}
+
+function makeStructType(members: StructMember[]): TaggedTypeStruct {
+    return {
+        ...(makeBranded<"struct">("struct")),
+        struct: makeCAnonymousStruct(members)
+    }
+}
+
+type TaggedType = TaggedTypeSimple | TaggedTypeStruct
+
+
+function isSimpleTaggedType(t: TaggedType): t is TaggedTypeSimple {
+    return t[__brand_tag_dont_use] == "simple"
+}
+
 interface TaggedMember {
-    name: CaseName,
-    value: null | CType | CAnonymousStruct
+    name: TaggedName<"member">,
+    type: null | TaggedType
+}
+
+function makeMemberName(name: CaseName): TaggedName<"member"> {
+    return makeTaggedName<"member">("member", name)
 }
 
 interface TaggedUnionEnum {
     underlying_type: CEnumType | "best_match" | null
-    name: CaseName
+    name: TaggedName<"enum">
+}
+
+function makeEnumName(name: CaseName): TaggedName<"enum"> {
+    return makeTaggedName<"enum">("enum", name)
 }
 
 interface TaggedUnion {
-    name: CaseName
+    name: TaggedName<"union">
     member: TaggedMember[]
     enum: TaggedUnionEnum
+}
+
+function makeUnionName(name: CaseName): TaggedName<"union"> {
+    return makeTaggedName<"union">("union", name)
 }
 
 function bestTypeForLength(len: number): CEnumType {
@@ -208,8 +311,8 @@ function c_type_for_enum(tpe: CEnumType): string {
     }
 }
 
-function memberNameForEnum(member: TaggedMember, enum_name: CaseName): string {
-    return enum_name.combine(member.name).PascalCase()
+function memberNameForEnum(member: TaggedMember, enum_name: TaggedName<"enum">): string {
+    return enum_name.inner.combine(member.name.inner).PascalCase()
 }
 
 
@@ -232,27 +335,39 @@ typedef enum${underlying_type === null ? "" : ` C_23_NARROW_ENUM_TO(${c_type_for
 
         return memberNameForEnum(mem, tu_enum.name)
     }).join(",\n	")}
-} ${tu_enum.name.PascalCase()};
+} ${tu_enum.name.inner.PascalCase()};
 `
 
 
 }
 
-function getUnionTagName(name: CaseName): string {
-    return `_variant_tag_for_${name.snake_case()}_tag_member`
+function getUnionTagName(name: TaggedName<"union">): string {
+    return `_variant_tag_for_${name.inner.snake_case()}_tag_member`
 }
 
-function getUnionDataName(name: CaseName): string {
-    return `_variant_data_for_${name.snake_case()}_data_member`
+function getUnionDataName(name: TaggedName<"union">): string {
+    return `_variant_data_for_${name.inner.snake_case()}_data_member`
 }
 
-function typeForMember(val: string | CAnonymousStruct): string {
-    if (typeof (val) == "string") {
-        return val;
+function typeForMemberStruct(val: StructMember): string {
+    if (isSimpleStructMember(val)) {
+        return val.name;
     }
     return `struct {
-	${val.members.map(mem => {
-        return `${typeForMember(mem.type)} ${mem.name};`
+	${val.nested.members.map(mem => {
+        return `${typeForMemberStruct(mem)} ${mem.name};`
+    }).join("\n	")}
+}`
+
+}
+
+function typeForMember(val: TaggedType): string {
+    if (isSimpleTaggedType(val)) {
+        return val.name;
+    }
+    return `struct {
+	${val.struct.members.map(mem => {
+        return `${typeForMemberStruct(mem)} ${mem.name};`
     }).join("\n	")}
 }`
 
@@ -268,19 +383,19 @@ function generateVariantDeclaration(tagged_union: TaggedUnion): string {
     return `
 /* tagged union (variant) implementation */
 typedef struct {
-	${tagged_union.enum.name.PascalCase()} ${tag_name};
+	${tagged_union.enum.name.inner.PascalCase()} ${tag_name};
 	union {
-		${tagged_union.member.filter(mem => mem.value !== null).map((mem) => {
+		${tagged_union.member.filter(mem => mem.type !== null).map((mem) => {
 
-        if (mem.value === null) {
+        if (mem.type === null) {
             throw new Error("IMPLEMENTATION ERROR")
         }
 
-        return `${typeForMember(mem.value)} ${mem.name.snake_case()};`.split("\n").join("\n		")
+        return `${typeForMember(mem.type)} ${mem.name.inner.snake_case()};`.split("\n").join("\n		")
 
     }).join("\n		")}
 	} ${data_name};
-} ${tagged_union.name.PascalCase()};
+} ${tagged_union.name.inner.PascalCase()};
 `
 }
 
@@ -290,7 +405,7 @@ function generatePoisonPragma(names: string[]): string {
 
 function function_for_new_variant(mem: TaggedMember, tagged_union: TaggedUnion): string {
 
-    return `new_${tagged_union.name.snake_case()}_${mem.name.snake_case()}`
+    return `new_${tagged_union.name.inner.snake_case()}_${mem.name.inner.snake_case()}`
 
 }
 
@@ -304,10 +419,10 @@ function flattenCAnonymousStruct(struct: CAnonymousStruct): FlatStructMember[] {
 
     for (const mem of struct.members) {
 
-        if (typeof (mem.type) === "string") {
-            values.push({ names: [mem.name], type: mem.type })
+        if (isSimpleStructMember(mem)) {
+            values.push({ names: [mem.name], type: mem.type_name })
         } else {
-            const inner = flattenCAnonymousStruct(mem.type)
+            const inner = flattenCAnonymousStruct(mem.nested)
             values.push(...inner.map(i => {
                 return { names: [mem.name, ...i.names], type: i.type }
             }))
@@ -329,10 +444,10 @@ function initialize_anonymous_struct(struct: CAnonymousStruct, outer_prefixes: s
 
     for (const mem of struct.members) {
 
-        if (typeof (mem.type) === "string") {
+        if (isSimpleStructMember(mem)) {
             values.push(`.${mem.name} = ${nameFor(mem.name)}`)
         } else {
-            values.push(initialize_anonymous_struct(mem.type, [...outer_prefixes, mem.name]))
+            values.push(initialize_anonymous_struct(mem.nested, [...outer_prefixes, mem.name]))
         }
 
     }
@@ -343,30 +458,30 @@ function initialize_anonymous_struct(struct: CAnonymousStruct, outer_prefixes: s
 
 function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUnion): string {
 
-    if (mem.value === null) {
-        return `static inline ${tagged_union.name.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(void){
-	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.name)} };
+    if (mem.type === null) {
+        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(void){
+	return (${tagged_union.name.inner.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)} };
 }
 `
 
 
-    } else if (typeof (mem.value) === "string") {
-        return `static inline ${tagged_union.name.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(const ${mem.name.PascalCase()} value){
-	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.snake_case()} = value } };
+    } else if (isSimpleTaggedType(mem.type)) {
+        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(const ${mem.name.inner.PascalCase()} value){
+	return (${tagged_union.name.inner.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.inner.snake_case()} = value } };
 }
 `
 
     } else {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        assert(mem.value.type === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+        assert(mem.type.struct[__brand_tag_dont_use] === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
-        const flatParamaters = flattenCAnonymousStruct(mem.value)
+        const flatParamaters = flattenCAnonymousStruct(mem.type.struct)
 
 
-        return `static inline ${tagged_union.name.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(${flatParamaters.map(m => {
+        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(${flatParamaters.map(m => {
             return `const ${m.type} ${m.names.join("_")}`
         }).join(", ")}){
-	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.snake_case()} = ${initialize_anonymous_struct(mem.value)} } };
+	return (${tagged_union.name.inner.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.inner.snake_case()} = ${initialize_anonymous_struct(mem.type.struct)} } };
 }
 `
 
@@ -383,11 +498,11 @@ const state_str_fn_prefix = "_impl_get_state_string_for_variant_"
 
 function generateFunctions(tagged_union: TaggedUnion): string {
 
-    return `static inline tstr_static ${state_str_fn_prefix}${tagged_union.name.snake_case()}(const ${tagged_union.enum.name.PascalCase()} enum_value){
+    return `static inline tstr_static ${state_str_fn_prefix}${tagged_union.name.inner.snake_case()}(const ${tagged_union.enum.name.inner.PascalCase()} enum_value){
 	switch(enum_value){
 		${tagged_union.member.map(mem => {
         return `case ${memberNameForEnum(mem, tagged_union.enum.name)}: {
-	return TSTR_STATIC_LIT("${mem.name.snake_case()}");
+	return TSTR_STATIC_LIT("${mem.name.inner.snake_case()}");
 }`}).join("\n").split("\n").join("\n		")}
 		default: {
 			return TSTR_STATIC_LIT("<unknown>");
@@ -426,7 +541,7 @@ function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
     const data_name: string = getUnionDataName(tagged_union.name);
 
     const generate_macro = (
-        `#define GENERATE_VARIANT_${tagged_union.name.MACRO_NAME()}
+        `#define GENERATE_VARIANT_${tagged_union.name.inner.MACRO_NAME()}
 	${enumString.split("\n").join("\n	")}
 	${variantString.split("\n").join("\n	")}
 	
@@ -437,7 +552,7 @@ function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
 
 
     return (
-        `#define VARIANT_${tagged_union.name.MACRO_NAME()}_STATE_ASSERT(state, expected_state) VARIANT_STATE_ASSERT(state, expected_state, ${tagged_union.name.snake_case()}, ${toCStr(tagged_union.name.PascalCase())})
+        `#define VARIANT_${tagged_union.name.inner.MACRO_NAME()}_STATE_ASSERT(state, expected_state) VARIANT_STATE_ASSERT(state, expected_state, ${tagged_union.name.inner.snake_case()}, ${toCStr(tagged_union.name.inner.PascalCase())})
 	
 ${generate_macro.split("\n").join(" \\\n")}
 `)
@@ -450,31 +565,29 @@ ${generate_macro.split("\n").join(" \\\n")}
 
 const unitagged_unions: TaggedUnion[] = [
     {
-        name: CaseName.fromPascalCase("AccountInfo"),
+        name: makeUnionName(CaseName.fromPascalCase("AccountInfo")),
         member: [
             {
-                name: CaseName.fromPascalCase("Empty"),
-                value: null
+                name: makeMemberName(CaseName.fromPascalCase("Empty")),
+                type: null
             },
             {
-                name: CaseName.fromPascalCase("OnlyUser"),
-                value: {
-                    type: "c_anonymous_struct",
-                    members: [
-                        {
-                            name: "username",
-                            type: "tstr"
-                        }
-                    ]
-                }
+                name: makeMemberName(CaseName.fromPascalCase("OnlyUser")),
+                type: makeStructType([
+                    makeSimpleMember(
+                        "username",
+                        "tstr"
+                    )
+                ])
+
             },
             {
-                name: CaseName.fromPascalCase("Ok"),
-                value: "AccountOkData"
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: makeSimpleType("AccountOkData")
             }
         ],
         enum: {
-            name: CaseName.fromPascalCase("AccountState"),
+            name: makeEnumName(CaseName.fromPascalCase("AccountState")),
             underlying_type: "u8"
         }
 
@@ -530,11 +643,3 @@ ${unitagged_unions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 
 
 }
-
-
-//TODO: use eslitn to warn for array inside {} withoput join or number, make toString required
-//  "@typescript-eslint/no-base-to-string": "error"
-// better c nested structs handling!
-
-
-// better name handling, make neames unique! (enum vs union name!)
