@@ -1,10 +1,12 @@
 import path from "node:path"
-import { generateFile, GenerateOptions } from "./hpack.js"
+import { generateFile, GenerateOptions, GenerateType } from "./generator.js"
 import { runWsTests } from "./ws_tests.js"
 
 export async function subcommandGenerator(args: string[]): Promise<void> {
     const options: Partial<GenerateOptions> = {
     }
+
+    const allTypes: GenerateType[] = ["c_hpack_huffman", "c_header_table", "cpp_tests", "c_variants"] as const
 
     for (let i = 0; i < args.length; ++i) {
         const value = args[i]!
@@ -37,13 +39,16 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
             //TODO: make generating tagged unions here too!
 
 
-            if (typeRaw !== "c_hpack_huffman" && typeRaw !== "c_header_table" && typeRaw !== "cpp_tests") {
+
+
+            if (!allTypes.includes(typeRaw as GenerateType)) {
                 throw new Error(
                     `Invalid type: ${typeRaw}`
                 )
             }
 
-            options.type = typeRaw
+            options.type = typeRaw as GenerateType
+
 
             ++i
             continue

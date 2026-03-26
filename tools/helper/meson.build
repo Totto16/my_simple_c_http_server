@@ -8,6 +8,9 @@ helper_script_depend_files = files(
     'package.json',
     'src/all_cases.ts',
     'src/compression.ts',
+    'src/generator.ts',
+    'src/variants.ts',
+    'src/utils.ts',
     'src/hpack.ts',
     'src/log.ts',
     'src/subcommands.ts',
@@ -139,8 +142,25 @@ generated_hpack_header_h = custom_target(
     depends: helper_script_depends,
 )
 
-
 src_files += generated_hpack_header_h
+
+variants_generated = custom_target(
+    'variants',
+    command: [
+        node_like_runtime,
+        '@CURRENT_SOURCE_DIR@',
+        'generator',
+        '--type',
+        'c_variants',
+        '-o',
+        '@OUTPUT0@',
+    ],
+    output: ['variants.h', 'variants.c'],
+    depend_files: helper_script_depend_files,
+    depends: helper_script_depends,
+)
+
+src_files += variants_generated
 
 generated_hpack_file_cpp = custom_target(
     'generated_hpack_tests.hpp',
