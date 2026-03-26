@@ -335,7 +335,7 @@
 
 
 import path from "node:path"
-import { assert, BitArray, getBitArrayFromBits, getOtherFile, isUtf8String, numberArrayIsEq, writeFileAndDirs } from "./utils.js"
+import { assert, BitArray, getBitArrayFromBits, getOtherFile, isUTF8String, numberArrayIsEq, writeFileAndDirs } from "./utils.js"
 
 interface RawHuffmanCode {
     sym: number,
@@ -344,7 +344,7 @@ interface RawHuffmanCode {
     bit_len: number
 }
 
-const raw_codes: RawHuffmanCode[] = [
+const rawCodes: RawHuffmanCode[] = [
     { "sym": 0, "bits": "11111111|11000", "hex": "1ff8", "bit_len": 13 },
     { "sym": 1, "bits": "11111111|11111111|1011000", "hex": "7fffd8", "bit_len": 23 },
     { "sym": 2, "bits": "11111111|11111111|11111110|0010", "hex": "fffffe2", "bit_len": 28 },
@@ -610,7 +610,7 @@ interface RawHeaderTable {
     value: string | null
 }
 
-const raw_header_table: RawHeaderTable[] = [
+const rawHeaderTable: RawHeaderTable[] = [
     { index: 1, key: ":authority", value: null },
     { index: 2, key: ":method", value: "GET" },
     { index: 3, key: ":method", value: "POST" },
@@ -695,7 +695,7 @@ interface HuffmanCodeSpecial extends HuffmanCodeBase {
 
 type HuffmanCode = HuffmanCodeNormal | HuffmanCodeSpecial
 
-function check_and_map_raw_code(code: RawHuffmanCode): HuffmanCode {
+function checkAndMapRawCode(code: RawHuffmanCode): HuffmanCode {
 
     const bytes: BitArray = getBitArrayFromBits(code.bits, code.bit_len, code.hex);
 
@@ -725,8 +725,8 @@ function check_and_map_raw_code(code: RawHuffmanCode): HuffmanCode {
 }
 
 interface HuffmanNodeNodeNode {
-    bit_0: HuffmanNode;
-    bit_1: HuffmanNode;
+    bitZero: HuffmanNode;
+    bitOne: HuffmanNode;
 }
 
 class HuffmanNodeBasic {
@@ -745,7 +745,7 @@ class HuffmanNodeNode extends HuffmanNodeBasic {
         super(null);
 
         this.type = "node";
-        this.node = node === null ? { bit_0: new HuffmanNodeEnd(null), bit_1: new HuffmanNodeEnd(null) } : node;
+        this.node = node === null ? { bitZero: new HuffmanNodeEnd(null), bitOne: new HuffmanNodeEnd(null) } : node;
     }
 }
 
@@ -782,7 +782,7 @@ function getValue(code: HuffmanCode): EndValue {
     throw new Error("Error")
 }
 
-function check_valid_root_tree_1(root: HuffmanNode): void {
+function checkValidRootTree1(root: HuffmanNode): void {
 
     if (root.id === null) {
         throw new Error("NULL id on node")
@@ -797,17 +797,17 @@ function check_valid_root_tree_1(root: HuffmanNode): void {
 
     const node = root.node
 
-    check_valid_root_tree_1(node.bit_0)
-    check_valid_root_tree_1(node.bit_1)
+    checkValidRootTree1(node.bitZero)
+    checkValidRootTree1(node.bitOne)
 
 }
 
 interface TreeResult {
     tree: HuffmanTree
-    node_amount: bigint
+    nodeAmount: bigint
 }
 
-function codes_to_tree(codes: HuffmanCode[]): TreeResult {
+function codesToTree(codes: HuffmanCode[]): TreeResult {
 
     const root: HuffmanNode = new HuffmanNodeNode(null)
 
@@ -828,28 +828,28 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
                 if (bit) {
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                    if (currentNode.node.bit_1 === null) {
-                        currentNode.node.bit_1 = new HuffmanNodeEnd(getValue(code))
-                    } else if (currentNode.node.bit_1.type == "end") {
-                        if (currentNode.node.bit_1.value != null) {
-                            console.error(currentNode.node.bit_1)
+                    if (currentNode.node.bitOne === null) {
+                        currentNode.node.bitOne = new HuffmanNodeEnd(getValue(code))
+                    } else if (currentNode.node.bitOne.type == "end") {
+                        if (currentNode.node.bitOne.value != null) {
+                            console.error(currentNode.node.bitOne)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_1 = new HuffmanNodeEnd(getValue(code))
+                        currentNode.node.bitOne = new HuffmanNodeEnd(getValue(code))
                     }
                 } else {
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                    if (currentNode.node.bit_0 === null) {
-                        currentNode.node.bit_0 = new HuffmanNodeEnd(getValue(code))
-                    } else if (currentNode.node.bit_0.type == "end") {
-                        if (currentNode.node.bit_0.value != null) {
-                            console.error(currentNode.node.bit_0)
+                    if (currentNode.node.bitZero === null) {
+                        currentNode.node.bitZero = new HuffmanNodeEnd(getValue(code))
+                    } else if (currentNode.node.bitZero.type == "end") {
+                        if (currentNode.node.bitZero.value != null) {
+                            console.error(currentNode.node.bitZero)
                             console.log(code)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_0 = new HuffmanNodeEnd(getValue(code))
+                        currentNode.node.bitZero = new HuffmanNodeEnd(getValue(code))
                     }
                 }
 
@@ -864,32 +864,32 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
 
                 if (bit) {
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                    if (currentNode.node.bit_1 === null) {
-                        currentNode.node.bit_1 = new HuffmanNodeNode(null)
-                    } else if (currentNode.node.bit_1.type == "end") {
-                        if (currentNode.node.bit_1.value != null) {
-                            console.error(currentNode.node.bit_1)
+                    if (currentNode.node.bitOne === null) {
+                        currentNode.node.bitOne = new HuffmanNodeNode(null)
+                    } else if (currentNode.node.bitOne.type == "end") {
+                        if (currentNode.node.bitOne.value != null) {
+                            console.error(currentNode.node.bitOne)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_1 = new HuffmanNodeNode(null)
+                        currentNode.node.bitOne = new HuffmanNodeNode(null)
                     }
 
-                    currentNode = currentNode.node.bit_1;
+                    currentNode = currentNode.node.bitOne;
                 } else {
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-                    if (currentNode.node.bit_0 === null) {
-                        currentNode.node.bit_0 = new HuffmanNodeNode(null)
-                    } else if (currentNode.node.bit_0.type == "end") {
-                        if (currentNode.node.bit_0.value != null) {
-                            console.error(currentNode.node.bit_0)
+                    if (currentNode.node.bitZero === null) {
+                        currentNode.node.bitZero = new HuffmanNodeNode(null)
+                    } else if (currentNode.node.bitZero.type == "end") {
+                        if (currentNode.node.bitZero.value != null) {
+                            console.error(currentNode.node.bitZero)
                             throw new Error("Error")
                         }
 
-                        currentNode.node.bit_0 = new HuffmanNodeNode(null)
+                        currentNode.node.bitZero = new HuffmanNodeNode(null)
                     }
 
-                    currentNode = currentNode.node.bit_0;
+                    currentNode = currentNode.node.bitZero;
                 }
 
 
@@ -917,23 +917,23 @@ function codes_to_tree(codes: HuffmanCode[]): TreeResult {
         ++id;
 
         if (node.type != "end") {
-            nodes.push(node.node.bit_0)
-            nodes.push(node.node.bit_1)
+            nodes.push(node.node.bitZero)
+            nodes.push(node.node.bitOne)
         }
 
     }
 
-    check_valid_root_tree_1(root)
+    checkValidRootTree1(root)
 
     const tree: HuffmanTree = { root: root }
 
-    return { tree, node_amount: id };
+    return { tree, nodeAmount: id };
 
 }
 
 type HuffmanEncodingMap = Record<number, HuffmanCodeNormal | undefined>;
 
-function codes_to_map(codes: HuffmanCode[]): HuffmanEncodingMap {
+function codesToMap(codes: HuffmanCode[]): HuffmanEncodingMap {
 
     const map: HuffmanEncodingMap = {}
 
@@ -958,7 +958,7 @@ function codes_to_map(codes: HuffmanCode[]): HuffmanEncodingMap {
 }
 
 
-function to_c_node(node: HuffmanNode, nodes_array_value: string): string {
+function toCNode(node: HuffmanNode, nodesArrayValue: string): string {
 
     if (node.type == "end") {
 
@@ -983,7 +983,7 @@ function to_c_node(node: HuffmanNode, nodes_array_value: string): string {
 
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return `((HuffmanNode){ .type = HuffmanNodeTypeNode, .data = { .node = (HuffmanNodeNode){ .bit_0 = (${nodes_array_value} + ${node.node.bit_0.id!.toString()}), .bit_1 = (${nodes_array_value} + ${node.node.bit_1.id!.toString()}) } } })`
+    return `((HuffmanNode){ .type = HuffmanNodeTypeNode, .data = { .node = (HuffmanNodeNode){ .bitZero = (${nodesArrayValue} + ${node.node.bitZero.id!.toString()}), .bitOne = (${nodesArrayValue} + ${node.node.bitOne.id!.toString()}) } } })`
 
 
 }
@@ -991,11 +991,11 @@ function to_c_node(node: HuffmanNode, nodes_array_value: string): string {
 
 
 
-function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value: string): string[] {
+function treeToNodes(tree: HuffmanTree, nodeAmount: bigint, nodesArrayValue: string): string[] {
 
-    const values: string[] = new Array(Number(node_amount)).fill(undefined) as string[];
+    const values: string[] = new Array(Number(nodeAmount)).fill(undefined) as string[];
 
-    function set_array_at(index: bigint | null, value: string): void {
+    function setArrayAt(index: bigint | null, value: string): void {
 
         if (index === null) {
             throw new Error("Invalid value")
@@ -1005,7 +1005,7 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
             throw new Error("Out of bounds")
         }
 
-        if (index >= node_amount) {
+        if (index >= nodeAmount) {
             throw new Error("Out of bounds")
         }
 
@@ -1021,11 +1021,11 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const node = nodes.pop()!;
 
-        set_array_at(node.id, to_c_node(node, nodes_array_value));
+        setArrayAt(node.id, toCNode(node, nodesArrayValue));
 
         if (node.type != "end") {
-            nodes.push(node.node.bit_0)
-            nodes.push(node.node.bit_1)
+            nodes.push(node.node.bitZero)
+            nodes.push(node.node.bitOne)
         }
 
     }
@@ -1034,7 +1034,7 @@ function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value
 }
 
 
-function encode_node_c(code: HuffmanCodeNormal): string {
+function encodeNodeToC(code: HuffmanCodeNormal): string {
 
     let str = ""
 
@@ -1051,7 +1051,7 @@ function encode_node_c(code: HuffmanCodeNormal): string {
     return `(HuffmanEncodeEntry){ .bit_size = ${code.bytes.size.toString()}, .value = ${toHexString(encodeValueLSB, byteLength)}}`
 }
 
-function map_to_encode_nodes(map: HuffmanEncodingMap): string[] {
+function mapToEncodeNodes(map: HuffmanEncodingMap): string[] {
 
     const result: string[] = new Array(256).fill(undefined) as string[];
 
@@ -1060,7 +1060,7 @@ function map_to_encode_nodes(map: HuffmanEncodingMap): string[] {
         if (code === undefined) {
             throw new Error(`Code ${i.toString()} has to be defined`)
         }
-        result[i] = encode_node_c(code);
+        result[i] = encodeNodeToC(code);
 
     }
 
@@ -1112,18 +1112,18 @@ class FastStringComparePrefix extends FastStringCompareNodeBasic {
 
 class FastStringCompareNodeNormal extends FastStringCompareNodeBasic {
     type: "normal"
-    prefix_len: number
+    prefixLen: number
     prefixes: FastStringComparePrefix[]
-    prefix_offset: number | null
+    prefixOffset: number | null
 
-    constructor(prefix_len: number,
+    constructor(prefixLen: number,
         prefixes: FastStringComparePrefix[]) {
         super(null);
 
         this.type = "normal";
-        this.prefix_len = prefix_len;
+        this.prefixLen = prefixLen;
         this.prefixes = prefixes;
-        this.prefix_offset = null
+        this.prefixOffset = null
     }
 }
 
@@ -1141,8 +1141,8 @@ interface StringWithIdx {
 
 interface FastStringCompareTree {
     root: FastStringCompareNode
-    node_amount: bigint
-    prefix_amount: bigint
+    nodeAmount: bigint
+    prefixAmount: bigint
     strings: StringWithIdx[]
 }
 
@@ -1159,32 +1159,32 @@ interface NodesAndPrefixes {
     prefixes: FastStringComparePrefixesWithOffset[]
 }
 
-function nodes_and_prefixes_from_str_tree(tree: FastStringCompareTree): NodesAndPrefixes {
+function nodesAndPrefixesFromStrTree(tree: FastStringCompareTree): NodesAndPrefixes {
 
     const nodes: FastStringCompareNode[] = []
     const prefixes: FastStringComparePrefixesWithOffset[] = []
 
-    const temp_nodes: FastStringCompareNode[] = [tree.root]
+    const tempNodes: FastStringCompareNode[] = [tree.root]
 
     // iterate nodes BFS style
-    while (temp_nodes.length != 0) {
+    while (tempNodes.length != 0) {
 
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const node = temp_nodes.pop()!;
+        const node = tempNodes.pop()!;
 
         nodes.push(node)
 
         if (node.type != "end") {
             for (const data of node.prefixes) {
-                temp_nodes.push(data.node)
+                tempNodes.push(data.node)
             }
 
-            if (node.prefix_offset == null) {
+            if (node.prefixOffset == null) {
                 throw new Error("Implementation error")
             }
 
 
-            const prefix: FastStringComparePrefixesWithOffset = { prefixes: node.prefixes, offset: node.prefix_offset }
+            const prefix: FastStringComparePrefixesWithOffset = { prefixes: node.prefixes, offset: node.prefixOffset }
 
             prefixes.push(prefix)
 
@@ -1195,7 +1195,7 @@ function nodes_and_prefixes_from_str_tree(tree: FastStringCompareTree): NodesAnd
     return { nodes, prefixes };
 }
 
-function check_valid_root_tree_2(root: FastStringCompareNode): void {
+function checkValidRootTree2(root: FastStringCompareNode): void {
 
     if (root.id === null) {
         throw new Error("NULL id on node")
@@ -1212,7 +1212,7 @@ function check_valid_root_tree_2(root: FastStringCompareNode): void {
         throw new Error("empty subnodes in normal node")
     }
 
-    if (root.prefix_offset === null) {
+    if (root.prefixOffset === null) {
         throw new Error("NULL prefix offset")
     }
 
@@ -1220,12 +1220,12 @@ function check_valid_root_tree_2(root: FastStringCompareNode): void {
         if (prefix.id === null) {
             throw new Error("NULL prefix id on node")
         }
-        check_valid_root_tree_2(prefix.node)
+        checkValidRootTree2(prefix.node)
     }
 
 }
 
-function to_c_str(str: string): string {
+function toCStr(str: string): string {
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     assert(str !== null && str !== undefined && typeof str == "string", "has to be a string");
@@ -1233,12 +1233,12 @@ function to_c_str(str: string): string {
     return `"${str}"`
 }
 
-function fast_string_prefix_to_c(prefix: FastStringComparePrefix, array_name: string): string {
+function fastStringPrefixToC(prefix: FastStringComparePrefix, arrayName: string): string {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return `(FastStringCmpPrefix){ .prefix = ${to_c_str(prefix.prefix)}, .node = &(${array_name}[${prefix.node.id!.toString()}])}`
+    return `(FastStringCmpPrefix){ .prefix = ${toCStr(prefix.prefix)}, .node = &(${arrayName}[${prefix.node.id!.toString()}])}`
 }
 
-function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes: string): string {
+function fastStringNodeToC(node: FastStringCompareNode, arrayNamePrefixes: string): string {
 
     if (!isNormalNode(node)) {
 
@@ -1251,13 +1251,13 @@ function fast_string_node_to_c(node: FastStringCompareNode, array_name_prefixes:
     }
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return `(FastStringCmpNode){ .is_result = false, .data = { .prefixes = (FastStringCmpPrefixes){ .prefix_len = ${node.prefix_len.toString()}, .array = (FastStringCmpPrefixArray) { .len = ${node.prefixes.length.toString()}, .data = &(${array_name_prefixes}[${node.prefix_offset!.toString()}]) } } } }`
+    return `(FastStringCmpNode){ .is_result = false, .data = { .prefixes = (FastStringCmpPrefixes){ .prefixLen = ${node.prefixLen.toString()}, .array = (FastStringCmpPrefixArray) { .len = ${node.prefixes.length.toString()}, .data = &(${arrayNamePrefixes}[${node.prefixOffset!.toString()}]) } } } }`
 
 }
 
 
 
-function cleanup_short_paths_fast_compare(root: FastStringCompareNodeNormal): FastStringCompareNode {
+function cleanupShortPathsFastCompare(root: FastStringCompareNodeNormal): FastStringCompareNode {
 
 
     interface FastStringCompareNodeWithParent {
@@ -1265,16 +1265,16 @@ function cleanup_short_paths_fast_compare(root: FastStringCompareNodeNormal): Fa
         parent: FastStringCompareNodeWithParent | null
     }
 
-    const traverse_root: FastStringCompareNodeWithParent = { inner: root, parent: null }
+    const traverseRoot: FastStringCompareNodeWithParent = { inner: root, parent: null }
 
 
     // iterate nodes DFS style
 
-    function iterate_node(node: FastStringCompareNodeWithParent): FastStringCompareNodeWithParent & { changed?: boolean | undefined } {
+    function iterateNode(node: FastStringCompareNodeWithParent): FastStringCompareNodeWithParent & { changed?: boolean | undefined } {
         if (node.inner.type != "end") {
             let changed = false;
             node.inner.prefixes = node.inner.prefixes.map((prefix): FastStringComparePrefix => {
-                const result = iterate_node({ inner: prefix.node, parent: node })
+                const result = iterateNode({ inner: prefix.node, parent: node })
 
                 if (result.changed) {
                     changed = true;
@@ -1297,12 +1297,12 @@ function cleanup_short_paths_fast_compare(root: FastStringCompareNodeNormal): Fa
         }
 
         if (node.parent.inner.prefixes.length == 1 && node.parent.parent.inner.prefixes.length == 1) {
-            const prefix_len: number = node.parent.inner.prefix_len + node.parent.parent.inner.prefix_len
+            const prefixLen: number = node.parent.inner.prefixLen + node.parent.parent.inner.prefixLen
 
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             const prefix = `${node.parent.parent.inner.prefixes[0]!.prefix}${node.parent.inner.prefixes[0]!.prefix}`
 
-            node.parent.parent.inner = new FastStringCompareNodeNormal(prefix_len, [new FastStringComparePrefix(prefix, node.inner)])
+            node.parent.parent.inner = new FastStringCompareNodeNormal(prefixLen, [new FastStringComparePrefix(prefix, node.inner)])
             return { inner: node.inner, parent: node.parent, changed: true };
         }
 
@@ -1310,10 +1310,10 @@ function cleanup_short_paths_fast_compare(root: FastStringCompareNodeNormal): Fa
 
     }
 
-    let result = iterate_node(traverse_root)
+    let result = iterateNode(traverseRoot)
 
     while (result.changed) {
-        result = iterate_node(result)
+        result = iterateNode(result)
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -1324,7 +1324,7 @@ function cleanup_short_paths_fast_compare(root: FastStringCompareNodeNormal): Fa
     return result.inner
 }
 
-function process_string_fast_compare(input: string[]): FastStringCompare {
+function processStringFastCompare(input: string[]): FastStringCompare {
 
     const step1: Record<number, { cases: StringWithIdx[] } | undefined> = {}
 
@@ -1332,7 +1332,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const inp = input.at(i)!
 
-        if (isUtf8String(inp)) {
+        if (isUTF8String(inp)) {
             throw new Error(`fast compare string fields need to be ascii, to be usable for this algorithmn`)
         }
 
@@ -1389,25 +1389,25 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
                         throw new Error("algorithmn error")
                     }
 
-                    const inc: number = node.prefix_len
+                    const inc: number = node.prefixLen
 
-                    const char_value = caze.str.substring(i, i + inc)
+                    const charValue = caze.str.substring(i, i + inc)
 
                     const foundIndex: number = node.prefixes.findIndex((val) => {
-                        return val.prefix == char_value
+                        return val.prefix == charValue
                     })
 
                     if (foundIndex < 0) {
-                        const next_node: FastStringCompareNode = i + inc >= caze.str.length ? new FastStringCompareNodeEnd(
+                        const nextNode: FastStringCompareNode = i + inc >= caze.str.length ? new FastStringCompareNodeEnd(
                             caze.idx
                         ) : new FastStringCompareNodeNormal(1, []);
 
 
-                        node.prefixes.push(new FastStringComparePrefix(char_value,
-                            next_node
+                        node.prefixes.push(new FastStringComparePrefix(charValue,
+                            nextNode
                         ))
 
-                        node = next_node
+                        node = nextNode
                     } else {
                         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                         node = node.prefixes[foundIndex]!.node;
@@ -1418,14 +1418,14 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
 
             }
 
-            root = cleanup_short_paths_fast_compare(root)
+            root = cleanupShortPathsFastCompare(root)
         }
 
         const nodes: FastStringCompareNode[] = [root]
 
         let id = 0n;
-        let prefix_id = 0n;
-        let prefix_offset = 0;
+        let prefixID = 0n;
+        let prefixOffset = 0;
 
         // make an id for each node, BFS style
         while (nodes.length != 0) {
@@ -1437,21 +1437,21 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
             ++id;
 
             if (node.type != "end") {
-                node.prefix_offset = prefix_offset
+                node.prefixOffset = prefixOffset
 
                 for (const prefix of node.prefixes) {
                     nodes.push(prefix.node)
-                    prefix.id = prefix_id;
-                    ++prefix_id;
+                    prefix.id = prefixID;
+                    ++prefixID;
                 }
-                prefix_offset += node.prefixes.length
+                prefixOffset += node.prefixes.length
             }
 
         }
 
-        check_valid_root_tree_2(root)
+        checkValidRootTree2(root)
 
-        const tree: FastStringCompareTree = { root: root, node_amount: id, strings: cazes, prefix_amount: prefix_id };
+        const tree: FastStringCompareTree = { root: root, nodeAmount: id, strings: cazes, prefixAmount: prefixID };
 
         result[key as unknown as number] = tree;
     }
@@ -1460,12 +1460,12 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
     return result
 }
 
-function generate_fast_string_compare_decl(function_name: string): string {
+function generateFastStringCompareDecl(functionName: string): string {
     return `
-NODISCARD FastStringCompareResult ${function_name}(tstr_view str_view);`
+NODISCARD FastStringCompareResult ${functionName}(tstr_view str_view);`
 }
 
-function generate_types_for_fast_compare(): string {
+function generateTypesForFastCompare(): string {
     return `
 typedef struct FastStringCmpNodeImpl FastStringCmpNode;
 
@@ -1480,7 +1480,7 @@ typedef struct {
 } FastStringCmpPrefixArray;
 
 typedef struct {
-	size_t prefix_len;
+	size_t prefixLen;
 	FastStringCmpPrefixArray array;
 } FastStringCmpPrefixes;
 
@@ -1499,18 +1499,18 @@ typedef struct {
 }
 
 interface StringCompareFlags {
-    first_gen_call: boolean
+    firstGenCall: boolean
     static: boolean
 }
 
-function generate_fast_string_compare_impl(function_name: string, list_of_strings: string[], flags: StringCompareFlags = { first_gen_call: false, static: false }): string {
+function generateFastStringCompareImpl(functionName: string, listOfStrings: string[], flags: StringCompareFlags = { firstGenCall: false, static: false }): string {
 
-    const preprocessed_compare: FastStringCompare = process_string_fast_compare(list_of_strings)
+    const preprocessedCompare: FastStringCompare = processStringFastCompare(listOfStrings)
 
     return `
-${!flags.first_gen_call ? "" : generate_types_for_fast_compare()}
+${!flags.firstGenCall ? "" : generateTypesForFastCompare()}
 
-${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
+${!flags.firstGenCall ? "" : `NODISCARD static FastStringCompareResult fast_compare_string_with_tree(const FastStringCmpTree tree, const tstr_view str_view){
 	
 	const FastStringCmpNode* node = tree.root;
 	size_t index = 0;
@@ -1523,7 +1523,7 @@ ${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_co
 
 		const FastStringCmpPrefixes prefixes = node->data.prefixes;
 
-		if(index + prefixes.prefix_len > str_view.len){
+		if(index + prefixes.prefixLen > str_view.len){
 			// can't perform comparisons
 			return (FastStringCompareResult){ .found = false, .index = 0 };
 		}
@@ -1532,7 +1532,7 @@ ${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_co
 		for(size_t j = 0; j < prefixes.array.len; ++j){
 			const FastStringCmpPrefix prefix = prefixes.array.data[j];
 
-			if(prefixes.prefix_len == 1){
+			if(prefixes.prefixLen == 1){
 				assert(prefix.prefix[1] == '\\0' && "valid 1 length c string");
 				if(str_view.data[index] == prefix.prefix[0]){
 					node = prefix.node;
@@ -1543,7 +1543,7 @@ ${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_co
 				continue;
 			}
 
-			if(strncmp((((const char*)str_view.data) + index), prefix.prefix, prefixes.prefix_len) == 0){
+			if(strncmp((((const char*)str_view.data) + index), prefix.prefix, prefixes.prefixLen) == 0){
 				node = prefix.node;
 				found = true;
 				break;
@@ -1554,7 +1554,7 @@ ${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_co
 			return (FastStringCompareResult){ .found = false, .index = 0 };
 		}
 
-		index += prefixes.prefix_len;
+		index += prefixes.prefixLen;
 
 		if(index == str_view.len){
 			if(node->is_result){
@@ -1569,14 +1569,14 @@ ${!flags.first_gen_call ? "" : `NODISCARD static FastStringCompareResult fast_co
 }
 `}
 
-NODISCARD ${flags.static ? "static " : ""}FastStringCompareResult ${function_name}(const tstr_view str_view){
+NODISCARD ${flags.static ? "static " : ""}FastStringCompareResult ${functionName}(const tstr_view str_view){
 	switch(str_view.len){
-${Object.entries(preprocessed_compare).map(([key, tree]): string => {
+${Object.entries(preprocessedCompare).map(([key, tree]): string => {
 
-        const array_name = `fast_string_cmp_nodes_${key}`;
-        const array_name_prefixes = `fast_string_cmp_prefixes_${key}`;
+        const arrayName = `fast_string_cmp_nodes_${key}`;
+        const arrayNamePrefixes = `fast_string_cmp_prefixes_${key}`;
 
-        const values = nodes_and_prefixes_from_str_tree(tree)
+        const values = nodesAndPrefixesFromStrTree(tree)
 
         if (tree.strings.length == 1) {
 
@@ -1584,7 +1584,7 @@ ${Object.entries(preprocessed_compare).map(([key, tree]): string => {
             const str: StringWithIdx = tree.strings[0]!
 
             return `		case ${key}: {
-			if(strncmp(str_view.data, ${to_c_str(str.str)}, ${key}) == 0){
+			if(strncmp(str_view.data, ${toCStr(str.str)}, ${key}) == 0){
 				return (FastStringCompareResult){ .found = true, .index = ${str.idx.toString()} };
 			}
 			return (FastStringCompareResult){ .found = false, .index = 0 };
@@ -1592,15 +1592,15 @@ ${Object.entries(preprocessed_compare).map(([key, tree]): string => {
         } else {
 
             return `		case ${key}: {
-			FastStringCmpNode ${array_name}[${tree.node_amount.toString()}] = {};
-			FastStringCmpPrefix ${array_name_prefixes}[${tree.prefix_amount.toString()}] = {};
+			FastStringCmpNode ${arrayName}[${tree.nodeAmount.toString()}] = {};
+			FastStringCmpPrefix ${arrayNamePrefixes}[${tree.prefixAmount.toString()}] = {};
 
-			// handling strings: ${tree.strings.map(str => to_c_str(str.str)).join(", ")}
+			// handling strings: ${tree.strings.map(str => toCStr(str.str)).join(", ")}
 			{
 			// nodes
 ${values.nodes.map((node): string => {
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                return `				${array_name}[${node.id!.toString()}] = ${fast_string_node_to_c(node, array_name_prefixes)};`
+                return `				${arrayName}[${node.id!.toString()}] = ${fastStringNodeToC(node, arrayNamePrefixes)};`
             }).join("\n")}
 			// prefixes
 ${values.prefixes.map((prefixes): string => {
@@ -1609,12 +1609,12 @@ ${values.prefixes.map((prefixes): string => {
 
                     const totalIdx = prefixes.offset + idx;
 
-                    return `				${array_name_prefixes}[${totalIdx.toString()}] = ${fast_string_prefix_to_c(prefix, array_name)};`
+                    return `				${arrayNamePrefixes}[${totalIdx.toString()}] = ${fastStringPrefixToC(prefix, arrayName)};`
                 }).join("\n");
             }).join("\n")}
 			}
 
-			FastStringCmpTree fast_string_cmp_tree_${key} = { .root = &(${array_name}[${
+			FastStringCmpTree fast_string_cmp_tree_${key} = { .root = &(${arrayName}[${
                 /* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */
                 tree.root.id!.toString()
                 }])};
@@ -1636,11 +1636,11 @@ ${values.prefixes.map((prefixes): string => {
 
 
 
-function unique_arr<T>(arr: T[]): T[] {
+function uniqueArr<T>(arr: T[]): T[] {
     return [...new Set<T>(arr)]
 }
 
-function arr_eq<T>(arr1: T[], arr2: T[]): boolean {
+function arrayIsEq<T>(arr1: T[], arr2: T[]): boolean {
     if (arr1.length != arr2.length) {
         return false;
     }
@@ -1654,19 +1654,19 @@ function arr_eq<T>(arr1: T[], arr2: T[]): boolean {
     return true;
 }
 
-export async function generate_hpack_huffman_code_c(generated_hpack_huffman_file_h: string): Promise<void> {
+export async function generateHpackHuffmanCodeC(generatedHpackHuffmanFileH: string): Promise<void> {
 
     const tasks: Promise<void>[] = []
 
-    const codes: HuffmanCode[] = raw_codes.map(code => check_and_map_raw_code(code))
+    const codes: HuffmanCode[] = rawCodes.map(code => checkAndMapRawCode(code))
 
 
-    const tree_result = codes_to_tree(codes)
-    const map = codes_to_map(codes)
+    const treeResult = codesToTree(codes)
+    const map = codesToMap(codes)
 
-    assert(path.extname(generated_hpack_huffman_file_h) == ".h", "hpack huffman file has to end in .h")
+    assert(path.extname(generatedHpackHuffmanFileH) == ".h", "hpack huffman file has to end in .h")
 
-    const h_data = `
+    const headerData = `
 #pragma once
 
 #include "utils/utils.h"
@@ -1680,8 +1680,8 @@ typedef struct HuffmanTreeImpl HuffmanTree;
 typedef struct HuffmanNodeImpl HuffmanNode;
 
 typedef struct {
-	HuffmanNode* bit_0;
-	HuffmanNode* bit_1;
+	HuffmanNode* bitZero;
+	HuffmanNode* bitOne;
 } HuffmanNodeNode;
 
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
@@ -1727,7 +1727,7 @@ typedef struct {
 	size_t index;
 } FastStringCompareResult;
 
-${generate_fast_string_compare_decl("hpack_generated_is_common_field_key_fast_cmp")}
+${generateFastStringCompareDecl("hpack_generated_is_common_field_key_fast_cmp")}
 
 NODISCARD bool hpack_generated_is_common_field_key_fast(tstr_view str_view);
 
@@ -1750,47 +1750,47 @@ typedef struct {
 NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* field);
 `
 
-    tasks.push(writeFileAndDirs(generated_hpack_huffman_file_h, h_data))
+    tasks.push(writeFileAndDirs(generatedHpackHuffmanFileH, headerData))
 
-    const nodes_array_value = "nodes_array"
+    const nodesArrayValue = "nodes_array"
 
-    const { node_amount, tree } = tree_result
+    const { nodeAmount, tree } = treeResult
 
-    const nodes: string[] = tree_to_nodes(tree, node_amount, nodes_array_value)
+    const nodes: string[] = treeToNodes(tree, nodeAmount, nodesArrayValue)
 
-    const encode_nodes: string[] = map_to_encode_nodes(map)
+    const encodeNodes: string[] = mapToEncodeNodes(map)
 
     // note: hpack header keys are always small cased
-    const common_hpack_key_names: string[] = ["date", "cookie", "server", "content-encoding", "host", "user-agent"]
+    const commonHpackKeyNames: string[] = ["date", "cookie", "server", "content-encoding", "host", "user-agent"]
 
-    const key_of_static_table: string[] = unique_arr(raw_header_table.map(header => {
+    const keyOfStaticTable: string[] = uniqueArr(rawHeaderTable.map(header => {
         return header.key
     }))
 
-    const value_by_key_static_table_strings: Record<string, RawHeaderTable[] | undefined> = {}
+    const valueByKeyStaticTableStrings: Record<string, RawHeaderTable[] | undefined> = {}
 
-    for (const hdr_key of key_of_static_table) {
-        const values = raw_header_table.filter((header): boolean => {
-            return header.key == hdr_key
+    for (const headerKey of keyOfStaticTable) {
+        const values = rawHeaderTable.filter((header): boolean => {
+            return header.key == headerKey
         })
 
         if (values.length <= 1) {
             continue;
         }
 
-        value_by_key_static_table_strings[hdr_key] = values
+        valueByKeyStaticTableStrings[headerKey] = values
 
     }
 
-    function static_table_fast_cmp_value_for(key: string): string {
+    function staticTableFastCmpValueFor(key: string): string {
         return `hpack_generated_is_value_of_static_table_with_key_${key.replace(":", "dp_")}_fast_cmp`
     }
 
 
-    const c_data = `
-#include "./${path.basename(generated_hpack_huffman_file_h)}"
+    const cFileData = `
+#include "./${path.basename(generatedHpackHuffmanFileH)}"
 
-#define HUFFMAN_NODE_AMOUNT ${node_amount.toString()}
+#define HUFFMAN_NODE_AMOUNT ${nodeAmount.toString()}
 
 NODISCARD HuffmanTree* get_hpack_huffman_tree(void) {
 
@@ -1801,9 +1801,9 @@ NODISCARD HuffmanTree* get_hpack_huffman_tree(void) {
 	}
 
 	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
-	HuffmanNode* ${nodes_array_value} = malloc(sizeof(HuffmanNode) * HUFFMAN_NODE_AMOUNT);
+	HuffmanNode* ${nodesArrayValue} = malloc(sizeof(HuffmanNode) * HUFFMAN_NODE_AMOUNT);
 
-	if(${nodes_array_value} == NULL) {
+	if(${nodesArrayValue} == NULL) {
 		free(tree);
 		return NULL;
 	}
@@ -1812,16 +1812,16 @@ NODISCARD HuffmanTree* get_hpack_huffman_tree(void) {
 	
 ${nodes.map((val, i) => {
 
-        return `		${nodes_array_value}[${i.toString()}] = ${val};`;
+        return `		${nodesArrayValue}[${i.toString()}] = ${val};`;
     }).join("\n")}
 
 	}
 
-	HuffmanNode* root = (${nodes_array_value} + ${
+	HuffmanNode* root = (${nodesArrayValue} + ${
         /* eslint-disable-next-line @typescript-eslint/no-non-null-assertion*/
         tree.root.id!.toString()});
 
-	*tree = (HuffmanTree){ .root = root, .memory = (void*)${nodes_array_value} };
+	*tree = (HuffmanTree){ .root = root, .memory = (void*)${nodesArrayValue} };
 
 	return tree;
 }
@@ -1844,7 +1844,7 @@ NODISCARD HuffmanEncodeMap* get_hpack_huffman_encode_map(void){
 	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
 
 	{
-		${encode_nodes.map((val, idx) => {
+		${encodeNodes.map((val, idx) => {
             return `map->entries[${idx.toString()}] = ${val};`
         }).join("\n		")}
 	}
@@ -1856,7 +1856,7 @@ void free_hpack_huffman_encode_map(HuffmanEncodeMap* const map) {
 	free(map);
 }
 
-${generate_fast_string_compare_impl("hpack_generated_is_common_field_key_fast_cmp", common_hpack_key_names, { first_gen_call: true, static: false })}
+${generateFastStringCompareImpl("hpack_generated_is_common_field_key_fast_cmp", commonHpackKeyNames, { firstGenCall: true, static: false })}
 
 NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view){
 	const size_t len = str_view.len;
@@ -1873,17 +1873,17 @@ NODISCARD bool hpack_generated_is_common_field_key_fast(const tstr_view str_view
 	return hpack_generated_is_common_field_key_fast_cmp(str_view).found;
 }
 
-${generate_fast_string_compare_impl("hpack_generated_is_key_of_static_table_fast_cmp", key_of_static_table, { first_gen_call: false, static: true })}
+${generateFastStringCompareImpl("hpack_generated_is_key_of_static_table_fast_cmp", keyOfStaticTable, { firstGenCall: false, static: true })}
 
-${Object.entries(value_by_key_static_table_strings).map((val): string => {
+${Object.entries(valueByKeyStaticTableStrings).map((val): string => {
 
-            const name = static_table_fast_cmp_value_for(val[0])
+            const name = staticTableFastCmpValueFor(val[0])
 
             return `
 
 ${
                 /* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */
-                generate_fast_string_compare_impl(name, val[1]!.map((value): string => {
+                generateFastStringCompareImpl(name, val[1]!.map((value): string => {
 
                     if (value.value === null) {
                         throw new Error("Implementation error")
@@ -1891,7 +1891,7 @@ ${
 
                     return value.value;
 
-                }), { first_gen_call: false, static: true })}
+                }), { firstGenCall: false, static: true })}
 
 `
 
@@ -1906,9 +1906,9 @@ NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const 
 	}
 
 	switch(result.index){
-${key_of_static_table.map((str, idx) => {
+${keyOfStaticTable.map((str, idx) => {
 
-            const values = raw_header_table.filter((header): boolean => {
+            const values = rawHeaderTable.filter((header): boolean => {
                 return header.key == str
             })
 
@@ -1928,20 +1928,20 @@ ${key_of_static_table.map((str, idx) => {
                 }
 
                 return `		case ${idx.toString()}: {
-			if(strncmp(tstr_cstr(&(field->value)), ${to_c_str(value.value)}, ${value.value.length.toString()}) == 0){
+			if(strncmp(tstr_cstr(&(field->value)), ${toCStr(value.value)}, ${value.value.length.toString()}) == 0){
 				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = ${value.index.toString()} } };
 			}
 			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index.toString()} } };
 		}`
             }
 
-            if (value_by_key_static_table_strings[str] === undefined || !arr_eq(values, value_by_key_static_table_strings[str])) {
+            if (valueByKeyStaticTableStrings[str] === undefined || !arrayIsEq(values, valueByKeyStaticTableStrings[str])) {
                 throw new Error("generated and used strings have to be the same!")
 
             }
 
             return `		case ${idx.toString()}: {
-			const FastStringCompareResult value_cmp_res = ${static_table_fast_cmp_value_for(str)}(tstr_as_view(&(field->value)));
+			const FastStringCompareResult value_cmp_res = ${staticTableFastCmpValueFor(str)}(tstr_as_view(&(field->value)));
 
 			if(value_cmp_res.found){
 				const size_t index_map[${values.length.toString()}] = {${values.map((value): string => {
@@ -1964,9 +1964,9 @@ ${key_of_static_table.map((str, idx) => {
 }
 `
 
-    const generated_hpack_huffman_file_c = getOtherFile(generated_hpack_huffman_file_h, ".h", ".c")
+    const generatedHpackHuffmanFileC = getOtherFile(generatedHpackHuffmanFileH, ".h", ".c")
 
-    tasks.push(writeFileAndDirs(generated_hpack_huffman_file_c, c_data))
+    tasks.push(writeFileAndDirs(generatedHpackHuffmanFileC, cFileData))
 
     await Promise.all(tasks)
 
@@ -1978,54 +1978,54 @@ interface HeaderTable {
     value: string | null
 }
 
-function header_to_c_value(header: HeaderTable): string {
+function headerToCValue(header: HeaderTable): string {
 
-    const value: string = header.value === null ? "tstr_null()" : `TSTR_LIT(${to_c_str(header.value)})`
+    const value: string = header.value === null ? "tstr_null()" : `TSTR_LIT(${toCStr(header.value)})`
 
-    return `(HpackHeaderStaticEntry){ .key = TSTR_LIT(${to_c_str(header.key)}), .value = ${value} }`
+    return `(HpackHeaderStaticEntry){ .key = TSTR_LIT(${toCStr(header.key)}), .value = ${value} }`
 }
 
-export async function generate_hpack_headerable_code_h(generated_hpack_header_table_h: string): Promise<void> {
+export async function generateHpackHeaderTableCodeH(generatedHpackHeaderTableH: string): Promise<void> {
 
     const tasks: Promise<void>[] = []
 
-    assert(path.extname(generated_hpack_header_table_h) == ".h", "hpack header table file has to end in .h")
+    assert(path.extname(generatedHpackHeaderTableH) == ".h", "hpack header table file has to end in .h")
 
 
-    const header_map: Record<number, HeaderTable> = {}
+    const headerMap: Record<number, HeaderTable> = {}
 
-    let max_size = -Infinity;
+    let maxSize = -Infinity;
 
-    for (const header of raw_header_table) {
-        if (header_map[header.index] !== undefined) {
+    for (const header of rawHeaderTable) {
+        if (headerMap[header.index] !== undefined) {
             throw new Error("Duplicate header table index")
         }
 
-        header_map[header.index] = { key: header.key, value: header.value }
-        max_size = Math.max(header.index, max_size)
+        headerMap[header.index] = { key: header.key, value: header.value }
+        maxSize = Math.max(header.index, maxSize)
     }
 
     const headers: string[] = []
 
-    for (let i = 0; i < max_size; ++i) {
-        const value = header_map[i + 1];
+    for (let i = 0; i < maxSize; ++i) {
+        const value = headerMap[i + 1];
         if (value === undefined) {
             throw new Error("Missing header table index")
         }
 
         assert(headers.length == i, "insertion is linear")
-        headers.push(header_to_c_value(value))
+        headers.push(headerToCValue(value))
     }
 
 
 
-    const h_data = `
+    const headerData = `
 #pragma once
 
 #include "utils/utils.h"
 #include <tstr.h>
 
-#define HPACK_STATIC_HEADER_TABLE_SIZE ${max_size.toString()}
+#define HPACK_STATIC_HEADER_TABLE_SIZE ${maxSize.toString()}
 
 typedef struct {
 	tstr key;
@@ -2037,19 +2037,19 @@ NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void);
 void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* entries);
 `
 
-    tasks.push(writeFileAndDirs(generated_hpack_header_table_h, h_data))
+    tasks.push(writeFileAndDirs(generatedHpackHeaderTableH, headerData))
 
-    const header_nodes_value = "local_entries_impl"
+    const headerNodesValue = "local_entries_impl"
 
-    const c_data = `
-#include "./${path.basename(generated_hpack_header_table_h)}"
+    const cFileData = `
+#include "./${path.basename(generatedHpackHeaderTableH)}"
 
 NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void){
 
 	//NOTE: we could allocate a static array of this size, but I prefer dynamic allocation, so that the final executable doesn't have that huge array always in it, as ftp and non http code doesn't really need it, it can be initialized based on the need!
-	HpackHeaderStaticEntry* ${header_nodes_value} = malloc(sizeof(HpackHeaderStaticEntry) * HPACK_STATIC_HEADER_TABLE_SIZE);
+	HpackHeaderStaticEntry* ${headerNodesValue} = malloc(sizeof(HpackHeaderStaticEntry) * HPACK_STATIC_HEADER_TABLE_SIZE);
 
-	if(${header_nodes_value} == NULL) {
+	if(${headerNodesValue} == NULL) {
 		return NULL;
 	}
 
@@ -2057,12 +2057,12 @@ NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void){
 	
 ${headers.map((val, i) => {
 
-        return `		${header_nodes_value}[${i.toString()}] = ${val};`;
+        return `		${headerNodesValue}[${i.toString()}] = ${val};`;
     }).join("\n")}
 
 	}
 
-	return ${header_nodes_value};
+	return ${headerNodesValue};
 
 }
 
@@ -2071,9 +2071,9 @@ void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* const entrie
 }
 `
 
-    const generated_hpack_header_table_c = getOtherFile(generated_hpack_header_table_h, ".h", ".c")
+    const generatedHpackHeaderTableC = getOtherFile(generatedHpackHeaderTableH, ".h", ".c")
 
-    tasks.push(writeFileAndDirs(generated_hpack_header_table_c, c_data))
+    tasks.push(writeFileAndDirs(generatedHpackHeaderTableC, cFileData))
 
     await Promise.all(tasks)
 }
@@ -2110,12 +2110,12 @@ class EncodedHuffman {
 
         for (const value of this.values) {
 
-            const b_size = value.bytes.size;
-            for (let i = 0; i < b_size; ++i) {
+            const byteSize = value.bytes.size;
+            for (let i = 0; i < byteSize; ++i) {
                 result.set(index + i, value.bytes.get(i))
             }
 
-            index += b_size;
+            index += byteSize;
         }
 
         // set EOS bits
@@ -2160,7 +2160,7 @@ interface EncodedHuffmanUtf8 {
 type EncodedHuffmanGeneric = EncodedHuffmanAscii | EncodedHuffmanUtf8
 
 
-function encode_normal_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanAscii {
+function encodeNormalStringWithHuffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanAscii {
 
     const values: EncodedHuffmanValues[] = []
 
@@ -2190,7 +2190,7 @@ function encode_normal_string_with_huffman(map: HuffmanEncodingMap, text: string
 }
 
 
-function encode_uft8_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanUtf8 {
+function encodeUTF8StringWithHuffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanUtf8 {
 
     const array = new TextEncoder().encode(text)
 
@@ -2215,13 +2215,13 @@ function encode_uft8_string_with_huffman(map: HuffmanEncodingMap, text: string):
     return result;
 }
 
-function encode_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanGeneric {
+function encodeStringWithHuffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanGeneric {
 
-    if (!isUtf8String(text)) {
-        return encode_normal_string_with_huffman(map, text);
+    if (!isUTF8String(text)) {
+        return encodeNormalStringWithHuffman(map, text);
     }
 
-    return encode_uft8_string_with_huffman(map, text)
+    return encodeUTF8StringWithHuffman(map, text)
 }
 
 
@@ -2230,22 +2230,22 @@ function toHexString(num: number | bigint, byteAmount = 1): string {
     return `0x${num.toString(16).padStart(byteAmount * 2, "0")}`
 }
 
-function normal_test_to_cpp(caze: EncodedHuffmanAscii): string {
+function normalTestToCPP(caze: EncodedHuffmanAscii): string {
 
     const arr: number[] = caze.encoded.toNumArray();
 
-    return `		TestCaseAscii{ .str = std::string{${to_c_str(caze.value)}}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
+    return `		TestCaseAscii{ .str = std::string{${toCStr(caze.value)}}, .encoded = std::vector<std::uint8_t>{ ${arr.map((a) => toHexString(a)).join(", ")}} }`
 
 }
 
 
-function normal_tests_to_cpp(cases: EncodedHuffmanGeneric[]): string[] {
+function normalTestsToCPP(cases: EncodedHuffmanGeneric[]): string[] {
     return cases.filter(a => {
         return (a.type === "ascii")
-    }).map(a => normal_test_to_cpp(a))
+    }).map(a => normalTestToCPP(a))
 }
 
-function utf8_test_to_cpp(caze: EncodedHuffmanUtf8): string {
+function utf8TestToCpp(caze: EncodedHuffmanUtf8): string {
 
     const arr: number[] = caze.encoded.toNumArray();
 
@@ -2254,20 +2254,20 @@ function utf8_test_to_cpp(caze: EncodedHuffmanUtf8): string {
 }
 
 
-function utf8_tests_to_cpp(cases: EncodedHuffmanGeneric[]): string[] {
+function utf8TestsToCpp(cases: EncodedHuffmanGeneric[]): string[] {
     return cases.filter(a => {
         return (a.type === "utf-8")
-    }).map(a => utf8_test_to_cpp(a))
+    }).map(a => utf8TestToCpp(a))
 }
 
 type ManualTest = [number, number]
 
-function get_manual_test_arr(manual_test_arr: ManualTest[]): number[] {
+function getManualTestArr(manualTestArr: ManualTest[]): number[] {
 
     let size = 0;
 
 
-    for (const man of manual_test_arr) {
+    for (const man of manualTestArr) {
         size += man[1]
     }
 
@@ -2283,20 +2283,20 @@ function get_manual_test_arr(manual_test_arr: ManualTest[]): number[] {
 
     let offset = 0;
 
-    for (const man of manual_test_arr) {
+    for (const man of manualTestArr) {
 
-        const local_size = man[1];
+        const localSize = man[1];
 
-        for (let i = 0; i < local_size; ++i) {
+        for (let i = 0; i < localSize; ++i) {
 
-            const value = ((man[0] >> (local_size - 1 - i)) & 0x1) != 0;
+            const value = ((man[0] >> (localSize - 1 - i)) & 0x1) != 0;
 
             result.set(offset + i, value)
 
         }
 
 
-        offset += local_size
+        offset += localSize
     }
 
 
@@ -2311,33 +2311,33 @@ function get_manual_test_arr(manual_test_arr: ManualTest[]): number[] {
 }
 
 
-export async function generate_hpack_test_cases_cpp(generated_hpack_test_cases_file_hpp: string): Promise<void> {
+export async function generateHpackTestCasesCPP(generatedHpackTestCasesFileHPP: string): Promise<void> {
 
-    const codes: HuffmanCode[] = raw_codes.map(code => check_and_map_raw_code(code))
+    const codes: HuffmanCode[] = rawCodes.map(code => checkAndMapRawCode(code))
 
-    const map = codes_to_map(codes)
+    const map = codesToMap(codes)
 
     const tasks: Promise<void>[] = []
 
-    assert(path.extname(generated_hpack_test_cases_file_hpp) == ".hpp", "hpack huffman test file has to end in .hpp")
+    assert(path.extname(generatedHpackTestCasesFileHPP) == ".hpp", "hpack huffman test file has to end in .hpp")
 
     { // test js encoding
-        const test_test_result = encode_normal_string_with_huffman(map, "307");
+        const testTestResult = encodeNormalStringWithHuffman(map, "307");
 
-        const test_test_arr = test_test_result.encoded.toNumArray()
+        const tesTestArr = testTestResult.encoded.toNumArray()
 
         // from the hpack spec examples
-        const test_test_arr_expected = [0x64, 0x0e, 0xff]
+        const testTestArrExpected = [0x64, 0x0e, 0xff]
 
         // manually constructed for "307"
-        const test_test_arr_manual = get_manual_test_arr([[0b011001, 6], [0b00000, 5], [0b011101, 6]])
+        const testTestArrManaual = getManualTestArr([[0b011001, 6], [0b00000, 5], [0b011101, 6]])
 
-        if (!numberArrayIsEq(test_test_arr_manual, test_test_arr_expected)) {
-            throw new Error(`The manual encoding is not done correctly, as the manual and the expected array differ: ${test_test_arr_manual.join(", ")} - ${test_test_arr_expected.join(", ")}`)
+        if (!numberArrayIsEq(testTestArrManaual, testTestArrExpected)) {
+            throw new Error(`The manual encoding is not done correctly, as the manual and the expected array differ: ${testTestArrManaual.join(", ")} - ${testTestArrExpected.join(", ")}`)
         }
 
-        if (!numberArrayIsEq(test_test_arr, test_test_arr_expected)) {
-            throw new Error(`The js encoding is not done correctly, as the js encoded and the expected array differ: ${test_test_arr.join(", ")} - ${test_test_arr_expected.join(", ")}`)
+        if (!numberArrayIsEq(tesTestArr, testTestArrExpected)) {
+            throw new Error(`The js encoding is not done correctly, as the js encoded and the expected array differ: ${tesTestArr.join(", ")} - ${testTestArrExpected.join(", ")}`)
         }
 
     }
@@ -2346,12 +2346,12 @@ export async function generate_hpack_test_cases_cpp(generated_hpack_test_cases_f
 
     { // test utf8 detection
 
-        assert(isUtf8String("UTF-8: üöäß "), "utf-8 string detected correctly")
+        assert(isUTF8String("UTF-8: üöäß "), "utf-8 string detected correctly")
 
 
     }
 
-    const test_cases: string[] = [
+    const testCases: string[] = [
         "www.example.com",
         "no-cache",
         "custom-key",
@@ -2370,14 +2370,14 @@ export async function generate_hpack_test_cases_cpp(generated_hpack_test_cases_f
         "UTF-8: üöäß `´eè 🤌🏼 😁 🙈 🫳🏿",// utf8
     ]
 
-    const final_test_case: EncodedHuffmanGeneric[] = test_cases.map((original) => {
-        const encoded = encode_string_with_huffman(map, original)
+    const finalTestCase: EncodedHuffmanGeneric[] = testCases.map((original) => {
+        const encoded = encodeStringWithHuffman(map, original)
         return encoded;
     });
 
-    const fast_string_compare_test_data: string[] = ["hello", "hallo", "common", "common2", "similar", "test", "toast", "help", "helo", "one", "two", "onq", "loooooooooongstring", "0", "01", "02", "03", "04", "123456", "193456", "hells"]
+    const fastStringCompareTestData: string[] = ["hello", "hallo", "common", "common2", "similar", "test", "toast", "help", "helo", "one", "two", "onq", "loooooooooongstring", "0", "01", "02", "03", "04", "123456", "193456", "hells"]
 
-    const hpp_data = `
+    const hppData = `
 #pragma once
 
 #include <cstdint>
@@ -2397,11 +2397,11 @@ namespace generated::tests {
 	};
 
 	const std::vector<TestCaseAscii> test_cases_ascii = {
-${normal_tests_to_cpp(final_test_case).join(",\n")}
+${normalTestsToCPP(finalTestCase).join(",\n")}
 	}; 
 
 	const std::vector<TestCaseUtf8> test_cases_utf8 = {
-${utf8_tests_to_cpp(final_test_case).join(",\n")}
+${utf8TestsToCpp(finalTestCase).join(",\n")}
 	}; 
 
 } // namespace generated::tests
@@ -2414,42 +2414,42 @@ extern "C" {
 
 	#include "generated_hpack_huffman.h"
 
-	${generate_fast_string_compare_decl("generated_c_test_fns_fast_string_compare_test_data")}
+	${generateFastStringCompareDecl("generated_c_test_fns_fast_string_compare_test_data")}
 }
 
 `
 
-    tasks.push(writeFileAndDirs(generated_hpack_test_cases_file_hpp, hpp_data))
+    tasks.push(writeFileAndDirs(generatedHpackTestCasesFileHPP, hppData))
 
 
-    const generated_hpack_test_cases_file_cpp = getOtherFile(generated_hpack_test_cases_file_hpp, ".hpp", ".cpp")
+    const generatedHpackTestCasesFileCPP = getOtherFile(generatedHpackTestCasesFileHPP, ".hpp", ".cpp")
 
 
-    const cpp_data = `
-#include "./${path.basename(generated_hpack_test_cases_file_hpp)}"
+    const cppData = `
+#include "./${path.basename(generatedHpackTestCasesFileHPP)}"
 
 
 std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
-	return std::vector<std::string>{${fast_string_compare_test_data.map((str): string => to_c_str(str)).join(", ")}};
+	return std::vector<std::string>{${fastStringCompareTestData.map((str): string => toCStr(str)).join(", ")}};
 }
 `
 
 
-    tasks.push(writeFileAndDirs(generated_hpack_test_cases_file_cpp, cpp_data))
+    tasks.push(writeFileAndDirs(generatedHpackTestCasesFileCPP, cppData))
 
-    const generated_hpack_test_cases_file_c = getOtherFile(generated_hpack_test_cases_file_hpp, ".hpp", ".c")
+    const generatedHpackTestCasesFileC = getOtherFile(generatedHpackTestCasesFileHPP, ".hpp", ".c")
 
 
-    const c_data = `
+    const cData = `
 #include "generated_hpack_huffman.h"
 
-${generate_fast_string_compare_decl("generated_c_test_fns_fast_string_compare_test_data")}
+${generateFastStringCompareDecl("generated_c_test_fns_fast_string_compare_test_data")}
 
-${generate_fast_string_compare_impl("generated_c_test_fns_fast_string_compare_test_data", fast_string_compare_test_data, { first_gen_call: true, static: false })}
+${generateFastStringCompareImpl("generated_c_test_fns_fast_string_compare_test_data", fastStringCompareTestData, { firstGenCall: true, static: false })}
 
 `
 
-    tasks.push(writeFileAndDirs(generated_hpack_test_cases_file_c, c_data))
+    tasks.push(writeFileAndDirs(generatedHpackTestCasesFileC, cData))
 
     await Promise.all(tasks)
 

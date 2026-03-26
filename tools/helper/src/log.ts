@@ -18,7 +18,7 @@ export abstract class Group {
 
 type CiStatus = "None" | "CI" | "DebugCI"
 
-function get_ci_status(): CiStatus {
+function getCIStatus(): CiStatus {
     // see: https://docs.github.com/en/actions/reference/workflows-and-actions/variables#default-environment-variables
     if (process.env.GITHUB_ACTIONS === "true") {
         if (core.isDebug()) {
@@ -40,10 +40,10 @@ export abstract class Logger {
 
     static getLogger(): Logger {
 
-        const ci_status = get_ci_status()
+        const ciStatus = getCIStatus()
 
-        if (ci_status != "None") {
-            return new CILogger(ci_status == "DebugCI")
+        if (ciStatus != "None") {
+            return new CILogger(ciStatus == "DebugCI")
         }
 
         return new NormalLogger()

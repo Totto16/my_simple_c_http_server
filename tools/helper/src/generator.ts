@@ -1,4 +1,4 @@
-import { generate_hpack_headerable_code_h, generate_hpack_huffman_code_c, generate_hpack_test_cases_cpp } from "./hpack.js";
+import { generateHpackHeaderTableCodeH, generateHpackHuffmanCodeC, generateHpackTestCasesCPP } from "./hpack.js";
 import { testBitarray } from "./utils.js";
 import { generate_variant_code_c } from "./variants.js";
 
@@ -10,14 +10,14 @@ export async function generateFile(options: GenerateOptions): Promise<void> {
 
     if (options.type === "c_hpack_huffman") {
 
-        await generate_hpack_huffman_code_c(options.output)
+        await generateHpackHuffmanCodeC(options.output)
         return;
     } else if (options.type === "c_header_table") {
-        await generate_hpack_headerable_code_h(options.output)
+        await generateHpackHeaderTableCodeH(options.output)
         return;
     } else if (options.type === "cpp_tests") {
 
-        await generate_hpack_test_cases_cpp(options.output)
+        await generateHpackTestCasesCPP(options.output)
         return;
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     } else if (options.type === "c_variants") {

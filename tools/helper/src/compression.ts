@@ -14,8 +14,8 @@
 
 
 
-export function generateTestFiles(output_base: string): void {
+export function generateTestFiles(outputBase: string): void {
 
-    throw new Error(`TODO: ${output_base}`)
+    throw new Error(`TODO: ${outputBase}`)
 
 }

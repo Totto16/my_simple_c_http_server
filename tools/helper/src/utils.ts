@@ -190,7 +190,7 @@ export function getOtherFile(inputFile: string, expectedExtension: string, other
 }
 
 
-export function isUtf8String(text: string): boolean {
+export function isUTF8String(text: string): boolean {
 
     const array = new TextEncoder().encode(text)
 
