@@ -51,8 +51,8 @@ jobs:
       - name: Install pypy2 and autobahn
         run: |
           export KEEP_AUTO_PACKAGES_INSTALLED="true"
-          ./tests/autobahn/install_pypy2.sh
-          ./tests/autobahn/install_autobahn.sh
+          ./tests/external/autobahn//install_pypy2.sh
+          ./tests/external/autobahn//install_autobahn.sh
           sudo apt-get install openssl libssl-dev --no-install-recommends -y
 
       - name: Configure
@@ -69,7 +69,7 @@ jobs:
       - name: WS Tests
         run: |
           ./build/server http 8080 -l error &
-          bun ./tests/external/helper/index.ts --type run_ws_tests
+          bun ./tools/helper/index.ts run_ws_tests
 
       - uses: actions/upload-artifact@v6
         with:

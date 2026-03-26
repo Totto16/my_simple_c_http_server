@@ -75,7 +75,7 @@ jobs:
           tidy-checks: ""
           step-summary: true
           file-annotations: true
-          ignore: subprojects|build|src/thirdparty|src/ws/macos_endian_compat.h|tests/unit|tests/bench|tests/support
+          ignore: subprojects|build|src/thirdparty|src/ws/macos_endian_compat.h|tests/
           extra-args: "--experimental-custom-checks"
 
       - name: Fail CI run if linter checks failed
