@@ -2584,8 +2584,7 @@ ${generate_fast_string_compare_impl("generated_c_test_fns_fast_string_compare_te
 }
 
 
-
-function generateFile(options: GenerateOptions): void {
+export function generateFile(options: GenerateOptions): void {
 
     test_bitarray();
 
@@ -2612,84 +2611,8 @@ function generateFile(options: GenerateOptions): void {
 
 type GenerateType = "cpp_tests" | "c_hpack_huffman" | "c_header_table"
 
-interface GenerateOptions {
+export interface GenerateOptions {
     output: string,
     type: GenerateType
 }
 
-function main(): void {
-    const options: Partial<GenerateOptions> = {
-    }
-
-    for (let i = 0; i < process.argv.length; ++i) {
-        const value = process.argv[i]!
-
-        if (value.endsWith('deno') || value.endsWith('node') || value.endsWith('bun')) {
-            continue
-        }
-
-        if (value.endsWith('.js')) {
-            continue
-        }
-
-        if (value.endsWith('.ts')) {
-            continue
-        }
-
-        if (value == '-o' || value == '--output') {
-            if (i + 1 >= process.argv.length) {
-                throw new Error(
-                    `Expected another argument for the output argument`
-                )
-            }
-
-
-            const output = path.resolve(process.argv[i + 1]!)
-
-            options.output = output
-            ++i
-            continue
-        }
-
-        if (value == '-t' || value == '--type') {
-            if (i + 1 >= process.argv.length) {
-                throw new Error(
-                    `Expected another argument for the type argument`
-                )
-            }
-
-            const typeRaw = process.argv[i + 1]!
-
-            if (typeRaw !== "c_hpack_huffman" && typeRaw !== "c_header_table" && typeRaw !== "cpp_tests") {
-                throw new Error(
-                    `Invalid type: ${typeRaw}`
-                )
-            }
-
-            options.type = typeRaw
-
-            ++i
-            continue
-        }
-
-        if (value == '--ignore-after') {
-            break
-        }
-
-        throw new Error(`Unrecognized argument: ${value}`)
-    }
-
-    if (!options.type) {
-        throw new Error(`No type given`)
-    }
-
-    if (!options.output) {
-        throw new Error(`No output given`)
-    }
-
-    generateFile(options as GenerateOptions)
-}
-
-//TODO: make generating tagged unions here too!
-
-main()

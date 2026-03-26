@@ -1,20 +1,12 @@
-import path from "node:path"
-import { generateTestFiles } from "./src/compression"
-import { runWsTests } from "./src/ws_tests"
-
-type GenerateType = "cpp_tests" | "run_ws_tests"
+import { subcommandGenerator, subcommandWsTests } from "./src/subcommands"
 
 
-interface GenerateOptions {
-    output: string,
-    type: GenerateType
-    jobs: number
-}
+type SubCommand = "ws_tests" | "generator"
 
 async function main(): Promise<void> {
-    const options: Partial<GenerateOptions> = {
-        jobs: 0
-    }
+
+    let subcommand: SubCommand | null = null
+    const args: string[] = []
 
     for (let i = 0; i < process.argv.length; ++i) {
         const value = process.argv[i]!
@@ -31,89 +23,37 @@ async function main(): Promise<void> {
             continue
         }
 
-        if (value == '-o' || value == '--output') {
-            if (i + 1 >= process.argv.length) {
-                throw new Error(
-                    `Expected another argument for the output argument`
-                )
+        if (subcommand === null) {
+            switch (value) {
+                case "ws_tests": {
+                    subcommand = "ws_tests"
+                    break;
+                }
+                case "generator": {
+                    subcommand = "generator"
+                    break;
+                }
+                default: {
+                    throw new Error(`Invalid subcommand: ${value}`)
+                }
             }
 
-
-            const output = path.resolve(process.argv[i + 1]!)
-
-            options.output = output
-            ++i
-            continue
+        } else {
+            args.push(value)
         }
 
-        if (value == '-j' || value == '--jobs') {
-            if (i + 1 >= process.argv.length) {
-                throw new Error(
-                    `Expected another argument for the jobs argument`
-                )
-            }
-
-            const jobRaw = process.argv[i + 1]!
-
-            const jobs = parseInt(jobRaw)
-
-            if (isNaN(jobs)) {
-                throw new Error(
-                    `Invalid jobs value: ${jobRaw}`
-                )
-            }
-
-            options.jobs = jobs
-
-            ++i
-            continue
-        }
-
-        if (value == '-t' || value == '--type') {
-            if (i + 1 >= process.argv.length) {
-                throw new Error(
-                    `Expected another argument for the type argument`
-                )
-            }
-
-            const typeRaw = process.argv[i + 1]!
-
-            if (typeRaw !== "run_ws_tests" && typeRaw !== "cpp_tests") {
-                throw new Error(
-                    `Invalid type: ${typeRaw}`
-                )
-            }
-
-            options.type = typeRaw
-
-            ++i
-            continue
-        }
-
-        if (value == '--ignore-after') {
-            break
-        }
-
-        throw new Error(`Unrecognized argument: ${value}`)
     }
 
-    if (!options.type) {
-        throw new Error(`No type given`)
-    }
-
-    switch (options.type) {
-        case "cpp_tests": {
-            if (!options.output) {
-                throw new Error(`No output given`)
-            }
-            return generateTestFiles(options.output)
+    switch (subcommand) {
+        case "generator": {
+            return await subcommandGenerator(args);
         }
-        case "run_ws_tests": {
-            return await runWsTests(options.jobs ?? 0)
+        case "ws_tests": {
+            return await subcommandWsTests(args);
         }
         default: {
             throw new Error(
-                `Invalid type: ${options.type}`
+                `No subcommand specified: ${subcommand}`
             )
         }
     }
