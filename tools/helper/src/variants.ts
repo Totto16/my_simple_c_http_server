@@ -111,28 +111,32 @@ class CaseName {
 
 type CType = string
 
-const __brand_tag_dont_use: unique symbol = Symbol("brandTag");
+const __brand_tag_never_use: unique symbol = Symbol("brandTag");
 
-interface Brand<T> {
-    readonly [__brand_tag_dont_use]: T;
+interface Brand<T extends string> {
+    readonly [__brand_tag_never_use]: T;
 }
 
-function makeBranded<T>(value: T): Brand<T> {
+function makeBranded<T extends string>(value: T): Brand<T> {
     return {
-        [__brand_tag_dont_use]: value,
+        [__brand_tag_never_use]: value,
     };
+}
+
+function getBrand<T extends string = string>(b: Brand<T>): T {
+    return b[__brand_tag_never_use]
 }
 
 interface StructMember extends Brand<"simple"> {
     name: string,
-    type_name: CType
+    typeName: CType
 }
 
-function makeStructMember(name: string, type_name: CType): StructMember {
+function makeStructMember(name: string, typeName: CType): StructMember {
     return {
         ...(makeBranded<"simple">("simple")),
         name,
-        type_name
+        typeName: typeName
     }
 }
 
@@ -151,14 +155,14 @@ function makeCAnonymousStruct(members: StructMember[]): CAnonymousStruct {
 type CEnumType = "bool" | "u8" | "u16" | "u32" | "u64"
 
 interface TaggedName<T> extends Brand<"tagged_name"> {
-    name_type: T,
+    nameType: T,
     inner: CaseName
 }
 
 function makeTaggedName<T>(value: T, name: CaseName): TaggedName<T> {
     return {
         ...(makeBranded<"tagged_name">("tagged_name")),
-        name_type: value,
+        nameType: value,
         inner: name
     }
 }
@@ -198,7 +202,7 @@ type TaggedType = TaggedTypeSimple | TaggedTypeStruct
 
 
 function isSimpleTaggedType(t: TaggedType): t is TaggedTypeSimple {
-    return t[__brand_tag_dont_use] == "simple"
+    return getBrand(t) == "simple"
 }
 
 interface TaggedMember {
@@ -211,7 +215,7 @@ function makeMemberName(name: CaseName): TaggedName<"member"> {
 }
 
 interface TaggedUnionEnum {
-    underlying_type: CEnumType | "best_match" | null
+    underlyingType: CEnumType | "best_match" | null
     name: TaggedName<"enum">
 }
 
@@ -264,17 +268,17 @@ function bestTypeForLength(len: number): CEnumType {
 
 }
 
-function resolveUnderlyingType(original: CEnumType | "best_match" | null, member_len: number): CEnumType | null {
+function resolveUnderlyingType(original: CEnumType | "best_match" | null, memberLen: number): CEnumType | null {
 
     if (original === "best_match") {
-        return bestTypeForLength(member_len)
+        return bestTypeForLength(memberLen)
     }
 
     return original
 
 }
 
-function c_type_for_enum(tpe: CEnumType): string {
+function cTypeForEnum(tpe: CEnumType): string {
     switch (tpe) {
         case "bool": {
             return "bool";
@@ -297,31 +301,31 @@ function c_type_for_enum(tpe: CEnumType): string {
     }
 }
 
-function memberNameForEnum(member: TaggedMember, enum_name: TaggedName<"enum">): string {
-    return enum_name.inner.combine(member.name.inner).PascalCase()
+function memberNameForEnum(member: TaggedMember, enumName: TaggedName<"enum">): string {
+    return enumName.inner.combine(member.name.inner).PascalCase()
 }
 
 
-function generateEnumDeclaration(tu_enum: TaggedUnionEnum, member: TaggedMember[]): string {
+function generateEnumDeclaration(unionEnum: TaggedUnionEnum, member: TaggedMember[]): string {
 
-    const underlying_type: CEnumType | null = resolveUnderlyingType(tu_enum.underlying_type, member.length)
+    const underlyingType: CEnumType | null = resolveUnderlyingType(unionEnum.underlyingType, member.length)
 
     return `
 /* @enum value */
-typedef enum${underlying_type === null ? "" : ` C_23_NARROW_ENUM_TO(${c_type_for_enum(underlying_type)})`} {
+typedef enum${underlyingType === null ? "" : ` C_23_NARROW_ENUM_TO(${cTypeForEnum(underlyingType)})`} {
 	${member.map((mem, idx) => {
 
-        if (underlying_type === "bool") {
-            return `${memberNameForEnum(mem, tu_enum.name)} = ${idx ? "true" : "false"}`
+        if (underlyingType === "bool") {
+            return `${memberNameForEnum(mem, unionEnum.name)} = ${idx ? "true" : "false"}`
         }
 
         if (idx == 0) {
-            return `${memberNameForEnum(mem, tu_enum.name)} = 0`
+            return `${memberNameForEnum(mem, unionEnum.name)} = 0`
         }
 
-        return memberNameForEnum(mem, tu_enum.name)
+        return memberNameForEnum(mem, unionEnum.name)
     }).join(",\n	")}
-} ${tu_enum.name.inner.PascalCase()};
+} ${unionEnum.name.inner.PascalCase()};
 `
 
 
@@ -342,25 +346,25 @@ function typeForMember(val: TaggedType): string {
     }
     return `struct {
 	${val.struct.members.map(mem => {
-        return `${mem.type_name} ${mem.name};`
+        return `${mem.typeName} ${mem.name};`
     }).join("\n	")}
 }`
 
 }
 
-function generateVariantDeclaration(tagged_union: TaggedUnion): string {
+function generateVariantDeclaration(taggedUnion: TaggedUnion): string {
 
-    const tag_name: string = getUnionTagName(tagged_union.name);
+    const tagName: string = getUnionTagName(taggedUnion.name);
 
-    const data_name: string = getUnionDataName(tagged_union.name);
+    const dataName: string = getUnionDataName(taggedUnion.name);
 
 
     return `
 /* tagged union (variant) implementation */
 typedef struct {
-	${tagged_union.enum.name.inner.PascalCase()} ${tag_name};
+	${taggedUnion.enum.name.inner.PascalCase()} ${tagName};
 	union {
-		${tagged_union.member.filter(mem => mem.type !== null).map((mem) => {
+		${taggedUnion.member.filter(mem => mem.type !== null).map((mem) => {
 
         if (mem.type === null) {
             throw new Error("IMPLEMENTATION ERROR")
@@ -369,8 +373,8 @@ typedef struct {
         return `${typeForMember(mem.type)} ${mem.name.inner.snake_case()};`.split("\n").join("\n		")
 
     }).join("\n		")}
-	} ${data_name};
-} ${tagged_union.name.inner.PascalCase()};
+	} ${dataName};
+} ${taggedUnion.name.inner.PascalCase()};
 `
 }
 
@@ -378,38 +382,38 @@ function generatePoisonPragma(names: string[]): string {
     return `_Pragma ("GCC poison ${names.join(" ")}")`
 }
 
-function function_for_new_variant(mem: TaggedMember, tagged_union: TaggedUnion): string {
+function functionForNewVariant(mem: TaggedMember, taggedUnion: TaggedUnion): string {
 
-    return `new_${tagged_union.name.inner.snake_case()}_${mem.name.inner.snake_case()}`
+    return `new_${taggedUnion.name.inner.snake_case()}_${mem.name.inner.snake_case()}`
 
 }
 
 
-function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
+function generateMemberFunctionsForMem(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
     if (mem.type === null) {
-        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(void){
-	return (${tagged_union.name.inner.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)} };
+        return `static inline ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(mem, taggedUnion)}(void){
+	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(mem, taggedUnion.enum.name)} };
 }
 `
 
 
     } else if (isSimpleTaggedType(mem.type)) {
-        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(const ${mem.type.name} value){
-	return (${tagged_union.name.inner.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.inner.snake_case()} = value } };
+        return `static inline ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(mem, taggedUnion)}(const ${mem.type.name} value){
+	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(mem, taggedUnion.enum.name)}, .${getUnionDataName(taggedUnion.name)} = { .${mem.name.inner.snake_case()} = value } };
 }
 `
 
     } else {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        assert(mem.type.struct[__brand_tag_dont_use] === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+        assert(getBrand(mem.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
 
-        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(${tagged_union.member.map(m => {
-            return `const ${m.type} ${m.name}`
+        return `static inline ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(mem, taggedUnion)}(${mem.type.struct.members.map(m => {
+            return `const ${m.typeName} ${m.name}`
         }).join(", ")}){
-	return (${tagged_union.name.inner.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.inner.snake_case()} = (${getNameForUnnamedStruct(mem.type, unnamedStructMap)}){ ${mem.type.struct.members.map(m => {
-            `.${m.name} = ${m.name}`
+	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(mem, taggedUnion.enum.name)}, .${getUnionDataName(taggedUnion.name)} = { .${mem.name.inner.snake_case()} = (${getNameForUnnamedStruct(mem.type, unnamedStructMap)}){ ${mem.type.struct.members.map((m): string => {
+            return `.${m.name} = ${m.name}`
         }).join(", ")} } } };
 }
 `
@@ -422,19 +426,19 @@ function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUn
 
 }
 
-const state_str_fn_prefix = "_impl_get_state_string_for_variant_"
+const stateStrFNPrefix = "_impl_get_state_string_for_variant_"
 
 
-function get_state_function_name(name: TaggedName<"union">): string {
-    return `${state_str_fn_prefix}${name.inner.snake_case()}`
+function getStateFunctionName(name: TaggedName<"union">): string {
+    return `${stateStrFNPrefix}${name.inner.snake_case()}`
 }
 
-function generateFunctions(tagged_union: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
+function generateFunctions(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
-    return `static inline tstr_static ${get_state_function_name(tagged_union.name)}(const ${tagged_union.enum.name.inner.PascalCase()} enum_value){
+    return `static inline tstr_static ${getStateFunctionName(taggedUnion.name)}(const ${taggedUnion.enum.name.inner.PascalCase()} enum_value){
 	switch(enum_value){
-		${tagged_union.member.map(mem => {
-        return `case ${memberNameForEnum(mem, tagged_union.enum.name)}: {
+		${taggedUnion.member.map(mem => {
+        return `case ${memberNameForEnum(mem, taggedUnion.enum.name)}: {
 	return TSTR_STATIC_LIT("${mem.name.inner.snake_case()}");
 }`}).join("\n").split("\n").join("\n		")}
 		default: {
@@ -443,49 +447,49 @@ function generateFunctions(tagged_union: TaggedUnion, unnamedStructMap: UnnamedS
 	}
 }
 
-${tagged_union.member.map(mem => {
+${taggedUnion.member.map(mem => {
 
-            return generateMemberFunctionsForMem(mem, tagged_union, unnamedStructMap);
+            return generateMemberFunctionsForMem(mem, taggedUnion, unnamedStructMap);
 
         }).join("\n")}
 `
 
 }
 
-function if_macro_name(union_name: TaggedName<"union">, member_name: TaggedName<"member">): string {
-    return `IF_${union_name.inner.MACRO_NAME()}_IS_${member_name.inner.MACRO_NAME()}`
+function getIfMacroName(unionName: TaggedName<"union">, memberName: TaggedName<"member">): string {
+    return `IF_${unionName.inner.MACRO_NAME()}_IS_${memberName.inner.MACRO_NAME()}`
 }
 
-function if_not_macro_name(union_name: TaggedName<"union">, member_name: TaggedName<"member">): string {
-    return `IF_${union_name.inner.MACRO_NAME()}_IS_NOT_${member_name.inner.MACRO_NAME()}`
+function ifNotMacroName(unionName: TaggedName<"union">, memberName: TaggedName<"member">): string {
+    return `IF_${unionName.inner.MACRO_NAME()}_IS_NOT_${memberName.inner.MACRO_NAME()}`
 }
 
 
-const for_macro_trick_name = "_for_macro_trick_impl_once_variant_"
+const nameForMacroTrick = "_for_macro_trick_impl_once_variant_"
 
-function generate_if_macro(mem: TaggedMember, tagged_union: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
+function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
 
     if (mem.type === null) {
 
-        return `#define ${if_macro_name(tagged_union.name, mem.name)}(variant_entry)
-	if((variant_entry).${getUnionTagName(tagged_union.name)} == ${memberNameForEnum(mem, tagged_union.enum.name)})`
+        return `#define ${getIfMacroName(taggedUnion.name, mem.name)}(variant_entry)
+	if((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})`
 
     } else if (isSimpleTaggedType(mem.type)) {
 
-        return `#define ${if_macro_name(tagged_union.name, mem.name)}(variant_entry)
-	if ((variant_entry).${getUnionTagName(tagged_union.name)} == ${memberNameForEnum(mem, tagged_union.enum.name)})
-		for (bool ${for_macro_trick_name} = true; ${for_macro_trick_name}; ${for_macro_trick_name} = false)
-			for (${mem.type.name} const ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(tagged_union.name)}.${mem.name.inner.snake_case()}; ${for_macro_trick_name}; ${for_macro_trick_name} = false)`
+        return `#define ${getIfMacroName(taggedUnion.name, mem.name)}(variant_entry)
+	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
+		for (bool ${nameForMacroTrick} = true; ${nameForMacroTrick}; ${nameForMacroTrick} = false)
+			for (${mem.type.name} const ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameForMacroTrick}; ${nameForMacroTrick} = false)`
 
     } else {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        assert(mem.type.struct[__brand_tag_dont_use] === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+        assert(getBrand(mem.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
-        return `#define ${if_macro_name(tagged_union.name, mem.name)}(variant_entry)
-	if ((variant_entry).${getUnionTagName(tagged_union.name)} == ${memberNameForEnum(mem, tagged_union.enum.name)})
-		for (bool ${for_macro_trick_name} = true; ${for_macro_trick_name}; ${for_macro_trick_name} = false)
-			for (const ${getNameForUnnamedStruct(mem.type, unnamedStructMap)}} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(tagged_union.name)}.${mem.name.inner.snake_case()}; ${for_macro_trick_name}; ${for_macro_trick_name} = false)`
+        return `#define ${getIfMacroName(taggedUnion.name, mem.name)}(variant_entry)
+	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
+		for (bool ${nameForMacroTrick} = true; ${nameForMacroTrick}; ${nameForMacroTrick} = false)
+			for (const ${getNameForUnnamedStruct(mem.type, unnamedStructMap)}} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameForMacroTrick}; ${nameForMacroTrick} = false)`
 
 
 
@@ -494,27 +498,27 @@ function generate_if_macro(mem: TaggedMember, tagged_union: TaggedUnion, unnamed
 
 }
 
-function generateIfNotMacro(mem: TaggedMember, tagged_union: TaggedUnion): string {
+function generateIfNotMacro(mem: TaggedMember, taggedUnion: TaggedUnion): string {
 
-    return `#define ${if_not_macro_name(tagged_union.name, mem.name)}(variant_entry)
-	if((variant_entry).${getUnionTagName(tagged_union.name)} != ${memberNameForEnum(mem, tagged_union.enum.name)})`
+    return `#define ${ifNotMacroName(taggedUnion.name, mem.name)}(variant_entry)
+	if((variant_entry).${getUnionTagName(taggedUnion.name)} != ${memberNameForEnum(mem, taggedUnion.enum.name)})`
 }
 
 function toCStr(str: string): string {
     return `"${str}"`
 }
 
-function generate_name_for_unnamed_struct(union_name: TaggedName<"union">, id: ID): string {
-    return `_variant_impl_unnamed_struct_for_variant_${union_name.inner.snake_case()}_id_${id.toString()}_impl_`
+function generateNameForUnnamedStruct(unionName: TaggedName<"union">, id: ID): string {
+    return `_variant_impl_unnamed_struct_for_variant_${unionName.inner.snake_case()}_id_${id.toString()}_impl_`
 }
 
 type UnnamedStructMap = Record<ID, string | undefined>
 
-function generate_unnamed_struct_map(tagged_union: TaggedUnion): UnnamedStructMap {
+function generateUnnamedStructMap(taggedUnion: TaggedUnion): UnnamedStructMap {
 
     const map: UnnamedStructMap = {}
 
-    for (const member of tagged_union.member) {
+    for (const member of taggedUnion.member) {
         if (member.type === null) {
             continue;
         }
@@ -523,7 +527,7 @@ function generate_unnamed_struct_map(tagged_union: TaggedUnion): UnnamedStructMa
             continue
         }
 
-        map[member.type.id] = generate_name_for_unnamed_struct(tagged_union.name, member.type.id)
+        map[member.type.id] = generateNameForUnnamedStruct(taggedUnion.name, member.type.id)
     }
 
     return map;
@@ -542,44 +546,45 @@ function getNameForUnnamedStruct(struct: TaggedTypeStruct, unnamedStructMap: Unn
 
 }
 
-function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
+function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
-    assert(tagged_union.member.length >= 2, "at least two member are required")
+    assert(taggedUnion.member.length >= 2, "at least two member are required")
 
-    assert(tagged_union.enum.underlying_type !== null, "prefer having enums with underlying type")
+    assert(taggedUnion.enum.underlyingType !== null, "prefer having enums with underlying type")
 
-    const unnamedStructMap: UnnamedStructMap = generate_unnamed_struct_map(tagged_union);
+    const unnamedStructMap: UnnamedStructMap = generateUnnamedStructMap(taggedUnion);
 
-    const enumString = generateEnumDeclaration(tagged_union.enum, tagged_union.member)
+    const enumString = generateEnumDeclaration(taggedUnion.enum, taggedUnion.member)
 
-    const variantString: string = generateVariantDeclaration(tagged_union)
+    const variantString: string = generateVariantDeclaration(taggedUnion)
 
-    const functionsString: string = generateFunctions(tagged_union, unnamedStructMap)
+    const functionsString: string = generateFunctions(taggedUnion, unnamedStructMap)
 
-    const tag_name: string = getUnionTagName(tagged_union.name);
+    const tagName: string = getUnionTagName(taggedUnion.name);
 
-    const data_name: string = getUnionDataName(tagged_union.name);
+    const dataName: string = getUnionDataName(taggedUnion.name);
 
-    const generate_macro = (
-        `#define GENERATE_VARIANT_${tagged_union.name.inner.MACRO_NAME()}
+    const generateMacro = (
+        `#define GENERATE_VARIANT_${taggedUnion.name.inner.MACRO_NAME()}
 	${enumString.split("\n").join("\n	")}
 	${variantString.split("\n").join("\n	")}
 	
 	${functionsString.split("\n").join("\n	")}
 	
-	${generatePoisonPragma([tag_name, data_name, get_state_function_name(tagged_union.name), for_macro_trick_name, ...Object.values(unnamedStructMap).map((val): string => {
+	${generatePoisonPragma([tagName, dataName, getStateFunctionName(taggedUnion.name), nameForMacroTrick, ...Object.values(unnamedStructMap).map((val): string => {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             return val!
         })])}`)
 
     const macros: string[] = [
-        generate_macro,
-        ...tagged_union.member.map((mem): string => generate_if_macro(mem, tagged_union, unnamedStructMap)),
-        ...tagged_union.member.map((mem): string => generateIfNotMacro(mem, tagged_union))
+        generateMacro,
+        ...taggedUnion.member.map((mem): string => generateIfMacro(mem, taggedUnion, unnamedStructMap)),
+        ...taggedUnion.member.map((mem): string => generateIfNotMacro(mem, taggedUnion))
     ]
 
 
     return (
-        `#define VARIANT_${tagged_union.name.inner.MACRO_NAME()} _STATE_ASSERT(state, expected_state) VARIANT_STATE_ASSERT(state, expected_state, ${tagged_union.name.inner.snake_case()}, ${toCStr(tagged_union.name.inner.PascalCase())
+        `#define VARIANT_${taggedUnion.name.inner.MACRO_NAME()} _STATE_ASSERT(state, expected_state) VARIANT_STATE_ASSERT(state, expected_state, ${taggedUnion.name.inner.snake_case()}, ${toCStr(taggedUnion.name.inner.PascalCase())
         })
 	
 ${macros.map(a => a.split("\n").join(" \\\n")).join("\n\n")}
@@ -589,7 +594,7 @@ ${macros.map(a => a.split("\n").join(" \\\n")).join("\n\n")}
 }
 
 
-const unitagged_unions: TaggedUnion[] = [
+const globalTaggedUnions: TaggedUnion[] = [
     {
         name: makeUnionName(CaseName.fromPascalCase("AccountInfo")),
         member: [
@@ -614,7 +619,7 @@ const unitagged_unions: TaggedUnion[] = [
         ],
         enum: {
             name: makeEnumName(CaseName.fromPascalCase("AccountState")),
-            underlying_type: "u8"
+            underlyingType: "u8"
         }
 
     }
@@ -622,17 +627,17 @@ const unitagged_unions: TaggedUnion[] = [
 ]
 
 
-export async function generate_variant_code_c(generated_variants_file_h: string): Promise<void> {
+export async function generateVariantCodeC(generatedVariantsFileH: string): Promise<void> {
 
     const tasks: Promise<void>[] = []
 
-    assert(path.extname(generated_variants_file_h) == ".h", "variant file has to end in .h")
+    assert(path.extname(generatedVariantsFileH) == ".h", "variant file has to end in .h")
 
-    const h_preamble = `#define VARIANT_STATE_ASSERT(state, expected_state, variant_name, VariantName)
+    const headerPreamble = `#define VARIANT_STATE_ASSERT(state, expected_state, variant_name, VariantName)
 do {
 	if ((state) != (expected_state)) {
-		const tstr_static state_str = ${state_str_fn_prefix}##variant_name(state);
-		const tstr_static expected_state_str = ${state_str_fn_prefix}##variant_name(expected_state);
+		const tstr_static state_str = ${stateStrFNPrefix}##variant_name(state);
+		const tstr_static expected_state_str = ${stateStrFNPrefix}##variant_name(expected_state);
 		fprintf(stderr,
 			"[%s %s:%d]: Invalid variant access for variant '%s': state was " TSTR_FMT
 				" but expected " TSTR_FMT "\\n",
@@ -643,27 +648,27 @@ do {
 } while (false)
 `
 
-    const h_data = `
+    const headerData = `
 #pragma once
 
-${h_preamble.split("\n").join(" \\\n")}
+${headerPreamble.split("\n").join(" \\\n")}
 
 
-${unitagged_unions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
+${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 
 
 `
 
-    tasks.push(writeFileAndDirs(generated_variants_file_h, h_data))
+    tasks.push(writeFileAndDirs(generatedVariantsFileH, headerData))
 
-    const c_data = `
-#include "./${path.basename(generated_variants_file_h)}"
+    const CFileData = `
+#include "./${path.basename(generatedVariantsFileH)}"
 
     `
 
-    const generated_variants_file_c = getOtherFile(generated_variants_file_h, ".h", ".c")
+    const generatedVariantsFileC = getOtherFile(generatedVariantsFileH, ".h", ".c")
 
-    tasks.push(writeFileAndDirs(generated_variants_file_c, c_data))
+    tasks.push(writeFileAndDirs(generatedVariantsFileC, CFileData))
 
     await Promise.all(tasks)
 

@@ -69,7 +69,8 @@ export default [
 				"ignoreImports": false,
 				"ignoreGlobals": false,
 				"allow": [
-
+					"snake_case",
+					"__brand_tag_never_use"
 				]
 			}]
 		},
