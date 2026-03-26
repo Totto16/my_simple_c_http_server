@@ -1,11 +1,11 @@
 import { generate_hpack_headerable_code_h, generate_hpack_huffman_code_c, generate_hpack_test_cases_cpp } from "./hpack.js";
-import { test_bitarray } from "./utils.js";
+import { testBitarray } from "./utils.js";
 import { generate_variant_code_c } from "./variants.js";
 
 
 export async function generateFile(options: GenerateOptions): Promise<void> {
 
-    test_bitarray();
+    testBitarray();
 
 
     if (options.type === "c_hpack_huffman") {

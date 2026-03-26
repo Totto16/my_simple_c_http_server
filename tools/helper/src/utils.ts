@@ -51,7 +51,7 @@ export class BitArray {
     }
 }
 
-export function num_array_is_eq(arr1: number[], arr2: number[]): boolean {
+export function numberArrayIsEq(arr1: number[], arr2: number[]): boolean {
 
     if (arr1.length != arr2.length) {
         return false;
@@ -69,33 +69,33 @@ export function num_array_is_eq(arr1: number[], arr2: number[]): boolean {
 }
 
 
-export function test_bitarray(): void {
+export function testBitarray(): void {
 
     const values: [number, number, number[]][] = [[0b10101011, 8, [0b10101011]], [0xFF, 8, [0xFF]], [0xA8, 8, [0xA8]], [0x56F1, 16, [0x56, 0xF1]]]
 
 
-    for (const [value, value_sz, value_arr] of values) {
+    for (const [value, valueSize, valueArray] of values) {
 
-        const temp = new BitArray(value_sz)
+        const temp = new BitArray(valueSize)
 
-        for (let i = 0; i < value_sz; ++i) {
+        for (let i = 0; i < valueSize; ++i) {
 
-            const val = ((value >> (value_sz - i - 1)) & 0x1) != 0;
+            const val = ((value >> (valueSize - i - 1)) & 0x1) != 0;
 
             temp.set(i, val)
         }
 
-        const temp_res = temp.toNumberArray();
+        const tempResult = temp.toNumberArray();
 
-        if (!num_array_is_eq(temp_res, value_arr)) {
-            throw new Error(`The bitarray doesn't work as expected: ${temp_res.join(", ")} - ${value_arr.join(", ")}`)
+        if (!numberArrayIsEq(tempResult, valueArray)) {
+            throw new Error(`The bitarray doesn't work as expected: ${tempResult.join(", ")} - ${valueArray.join(", ")}`)
         }
 
     }
 
 }
 
-export function get_bit_array_from_bits(bits: string, bit_len: number, hex_value: string): BitArray {
+export function getBitArrayFromBits(bits: string, bitLen: number, hexValue: string): BitArray {
 
     const values = bits.split("|")
 
@@ -106,16 +106,16 @@ export function get_bit_array_from_bits(bits: string, bit_len: number, hex_value
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const size = (values.length - 1) * 8 + values.at(-1)!.length;
 
-    if (bit_len != size) {
+    if (bitLen != size) {
         throw new Error("not a valid bits string")
     }
 
-    const hex_b = BigInt(`0x${hex_value}`)
+    const hexByte1 = BigInt(`0x${hexValue}`)
 
-    const hex_b2 = BigInt(`0b${values.join("")}`)
+    const hexByte2 = BigInt(`0b${values.join("")}`)
 
-    if (hex_b != hex_b2) {
-        throw new Error(`not a valid bits string: ${hex_b.toString()} != ${hex_b2.toString()}`)
+    if (hexByte1 != hexByte2) {
+        throw new Error(`not a valid bits string: ${hexByte1.toString()} != ${hexByte2.toString()}`)
     }
 
     const result = new BitArray(size)
@@ -177,20 +177,20 @@ export async function writeFileAndDirs(file: string, content: string): Promise<v
 }
 
 
-export function getOtherFile(inp_file: string, expected_ext: string, other_ext: string): string {
+export function getOtherFile(inputFile: string, expectedExtension: string, otherExtension: string): string {
 
 
-    assert(path.extname(inp_file) == expected_ext, `file has to end in "${expected_ext}"`)
+    assert(path.extname(inputFile) == expectedExtension, `file has to end in "${expectedExtension}"`)
 
-    assert(other_ext.includes("."), `"${other_ext}" has to have a dot '.'`)
+    assert(otherExtension.includes("."), `"${otherExtension}" has to have a dot '.'`)
 
-    const other_file = path.join(path.dirname(inp_file), path.basename(inp_file).replace(expected_ext, other_ext))
+    const otherFile = path.join(path.dirname(inputFile), path.basename(inputFile).replace(expectedExtension, otherExtension))
 
-    return other_file;
+    return otherFile;
 }
 
 
-export function is_utf8_string(text: string): boolean {
+export function isUtf8String(text: string): boolean {
 
     const array = new TextEncoder().encode(text)
 

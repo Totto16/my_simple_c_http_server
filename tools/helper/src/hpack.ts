@@ -335,7 +335,7 @@
 
 
 import path from "node:path"
-import { assert, BitArray, get_bit_array_from_bits, getOtherFile, is_utf8_string, num_array_is_eq, writeFileAndDirs } from "./utils.js"
+import { assert, BitArray, getBitArrayFromBits, getOtherFile, isUtf8String, numberArrayIsEq, writeFileAndDirs } from "./utils.js"
 
 interface RawHuffmanCode {
     sym: number,
@@ -697,7 +697,7 @@ type HuffmanCode = HuffmanCodeNormal | HuffmanCodeSpecial
 
 function check_and_map_raw_code(code: RawHuffmanCode): HuffmanCode {
 
-    const bytes: BitArray = get_bit_array_from_bits(code.bits, code.bit_len, code.hex);
+    const bytes: BitArray = getBitArrayFromBits(code.bits, code.bit_len, code.hex);
 
     if (!Number.isInteger(code.sym)) {
         throw new Error("invalid raw huffman code, not an integer")
@@ -1332,7 +1332,7 @@ function process_string_fast_compare(input: string[]): FastStringCompare {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const inp = input.at(i)!
 
-        if (is_utf8_string(inp)) {
+        if (isUtf8String(inp)) {
             throw new Error(`fast compare string fields need to be ascii, to be usable for this algorithmn`)
         }
 
@@ -2217,7 +2217,7 @@ function encode_uft8_string_with_huffman(map: HuffmanEncodingMap, text: string):
 
 function encode_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanGeneric {
 
-    if (!is_utf8_string(text)) {
+    if (!isUtf8String(text)) {
         return encode_normal_string_with_huffman(map, text);
     }
 
@@ -2332,11 +2332,11 @@ export async function generate_hpack_test_cases_cpp(generated_hpack_test_cases_f
         // manually constructed for "307"
         const test_test_arr_manual = get_manual_test_arr([[0b011001, 6], [0b00000, 5], [0b011101, 6]])
 
-        if (!num_array_is_eq(test_test_arr_manual, test_test_arr_expected)) {
+        if (!numberArrayIsEq(test_test_arr_manual, test_test_arr_expected)) {
             throw new Error(`The manual encoding is not done correctly, as the manual and the expected array differ: ${test_test_arr_manual.join(", ")} - ${test_test_arr_expected.join(", ")}`)
         }
 
-        if (!num_array_is_eq(test_test_arr, test_test_arr_expected)) {
+        if (!numberArrayIsEq(test_test_arr, test_test_arr_expected)) {
             throw new Error(`The js encoding is not done correctly, as the js encoded and the expected array differ: ${test_test_arr.join(", ")} - ${test_test_arr_expected.join(", ")}`)
         }
 
@@ -2346,7 +2346,7 @@ export async function generate_hpack_test_cases_cpp(generated_hpack_test_cases_f
 
     { // test utf8 detection
 
-        assert(is_utf8_string("UTF-8: üöäß "), "utf-8 string detected correctly")
+        assert(isUtf8String("UTF-8: üöäß "), "utf-8 string detected correctly")
 
 
     }
