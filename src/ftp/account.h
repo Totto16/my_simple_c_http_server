@@ -5,6 +5,7 @@
 #include "generic/authentication.h"
 #include "utils/utils.h"
 #include <tstr.h>
+#include <variants.h>
 
 /**
  * @enum MASK / FLAGS
@@ -16,19 +17,12 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	AccountPermissionsReadWrite = AccountPermissionsRead | AccountPermissionsWrite,
 } AccountPermissions;
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	AccountStateEmpty = 0,
-	AccountStateOnlyUser,
-	AccountStateOk,
-} AccountState;
-
 typedef struct {
 	AccountPermissions permissions;
 	tstr username;
 } AccountOkData;
+
+GENERATE_VARIANT_ACCOUNT_INFO
 
 typedef struct {
 	AccountState state;

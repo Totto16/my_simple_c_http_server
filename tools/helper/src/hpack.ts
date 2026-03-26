@@ -333,10 +333,9 @@
 // | 61    | www-authenticate            |               |
 // +-------+-----------------------------+---------------+
 
-import fs from "node:fs"
+
 import path from "node:path"
-import fsAsync from "node:fs/promises"
-import { BitArray, get_bit_array_from_bits, num_array_is_eq } from "./utils.js"
+import { assert, BitArray, get_bit_array_from_bits, getOtherFile, is_utf8_string, num_array_is_eq, writeFileAndDirs } from "./utils.js"
 
 interface RawHuffmanCode {
     sym: number,
@@ -980,17 +979,7 @@ function to_c_node(node: HuffmanNode, nodes_array_value: string): string {
 
 }
 
-async function writeFileAndDirs(file: string, content: string): Promise<void> {
 
-    const dir = path.dirname(file)
-
-    if (!fs.existsSync(dir)) {
-        await fsAsync.mkdir(dir, { recursive: true })
-    }
-
-    await fsAsync.writeFile(file, content)
-
-}
 
 
 function tree_to_nodes(tree: HuffmanTree, node_amount: bigint, nodes_array_value: string): string[] {
@@ -1618,24 +1607,7 @@ ${values.prefixes.map((prefixes): string => {
 `
 }
 
-function assert(val: boolean, message: string): never | void {
-    if (!val) {
-        throw new Error(message)
-    }
 
-}
-
-function getOtherFile(inp_file: string, expected_ext: string, other_ext: string): string {
-
-
-    assert(path.extname(inp_file) == expected_ext, `file has to end in "${expected_ext}"`)
-
-    assert(other_ext.includes("."), `"${other_ext}" has to have a dot '.'`)
-
-    const other_file = path.join(path.dirname(inp_file), path.basename(inp_file).replace(expected_ext, other_ext))
-
-    return other_file;
-}
 
 function unique_arr<T>(arr: T[]): T[] {
     return [...new Set<T>(arr)]
@@ -2183,12 +2155,6 @@ function encode_normal_string_with_huffman(map: HuffmanEncodingMap, text: string
     return result;
 }
 
-function is_utf8_string(text: string): boolean {
-
-    const array = new TextEncoder().encode(text)
-
-    return array.length != text.length;
-}
 
 function encode_uft8_string_with_huffman(map: HuffmanEncodingMap, text: string): EncodedHuffmanUtf8 {
 

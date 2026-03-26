@@ -150,7 +150,6 @@ typedef struct {
 		FTPCommandTypeInformation* PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_TYPE_INFO);
 		FTPPortInformation* PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_PORT_INFO);
 	} data;
-
 } FTPCommand;
 
 NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* buffered_reader);

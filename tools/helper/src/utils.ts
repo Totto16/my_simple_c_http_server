@@ -1,3 +1,7 @@
+import fs from "node:fs"
+import path from "node:path"
+import fsAsync from "node:fs/promises"
+
 export class BitArray {
     private _size: number
     private bytes: Uint8ClampedArray
@@ -145,4 +149,45 @@ export function get_bit_array_from_bits(bits: string, bit_len: number, hex_value
 
     return result;
 
+}
+
+
+export function assert(val: boolean, message: string): never | void {
+    if (!val) {
+        throw new Error(message)
+    }
+
+}
+
+export async function writeFileAndDirs(file: string, content: string): Promise<void> {
+
+    const dir = path.dirname(file)
+
+    if (!fs.existsSync(dir)) {
+        await fsAsync.mkdir(dir, { recursive: true })
+    }
+
+    await fsAsync.writeFile(file, content)
+
+}
+
+
+export function getOtherFile(inp_file: string, expected_ext: string, other_ext: string): string {
+
+
+    assert(path.extname(inp_file) == expected_ext, `file has to end in "${expected_ext}"`)
+
+    assert(other_ext.includes("."), `"${other_ext}" has to have a dot '.'`)
+
+    const other_file = path.join(path.dirname(inp_file), path.basename(inp_file).replace(expected_ext, other_ext))
+
+    return other_file;
+}
+
+
+export function is_utf8_string(text: string): boolean {
+
+    const array = new TextEncoder().encode(text)
+
+    return array.length != text.length;
 }
