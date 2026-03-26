@@ -395,7 +395,7 @@ function functionForNewVariant(mem: TaggedMember, taggedUnion: TaggedUnion): str
 }
 
 
-function generateMemberFunctionsForMem(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
+function generateNewFunctionForMem(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
     if (mem.type === null) {
         return `static inline ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(mem, taggedUnion)}(void){
@@ -432,6 +432,59 @@ function generateMemberFunctionsForMem(mem: TaggedMember, taggedUnion: TaggedUni
 
 }
 
+function functionForGetAsVariant(mem: TaggedMember, taggedUnion: TaggedUnion): string {
+    return `${taggedUnion.name.inner.snake_case()}_get_as_${mem.name.inner.snake_case()}`
+
+}
+
+
+function generateGetAsFunctionForMem(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string | null {
+
+    if (mem.type === null) {
+        //doesn't make sense, check if it is presnet yes, but not getting the inner content
+        return null;
+
+
+
+    } else if (isSimpleTaggedType(mem.type)) {
+        return `static inline ${mem.type.name} ${functionForGetAsVariant(mem, taggedUnion)}(const ${taggedUnion.name.inner.PascalCase()} variant_entry){
+	${getStateAssertNameFor(taggedUnion.name)}(variant_entry.${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(mem, taggedUnion.enum.name)});
+	return variant_entry.${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()};
+}
+`
+
+    } else {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        assert(getBrand(mem.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+
+        return `static inline ${getNameForUnnamedStruct(mem.type, unnamedStructMap)} ${functionForGetAsVariant(mem, taggedUnion)}(const ${taggedUnion.name.inner.PascalCase()} variant_entry){
+	${getStateAssertNameFor(taggedUnion.name)}(variant_entry.${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(mem, taggedUnion.enum.name)});
+	return variant_entry.${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()};
+}
+`
+
+
+
+    }
+
+
+
+
+}
+
+function generateMemberFunctionsForMem(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
+
+    const functions: string[] = [
+        generateNewFunctionForMem(mem, taggedUnion, unnamedStructMap),
+        generateGetAsFunctionForMem(mem, taggedUnion, unnamedStructMap)
+    ].filter((fn: string | null): fn is string => fn !== null)
+
+
+    return functions.join("\n\n");
+
+
+}
+
 const stateStrFNPrefix = "_impl_get_state_string_for_variant_"
 
 
@@ -453,7 +506,7 @@ function generateFunctions(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedSt
 	}
 }
 
-${taggedUnion.member.map(mem => {
+${taggedUnion.member.map((mem): string => {
 
             return generateMemberFunctionsForMem(mem, taggedUnion, unnamedStructMap);
 
@@ -552,6 +605,12 @@ function getNameForUnnamedStruct(struct: TaggedTypeStruct, unnamedStructMap: Unn
 
 }
 
+const genericStateAssert = "VARIANT_STATE_ASSERT"
+
+function getStateAssertNameFor(unionName: TaggedName<"union">): string {
+    return `VARIANT_${unionName.inner.MACRO_NAME()}_STATE_ASSERT`
+}
+
 function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
     assert(taggedUnion.member.length >= 2, "at least two member are required")
@@ -603,7 +662,7 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
 
     return (
-        `#define VARIANT_${taggedUnion.name.inner.MACRO_NAME()} _STATE_ASSERT(state, expected_state) VARIANT_STATE_ASSERT(state, expected_state, ${taggedUnion.name.inner.snake_case()}, ${toCStr(taggedUnion.name.inner.PascalCase())
+        `#define ${getStateAssertNameFor(taggedUnion.name)}(state, expected_state) ${genericStateAssert}(state, expected_state, ${taggedUnion.name.inner.snake_case()}, ${toCStr(taggedUnion.name.inner.PascalCase())
         })
 	
 ${macros.map(a => a.split("\n").join(" \\\n")).join("\n\n")}
@@ -652,7 +711,7 @@ export async function generateVariantCodeC(generatedVariantsFileH: string): Prom
 
     assert(path.extname(generatedVariantsFileH) == ".h", "variant file has to end in .h")
 
-    const headerPreamble = `#define VARIANT_STATE_ASSERT(state, expected_state, variant_name, VariantName)
+    const headerPreamble = `#define ${genericStateAssert}(state, expected_state, variant_name, VariantName)
 do {
 	if ((state) != (expected_state)) {
 		const tstr_static state_str = ${stateStrFNPrefix}##variant_name(state);

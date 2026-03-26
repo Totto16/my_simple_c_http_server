@@ -330,7 +330,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			const tstr username = account_info_get_as_only_user(state->account).username;
+			const tstr username = account_info_get_as_only_user(*(state->account)).username;
 
 			const tstr* passwd = arg;
 
