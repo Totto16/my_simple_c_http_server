@@ -102,6 +102,7 @@ interface FuzzClientConfig {
 function expandCases(cases: CasesDescription): AllCases {
 
     switch (cases) {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         case "all": {
             if (Object.keys(all_cases).length != 517) {
                 throw new Error("Invalid test case length")
@@ -161,6 +162,7 @@ function splitCasesBy(amount: number, allCases: AllCases): string[][] {
 
     for (const item of sorted) {
 
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         let minRes: Result = result[0]!;
         for (const res of result) {
             if (res.total_duration < minRes.total_duration) {
@@ -214,6 +216,7 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
     const split: SplitConfigValue[] = [];
 
     for (let index = 0; index < amount; ++index) {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const cases: string[] = splitCases[index]!
 
         const result: SplitConfigValue = { cases, servers: [] }
@@ -223,11 +226,11 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
             const serverName = normalizeServerName(server.name)
 
             const tempDir = await fsAsync.mkdtemp(
-                path.join(os.tmpdir(), `ws_tests-${serverName}-${index}-`)
+                path.join(os.tmpdir(), `ws_tests-${serverName}-${index.toString()}-`)
             );
 
 
-            const configFilePath = path.join(tempDir, `${serverName}_idx_${index}_config.json`);
+            const configFilePath = path.join(tempDir, `${serverName}_idx_${index.toString()}_config.json`);
 
             const outdir = path.join(globalOutdir, serverName, index.toString())
 
@@ -291,7 +294,8 @@ async function executeAsync(cmd: string, args: string[]): Promise<ExecuteResult>
             }
 
             if (code !== 0) {
-                reject(new Error(`Exited with exit code ${code}`));
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                reject(new Error(`Exited with exit code ${code!.toString()}`));
                 return;
             }
 
@@ -313,7 +317,8 @@ async function executeAsync(cmd: string, args: string[]): Promise<ExecuteResult>
             }
 
             if (code !== 0) {
-                reject(new Error(`Exited with exit code ${code}\n${result.stderr}`));
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                reject(new Error(`Exited with exit code ${code!.toString()}\n${result.stderr}`));
                 return;
             }
 
@@ -327,11 +332,11 @@ async function executeAsync(cmd: string, args: string[]): Promise<ExecuteResult>
             return;
         });
 
-        child.stdout.on("data", (chunk) => {
+        child.stdout.on("data", (chunk: Buffer) => {
             result.stdout += chunk.toString()
         })
 
-        child.stderr.on("data", (chunk) => {
+        child.stderr.on("data", (chunk: Buffer) => {
             result.stderr += chunk.toString()
         })
 
@@ -373,7 +378,7 @@ async function makeHttpGetRequest(url: URL): Promise<void> {
 
 
                 if (res.statusCode !== 200) {
-                    reject(new Error(`Failed: ${res.statusCode}`));
+                    reject(new Error(`Failed: ${res.statusCode.toString()}`));
                     return;
                 }
 
@@ -393,7 +398,7 @@ async function makeHttpGetRequest(url: URL): Promise<void> {
                 }
 
                 if (res.statusCode !== 200) {
-                    reject(new Error(`Failed: ${res.statusCode}`));
+                    reject(new Error(`Failed: ${res.statusCode.toString()}`));
                     return;
                 }
 
@@ -431,7 +436,7 @@ interface ProcessResultError {
     type: "error"
     error: string
     where: ErrorWHere
-    more: any
+    more: unknown
 }
 
 function format_process_error(err: ProcessResultError): string {
@@ -441,8 +446,8 @@ function format_process_error(err: ProcessResultError): string {
 
 function parseJSONSafe(input: string): Record<string, unknown> | null {
     try {
-        return JSON.parse(input)
-    } catch (err) {
+        return JSON.parse(input) as Record<string, unknown>
+    } catch (_err) {
         return null;
     }
 
