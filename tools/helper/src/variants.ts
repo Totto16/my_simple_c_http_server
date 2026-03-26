@@ -1,5 +1,5 @@
 import path from "node:path"
-import { assert, getOtherFile, is_utf8_string, writeFileAndDirs } from "./utils.js"
+import { assert, getOtherFile, isUTF8String, writeFileAndDirs } from "./utils.js"
 
 function isUpperCase(str: string): boolean {
     if (str.length != 1) {
@@ -21,7 +21,7 @@ class CaseName {
 
     public static fromPascalCase(str: string): CaseName {
 
-        if (is_utf8_string(str)) {
+        if (isUTF8String(str)) {
             throw new Error(`Unicode strings not yet supported: ${str}`)
         }
 
@@ -123,12 +123,12 @@ function makeBranded<T>(value: T): Brand<T> {
     };
 }
 
-interface StructMemberSimple extends Brand<"simple"> {
+interface StructMember extends Brand<"simple"> {
     name: string,
     type_name: CType
 }
 
-function makeSimpleMember(name: string, type_name: CType): StructMemberSimple {
+function makeStructMember(name: string, type_name: CType): StructMember {
     return {
         ...(makeBranded<"simple">("simple")),
         name,
@@ -136,28 +136,6 @@ function makeSimpleMember(name: string, type_name: CType): StructMemberSimple {
     }
 }
 
-interface StructMemberNested extends Brand<"nested"> {
-    name: string,
-    //TODO: test  nested anonymous structs in all places
-    nested: CAnonymousStruct
-}
-
-//TODO: test  nested anonymous structs in all places
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function makeNestedMember(name: string, members: StructMember[]): StructMemberNested {
-    return {
-        ...(makeBranded<"nested">("nested")),
-        name,
-        nested: makeCAnonymousStruct(members)
-    }
-}
-
-
-type StructMember = StructMemberSimple | StructMemberNested
-
-function isSimpleStructMember(s: StructMember): s is StructMemberSimple {
-    return s[__brand_tag_dont_use] == "simple"
-}
 
 interface CAnonymousStruct extends Brand<"c_anonymous_struct"> {
     members: StructMember[]
@@ -197,14 +175,22 @@ function makeSimpleType(name: CType): TaggedTypeSimple {
     }
 }
 
+type ID = number
+
 interface TaggedTypeStruct extends Brand<"struct"> {
     struct: CAnonymousStruct
+    id: ID
 }
 
+let globalStructId: ID = 0
+
 function makeStructType(members: StructMember[]): TaggedTypeStruct {
+    const id = globalStructId
+    globalStructId++;
     return {
         ...(makeBranded<"struct">("struct")),
-        struct: makeCAnonymousStruct(members)
+        struct: makeCAnonymousStruct(members),
+        id
     }
 }
 
@@ -349,17 +335,6 @@ function getUnionDataName(name: TaggedName<"union">): string {
     return `_variant_data_for_${name.inner.snake_case()}_data_member`
 }
 
-function typeForMemberStruct(val: StructMember): string {
-    if (isSimpleStructMember(val)) {
-        return val.type_name;
-    }
-    return `struct {
-	${val.nested.members.map(mem => {
-        return `${typeForMemberStruct(mem)} ${mem.name};`
-    }).join("\n	")}
-}`
-
-}
 
 function typeForMember(val: TaggedType): string {
     if (isSimpleTaggedType(val)) {
@@ -367,7 +342,7 @@ function typeForMember(val: TaggedType): string {
     }
     return `struct {
 	${val.struct.members.map(mem => {
-        return `${typeForMemberStruct(mem)} ${mem.name};`
+        return `${mem.type_name} ${mem.name};`
     }).join("\n	")}
 }`
 
@@ -409,54 +384,8 @@ function function_for_new_variant(mem: TaggedMember, tagged_union: TaggedUnion):
 
 }
 
-interface FlatStructMember {
-    names: string[],
-    type: CType
-}
 
-function flattenCAnonymousStruct(struct: CAnonymousStruct): FlatStructMember[] {
-    const values: FlatStructMember[] = []
-
-    for (const mem of struct.members) {
-
-        if (isSimpleStructMember(mem)) {
-            values.push({ names: [mem.name], type: mem.type_name })
-        } else {
-            const inner = flattenCAnonymousStruct(mem.nested)
-            values.push(...inner.map(i => {
-                return { names: [mem.name, ...i.names], type: i.type }
-            }))
-        }
-
-    }
-
-    return values
-
-}
-
-function initialize_anonymous_struct(struct: CAnonymousStruct, outer_prefixes: string[] = []): string {
-
-    function nameFor(nm: string): string {
-        return [...outer_prefixes, nm].join("_")
-    }
-
-    const values: string[] = []
-
-    for (const mem of struct.members) {
-
-        if (isSimpleStructMember(mem)) {
-            values.push(`.${mem.name} = ${nameFor(mem.name)}`)
-        } else {
-            values.push(initialize_anonymous_struct(mem.nested, [...outer_prefixes, mem.name]))
-        }
-
-    }
-
-    return `{ ${values.join(", ")} }`
-
-}
-
-function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUnion): string {
+function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
     if (mem.type === null) {
         return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(void){
@@ -475,13 +404,13 @@ function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUn
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(mem.type.struct[__brand_tag_dont_use] === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
-        const flatParamaters = flattenCAnonymousStruct(mem.type.struct)
 
-
-        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(${flatParamaters.map(m => {
-            return `const ${m.type} ${m.names.join("_")}`
+        return `static inline ${tagged_union.name.inner.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(${tagged_union.member.map(m => {
+            return `const ${m.type} ${m.name}`
         }).join(", ")}){
-	return (${tagged_union.name.inner.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.inner.snake_case()} = ${initialize_anonymous_struct(mem.type.struct)} } };
+	return (${tagged_union.name.inner.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.inner.snake_case()} = (${getNameForUnnamedStruct(mem.type, unnamedStructMap)}){ ${mem.type.struct.members.map(m => {
+            `.${m.name} = ${m.name}`
+        }).join(", ")} } } };
 }
 `
 
@@ -500,7 +429,7 @@ function get_state_function_name(name: TaggedName<"union">): string {
     return `${state_str_fn_prefix}${name.inner.snake_case()}`
 }
 
-function generateFunctions(tagged_union: TaggedUnion): string {
+function generateFunctions(tagged_union: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
     return `static inline tstr_static ${get_state_function_name(tagged_union.name)}(const ${tagged_union.enum.name.inner.PascalCase()} enum_value){
 	switch(enum_value){
@@ -516,7 +445,7 @@ function generateFunctions(tagged_union: TaggedUnion): string {
 
 ${tagged_union.member.map(mem => {
 
-            return generateMemberFunctionsForMem(mem, tagged_union);
+            return generateMemberFunctionsForMem(mem, tagged_union, unnamedStructMap);
 
         }).join("\n")}
 `
@@ -534,7 +463,7 @@ function if_not_macro_name(union_name: TaggedName<"union">, member_name: TaggedN
 
 const for_macro_trick_name = "_for_macro_trick_impl_once_variant_"
 
-function generate_if_macro(mem: TaggedMember, tagged_union: TaggedUnion): string {
+function generate_if_macro(mem: TaggedMember, tagged_union: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
 
     if (mem.type === null) {
@@ -553,12 +482,10 @@ function generate_if_macro(mem: TaggedMember, tagged_union: TaggedUnion): string
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(mem.type.struct[__brand_tag_dont_use] === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
-        //TODO: don't use auto, but how?
-
         return `#define ${if_macro_name(tagged_union.name, mem.name)}(variant_entry)
 	if ((variant_entry).${getUnionTagName(tagged_union.name)} == ${memberNameForEnum(mem, tagged_union.enum.name)})
 		for (bool ${for_macro_trick_name} = true; ${for_macro_trick_name}; ${for_macro_trick_name} = false)
-			for (const auto ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(tagged_union.name)}.${mem.name.inner.snake_case()}; ${for_macro_trick_name}; ${for_macro_trick_name} = false)`
+			for (const ${getNameForUnnamedStruct(mem.type, unnamedStructMap)}} ${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(tagged_union.name)}.${mem.name.inner.snake_case()}; ${for_macro_trick_name}; ${for_macro_trick_name} = false)`
 
 
 
@@ -567,7 +494,7 @@ function generate_if_macro(mem: TaggedMember, tagged_union: TaggedUnion): string
 
 }
 
-function generate_if_not_macro(mem: TaggedMember, tagged_union: TaggedUnion): string {
+function generateIfNotMacro(mem: TaggedMember, tagged_union: TaggedUnion): string {
 
     return `#define ${if_not_macro_name(tagged_union.name, mem.name)}(variant_entry)
 	if((variant_entry).${getUnionTagName(tagged_union.name)} != ${memberNameForEnum(mem, tagged_union.enum.name)})`
@@ -577,17 +504,57 @@ function toCStr(str: string): string {
     return `"${str}"`
 }
 
+function generate_name_for_unnamed_struct(union_name: TaggedName<"union">, id: ID): string {
+    return `_variant_impl_unnamed_struct_for_variant_${union_name.inner.snake_case()}_id_${id.toString()}_impl_`
+}
+
+type UnnamedStructMap = Record<ID, string | undefined>
+
+function generate_unnamed_struct_map(tagged_union: TaggedUnion): UnnamedStructMap {
+
+    const map: UnnamedStructMap = {}
+
+    for (const member of tagged_union.member) {
+        if (member.type === null) {
+            continue;
+        }
+
+        if (isSimpleTaggedType(member.type)) {
+            continue
+        }
+
+        map[member.type.id] = generate_name_for_unnamed_struct(tagged_union.name, member.type.id)
+    }
+
+    return map;
+
+}
+
+function getNameForUnnamedStruct(struct: TaggedTypeStruct, unnamedStructMap: UnnamedStructMap): string {
+
+    const value = unnamedStructMap[struct.id]
+
+    if (value === undefined) {
+        throw new Error("IMPLEMENTATION ERROR")
+    }
+
+    return value;
+
+}
+
 function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
 
     assert(tagged_union.member.length >= 2, "at least two member are required")
 
     assert(tagged_union.enum.underlying_type !== null, "prefer having enums with underlying type")
 
+    const unnamedStructMap: UnnamedStructMap = generate_unnamed_struct_map(tagged_union);
+
     const enumString = generateEnumDeclaration(tagged_union.enum, tagged_union.member)
 
     const variantString: string = generateVariantDeclaration(tagged_union)
 
-    const functionsString: string = generateFunctions(tagged_union)
+    const functionsString: string = generateFunctions(tagged_union, unnamedStructMap)
 
     const tag_name: string = getUnionTagName(tagged_union.name);
 
@@ -600,12 +567,14 @@ function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
 	
 	${functionsString.split("\n").join("\n	")}
 	
-	${generatePoisonPragma([tag_name, data_name, get_state_function_name(tagged_union.name), for_macro_trick_name])}`)
+	${generatePoisonPragma([tag_name, data_name, get_state_function_name(tagged_union.name), for_macro_trick_name, ...Object.values(unnamedStructMap).map((val): string => {
+            return val!
+        })])}`)
 
     const macros: string[] = [
         generate_macro,
-        ...tagged_union.member.map((mem): string => generate_if_macro(mem, tagged_union)),
-        ...tagged_union.member.map((mem): string => generate_if_not_macro(mem, tagged_union))
+        ...tagged_union.member.map((mem): string => generate_if_macro(mem, tagged_union, unnamedStructMap)),
+        ...tagged_union.member.map((mem): string => generateIfNotMacro(mem, tagged_union))
     ]
 
 
@@ -615,8 +584,6 @@ function generatedUnionForCHeader(tagged_union: TaggedUnion): string {
 	
 ${macros.map(a => a.split("\n").join(" \\\n")).join("\n\n")}
 `)
-
-
 
 
 }
@@ -633,7 +600,7 @@ const unitagged_unions: TaggedUnion[] = [
             {
                 name: makeMemberName(CaseName.fromPascalCase("OnlyUser")),
                 type: makeStructType([
-                    makeSimpleMember(
+                    makeStructMember(
                         "username",
                         "tstr"
                     )
