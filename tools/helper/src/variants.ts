@@ -341,14 +341,14 @@ function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUn
 
     if (mem.value === null) {
         return `static inline ${tagged_union.name.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(void){
-	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)} };
+	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.name)} };
 }
 `
 
 
     } else if (typeof (mem.value) === "string") {
         return `static inline ${tagged_union.name.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(const ${mem.name.PascalCase()} value){
-	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.enum.name)} = { .${mem.name.snake_case()} = value } };
+	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.snake_case()} = value } };
 }
 `
 
@@ -361,7 +361,7 @@ function generateMemberFunctionsForMem(mem: TaggedMember, tagged_union: TaggedUn
         return `static inline ${tagged_union.name.PascalCase()} ${function_for_new_variant(mem, tagged_union)}(${flatParamaters.map(m => {
             return `const ${m.type} ${m.names.join("_")}`
         }).join(", ")}){
-	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.enum.name)} = { .${mem.name.snake_case()} = ${initialize_anonymous_struct(mem.value)} } };
+	return (${tagged_union.name.PascalCase()}){ .${getUnionTagName(tagged_union.name)} = ${memberNameForEnum(mem, tagged_union.enum.name)}, .${getUnionDataName(tagged_union.name)} = { .${mem.name.snake_case()} = ${initialize_anonymous_struct(mem.value)} } };
 }
 `
 
@@ -525,3 +525,11 @@ ${unitagged_unions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 
 
 }
+
+
+//TODO: use eslitn to warn for array inside {} withoput join or number, make toString required
+//  "@typescript-eslint/no-base-to-string": "error"
+// better c nested structs handling!
+
+
+// better name handling, make neames unique! (enum vs union name!)
