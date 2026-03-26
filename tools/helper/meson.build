@@ -9,11 +9,11 @@ helper_script_depend_files = files(
     'src/all_cases.ts',
     'src/compression.ts',
     'src/generator.ts',
-    'src/variants.ts',
-    'src/utils.ts',
     'src/hpack.ts',
     'src/log.ts',
     'src/subcommands.ts',
+    'src/utils.ts',
+    'src/variants.ts',
     'src/ws_tests.ts',
     'tsconfig.json',
 )
@@ -172,7 +172,7 @@ variants_generated = custom_target(
         '-o',
         '@OUTPUT0@',
     ],
-    output: ['variants.h', 'variants.c'],
+    output: ['variants.h'],
     depend_files: helper_script_depend_files,
     depends: helper_script_depends,
 )
@@ -202,5 +202,5 @@ generated_sources = alias_target(
     generated_hpack_huffman_file_c,
     generated_hpack_header_h,
     generated_hpack_file_cpp,
-    variants_generated
+    variants_generated,
 )

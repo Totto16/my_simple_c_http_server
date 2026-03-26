@@ -1,5 +1,5 @@
 import path from "node:path"
-import { assert, getOtherFile, isUTF8String, writeFileAndDirs } from "./utils.js"
+import { assert, isUTF8String, writeFileAndDirs } from "./utils.js"
 
 function isUpperCase(str: string): boolean {
     if (str.length != 1) {
@@ -795,15 +795,6 @@ ${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 `
 
     tasks.push(writeFileAndDirs(generatedVariantsFileH, headerData))
-
-    const CFileData = `
-#include "./${path.basename(generatedVariantsFileH)}"
-
-    `
-
-    const generatedVariantsFileC = getOtherFile(generatedVariantsFileH, ".h", ".c")
-
-    tasks.push(writeFileAndDirs(generatedVariantsFileC, CFileData))
 
     await Promise.all(tasks)
 
