@@ -6,17 +6,11 @@
 
 NODISCARD IPAddress from_ipv4(struct in_addr address) {
 
-	return (IPAddress){ .version = IPProtocolVersionV4,
-		                .data = {
-		                    .v4 = (IPV4Address){ .underlying = address },
-		                } };
+	return new_ip_address_v4((IPV4Address){ .underlying = address });
 }
 
 NODISCARD IPAddress from_ipv6(struct in6_addr address) {
-	return (IPAddress){ .version = IPProtocolVersionV6,
-		                .data = {
-		                    .v6 = (IPV6Address){ .underlying = address },
-		                } };
+	return new_ip_address_v6((IPV6Address){ .underlying = address });
 }
 
 NODISCARD char* ipv4_to_string(IPV4Address v4_address) {
@@ -59,12 +53,12 @@ NODISCARD char* ipv6_to_string(IPV6Address v6_address) {
 
 NODISCARD char* ipv_to_string(IPAddress address) {
 
-	switch(address.version) {
-		case IPProtocolVersionV4: {
-			return ipv4_to_string(address.data.v4);
+	SWITCH_IP_ADDRESS(address) {
+		CASE_IP_ADDRESS_IS_V4_CONST(address) {
+			return ipv4_to_string(v4);
 		}
-		case IPProtocolVersionV6: {
-			return ipv6_to_string(address.data.v6);
+		CASE_IP_ADDRESS_IS_V6_CONST(address) {
+			return ipv6_to_string(v6);
 		}
 		default: {
 			return NULL;
