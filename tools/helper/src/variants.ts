@@ -427,18 +427,20 @@ function cConstConditional(mutable: boolean): string {
     return " "
 }
 
+const inlineFunctionSpecifiers = "NODISCARD MAYBE_UNUSED static inline"
+
 
 function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
     if (member.type === null) {
-        return `static inline ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(void){
+        return `${inlineFunctionSpecifiers} ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(void){
 	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(member, taggedUnion.enum.name)} };
 }
 `
 
 
     } else if (isSimpleTaggedType(member.type)) {
-        return `static inline ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(${member.type.name} ${cConst} value){
+        return `${inlineFunctionSpecifiers} ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(${member.type.name} ${cConst} value){
 	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(member, taggedUnion.enum.name)}, .${getUnionDataName(taggedUnion.name)} = { .${member.name.inner.snake_case()} = value } };
 }
 `
@@ -448,7 +450,7 @@ function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedU
         assert(getBrand(member.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
 
-        return `static inline ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(${member.type.struct.members.map(m => {
+        return `${inlineFunctionSpecifiers} ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(${member.type.struct.members.map(m => {
             return `${m.typeName} ${cConst} ${m.name}`
         }).join(", ")}){
 	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(member, taggedUnion.enum.name)}, .${getUnionDataName(taggedUnion.name)} = { .${member.name.inner.snake_case()} = (${getNameForUnnamedStruct(member.type, unnamedStructMap)}){ ${member.type.struct.members.map((m): string => {
@@ -481,7 +483,7 @@ function generateGetAsFunctionForMember(member: TaggedMember, taggedUnion: Tagge
 
 
     } else if (isSimpleTaggedType(member.type)) {
-        return `static inline ${member.type.name} ${functionForGetAsVariant(member, taggedUnion)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
+        return `${inlineFunctionSpecifiers} ${member.type.name} ${functionForGetAsVariant(member, taggedUnion)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
 	${getStateAssertNameFor(taggedUnion.name)}(variant_entry.${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(member, taggedUnion.enum.name)});
 	return variant_entry.${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()};
 }
@@ -491,7 +493,7 @@ function generateGetAsFunctionForMember(member: TaggedMember, taggedUnion: Tagge
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(getBrand(member.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
-        return `static inline ${getNameForUnnamedStruct(member.type, unnamedStructMap)} ${functionForGetAsVariant(member, taggedUnion)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
+        return `${inlineFunctionSpecifiers} ${getNameForUnnamedStruct(member.type, unnamedStructMap)} ${functionForGetAsVariant(member, taggedUnion)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
 	${getStateAssertNameFor(taggedUnion.name)}(variant_entry.${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(member, taggedUnion.enum.name)});
 	return variant_entry.${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()};
 }
@@ -514,7 +516,7 @@ function generateGetAsRefFunctionForMember(member: TaggedMember, taggedUnion: Ta
         return null;
 
     } else if (isSimpleTaggedType(member.type)) {
-        return `static inline${cConstConditional(mutable)}${member.type.name}* ${functionForGetAsRefVariant(member, taggedUnion, mutable)}(${cConstConditional(mutable)}${taggedUnion.name.inner.PascalCase()}* ${cConst} variant_entry){
+        return `${inlineFunctionSpecifiers}${cConstConditional(mutable)}${member.type.name}* ${functionForGetAsRefVariant(member, taggedUnion, mutable)}(${cConstConditional(mutable)}${taggedUnion.name.inner.PascalCase()}* ${cConst} variant_entry){
 	${getStateAssertNameFor(taggedUnion.name)}(variant_entry->${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(member, taggedUnion.enum.name)});
 	return &(variant_entry->${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()});
 }
@@ -524,7 +526,7 @@ function generateGetAsRefFunctionForMember(member: TaggedMember, taggedUnion: Ta
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(getBrand(member.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
-        return `static inline ${getNameForUnnamedStruct(member.type, unnamedStructMap)} ${functionForGetAsRefVariant(member, taggedUnion, mutable)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
+        return `${inlineFunctionSpecifiers} ${getNameForUnnamedStruct(member.type, unnamedStructMap)} ${functionForGetAsRefVariant(member, taggedUnion, mutable)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
 	${getStateAssertNameFor(taggedUnion.name)}(variant_entry.${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(member, taggedUnion.enum.name)});
 	return variant_entry.${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()};
 }
@@ -566,7 +568,7 @@ function getTagTypeFunctionName(name: TaggedName<"union">): string {
 
 function generateFunctions(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
-    return `static inline tstr_static ${getStateFunctionName(taggedUnion.name)}(${taggedUnion.enum.name.inner.PascalCase()} ${cConst} enum_value){
+    return `${inlineFunctionSpecifiers} tstr_static ${getStateFunctionName(taggedUnion.name)}(${taggedUnion.enum.name.inner.PascalCase()} ${cConst} enum_value){
 	switch(enum_value){
 		${taggedUnion.member.map(mem => {
         return `case ${memberNameForEnum(mem, taggedUnion.enum.name)}: {
@@ -578,7 +580,7 @@ function generateFunctions(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedSt
 	}
 }
 
-static inline ${taggedUnion.enum.name.inner.PascalCase()} ${getTagTypeFunctionName(taggedUnion.name)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
+${inlineFunctionSpecifiers} ${taggedUnion.enum.name.inner.PascalCase()} ${getTagTypeFunctionName(taggedUnion.name)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
 	return variant_entry.${getUnionTagName(taggedUnion.name)};
 }
 
