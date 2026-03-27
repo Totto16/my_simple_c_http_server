@@ -567,7 +567,10 @@ function getCaseMacroName(unionName: TaggedName<"union">, memberName: TaggedName
 }
 
 
-const nameTrickForIfExpression = "_for_macro_trick_for_if_expr_impl_once_variant_"
+function getNameTrickForIfExpression(unionName: TaggedName<"union">): string {
+    return `_for_macro_trick_for_if_expr_impl_once_variant_${unionName.inner.snake_case()}_variant_impl`
+
+}
 
 function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap, mutable: boolean): string {
     if (mem.type === null) {
@@ -577,6 +580,8 @@ function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStr
 
     } else if (isSimpleTaggedType(mem.type)) {
 
+        const nameTrickForIfExpression: string = getNameTrickForIfExpression(taggedUnion.name)
+
         return `#define ${getIfMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
 		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
@@ -584,6 +589,8 @@ function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStr
     } else {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(getBrand(mem.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+
+        const nameTrickForIfExpression: string = getNameTrickForIfExpression(taggedUnion.name)
 
         return `#define ${getIfMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
@@ -612,8 +619,10 @@ function generateSwitchMacro(taggedUnion: TaggedUnion): string {
 }
 
 
-const nameTrickForCaseExpression = "_for_macro_trick_for_case_expr_impl_once_variant_"
+function getNameTrickForCaseExpression(unionName: TaggedName<"union">): string {
+    return `_for_macro_trick_for_case_expr_impl_once_variant_${unionName.inner.snake_case()}_variant_impl`
 
+}
 
 function generateCaseMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap, mutable: boolean): string {
 
@@ -625,6 +634,8 @@ function generateCaseMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedS
 
     } else if (isSimpleTaggedType(mem.type)) {
 
+        const nameTrickForCaseExpression: string = getNameTrickForCaseExpression(taggedUnion.name)
+
         return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
 	case ${memberNameForEnum(mem, taggedUnion.enum.name)}: 
 		for (bool ${nameTrickForCaseExpression} = true; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)
@@ -633,6 +644,8 @@ function generateCaseMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedS
     } else {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(getBrand(mem.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+
+        const nameTrickForCaseExpression: string = getNameTrickForCaseExpression(taggedUnion.name)
 
         return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
 	case ${memberNameForEnum(mem, taggedUnion.enum.name)}: 
@@ -736,10 +749,7 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 	
 	${functionsString.split("\n").join("\n	")}
 	
-	${generatePoisonPragma([tagName, dataName, getStateFunctionName(taggedUnion.name), nameTrickForIfExpression, nameTrickForCaseExpression, ...Object.values(unnamedStructMap).map((val): string => {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            return val!
-        })])}`)
+	${generatePoisonPragma([getStateFunctionName(taggedUnion.name)])}`)
 
     const macros: string[] = [
         generateMacro,
@@ -755,6 +765,15 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
         })
 	
 ${macros.map(a => a.split("\n").join(" \\\n")).join("\n\n")}
+
+${generatePoisonPragma([tagName, dataName,
+            getNameTrickForIfExpression(taggedUnion.name),
+            getNameTrickForCaseExpression(taggedUnion.name),
+            ...Object.values(unnamedStructMap).map((val): string => {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                return val!
+            })])
+        }
 `)
 
 
