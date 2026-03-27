@@ -57,9 +57,11 @@ NODISCARD char* ipv_to_string(IPAddress address) {
 		CASE_IP_ADDRESS_IS_V4_CONST(address) {
 			return ipv4_to_string(v4);
 		}
+		VARIANT_CASE_END();
 		CASE_IP_ADDRESS_IS_V6_CONST(address) {
 			return ipv6_to_string(v6);
 		}
+		VARIANT_CASE_END();
 		default: {
 			return NULL;
 		}

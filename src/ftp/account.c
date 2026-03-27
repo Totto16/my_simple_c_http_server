@@ -48,15 +48,19 @@ account_verify(const AuthenticationProviders* auth_providers,
 			            error.message);
 			return UserValidityInternalError;
 		}
+		VARIANT_CASE_END();
 		CASE_AUTHENTICATION_FIND_RESULT_IS_NO_SUCH_USER() {
 			return UserValidityNoSuchUser;
 		}
+		VARIANT_CASE_END();
 		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD() {
 			return UserValidityWrongPassword;
 		}
+		VARIANT_CASE_END();
 		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_IGN() {
 			return UserValidityOk;
 		}
+		VARIANT_CASE_END();
 		default: {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "An error occurred, while trying to find a user with "
 			                                  "password, unexpected return type enum value\n");

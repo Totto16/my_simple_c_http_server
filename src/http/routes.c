@@ -957,17 +957,20 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 				                     .data = {
 				                         .unauthorized = { .reason = TSTR_LIT("no such user") } } };
 		}
+		VARIANT_CASE_END();
 		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD() {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
 				                     .data = { .unauthorized = {
 				                                   .reason = TSTR_LIT("wrong password") } } };
 		}
+		VARIANT_CASE_END();
 		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_CONST(find_result) {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeAuthorized,
 				                     .data = { .authorized = ok } };
 		}
+		VARIANT_CASE_END();
 		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(find_result) {
 			LOG_MESSAGE(LogLevelError, "Error in account find operation: %s\n", error.message);
 			return (HttpAuthStatus){
@@ -976,6 +979,7 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 				                         "Underlying authentication provider error" } }
 			};
 		}
+		VARIANT_CASE_END();
 		default: {
 			return (
 			    HttpAuthStatus){ .type = HttpAuthStatusTypeError,

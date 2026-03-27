@@ -858,7 +858,7 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
     return (
         `#define ${getStateAssertNameFor(taggedUnion.name)}(state, expected_state) ${genericStateAssert}(state, expected_state, ${taggedUnion.name.inner.snake_case()}, ${toCStr(taggedUnion.name.inner.PascalCase())
         })
-	
+
 ${macros.map(a => a.split("\n").join(" \\\n")).join("\n\n")}
 
 ${generatePoisonPragma([tagName, dataName,
@@ -981,27 +981,38 @@ export async function generateVariantCodeC(generatedVariantsFileH: string): Prom
 
     assert(path.extname(generatedVariantsFileH) == ".h", "variant file has to end in .h")
 
-    const headerPreamble = `#define ${genericStateAssert}(state, expected_state, variant_name, VariantName)
+    const globalMacros: string[] = [
+        `#define UNREACHABLE_WITH_MESSAGE(msg, ...) do { 
+	fprintf(stderr,
+		"[%s %s:%d]: UNREACHABLE: " msg "\\n",
+		__func__, __FILE__, __LINE__, __VA_ARGS__
+	);
+		UNREACHABLE();
+} while (false)`,
+        // 
+        `#define UNREACHABLE_WITH_MESSAGE_SINGLE(msg) UNREACHABLE_WITH_MESSAGE(msg "%s", "")`,
+        // 
+        `#define ${genericStateAssert}(state, expected_state, variant_name, VariantName)
 do {
 	if ((state) != (expected_state)) {
 		tstr_static ${cConst} state_str = ${stateStrFNPrefix}##variant_name(state);
 		tstr_static ${cConst} expected_state_str = ${stateStrFNPrefix}##variant_name(expected_state);
-		fprintf(stderr,
-			"[%s %s:%d]: Invalid variant access for variant '%s': state was " TSTR_FMT
-				" but expected " TSTR_FMT "\\n",
-			__func__, __FILE__, __LINE__, VariantName, TSTR_STATIC_FMT_ARGS(state_str),
+		UNREACHABLE_WITH_MESSAGE("Invalid variant access for variant '%s': state was " TSTR_FMT
+				" but expected " TSTR_FMT, VariantName, TSTR_STATIC_FMT_ARGS(state_str),
 			TSTR_STATIC_FMT_ARGS(expected_state_str));
-		UNREACHABLE();
 	}
-} while (false)
-`
+} while (false)`,
+        //
+        `#define VARIANT_CASE_END()
+	UNREACHABLE_WITH_MESSAGE_SINGLE("macro trick with for loops for getting the value was implemented wrong")`
+    ]
 
     const headerData = `
 #pragma once
 
 #include <tstr.h>
 
-${headerPreamble.split("\n").join(" \\\n")}
+${globalMacros.map(m => m.split("\n").join(" \\\n")).join("\n\n")}
 
 
 ${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
