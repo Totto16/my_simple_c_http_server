@@ -230,10 +230,15 @@ function makeEnumName(name: CaseName): TaggedName<"enum"> {
     return makeTaggedName<"enum">("enum", name)
 }
 
+interface TaggedUnionOptions {
+    rawStruct?: CaseName | undefined
+}
+
 interface TaggedUnion {
     name: TaggedName<"union">
     member: TaggedMember[]
     enum: TaggedUnionEnum
+    options: TaggedUnionOptions
 }
 
 function makeUnionName(name: CaseName): TaggedName<"union"> {
@@ -356,15 +361,27 @@ function typeForMember(val: TaggedType, unnamedStructMap: UnnamedStructMap): str
 
 }
 
+type StructInfo = [string, string]
+
+function getStructInfo(taggedUnion: TaggedUnion): StructInfo {
+    if (taggedUnion.options.rawStruct) {
+        return [`struct ${taggedUnion.options.rawStruct.PascalCase()} `, ""]
+    }
+
+    return ["typedef struct ", ` ${taggedUnion.name.inner.PascalCase()}`]
+}
+
 function generateVariantDeclaration(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
     const tagName: string = getUnionTagName(taggedUnion.name);
 
     const dataName: string = getUnionDataName(taggedUnion.name);
 
+    const [structBefore, structAfter] = getStructInfo(taggedUnion)
+
 
     return `	/* tagged union (variant) implementation */
-typedef struct {
+${structBefore}{
 	${taggedUnion.enum.name.inner.PascalCase()} ${tagName};
 	union {
 		${taggedUnion.member.filter(mem => mem.type !== null).map((mem) => {
@@ -377,7 +394,7 @@ typedef struct {
 
     }).join("\n		")}
 	} ${dataName};
-} ${taggedUnion.name.inner.PascalCase()};`
+}${structAfter};`
 }
 
 
@@ -769,7 +786,8 @@ const globalTaggedUnions: TaggedUnion[] = [
         enum: {
             name: makeEnumName(CaseName.fromPascalCase("AccountState")),
             underlyingType: "u8"
-        }
+        },
+        options: {}
     },
     {
         name: makeUnionName(CaseName.fromParts(["IP", "address"])),
@@ -786,8 +804,29 @@ const globalTaggedUnions: TaggedUnion[] = [
         enum: {
             name: makeEnumName(CaseName.fromParts(["IP", "protocol", "version"])),
             underlyingType: "u8"
+        },
+        options: {}
+    },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("AuthenticationProvider")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Simple")),
+                type: makeSimpleType("SimpleAuthenticationProviderData")
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("System")),
+                type: null,
+            }
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("AuthenticationProviderType")),
+            underlyingType: "u8"
+        },
+        options: {
+            rawStruct: CaseName.fromPascalCase("AuthenticationProviderImpl")
         }
-    }
+    },
 ]
 
 
