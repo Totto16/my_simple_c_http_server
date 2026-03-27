@@ -27,7 +27,7 @@ install_dependencies = custom_target(
     command: [
         meson_wrapper_sh,
         '--wrapper-generate',
-        '@OUTPUT@',
+        '@OUTPUT0@',
         pnpm,
         '--dir',
         meson.current_source_dir(),
@@ -37,10 +37,12 @@ install_dependencies = custom_target(
         '--loglevel',
         'error',
     ],
-    output: ['install_dependencies_date.txt'],
-    depend_files: [helper_script_depend_files, 'pnpm-lock.yaml'],
+    output: ['install_dependencies_date.txt', meson.current_source_dir() / 'pnpm-lock.yaml'],
+    depend_files: [helper_script_depend_files],
 )
 helper_script_depends += install_dependencies
+
+helper_script_depend_files += 'pnpm-lock.yaml'
 
 type_check_helper_script = custom_target(
     'typecheck code (helper script)',
