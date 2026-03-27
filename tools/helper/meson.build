@@ -28,6 +28,9 @@ install_dependencies = custom_target(
         meson_wrapper_sh,
         '--wrapper-generate',
         '@OUTPUT0@',
+        '--link-file',
+        '@CURRENT_SOURCE_DIR@/pnpm-lock.yaml',
+        '@OUTPUT1@',
         pnpm,
         '--dir',
         meson.current_source_dir(),
@@ -37,12 +40,10 @@ install_dependencies = custom_target(
         '--loglevel',
         'error',
     ],
-    output: ['install_dependencies_date.txt', meson.current_source_dir() / 'pnpm-lock.yaml'],
+    output: ['install_dependencies_date.txt', 'pnpm-lock-link.yaml'],
     depend_files: [helper_script_depend_files],
 )
 helper_script_depends += install_dependencies
-
-helper_script_depend_files += 'pnpm-lock.yaml'
 
 type_check_helper_script = custom_target(
     'typecheck code (helper script)',
@@ -60,6 +61,7 @@ type_check_helper_script = custom_target(
     ],
     output: ['typecheck_code_date.txt'],
     depend_files: helper_script_depend_files,
+    depends: [install_dependencies],
 )
 helper_script_depends += type_check_helper_script
 
@@ -77,6 +79,7 @@ lint_helper_script = custom_target(
     ],
     output: ['lint_code_date.txt'],
     depend_files: helper_script_depend_files,
+    depends: [install_dependencies],
 )
 helper_script_depends += lint_helper_script
 
@@ -94,9 +97,10 @@ build_helper_script = custom_target(
     ],
     output: ['build_code_date.txt'],
     depend_files: helper_script_depend_files,
+    depends: [install_dependencies],
 )
-helper_script_depends += build_helper_script
 
+helper_script_depends += build_helper_script
 
 node = find_program(
     'node',
