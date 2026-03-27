@@ -87,5 +87,7 @@ if [ "$LINK_FILE" == "given" ]; then
         exit 1
     fi
 
-    ln -sv "$(realpath "$LINK_FILE_INPUT")" "$(realpath "$LINK_FILE_OUTPUT")"
+    mkdir -p "$(dirname "$LINK_FILE_OUTPUT")"
+
+    ln -sv "$(realpath "$LINK_FILE_INPUT")" "$LINK_FILE_OUTPUT"
 fi
