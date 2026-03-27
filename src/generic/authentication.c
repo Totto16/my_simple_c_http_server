@@ -24,12 +24,7 @@ typedef struct {
 	HashSaltSettings settings;
 } SimpleAuthenticationProviderData;
 
-struct AuthenticationProviderImpl {
-	AuthenticationProviderType type;
-	union {
-		SimpleAuthenticationProviderData simple;
-	} data;
-};
+GENERATE_VARIANT_CORE_AUTHENTICATION_PROVIDER()
 
 //  TODO(Totto): do we really need to store ptrs here
 /* NOLINTBEGIN(misc-use-internal-linkage) */
@@ -81,13 +76,12 @@ NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void
 		return NULL;
 	}
 
-	auth_provider->type = AuthenticationProviderTypeSimple;
-	auth_provider->data.simple =
+	*auth_provider = new_authentication_provider_simple(
 	    (SimpleAuthenticationProviderData){ .entries = TMAP_INIT(SimpleAccountEntryHashMap),
-		                                    .settings = {
-		                                        .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
-		                                        .use_sha512 = true,
-		                                    } };
+	                                        .settings = {
+	                                            .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
+	                                            .use_sha512 = true,
+	                                        } });
 
 	return auth_provider;
 #endif
@@ -100,7 +94,7 @@ NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void
 		return NULL;
 	}
 
-	auth_provider->type = AuthenticationProviderTypeSystem;
+	*auth_provider = new_authentication_provider_system();
 
 	return auth_provider;
 }
@@ -131,12 +125,12 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 	return false;
 #else
 
-	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
+	IF_AUTHENTICATION_PROVIDER_IS_NOT_SIMPLE(*simple_authentication_provider) {
 		return false;
 	}
 
 	const SimpleAuthenticationProviderData* const data =
-	    &simple_authentication_provider->data.simple;
+	    authentication_provider_get_as_simple_const_ref(simple_authentication_provider);
 
 	// Note: this may take some time, as bcrypt takes some time, depending on work factor
 	HashSaltResultType* hash_salted_password =
@@ -151,11 +145,12 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
     AuthenticationProvider* const simple_authentication_provider, const tstr* const username,
     HashSaltResultType* const hash_salted_password, const UserRole role) {
 
-	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
+	IF_AUTHENTICATION_PROVIDER_IS_NOT_SIMPLE(*simple_authentication_provider) {
 		return false;
 	}
 
-	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
+	SimpleAuthenticationProviderData* const data =
+	    authentication_provider_get_as_simple_mut_ref(simple_authentication_provider);
 
 	const SimpleAccountEntry entry = { .hash_salted_password = hash_salted_password, .role = role };
 
@@ -194,17 +189,19 @@ static void free_simple_authentication_provider(SimpleAuthenticationProviderData
 }
 
 void free_authentication_provider(AuthenticationProvider* const auth_provider) {
-	switch(auth_provider->type) {
-		case AuthenticationProviderTypeSimple: {
-			free_simple_authentication_provider(&(auth_provider->data.simple));
+	SWITCH_AUTHENTICATION_PROVIDER(*auth_provider) {
+		CASE_AUTHENTICATION_PROVIDER_IS_SIMPLE_MUT(*auth_provider) {
+			free_simple_authentication_provider(&simple);
 			free(auth_provider);
+		}
+		break;
+		CASE_AUTHENTICATION_PROVIDER_IS_SYSTEM_MUT() {
+			free(auth_provider);
+		}
+		break;
+		default: {
 			break;
 		}
-		case AuthenticationProviderTypeSystem: {
-			free(auth_provider);
-			break;
-		}
-		default: break;
 	}
 }
 
@@ -246,14 +243,15 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
     const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
     const tstr* const password) {
 
-	if(auth_provider->type != AuthenticationProviderTypeSimple) {
+	IF_AUTHENTICATION_PROVIDER_IS_NOT_SIMPLE(*auth_provider) {
 
 		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
 			                               .data = { .error = { .error_message =
 			                                                        "Implementation error" } } };
 	}
 
-	const SimpleAuthenticationProviderData* data = &auth_provider->data.simple;
+	const SimpleAuthenticationProviderData* const data =
+	    authentication_provider_get_as_simple_const_ref(auth_provider);
 
 	const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
 	    find_user_by_name_simple(data, username);
@@ -680,7 +678,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
     const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
     const tstr* const password) {
 
-	if(auth_provider->type != AuthenticationProviderTypeSystem) {
+	IF_AUTHENTICATION_PROVIDER_IS_NOT_SYSTEM(*auth_provider) {
 
 		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
 			                               .data = { .error = { .error_message =
@@ -735,8 +733,8 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 
 		AuthenticationFindResult result;
 
-		switch(provider->type) {
-			case AuthenticationProviderTypeSimple: {
+		SWITCH_AUTHENTICATION_PROVIDER(*provider) {
+			CASE_AUTHENTICATION_PROVIDER_IS_SIMPLE_CONST(*provider) {
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 				result = (AuthenticationFindResult){
 					.validity = AuthenticationValidityError,
@@ -747,19 +745,20 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 				result = authentication_provider_simple_find_user_with_password(provider, username,
 				                                                                password);
 #endif
-				break;
 			}
-			case AuthenticationProviderTypeSystem: {
+			break;
+			CASE_AUTHENTICATION_PROVIDER_IS_SYSTEM_CONST() {
 				result = authentication_provider_system_find_user_with_password(provider, username,
 				                                                                password);
 				break;
 			}
-			default:
+			default: {
 				result = (AuthenticationFindResult){
 					.validity = AuthenticationValidityError,
 					.data = { .error = { .error_message = "unrecognized provider type" } }
 				};
 				break;
+			}
 		}
 
 		// note: the clang analyzer is incoreect here, we return a item, that is malloced, but
@@ -771,7 +770,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 
 		if(result.validity == AuthenticationValidityError) {
 			LOG_MESSAGE(LogLevelTrace, "Error in account find user, provider %s: %s\n",
-			            get_name_for_auth_provider_type(provider->type),
+			            get_name_for_auth_provider_type(get_current_tag_type(provider->type)),
 			            result.data.error.error_message);
 		}
 

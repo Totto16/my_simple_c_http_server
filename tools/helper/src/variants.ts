@@ -419,7 +419,7 @@ function functionForNewVariant(mem: TaggedMember, taggedUnion: TaggedUnion): str
 
 const cConst = "const"
 
-function cConstIf(mutable: boolean): string {
+function cConstConditional(mutable: boolean): string {
     if (!mutable) {
         return ` ${cConst} `
     }
@@ -460,9 +460,6 @@ function generateNewFunctionForMem(mem: TaggedMember, taggedUnion: TaggedUnion, 
 
     }
 
-
-
-
 }
 
 function functionForGetAsVariant(mem: TaggedMember, taggedUnion: TaggedUnion): string {
@@ -470,6 +467,10 @@ function functionForGetAsVariant(mem: TaggedMember, taggedUnion: TaggedUnion): s
 
 }
 
+function functionForGetAsRefVariant(mem: TaggedMember, taggedUnion: TaggedUnion, mutable: boolean): string {
+    return `${taggedUnion.name.inner.snake_case()}_get_as_${mem.name.inner.snake_case()}_${mutable ? "mut" : "const"}_ref`
+
+}
 
 function generateGetAsFunctionForMem(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string | null {
 
@@ -505,11 +506,44 @@ function generateGetAsFunctionForMem(mem: TaggedMember, taggedUnion: TaggedUnion
 
 }
 
+function generateGetAsRefFunctionForMem(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap, mutable: boolean): string | null {
+
+    if (mem.type === null) {
+        //doesn't make sense, check if it is presnet yes, but not getting the inner content
+        return null;
+
+    } else if (isSimpleTaggedType(mem.type)) {
+        return `static inline${cConstConditional(mutable)}${mem.type.name}* ${functionForGetAsRefVariant(mem, taggedUnion, mutable)}(${cConstConditional(mutable)}${taggedUnion.name.inner.PascalCase()}* ${cConst} variant_entry){
+	${getStateAssertNameFor(taggedUnion.name)}(variant_entry->${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(mem, taggedUnion.enum.name)});
+	return &(variant_entry->${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()});
+}
+`
+
+    } else {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        assert(getBrand(mem.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
+
+        return `static inline ${getNameForUnnamedStruct(mem.type, unnamedStructMap)} ${functionForGetAsRefVariant(mem, taggedUnion, mutable)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
+	${getStateAssertNameFor(taggedUnion.name)}(variant_entry.${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(mem, taggedUnion.enum.name)});
+	return variant_entry.${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()};
+}
+`
+    }
+
+
+}
+
+function generateGetAsRefFunctionsForMem(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): (string | null)[] {
+    return [generateGetAsRefFunctionForMem(mem, taggedUnion, unnamedStructMap, true), generateGetAsRefFunctionForMem(mem, taggedUnion, unnamedStructMap, false)]
+}
+
+
 function generateMemberFunctionsForMem(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
     const functions: string[] = [
         generateNewFunctionForMem(mem, taggedUnion, unnamedStructMap),
-        generateGetAsFunctionForMem(mem, taggedUnion, unnamedStructMap)
+        generateGetAsFunctionForMem(mem, taggedUnion, unnamedStructMap),
+        ...generateGetAsRefFunctionsForMem(mem, taggedUnion, unnamedStructMap)
     ].filter((fn: string | null): fn is string => fn !== null)
 
 
@@ -584,7 +618,7 @@ function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStr
         return `#define ${getIfMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
 		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
-			for (${mem.type.name}${cConstIf(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
+			for (${mem.type.name}${cConstConditional(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
     } else {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(getBrand(mem.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
@@ -594,7 +628,7 @@ function generateIfMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedStr
         return `#define ${getIfMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(mem, taggedUnion.enum.name)})
 		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
-			for (${getNameForUnnamedStruct(mem.type, unnamedStructMap)}${cConstIf(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
+			for (${getNameForUnnamedStruct(mem.type, unnamedStructMap)}${cConstConditional(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
     }
 
 }
@@ -638,7 +672,7 @@ function generateCaseMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedS
         return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
 	case ${memberNameForEnum(mem, taggedUnion.enum.name)}:
 		for (bool ${nameTrickForCaseExpression} = true; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)
-			for (${mem.type.name}${cConstIf(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)`
+			for (${mem.type.name}${cConstConditional(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)`
 
     } else {
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -649,7 +683,7 @@ function generateCaseMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedS
         return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
 	case ${memberNameForEnum(mem, taggedUnion.enum.name)}:
 		for (bool ${nameTrickForCaseExpression} = true; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)
-			for (${getNameForUnnamedStruct(mem.type, unnamedStructMap)}${cConstIf(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)`
+			for (${getNameForUnnamedStruct(mem.type, unnamedStructMap)}${cConstConditional(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)`
     }
 
 }

@@ -7,17 +7,13 @@
 
 #include <tstr.h>
 
+#include "variants.h"
+
 typedef struct AuthenticationProvidersImpl AuthenticationProviders;
 
 typedef struct AuthenticationProviderImpl AuthenticationProvider;
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	AuthenticationProviderTypeSimple = 0,
-	AuthenticationProviderTypeSystem,
-} AuthenticationProviderType;
+GENERATE_VARIANT_ENUM_AUTHENTICATION_PROVIDER()
 
 NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType type);
 
