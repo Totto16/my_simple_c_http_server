@@ -41,20 +41,20 @@ account_verify(const AuthenticationProviders* auth_providers,
 	const AuthenticationFindResult result =
 	    authentication_providers_find_user_with_password(auth_providers, username, password);
 
-	switch(result.validity) {
-		case AuthenticationValidityError: {
+	SWITCH_AUTHENTICATION_FIND_RESULT(result) {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(result) {
 			LOG_MESSAGE(LogLevelError,
 			            "An error occurred, while trying to find a user with password: %s\n",
-			            result.data.error.error_message);
+			            error.message);
 			return UserValidityInternalError;
 		}
-		case AuthenticationValidityNoSuchUser: {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_NO_SUCH_USER() {
 			return UserValidityNoSuchUser;
 		}
-		case AuthenticationValidityWrongPassword: {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD() {
 			return UserValidityWrongPassword;
 		}
-		case AuthenticationValidityOk: {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_IGN() {
 			return UserValidityOk;
 		}
 		default: {

@@ -135,11 +135,11 @@ function getBrand<T extends string = string>(b: Brand<T>): T {
 }
 
 interface StructMember extends Brand<"simple"> {
-    name: string,
     typeName: CType
+    name: string,
 }
 
-function makeStructMember(name: string, typeName: CType): StructMember {
+function makeStructMember(typeName: CType, name: string): StructMember {
     return {
         ...(makeBranded<"simple">("simple")),
         name,
@@ -887,8 +887,8 @@ const globalTaggedUnions: TaggedUnion[] = [
                 name: makeMemberName(CaseName.fromPascalCase("OnlyUser")),
                 type: makeStructType([
                     makeStructMember(
+                        "tstr",
                         "username",
-                        "tstr"
                     )
                 ])
             },
@@ -940,6 +940,37 @@ const globalTaggedUnions: TaggedUnion[] = [
         options: {
             rawStruct: CaseName.fromPascalCase("AuthenticationProviderImpl")
         }
+    },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("AuthenticationFindResult")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("NoSuchUser")),
+                type: null
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("WrongPassword")),
+                type: null
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: makeSimpleType("AuthUserWithContext")
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: makeStructType([
+                    makeStructMember(
+                        "const char*",
+                        "message",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("AuthenticationValidity")),
+            underlyingType: "u8"
+        },
+        options: {}
     },
 ]
 

@@ -49,16 +49,6 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 
 void free_authentication_providers(AuthenticationProviders* auth_providers);
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	AuthenticationValidityNoSuchUser = 0,
-	AuthenticationValidityWrongPassword,
-	AuthenticationValidityOk,
-	AuthenticationValidityError,
-} AuthenticationValidity;
-
 typedef struct {
 	tstr username;
 	UserRole role;
@@ -69,15 +59,7 @@ typedef struct {
 	AuthenticationProviderType provider_type;
 } AuthUserWithContext;
 
-typedef struct {
-	AuthenticationValidity validity;
-	union {
-		AuthUserWithContext ok;
-		struct {
-			const char* error_message;
-		} error;
-	} data;
-} AuthenticationFindResult;
+GENERATE_VARIANT_ALL_AUTHENTICATION_FIND_RESULT()
 
 NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
     const AuthenticationProviders* auth_providers, const tstr* username, const tstr* password);

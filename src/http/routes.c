@@ -950,27 +950,26 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 	tstr_free(&username);
 	tstr_free(&password);
 
-	switch(find_result.validity) {
-		case AuthenticationValidityNoSuchUser: {
+	SWITCH_AUTHENTICATION_FIND_RESULT(find_result) {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_NO_SUCH_USER() {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
 				                     .data = {
 				                         .unauthorized = { .reason = TSTR_LIT("no such user") } } };
 		}
-		case AuthenticationValidityWrongPassword: {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD() {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
 				                     .data = { .unauthorized = {
 				                                   .reason = TSTR_LIT("wrong password") } } };
 		}
-		case AuthenticationValidityOk: {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_CONST(find_result) {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeAuthorized,
-				                     .data = { .authorized = find_result.data.ok } };
+				                     .data = { .authorized = ok } };
 		}
-		case AuthenticationValidityError: {
-			LOG_MESSAGE(LogLevelError, "Error in account find operation: %s\n",
-			            find_result.data.error.error_message);
+		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(find_result) {
+			LOG_MESSAGE(LogLevelError, "Error in account find operation: %s\n", error.message);
 			return (HttpAuthStatus){
 				.type = HttpAuthStatusTypeAuthorizationError,
 				.data = { .error = { .error_message =

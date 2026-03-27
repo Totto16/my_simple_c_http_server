@@ -245,9 +245,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 	IF_AUTHENTICATION_PROVIDER_IS_NOT_SIMPLE(*auth_provider) {
 
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
-			                               .data = { .error = { .error_message =
-			                                                        "Implementation error" } } };
+		return new_authentication_find_result_error("Implementation error");
 	}
 
 	const SimpleAuthenticationProviderData* const data =
@@ -257,25 +255,21 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 	    find_user_by_name_simple(data, username);
 
 	if(!entry) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
-			                               .data = {} };
+		return new_authentication_find_result_no_such_user();
 	}
 
 	const bool is_valid_pw = is_string_equal_to_hash_salted_string(
 	    data->settings, tstr_cstr(password), entry->value.hash_salted_password);
 
 	if(!is_valid_pw) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
-			                               .data = {} };
+		return new_authentication_find_result_wrong_password();
 	}
 
 	// TODO(Totto): maybe don't allocate this?
 	const AuthUser user = { .username = tstr_dup(&(entry->key)), .role = entry->value.role };
 
-	return (AuthenticationFindResult){
-		.validity = AuthenticationValidityOk,
-		.data = { .ok = { .provider_type = AuthenticationProviderTypeSimple, .user = user } }
-	};
+	return new_authentication_find_result_ok(
+	    (AuthUserWithContext){ .provider_type = AuthenticationProviderTypeSimple, .user = user });
 }
 
 #endif
@@ -620,18 +614,14 @@ authentication_provider_system_find_user_with_password_linux(
 
 	switch(user_response) {
 		case LinuxUserResponseNoSuchUser: {
-			return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
-				                               .data = {} };
+			return new_authentication_find_result_no_such_user();
 		}
 		case LinuxUserResponseOk: {
 			break;
 		}
 		case LinuxUserResponseError:
 		default: {
-			return (AuthenticationFindResult){
-				.validity = AuthenticationValidityError,
-				.data = { .error = { .error_message = "couldn't fetch user information" } }
-			};
+			return new_authentication_find_result_error("couldn't fetch user information");
 		}
 	}
 
@@ -641,20 +631,16 @@ authentication_provider_system_find_user_with_password_linux(
 	switch(pam_response) {
 
 		case PamUserResponseNoSuchUser: {
-			return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
-				                               .data = {} };
+			return new_authentication_find_result_no_such_user();
 		}
 		case PamUserResponseOk: {
 			break;
 		}
 		case PamUserResponseError: {
-			return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
-				                               .data = {} };
+			return new_authentication_find_result_wrong_password();
 		}
 		default: {
-			return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
-				                               .data = { .error = { .error_message =
-				                                                        "pam checking failed" } } };
+			return new_authentication_find_result_error("pam checking failed");
 		}
 	}
 
@@ -663,10 +649,8 @@ authentication_provider_system_find_user_with_password_linux(
 	// TODO(Totto): maybe don't allocate this?
 	const AuthUser user = { .username = tstr_dup(username), .role = role };
 
-	return (AuthenticationFindResult){
-		.validity = AuthenticationValidityOk,
-		.data = { .ok = { .provider_type = AuthenticationProviderTypeSystem, .user = user } }
-	};
+	return new_authentication_find_result_ok(
+	    (AuthUserWithContext){ .provider_type = AuthenticationProviderTypeSystem, .user = user });
 
 	#endif
 }
@@ -680,9 +664,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 
 	IF_AUTHENTICATION_PROVIDER_IS_NOT_SYSTEM(*auth_provider) {
 
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
-			                               .data = { .error = { .error_message =
-			                                                        "Implementation error" } } };
+		return new_authentication_find_result_error("Implementation error");
 	}
 
 #if defined(__linux__)
@@ -700,11 +682,19 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 
 NODISCARD static int8_t get_result_value_for_auth_result(const AuthenticationFindResult auth) {
 
-	switch(auth.validity) {
-		case AuthenticationValidityNoSuchUser: return 1;
-		case AuthenticationValidityWrongPassword: return 2;
-		case AuthenticationValidityOk: return 3;
-		case AuthenticationValidityError:
+	SWITCH_AUTHENTICATION_FIND_RESULT(auth) {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_NO_SUCH_USER {
+			return 1;
+		}
+		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD {
+			return 2;
+		}
+		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_IGN {
+			return 3;
+		}
+		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_IGN {
+			return 0;
+		}
 		default: {
 			return 0;
 		}
