@@ -195,7 +195,7 @@ void free_authentication_provider(AuthenticationProvider* const auth_provider) {
 			free(auth_provider);
 		}
 		break;
-		CASE_AUTHENTICATION_PROVIDER_IS_SYSTEM_MUT() {
+		CASE_AUTHENTICATION_PROVIDER_IS_SYSTEM() {
 			free(auth_provider);
 		}
 		break;
@@ -734,7 +734,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		AuthenticationFindResult result;
 
 		SWITCH_AUTHENTICATION_PROVIDER(*provider) {
-			CASE_AUTHENTICATION_PROVIDER_IS_SIMPLE_CONST(*provider) {
+			CASE_AUTHENTICATION_PROVIDER_IS_SIMPLE_IGN(*provider) {
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 				result = (AuthenticationFindResult){
 					.validity = AuthenticationValidityError,
@@ -747,7 +747,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 #endif
 			}
 			break;
-			CASE_AUTHENTICATION_PROVIDER_IS_SYSTEM_CONST() {
+			CASE_AUTHENTICATION_PROVIDER_IS_SYSTEM() {
 				result = authentication_provider_system_find_user_with_password(provider, username,
 				                                                                password);
 				break;
