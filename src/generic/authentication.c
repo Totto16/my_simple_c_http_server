@@ -683,16 +683,16 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 NODISCARD static int8_t get_result_value_for_auth_result(const AuthenticationFindResult auth) {
 
 	SWITCH_AUTHENTICATION_FIND_RESULT(auth) {
-		CASE_AUTHENTICATION_FIND_RESULT_IS_NO_SUCH_USER {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_NO_SUCH_USER() {
 			return 1;
 		}
-		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD() {
 			return 2;
 		}
-		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_IGN {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_IGN() {
 			return 3;
 		}
-		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_IGN {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_IGN() {
 			return 0;
 		}
 		default: {
@@ -724,13 +724,11 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		AuthenticationFindResult result;
 
 		SWITCH_AUTHENTICATION_PROVIDER(*provider) {
-			CASE_AUTHENTICATION_PROVIDER_IS_SIMPLE_IGN(*provider) {
+			CASE_AUTHENTICATION_PROVIDER_IS_SIMPLE_IGN() {
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
-				result = (AuthenticationFindResult){
-					.validity = AuthenticationValidityError,
-					.data = { .error = { .error_message = "not compiled with support for provider "
-					                                      "type simple" } }
-				};
+				result =
+				    new_authentication_find_result_error("not compiled with support for provider "
+				                                         "type simple");
 #else
 				result = authentication_provider_simple_find_user_with_password(provider, username,
 				                                                                password);
@@ -743,26 +741,23 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 				break;
 			}
 			default: {
-				result = (AuthenticationFindResult){
-					.validity = AuthenticationValidityError,
-					.data = { .error = { .error_message = "unrecognized provider type" } }
-				};
+				result = new_authentication_find_result_error("unrecognized provider type");
 				break;
 			}
 		}
 
 		// note: the clang analyzer is incoreect here, we return a item, that is malloced, but
 		// we free it everywhere, we use this function!
-		if(result.validity == AuthenticationValidityOk) { // NOLINT(clang-analyzer-unix.Malloc)
+		IF_AUTHENTICATION_FIND_RESULT_IS_OK_IGN(result) { // NOLINT(clang-analyzer-unix.Malloc)
 			TVEC_FREE(AuthenticationFindResult, &results);
 			return result;
 		}
 
-		if(result.validity == AuthenticationValidityError) {
+		IF_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(result) {
 			LOG_MESSAGE(LogLevelTrace, "Error in account find user, provider %s: %s\n",
 			            get_name_for_auth_provider_type(
 			                get_current_tag_type_for_authentication_provider(*provider)),
-			            result.data.error.error_message);
+			            error.message);
 		}
 
 		// TODO(Totto): remove all auto_ = things, properly return in that cases
@@ -772,10 +767,8 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 
 	const size_t results_length = TVEC_LENGTH(AuthenticationFindResult, results);
 
-	AuthenticationFindResult best_result = (AuthenticationFindResult){
-		.validity = AuthenticationValidityError,
-		.data = { .error = { .error_message = "no single provider registered" } }
-	};
+	AuthenticationFindResult best_result =
+	    new_authentication_find_result_error("no single provider registered");
 
 	for(size_t i = 0; i < results_length; ++i) {
 		const AuthenticationFindResult current_result =
