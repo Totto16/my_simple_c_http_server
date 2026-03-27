@@ -322,8 +322,7 @@ function generateEnumDeclaration(unionEnum: TaggedUnionEnum, member: TaggedMembe
 
     const underlyingType: CEnumType | null = resolveUnderlyingType(unionEnum.underlyingType, member.length)
 
-    return `
-/* @enum value */
+    return `/* @enum value */
 typedef enum${underlyingType === null ? "" : ` C_23_NARROW_ENUM_TO(${cTypeForEnum(underlyingType)})`} {
 	${member.map((mem, idx) => {
 
@@ -400,7 +399,7 @@ ${structBefore}{
 
 function generateUnnamedStruct(struct: TaggedTypeStruct, unnamedStructMap: UnnamedStructMap): string {
 
-    return `	typedef struct {
+    return `typedef struct {
 	${struct.struct.members.map(mem => {
         return `${mem.typeName} ${mem.name};`
     }).join("\n	")}
@@ -630,14 +629,14 @@ function generateCaseMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedS
     if (mem.type === null) {
 
         return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}()
-	case ${memberNameForEnum(mem, taggedUnion.enum.name)}: `
+	case ${memberNameForEnum(mem, taggedUnion.enum.name)}:`
 
     } else if (isSimpleTaggedType(mem.type)) {
 
         const nameTrickForCaseExpression: string = getNameTrickForCaseExpression(taggedUnion.name)
 
         return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
-	case ${memberNameForEnum(mem, taggedUnion.enum.name)}: 
+	case ${memberNameForEnum(mem, taggedUnion.enum.name)}:
 		for (bool ${nameTrickForCaseExpression} = true; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)
 			for (${mem.type.name}${cConstIf(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)`
 
@@ -648,11 +647,9 @@ function generateCaseMacro(mem: TaggedMember, taggedUnion: TaggedUnion, unnamedS
         const nameTrickForCaseExpression: string = getNameTrickForCaseExpression(taggedUnion.name)
 
         return `#define ${getCaseMacroName(taggedUnion.name, mem.name, mutable)}(variant_entry)
-	case ${memberNameForEnum(mem, taggedUnion.enum.name)}: 
+	case ${memberNameForEnum(mem, taggedUnion.enum.name)}:
 		for (bool ${nameTrickForCaseExpression} = true; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)
 			for (${getNameForUnnamedStruct(mem.type, unnamedStructMap)}${cConstIf(mutable)}${mem.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${mem.name.inner.snake_case()}; ${nameTrickForCaseExpression}; ${nameTrickForCaseExpression} = false)`
-
-
     }
 
 }
@@ -721,7 +718,6 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
 
     const declarations: string[] = [
-        generateEnumDeclaration(taggedUnion.enum, taggedUnion.member),
         ...taggedUnion.member.map((mem): string | null => {
             if (mem.type === null) {
                 return null;
@@ -743,16 +739,25 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
     const dataName: string = getUnionDataName(taggedUnion.name);
 
-    const generateMacro = (
-        `#define GENERATE_VARIANT_${taggedUnion.name.inner.MACRO_NAME()}
+    const generateMacroEnum = `#define GENERATE_VARIANT_ENUM_${taggedUnion.name.inner.MACRO_NAME()}()
+	${[generateEnumDeclaration(taggedUnion.enum, taggedUnion.member)].map(decl => decl.split("\n").join("\n	")).join("\n	\n")}`
+
+
+    const generateMacroCore = `#define GENERATE_VARIANT_CORE_${taggedUnion.name.inner.MACRO_NAME()}()
 	${declarations.map(decl => decl.split("\n").join("\n	")).join("\n	\n")}
 	
 	${functionsString.split("\n").join("\n	")}
 	
-	${generatePoisonPragma([getStateFunctionName(taggedUnion.name)])}`)
+	${generatePoisonPragma([getStateFunctionName(taggedUnion.name)])}`
+
+    const generateMacroAll = `#define GENERATE_VARIANT_ALL_${taggedUnion.name.inner.MACRO_NAME()}()
+	GENERATE_VARIANT_ENUM_${taggedUnion.name.inner.MACRO_NAME()}()
+	GENERATE_VARIANT_CORE_${taggedUnion.name.inner.MACRO_NAME()}()`
 
     const macros: string[] = [
-        generateMacro,
+        generateMacroEnum,
+        generateMacroCore,
+        generateMacroAll,
         ...taggedUnion.member.flatMap((mem): string[] => generateIfMacros(mem, taggedUnion, unnamedStructMap)),
         ...taggedUnion.member.map((mem): string => generateIfNotMacro(mem, taggedUnion)),
         generateSwitchMacro(taggedUnion),

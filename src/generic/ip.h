@@ -17,7 +17,7 @@ typedef struct {
 	struct in6_addr underlying; // this is in network order
 } IPV6Address;
 
-GENERATE_VARIANT_IP_ADDRESS
+GENERATE_VARIANT_ALL_IP_ADDRESS()
 
 NODISCARD IPAddress from_ipv4(struct in_addr address);
 

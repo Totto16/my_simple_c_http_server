@@ -23,7 +23,7 @@ typedef struct {
 	tstr username;
 } AccountOkData;
 
-GENERATE_VARIANT_ACCOUNT_INFO
+GENERATE_VARIANT_ALL_ACCOUNT_INFO()
 
 NODISCARD AccountInfo* alloc_default_account(void);
 
