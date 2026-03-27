@@ -634,7 +634,7 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
         return (["const", "mut", "ign"] as GeneratorVariant[]).map((variant): string => {
 
-            let result = `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(variant_entry)
+            let result = `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(${variant !== "ign" ? "variant_entry" : ""})
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(member, taggedUnion.enum.name)})`
 
             if (variant !== "ign") {
@@ -657,7 +657,7 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
         return (["const", "mut", "ign"] as GeneratorVariant[]).map((variant): string => {
 
-            let result = `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(variant_entry)
+            let result = `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(${variant !== "ign" ? "variant_entry" : ""})
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(member, taggedUnion.enum.name)})`
 
             if (variant !== "ign") {
@@ -707,7 +707,7 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
         return (["const", "mut", "ign"] as GeneratorVariant[]).map((variant): string => {
 
-            let result = `#define ${getCaseMacroName(taggedUnion.name, member.name, variant)}(variant_entry)
+            let result = `#define ${getCaseMacroName(taggedUnion.name, member.name, variant)}(${variant !== "ign" ? "variant_entry" : ""})
 	case ${memberNameForEnum(member, taggedUnion.enum.name)}:`
 
 
@@ -732,7 +732,7 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
         return (["const", "mut", "ign"] as GeneratorVariant[]).map((variant): string => {
 
-            let result = `#define ${getCaseMacroName(taggedUnion.name, member.name, variant)}(variant_entry)
+            let result = `#define ${getCaseMacroName(taggedUnion.name, member.name, variant)}(${variant !== "ign" ? "variant_entry" : ""})
 	case ${memberNameForEnum(member, taggedUnion.enum.name)}:`
 
 
