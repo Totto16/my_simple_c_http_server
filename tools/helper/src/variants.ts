@@ -560,6 +560,10 @@ function getStateFunctionName(name: TaggedName<"union">): string {
     return `${stateStrFNPrefix}${name.inner.snake_case()}`
 }
 
+function getTagTypeFunctionName(name: TaggedName<"union">): string {
+    return `get_current_tag_type_for_${name.inner.snake_case()}`
+}
+
 function generateFunctions(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
 
     return `static inline tstr_static ${getStateFunctionName(taggedUnion.name)}(${taggedUnion.enum.name.inner.PascalCase()} ${cConst} enum_value){
@@ -572,6 +576,10 @@ function generateFunctions(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedSt
 			return TSTR_STATIC_LIT("<unknown>");
 		}
 	}
+}
+
+static inline ${taggedUnion.enum.name.inner.PascalCase()} ${getTagTypeFunctionName(taggedUnion.name)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
+	return variant_entry.${getUnionTagName(taggedUnion.name)};
 }
 
 ${taggedUnion.member.map((mem): string => {

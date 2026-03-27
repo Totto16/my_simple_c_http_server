@@ -770,7 +770,8 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 
 		if(result.validity == AuthenticationValidityError) {
 			LOG_MESSAGE(LogLevelTrace, "Error in account find user, provider %s: %s\n",
-			            get_name_for_auth_provider_type(get_current_tag_type(provider->type)),
+			            get_name_for_auth_provider_type(
+			                get_current_tag_type_for_authentication_provider(*provider)),
 			            result.data.error.error_message);
 		}
 
