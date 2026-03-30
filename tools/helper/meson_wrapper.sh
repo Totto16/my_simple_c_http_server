@@ -89,5 +89,9 @@ if [ "$LINK_FILE" == "given" ]; then
 
     mkdir -p "$(dirname "$LINK_FILE_OUTPUT")"
 
+    if [ -e "$LINK_FILE_OUTPUT" ]; then
+        rm "$LINK_FILE_OUTPUT"
+    fi
+
     ln -sv "$(realpath "$LINK_FILE_INPUT")" "$LINK_FILE_OUTPUT"
 fi
