@@ -477,7 +477,8 @@ nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 		}
 		case FtpDataModeNone:
 		default: {
-			//TODO: what does this mean, check everywhere were we check for passive connection, as previously we used passive + port : 0 as the auto mode!!
+			// TODO: what does this mean, check everywhere were we check for passive connection, as
+			// previously we used passive + port : 0 as the auto mode!!
 			return new_connection_type_identifier_automatic();
 		}
 	}
@@ -592,15 +593,36 @@ NODISCARD static bool nts_internal_addr_eq(FTPConnectAddr addr1, FTPConnectAddr 
 NODISCARD static bool nts_internal_conn_identifier_eq(ConnectionTypeIdentifier ident1,
                                                       ConnectionTypeIdentifier ident2) {
 
-	if(ident1.is_active != ident2.is_active) {
-		return false;
-	}
+	SWITCH_CONNECTION_TYPE_IDENTIFIER(ident1) {
+		CASE_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_CONST(ident1) {
 
-	if(ident1.is_active) {
-		return nts_internal_addr_eq(ident1.data.addr, ident2.data.addr);
-	}
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_CONST(ident2, active_2) {
+				return nts_internal_addr_eq(active.addr, active_2.addr);
+			}
 
-	return ident1.data.port == ident2.data.port;
+			return false;
+		}
+		CASE_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(ident1) {
+
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(ident2, passive_2) {
+
+				return passive.port == passive_2.port;
+			}
+
+			return false;
+		}
+		CASE_CONNECTION_TYPE_IDENTIFIER_IS_AUTOMATIC() {
+
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_AUTOMATIC(ident2) {
+				return true;
+			}
+
+			return false;
+		}
+		default: {
+			return false;
+		}
+	}
 }
 
 NODISCARD DataConnection*

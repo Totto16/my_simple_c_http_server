@@ -659,17 +659,36 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
         const memberType: TaggedTypeSimple = member.type
 
-        return (["const", "mut", "ign"] as GeneratorVariant[]).map((variant): string => {
+        return (["const", "mut", "ign"] as GeneratorVariant[]).flatMap((variant): string[] => {
 
-            let result = `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(variant_entry)
+            const results: string[] = []
+
+            const mainName: string = getIfMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
+
+            let mainDef = `#define ${mainName}(variant_entry${variant !== "ign" ? `, var_name` : ""})
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(member, taggedUnion.enum.name)})`
 
             if (variant !== "ign") {
-                result += `		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
-			for (${memberType.name}${cConstConditional(variant === "mut")}${member.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
+                mainDef += `		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
+			for (${memberType.name}${cConstConditional(variant === "mut")}var_name = (variant_entry).${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
+                // macro alias for not using var_name
+
+                const helperName = getIfMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`);
+
+                const defaultArgName = getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
+
+                results.push(...[
+                    `#define ${helperName}(_1, _2, NAME, ...) NAME`,
+                    `#define ${defaultArgName}(variant_entry) ${mainName}(variant_entry, ${member.name.inner.snake_case()})`,
+                    `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(...)
+	${helperName}(__VA_ARGS__, ${mainName}, ${defaultArgName})(__VA_ARGS__)`
+
+                ])
             }
 
-            return result;
+            results.push(mainDef)
+
+            return results;
 
         });
 
@@ -682,17 +701,38 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
         const memberType: TaggedTypeStruct = member.type
 
-        return (["const", "mut", "ign"] as GeneratorVariant[]).map((variant): string => {
+        return (["const", "mut", "ign"] as GeneratorVariant[]).flatMap((variant): string[] => {
 
-            let result = `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(variant_entry)
+            const results: string[] = []
+
+            const mainName: string = getIfMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
+
+            let mainDef = `#define ${mainName}(variant_entry${variant !== "ign" ? `, var_name` : ""})
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(member, taggedUnion.enum.name)})`
 
             if (variant !== "ign") {
-                result += `		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
-			for (${getNameForUnnamedStruct(memberType, unnamedStructMap)}${cConstConditional(variant === "mut")}${member.name.inner.snake_case()} = (variant_entry).${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
+                mainDef += `		for (bool ${nameTrickForIfExpression} = true; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)
+			for (${getNameForUnnamedStruct(memberType, unnamedStructMap)}${cConstConditional(variant === "mut")}var_name = (variant_entry).${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
+
+                // macro alias for not using var_name
+
+                const helperName = getIfMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`);
+
+                const defaultArgName = getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
+
+                results.push(...[
+                    `#define ${helperName}(_1, _2, NAME, ...) NAME`,
+                    `#define ${defaultArgName}(variant_entry) ${mainName}(variant_entry, ${member.name.inner.snake_case()})`,
+                    `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(...)
+	${helperName}(__VA_ARGS__, ${mainName}, ${defaultArgName})(__VA_ARGS__)`
+
+                ])
+
             }
 
-            return result;
+            results.push(mainDef)
+
+            return results;
 
         });
     }
