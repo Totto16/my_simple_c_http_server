@@ -595,19 +595,19 @@ NODISCARD static bool nts_internal_conn_identifier_eq(ConnectionTypeIdentifier i
                                                       ConnectionTypeIdentifier ident2) {
 
 	SWITCH_CONNECTION_TYPE_IDENTIFIER(ident1) {
-		CASE_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_CONST(ident1) {
+		CASE_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_CONST(ident1, active_1) {
 
 			IF_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_CONST(ident2, active_2) {
-				return nts_internal_addr_eq(active.addr, active_2.addr);
+				return nts_internal_addr_eq(active_1.addr, active_2.addr);
 			}
 
 			return false;
 		}
-		CASE_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(ident1) {
+		CASE_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(ident1, passive_1) {
 
 			IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(ident2, passive_2) {
 
-				return passive.port == passive_2.port;
+				return passive_1.port == passive_2.port;
 			}
 
 			return false;
