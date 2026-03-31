@@ -245,26 +245,24 @@ function makeUnionName(name: CaseName): TaggedName<"union"> {
     return makeTaggedName<"union">("union", name)
 }
 
-function bestTypeForLength(len: number): CEnumType {
-
-
-    if (len < 2) {
+function bestEnumTypeForLength(len: number): CEnumType {
+    if (len < maxLengthForCEnumType("bool")) {
         throw new Error("Should not use tagged unions in this case")
     }
 
-    if (len == 2) {
+    if (len == maxLengthForCEnumType("bool")) {
         return "bool"
     }
 
-    if (len < (1 << 8)) {
+    if (len <= maxLengthForCEnumType("u8")) {
         return "u8"
     }
 
-    if (len < (1 << 16)) {
+    if (len <= maxLengthForCEnumType("u16")) {
         return "u16"
     }
 
-    if (len < (1 << 16)) {
+    if (len <= maxLengthForCEnumType("u32")) {
         return "u32"
     }
 
@@ -280,14 +278,39 @@ function bestTypeForLength(len: number): CEnumType {
 
 }
 
-function resolveUnderlyingType(original: CEnumType | "best_match" | null, memberLen: number): CEnumType | null {
+function resolveUnderlyingEnumType(original: CEnumType | "best_match" | null, memberLen: number): CEnumType | null {
 
     if (original === "best_match") {
-        return bestTypeForLength(memberLen)
+        return bestEnumTypeForLength(memberLen)
     }
 
     return original
 
+}
+
+function maxLengthForCEnumType(tpe: CEnumType): number {
+    switch (tpe) {
+        case "bool": {
+            return 2;
+        }
+        case "u8": {
+            return (1 << 8) - 1;
+        }
+        case "u16": {
+            return (1 << 16) - 1
+        }
+        case "u32": {
+            // note 1 << 32 want work, as it uses int32_t math, and thus that is wrong
+            return (0xFFFFFFFF) - 1;
+        }
+        case "u64": {
+            throw new Error("Unimplemented, length is huuuuuuge")
+
+        }
+        default: {
+            throw new Error("Unimplemented")
+        }
+    }
 }
 
 function cTypeForEnum(tpe: CEnumType): string {
@@ -320,7 +343,11 @@ function memberNameForEnum(member: TaggedMember, enumName: TaggedName<"enum">): 
 
 function generateEnumDeclaration(unionEnum: TaggedUnionEnum, member: TaggedMember[]): string {
 
-    const underlyingType: CEnumType | null = resolveUnderlyingType(unionEnum.underlyingType, member.length)
+    const underlyingType: CEnumType | null = resolveUnderlyingEnumType(unionEnum.underlyingType, member.length)
+
+    if (underlyingType !== null && maxLengthForCEnumType(underlyingType) < member.length) {
+        throw new Error(`Underlying enum type ${underlyingType} can#t fit ${member.length.toString()} members!`)
+    }
 
     return `/* @enum value */
 typedef enum${underlyingType === null ? "" : ` C_23_NARROW_ENUM_TO(${cTypeForEnum(underlyingType)})`} {
@@ -969,6 +996,38 @@ const globalTaggedUnions: TaggedUnion[] = [
         enum: {
             name: makeEnumName(CaseName.fromPascalCase("AuthenticationValidity")),
             underlyingType: "u8"
+        },
+        options: {}
+    },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("ConnectionTypeIdentifier")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Active")),
+                type: makeStructType([
+                    makeStructMember(
+                        "FTPConnectAddr",
+                        "addr",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Passive")),
+                type: makeStructType([
+                    makeStructMember(
+                        "FTPPortField",
+                        "port",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Automatic")),
+                type: null
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("ConnectionTypeIdentifierEnumType")),
+            underlyingType: "best_match"
         },
         options: {}
     },

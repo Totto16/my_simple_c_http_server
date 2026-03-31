@@ -52,13 +52,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	DataConnectionControlStateError
 } DataConnectionControlState;
 
-typedef struct {
-	bool is_active;
-	union {
-		FTPPortField port;
-		FTPConnectAddr addr;
-	} data;
-} ConnectionTypeIdentifier;
+GENERATE_VARIANT_ALL_CONNECTION_TYPE_IDENTIFIER()
 
 typedef struct {
 	int sock_fd;
@@ -109,7 +103,7 @@ static void free_data_connection(DataConnection* connection) {
 		return;
 	}
 
-	if(connection->identifier.is_active) {
+	IF_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_IGN(connection->identifier) {
 		free_active_data(connection->active_data);
 		//
 	}
@@ -231,14 +225,15 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 			DataConnection* current_conn =
 			    TVEC_AT(DataConnectionPtr, data_controller->connections, i);
 
-			if(!current_conn->identifier.is_active &&
-			   current_conn->identifier.data.port == port_metadata->port) {
-				connection = current_conn;
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(current_conn->identifier) {
+				if(passive.port == port_metadata->port) {
+					connection = current_conn;
 
-				if(port_metadata->associated_connection == NULL) {
-					port_metadata->associated_connection = current_conn;
+					if(port_metadata->associated_connection == NULL) {
+						port_metadata->associated_connection = current_conn;
+					}
+					break;
 				}
-				break;
 			}
 		}
 
@@ -252,8 +247,7 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 
 			// NOTE: no check is performed, if this is a duplicate
 
-			connection->identifier.is_active = false;
-			connection->identifier.data.port = port_metadata->port;
+			connection->identifier = new_connection_type_identifier_passive(port_metadata->port);
 			connection->state = DataConnectionStateEmpty;
 			connection->descriptor = NULL;
 			connection->control_state = DataConnectionControlStateMissing;
@@ -412,7 +406,7 @@ nts_internal_data_connections_to_close(DataController* const data_controller,
 			       current_conn) &&
 			   (filter == NULL || current_conn == filter)) {
 
-				if(!current_conn->identifier.is_active) {
+				IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_IGN(current_conn->identifier) {
 					// dealloc port
 
 					bool port_found = false;
@@ -476,16 +470,15 @@ nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 
 	switch(settings.mode) {
 		case FtpDataModeActive: {
-			return (ConnectionTypeIdentifier){ .is_active = true,
-				                               .data = { .addr = settings.addr } };
+			return new_connection_type_identifier_active(settings.addr);
 		}
 		case FtpDataModePassive: {
-			return (ConnectionTypeIdentifier){ .is_active = false,
-				                               .data = { .port = settings.addr.port } };
+			return new_connection_type_identifier_passive(settings.addr.port);
 		}
 		case FtpDataModeNone:
 		default: {
-			return (ConnectionTypeIdentifier){ .is_active = false, .data = { .port = 0 } };
+			//TODO: what does this mean, check everywhere were we check for passive connection, as previously we used passive + port : 0 as the auto mode!!
+			return new_connection_type_identifier_automatic();
 		}
 	}
 }
