@@ -1181,6 +1181,11 @@ do {
     const headerData = `
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #include <tstr.h>
 
 ${globalMacros.map(m => m.split("\n").join(" \\\n")).join("\n\n")}
@@ -1188,6 +1193,9 @@ ${globalMacros.map(m => m.split("\n").join(" \\\n")).join("\n\n")}
 
 ${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 
+#ifdef __cplusplus
+}
+#endif
 
 `
 
