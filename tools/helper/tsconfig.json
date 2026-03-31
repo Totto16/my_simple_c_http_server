@@ -5,7 +5,6 @@
 		"noImplicitOverride": true,
 		"noImplicitAny": true,
 		"module": "es2022",
-		"baseUrl": ".",
 		"target": "es2022",
 		"lib": [
 			"ES2022",
@@ -17,10 +16,10 @@
 		"allowJs": false,
 		"strict": true,
 		"strictNullChecks": true,
-		"moduleResolution": "node",
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
 		"noUnusedLocals": false,
+		"types": ["node"]
 	},
 	"exclude": [
 		"node_modules/"
