@@ -5,7 +5,6 @@ pnpm = find_program(
 
 helper_script_depend_files = files(
     'index.ts',
-    'package.json',
     'src/all_cases.ts',
     'src/compression.ts',
     'src/generator.ts',
@@ -15,7 +14,6 @@ helper_script_depend_files = files(
     'src/utils.ts',
     'src/variants.ts',
     'src/ws_tests.ts',
-    'tsconfig.json',
 )
 
 helper_script_depends = []
@@ -41,7 +39,7 @@ install_dependencies = custom_target(
         'error',
     ],
     output: ['install_dependencies_date.txt', 'pnpm-lock-link.yaml'],
-    depend_files: [helper_script_depend_files],
+    depend_files: ['package.json'],
 )
 helper_script_depends += install_dependencies
 
@@ -60,7 +58,7 @@ type_check_helper_script = custom_target(
         'tsconfig.json',
     ],
     output: ['typecheck_code_date.txt'],
-    depend_files: helper_script_depend_files,
+    depend_files: ['tsconfig.json'],
     depends: [install_dependencies],
 )
 helper_script_depends += type_check_helper_script
