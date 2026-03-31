@@ -422,6 +422,78 @@ function getStructInfo(taggedUnion: TaggedUnion): StructInfo {
     return ["typedef struct ", ` ${taggedUnion.name.inner.PascalCase()}`]
 }
 
+function getStaticAssertForAlignedAccess(taggedUnion:TaggedUnion):string[]{
+    return [`static_assert(false, "TODO: ${taggedUnion.name.inner.PascalCase()}");`]
+}
+
+
+type WhichAssert = "1" | "2"
+
+function getAssertStructName(unionName: TaggedName<"union">, which:WhichAssert):string{
+    return `AssertTypeImplFor${unionName.inner.PascalCase()}Impl_${which}_DONT_USE_`
+}
+
+function inverseStructOrder(structOrder:StructOrderResolved):StructOrderResolved{
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if(structOrder.first === "tag" && structOrder.second === "data"){
+        return {first:"data",second:"tag"}
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    }else  if(structOrder.first === "data" && structOrder.second === "tag"){
+        return {first:"tag",second:"data"}
+    }else{
+        throw new Error("UNREACHABLE")
+    }
+}
+
+function getStaticAssertForBestSize(taggedUnion:TaggedUnion,structOrder:StructOrderResolved):string[]{
+    
+    
+    const tagName: string = getUnionTagName(taggedUnion.name);
+
+    const dataName: string = getUnionDataName(taggedUnion.name);
+
+
+    return `typedef struct {
+	${generateStructType(structOrder, [
+        {name: dataName, value: unionNameFor(taggedUnion.name), type: "data"},
+        {name: tagName, value: taggedUnion.enum.name.inner.PascalCase(),type: "tag"}
+    ])}
+} ${getAssertStructName(taggedUnion.name, "1")};
+typedef struct {
+	${generateStructType(inverseStructOrder(structOrder), [
+        {name: dataName, value: unionNameFor(taggedUnion.name), type: "data"},
+        {name: tagName, value: taggedUnion.enum.name.inner.PascalCase(),type: "tag"}
+    ])}
+} ${getAssertStructName(taggedUnion.name, "2")};
+static_assert(sizeof(${getAssertStructName(taggedUnion.name, "1")}) <= sizeof(${getAssertStructName(taggedUnion.name, "2")}), "Size for variant ${taggedUnion.name.inner.PascalCase()} not smaller as the inverted order, current order: ${structOrder.first} is first");`.split("\n")
+}
+
+function generateStaticAsserts(taggedUnion:TaggedUnion, structOrder:StructOrderResolved):string{
+    const requirements = taggedUnion.options.requirements;
+    
+    if(requirements === undefined){
+        return ""
+    }
+
+    if(requirements.order === undefined){
+        return ""
+    }
+
+    let result = '	\n'
+
+    if(requirements.order === "aligned_access"){
+        result += getStaticAssertForAlignedAccess(taggedUnion).join('\n	');;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    }else if(requirements.order === "best_size"){
+        result += getStaticAssertForBestSize(taggedUnion, structOrder).join('\n	');;
+    }else{
+        throw new Error(`Unrecognized order requirement: ${requirements.order as string}`)
+    }
+
+    return result;
+
+}
+
 function generateVariantDeclaration(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap, structOrder: StructOrderResolved): string {
 
     const tagName: string = getUnionTagName(taggedUnion.name);
@@ -430,6 +502,7 @@ function generateVariantDeclaration(taggedUnion: TaggedUnion, unnamedStructMap: 
 
     const [structBefore, structAfter] = getStructInfo(taggedUnion)
 
+    const generatedStaticAsserts = generateStaticAsserts(taggedUnion, structOrder)
 
     return `	/* raw union for variant */
 	typedef union {
@@ -450,7 +523,7 @@ ${structBefore}{
         {name: dataName, value: unionNameFor(taggedUnion.name), type: "data"},
         {name: tagName, value: taggedUnion.enum.name.inner.PascalCase(),type: "tag"}
     ])}
-}${structAfter};`
+}${structAfter};${generatedStaticAsserts}`
 }
 
 
@@ -1125,7 +1198,11 @@ const globalTaggedUnions: TaggedUnion[] = [
             name: makeEnumName(CaseName.fromPascalCase("AccountState")),
             underlyingType: "u8"
         },
-        options: {}
+        options: {
+            requirements:{
+                order:"best_size"
+            }
+        }
     },
     {
         name: makeUnionName(CaseName.fromParts(["IP", "address"])),
@@ -1143,7 +1220,11 @@ const globalTaggedUnions: TaggedUnion[] = [
             name: makeEnumName(CaseName.fromParts(["IP", "protocol", "version"])),
             underlyingType: "u8"
         },
-        options: {}
+        options: {
+            requirements:{
+                order:"best_size"
+            }
+        }
     },
     {
         name: makeUnionName(CaseName.fromPascalCase("AuthenticationProvider")),
@@ -1162,7 +1243,10 @@ const globalTaggedUnions: TaggedUnion[] = [
             underlyingType: "u8"
         },
         options: {
-            rawStruct: CaseName.fromPascalCase("AuthenticationProviderImpl")
+            rawStruct: CaseName.fromPascalCase("AuthenticationProviderImpl"),
+            requirements:{
+                order:"best_size"
+            }
         }
     },
     {
@@ -1194,7 +1278,11 @@ const globalTaggedUnions: TaggedUnion[] = [
             name: makeEnumName(CaseName.fromPascalCase("AuthenticationValidity")),
             underlyingType: "u8"
         },
-        options: {}
+        options: {
+            requirements:{
+                order:"best_size"
+            }
+        }
     },
     {
         name: makeUnionName(CaseName.fromPascalCase("ConnectionTypeIdentifier")),
@@ -1226,7 +1314,11 @@ const globalTaggedUnions: TaggedUnion[] = [
             name: makeEnumName(CaseName.fromPascalCase("ConnectionTypeIdentifierEnumType")),
             underlyingType: "best_match"
         },
-        options: {}
+        options: {
+            requirements:{
+                order:"best_size"
+            }
+        }
     },
     {
         name: makeUnionName(CaseName.fromPascalCase("StaticTableFindResult")),
@@ -1258,7 +1350,11 @@ const globalTaggedUnions: TaggedUnion[] = [
             name: makeEnumName(CaseName.fromPascalCase("StaticTableFindResultType")),
             underlyingType: "u8"
         },
-        options: {}
+        options: {
+            requirements:{
+                order:"best_size"
+            }
+        }
     },
 ]
 
