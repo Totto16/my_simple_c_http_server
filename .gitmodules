@@ -4,8 +4,8 @@
 [submodule "tests/external/webserver-tester"]
 	path = tests/external/webserver-tester
 	url = https://github.com/ibnesayeed/webserver-tester/
-[submodule "tests/autobahn/testsuite"]
-	path = tests/autobahn/testsuite
+[submodule "tests/external/autobahn/testsuite"]
+	path = tests/external/autobahn/testsuite
 	url = https://github.com/crossbario/autobahn-testsuite
 [submodule "tests/external/h2spec"]
 	path = tests/external/h2spec
