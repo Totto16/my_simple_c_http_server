@@ -361,6 +361,10 @@ function memberNameForEnum(member: TaggedMember, enumName: TaggedName<"enum">): 
     return enumName.inner.combine(member.name.inner).PascalCase()
 }
 
+function unionNameFor(name:TaggedName<"union">):string{
+    return `_AnonymousUnionForVariant${name.inner.PascalCase()}Impl_DONT_USE`
+}
+
 
 function generateEnumDeclaration(unionEnum: TaggedUnionEnum, member: TaggedMember[]): string {
 
@@ -418,7 +422,7 @@ function getStructInfo(taggedUnion: TaggedUnion): StructInfo {
     return ["typedef struct ", ` ${taggedUnion.name.inner.PascalCase()}`]
 }
 
-function generateVariantDeclaration(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string {
+function generateVariantDeclaration(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap, structOrder: StructOrderResolved): string {
 
     const tagName: string = getUnionTagName(taggedUnion.name);
 
@@ -427,9 +431,8 @@ function generateVariantDeclaration(taggedUnion: TaggedUnion, unnamedStructMap: 
     const [structBefore, structAfter] = getStructInfo(taggedUnion)
 
 
-    return `	/* tagged union (variant) implementation */
-${structBefore}{
-	union {
+    return `	/* raw union for variant */
+	typedef union {
 		${taggedUnion.member.filter(mem => mem.type !== null).map((mem) => {
 
         if (mem.type === null) {
@@ -439,8 +442,14 @@ ${structBefore}{
         return `${typeForMember(mem.type, unnamedStructMap)} ${mem.name.inner.snake_case()};`.split("\n").join("\n		")
 
     }).join("\n		")}
-	} ${dataName};
-	${taggedUnion.enum.name.inner.PascalCase()} ${tagName};
+	} ${unionNameFor(taggedUnion.name)};
+
+	/* tagged union (variant) implementation */
+${structBefore}{
+	${generateStructType(structOrder, [
+        {name: dataName, value: unionNameFor(taggedUnion.name), type: "data"},
+        {name: tagName, value: taggedUnion.enum.name.inner.PascalCase(),type: "tag"}
+    ])}
 }${structAfter};`
 }
 
@@ -477,25 +486,28 @@ function cConstConditional(mutable: boolean): string {
 
 const inlineFunctionSpecifiers = "NODISCARD MAYBE_UNUSED static inline"
 
-interface StructValue { name: string, value: string }
+type StructValueType = "tag" | "data"
+
+interface StructValue { name: string, value: string, type:StructValueType }
 
 type StructValues = [first: StructValue, second: StructValue]
 
-interface StructOrderResolved {
-    first: string
-    second: string
+
+type  StructOrderResolved  = {
+    first: "tag"
+    second: "data"
+} | {
+    first: "data"
+    second: "tag"
 }
 
-function structOrderFor(unionName: TaggedName<"union">, what: Exclude<StructOrder, "auto">): StructOrderResolved {
-
-    const tagName = getUnionTagName(unionName)
-    const dataName = getUnionDataName(unionName)
+function structOrderFor(what: Exclude<StructOrder, "auto">): StructOrderResolved {
 
     if (what === "tag_first") {
-        return { first: tagName, second: dataName }
+        return { first: "tag", second: "data" }
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     } else if (what === "tag_second") {
-        return { first: dataName, second: tagName }
+        return { first: "data", second: "tag" }
     } else {
         throw new Error(`Unknown struct order string: ${what as string}`)
     }
@@ -506,24 +518,24 @@ function resolveStructOrder(taggedUnion: TaggedUnion): StructOrderResolved {
 
     if (taggedUnion.options.structOrder !== undefined) {
         if (taggedUnion.options.structOrder !== "auto") {
-            return structOrderFor(taggedUnion.name, taggedUnion.options.structOrder)
+            return structOrderFor(taggedUnion.options.structOrder)
         }
     }
 
     // use auto
     //TODO: use better heuristic
-    return structOrderFor(taggedUnion.name, "tag_first")
+    return structOrderFor( "tag_first")
 
 }
 
 function sortStructValues(structOrder: StructOrderResolved, values: StructValues): StructValues {
-    if (values[0].name === structOrder.first) {
-        assert(values[1].name === structOrder.second, "wrong struct member names")
+    if (values[0].type === structOrder.first) {
+        assert(values[1].type === structOrder.second, "wrong struct member types")
         return [values[0], values[1]]
     }
 
-    assert(values[1].name === structOrder.first, "wrong struct member names")
-    assert(values[0].name === structOrder.second, "wrong struct member names")
+    assert(values[1].type === structOrder.first, "wrong struct member types")
+    assert(values[0].type === structOrder.second, "wrong struct member types")
     return [values[1], values[0]]
 }
 
@@ -537,13 +549,24 @@ function initializeStruct(structOrder: StructOrderResolved, values: StructValues
 }
 
 
+function generateStructType(structOrder: StructOrderResolved, values: StructValues): string {
+
+    const sortedValues = sortStructValues(structOrder, values)
+
+    return sortedValues.map(({ name, value }): string => {
+        return `${value} ${name};`
+    }).join("\n	")
+}
+
+
+
 function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap, structOrder: StructOrderResolved): string {
 
     if (member.type === null) {
         return `${inlineFunctionSpecifiers} ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(void){
 	return (${taggedUnion.name.inner.PascalCase()}){ ${initializeStruct(structOrder, [
-            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name) },
-            { name: getUnionDataName(taggedUnion.name), value: "{ }" }
+            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name), type:"tag" },
+            { name: getUnionDataName(taggedUnion.name), value: `(${unionNameFor(taggedUnion.name)}){ }`, "type":"data" }
         ])} };
 }
 `
@@ -552,8 +575,8 @@ function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedU
     } else if (isSimpleTaggedType(member.type)) {
         return `${inlineFunctionSpecifiers} ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(${member.type.name} ${cConst} value){
 	return (${taggedUnion.name.inner.PascalCase()}){ ${initializeStruct(structOrder, [
-            { name: getUnionDataName(taggedUnion.name), value: `{ .${member.name.inner.snake_case()} = value }` },
-            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name) }
+        { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name),type:"tag" },
+        { name: getUnionDataName(taggedUnion.name), value: `(${unionNameFor(taggedUnion.name)}){ .${member.name.inner.snake_case()} = value }`,type:"data" },
         ])} };
 }
 `
@@ -567,12 +590,13 @@ function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedU
             return `${m.typeName} ${cConst} ${m.name}`
         }).join(", ")}){
 	return (${taggedUnion.name.inner.PascalCase()}){ ${initializeStruct(structOrder, [
+            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name) ,type:"tag"},
             {
-                name: getUnionDataName(taggedUnion.name), value: `{ .${member.name.inner.snake_case()} = (${getNameForUnnamedStruct(member.type, unnamedStructMap)}){ ${member.type.struct.members.map((m): string => {
+                name: getUnionDataName(taggedUnion.name), value: `(${unionNameFor(taggedUnion.name)}){ .${member.name.inner.snake_case()} = (${getNameForUnnamedStruct(member.type, unnamedStructMap)}){ ${member.type.struct.members.map((m): string => {
                     return `.${m.name} = ${m.name}`
                 }).join(", ")} } }`
-            },
-            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name) }
+         ,type:"data"   },
+        
         ])} };
 }
 `
@@ -1004,6 +1028,7 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
     const unnamedStructMap: UnnamedStructMap = generateUnnamedStructMap(taggedUnion);
 
+    const structOrder: StructOrderResolved = resolveStructOrder(taggedUnion)
 
     const declarations: string[] = [
         ...taggedUnion.member.map((mem): string | null => {
@@ -1018,10 +1043,8 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
             return generateUnnamedStruct(mem.type, unnamedStructMap)
 
         }).filter(m => m !== null),
-        generateVariantDeclaration(taggedUnion, unnamedStructMap)
+        generateVariantDeclaration(taggedUnion, unnamedStructMap, structOrder)
     ]
-
-    const structOrder: StructOrderResolved = resolveStructOrder(taggedUnion)
 
     const functionsString: string = generateFunctions(taggedUnion, unnamedStructMap, structOrder)
 
@@ -1054,7 +1077,6 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
         ...taggedUnion.member.flatMap((mem): string[] => generateCaseMacros(mem, taggedUnion, unnamedStructMap)),
     ]
 
-
     return (
         `#define ${getStateAssertNameFor(taggedUnion.name)}(state, expected_state) ${genericStateAssert}(state, expected_state, ${taggedUnion.name.inner.snake_case()}, ${toCStr(taggedUnion.name.inner.PascalCase())
         })
@@ -1067,7 +1089,9 @@ ${generatePoisonPragma([tagName, dataName,
             ...Object.values(unnamedStructMap).map((val): string => {
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 return val!
-            })])
+            }),
+            unionNameFor(taggedUnion.name)
+        ])
         }
 `)
 
