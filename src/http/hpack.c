@@ -2059,22 +2059,27 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 	const StaticTableFindResult static_table_find_result =
 	    hpack_generated_find_in_static_table_fast(field);
 
-	switch(static_table_find_result.type) {
-		case StaticTableFindResultTypeAllFound: {
+	SWITCH_STATIC_TABLE_FIND_RESULT(static_table_find_result) {
+		CASE_STATIC_TABLE_FIND_RESULT_IS_ALL_FOUND_CONST(static_table_find_result) {
 			return (TableFindResult){ .type = TableFindResultTypeAllFound,
-				                      .data = { .index = static_table_find_result.data.index } };
+				                      .data = { .index = all_found.index } };
 		}
-		case StaticTableFindResultTypeKeyFound: {
+		CASE_STATIC_TABLE_FIND_RESULT_IS_KEY_FOUND_CONST(static_table_find_result) {
 			// - store the key found result, maybe we find a better entry, so we use that,
 			// otherwise we use this entry
 			// - always overwrite the current result, since íf multiple entries match the key,
 			// it is irrelevant which entry we use
 
 			result = (TableFindResult){ .type = TableFindResultTypeKeyFound,
-				                        .data = { .index = static_table_find_result.data.index } };
+				                        .data = { .index = key_found.index } };
 			break;
 		}
-		case StaticTableFindResultTypeNotFound:
+		VARIANT_CASE_END();
+		CASE_STATIC_TABLE_FIND_RESULT_IS_NOT_FOUND() {
+			//
+			break;
+		}
+		VARIANT_CASE_END();
 		default: {
 			break;
 		}

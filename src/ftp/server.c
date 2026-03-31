@@ -84,6 +84,8 @@ static bool setup_relevant_signal_handlers(void) {
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
+//TODO: use some macro and pragma posion magic to enforce those types!
+
 ANY_TYPE(JobError*)
 ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg_ign,
                                       WorkerInfo worker_info) {

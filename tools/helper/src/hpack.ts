@@ -1675,6 +1675,8 @@ export async function generateHpackHuffmanCodeC(generatedHpackHuffmanFileH: stri
 
 #include <http/protocol.h>
 
+#include "variants.h"
+
 typedef struct HuffmanTreeImpl HuffmanTree;
 
 typedef struct HuffmanNodeImpl HuffmanNode;
@@ -1731,21 +1733,7 @@ ${generateFastStringCompareDecl("hpack_generated_is_common_field_key_fast_cmp")}
 
 NODISCARD bool hpack_generated_is_common_field_key_fast(tstr_view str_view);
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	StaticTableFindResultTypeNotFound = 0,
-	StaticTableFindResultTypeKeyFound,
-	StaticTableFindResultTypeAllFound,
-} StaticTableFindResultType;
-
-typedef struct {
-	StaticTableFindResultType type;
-	union {
-		size_t index;
-	} data;
-} StaticTableFindResult;
+GENERATE_VARIANT_ALL_STATIC_TABLE_FIND_RESULT()
 
 NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* field);
 `
@@ -1902,7 +1890,7 @@ NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const 
 	const FastStringCompareResult result = hpack_generated_is_key_of_static_table_fast_cmp(tstr_as_view(&field->key));
 
 	if(!result.found){
-		return (StaticTableFindResult){ .type = StaticTableFindResultTypeNotFound };
+		return new_static_table_find_result_not_found();
 	}
 
 	switch(result.index){
@@ -1923,15 +1911,15 @@ ${keyOfStaticTable.map((str, idx) => {
 
                 if (value.value === null) {
                     return `		case ${idx.toString()}: {
-			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index.toString()} } };
+			return new_static_table_find_result_key_found(${value.index.toString()});
 		}`
                 }
 
                 return `		case ${idx.toString()}: {
 			if(strncmp(tstr_cstr(&(field->value)), ${toCStr(value.value)}, ${value.value.length.toString()}) == 0){
-				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = ${value.index.toString()} } };
+				return new_static_table_find_result_all_found(${value.index.toString()});
 			}
-			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${value.index.toString()} } };
+			return new_static_table_find_result_key_found(${value.index.toString()});
 		}`
             }
 
@@ -1948,17 +1936,17 @@ ${keyOfStaticTable.map((str, idx) => {
                 return value.index.toString()
             }).join(", ")}};
 
-				return (StaticTableFindResult){ .type = StaticTableFindResultTypeAllFound, .data = { .index = index_map[value_cmp_res.index] } };
+				return new_static_table_find_result_all_found(index_map[value_cmp_res.index]);
 			}
-			return (StaticTableFindResult){ .type = StaticTableFindResultTypeKeyFound, .data = { .index = ${
+			return new_static_table_find_result_key_found(${
                 /* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */
-                values[0]!.index.toString()} } };
+                values[0]!.index.toString()});
 		}`
 
         }).join("\n")}
 		default: {
 			assert(false && "UNREACHABLE");
-			return (StaticTableFindResult){ .type = StaticTableFindResultTypeNotFound };
+			return new_static_table_find_result_not_found();
 		}
 	}
 }

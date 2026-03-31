@@ -131,42 +131,6 @@ else
 endif
 
 
-generated_hpack_huffman_file_c = custom_target(
-    'generated_hpack_huffman.c',
-    command: [
-        node_like_runtime,
-        '@CURRENT_SOURCE_DIR@',
-        'generator',
-        '--type',
-        'c_hpack_huffman',
-        '-o',
-        '@OUTPUT0@',
-    ],
-    output: ['generated_hpack_huffman.h', 'generated_hpack_huffman.c'],
-    depend_files: helper_script_depend_files,
-    depends: helper_script_depends,
-)
-
-src_files += generated_hpack_huffman_file_c
-
-generated_hpack_header_h = custom_target(
-    'generated_hpack.h',
-    command: [
-        node_like_runtime,
-        '@CURRENT_SOURCE_DIR@',
-        'generator',
-        '--type',
-        'c_header_table',
-        '-o',
-        '@OUTPUT0@',
-    ],
-    output: ['generated_hpack.h', 'generated_hpack.c'],
-    depend_files: helper_script_depend_files,
-    depends: helper_script_depends,
-)
-
-src_files += generated_hpack_header_h
-
 variants_generated = custom_target(
     'variants',
     command: [
@@ -184,6 +148,43 @@ variants_generated = custom_target(
 )
 
 src_files += variants_generated
+
+
+generated_hpack_huffman_file_c = custom_target(
+    'generated_hpack_huffman.c',
+    command: [
+        node_like_runtime,
+        '@CURRENT_SOURCE_DIR@',
+        'generator',
+        '--type',
+        'c_hpack_huffman',
+        '-o',
+        '@OUTPUT0@',
+    ],
+    output: ['generated_hpack_huffman.h', 'generated_hpack_huffman.c'],
+    depend_files: helper_script_depend_files,
+    depends: [helper_script_depends, variants_generated],
+)
+
+src_files += generated_hpack_huffman_file_c
+
+generated_hpack_header_h = custom_target(
+    'generated_hpack.h',
+    command: [
+        node_like_runtime,
+        '@CURRENT_SOURCE_DIR@',
+        'generator',
+        '--type',
+        'c_header_table',
+        '-o',
+        '@OUTPUT0@',
+    ],
+    output: ['generated_hpack.h', 'generated_hpack.c'],
+    depend_files: helper_script_depend_files,
+    depends: [helper_script_depends, variants_generated],
+)
+
+src_files += generated_hpack_header_h
 
 generated_hpack_file_cpp = custom_target(
     'generated_hpack_tests.hpp',

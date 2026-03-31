@@ -1111,6 +1111,38 @@ const globalTaggedUnions: TaggedUnion[] = [
         },
         options: {}
     },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("StaticTableFindResult")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("NotFound")),
+                type: null,
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("KeyFound")),
+                type: makeStructType([
+                    makeStructMember(
+                        "size_t",
+                        "index",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("AllFound")),
+                type:  makeStructType([
+                    makeStructMember(
+                        "size_t",
+                        "index",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("StaticTableFindResultType")),
+            underlyingType: "u8"
+        },
+        options: {}
+    },
 ]
 
 
