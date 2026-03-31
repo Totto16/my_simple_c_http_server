@@ -408,7 +408,6 @@ function generateVariantDeclaration(taggedUnion: TaggedUnion, unnamedStructMap: 
 
     return `	/* tagged union (variant) implementation */
 ${structBefore}{
-	${taggedUnion.enum.name.inner.PascalCase()} ${tagName};
 	union {
 		${taggedUnion.member.filter(mem => mem.type !== null).map((mem) => {
 
@@ -420,6 +419,7 @@ ${structBefore}{
 
     }).join("\n		")}
 	} ${dataName};
+	${taggedUnion.enum.name.inner.PascalCase()} ${tagName};
 }${structAfter};`
 }
 
@@ -468,7 +468,7 @@ function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedU
 
     } else if (isSimpleTaggedType(member.type)) {
         return `${inlineFunctionSpecifiers} ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(${member.type.name} ${cConst} value){
-	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(member, taggedUnion.enum.name)}, .${getUnionDataName(taggedUnion.name)} = { .${member.name.inner.snake_case()} = value } };
+	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionDataName(taggedUnion.name)} = { .${member.name.inner.snake_case()} = value } , .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(member, taggedUnion.enum.name)} };
 }
 `
 
@@ -480,9 +480,9 @@ function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedU
         return `${inlineFunctionSpecifiers} ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(${member.type.struct.members.map(m => {
             return `${m.typeName} ${cConst} ${m.name}`
         }).join(", ")}){
-	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(member, taggedUnion.enum.name)}, .${getUnionDataName(taggedUnion.name)} = { .${member.name.inner.snake_case()} = (${getNameForUnnamedStruct(member.type, unnamedStructMap)}){ ${member.type.struct.members.map((m): string => {
+	return (${taggedUnion.name.inner.PascalCase()}){ .${getUnionDataName(taggedUnion.name)} = { .${member.name.inner.snake_case()} = (${getNameForUnnamedStruct(member.type, unnamedStructMap)}){ ${member.type.struct.members.map((m): string => {
             return `.${m.name} = ${m.name}`
-        }).join(", ")} } } };
+        }).join(", ")} } }, .${getUnionTagName(taggedUnion.name)} = ${memberNameForEnum(member, taggedUnion.enum.name)} };
 }
 `
 
