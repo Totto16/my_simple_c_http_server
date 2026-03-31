@@ -1,5 +1,6 @@
 import path from "node:path"
 import { assert, isUTF8String, writeFileAndDirs } from "./utils.js"
+import type { Expect, Equal } from "type-testing"
 
 function isUpperCase(str: string): boolean {
     if (str.length != 1) {
@@ -230,19 +231,36 @@ function makeEnumName(name: CaseName): TaggedName<"enum"> {
     return makeTaggedName<"enum">("enum", name)
 }
 
+type StructOrderRequirement = "best_size" | "aligned_access"
+
+interface TaggedUnionRequirements {
+    order: StructOrderRequirement
+}
+
 type StructOrder = "auto" | "tag_first" | "tag_second"
 
 interface TaggedUnionOptions {
-    rawStruct?: CaseName | undefined
-    structOrder?: StructOrder | undefined
+    rawStruct: CaseName
+    structOrder: StructOrder
+    requirements: TaggedUnionRequirements
 }
+
+type IsOneOf<T, Arr extends unknown[]> = Arr extends [] ? false : Arr extends [infer A, ...infer Rest] ? A extends T ? true : IsOneOf<T, Rest> : false
+
+type DeepPartial<T, Ends extends unknown[] = []> = IsOneOf<T, Ends> extends true ? T : T extends object ? {
+    [P in keyof T]?: DeepPartial<T[P], Ends> | undefined
+} : T;
 
 interface TaggedUnion {
     name: TaggedName<"union">
     member: TaggedMember[]
     enum: TaggedUnionEnum
-    options: TaggedUnionOptions
+    options: DeepPartial<TaggedUnionOptions, [CaseName]>
 }
+
+type _type_assert_0 = Expect<Equal<IsOneOf<CaseName,[CaseName]>, true>>
+
+type _type_assert_1 = Expect<Equal<(DeepPartial<TaggedUnionOptions, [CaseName]>["rawStruct"]), CaseName|undefined>>
 
 function makeUnionName(name: CaseName): TaggedName<"union"> {
     return makeTaggedName<"union">("union", name)

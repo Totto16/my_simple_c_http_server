@@ -15,7 +15,8 @@
 		"eslint": "^10.1.0",
 		"jiti": "^2.6.1",
 		"typescript": "^5.9.3",
-		"typescript-eslint": "^8.57.2"
+		"typescript-eslint": "^8.57.2",
+		"type-testing": "^0.2.0"
 	},
 	"dependencies": {
 		"@actions/core": "^3.0.0"
