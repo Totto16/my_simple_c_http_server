@@ -479,13 +479,13 @@ function generateStaticAsserts(taggedUnion:TaggedUnion, structOrder:StructOrderR
         return ""
     }
 
-    let result = '	\n'
+    let result = '\n	'
 
     if(requirements.order === "aligned_access"){
-        result += getStaticAssertForAlignedAccess(taggedUnion).join('\n	');;
+        result += getStaticAssertForAlignedAccess(taggedUnion).join('\n	');
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     }else if(requirements.order === "best_size"){
-        result += getStaticAssertForBestSize(taggedUnion, structOrder).join('\n	');;
+        result += getStaticAssertForBestSize(taggedUnion, structOrder).join('\n	');
     }else{
         throw new Error(`Unrecognized order requirement: ${requirements.order as string}`)
     }
@@ -1163,7 +1163,10 @@ ${generatePoisonPragma([tagName, dataName,
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 return val!
             }),
-            unionNameFor(taggedUnion.name)
+            unionNameFor(taggedUnion.name),
+            ...(["1","2"] as WhichAssert[]).map((w:WhichAssert):string=>{
+                return getAssertStructName(taggedUnion.name, w)
+            })
         ])
         }
 `)
