@@ -258,9 +258,9 @@ interface TaggedUnion {
     options: DeepPartial<TaggedUnionOptions, [CaseName]>
 }
 
-type _type_assert_0 = Expect<Equal<IsOneOf<CaseName,[CaseName]>, true>>
+type _type_assert_0 = Expect<Equal<IsOneOf<CaseName, [CaseName]>, true>>
 
-type _type_assert_1 = Expect<Equal<(DeepPartial<TaggedUnionOptions, [CaseName]>["rawStruct"]), CaseName|undefined>>
+type _type_assert_1 = Expect<Equal<(DeepPartial<TaggedUnionOptions, [CaseName]>["rawStruct"]), CaseName | undefined>>
 
 function makeUnionName(name: CaseName): TaggedName<"union"> {
     return makeTaggedName<"union">("union", name)
@@ -361,7 +361,7 @@ function memberNameForEnum(member: TaggedMember, enumName: TaggedName<"enum">): 
     return enumName.inner.combine(member.name.inner).PascalCase()
 }
 
-function unionNameFor(name:TaggedName<"union">):string{
+function unionNameFor(name: TaggedName<"union">): string {
     return `_AnonymousUnionForVariant${name.inner.PascalCase()}Impl_DONT_USE`
 }
 
@@ -422,32 +422,32 @@ function getStructInfo(taggedUnion: TaggedUnion): StructInfo {
     return ["typedef struct ", ` ${taggedUnion.name.inner.PascalCase()}`]
 }
 
-function getStaticAssertForAlignedAccess(taggedUnion:TaggedUnion):string[]{
+function getStaticAssertForAlignedAccess(taggedUnion: TaggedUnion): string[] {
     return [`static_assert(false, "TODO: ${taggedUnion.name.inner.PascalCase()}");`]
 }
 
 
 type WhichAssert = "1" | "2"
 
-function getAssertStructName(unionName: TaggedName<"union">, which:WhichAssert):string{
+function getAssertStructName(unionName: TaggedName<"union">, which: WhichAssert): string {
     return `AssertTypeImplFor${unionName.inner.PascalCase()}Impl_${which}_DONT_USE_`
 }
 
-function inverseStructOrder(structOrder:StructOrderResolved):StructOrderResolved{
+function inverseStructOrder(structOrder: StructOrderResolved): StructOrderResolved {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if(structOrder.first === "tag" && structOrder.second === "data"){
-        return {first:"data",second:"tag"}
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    }else  if(structOrder.first === "data" && structOrder.second === "tag"){
-        return {first:"tag",second:"data"}
-    }else{
+    if (structOrder.first === "tag" && structOrder.second === "data") {
+        return { first: "data", second: "tag" }
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    } else if (structOrder.first === "data" && structOrder.second === "tag") {
+        return { first: "tag", second: "data" }
+    } else {
         throw new Error("UNREACHABLE")
     }
 }
 
-function getStaticAssertForBestSize(taggedUnion:TaggedUnion,structOrder:StructOrderResolved):string[]{
-    
-    
+function getStaticAssertForBestSize(taggedUnion: TaggedUnion, structOrder: StructOrderResolved): string[] {
+
+
     const tagName: string = getUnionTagName(taggedUnion.name);
 
     const dataName: string = getUnionDataName(taggedUnion.name);
@@ -455,38 +455,38 @@ function getStaticAssertForBestSize(taggedUnion:TaggedUnion,structOrder:StructOr
 
     return `typedef struct {
 	${generateStructType(structOrder, [
-        {name: dataName, value: unionNameFor(taggedUnion.name), type: "data"},
-        {name: tagName, value: taggedUnion.enum.name.inner.PascalCase(),type: "tag"}
+        { name: dataName, value: unionNameFor(taggedUnion.name), type: "data" },
+        { name: tagName, value: taggedUnion.enum.name.inner.PascalCase(), type: "tag" }
     ])}
 } ${getAssertStructName(taggedUnion.name, "1")};
 typedef struct {
 	${generateStructType(inverseStructOrder(structOrder), [
-        {name: dataName, value: unionNameFor(taggedUnion.name), type: "data"},
-        {name: tagName, value: taggedUnion.enum.name.inner.PascalCase(),type: "tag"}
+        { name: dataName, value: unionNameFor(taggedUnion.name), type: "data" },
+        { name: tagName, value: taggedUnion.enum.name.inner.PascalCase(), type: "tag" }
     ])}
 } ${getAssertStructName(taggedUnion.name, "2")};
 static_assert(sizeof(${getAssertStructName(taggedUnion.name, "1")}) <= sizeof(${getAssertStructName(taggedUnion.name, "2")}), "Size for variant ${taggedUnion.name.inner.PascalCase()} not smaller as the inverted order, current order: ${structOrder.first} is first");`.split("\n")
 }
 
-function generateStaticAsserts(taggedUnion:TaggedUnion, structOrder:StructOrderResolved):string{
+function generateStaticAsserts(taggedUnion: TaggedUnion, structOrder: StructOrderResolved): string {
     const requirements = taggedUnion.options.requirements;
-    
-    if(requirements === undefined){
+
+    if (requirements === undefined) {
         return ""
     }
 
-    if(requirements.order === undefined){
+    if (requirements.order === undefined) {
         return ""
     }
 
     let result = '\n	'
 
-    if(requirements.order === "aligned_access"){
+    if (requirements.order === "aligned_access") {
         result += getStaticAssertForAlignedAccess(taggedUnion).join('\n	');
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    }else if(requirements.order === "best_size"){
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    } else if (requirements.order === "best_size") {
         result += getStaticAssertForBestSize(taggedUnion, structOrder).join('\n	');
-    }else{
+    } else {
         throw new Error(`Unrecognized order requirement: ${requirements.order as string}`)
     }
 
@@ -520,8 +520,8 @@ function generateVariantDeclaration(taggedUnion: TaggedUnion, unnamedStructMap: 
 	/* tagged union (variant) implementation */
 ${structBefore}{
 	${generateStructType(structOrder, [
-        {name: dataName, value: unionNameFor(taggedUnion.name), type: "data"},
-        {name: tagName, value: taggedUnion.enum.name.inner.PascalCase(),type: "tag"}
+        { name: dataName, value: unionNameFor(taggedUnion.name), type: "data" },
+        { name: tagName, value: taggedUnion.enum.name.inner.PascalCase(), type: "tag" }
     ])}
 }${structAfter};${generatedStaticAsserts}`
 }
@@ -561,12 +561,12 @@ const inlineFunctionSpecifiers = "NODISCARD MAYBE_UNUSED static inline"
 
 type StructValueType = "tag" | "data"
 
-interface StructValue { name: string, value: string, type:StructValueType }
+interface StructValue { name: string, value: string, type: StructValueType }
 
 type StructValues = [first: StructValue, second: StructValue]
 
 
-type  StructOrderResolved  = {
+type StructOrderResolved = {
     first: "tag"
     second: "data"
 } | {
@@ -597,7 +597,7 @@ function resolveStructOrder(taggedUnion: TaggedUnion): StructOrderResolved {
 
     // use auto
     //TODO: use better heuristic
-    return structOrderFor( "tag_first")
+    return structOrderFor("tag_first")
 
 }
 
@@ -638,8 +638,8 @@ function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedU
     if (member.type === null) {
         return `${inlineFunctionSpecifiers} ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(void){
 	return (${taggedUnion.name.inner.PascalCase()}){ ${initializeStruct(structOrder, [
-            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name), type:"tag" },
-            { name: getUnionDataName(taggedUnion.name), value: `(${unionNameFor(taggedUnion.name)}){ }`, "type":"data" }
+            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name), type: "tag" },
+            { name: getUnionDataName(taggedUnion.name), value: `(${unionNameFor(taggedUnion.name)}){ }`, "type": "data" }
         ])} };
 }
 `
@@ -648,8 +648,8 @@ function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedU
     } else if (isSimpleTaggedType(member.type)) {
         return `${inlineFunctionSpecifiers} ${taggedUnion.name.inner.PascalCase()} ${functionForNewVariant(member, taggedUnion)}(${member.type.name} ${cConst} value){
 	return (${taggedUnion.name.inner.PascalCase()}){ ${initializeStruct(structOrder, [
-        { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name),type:"tag" },
-        { name: getUnionDataName(taggedUnion.name), value: `(${unionNameFor(taggedUnion.name)}){ .${member.name.inner.snake_case()} = value }`,type:"data" },
+            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name), type: "tag" },
+            { name: getUnionDataName(taggedUnion.name), value: `(${unionNameFor(taggedUnion.name)}){ .${member.name.inner.snake_case()} = value }`, type: "data" },
         ])} };
 }
 `
@@ -663,13 +663,14 @@ function generateNewFunctionForMember(member: TaggedMember, taggedUnion: TaggedU
             return `${m.typeName} ${cConst} ${m.name}`
         }).join(", ")}){
 	return (${taggedUnion.name.inner.PascalCase()}){ ${initializeStruct(structOrder, [
-            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name) ,type:"tag"},
+            { name: getUnionTagName(taggedUnion.name), value: memberNameForEnum(member, taggedUnion.enum.name), type: "tag" },
             {
                 name: getUnionDataName(taggedUnion.name), value: `(${unionNameFor(taggedUnion.name)}){ .${member.name.inner.snake_case()} = (${getNameForUnnamedStruct(member.type, unnamedStructMap)}){ ${member.type.struct.members.map((m): string => {
                     return `.${m.name} = ${m.name}`
                 }).join(", ")} } }`
-         ,type:"data"   },
-        
+                , type: "data"
+            },
+
         ])} };
 }
 `
@@ -1164,7 +1165,7 @@ ${generatePoisonPragma([tagName, dataName,
                 return val!
             }),
             unionNameFor(taggedUnion.name),
-            ...(["1","2"] as WhichAssert[]).map((w:WhichAssert):string=>{
+            ...(["1", "2"] as WhichAssert[]).map((w: WhichAssert): string => {
                 return getAssertStructName(taggedUnion.name, w)
             })
         ])
@@ -1202,8 +1203,8 @@ const globalTaggedUnions: TaggedUnion[] = [
             underlyingType: "u8"
         },
         options: {
-            requirements:{
-                order:"best_size"
+            requirements: {
+                order: "best_size"
             }
         }
     },
@@ -1224,8 +1225,8 @@ const globalTaggedUnions: TaggedUnion[] = [
             underlyingType: "u8"
         },
         options: {
-            requirements:{
-                order:"best_size"
+            requirements: {
+                order: "best_size"
             }
         }
     },
@@ -1247,8 +1248,8 @@ const globalTaggedUnions: TaggedUnion[] = [
         },
         options: {
             rawStruct: CaseName.fromPascalCase("AuthenticationProviderImpl"),
-            requirements:{
-                order:"best_size"
+            requirements: {
+                order: "best_size"
             }
         }
     },
@@ -1282,8 +1283,8 @@ const globalTaggedUnions: TaggedUnion[] = [
             underlyingType: "u8"
         },
         options: {
-            requirements:{
-                order:"best_size"
+            requirements: {
+                order: "best_size"
             }
         }
     },
@@ -1318,8 +1319,8 @@ const globalTaggedUnions: TaggedUnion[] = [
             underlyingType: "best_match"
         },
         options: {
-            requirements:{
-                order:"best_size"
+            requirements: {
+                order: "best_size"
             }
         }
     },
@@ -1354,8 +1355,8 @@ const globalTaggedUnions: TaggedUnion[] = [
             underlyingType: "u8"
         },
         options: {
-            requirements:{
-                order:"best_size"
+            requirements: {
+                order: "best_size"
             }
         }
     },
