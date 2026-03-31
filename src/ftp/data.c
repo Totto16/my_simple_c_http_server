@@ -78,7 +78,8 @@ struct DataConnectionImpl {
 	// data, dependend on state
 	ConnectionDescriptor* descriptor;
 	ConnectionTypeIdentifier identifier;
-	// active only data
+	// TODO(Totto): move into another variant, so that access is correct!
+	//  active only data
 	ActiveConnectionData* active_data;
 	// passive only data
 	pthread_t associated_thread;
@@ -638,9 +639,17 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 	{
 
-		ConnectionTypeIdentifier identifier = nts_internal_conn_identifier_from_settings(settings);
+		const ConnectionTypeIdentifier identifier =
+		    nts_internal_conn_identifier_from_settings(settings);
 
-		if(!identifier.is_active && identifier.data.port == 0) {
+		IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(identifier) {
+			if(passive.port == 0) {
+				goto cleanup;
+			}
+		}
+
+		// TODO: is this correct here?!
+		IF_CONNECTION_TYPE_IDENTIFIER_IS_AUTOMATIC(identifier) {
 			goto cleanup;
 		}
 
@@ -680,35 +689,36 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 					}
 				}
 
-				if(current_conn // NOLINT(readability-implicit-bool-conversion)
-				       ->identifier.is_active &&
-				   current_conn->active_data != NULL) {
+				IF_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_IGN(current_conn->identifier) {
+					// TODO(Totto): use variant rather than manual access to always present field
+					if(current_conn->active_data != NULL) {
 
-					if(!nts_internal_try_if_active_connection_is_connected(
-					       current_conn->active_data)) {
-						goto cleanup;
-					}
+						if(!nts_internal_try_if_active_connection_is_connected(
+						       current_conn->active_data)) {
+							goto cleanup;
+						}
 
-					if(current_conn->active_data->is_connected) {
-						connection = current_conn;
-						connection->state = DataConnectionStateHasBoth;
-						connection->control_state = DataConnectionControlStateRetrieved;
-						bool ignore = nts_internal_set_last_change_to_now(connection);
-						UNUSED(ignore);
+						if(current_conn->active_data->is_connected) {
+							connection = current_conn;
+							connection->state = DataConnectionStateHasBoth;
+							connection->control_state = DataConnectionControlStateRetrieved;
+							bool ignore = nts_internal_set_last_change_to_now(connection);
+							UNUSED(ignore);
 
-						// TODO(Totto): where do we get eventual ssl conetxts here?
-						const SecureOptions* const options = initialize_secure_options(
-						    false, tstr_static_null(), tstr_static_null());
+							// TODO(Totto): where do we get eventual ssl conetxts here?
+							const SecureOptions* const options = initialize_secure_options(
+							    false, tstr_static_null(), tstr_static_null());
 
-						ConnectionContext* context = get_connection_context(options);
+							ConnectionContext* context = get_connection_context(options);
 
-						ConnectionDescriptor* const descriptor = get_connection_descriptor(
-						    context, connection->active_data->value.conn_data.sock_fd);
+							ConnectionDescriptor* const descriptor = get_connection_descriptor(
+							    context, connection->active_data->value.conn_data.sock_fd);
 
-						connection->descriptor = descriptor;
-						// TODO(Totto): free appropriately
-						connection->active_data = NULL;
-						goto cleanup;
+							connection->descriptor = descriptor;
+							// TODO(Totto): free appropriately
+							connection->active_data = NULL;
+							goto cleanup;
+						}
 					}
 				}
 
@@ -750,12 +760,12 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 			connection = NULL;
 
-			if(identifier.is_active) {
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_CONST(identifier) {
 
 				// setup connect_data
 
-				ActiveConnectionData* active_data =
-				    nts_internal_setup_new_active_connection(identifier.data.addr);
+				ActiveConnectionData* const active_data =
+				    nts_internal_setup_new_active_connection(active.addr);
 
 				if(active_data == NULL) {
 					goto cleanup;
