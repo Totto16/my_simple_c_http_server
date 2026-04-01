@@ -131,15 +131,16 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 		}
 	}
 
-	ParsedRequestURIResult uri_result = parse_request_uri(path);
+	const ParsedRequestUriResult uri_result = parse_request_uri(path);
 
-	if(uri_result.is_error) {
+	IF_PARSED_REQUEST_URI_RESULT_IS_ERROR_CONST(uri_result) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-		            "Invalid uri in HTTP request: %s\n", uri_result.value.error);
+		            "Invalid uri in HTTP request: " TSTR_FMT "\n",
+		            TSTR_STATIC_FMT_ARGS(error.error));
 		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeUriError };
 	}
 
-	result.uri = uri_result.value.uri;
+	result.uri = parsed_request_uri_result_get_as_ok(uri_result).uri;
 
 	bool success = false;
 

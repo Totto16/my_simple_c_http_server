@@ -371,4 +371,5 @@ export const globalTaggedUnions: TaggedUnion[] = [
         }
     },
     makeErrorVariant("HttpBodyReadResult", "SizedBuffer", "body"),
+    makeErrorVariant("ParsedRequestUriResult", "ParsedRequestURI", "uri"),
 ]

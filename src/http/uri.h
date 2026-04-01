@@ -65,13 +65,7 @@ typedef struct {
 	} data;
 } ParsedRequestURI;
 
-typedef struct {
-	bool is_error;
-	union {
-		const char* error;
-		ParsedRequestURI uri;
-	} value;
-} ParsedRequestURIResult;
+GENERATE_VARIANT_ALL_PARSED_REQUEST_URI_RESULT()
 
 NODISCARD ParsedURLPath parse_url_path(tstr_view path);
 
@@ -90,7 +84,7 @@ NODISCARD AuthorityResult parse_authority(tstr_view str);
  * @param path
  * @return ParsedRequestURIResult
  */
-NODISCARD ParsedRequestURIResult parse_request_uri(tstr_view path);
+NODISCARD ParsedRequestUriResult parse_request_uri(tstr_view path);
 
 void free_parsed_request_uri(ParsedRequestURI uri);
 
