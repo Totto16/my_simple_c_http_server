@@ -1,5 +1,6 @@
 import { subcommandGenerator, subcommandWsTests } from "./src/subcommands.js"
-import url from 'node:url';
+import { getThisPackageFile } from "./src/utils.js";
+
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -16,27 +17,7 @@ function isCallingThisScript(value: string): boolean {
             return false;
         }
 
-        const __filename = url.fileURLToPath(import.meta.url);
-
-        const ext = path.extname(__filename);
-
-        const __dirname = path.dirname(__filename);
-
-        let thisPkgRoot = __dirname;
-
-        if (ext === '.js') {
-            thisPkgRoot = path.join(__dirname, "..")
-        } else if (ext === ".ts") {
-            thisPkgRoot = __dirname;
-        } else {
-            throw new Error(`Invalid extension: ${ext}`)
-        }
-
-        const thisPackageJson = path.join(thisPkgRoot, "package.json")
-
-        if (!fs.existsSync(thisPackageJson)) {
-            throw new Error(`Invalid local package detection`)
-        }
+        const thisPackageJson = getThisPackageFile()
 
         return thisPackageJson == packageJson;
 

@@ -335,7 +335,7 @@
 
 
 import path from "node:path"
-import { assert, BitArray, getBitArrayFromBits, getOtherFile, isUTF8String, numberArrayIsEq, writeFileAndDirs } from "./utils.js"
+import { addGenerateMacros, assert, BitArray, getBitArrayFromBits, getOtherFile, isUTF8String, numberArrayIsEq, writeFileAndDirs } from "./utils.js"
 
 interface RawHuffmanCode {
     sym: number,
@@ -1669,6 +1669,8 @@ export async function generateHpackHuffmanCodeC(generatedHpackHuffmanFileH: stri
     const headerData = `
 #pragma once
 
+${addGenerateMacros("hpack huffman code")}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1772,6 +1774,8 @@ NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const 
 
     const cFileData = `
 #include "./${path.basename(generatedHpackHuffmanFileH)}"
+
+${addGenerateMacros("hpack huffman code")}
 
 #define HUFFMAN_NODE_AMOUNT ${nodeAmount.toString()}
 
@@ -2005,6 +2009,8 @@ export async function generateHpackHeaderTableCodeH(generatedHpackHeaderTableH: 
     const headerData = `
 #pragma once
 
+${addGenerateMacros("hpack header table code")}
+
 #include "utils/utils.h"
 #include <tstr.h>
 
@@ -2026,6 +2032,8 @@ void free_hpack_static_header_table_entries(HpackHeaderStaticEntry* entries);
 
     const cFileData = `
 #include "./${path.basename(generatedHpackHeaderTableH)}"
+
+${addGenerateMacros("hpack header table code")}
 
 NODISCARD HpackHeaderStaticEntry* get_hpack_static_header_table_entries(void){
 
@@ -2363,6 +2371,8 @@ export async function generateHpackTestCasesCPP(generatedHpackTestCasesFileHPP: 
     const hppData = `
 #pragma once
 
+${addGenerateMacros("hpack test cases C++")}
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -2411,6 +2421,7 @@ extern "C" {
     const cppData = `
 #include "./${path.basename(generatedHpackTestCasesFileHPP)}"
 
+${addGenerateMacros("hpack test cases C++")}
 
 std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
 	return std::vector<std::string>{${fastStringCompareTestData.map((str): string => toCStr(str)).join(", ")}};
@@ -2425,6 +2436,8 @@ std::vector<std::string> generated::c_test_fns::get_test_data_strings(){
 
     const cData = `
 #include "generated_hpack_huffman.h"
+
+${addGenerateMacros("hpack test cases C")}
 
 ${generateFastStringCompareDecl("generated_c_test_fns_fast_string_compare_test_data")}
 

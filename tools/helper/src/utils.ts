@@ -1,6 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import fsAsync from "node:fs/promises"
+import url from 'node:url';
 
 export class BitArray {
     private _size: number
@@ -195,4 +196,113 @@ export function isUTF8String(text: string): boolean {
     const array = new TextEncoder().encode(text)
 
     return array.length != text.length;
+}
+
+export function getThisPackageFile(): string {
+    const __filename = url.fileURLToPath(import.meta.url);
+
+    const ext = path.extname(__filename);
+
+    const __dirname = path.dirname(__filename);
+
+    let thisPkgRoot: string;
+
+    if (ext === '.js') {
+        thisPkgRoot = path.join(__dirname, "..", "..")
+    } else if (ext === ".ts") {
+        thisPkgRoot = path.join(__dirname, "..");
+    } else {
+        throw new Error(`Invalid extension: ${ext}`)
+    }
+
+    const thisPackageJson = path.join(thisPkgRoot, "package.json")
+
+    if (!fs.existsSync(thisPackageJson)) {
+        throw new Error(`Invalid local package detection`)
+    }
+
+
+    return thisPackageJson
+}
+
+
+function getAllFilesInDir(dir: string): string[] {
+    if (!path.isAbsolute(dir)) {
+        throw new Error(`Got non absolute dir: ${dir}`)
+    }
+
+    const st = fs.statSync(dir, { throwIfNoEntry: true })
+
+    if (!st.isDirectory()) {
+        throw new Error(`Not a dir: ${dir}`)
+    }
+
+    const result: string[] = []
+
+    const dirHandle = fs.opendirSync(dir, { recursive: true })
+
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    while (true) {
+        const dirEnt = dirHandle.readSync();
+
+        if (dirEnt === null) {
+            break;
+        }
+
+        if (dirEnt.isDirectory()) {
+            continue;
+        }
+
+        result.push(path.join(dirEnt.parentPath, dirEnt.name))
+    }
+
+    dirHandle.closeSync()
+
+    return result;
+
+}
+
+function getSourceFiles(): string[] {
+    const packageFile = getThisPackageFile();
+
+    const rootDir = path.dirname(packageFile)
+
+    const tsconfigFile = path.join(rootDir, "tsconfig.json");
+
+    if (!fs.existsSync(tsconfigFile)) {
+        throw new Error(`Invalid tsconfig detection`)
+    }
+
+    const tsconfigContent = fs.readFileSync(tsconfigFile).toString();
+
+    const tsconfig: Record<string, unknown> = JSON.parse(tsconfigContent) as Record<string, unknown>
+
+    const outDir: unknown = (tsconfig.compilerOptions as Record<string, unknown>).outDir
+
+    if (typeof outDir !== "string") {
+        throw new Error(`Invalid tsconfig: missing outdir`)
+    }
+
+    const outDirAbs = path.join(rootDir, outDir)
+
+    const result: string[] = []
+
+    result.push(...getAllFilesInDir(outDirAbs))
+
+    result.push(path.join(rootDir, "index.ts"))
+
+    result.push(...getAllFilesInDir(path.join(rootDir, "src")))
+
+    return result
+}
+
+export function addGenerateMacros(description: string): string {
+    const files = getSourceFiles()
+
+    return files.map((file): string => {
+        assert(path.isAbsolute(file), "file needs to be in absolute form")
+        return `#pragma GCC dependency "${file}" generated script: ${description}`
+    }).join("\n")
+
 }

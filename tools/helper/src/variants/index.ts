@@ -1,5 +1,5 @@
 import path from "node:path"
-import { assert, writeFileAndDirs } from "../utils.js"
+import { addGenerateMacros, assert, writeFileAndDirs } from "../utils.js"
 import { getBrand, isSimpleTaggedType, type CEnumType, type ID, type StructOrder, type TaggedMember, type TaggedName, type TaggedType, type TaggedTypeSimple, type TaggedTypeStruct, type TaggedUnion, type TaggedUnionEnum } from "./base.js"
 import { globalTaggedUnions } from "./data.js"
 
@@ -985,6 +985,8 @@ do {
 
     const headerData = `
 #pragma once
+
+${addGenerateMacros("variants")}
 
 #ifdef __cplusplus
 extern "C" {

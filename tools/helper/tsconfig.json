@@ -7,7 +7,7 @@
 		"module": "es2022",
 		"target": "es2022",
 		"lib": [
-			"ES2022",
+			"ES2022"
 		],
 		"outDir": "build",
 		"rootDir": ".",
@@ -19,20 +19,22 @@
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
 		"noUnusedLocals": false,
-		"types": ["node"]
+		"types": [
+			"node"
+		]
 	},
 	"exclude": [
 		"node_modules/"
 	],
 	"files": [
-		"index.ts",
+		"index.ts"
 	],
 	"include": [
 		"src/**/*.ts"
 	],
 	"ts-node": {
 		"compilerOptions": {
-			"module": "CommonJS",
+			"module": "CommonJS"
 		},
 		"files": true
 	}
