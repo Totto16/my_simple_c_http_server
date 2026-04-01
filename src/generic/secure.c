@@ -545,7 +545,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 		}
 
 		if(result == -1) {
-			return GENERIC_RES_ERR(strerror(errno));
+			return GENERIC_RES_ERR_RAW(tstr_static_from_static_cstr(strerror(errno)));
 		}
 
 		return GENERIC_RES_ERR_UNIQUE();

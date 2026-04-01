@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "variants.h"
+
 // see https://clang.llvm.org/docs/AttributeReference.html#nullability-attributes
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -176,15 +178,11 @@ NODISCARD uint32_t get_random_byte(void);
 
 NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max);
 
-typedef struct {
-	bool is_error;
-	union {
-		const char* error;
-	} value;
-} GenericResult;
+GENERATE_VARIANT_ALL_GENERIC_RESULT()
 
-#define GENERIC_RES_OK() ((GenericResult){ .is_error = false })
-#define GENERIC_RES_ERR(err) ((GenericResult){ .is_error = true, .value = { .error = (err) } })
+#define GENERIC_RES_OK() new_generic_result_ok()
+#define GENERIC_RES_ERR_RAW(err) new_generic_result_error(err)
+#define GENERIC_RES_ERR(err) GENERIC_RES_ERR_RAW(TSTR_STATIC_LIT(err))
 
 #define GENERIC_RES_ERR_UNIQUE() GENERIC_RES_ERR("" __FILE__ ":" STRINGIFY(__LINE__))
 

@@ -84,7 +84,7 @@ static bool setup_relevant_signal_handlers(void) {
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-//TODO: use some macro and pragma posion magic to enforce those types!
+// TODO: use some macro and pragma posion magic to enforce those types!
 
 ANY_TYPE(JobError*)
 ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg_ign,
@@ -228,9 +228,9 @@ cleanup:
 	do { \
 		const GenericResult send_result = \
 		    send_ftp_message_to_connection_tstr(descriptor, code, TSTR_LIT(msg)); \
-		if(send_result.is_error) { \
+		IF_GENERIC_RESULT_IS_ERROR_CONST(send_result) { \
 			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
-			            "Error in sending response: %s\n", send_result.value.error); \
+			            "Error in sending response: " TSTR_FMT "\n", TSTR_STATIC_FMT_ARGS(error.error)); \
 			return false; \
 		} \
 	} while(false)
@@ -241,9 +241,9 @@ cleanup:
 		STRING_BUILDER_APPENDF(string_builder, return false;, format, __VA_ARGS__); \
 		const GenericResult send_result = \
 		    send_ftp_message_to_connection_sb(descriptor, code, string_builder); \
-		if(send_result.is_error) { \
+		IF_GENERIC_RESULT_IS_ERROR_CONST(send_result) { \
 			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
-			            "Error in sending response: %s\n", send_result.value.error); \
+			            "Error in sending response: " TSTR_FMT "\n", TSTR_STATIC_FMT_ARGS(error.error)); \
 			return false; \
 		} \
 	} while(false)
@@ -1928,7 +1928,10 @@ ExitCode start_ftp_server(const FTPPortField control_port, tstr folder,
 	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
 	TQueue control_job_id_queue;
-	if(tqueue_init(&control_job_id_queue).is_error) {
+
+	const GenericResult queue_init_res = tqueue_init(&control_job_id_queue);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(queue_init_res) {
 		return ExitCodeFailure;
 	};
 
@@ -2082,12 +2085,16 @@ ExitCode start_ftp_server(const FTPPortField control_port, tstr folder,
 	}
 
 	// then after all were awaited the pool is destroyed
-	if(pool_destroy(&control_pool).is_error) {
+	const GenericResult destroy_result1 = pool_destroy(&control_pool);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result1) {
 		return ExitCodeFailure;
 	}
 
 	// then the queue is destroyed
-	if(tqueue_destroy(&control_job_id_queue).is_error) {
+	const GenericResult destroy_result2 = tqueue_destroy(&control_job_id_queue);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result2) {
 		return ExitCodeFailure;
 	}
 

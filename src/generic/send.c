@@ -21,7 +21,7 @@ GenericResult send_data_to_connection(const ConnectionDescriptor* const descript
 			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));
 			// TODO(Totto): don't use strerror, as it uses an internal buffer, use better memory
 			// management and maybe don't use the current locale!
-			return GENERIC_RES_ERR(strerror(errno));
+			return GENERIC_RES_ERR_RAW(tstr_static_from_static_cstr(strerror(errno)));
 		}
 
 		if(wrote_bytes == (ssize_t)remaining_length) {

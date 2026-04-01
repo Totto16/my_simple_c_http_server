@@ -317,4 +317,32 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
+     {
+        name: makeUnionName(CaseName.fromPascalCase("GenericResult")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: null
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: makeStructType([
+                    makeStructMember(
+                        "tstr_static",
+                        "error",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("GenericResultType")),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            }
+        }
+    },
 ]
+

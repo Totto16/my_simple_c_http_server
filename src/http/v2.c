@@ -181,7 +181,7 @@ NODISCARD static GenericResult http2_send_raw_frame(const ConnectionDescriptor* 
 
 	GenericResult result = send_data_to_connection(descriptor, header_buffer, HTTP2_HEADER_SIZE);
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		return result;
 	}
 
@@ -3242,7 +3242,7 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 
 	free_http2_settings_frame(frame_to_send);
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		return (Http2StartResult){
 			.is_error = true,
 			.value = { .error =
@@ -3352,7 +3352,7 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 
 	free_http2_settings_frame(frame_to_send);
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		free_sized_buffer(settings_data);
 
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
@@ -3537,7 +3537,8 @@ NODISCARD GenericResult http2_send_headers(const ConnectionDescriptor* descripto
 				.identifier = identifier,
 			};
 			const GenericResult result = http2_send_headers_frame(descriptor, frame);
-			if(result.is_error) {
+
+			IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 				return result;
 			}
 		} else {
@@ -3547,7 +3548,7 @@ NODISCARD GenericResult http2_send_headers(const ConnectionDescriptor* descripto
 				.identifier = identifier,
 			};
 			const GenericResult result = http2_send_continuation_frame(descriptor, frame);
-			if(result.is_error) {
+			IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 				return result;
 			}
 		}
@@ -3583,7 +3584,7 @@ NODISCARD GenericResult http2_send_data(const ConnectionDescriptor* descriptor,
 			.is_end = is_end,
 		};
 		const GenericResult result = http2_send_data_frame(descriptor, frame);
-		if(result.is_error) {
+		IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 			return result;
 		}
 		offset += size;

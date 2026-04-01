@@ -26,7 +26,7 @@ WebSocketAction websocket_function(WebSocketConnection* connection, WebSocketMes
 	// for autobahn tests, just echoing the things
 	const GenericResult result = ws_send_message(connection, message, args, extension_send_state);
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		return WebSocketActionError;
 	}
 

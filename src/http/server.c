@@ -1320,7 +1320,10 @@ ExitCode start_http_server(const uint16_t port, SecureOptions* const options,
 	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
 	TQueue job_id_queue;
-	if(tqueue_init(&job_id_queue).is_error) {
+
+	const GenericResult queue_init_res = tqueue_init(&job_id_queue);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(queue_init_res) {
 		return ExitCodeFailure;
 	};
 
@@ -1432,12 +1435,16 @@ ExitCode start_http_server(const uint16_t port, SecureOptions* const options,
 	}
 
 	// then after all were awaited the pool is destroyed
-	if(pool_destroy(&pool).is_error) {
+	const GenericResult destroy_result1 = pool_destroy(&pool);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result1) {
 		return ExitCodeFailure;
 	}
 
 	// then the queue is destroyed
-	if(tqueue_destroy(&job_id_queue).is_error) {
+	const GenericResult destroy_result2 = tqueue_destroy(&job_id_queue);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result2) {
 		return ExitCodeFailure;
 	}
 

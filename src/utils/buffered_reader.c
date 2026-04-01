@@ -400,7 +400,8 @@ bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* con
 
 	const GenericResult result =
 	    close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
-	if(result.is_error) {
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 		            "While trying to close the connection descriptor: %s\n", strerror(errno));
 		return false;

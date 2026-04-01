@@ -158,7 +158,9 @@ CreateResult pool_create(ThreadPool* const pool, const size_t size) { // NOLINT(
 	// initialize the queue, this queue is synchronized internally, so it has to do some work with a
 	// synchronization method (here not necessary to know how it's implemented, but it'S a
 	// semaphore)
-	if(tqueue_init(&(pool->job_queue)).is_error) {
+	const GenericResult init_res = tqueue_init(&(pool->job_queue));
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(init_res) {
 		return (CreateResult){ .error = CreateErrorQueueInit };
 	}
 
@@ -228,7 +230,8 @@ static JobId* int_pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_T
 	                "Couldn't initialize the internal thread pool Semaphore for a single job",
 	                return SUBMIT_ERROR_SEM_INIT;);
 	// then finally push the job to the queue, so it can worked upon
-	if(tqueue_push(&(pool->job_queue), job_description).is_error) {
+	const GenericResult push_res = tqueue_push(&(pool->job_queue), job_description);
+	IF_GENERIC_RESULT_IS_ERROR_IGN(push_res) {
 		return SUBMIT_ERROR_QUEUE_PUSH;
 	}
 	// after the push the semaphore gets posted, so a worker can get the job already, if available
@@ -329,7 +332,8 @@ GenericResult pool_destroy(ThreadPool* const pool) {
 
 	// destroy the queue!
 	const GenericResult destroy_result = tqueue_destroy(&(pool->job_queue));
-	if(destroy_result.is_error) {
+	
+	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result) {
 		return destroy_result;
 	}
 

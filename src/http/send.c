@@ -16,7 +16,8 @@ send_concatted_http1_response_to_connection(const ConnectionDescriptor* const de
                                             Http1ConcattedResponse* concatted_response) {
 	GenericResult result =
 	    send_string_builder_to_connection(descriptor, &concatted_response->headers);
-	if(result.is_error) {
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		free(concatted_response);
 		return result;
 	}
@@ -203,14 +204,15 @@ send_http2_response_to_connection(const ConnectionDescriptor* const descriptor,
 	    http2_send_headers(descriptor, response->stream_identifier, context->settings,
 	                       response->hpack_encoded_headers, headers_are_end_stream);
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		return result;
 	}
 
 	if(response->body.data != NULL) {
 		result = http2_send_data(descriptor, response->stream_identifier, context->settings,
 		                         response->body);
-		if(result.is_error) {
+
+		IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 			return result;
 		}
 	}
