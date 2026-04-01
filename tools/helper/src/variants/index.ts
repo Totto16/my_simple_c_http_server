@@ -571,13 +571,29 @@ function getNameTrickForIfExpression(unionName: TaggedName<"union">): string {
 
 type GeneratorVariant = "const" | "mut" | "ign"
 
-function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string[] {
+interface GeneratedMacros {
+    macros: string[]
+    poisonedNames: string[]
+}
+
+function combineGeneratedMacros(macros: GeneratedMacros[]): GeneratedMacros {
+    return macros.reduce<GeneratedMacros>((acc: GeneratedMacros, elem: GeneratedMacros): GeneratedMacros => {
+        acc.macros.push(...elem.macros)
+        acc.poisonedNames.push(...elem.poisonedNames)
+        return acc;
+    }, { macros: [], poisonedNames: [] });
+}
+
+function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): GeneratedMacros {
 
     if (member.type === null) {
 
-        return [`#define ${getIfMacroName(taggedUnion.name, member.name, null)}(variant_entry)
+        return {
+            macros: [`#define ${getIfMacroName(taggedUnion.name, member.name, null)}(variant_entry)
 	if((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(member, taggedUnion.enum.name)})`
-        ]
+            ],
+            poisonedNames: []
+        }
 
     } else if (isSimpleTaggedType(member.type)) {
 
@@ -585,9 +601,9 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
         const memberType: TaggedTypeSimple = member.type
 
-        return (["const", "mut", "ign"] as GeneratorVariant[]).flatMap((variant): string[] => {
+        return combineGeneratedMacros((["const", "mut", "ign"] as GeneratorVariant[]).map((variant): GeneratedMacros => {
 
-            const results: string[] = []
+            const result: GeneratedMacros = { macros: [], poisonedNames: [] }
 
             const mainName: string = getIfMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
 
@@ -603,20 +619,23 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
                 const defaultArgName = getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
 
-                results.push(...[
+                result.macros.push(...[
                     `#define ${helperName}(_1, _2, NAME, ...) NAME`,
                     `#define ${defaultArgName}(variant_entry) ${mainName}(variant_entry, ${member.name.inner.snake_case()})`,
                     `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(...)
 	${helperName}(__VA_ARGS__, ${mainName}, ${defaultArgName})(__VA_ARGS__)`
 
                 ])
+
+
+                result.poisonedNames.push(mainName, helperName, defaultArgName)
             }
 
-            results.push(mainDef)
+            result.macros.push(mainDef)
 
-            return results;
+            return result;
 
-        });
+        }));
 
 
     } else {
@@ -627,9 +646,9 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
         const memberType: TaggedTypeStruct = member.type
 
-        return (["const", "mut", "ign"] as GeneratorVariant[]).flatMap((variant): string[] => {
+        return combineGeneratedMacros((["const", "mut", "ign"] as GeneratorVariant[]).map((variant): GeneratedMacros => {
 
-            const results: string[] = []
+            const result: GeneratedMacros = { macros: [], poisonedNames: [] }
 
             const mainName: string = getIfMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
 
@@ -646,21 +665,22 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
                 const defaultArgName = getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
 
-                results.push(...[
+                result.macros.push(...[
                     `#define ${helperName}(_1, _2, NAME, ...) NAME`,
                     `#define ${defaultArgName}(variant_entry) ${mainName}(variant_entry, ${member.name.inner.snake_case()})`,
                     `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(...)
 	${helperName}(__VA_ARGS__, ${mainName}, ${defaultArgName})(__VA_ARGS__)`
-
                 ])
+
+                result.poisonedNames.push(mainName, helperName, defaultArgName)
 
             }
 
-            results.push(mainDef)
+            result.macros.push(mainDef)
 
-            return results;
+            return result;
 
-        });
+        }));
     }
 
 
@@ -684,13 +704,17 @@ function getNameTrickForCaseExpression(unionName: TaggedName<"union">): string {
 
 }
 
-function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): string[] {
+function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): GeneratedMacros {
 
 
     if (member.type === null) {
 
-        return [`#define ${getCaseMacroName(taggedUnion.name, member.name, null)}()
-	case ${memberNameForEnum(member, taggedUnion.enum.name)}:`]
+
+        return {
+            macros: [`#define ${getCaseMacroName(taggedUnion.name, member.name, null)}()
+	case ${memberNameForEnum(member, taggedUnion.enum.name)}:`],
+            poisonedNames: []
+        }
 
     } else if (isSimpleTaggedType(member.type)) {
 
@@ -698,9 +722,9 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
         const memberType: TaggedTypeSimple = member.type
 
-        return (["const", "mut", "ign"] as GeneratorVariant[]).flatMap((variant): string[] => {
+        return combineGeneratedMacros((["const", "mut", "ign"] as GeneratorVariant[]).map((variant): GeneratedMacros => {
 
-            const results: string[] = []
+            const result: GeneratedMacros = { macros: [], poisonedNames: [] }
 
             const mainName: string = getCaseMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
 
@@ -719,20 +743,23 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
                 const defaultArgName = getCaseMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
 
-                results.push(...[
+                result.macros.push(...[
                     `#define ${helperName}(_1, _2, NAME, ...) NAME`,
                     `#define ${defaultArgName}(variant_entry) ${mainName}(variant_entry, ${member.name.inner.snake_case()})`,
                     `#define ${getCaseMacroName(taggedUnion.name, member.name, variant)}(...)
 	${helperName}(__VA_ARGS__, ${mainName}, ${defaultArgName})(__VA_ARGS__)`
 
                 ])
+
+                result.poisonedNames.push(mainName, helperName, defaultArgName)
+
             }
 
-            results.push(mainDef)
+            result.macros.push(mainDef)
 
-            return results;
+            return result;
 
-        });
+        }));
 
 
     } else {
@@ -743,9 +770,9 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
         const memberType: TaggedTypeStruct = member.type
 
-        return (["const", "mut", "ign"] as GeneratorVariant[]).flatMap((variant): string[] => {
+        return combineGeneratedMacros((["const", "mut", "ign"] as GeneratorVariant[]).map((variant): GeneratedMacros => {
 
-            const results: string[] = []
+            const result: GeneratedMacros = { macros: [], poisonedNames: [] }
 
             const mainName: string = getCaseMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
 
@@ -764,20 +791,23 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
                 const defaultArgName = getCaseMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
 
-                results.push(...[
+                result.macros.push(...[
                     `#define ${helperName}(_1, _2, NAME, ...) NAME`,
                     `#define ${defaultArgName}(variant_entry) ${mainName}(variant_entry, ${member.name.inner.snake_case()})`,
                     `#define ${getCaseMacroName(taggedUnion.name, member.name, variant)}(...)
 	${helperName}(__VA_ARGS__, ${mainName}, ${defaultArgName})(__VA_ARGS__)`
 
                 ])
+
+                result.poisonedNames.push(mainName, helperName, defaultArgName)
+
             }
 
-            results.push(mainDef)
+            result.macros.push(mainDef)
 
-            return results;
+            return result;
 
-        });
+        }));
 
     }
 
@@ -878,15 +908,38 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 	GENERATE_VARIANT_ENUM_${taggedUnion.name.inner.MACRO_NAME()}()
 	GENERATE_VARIANT_CORE_${taggedUnion.name.inner.MACRO_NAME()}()`
 
+    const poisonedNames: string[] = [tagName, dataName,
+        getNameTrickForIfExpression(taggedUnion.name),
+        getNameTrickForCaseExpression(taggedUnion.name),
+        ...Object.values(unnamedStructMap).map((val): string => {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            return val!
+        }),
+        unionNameFor(taggedUnion.name),
+        ...(["1", "2"] as WhichAssert[]).map((w: WhichAssert): string => {
+            return getAssertStructName(taggedUnion.name, w)
+        })
+    ]
+
     const macros: string[] = [
         generateMacroEnum,
         generateMacroCore,
         generateMacroAll,
-        ...taggedUnion.member.flatMap((mem): string[] => generateIfMacros(mem, taggedUnion, unnamedStructMap)),
+        ...taggedUnion.member.flatMap((mem): string[] => {
+            const macros: GeneratedMacros = generateIfMacros(mem, taggedUnion, unnamedStructMap)
+            poisonedNames.push(...macros.poisonedNames)
+            return macros.macros
+        }
+        ),
         ...taggedUnion.member.map((mem): string => generateIfNotMacro(mem, taggedUnion)),
         generateSwitchMacro(taggedUnion),
-        ...taggedUnion.member.flatMap((mem): string[] => generateCaseMacros(mem, taggedUnion, unnamedStructMap)),
+        ...taggedUnion.member.flatMap((mem): string[] => {
+            const macros: GeneratedMacros = generateCaseMacros(mem, taggedUnion, unnamedStructMap)
+            poisonedNames.push(...macros.poisonedNames)
+            return macros.macros
+        }),
     ]
+
 
     return (
         `#define ${getStateAssertNameFor(taggedUnion.name)}(state, expected_state) ${genericStateAssert}(state, expected_state, ${taggedUnion.name.inner.snake_case()}, ${toCStr(taggedUnion.name.inner.PascalCase())
@@ -894,18 +947,7 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
 ${macros.map(a => a.split("\n").join(" \\\n")).join("\n\n")}
 
-${generatePoisonPragma([tagName, dataName,
-            getNameTrickForIfExpression(taggedUnion.name),
-            getNameTrickForCaseExpression(taggedUnion.name),
-            ...Object.values(unnamedStructMap).map((val): string => {
-                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                return val!
-            }),
-            unionNameFor(taggedUnion.name),
-            ...(["1", "2"] as WhichAssert[]).map((w: WhichAssert): string => {
-                return getAssertStructName(taggedUnion.name, w)
-            })
-        ])
+${generatePoisonPragma(poisonedNames)
         }
 `)
 
