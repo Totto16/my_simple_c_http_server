@@ -56,11 +56,11 @@ function makeOptionalVariant(baseName: string, successType: string | null, succe
         name: makeUnionName(CaseName.fromPascalCase(baseName)),
         member: [
             {
-                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                name: makeMemberName(CaseName.fromPascalCase("Value")),
                 type: resolvedType
             },
             {
-                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                name: makeMemberName(CaseName.fromPascalCase("Null")),
                 type: null
             },
         ],

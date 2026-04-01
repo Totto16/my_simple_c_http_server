@@ -140,7 +140,7 @@ NODISCARD static HpackHeaderEntryResult
 hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value) {
 
 	if(value == 0) {
-		return new_hpack_header_entry_result_error();
+		return new_hpack_header_entry_result_null();
 	}
 
 	if(value <= HPACK_STATIC_HEADER_TABLE_SIZE) {
@@ -148,7 +148,7 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 
 		HpackHeaderStaticEntry static_entry = g_hpack_static_data.static_header_table[value - 1];
 
-		return new_hpack_header_entry_result_ok((HpackHeaderDynamicEntry){
+		return new_hpack_header_entry_result_value((HpackHeaderDynamicEntry){
 		    .key = tstr_dup(&static_entry.key), .value = tstr_dup(&static_entry.value) });
 	}
 
@@ -157,20 +157,20 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 	const size_t dynamic_table_size = hpack_dynamic_table_size(&(state->dynamic_table));
 
 	if(dynamic_table_size <= dynamic_index) {
-		return new_hpack_header_entry_result_error();
+		return new_hpack_header_entry_result_null();
 	}
 
 	const HpackHeaderDynamicEntryResult dynamic_entry_res =
 	    hpack_dynamic_table_at(&(state->dynamic_table), dynamic_index);
 
 	if(!dynamic_entry_res.ok) {
-		return new_hpack_header_entry_result_error();
+		return new_hpack_header_entry_result_null();
 	}
 
 	// asserts errors in the underlying dynamic table
 	assert(!tstr_is_null(&(dynamic_entry_res.entry.key)));
 
-	return new_hpack_header_entry_result_ok(
+	return new_hpack_header_entry_result_value(
 	    (HpackHeaderDynamicEntry){ .key = tstr_dup(&dynamic_entry_res.entry.key),
 	                               .value = tstr_dup(&dynamic_entry_res.entry.value) });
 }
@@ -201,11 +201,11 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 	const HpackHeaderEntryResult entry_res =
 	    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
-	IF_HPACK_HEADER_ENTRY_RESULT_IS_ERROR(entry_res) {
+	IF_HPACK_HEADER_ENTRY_RESULT_IS_NULL(entry_res) {
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	HpackHeaderDynamicEntry entry = hpack_header_entry_result_get_as_ok(entry_res);
+	HpackHeaderDynamicEntry entry = hpack_header_entry_result_get_as_value(entry_res);
 
 	// some tests we run use this, even if it's wrong, in the real usage (alias release mode) we
 	// just error out, as this is a strict error in my opinion, the http2 hpack spec says, that the
@@ -507,11 +507,11 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_with_incremental
 		HpackHeaderEntryResult entry =
 		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
-		IF_HPACK_HEADER_ENTRY_RESULT_IS_ERROR(entry) {
+		IF_HPACK_HEADER_ENTRY_RESULT_IS_NULL(entry) {
 			return GENERIC_RES_ERR_UNIQUE();
 		}
 
-		HpackHeaderDynamicEntry entry_ok = hpack_header_entry_result_get_as_ok(entry);
+		HpackHeaderDynamicEntry entry_ok = hpack_header_entry_result_get_as_value(entry);
 
 		header_key = entry_ok.key;
 		tstr_free(&entry_ok.value);
@@ -638,11 +638,11 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_never_indexed(
 		HpackHeaderEntryResult entry =
 		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
-		IF_HPACK_HEADER_ENTRY_RESULT_IS_ERROR(entry) {
+		IF_HPACK_HEADER_ENTRY_RESULT_IS_NULL(entry) {
 			return GENERIC_RES_ERR_UNIQUE();
 		}
 
-		HpackHeaderDynamicEntry entry_ok = hpack_header_entry_result_get_as_ok(entry);
+		HpackHeaderDynamicEntry entry_ok = hpack_header_entry_result_get_as_value(entry);
 
 		header_key = entry_ok.key;
 		tstr_free(&entry_ok.value);
@@ -738,11 +738,11 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_without_indexing
 		HpackHeaderEntryResult entry =
 		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
-		IF_HPACK_HEADER_ENTRY_RESULT_IS_ERROR(entry) {
+		IF_HPACK_HEADER_ENTRY_RESULT_IS_NULL(entry) {
 			return GENERIC_RES_ERR_UNIQUE();
 		}
 
-		HpackHeaderDynamicEntry entry_ok = hpack_header_entry_result_get_as_ok(entry);
+		HpackHeaderDynamicEntry entry_ok = hpack_header_entry_result_get_as_value(entry);
 
 		header_key = entry_ok.key;
 		tstr_free(&entry_ok.value);
