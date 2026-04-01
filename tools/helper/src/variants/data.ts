@@ -1,17 +1,30 @@
-import { type TaggedUnion, makeUnionName, CaseName, makeMemberName, makeStructType, makeStructMember, makeSimpleType, makeEnumName } from "./base.js";
+import { type TaggedUnion, makeUnionName, CaseName, makeMemberName, makeStructType, makeStructMember, makeSimpleType, makeEnumName, type TaggedType } from "./base.js";
 
-function makeErrorVariant(baseName: string, successType: string | null, successName = "result"): TaggedUnion {
+function resolveType(successType: string | null, successName: string | null): null | TaggedType {
+    if (successType === null) {
+        return null;
+    } else if (successName == null) {
+        return makeSimpleType(successType)
+    } else {
+        return makeStructType([
+            makeStructMember(
+                successType,
+                successName,
+            )
+        ])
+    }
+}
+
+function makeErrorVariant(baseName: string, successType: string | null, successName: string | null = null): TaggedUnion {
+
+    const resolvedType: null | TaggedType = resolveType(successType, successName)
+
     return {
         name: makeUnionName(CaseName.fromPascalCase(baseName)),
         member: [
             {
                 name: makeMemberName(CaseName.fromPascalCase("Ok")),
-                type: successType === null ? null : makeStructType([
-                    makeStructMember(
-                        successType,
-                        successName,
-                    )
-                ])
+                type: resolvedType
             },
             {
                 name: makeMemberName(CaseName.fromPascalCase("Error")),
@@ -21,6 +34,34 @@ function makeErrorVariant(baseName: string, successType: string | null, successN
                         "error",
                     )
                 ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`${baseName}Type`)),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            }
+        }
+    };
+}
+
+function makeOptionalVariant(baseName: string, successType: string | null, successName: string | null = null): TaggedUnion {
+
+    const resolvedType: null | TaggedType = resolveType(successType, successName)
+
+    return {
+        name: makeUnionName(CaseName.fromPascalCase(baseName)),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: resolvedType
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: null
             },
         ],
         enum: {
@@ -256,9 +297,10 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
-    makeErrorVariant("HuffmanDecodeResult", "SizedBuffer"),
+    makeErrorVariant("HuffmanDecodeResult", "SizedBuffer", "result"),
     makeErrorVariant("HuffmanEncodeFixedResult", "size_t", "size"),
-    makeErrorVariant("HuffmanEncodeResult", "SizedBuffer"),
+    makeErrorVariant("HuffmanEncodeResult", "SizedBuffer", "result"),
     makeErrorVariant("GenericResult", null),
+    makeOptionalVariant("HpackHeaderEntryResult", "HpackHeaderDynamicEntry"),
 ]
 

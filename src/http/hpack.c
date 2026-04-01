@@ -128,11 +128,7 @@ NODISCARD static int8_t encode_hpack_variable_integer(
 
 	return idx;
 }
-
-typedef struct {
-	bool is_error;
-	HpackHeaderDynamicEntry value;
-} HpackHeaderEntryResult;
+GENERATE_VARIANT_ALL_HPACK_HEADER_ENTRY_RESULT()
 
 typedef struct {
 	HpackHeaderStaticEntry* static_header_table;
@@ -153,7 +149,7 @@ NODISCARD static HpackHeaderEntryResult
 hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value) {
 
 	if(value == 0) {
-		return (HpackHeaderEntryResult){ .is_error = true };
+		return new_hpack_header_entry_result_error();
 	}
 
 	if(value <= HPACK_STATIC_HEADER_TABLE_SIZE) {
@@ -161,10 +157,8 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 
 		HpackHeaderStaticEntry static_entry = g_hpack_static_data.static_header_table[value - 1];
 
-		return (HpackHeaderEntryResult){ .is_error = false,
-			                             .value = (HpackHeaderDynamicEntry){
-			                                 .key = tstr_dup(&static_entry.key),
-			                                 .value = tstr_dup(&static_entry.value) } };
+		return new_hpack_header_entry_result_ok((HpackHeaderDynamicEntry){
+		    .key = tstr_dup(&static_entry.key), .value = tstr_dup(&static_entry.value) });
 	}
 
 	const size_t dynamic_index = value - HPACK_STATIC_HEADER_TABLE_SIZE - 1;
@@ -172,23 +166,22 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 	const size_t dynamic_table_size = hpack_dynamic_table_size(&(state->dynamic_table));
 
 	if(dynamic_table_size <= dynamic_index) {
-		return (HpackHeaderEntryResult){ .is_error = true };
+		return new_hpack_header_entry_result_error();
 	}
 
 	const HpackHeaderDynamicEntryResult dynamic_entry_res =
 	    hpack_dynamic_table_at(&(state->dynamic_table), dynamic_index);
 
 	if(!dynamic_entry_res.ok) {
-		return (HpackHeaderEntryResult){ .is_error = true };
+		return new_hpack_header_entry_result_error();
 	}
 
 	// asserts errors in the underlying dynamic table
 	assert(!tstr_is_null(&(dynamic_entry_res.entry.key)));
 
-	return (HpackHeaderEntryResult){ .is_error = false,
-		                             .value = (HpackHeaderDynamicEntry){
-		                                 .key = tstr_dup(&dynamic_entry_res.entry.key),
-		                                 .value = tstr_dup(&dynamic_entry_res.entry.value) } };
+	return new_hpack_header_entry_result_ok(
+	    (HpackHeaderDynamicEntry){ .key = tstr_dup(&dynamic_entry_res.entry.key),
+	                               .value = tstr_dup(&dynamic_entry_res.entry.value) });
 }
 
 NODISCARD static GenericResult
@@ -217,24 +210,24 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 	const HpackHeaderEntryResult entry_res =
 	    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
-	if(entry_res.is_error) {
+	IF_HPACK_HEADER_ENTRY_RESULT_IS_ERROR(entry_res) {
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	HpackHeaderDynamicEntry entry = entry_res.value;
+	HpackHeaderDynamicEntry entry = hpack_header_entry_result_get_as_ok(entry_res);
 
 	// some tests we run use this, even if it's wrong, in the real usage (alias release mode) we
-	// just error oru, as this is a strict error in my opinion, the http2 hpack spec says, that the
+	// just error out, as this is a strict error in my opinion, the http2 hpack spec says, that the
 	// values are empty, in the static table, but i say they are NULL, so only the key can be used
 	// from these entries, the tests that have an empty ("") value and use the whole entry are not
 	// the best, but to pass them, i just use this hack
 #ifdef NDEBUG
-	#define STRICT_DECODING 1
+	#define HPACK_STRICT_ENTRY_DECODING 1
 #else
-	#define STRICT_DECODING 0
+	#define HPACK_STRICT_ENTRY_DECODING 0
 #endif
 
-#if STRICT_DECODING == 1
+#if HPACK_STRICT_ENTRY_DECODING == 1
 
 	// the value can't be null, if using the value too, it can be empty tstr_init() but not
 	// NULL!
@@ -246,7 +239,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 
 	const HttpHeaderField header_field = { .key = entry.key, .value = entry.value };
 
-#elif STRICT_DECODING == 0
+#elif HPACK_STRICT_ENTRY_DECODING == 0
 
 	tstr entry_value = entry.value;
 
@@ -318,7 +311,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 	const HttpHeaderField header_field = { .key = entry.key, .value = entry_value };
 
 #else
-	#error "invalid value for STRICT_DECODING"
+	#error "invalid value for HPACK_STRICT_ENTRY_DECODING"
 #endif
 
 	const TvecResult insert_result = TVEC_PUSH(HttpHeaderField, headers, header_field);
@@ -541,12 +534,14 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_with_incremental
 		HpackHeaderEntryResult entry =
 		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
-		if(entry.is_error) {
+		IF_HPACK_HEADER_ENTRY_RESULT_IS_ERROR(entry) {
 			return GENERIC_RES_ERR_UNIQUE();
 		}
 
-		header_key = entry.value.key;
-		tstr_free(&entry.value.value);
+		HpackHeaderDynamicEntry entry_ok = hpack_header_entry_result_get_as_ok(entry);
+
+		header_key = entry_ok.key;
+		tstr_free(&entry_ok.value);
 	}
 
 	if(*pos >= size) {
@@ -662,12 +657,14 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_never_indexed(
 		HpackHeaderEntryResult entry =
 		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
-		if(entry.is_error) {
+		IF_HPACK_HEADER_ENTRY_RESULT_IS_ERROR(entry) {
 			return GENERIC_RES_ERR_UNIQUE();
 		}
 
-		header_key = entry.value.key;
-		tstr_free(&entry.value.value);
+		HpackHeaderDynamicEntry entry_ok = hpack_header_entry_result_get_as_ok(entry);
+
+		header_key = entry_ok.key;
+		tstr_free(&entry_ok.value);
 	}
 
 	if(*pos >= size) {
@@ -756,12 +753,14 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_without_indexing
 		HpackHeaderEntryResult entry =
 		    hpack_get_table_entry_at(&(decompress_state->dynamic_table_state), index);
 
-		if(entry.is_error) {
+		IF_HPACK_HEADER_ENTRY_RESULT_IS_ERROR(entry) {
 			return GENERIC_RES_ERR_UNIQUE();
 		}
 
-		header_key = entry.value.key;
-		tstr_free(&entry.value.value);
+		HpackHeaderDynamicEntry entry_ok = hpack_header_entry_result_get_as_ok(entry);
+
+		header_key = entry_ok.key;
+		tstr_free(&entry_ok.value);
 	}
 
 	if(*pos >= size) {

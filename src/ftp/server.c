@@ -1818,7 +1818,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 		continue;
 	}
 
-	bool is_error = false;
+	bool has_error = false;
 
 	// launched every thread, now wait for them
 	for(size_t i = 0; i < argument.port_amount; ++i) {
@@ -1828,7 +1828,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 		int result = pthread_join(port_status.thread_ref, &return_value);
 		CHECK_FOR_THREAD_ERROR(result,
 		                       "An Error occurred while trying to wait for a port listening Thread",
-		                       is_error = true;
+		                       has_error = true;
 		                       goto cont_outer2;);
 
 		if(is_listener_error(return_value)) {
@@ -1851,8 +1851,8 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 	}
 
 	free(local_port_status_arr);
-	return is_error ? LISTENER_ERROR_THREAD_CANCEL // NOLINT(readability-implicit-bool-conversion)
-	                : LISTENER_ERROR_NONE;
+	return has_error ? LISTENER_ERROR_THREAD_CANCEL // NOLINT(readability-implicit-bool-conversion)
+	                 : LISTENER_ERROR_NONE;
 }
 
 ExitCode start_ftp_server(const FTPPortField control_port, tstr folder,
