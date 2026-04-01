@@ -1,6 +1,6 @@
 import { generateHpackHeaderTableCodeH, generateHpackHuffmanCodeC, generateHpackTestCasesCPP } from "./hpack.js";
 import { testBitarray } from "./utils.js";
-import { generateVariantCodeC } from "./variants.js";
+import { generateVariantCodeC } from "./variants/index.js";
 
 
 export async function generateFile(options: GenerateOptions): Promise<void> {

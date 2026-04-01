@@ -12,7 +12,9 @@ helper_script_depend_files = files(
     'src/log.ts',
     'src/subcommands.ts',
     'src/utils.ts',
-    'src/variants.ts',
+    'src/variants/base.ts',
+    'src/variants/index.ts',
+    'src/variants/data.ts',
     'src/ws_tests.ts',
 )
 
