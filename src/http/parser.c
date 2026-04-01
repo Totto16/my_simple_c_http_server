@@ -597,13 +597,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPAnalyzeHeaderErrorNotSupported,
 } HTTPAnalyzeHeaderError;
 
-typedef struct {
-	bool is_error;
-	union {
-		HTTPAnalyzeHeaderError error;
-		HTTPAnalyzeHeaders result;
-	} data;
-} HTTPAnalyzeHeadersResult;
+GENERATE_VARIANT_ALL_HTTP_ANALYZE_HEADERS_RESULT()
 
 typedef struct {
 	bool upgrade_h2c_present;
@@ -636,7 +630,7 @@ static void process_connection_header(const tstr_view value, void* argument) {
 	}
 }
 
-NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest http_request) {
+NODISCARD static HttpAnalyzeHeadersResult http_analyze_headers(const HttpRequest http_request) {
 
 	HTTPAnalyzeHeaders analyze_result = {
 		.length = { .type = HTTPRequestLengthTypeNoBody },
@@ -666,10 +660,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 				// both transfer-encoding and length are used
 
 				FREE_AT_END();
-				return (HTTPAnalyzeHeadersResult){
-					.is_error = true,
-					.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-				};
+				return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorProtocolError);
 			}
 
 			bool success = false;
@@ -678,18 +669,13 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 			if(!success) {
 				FREE_AT_END();
-				return (HTTPAnalyzeHeadersResult){
-					.is_error = true,
-					.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-				};
+				return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorProtocolError);
 			}
 
 			if(SIZE_MAX != UINT64_MAX) {
 				if(content_length > SIZE_MAX) {
-					return (HTTPAnalyzeHeadersResult){
-						.is_error = true,
-						.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-					};
+					return new_http_analyze_headers_result_error(
+					    HTTPAnalyzeHeaderErrorProtocolError);
 				}
 			}
 
@@ -703,10 +689,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 				// both transfer-encoding and length are used
 
 				FREE_AT_END();
-				return (HTTPAnalyzeHeadersResult){
-					.is_error = true,
-					.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-				};
+				return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorProtocolError);
 			}
 
 			analyze_result.length.type = HTTPRequestLengthTypeTransferEncoded;
@@ -715,13 +698,9 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			// chunked!
 			if(!tstr_eq_ignore_case_static_tstr(&header.value, TSTR_STATIC_LIT("chunked"))) {
 				FREE_AT_END();
-				return (HTTPAnalyzeHeadersResult){
-					.is_error = true,
-					.data = { .error = HTTPAnalyzeHeaderErrorNotSupported },
-				};
+				return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorNotSupported);
 			}
 			analyze_result.length.value.encoding = HTTPEncodingChunked;
-
 		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(connection))) {
 			// see https://datatracker.ietf.org/doc/html/rfc7230#section-6.1
 			if(tstr_eq_ignore_case_static_tstr(&header.value, TSTR_STATIC_LIT("close"))) {
@@ -730,10 +709,8 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 			                                          TSTR_STATIC_LIT("keep-alive"))) {
 				if(analyze_result.connection.type != HttpAnalyzeConnectionTypeNothingSpecial) {
 					FREE_AT_END();
-					return (HTTPAnalyzeHeadersResult){
-						.is_error = true,
-						.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-					};
+					return new_http_analyze_headers_result_error(
+					    HTTPAnalyzeHeaderErrorProtocolError);
 				}
 
 				analyze_result.connection.type = HttpAnalyzeConnectionTypeKeepAlive;
@@ -777,10 +754,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	   h2state.settings_buffer.data != NULL) {
 		if(analyze_result.connection.type != HttpAnalyzeConnectionTypeNothingSpecial) {
 			FREE_AT_END();
-			return (HTTPAnalyzeHeadersResult){
-				.is_error = true,
-				.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-			};
+			return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorProtocolError);
 		}
 
 		analyze_result.connection = (HttpAnalyzeConnection){
@@ -793,10 +767,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	}
 
 	FREE_AT_END();
-	return (HTTPAnalyzeHeadersResult){
-		.is_error = false,
-		.data = { .result = analyze_result },
-	};
+	return new_http_analyze_headers_result_ok(analyze_result);
 }
 
 #undef FREE_AT_END
@@ -980,12 +951,12 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 		}
 	}
 
-	const HTTPAnalyzeHeadersResult analyze_result = http_analyze_headers(request);
+	const HttpAnalyzeHeadersResult analyze_result = http_analyze_headers(request);
 
-	if(analyze_result.is_error) {
+	IF_HTTP_ANALYZE_HEADERS_RESULT_IS_ERROR_CONST(analyze_result) {
 
 		HttpRequestErrorType enum_value = HttpRequestErrorTypeProtocolError;
-		switch(analyze_result.data.error) {
+		switch(error.error) {
 			case HTTPAnalyzeHeaderErrorProtocolError: {
 				enum_value = HttpRequestErrorTypeProtocolError;
 				break;
@@ -1006,7 +977,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 			                                       .value = { .enum_value = enum_value } } } };
 	}
 
-	const HTTPAnalyzeHeaders analyze = analyze_result.data.result;
+	const HTTPAnalyzeHeaders analyze = http_analyze_headers_result_get_as_ok(analyze_result).result;
 
 	const HttpBodyReadResult body_result = get_http_body(reader, analyze);
 

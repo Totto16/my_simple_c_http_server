@@ -337,5 +337,37 @@ export const globalTaggedUnions: TaggedUnion[] = [
     makeOptionalVariant("HpackHeaderEntryResult", "HpackHeaderDynamicEntry"),
     makeErrorVariant("Http2HpackDecompressResult", "HttpHeaderFields"),
     makeErrorVariant("LiteralStringResult", "tstr", "value"),
-    makeErrorVariant("HpackVariableIntegerResult", "HpackVariableInteger", "value")
+    makeErrorVariant("HpackVariableIntegerResult", "HpackVariableInteger", "value"),
+    {
+        name: makeUnionName(CaseName.fromPascalCase("HttpAnalyzeHeadersResult")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: makeStructType([
+                    makeStructMember(
+                        "HTTPAnalyzeHeaders",
+                        "result",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: makeStructType([
+                    makeStructMember(
+                        "HTTPAnalyzeHeaderError",
+                        "error",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`HttpAnalyzeHeadersResultType`)),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            }
+        }
+    }
 ]
