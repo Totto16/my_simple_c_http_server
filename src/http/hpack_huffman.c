@@ -292,16 +292,13 @@ hpack_huffman_encode_value_impl(const HuffmanEncodeMap* const map, const tstr* s
 	const size_t size = hpack_huffman_get_encoded_size(str);
 
 	if(size == 0) {
-		return (HuffmanEncodeResult){
-			.is_error = false, .data = { .result = (SizedBuffer){ .data = NULL, .size = 0 } }
-		};
+		return new_huffman_encode_result_ok((SizedBuffer){ .data = NULL, .size = 0 });
 	}
 
 	uint8_t* const values = malloc(size);
 
 	if(values == NULL) {
-		return (HuffmanEncodeResult){ .is_error = true,
-			                          .data = { .error = TSTR_STATIC_LIT("failed malloc") } };
+		return new_huffman_encode_result_error(TSTR_STATIC_LIT("failed malloc"));
 	}
 
 	const HuffmanEncodeFixedResult res =
@@ -309,28 +306,25 @@ hpack_huffman_encode_value_impl(const HuffmanEncodeMap* const map, const tstr* s
 
 	IF_HUFFMAN_ENCODE_FIXED_RESULT_IS_ERROR_CONST(res) {
 		free(values);
-		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = error.error } };
+		return new_huffman_encode_result_error(error.error);
 	}
 
 	const size_t result_size = huffman_encode_fixed_result_get_as_ok(res).size;
 
 	if(result_size != size) {
 		free(values);
-		return (HuffmanEncodeResult){ .is_error = true,
-			                          .data = { .error = TSTR_STATIC_LIT(
-			                                        "Size that got calculated not exact") } };
+		return new_huffman_encode_result_error(
+		    TSTR_STATIC_LIT("Size that got calculated not exact"));
 	}
 
 	const SizedBuffer result = { .data = values, .size = size };
 
-	return (HuffmanEncodeResult){ .is_error = false, .data = { .result = result } };
+	return new_huffman_encode_result_ok(result);
 }
 
 NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str) {
 	if(g_huffman_data.map == NULL) {
-		return (HuffmanEncodeResult){
-			.is_error = true, .data = { .error = TSTR_STATIC_LIT("global map is not initialized") }
-		};
+		return new_huffman_encode_result_error(TSTR_STATIC_LIT("global map is not initialized"));
 	}
 
 	return hpack_huffman_encode_value_impl(g_huffman_data.map, str);

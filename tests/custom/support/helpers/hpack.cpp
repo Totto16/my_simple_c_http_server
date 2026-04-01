@@ -762,17 +762,19 @@ void helpers::free_huffman_decode_result(HuffmanDecodeResult* const decode_resul
 		return;
 	}
 
-	SizedBuffer *const value = &(huffman_decode_result_get_as_ok_mut_ref(decode_result)->result);
+	auto* const value = huffman_decode_result_get_as_ok_mut_ref(decode_result);
 
-	free_sized_buffer(*value);
+	free_sized_buffer(value->result);
 }
 
 void helpers::free_huffman_encode_result(HuffmanEncodeResult* encode_result) {
-	if(encode_result->is_error) {
+	IF_HUFFMAN_ENCODE_RESULT_IS_ERROR_IGN(*encode_result) {
 		return;
 	}
 
-	free_sized_buffer(encode_result->data.result);
+	auto* const value = huffman_encode_result_get_as_ok_mut_ref(encode_result);
+
+	free_sized_buffer(value->result);
 }
 
 [[nodiscard]] std::vector<std::uint8_t> hpack::huffman::all_values_vector() {
