@@ -369,5 +369,6 @@ export const globalTaggedUnions: TaggedUnion[] = [
                 order: "best_size"
             }
         }
-    }
+    },
+    makeErrorVariant("HttpBodyReadResult", "SizedBuffer", "body"),
 ]

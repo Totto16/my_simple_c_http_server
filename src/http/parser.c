@@ -772,13 +772,7 @@ NODISCARD static HttpAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 #undef FREE_AT_END
 
-typedef struct {
-	bool is_error;
-	union {
-		tstr_static error;
-		SizedBuffer body;
-	} data;
-} HttpBodyReadResult;
+GENERATE_VARIANT_ALL_HTTP_BODY_READ_RESULT()
 
 NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
                                                   const HTTPAnalyzeHeaders analyze) {
@@ -789,18 +783,12 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 			const BufferedReadResult res = buffered_reader_get_until_end(reader->buffered_reader);
 
 			if(res.type != BufferedReadResultTypeOk) {
-				return (HttpBodyReadResult){
-					.is_error = true,
-					.data = { .error = TSTR_STATIC_LIT("read failed") },
-				};
+				return new_http_body_read_result_error(TSTR_STATIC_LIT("read failed"));
 			}
 
 			reader->state = HTTPReaderStateEnd;
 
-			return (HttpBodyReadResult){
-				.is_error = false,
-				.data = { .body = sized_buffer_dup(res.value.buffer) },
-			};
+			return new_http_body_read_result_ok(sized_buffer_dup(res.value.buffer));
 		}
 
 		case HTTPRequestLengthTypeContentLength: {
@@ -809,35 +797,21 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 			    buffered_reader_get_amount(reader->buffered_reader, analyze.length.value.length);
 
 			if(res.type != BufferedReadResultTypeOk) {
-				return (HttpBodyReadResult){
-					.is_error = true,
-					.data = { .error = TSTR_STATIC_LIT("read failed") },
-				};
+				return new_http_body_read_result_error(TSTR_STATIC_LIT("read failed"));
 			}
 
-			return (HttpBodyReadResult){
-				.is_error = false,
-				.data = { .body = res.value.buffer },
-			};
+			return new_http_body_read_result_ok(res.value.buffer);
 		}
 		case HTTPRequestLengthTypeTransferEncoded: {
 			// TODO(Totto): implement
-			return (HttpBodyReadResult){
-				.is_error = true,
-				.data = { .error = TSTR_STATIC_LIT("transfer encoding not yet implemented") },
-			};
+			return new_http_body_read_result_error(
+			    TSTR_STATIC_LIT("transfer encoding not yet implemented"));
 		}
 		case HTTPRequestLengthTypeNoBody: {
-			return (HttpBodyReadResult){
-				.is_error = false,
-				.data = { .body = (SizedBuffer){ .data = NULL, .size = 0 } },
-			};
+			return new_http_body_read_result_ok((SizedBuffer){ .data = NULL, .size = 0 });
 		}
 		default: {
-			return (HttpBodyReadResult){
-				.is_error = true,
-				.data = { .error = TSTR_STATIC_LIT("invalid length type") },
-			};
+			return new_http_body_read_result_error(TSTR_STATIC_LIT("invalid length type"));
 		}
 	}
 }
@@ -981,16 +955,14 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 
 	const HttpBodyReadResult body_result = get_http_body(reader, analyze);
 
-	if(body_result.is_error) {
-		return (HttpRequestResult){
-			.type = HttpRequestResultTypeError,
-			.value = { .error =
-			               (HttpRequestError){ .is_advanced = true,
-			                                   .value = { .advanced = body_result.data.error } } }
-		};
+	IF_HTTP_BODY_READ_RESULT_IS_ERROR_CONST(body_result) {
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
+			                        .value = { .error = (HttpRequestError){
+			                                       .is_advanced = true,
+			                                       .value = { .advanced = error.error } } } };
 	}
 
-	request.body = body_result.data.body;
+	request.body = http_body_read_result_get_as_ok(body_result).body;
 
 	// check if the request body makes sense
 	if((request_line.method == HTTPRequestMethodGet ||
