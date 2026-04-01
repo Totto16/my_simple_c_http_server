@@ -83,7 +83,7 @@ typedef struct {
 	bool is_error;
 	union {
 		HpackVariableInteger value;
-		const char* error;
+		tstr_static  error;
 	} data;
 } HpackVariableIntegerResult;
 

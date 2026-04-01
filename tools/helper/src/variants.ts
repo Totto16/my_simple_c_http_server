@@ -1360,6 +1360,43 @@ const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("HuffmanNode")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Node")),
+                type: makeSimpleType("HuffmanNodeNode")
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("End")),
+                type: makeStructType([
+                    makeStructMember(
+                        "uint8_t",
+                        "value",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: makeStructType([
+                    makeStructMember(
+                        "tstr_static",
+                        "error",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("HuffmanNodeType")),
+            underlyingType: "u8"
+        },
+        options: {
+            rawStruct: CaseName.fromPascalCase("HuffmanNodeImpl"),
+            requirements: {
+                order: "best_size"
+            }
+        }
+    },
 ]
 
 

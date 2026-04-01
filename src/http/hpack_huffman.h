@@ -14,7 +14,7 @@ typedef struct {
 	bool is_error;
 	union {
 		SizedBuffer result;
-		const char* error;
+		tstr_static error;
 	} data;
 } HuffmanDecodeResult;
 

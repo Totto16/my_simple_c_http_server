@@ -964,7 +964,7 @@ function toCNode(node: HuffmanNode, nodesArrayValue: string): string {
 
         if (node.value === "EOS") {
 
-            return `((HuffmanNode){ .type = HuffmanNodeTypeError, .data = { .error = "EOS received" } })`
+            return `new_huffman_node_error(TSTR_STATIC_LIT("EOS received"))`
 
 
         }
@@ -977,13 +977,13 @@ function toCNode(node: HuffmanNode, nodesArrayValue: string): string {
             throw new Error("invalid node value")
         }
 
-        return `((HuffmanNode){ .type = HuffmanNodeTypeEnd, .data = { .end = ${node.value.toString()} } })`
+        return `new_huffman_node_end(${node.value.toString()})`
 
     }
 
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return `((HuffmanNode){ .type = HuffmanNodeTypeNode, .data = { .node = (HuffmanNodeNode){ .bit_0 = (${nodesArrayValue} + ${node.node.bitZero.id!.toString()}), .bit_1 = (${nodesArrayValue} + ${node.node.bitOne.id!.toString()}) } } })`
+    return `new_huffman_node_node((HuffmanNodeNode){ .bit_0 = (${nodesArrayValue} + ${node.node.bitZero.id!.toString()}), .bit_1 = (${nodesArrayValue} + ${node.node.bitOne.id!.toString()}) } )`
 
 
 }
@@ -1694,20 +1694,7 @@ typedef struct {
 	HuffmanNode* bit_1;
 } HuffmanNodeNode;
 
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	HuffmanNodeTypeNode = 0,
-	HuffmanNodeTypeEnd,
-	HuffmanNodeTypeError
-} HuffmanNodeType;
-
-struct HuffmanNodeImpl {
-	HuffmanNodeType type;
-	union {
-		HuffmanNodeNode node;
-		uint8_t end;
-		const char* error;
-	} data;
-};
+GENERATE_VARIANT_ALL_HUFFMAN_NODE()
 
 struct HuffmanTreeImpl {
 	HuffmanNode* root;

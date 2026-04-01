@@ -47,8 +47,9 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 	while(true) {
 		if((*pos) >= size) {
 			// not more bytes available
-			return (HpackVariableIntegerResult){ .is_error = true,
-				                                 .data = { .error = "not enough bytes" } };
+			return (HpackVariableIntegerResult){
+				.is_error = true, .data = { .error = TSTR_STATIC_LIT("not enough bytes") }
+			};
 		}
 
 		const uint8_t byte = data[*pos];
@@ -58,7 +59,8 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 		   sizeof(HpackVariableInteger) - 1) {
 			// to many bytes, the index should not be larger than a uint64_t
 			return (HpackVariableIntegerResult){
-				.is_error = true, .data = { .error = "final integer would be too big" }
+				.is_error = true,
+				.data = { .error = TSTR_STATIC_LIT("final integer would be too big") }
 			};
 		}
 
@@ -332,7 +334,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 typedef struct {
 	bool is_error;
 	union {
-		const char* error;
+		tstr_static error;
 		tstr value;
 	} data;
 } LiteralStringResult;
@@ -344,7 +346,8 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 	if(*pos >= size) {
 		return (LiteralStringResult){
 			.is_error = true,
-			.data = { .error = "not enough bytes at the start of a string literal" }
+			.data = { .error =
+			              TSTR_STATIC_LIT("not enough bytes at the start of a string literal") }
 		};
 	}
 
@@ -364,7 +367,8 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 	if(*pos >= size) {
 		return (LiteralStringResult){
 			.is_error = true,
-			.data = { .error = "not enough bytes after the length bytes of a string literal" }
+			.data = { .error = TSTR_STATIC_LIT(
+			              "not enough bytes after the length bytes of a string literal") }
 		};
 	}
 
@@ -379,7 +383,8 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 	if(((*pos) + length) > size) {
 		return (LiteralStringResult){
 			.is_error = true,
-			.data = { .error = "not enough bytes for the amount of data of a string literal" }
+			.data = { .error = TSTR_STATIC_LIT(
+			              "not enough bytes for the amount of data of a string literal") }
 		};
 	}
 
@@ -410,7 +415,8 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 	char* value = malloc(length + 1);
 
 	if(value == NULL) {
-		return (LiteralStringResult){ .is_error = true, .data = { .error = "OOM" } };
+		return (LiteralStringResult){ .is_error = true,
+			                          .data = { .error = TSTR_STATIC_LIT("OOM") } };
 	}
 
 	value[length] = 0;
