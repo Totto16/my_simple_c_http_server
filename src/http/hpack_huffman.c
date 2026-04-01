@@ -220,11 +220,11 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 	const size_t str_len = tstr_len(str);
 
 	if(str_len == 0) {
-		return (HuffmanEncodeFixedResult){ .is_error = false, .data = { .result_size = 0 } };
+		return new_huffman_encode_fixed_result_ok(0);
 	}
 
 	if(max_size == 0) {
-		return (HuffmanEncodeFixedResult){ .is_error = true, .data = { .error = "max size is 0" } };
+		return new_huffman_encode_fixed_result_error(TSTR_STATIC_LIT("max size is 0"));
 	}
 
 	uint8_t* data_ptr = (uint8_t*)data;
@@ -246,9 +246,8 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 			}
 
 			if(current_pos.pos >= max_size) {
-				return (HuffmanEncodeFixedResult){
-					.is_error = true, .data = { .error = "not enough size in the out buffer" }
-				};
+				return new_huffman_encode_fixed_result_error(
+				    TSTR_STATIC_LIT("not enough size in the out buffer"));
 			}
 
 			const uint8_t bit = value & 0x01;
@@ -273,16 +272,15 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 		current_pos.pos += 1;
 	}
 
-	return (HuffmanEncodeFixedResult){ .is_error = false,
-		                               .data = { .result_size = current_pos.pos } };
+	return new_huffman_encode_fixed_result_ok(current_pos.pos);
 }
 
 NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* const data,
                                                                          const size_t max_size,
                                                                          const tstr* const str) {
 	if(g_huffman_data.map == NULL) {
-		return (HuffmanEncodeFixedResult){ .is_error = true,
-			                               .data = { .error = "global map is not initialized" } };
+		return new_huffman_encode_fixed_result_error(
+		    TSTR_STATIC_LIT("global map is not initialized"));
 	}
 
 	return hpack_huffman_encode_value_fixed_size_impl(g_huffman_data.map, data, max_size, str);
@@ -302,21 +300,25 @@ hpack_huffman_encode_value_impl(const HuffmanEncodeMap* const map, const tstr* s
 	uint8_t* const values = malloc(size);
 
 	if(values == NULL) {
-		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = "failed malloc" } };
+		return (HuffmanEncodeResult){ .is_error = true,
+			                          .data = { .error = TSTR_STATIC_LIT("failed malloc") } };
 	}
 
 	const HuffmanEncodeFixedResult res =
 	    hpack_huffman_encode_value_fixed_size_impl(map, values, size, str);
 
-	if(res.is_error) {
+	IF_HUFFMAN_ENCODE_FIXED_RESULT_IS_ERROR_CONST(res) {
 		free(values);
-		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = res.data.error } };
+		return (HuffmanEncodeResult){ .is_error = true, .data = { .error = error.error } };
 	}
 
-	if(res.data.result_size != size) {
+	const size_t result_size = huffman_encode_fixed_result_get_as_ok(res).size;
+
+	if(result_size != size) {
 		free(values);
 		return (HuffmanEncodeResult){ .is_error = true,
-			                          .data = { .error = "Size that got calculated not exact" } };
+			                          .data = { .error = TSTR_STATIC_LIT(
+			                                        "Size that got calculated not exact") } };
 	}
 
 	const SizedBuffer result = { .data = values, .size = size };
@@ -326,8 +328,9 @@ hpack_huffman_encode_value_impl(const HuffmanEncodeMap* const map, const tstr* s
 
 NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str) {
 	if(g_huffman_data.map == NULL) {
-		return (HuffmanEncodeResult){ .is_error = true,
-			                          .data = { .error = "global map is not initialized" } };
+		return (HuffmanEncodeResult){
+			.is_error = true, .data = { .error = TSTR_STATIC_LIT("global map is not initialized") }
+		};
 	}
 
 	return hpack_huffman_encode_value_impl(g_huffman_data.map, str);

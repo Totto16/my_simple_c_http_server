@@ -21,13 +21,7 @@ NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(ReadonlyBuffer buffer);
 
 NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* str);
 
-typedef struct {
-	bool is_error;
-	union {
-		size_t result_size;
-		const char* error;
-	} data;
-} HuffmanEncodeFixedResult;
+GENERATE_VARIANT_ALL_HUFFMAN_ENCODE_FIXED_RESULT()
 
 NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* data,
                                                                          size_t max_size,
@@ -37,7 +31,7 @@ typedef struct {
 	bool is_error;
 	union {
 		SizedBuffer result;
-		const char* error;
+		tstr_static error;
 	} data;
 } HuffmanEncodeResult;
 

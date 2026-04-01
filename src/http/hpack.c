@@ -1162,12 +1162,14 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, field_value);
 
-		if(enc_result.is_error) {
+		IF_HUFFMAN_ENCODE_FIXED_RESULT_IS_ERROR_IGN(enc_result) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		if(enc_result.data.result_size != size_value) {
+		const size_t result_size = huffman_encode_fixed_result_get_as_ok(enc_result).size;
+
+		if(result_size != size_value) {
 			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
 			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
 			// has
@@ -1175,7 +1177,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += enc_result.data.result_size;
+		i += result_size;
 	}
 
 	if(i > buffer.size) {
@@ -1378,12 +1380,14 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &(field->key));
 
-		if(enc_result.is_error) {
+		IF_HUFFMAN_ENCODE_FIXED_RESULT_IS_ERROR_IGN(enc_result) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		if(enc_result.data.result_size != size_key) {
+		const size_t result_size = huffman_encode_fixed_result_get_as_ok(enc_result).size;
+
+		if(result_size != size_key) {
 			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
 			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
 			// has
@@ -1391,7 +1395,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += enc_result.data.result_size;
+		i += result_size;
 	}
 
 	{ // encode value
@@ -1412,12 +1416,14 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
 
-		if(enc_result.is_error) {
+		IF_HUFFMAN_ENCODE_FIXED_RESULT_IS_ERROR_IGN(enc_result) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		if(enc_result.data.result_size != size_value) {
+		const size_t result_size = huffman_encode_fixed_result_get_as_ok(enc_result).size;
+
+		if(result_size != size_value) {
 			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
 			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
 			// has
@@ -1425,7 +1431,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += enc_result.data.result_size;
+		i += result_size;
 	}
 
 	if(i > buffer.size) {
@@ -1635,12 +1641,14 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
 
-		if(enc_result.is_error) {
+		IF_HUFFMAN_ENCODE_FIXED_RESULT_IS_ERROR_IGN(enc_result) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		if(enc_result.data.result_size != size_value) {
+		const size_t result_size = huffman_encode_fixed_result_get_as_ok(enc_result).size;
+
+		if(result_size != size_value) {
 			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
 			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
 			// has
@@ -1648,7 +1656,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += enc_result.data.result_size;
+		i += result_size;
 	}
 
 	if(i > buffer.size) {
@@ -1868,12 +1876,14 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &(field->key));
 
-		if(enc_result.is_error) {
+		IF_HUFFMAN_ENCODE_FIXED_RESULT_IS_ERROR_IGN(enc_result) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		if(enc_result.data.result_size != size_key) {
+		const size_t result_size = huffman_encode_fixed_result_get_as_ok(enc_result).size;
+
+		if(result_size != size_key) {
 			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
 			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
 			// has
@@ -1881,7 +1891,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += enc_result.data.result_size;
+		i += result_size;
 	}
 
 	{ // encode value
@@ -1902,12 +1912,14 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
 
-		if(enc_result.is_error) {
+		IF_HUFFMAN_ENCODE_FIXED_RESULT_IS_ERROR_IGN(enc_result) {
 			free_sized_buffer(buffer);
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		if(enc_result.data.result_size != size_value) {
+		const size_t result_size = huffman_encode_fixed_result_get_as_ok(enc_result).size;
+
+		if(result_size != size_value) {
 			// size_key way wrong, as http_hpack_encode_value_fixed_size just accepts an upper
 			// bound, it may encode in fewer bytes, may_size just tells, how much place the buffer
 			// has
@@ -1915,7 +1927,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += enc_result.data.result_size;
+		i += result_size;
 	}
 
 	if(i > buffer.size) {

@@ -253,4 +253,36 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("HuffmanEncodeFixedResult")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: makeStructType([
+                    makeStructMember(
+                        "size_t",
+                        "size",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: makeStructType([
+                    makeStructMember(
+                        "tstr_static",
+                        "error",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("HuffmanEncodeFixedResultType")),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            }
+        }
+    },
 ]
