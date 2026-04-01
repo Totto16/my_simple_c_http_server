@@ -814,7 +814,8 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			//  +---+---------------------------+
 			const GenericResult res =
 			    parse_hpack_indexed_header_field(&pos, size, data, &result, decompress_state);
-			if(res.is_error) {
+
+			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
 				error = "error in parsing indexed header field";
 				goto return_error;
 			}
@@ -829,7 +830,8 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			// ...
 			const GenericResult res = parse_hpack_literal_header_field_with_incremental_indexing(
 			    &pos, size, data, &result, decompress_state);
-			if(res.is_error) {
+
+			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
 				error = "error in parsing literal header field with incremental indexing";
 				goto return_error;
 			}
@@ -843,7 +845,8 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			// +---+---------------------------+
 			const GenericResult res =
 			    parse_hpack_dynamic_table_size_update(&pos, size, data, decompress_state);
-			if(res.is_error) {
+
+			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
 				error = "error in parsing dynamic table size update";
 				goto return_error;
 			}
@@ -858,7 +861,8 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			// ...
 			const GenericResult res = parse_hpack_literal_header_field_never_indexed(
 			    &pos, size, data, &result, decompress_state);
-			if(res.is_error) {
+
+			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
 				error = "error in parsing literal header field never indexed";
 				goto return_error;
 			}
@@ -876,7 +880,8 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			// ...
 			const GenericResult res = parse_hpack_literal_header_field_without_indexing(
 			    &pos, size, data, &result, decompress_state);
-			if(res.is_error) {
+
+			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
 				error = "error in parsing literal header field without indexing";
 				goto return_error;
 			}

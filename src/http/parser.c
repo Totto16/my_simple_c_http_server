@@ -901,7 +901,7 @@ process_http2_upgrade_request(const HTTPResultOk ok_res, HTTPReader* const reade
 		    buffered_reader_get_connection_descriptor(reader->buffered_reader), to_send,
 		    send_settings);
 
-		if(result.is_error) {
+		IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 			return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = { .error = (HttpRequestError){
 				                                       .is_advanced = true,

@@ -340,9 +340,10 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 			}
 		}
 
-		if(result.is_error) {
+		IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			            "Error in sending response: %s\n", result.value.error);
+			            "Error in sending response: " TSTR_FMT "\n",
+			            TSTR_STATIC_FMT_ARGS(error.error));
 		}
 
 		return JOB_ERROR_NONE;
@@ -454,7 +455,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					WsConnectionArgs websocket_args =
 					    get_ws_args_from_http_request(selected_route_data.path, extensions);
 
-					if(!ws_request_successful.is_error) {
+					IF_GENERIC_RESULT_IS_NOT_ERROR(ws_request_successful) {
 						// move the context so that we can use it in the long standing web
 						// socket thread
 						ConnectionContext* new_context = copy_connection_context(context);
@@ -751,9 +752,9 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 	free_selected_route(selected_route);
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-		            "Error in sending response: %s\n", result.value.error);
+		            "Error in sending response: " TSTR_FMT "\n", TSTR_STATIC_FMT_ARGS(error.error));
 	}
 
 	return JOB_ERROR_NONE;
@@ -827,7 +828,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 		                                        .protocol_data = DEFAULT_RESPONSE_PROTOCOL_DATA,
 		                                    });
 
-		if(result.is_error) {
+		IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 			                   "Error in sending response\n");
 		}
@@ -854,7 +855,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 				    process_http_error(http_request_result.value.error, descriptor, general_context,
 				                       default_send_settings, true);
 
-				if(result.is_error) {
+				IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending response\n");
 				}
@@ -1013,10 +1014,11 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(tqueue_push(
-		       argument.job_id_queue,
-		       pool_submit(argument.pool, http_socket_connection_handler, connection_argument))
-		       .is_error) {
+		const GenericResult push_res = tqueue_push(
+		    argument.job_id_queue,
+		    pool_submit(argument.pool, http_socket_connection_handler, connection_argument));
+
+		IF_GENERIC_RESULT_IS_ERROR_IGN(push_res) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 

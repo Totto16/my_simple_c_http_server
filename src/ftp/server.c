@@ -157,9 +157,10 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		    descriptor, FtpReturnCodeSyntaxError,
 		    TSTR_LIT("Request couldn't be read, a connection error occurred!"));
 
-		if(result.is_error) {
+		IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			            "Error in sending response: %s\n", result.value.error);
+			            "Error in sending response: " TSTR_FMT "\n",
+			            TSTR_STATIC_FMT_ARGS(error.error));
 		}
 
 		goto cleanup;
@@ -167,9 +168,10 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 
 	const GenericResult hello_result = send_ftp_message_to_connection_tstr(
 	    descriptor, FtpReturnCodeSrvcReady, TSTR_LIT("Simple FTP Server"));
-	if(hello_result.is_error) {
-		LOG_MESSAGE(LogLevelError, "Error in sending hello message: %s\n",
-		            hello_result.value.error);
+
+	IF_GENERIC_RESULT_IS_ERROR_CONST(hello_result) {
+		LOG_MESSAGE(LogLevelError, "Error in sending hello message: " TSTR_FMT "\n",
+		            TSTR_STATIC_FMT_ARGS(error.error));
 		goto cleanup;
 	}
 
@@ -188,7 +190,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 			const GenericResult result = send_ftp_message_to_connection_tstr(
 			    descriptor, FtpReturnCodeSyntaxError, TSTR_LIT("Invalid Command Sequence"));
 
-			if(result.is_error) {
+			IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 				                   "Error in sending response\n");
 				goto cleanup;
@@ -230,7 +232,8 @@ cleanup:
 		    send_ftp_message_to_connection_tstr(descriptor, code, TSTR_LIT(msg)); \
 		IF_GENERIC_RESULT_IS_ERROR_CONST(send_result) { \
 			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
-			            "Error in sending response: " TSTR_FMT "\n", TSTR_STATIC_FMT_ARGS(error.error)); \
+			            "Error in sending response: " TSTR_FMT "\n", \
+			            TSTR_STATIC_FMT_ARGS(error.error)); \
 			return false; \
 		} \
 	} while(false)
@@ -243,7 +246,8 @@ cleanup:
 		    send_ftp_message_to_connection_sb(descriptor, code, string_builder); \
 		IF_GENERIC_RESULT_IS_ERROR_CONST(send_result) { \
 			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
-			            "Error in sending response: " TSTR_FMT "\n", TSTR_STATIC_FMT_ARGS(error.error)); \
+			            "Error in sending response: " TSTR_FMT "\n", \
+			            TSTR_STATIC_FMT_ARGS(error.error)); \
 			return false; \
 		} \
 	} while(false)
@@ -588,7 +592,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				                       , "%03d-Extensions supported:", FtpReturnCodeFeatureList);
 				const GenericResult send_result =
 				    send_string_builder_to_connection(descriptor, &string_builder);
-				if(send_result.is_error) {
+
+				IF_GENERIC_RESULT_IS_ERROR_IGN(send_result) {
 					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending start feature response\n");
 					return false;
@@ -615,10 +620,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				const GenericResult send_result =
 				    send_string_builder_to_connection(descriptor, &string_builder);
-				if(send_result.is_error) {
+
+				IF_GENERIC_RESULT_IS_ERROR_CONST(send_result) {
 					LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-					            "Error in sending manual feature response: %s\n",
-					            send_result.value.error);
+					            "Error in sending manual feature response: " TSTR_FMT "\n",
+					            TSTR_STATIC_FMT_ARGS(error.error));
 					return false;
 				}
 			}
@@ -1539,10 +1545,11 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(tqueue_push(argument.job_id_queue,
-		               pool_submit(argument.pool, ftp_control_socket_connection_handler,
-		                           connection_argument))
-		       .is_error) {
+		const GenericResult push_res = tqueue_push(
+		    argument.job_id_queue,
+		    pool_submit(argument.pool, ftp_control_socket_connection_handler, connection_argument));
+
+		IF_GENERIC_RESULT_IS_ERROR_IGN(push_res) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 

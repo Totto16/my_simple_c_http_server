@@ -44,7 +44,7 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 	const GenericResult result =
 	    send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in send_failed_handshake_message)\n");
 		return result;
@@ -77,7 +77,7 @@ send_failed_handshake_message(const ConnectionDescriptor* const descriptor,
 	const GenericResult result =
 	    send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in send_failed_handshake_message)\n");
 		return result;
@@ -316,7 +316,7 @@ GenericResult handle_ws_handshake(const HttpRequest http_request,
 	const GenericResult result =
 	    are_extensions_supported(descriptor, general_context, send_settings, *extensions);
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		return result;
 	}
 

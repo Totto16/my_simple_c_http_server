@@ -464,7 +464,7 @@ ws_send_message_internal_fragmented(WebSocketConnection* connection, WebSocketMe
 
 		const GenericResult result = ws_send_message_raw_internal(connection, raw_message, mask);
 
-		if(result.is_error) {
+		IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 			return result;
 		}
 	}
@@ -717,11 +717,11 @@ NODISCARD static GenericResult close_websocket_connection(WebSocketConnection** 
 
 	*connection = NULL;
 
-	if(result.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		return GENERIC_RES_ERR("send error");
 	}
 
-	if(result2.is_error) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result2) {
 		return GENERIC_RES_ERR("thread manager remove error");
 	}
 
@@ -865,10 +865,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 				free(error_message);
 
-				if(result.is_error) {
-					LOG_MESSAGE(LogLevelError,
-					            "Error while closing the websocket connection: read error: %s\n",
-					            result.value.error);
+				IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+					LOG_MESSAGE(
+					    LogLevelError,
+					    "Error while closing the websocket connection: read error: " TSTR_FMT "\n",
+					    TSTR_STATIC_FMT_ARGS(error.error));
 				}
 
 				FREE_AT_END();
@@ -899,11 +900,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					const GenericResult result =
 					    close_websocket_connection(&connection, argument->manager, reason);
 
-					if(result.is_error) {
+					IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 						LOG_MESSAGE(LogLevelError,
 						            "Error while closing the websocket connection: "
-						            "fragmented control frame: %s\n",
-						            result.value.error);
+						            "fragmented control frame: " TSTR_FMT "\n",
+						            TSTR_STATIC_FMT_ARGS(error.error));
 					}
 
 					FREE_AT_END();
@@ -918,11 +919,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					const GenericResult result =
 					    close_websocket_connection(&connection, argument->manager, reason);
 
-					if(result.is_error) {
+					IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 						LOG_MESSAGE(LogLevelError,
 						            "Error while closing the websocket connection: "
-						            "Control frame payload to large: %s\n",
-						            result.value.error);
+						            "Control frame payload to large: " TSTR_FMT "\n",
+						            TSTR_STATIC_FMT_ARGS(error.error));
 					}
 
 					FREE_AT_END();
@@ -945,11 +946,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							const GenericResult result =
 							    close_websocket_connection(&connection, argument->manager, reason);
 
-							if(result.is_error) {
+							IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
-								            "Close data has invalid code: %s\n",
-								            result.value.error);
+								            "Close data has invalid code: " TSTR_FMT "\n",
+								            TSTR_STATIC_FMT_ARGS(error.error));
 							}
 
 							FREE_AT_END();
@@ -980,11 +981,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 							free(error_message);
 
-							if(result.is_error) {
+							IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
-								            "Invalid utf8 payload in control frame: %s\n",
-								            result.value.error);
+								            "Invalid utf8 payload in control frame: " TSTR_FMT "\n",
+								            TSTR_STATIC_FMT_ARGS(error.error));
 							}
 
 							FREE_AT_END();
@@ -1011,11 +1012,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						const GenericResult result =
 						    close_websocket_connection(&connection, argument->manager, reason);
 
-						if(result.is_error) {
-							LOG_MESSAGE(
-							    LogLevelError,
-							    "Error while closing the websocket connection: CONT error: %s\n",
-							    result.value.error);
+						IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+							LOG_MESSAGE(LogLevelError,
+							            "Error while closing the websocket connection: CONT "
+							            "error: " TSTR_FMT "\n",
+							            TSTR_STATIC_FMT_ARGS(error.error));
 						}
 
 						FREE_AT_END();
@@ -1035,11 +1036,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 						free(extension_error);
 
-						if(result.is_error) {
-							LOG_MESSAGE(
-							    LogLevelError,
-							    "Error while closing the websocket connection: CONT error: %s\n",
-							    result.value.error);
+						IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+							LOG_MESSAGE(LogLevelError,
+							            "Error while closing the websocket connection: CONT "
+							            "error: " TSTR_FMT "\n",
+							            TSTR_STATIC_FMT_ARGS(error.error));
 						}
 
 						FREE_AT_END();
@@ -1088,11 +1089,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 						free(error_message);
 
-						if(result.is_error) {
+						IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 							LOG_MESSAGE(LogLevelError,
 							            "Error while closing the websocket connection: "
-							            "Extension pipeline error: %s\n",
-							            result.value.error);
+							            "Extension pipeline error: " TSTR_FMT "\n",
+							            TSTR_STATIC_FMT_ARGS(error.error));
 						}
 
 						FREE_AT_END();
@@ -1120,11 +1121,12 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 							free(error_message);
 
-							if(result.is_error) {
+							IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
-								            "Invalid utf8 payload in fragmented message: %s\n",
-								            result.value.error);
+								            "Invalid utf8 payload in fragmented message: " TSTR_FMT
+								            "\n",
+								            TSTR_STATIC_FMT_ARGS(error.error));
 							}
 
 							FREE_AT_END();
@@ -1152,11 +1154,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						const GenericResult result =
 						    close_websocket_connection(&connection, argument->manager, reason);
 
-						if(result.is_error) {
-							LOG_MESSAGE(
-							    LogLevelError,
-							    "Error while closing the websocket connection: no CONT error: %s\n",
-							    result.value.error);
+						IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+							LOG_MESSAGE(LogLevelError,
+							            "Error while closing the websocket connection: no CONT "
+							            "error: " TSTR_FMT "\n",
+							            TSTR_STATIC_FMT_ARGS(error.error));
 						}
 
 						FREE_AT_END();
@@ -1199,11 +1201,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 						free(error_message);
 
-						if(result.is_error) {
+						IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 							LOG_MESSAGE(LogLevelError,
 							            "Error while closing the websocket connection: "
-							            "Extension pipeline error: %s\n",
-							            result.value.error);
+							            "Extension pipeline error: " TSTR_FMT "\n",
+							            TSTR_STATIC_FMT_ARGS(error.error));
 						}
 
 						FREE_AT_END();
@@ -1234,11 +1236,12 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 							free(error_message);
 
-							if(result.is_error) {
-								LOG_MESSAGE(LogLevelError,
-								            "Error while closing the websocket connection: "
-								            "Invalid utf8 payload in un-fragmented message: %s\n",
-								            result.value.error);
+							IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+								LOG_MESSAGE(
+								    LogLevelError,
+								    "Error while closing the websocket connection: "
+								    "Invalid utf8 payload in un-fragmented message: " TSTR_FMT "\n",
+								    TSTR_STATIC_FMT_ARGS(error.error));
 							}
 
 							FREE_AT_END();
@@ -1277,11 +1280,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								const GenericResult result = close_websocket_connection(
 								    &connection, argument->manager, invalid_close_code_reason);
 
-								if(result.is_error) {
+								IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 									LOG_MESSAGE(LogLevelError,
 									            "Error while closing the websocket connection: "
-									            "Invalid Close Code: %s\n",
-									            result.value.error);
+									            "Invalid Close Code: " TSTR_FMT "\n",
+									            TSTR_STATIC_FMT_ARGS(error.error));
 								}
 
 								FREE_AT_END();
@@ -1295,11 +1298,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					const GenericResult result =
 					    close_websocket_connection(&connection, argument->manager, reason);
 
-					if(result.is_error) {
+					IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 						LOG_MESSAGE(LogLevelError,
 						            "Error while closing the websocket connection: planned "
-						            "close: %s\n",
-						            result.value.error);
+						            "close: " TSTR_FMT "\n",
+						            TSTR_STATIC_FMT_ARGS(error.error));
 					}
 
 					FREE_AT_END();
@@ -1323,7 +1326,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 					FREE_WS_RAW_MESSAGE();
 
-					if(result.is_error) {
+					IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 						CloseReason reason = {
 							.code = CloseCodeProtocolError,
 							.message = "Couldn't send PONG op_code",
@@ -1333,11 +1336,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						const GenericResult result1 =
 						    close_websocket_connection(&connection, argument->manager, reason);
 
-						if(result1.is_error) {
+						IF_GENERIC_RESULT_IS_ERROR_CONST(result1) {
 							LOG_MESSAGE(LogLevelError,
 							            "Error while closing the websocket connection: PONG send "
-							            "error: %s\n",
-							            result1.value.error);
+							            "error: " TSTR_FMT "\n",
+							            TSTR_STATIC_FMT_ARGS(error.error));
 						}
 
 						FREE_AT_END();
@@ -1365,11 +1368,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					const GenericResult result =
 					    close_websocket_connection(&connection, argument->manager, reason);
 
-					if(result.is_error) {
+					IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 						LOG_MESSAGE(LogLevelError,
 						            "Error while closing the websocket connection: "
-						            "Unsupported op_code: %s\n",
-						            result.value.error);
+						            "Unsupported op_code: " TSTR_FMT "\n",
+						            TSTR_STATIC_FMT_ARGS(error.error));
 					}
 
 					FREE_AT_END();
@@ -1399,7 +1402,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				const GenericResult result =
 				    close_websocket_connection(&connection, argument->manager, reason);
 
-				if(result.is_error) {
+				IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 					LOG_MESSAGE_SIMPLE(LogLevelError,
 					                   "Error while closing the websocket connection: "
 					                   "send extension state allocation error\n");
@@ -1429,11 +1432,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				const GenericResult result =
 				    close_websocket_connection(&connection, argument->manager, reason);
 
-				if(result.is_error) {
-					LOG_MESSAGE(
-					    LogLevelError,
-					    "Error while closing the websocket connection: shutdown requested: %s\n",
-					    result.value.error);
+				IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+					LOG_MESSAGE(LogLevelError,
+					            "Error while closing the websocket connection: shutdown "
+					            "requested: " TSTR_FMT "\n",
+					            TSTR_STATIC_FMT_ARGS(error.error));
 				}
 
 				FREE_AT_END();
@@ -1448,11 +1451,11 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 				const GenericResult result =
 				    close_websocket_connection(&connection, argument->manager, reason);
 
-				if(result.is_error) {
+				IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
 					LOG_MESSAGE(LogLevelError,
 					            "Error while closing the websocket connection: "
-					            "callback has error: %s\n",
-					            result.value.error);
+					            "callback has error: " TSTR_FMT "\n",
+					            TSTR_STATIC_FMT_ARGS(error.error));
 				}
 
 				FREE_AT_END();
@@ -1615,7 +1618,7 @@ static void free_connection(WebSocketConnection* connection, bool send_go_away) 
 			                   .message_len = -1 };
 		const GenericResult result = ws_send_close_message_raw_internal(connection, reason);
 
-		if(result.is_error) {
+		IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "Error while closing the websocket connection: close "
 			                                  "reason: server shutting down\n");
 		}
