@@ -573,15 +573,13 @@ type GeneratorVariant = "const" | "mut" | "ign"
 
 interface GeneratedMacros {
     macros: string[]
-    poisonedNames: string[]
 }
 
 function combineGeneratedMacros(macros: GeneratedMacros[]): GeneratedMacros {
     return macros.reduce<GeneratedMacros>((acc: GeneratedMacros, elem: GeneratedMacros): GeneratedMacros => {
         acc.macros.push(...elem.macros)
-        acc.poisonedNames.push(...elem.poisonedNames)
         return acc;
-    }, { macros: [], poisonedNames: [] });
+    }, { macros: [] });
 }
 
 function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap): GeneratedMacros {
@@ -591,8 +589,7 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
         return {
             macros: [`#define ${getIfMacroName(taggedUnion.name, member.name, null)}(variant_entry)
 	if((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(member, taggedUnion.enum.name)})`
-            ],
-            poisonedNames: []
+            ]
         }
 
     } else if (isSimpleTaggedType(member.type)) {
@@ -603,9 +600,9 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
         return combineGeneratedMacros((["const", "mut", "ign"] as GeneratorVariant[]).map((variant): GeneratedMacros => {
 
-            const result: GeneratedMacros = { macros: [], poisonedNames: [] }
+            const result: GeneratedMacros = { macros: [] }
 
-            const mainName: string = getIfMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
+            const mainName: string = variant === "ign" ? getIfMacroName(taggedUnion.name, member.name, variant) : `__INTERNAL_HELPER_MACRO_DONT_USE_${getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_2`)}`
 
             let mainDef = `#define ${mainName}(variant_entry${variant !== "ign" ? `, var_name` : ""})
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(member, taggedUnion.enum.name)})`
@@ -615,9 +612,9 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 			for (${memberType.name}${cConstConditional(variant === "mut")}var_name = (variant_entry).${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()}; ${nameTrickForIfExpression}; ${nameTrickForIfExpression} = false)`
                 // macro alias for not using var_name
 
-                const helperName = getIfMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`);
+                const helperName = `__INTERNAL_HELPER_MACRO_DONT_USE_${getIfMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`)}`;
 
-                const defaultArgName = getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
+                const defaultArgName = `__INTERNAL_HELPER_MACRO_DONT_USE_${getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`)}`;
 
                 result.macros.push(...[
                     `#define ${helperName}(_1, _2, NAME, ...) NAME`,
@@ -627,8 +624,6 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
                 ])
 
-
-                result.poisonedNames.push(mainName, helperName, defaultArgName)
             }
 
             result.macros.push(mainDef)
@@ -648,9 +643,9 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
         return combineGeneratedMacros((["const", "mut", "ign"] as GeneratorVariant[]).map((variant): GeneratedMacros => {
 
-            const result: GeneratedMacros = { macros: [], poisonedNames: [] }
+            const result: GeneratedMacros = { macros: [] }
 
-            const mainName: string = getIfMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
+            const mainName: string = variant === "ign" ? getIfMacroName(taggedUnion.name, member.name, variant) : `__INTERNAL_HELPER_MACRO_DONT_USE_${getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_2`)}`
 
             let mainDef = `#define ${mainName}(variant_entry${variant !== "ign" ? `, var_name` : ""})
 	if ((variant_entry).${getUnionTagName(taggedUnion.name)} == ${memberNameForEnum(member, taggedUnion.enum.name)})`
@@ -661,9 +656,9 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
 
                 // macro alias for not using var_name
 
-                const helperName = getIfMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`);
+                const helperName = `__INTERNAL_HELPER_MACRO_DONT_USE_${getIfMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`)}`;
 
-                const defaultArgName = getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
+                const defaultArgName = `__INTERNAL_HELPER_MACRO_DONT_USE_${getIfMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`)}`;
 
                 result.macros.push(...[
                     `#define ${helperName}(_1, _2, NAME, ...) NAME`,
@@ -671,8 +666,6 @@ function generateIfMacros(member: TaggedMember, taggedUnion: TaggedUnion, unname
                     `#define ${getIfMacroName(taggedUnion.name, member.name, variant)}(...)
 	${helperName}(__VA_ARGS__, ${mainName}, ${defaultArgName})(__VA_ARGS__)`
                 ])
-
-                result.poisonedNames.push(mainName, helperName, defaultArgName)
 
             }
 
@@ -713,7 +706,7 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
         return {
             macros: [`#define ${getCaseMacroName(taggedUnion.name, member.name, null)}()
 	case ${memberNameForEnum(member, taggedUnion.enum.name)}:`],
-            poisonedNames: []
+
         }
 
     } else if (isSimpleTaggedType(member.type)) {
@@ -724,9 +717,9 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
         return combineGeneratedMacros((["const", "mut", "ign"] as GeneratorVariant[]).map((variant): GeneratedMacros => {
 
-            const result: GeneratedMacros = { macros: [], poisonedNames: [] }
+            const result: GeneratedMacros = { macros: [] }
 
-            const mainName: string = getCaseMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
+            const mainName: string = variant === "ign" ? getCaseMacroName(taggedUnion.name, member.name, variant) : `__INTERNAL_HELPER_MACRO_DONT_USE_${getCaseMacroName(taggedUnion.name, member.name, `${variant}_IMPL_2`)}`
 
             let mainDef = `#define ${mainName}(${variant !== "ign" ? "variant_entry, var_name" : ""})
 	case ${memberNameForEnum(member, taggedUnion.enum.name)}:`
@@ -739,9 +732,11 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
                 // macro alias for not using var_name
 
-                const helperName = getCaseMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`);
 
-                const defaultArgName = getCaseMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
+                const helperName = `__INTERNAL_HELPER_MACRO_DONT_USE_${getCaseMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`)}`;
+
+                const defaultArgName = `__INTERNAL_HELPER_MACRO_DONT_USE_${getCaseMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`)}`;
+
 
                 result.macros.push(...[
                     `#define ${helperName}(_1, _2, NAME, ...) NAME`,
@@ -750,8 +745,6 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 	${helperName}(__VA_ARGS__, ${mainName}, ${defaultArgName})(__VA_ARGS__)`
 
                 ])
-
-                result.poisonedNames.push(mainName, helperName, defaultArgName)
 
             }
 
@@ -772,9 +765,9 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
         return combineGeneratedMacros((["const", "mut", "ign"] as GeneratorVariant[]).map((variant): GeneratedMacros => {
 
-            const result: GeneratedMacros = { macros: [], poisonedNames: [] }
+            const result: GeneratedMacros = { macros: [] }
 
-            const mainName: string = getCaseMacroName(taggedUnion.name, member.name, variant === "ign" ? variant : `${variant}_IMPL_2`)
+            const mainName: string = variant === "ign" ? getCaseMacroName(taggedUnion.name, member.name, variant) : `__INTERNAL_HELPER_MACRO_DONT_USE_${getCaseMacroName(taggedUnion.name, member.name, `${variant}_IMPL_2`)}`
 
             let mainDef = `#define ${mainName}(${variant !== "ign" ? "variant_entry, var_name" : ""})
 	case ${memberNameForEnum(member, taggedUnion.enum.name)}:`
@@ -787,9 +780,10 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 
                 // macro alias for not using var_name
 
-                const helperName = getCaseMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`);
+                const helperName = `__INTERNAL_HELPER_MACRO_DONT_USE_${getCaseMacroName(taggedUnion.name, member.name, `${variant}_MACRO_HELPER_IMPL_`)}`;
 
-                const defaultArgName = getCaseMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`);
+                const defaultArgName = `__INTERNAL_HELPER_MACRO_DONT_USE_${getCaseMacroName(taggedUnion.name, member.name, `${variant}_IMPL_1`)}`;
+
 
                 result.macros.push(...[
                     `#define ${helperName}(_1, _2, NAME, ...) NAME`,
@@ -798,8 +792,6 @@ function generateCaseMacros(member: TaggedMember, taggedUnion: TaggedUnion, unna
 	${helperName}(__VA_ARGS__, ${mainName}, ${defaultArgName})(__VA_ARGS__)`
 
                 ])
-
-                result.poisonedNames.push(mainName, helperName, defaultArgName)
 
             }
 
@@ -927,7 +919,6 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
         generateMacroAll,
         ...taggedUnion.member.flatMap((mem): string[] => {
             const macros: GeneratedMacros = generateIfMacros(mem, taggedUnion, unnamedStructMap)
-            poisonedNames.push(...macros.poisonedNames)
             return macros.macros
         }
         ),
@@ -935,7 +926,6 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
         generateSwitchMacro(taggedUnion),
         ...taggedUnion.member.flatMap((mem): string[] => {
             const macros: GeneratedMacros = generateCaseMacros(mem, taggedUnion, unnamedStructMap)
-            poisonedNames.push(...macros.poisonedNames)
             return macros.macros
         }),
     ]
