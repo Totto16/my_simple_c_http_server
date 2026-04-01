@@ -1246,12 +1246,12 @@ function fastStringNodeToC(node: FastStringCompareNode, arrayNamePrefixes: strin
             throw new Error("Implementation error")
         }
 
-        return `(FastStringCmpNode){ .is_result = true, .data = { .result = (FastStringCompareResult){ .found = true, .index = ${node.result.toString()} } }}`
+        return `new_fast_string_cmp_node_end((FastStringCompareResult){ .found = true, .index = ${node.result.toString()} } )`
 
     }
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return `(FastStringCmpNode){ .is_result = false, .data = { .prefixes = (FastStringCmpPrefixes){ .prefixLen = ${node.prefixLen.toString()}, .array = (FastStringCmpPrefixArray) { .len = ${node.prefixes.length.toString()}, .data = &(${arrayNamePrefixes}[${node.prefixOffset!.toString()}]) } } } }`
+    return `new_fast_string_cmp_node_normal((FastStringCmpPrefixes){ .prefixLen = ${node.prefixLen.toString()}, .array = (FastStringCmpPrefixArray) { .len = ${node.prefixes.length.toString()}, .data = &(${arrayNamePrefixes}[${node.prefixOffset!.toString()}]) } } )`
 
 }
 
@@ -1484,13 +1484,7 @@ typedef struct {
 	FastStringCmpPrefixArray array;
 } FastStringCmpPrefixes;
 
-struct FastStringCmpNodeImpl {
-	bool is_result;
-	union {
-		FastStringCompareResult result;
-		FastStringCmpPrefixes prefixes;
-	} data;
-};
+GENERATE_VARIANT_ALL_FAST_STRING_CMP_NODE()
 
 typedef struct {
 	FastStringCmpNode* root;
@@ -1515,13 +1509,14 @@ ${!flags.firstGenCall ? "" : `NODISCARD static FastStringCompareResult fast_comp
 	const FastStringCmpNode* node = tree.root;
 	size_t index = 0;
 
-	assert(!(node->is_result) && "first node can't be a result!");
+	assert(get_current_tag_type_for_fast_string_cmp_node(*node) != FastStringCmpNodeTypeEnd && "first node can't be a end!");
+
 	while(index < str_view.len){
-		if(node->is_result){
-			return node->data.result;
+		IF_FAST_STRING_CMP_NODE_IS_END_CONST(*node){
+			return end.result;
 		}
 
-		const FastStringCmpPrefixes prefixes = node->data.prefixes;
+		const FastStringCmpPrefixes prefixes = fast_string_cmp_node_get_as_normal(*node).prefixes;
 
 		if(index + prefixes.prefixLen > str_view.len){
 			// can't perform comparisons
@@ -1557,8 +1552,8 @@ ${!flags.firstGenCall ? "" : `NODISCARD static FastStringCompareResult fast_comp
 		index += prefixes.prefixLen;
 
 		if(index == str_view.len){
-			if(node->is_result){
-				return node->data.result;
+			IF_FAST_STRING_CMP_NODE_IS_END_CONST(*node){
+				return end.result;
 			}
 			return (FastStringCompareResult){ .found = false, .index = 0 };
 		}

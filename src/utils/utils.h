@@ -207,3 +207,6 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	ExitCodeFailure = EXIT_FAILURE,
 	ExitCodeSuccess = EXIT_SUCCESS,
 } ExitCode;
+
+// just so that I don't add const, when I see the declaration without const xD
+#define MUT

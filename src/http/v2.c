@@ -2802,7 +2802,7 @@ typedef struct {
 	Http2RequestHeadersResultType type;
 	union {
 		HttpRequestHead result;
-		const char* error;
+		tstr_static error;
 	} data;
 } Http2RequestHeadersResult;
 
@@ -2830,7 +2830,8 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 	if(!header_value_res.is_ok) {
 		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 			                                .data = {
-			                                    .error = "error in constructing the header data",
+			                                    .error = TSTR_STATIC_LIT(
+			                                        "error in constructing the header data"),
 			                                } };
 	}
 	const SizedBuffer header_value = header_value_res.result;
@@ -2840,14 +2841,14 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 
 	free_sized_buffer(header_value);
 
-	if(header_result.is_error) {
+	IF_HTTP2_HPACK_DECOMPRESS_RESULT_IS_ERROR_CONST(header_result) {
 		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 			                                .data = {
-			                                    .error = header_result.data.error,
+			                                    .error = error.error,
 			                                } };
 	}
 
-	HttpHeaderFields http2_headers = header_result.data.result;
+	MUT HttpHeaderFields http2_headers = http2_hpack_decompress_result_get_as_ok(header_result);
 
 	HttpRequestHead result = {
 		.request_line =
@@ -2886,8 +2887,9 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 			if(pseudo_headers_finished) {
 				return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 					                                .data = {
-					                                    .error = "pseudo header field after normal "
-					                                             "header fields",
+					                                    .error = TSTR_STATIC_LIT(
+					                                        "pseudo header field after normal "
+					                                        "header fields"),
 					                                } };
 			}
 
@@ -2903,7 +2905,8 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 				if(!success) {
 					return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 						                                .data = {
-						                                    .error = "invalid http method",
+						                                    .error = TSTR_STATIC_LIT(
+						                                        "invalid http method"),
 						                                } };
 				}
 
@@ -2924,8 +2927,9 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 				if(!authority_parse_result.ok) {
 					return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 						                                .data = {
-						                                    .error = "Authority parse error: not a "
-						                                             "valid authority",
+						                                    .error = TSTR_STATIC_LIT(
+						                                        "Authority parse error: not a "
+						                                        "valid authority"),
 						                                } };
 				}
 
@@ -2933,9 +2937,10 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 
 					return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 						                                .data = {
-						                                    .error = "Authority parse error: we "
-						                                             "got more data "
-						                                             "after the authority",
+						                                    .error = TSTR_STATIC_LIT(
+						                                        "Authority parse error: we "
+						                                        "got more data "
+						                                        "after the authority"),
 						                                } };
 				}
 
@@ -2954,25 +2959,26 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 			} else if(tstr_eq_static_tstr(&entry.key, HTTP_HEADER_NAME(http2_pseudo_status))) {
 				return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
 					                                .data = {
-					                                    .error = "pseudo header status not allowed "
-					                                             "in request",
+					                                    .error = TSTR_STATIC_LIT(
+					                                        "pseudo header status not allowed "
+					                                        "in request"),
 					                                } };
 			} else {
-				return (
-				    Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
-					                            .data = {
-					                                .error = "pseudo header field not recognized",
-					                            } };
+				return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+					                                .data = {
+					                                    .error = TSTR_STATIC_LIT(
+					                                        "pseudo header field not recognized"),
+					                                } };
 			}
 
 			assert(new_pseudo_header != PseudoHeadersForHttp2None && "implementation error");
 
 			if((found_pseudo_headers & new_pseudo_header) != 0) {
-				return (
-				    Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
-					                            .data = {
-					                                .error = "duplicate pseudo header field found",
-					                            } };
+				return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+					                                .data = {
+					                                    .error = TSTR_STATIC_LIT(
+					                                        "duplicate pseudo header field found"),
+					                                } };
 			}
 
 			found_pseudo_headers =     // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
@@ -2993,11 +2999,12 @@ parse_http2_headers(HpackDecompressState* const hpack_decompress_state,
 
 	if((found_pseudo_headers & PseudoHeadersForHttp2NeededForRequest) !=
 	   PseudoHeadersForHttp2NeededForRequest) {
-		return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
-			                                .data = {
-			                                    .error =
-			                                        "not all needed pseudo header field were found",
-			                                } };
+		return (
+		    Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeError,
+			                            .data = {
+			                                .error = TSTR_STATIC_LIT(
+			                                    "not all needed pseudo header fields were found"),
+			                            } };
 	}
 
 	return (Http2RequestHeadersResult){ .type = Http2RequestHeadersResultTypeOk,
@@ -3015,7 +3022,8 @@ get_http2_request_from_finished_stream(Http2ContextState* const state,
 	    state->hpack_state.decompress_state, stream->headers, stream_identifier);
 
 	if(headers_result.type != Http2RequestHeadersResultTypeOk) {
-		LOG_MESSAGE(LogLevelError, "Error in headers parsing: %s\n", headers_result.data.error);
+		LOG_MESSAGE(LogLevelError, "Error in headers parsing: " TSTR_FMT "\n",
+		            TSTR_STATIC_FMT_ARGS(headers_result.data.error));
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =

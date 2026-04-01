@@ -297,6 +297,39 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("FastStringCmpNode")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Normal")),
+                type: makeStructType([
+                    makeStructMember(
+                        "FastStringCmpPrefixes",
+                        "prefixes",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("End")),
+                type: makeStructType([
+                    makeStructMember(
+                        "FastStringCompareResult",
+                        "result",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("FastStringCmpNodeType")),
+            underlyingType: "u8"
+        },
+        options: {
+            rawStruct: CaseName.fromPascalCase("FastStringCmpNodeImpl"),
+            requirements: {
+                order: "best_size"
+            }
+        }
+    },
     makeErrorVariant("HuffmanDecodeResult", "SizedBuffer", "result"),
     makeErrorVariant("HuffmanEncodeFixedResult", "size_t", "size"),
     makeErrorVariant("HuffmanEncodeResult", "SizedBuffer", "result"),
