@@ -3,20 +3,19 @@
 
 #ifdef __cplusplus
 extern "C" {
+
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wc99-extensions" // for compound literals
 #endif
+
+#include "variants.h"
 
 #include "generated_hpack_huffman.h"
 #include "utils/sized_buffer.h"
 #include "utils/utils.h"
 #include <tstr.h>
 
-typedef struct {
-	bool is_error;
-	union {
-		SizedBuffer result;
-		tstr_static error;
-	} data;
-} HuffmanDecodeResult;
+GENERATE_VARIANT_ALL_HUFFMAN_DECODE_RESULT()
 
 NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(ReadonlyBuffer buffer);
 
@@ -49,5 +48,6 @@ void global_initialize_http2_hpack_huffman_data(void);
 void global_free_http2_hpack_huffman_data(void);
 
 #ifdef __cplusplus
+	#pragma GCC diagnostic pop
 }
 #endif

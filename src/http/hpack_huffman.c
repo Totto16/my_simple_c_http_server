@@ -28,14 +28,11 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
                                                                const ReadonlyBuffer buffer) {
 
 	if(tree == NULL) {
-		return (HuffmanDecodeResult){ .is_error = true,
-			                          .data = { .error = TSTR_STATIC_LIT("tree is NULL") } };
+		return new_huffman_decode_result_error(TSTR_STATIC_LIT("tree is NULL"));
 	}
 
 	if(buffer.size == 0 || buffer.data == NULL) {
-		return (HuffmanDecodeResult){
-			.is_error = true, .data = { .error = TSTR_STATIC_LIT("input is NULL or empty") }
-		};
+		return new_huffman_decode_result_error(TSTR_STATIC_LIT("input is NULL or empty"));
 	}
 
 	size_t memory_size = (((buffer.size * 8) + // NOLINT(readability-magic-numbers)
@@ -45,8 +42,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 	uint8_t* const values = malloc(memory_size + 1);
 
 	if(values == NULL) {
-		return (HuffmanDecodeResult){ .is_error = true,
-			                          .data = { .error = TSTR_STATIC_LIT("failed malloc") } };
+		return new_huffman_decode_result_error(TSTR_STATIC_LIT("failed malloc"));
 	}
 
 	memset(values, '\0', memory_size);
@@ -78,7 +74,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 
 		IF_HUFFMAN_NODE_IS_ERROR_CONST(*next_node) {
 			free(values);
-			return (HuffmanDecodeResult){ .is_error = true, .data = { .error = error.error } };
+			return new_huffman_decode_result_error(error.error);
 		}
 
 		IF_HUFFMAN_NODE_IS_END_CONST(*next_node) {
@@ -88,9 +84,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 			if(values_idx >= memory_size) {
 				// out of bounds on output
 				free(values);
-				return (HuffmanDecodeResult){
-					.is_error = true, .data = { .error = TSTR_STATIC_LIT("result memory overflow") }
-				};
+				return new_huffman_decode_result_error(TSTR_STATIC_LIT("result memory overflow"));
 			}
 
 			current_node = tree->root;
@@ -124,11 +118,8 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 
 	if(bytes_not_decoded > 1) {
 		// more than one byte not decoded, invalid decoding
-		return (HuffmanDecodeResult){
-			.is_error = true,
-			.data = { .error =
-			              TSTR_STATIC_LIT("more than one byte not decoded, invalid decoding") }
-		};
+		return new_huffman_decode_result_error(
+		    TSTR_STATIC_LIT("more than one byte not decoded, invalid decoding"));
 	}
 
 	size_t bits_not_decoded = 8 - // NOLINT(readability-magic-numbers)
@@ -136,20 +127,16 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 
 	if(bits_not_decoded >= 8) { // NOLINT(readability-magic-numbers)
 		// 8 bits not decoded, is also invalid
-		return (HuffmanDecodeResult){
-			.is_error = true,
-			.data = { .error = TSTR_STATIC_LIT("8 or more bits not decoded, is also invalid") }
-		};
+		return new_huffman_decode_result_error(
+		    TSTR_STATIC_LIT("8 or more bits not decoded, is also invalid"));
 	}
 
 	uint8_t bits_mask = ((1 << bits_not_decoded) - 1);
 
 	if((data[last_pos.pos] & bits_mask) != (EOS_BYTE & bits_mask)) {
 		// last not decoded bits are not the eos bytes
-		return (HuffmanDecodeResult){
-			.is_error = true,
-			.data = { .error = TSTR_STATIC_LIT("last not decoded bits are not the EOS bytes") }
-		};
+		return new_huffman_decode_result_error(
+		    TSTR_STATIC_LIT("last not decoded bits are not the EOS bytes"));
 	}
 
 huffman_return_ok:
@@ -158,15 +145,11 @@ huffman_return_ok:
 	void* new_values = realloc(values, values_idx + 1);
 
 	if(new_values == NULL) {
-		return (HuffmanDecodeResult){
-			.is_error = true,
-			.data = { .error = TSTR_STATIC_LIT("realloc to smaller size failed, LOL, you really got unlucky xD") }
-		};
+		return new_huffman_decode_result_error(
+		    TSTR_STATIC_LIT("realloc to smaller size failed, LOL, you really got unlucky xD"));
 	}
 
-	return (HuffmanDecodeResult){ .is_error = false,
-		                          .data = { .result = (SizedBuffer){ .data = new_values,
-		                                                             .size = values_idx } } };
+	return new_huffman_decode_result_ok((SizedBuffer){ .data = new_values, .size = values_idx });
 }
 
 typedef struct {
@@ -198,8 +181,7 @@ void global_free_http2_hpack_huffman_data(void) {
 
 NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(const ReadonlyBuffer buffer) {
 	if(g_huffman_data.tree == NULL) {
-		return (HuffmanDecodeResult){ .is_error = true,
-			                          .data = { .error = TSTR_STATIC_LIT("global tree is not initialized") } };
+		return new_huffman_decode_result_error(TSTR_STATIC_LIT("global tree is not initialized"));
 	}
 
 	return decode_bytes_huffman_impl(g_huffman_data.tree, buffer);

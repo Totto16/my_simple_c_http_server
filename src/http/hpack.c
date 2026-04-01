@@ -395,19 +395,19 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 	if(is_huffman) {
 		const HuffmanDecodeResult huffman_res = hpack_huffman_decode_bytes(raw_bytes);
 
-		if(huffman_res.is_error) {
-			return (LiteralStringResult){ .is_error = true,
-				                          .data = { .error = huffman_res.data.error } };
+		IF_HUFFMAN_DECODE_RESULT_IS_ERROR_CONST(huffman_res) {
+			return (LiteralStringResult){ .is_error = true, .data = { .error = error.error } };
 		}
 		// TODO(Totto): huffman can technically produce 0 bytes, but then the encoder did some bad
 		// thing, so we are just ignoring that
 
+		const SizedBuffer result_buf = huffman_decode_result_get_as_ok(huffman_res).result;
+
 #ifndef NDEBUG
-		assert(strlen(huffman_res.data.result.data) == huffman_res.data.result.size);
+		assert(strlen(result_buf.data) == result_buf.size);
 #endif
 
-		const tstr result = tstr_own(huffman_res.data.result.data, huffman_res.data.result.size,
-		                             huffman_res.data.result.size);
+		const tstr result = tstr_own(result_buf.data, result_buf.size, result_buf.size);
 
 		return (LiteralStringResult){ .is_error = false, .data = { .value = result } };
 	}

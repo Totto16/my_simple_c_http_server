@@ -757,12 +757,14 @@ helpers::GlobalHuffmanData::~GlobalHuffmanData() {
 	global_free_http2_hpack_huffman_data();
 }
 
-void helpers::free_huffman_decode_result(HuffmanDecodeResult* decode_result) {
-	if(decode_result->is_error) {
+void helpers::free_huffman_decode_result(HuffmanDecodeResult* const decode_result) {
+	IF_HUFFMAN_DECODE_RESULT_IS_ERROR_IGN(*decode_result) {
 		return;
 	}
 
-	free_sized_buffer(decode_result->data.result);
+	SizedBuffer *const value = &(huffman_decode_result_get_as_ok_mut_ref(decode_result)->result);
+
+	free_sized_buffer(*value);
 }
 
 void helpers::free_huffman_encode_result(HuffmanEncodeResult* encode_result) {

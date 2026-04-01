@@ -742,9 +742,9 @@ function generateGetAsRefFunctionForMember(member: TaggedMember, taggedUnion: Ta
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         assert(getBrand(member.type.struct) === "c_anonymous_struct", "IMPLEMENTATION ERROR")
 
-        return `${inlineFunctionSpecifiers} ${getNameForUnnamedStruct(member.type, unnamedStructMap)} ${functionForGetAsRefVariant(member, taggedUnion, mutable)}(${taggedUnion.name.inner.PascalCase()} ${cConst} variant_entry){
-	${getStateAssertNameFor(taggedUnion.name)}(variant_entry.${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(member, taggedUnion.enum.name)});
-	return variant_entry.${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()};
+        return `${inlineFunctionSpecifiers}${cConstConditional(mutable)}${getNameForUnnamedStruct(member.type, unnamedStructMap)}* ${functionForGetAsRefVariant(member, taggedUnion, mutable)}(${cConstConditional(mutable)}${taggedUnion.name.inner.PascalCase()}* ${cConst} variant_entry){
+	${getStateAssertNameFor(taggedUnion.name)}(variant_entry->${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(member, taggedUnion.enum.name)});
+	return &(variant_entry->${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()});
 }
 `
     }
@@ -1392,6 +1392,38 @@ const globalTaggedUnions: TaggedUnion[] = [
         },
         options: {
             rawStruct: CaseName.fromPascalCase("HuffmanNodeImpl"),
+            requirements: {
+                order: "best_size"
+            }
+        }
+    }, 
+    {
+        name: makeUnionName(CaseName.fromPascalCase("HuffmanDecodeResult")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: makeStructType([
+                    makeStructMember(
+                        "SizedBuffer",
+                        "result",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: makeStructType([
+                    makeStructMember(
+                        "tstr_static",
+                        "error",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("HuffmanDecodeResultType")),
+            underlyingType: "bool"
+        },
+        options: {
             requirements: {
                 order: "best_size"
             }
