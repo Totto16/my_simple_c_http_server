@@ -165,11 +165,26 @@ export function assert(val: boolean, message: string): never | void {
 
 }
 
+export async function fsAsyncExists(file: string): Promise<boolean> {
+    try {
+        const result = await fsAsync.stat(file)
+
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        return result !== undefined;
+    } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+            return false;
+        }
+
+        throw err;
+    }
+}
+
 export async function writeFileAndDirs(file: string, content: string): Promise<void> {
 
     const dir = path.dirname(file)
 
-    if (!fs.existsSync(dir)) {
+    if (!await fsAsyncExists(dir)) {
         await fsAsync.mkdir(dir, { recursive: true })
     }
 
@@ -261,7 +276,7 @@ async function getSourceFiles(): Promise<string[]> {
 
     const tsconfigFile = path.join(rootDir, "tsconfig.json");
 
-    if (!fs.existsSync(tsconfigFile)) {
+    if (!await fsAsyncExists(tsconfigFile)) {
         throw new Error(`Invalid tsconfig detection`)
     }
 

@@ -1,6 +1,5 @@
 import net from "node:net"
 import os from "node:os"
-import fs from "node:fs"
 import fsAsync from "node:fs/promises"
 import path from "node:path"
 import childProcess from "node:child_process";
@@ -9,6 +8,7 @@ import https from "node:https"
 
 import { type AllCases, globalAllCases } from "./all_cases.js"
 import { Logger } from "./log.js"
+import { fsAsyncExists } from "./utils.js"
 
 interface WaitOptions {
     host: string,
@@ -197,7 +197,7 @@ async function splitConfigs(amount: number, config: FuzzClientConfig): Promise<S
 
     { //create .gitignore file
 
-        if (!fs.existsSync(globalOutdir)) {
+        if (!await fsAsyncExists(globalOutdir)) {
             await fsAsync.mkdir(globalOutdir, { recursive: true })
         }
 
@@ -527,7 +527,7 @@ async function processSingleResult(server: SplitConfigServer, cases: string[]): 
         }
     }
 
-    if (!fs.existsSync(indexFile)) {
+    if (!await fsAsyncExists(indexFile)) {
         return singleError({ type: "error", error: "index file doesn't exist", where: { server: server.name, case: "<None>" }, more: { file: indexFile } })
     }
 
