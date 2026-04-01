@@ -3,9 +3,6 @@
 
 #ifdef __cplusplus
 extern "C" {
-
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wc99-extensions" // for compound literals
 #endif
 
 #include "variants.h"
@@ -36,6 +33,5 @@ void global_initialize_http2_hpack_huffman_data(void);
 void global_free_http2_hpack_huffman_data(void);
 
 #ifdef __cplusplus
-	#pragma GCC diagnostic pop
 }
 #endif

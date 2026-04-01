@@ -853,6 +853,10 @@ function getStateAssertNameFor(unionName: TaggedName<"union">): string {
     return `VARIANT_${unionName.inner.MACRO_NAME()}_STATE_ASSERT`
 }
 
+function getVariantDeclarationMacro(end: boolean): string {
+    return `__INTERNAL_VARIANT_DECLARATION_${end ? "END" : "START"}_IMPL_`
+}
+
 function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
     assert(taggedUnion.member.length >= 2, "at least two member are required")
@@ -890,11 +894,13 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
 
     const generateMacroCore = `#define GENERATE_VARIANT_CORE_${taggedUnion.name.inner.MACRO_NAME()}()
+	${getVariantDeclarationMacro(false)}()
 	${declarations.map(decl => decl.split("\n").join("\n	")).join("\n	\n")}
 	
 	${functionsString.split("\n").join("\n	")}
 	
-	${generatePoisonPragma([getStateFunctionName(taggedUnion.name)])}`
+	${generatePoisonPragma([getStateFunctionName(taggedUnion.name)])}
+	${getVariantDeclarationMacro(true)}()`
 
     const generateMacroAll = `#define GENERATE_VARIANT_ALL_${taggedUnion.name.inner.MACRO_NAME()}()
 	GENERATE_VARIANT_ENUM_${taggedUnion.name.inner.MACRO_NAME()}()
@@ -951,7 +957,7 @@ export async function generateVariantCodeC(generatedVariantsFileH: string): Prom
     assert(path.extname(generatedVariantsFileH) == ".h", "variant file has to end in .h")
 
     const globalMacros: string[] = [
-        `#define UNREACHABLE_WITH_MESSAGE(msg, ...) do { 
+        `#define UNREACHABLE_WITH_MESSAGE(msg, ...) do {
 	fprintf(stderr,
 		"[%s %s:%d]: UNREACHABLE: " msg "\\n",
 		__func__, __FILE__, __LINE__, __VA_ARGS__
@@ -976,22 +982,33 @@ do {
 	UNREACHABLE_WITH_MESSAGE_SINGLE("macro trick with for loops for getting the value was implemented wrong")`
     ]
 
+
     const headerData = `
 #pragma once
 
 #ifdef __cplusplus
 extern "C" {
+	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wc99-extensions" // for compound literals
 #endif
 
 
 #include <tstr.h>
 
+#ifdef __cplusplus
+	#define ${getVariantDeclarationMacro(false)}() _Pragma ("GCC diagnostic push") _Pragma ("GCC diagnostic ignored \\"-Wc99-extensions\\"")
+	#define ${getVariantDeclarationMacro(true)}() _Pragma ("GCC diagnostic pop")
+#else
+	#define ${getVariantDeclarationMacro(false)}()
+	#define ${getVariantDeclarationMacro(true)}()
+#endif
 ${globalMacros.map(m => m.split("\n").join(" \\\n")).join("\n\n")}
 
 
 ${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 
 #ifdef __cplusplus
+	#pragma GCC diagnostic pop
 }
 #endif
 

@@ -1671,10 +1671,6 @@ export async function generateHpackHuffmanCodeC(generatedHpackHuffmanFileH: stri
 
 #ifdef __cplusplus
 extern "C" {
-
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wc99-extensions" // for compound literals
-
 #endif
 
 #include "utils/utils.h"
@@ -1733,7 +1729,6 @@ GENERATE_VARIANT_ALL_STATIC_TABLE_FIND_RESULT()
 NODISCARD StaticTableFindResult hpack_generated_find_in_static_table_fast(const HttpHeaderField* field);
 
 #ifdef __cplusplus
-	#pragma GCC diagnostic pop
 }
 #endif
 `
