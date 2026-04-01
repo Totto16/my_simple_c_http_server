@@ -1,5 +1,40 @@
 import { type TaggedUnion, makeUnionName, CaseName, makeMemberName, makeStructType, makeStructMember, makeSimpleType, makeEnumName } from "./base.js";
 
+function makeErrorVariant(baseName: string, successType: string | null, successName = "result"): TaggedUnion {
+    return {
+        name: makeUnionName(CaseName.fromPascalCase(baseName)),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: successType === null ? null : makeStructType([
+                    makeStructMember(
+                        successType,
+                        successName,
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: makeStructType([
+                    makeStructMember(
+                        "tstr_static",
+                        "error",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`${baseName}Type`)),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            }
+        }
+    };
+}
+
 export const globalTaggedUnions: TaggedUnion[] = [
     {
         name: makeUnionName(CaseName.fromPascalCase("AccountInfo")),
@@ -221,128 +256,9 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
-    {
-        name: makeUnionName(CaseName.fromPascalCase("HuffmanDecodeResult")),
-        member: [
-            {
-                name: makeMemberName(CaseName.fromPascalCase("Ok")),
-                type: makeStructType([
-                    makeStructMember(
-                        "SizedBuffer",
-                        "result",
-                    )
-                ])
-            },
-            {
-                name: makeMemberName(CaseName.fromPascalCase("Error")),
-                type: makeStructType([
-                    makeStructMember(
-                        "tstr_static",
-                        "error",
-                    )
-                ])
-            },
-        ],
-        enum: {
-            name: makeEnumName(CaseName.fromPascalCase("HuffmanDecodeResultType")),
-            underlyingType: "bool"
-        },
-        options: {
-            requirements: {
-                order: "best_size"
-            }
-        }
-    },
-    {
-        name: makeUnionName(CaseName.fromPascalCase("HuffmanEncodeFixedResult")),
-        member: [
-            {
-                name: makeMemberName(CaseName.fromPascalCase("Ok")),
-                type: makeStructType([
-                    makeStructMember(
-                        "size_t",
-                        "size",
-                    )
-                ])
-            },
-            {
-                name: makeMemberName(CaseName.fromPascalCase("Error")),
-                type: makeStructType([
-                    makeStructMember(
-                        "tstr_static",
-                        "error",
-                    )
-                ])
-            },
-        ],
-        enum: {
-            name: makeEnumName(CaseName.fromPascalCase("HuffmanEncodeFixedResultType")),
-            underlyingType: "bool"
-        },
-        options: {
-            requirements: {
-                order: "best_size"
-            }
-        }
-    },
-    {
-        name: makeUnionName(CaseName.fromPascalCase("HuffmanEncodeResult")),
-        member: [
-            {
-                name: makeMemberName(CaseName.fromPascalCase("Ok")),
-                type: makeStructType([
-                    makeStructMember(
-                        "SizedBuffer",
-                        "result",
-                    )
-                ])
-            },
-            {
-                name: makeMemberName(CaseName.fromPascalCase("Error")),
-                type: makeStructType([
-                    makeStructMember(
-                        "tstr_static",
-                        "error",
-                    )
-                ])
-            },
-        ],
-        enum: {
-            name: makeEnumName(CaseName.fromPascalCase("HuffmanEncodeResultType")),
-            underlyingType: "bool"
-        },
-        options: {
-            requirements: {
-                order: "best_size"
-            }
-        }
-    },
-     {
-        name: makeUnionName(CaseName.fromPascalCase("GenericResult")),
-        member: [
-            {
-                name: makeMemberName(CaseName.fromPascalCase("Ok")),
-                type: null
-            },
-            {
-                name: makeMemberName(CaseName.fromPascalCase("Error")),
-                type: makeStructType([
-                    makeStructMember(
-                        "tstr_static",
-                        "error",
-                    )
-                ])
-            },
-        ],
-        enum: {
-            name: makeEnumName(CaseName.fromPascalCase("GenericResultType")),
-            underlyingType: "bool"
-        },
-        options: {
-            requirements: {
-                order: "best_size"
-            }
-        }
-    },
+    makeErrorVariant("HuffmanDecodeResult", "SizedBuffer"),
+    makeErrorVariant("HuffmanEncodeFixedResult", "size_t", "size"),
+    makeErrorVariant("HuffmanEncodeResult", "SizedBuffer"),
+    makeErrorVariant("GenericResult", null),
 ]
 
