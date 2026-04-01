@@ -798,7 +798,7 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 	const uint8_t* const data = (const uint8_t*)input.data;
 
 	HttpHeaderFields result = TVEC_EMPTY(HttpHeaderField);
-	const char* error = "None"; // NOLINT(clang-analyzer-deadcode.DeadStores)
+	tstr_static error = TSTR_STATIC_LIT("None"); // NOLINT(clang-analyzer-deadcode.DeadStores)
 
 	while(pos < size) {
 		uint8_t byte = data[pos];
@@ -815,7 +815,7 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			    parse_hpack_indexed_header_field(&pos, size, data, &result, decompress_state);
 
 			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
-				error = "error in parsing indexed header field";
+				error = TSTR_STATIC_LIT("error in parsing indexed header field");
 				goto return_error;
 			}
 		} else if((byte & 0xC0) == // NOLINT(readability-magic-numbers)
@@ -831,7 +831,8 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			    &pos, size, data, &result, decompress_state);
 
 			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
-				error = "error in parsing literal header field with incremental indexing";
+				error = TSTR_STATIC_LIT(
+				    "error in parsing literal header field with incremental indexing");
 				goto return_error;
 			}
 		} else if((byte & 0xE0) == // NOLINT(readability-magic-numbers)
@@ -846,7 +847,7 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			    parse_hpack_dynamic_table_size_update(&pos, size, data, decompress_state);
 
 			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
-				error = "error in parsing dynamic table size update";
+				error = TSTR_STATIC_LIT("error in parsing dynamic table size update");
 				goto return_error;
 			}
 		} else if((byte & 0xF0) == // NOLINT(readability-magic-numbers)
@@ -862,7 +863,7 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			    &pos, size, data, &result, decompress_state);
 
 			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
-				error = "error in parsing literal header field never indexed";
+				error = TSTR_STATIC_LIT("error in parsing literal header field never indexed");
 				goto return_error;
 			}
 		} else {
@@ -881,24 +882,18 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 			    &pos, size, data, &result, decompress_state);
 
 			IF_GENERIC_RESULT_IS_ERROR_IGN(res) {
-				error = "error in parsing literal header field without indexing";
+				error = TSTR_STATIC_LIT("error in parsing literal header field without indexing");
 				goto return_error;
 			}
 		}
 	}
 
-	return (Http2HpackDecompressResult){ .is_error = false,
-		                                 .data = {
-		                                     .result = result,
-		                                 } };
+	return new_http2_hpack_decompress_result_ok(result);
 
 return_error:
 
 	free_http_header_fields(&result);
-	return (Http2HpackDecompressResult){ .is_error = true,
-		                                 .data = {
-		                                     .error = error,
-		                                 } };
+	return new_http2_hpack_decompress_result_error(error);
 }
 
 NODISCARD static HpackDynamicTableState
@@ -1003,8 +998,7 @@ NODISCARD Http2HpackDecompressResult http2_hpack_decompress_data(
     HpackDecompressState* const decompress_state, const ReadonlyBuffer input) {
 
 	if(decompress_state == NULL) {
-		return (Http2HpackDecompressResult){ .is_error = true,
-			                                 .data = { .error = "state is NULL" } };
+		return new_http2_hpack_decompress_result_error(TSTR_STATIC_LIT("state is NULL"));
 	}
 
 	return http2_hpack_decompress_data_impl(decompress_state, input);

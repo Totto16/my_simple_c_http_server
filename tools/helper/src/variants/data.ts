@@ -302,5 +302,5 @@ export const globalTaggedUnions: TaggedUnion[] = [
     makeErrorVariant("HuffmanEncodeResult", "SizedBuffer", "result"),
     makeErrorVariant("GenericResult", null),
     makeOptionalVariant("HpackHeaderEntryResult", "HpackHeaderDynamicEntry"),
+    makeErrorVariant("Http2HpackDecompressResult", "HttpHeaderFields")
 ]
-

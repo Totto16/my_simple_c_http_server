@@ -652,13 +652,15 @@ hpack::get_default_hpack_compress_state_cpp(size_t max_dynamic_table_byte_size) 
 	return compress_state;
 }
 
-void hpack::free_hpack_decompress_result(Http2HpackDecompressResult* result) {
+void hpack::free_hpack_decompress_result(Http2HpackDecompressResult* const result) {
 
-	if(result->is_error) {
+	IF_HTTP2_HPACK_DECOMPRESS_RESULT_IS_ERROR_IGN(*result) {
 		return;
 	}
 
-	free_http_header_fields(&(result->data.result));
+	auto* const res = http2_hpack_decompress_result_get_as_ok_mut_ref(result);
+
+	free_http_header_fields(res);
 }
 
 // this is a hack, as I don't want to expose the state in the header for c, but i also want to test

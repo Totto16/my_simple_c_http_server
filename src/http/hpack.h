@@ -17,13 +17,7 @@ get_default_hpack_decompress_state(size_t max_dynamic_table_byte_size);
 
 void free_hpack_decompress_state(HpackDecompressState* decompress_state);
 
-typedef struct {
-	bool is_error;
-	union {
-		HttpHeaderFields result;
-		const char* error;
-	} data;
-} Http2HpackDecompressResult;
+GENERATE_VARIANT_ALL_HTTP2_HPACK_DECOMPRESS_RESULT()
 
 NODISCARD Http2HpackDecompressResult
 http2_hpack_decompress_data(HpackDecompressState* decompress_state, ReadonlyBuffer input);
@@ -83,7 +77,7 @@ typedef struct {
 	bool is_error;
 	union {
 		HpackVariableInteger value;
-		tstr_static  error;
+		tstr_static error;
 	} data;
 } HpackVariableIntegerResult;
 
