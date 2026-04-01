@@ -986,7 +986,7 @@ do {
     const headerData = `
 #pragma once
 
-${addGenerateMacros("variants")}
+${await addGenerateMacros("variants")}
 
 #ifdef __cplusplus
 extern "C" {

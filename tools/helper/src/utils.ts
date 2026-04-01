@@ -226,12 +226,12 @@ export function getThisPackageFile(): string {
 }
 
 
-function getAllFilesInDir(dir: string): string[] {
+async function getAllFilesInDir(dir: string): Promise<string[]> {
     if (!path.isAbsolute(dir)) {
         throw new Error(`Got non absolute dir: ${dir}`)
     }
 
-    const st = fs.statSync(dir, { throwIfNoEntry: true })
+    const st = await fsAsync.stat(dir)
 
     if (!st.isDirectory()) {
         throw new Error(`Not a dir: ${dir}`)
@@ -239,16 +239,9 @@ function getAllFilesInDir(dir: string): string[] {
 
     const result: string[] = []
 
-    const dirHandle = fs.opendirSync(dir, { recursive: true })
+    const dirHandle = await fsAsync.opendir(dir, { recursive: true })
 
-
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    while (true) {
-        const dirEnt = dirHandle.readSync();
-
-        if (dirEnt === null) {
-            break;
-        }
+    for await (const dirEnt of dirHandle) {
 
         if (dirEnt.isDirectory()) {
             continue;
@@ -257,13 +250,11 @@ function getAllFilesInDir(dir: string): string[] {
         result.push(path.join(dirEnt.parentPath, dirEnt.name))
     }
 
-    dirHandle.closeSync()
-
     return result;
 
 }
 
-function getSourceFiles(): string[] {
+async function getSourceFiles(): Promise<string[]> {
     const packageFile = getThisPackageFile();
 
     const rootDir = path.dirname(packageFile)
@@ -274,7 +265,7 @@ function getSourceFiles(): string[] {
         throw new Error(`Invalid tsconfig detection`)
     }
 
-    const tsconfigContent = fs.readFileSync(tsconfigFile).toString();
+    const tsconfigContent = (await fsAsync.readFile(tsconfigFile)).toString();
 
     const tsconfig: Record<string, unknown> = JSON.parse(tsconfigContent) as Record<string, unknown>
 
@@ -288,17 +279,17 @@ function getSourceFiles(): string[] {
 
     const result: string[] = []
 
-    result.push(...getAllFilesInDir(outDirAbs))
+    result.push(...await getAllFilesInDir(outDirAbs))
 
     result.push(path.join(rootDir, "index.ts"))
 
-    result.push(...getAllFilesInDir(path.join(rootDir, "src")))
+    result.push(...await getAllFilesInDir(path.join(rootDir, "src")))
 
     return result
 }
 
-export function addGenerateMacros(description: string): string {
-    const files = getSourceFiles()
+export async function addGenerateMacros(description: string): Promise<string> {
+    const files: string[] = await getSourceFiles()
 
     return files.map((file): string => {
         assert(path.isAbsolute(file), "file needs to be in absolute form")
