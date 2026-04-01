@@ -34,9 +34,7 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 
 	if(first_byte < mask) {
 		(*pos)++;
-		return (HpackVariableIntegerResult){
-			.is_error = false, .data = { .value = (HpackVariableInteger)first_byte }
-		};
+		return new_hpack_variable_integer_result_ok((HpackVariableInteger)first_byte);
 	}
 
 	(*pos)++;
@@ -47,9 +45,7 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 	while(true) {
 		if((*pos) >= size) {
 			// not more bytes available
-			return (HpackVariableIntegerResult){
-				.is_error = true, .data = { .error = TSTR_STATIC_LIT("not enough bytes") }
-			};
+			return new_hpack_variable_integer_result_error(TSTR_STATIC_LIT("not enough bytes"));
 		}
 
 		const uint8_t byte = data[*pos];
@@ -58,10 +54,8 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 		if((amount / 8) >= // NOLINT(readability-magic-numbers)
 		   sizeof(HpackVariableInteger) - 1) {
 			// to many bytes, the index should not be larger than a uint64_t
-			return (HpackVariableIntegerResult){
-				.is_error = true,
-				.data = { .error = TSTR_STATIC_LIT("final integer would be too big") }
-			};
+			return new_hpack_variable_integer_result_error(
+			    TSTR_STATIC_LIT("final integer would be too big"));
 		}
 
 		result += (byte & 0x7F) // NOLINT(readability-magic-numbers)
@@ -74,10 +68,7 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 		amount += 7; // NOLINT(readability-magic-numbers)
 	}
 
-	return (HpackVariableIntegerResult){ .is_error = false,
-		                                 .data = {
-		                                     .value = result,
-		                                 } };
+	return new_hpack_variable_integer_result_ok(result);
 }
 
 // note: out_bytes has to have a available size of MAX_HPACK_VARIABLE_INTEGER_SIZE
@@ -197,11 +188,11 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 7);
 
-	if(index_res.is_error) {
+	IF_HPACK_VARIABLE_INTEGER_RESULT_IS_ERROR_IGN(index_res) {
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	const HpackVariableInteger index = index_res.data.value;
+	const HpackVariableInteger index = hpack_variable_integer_result_get_as_ok(index_res).value;
 
 	if(index == 0) {
 		return GENERIC_RES_ERR_UNIQUE();
@@ -341,11 +332,11 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 
 	const HpackVariableIntegerResult length_res = decode_hpack_variable_integer(pos, size, data, 7);
 
-	if(length_res.is_error) {
-		return new_literal_string_result_error(length_res.data.error);
+	IF_HPACK_VARIABLE_INTEGER_RESULT_IS_ERROR_CONST(length_res) {
+		return new_literal_string_result_error(error.error);
 	}
 
-	const HpackVariableInteger length = length_res.data.value;
+	const HpackVariableInteger length = hpack_variable_integer_result_get_as_ok(length_res).value;
 
 	if(*pos >= size) {
 		return new_literal_string_result_error(
@@ -487,11 +478,11 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_with_incremental
 
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 6);
 
-	if(index_res.is_error) {
+	IF_HPACK_VARIABLE_INTEGER_RESULT_IS_ERROR_IGN(index_res) {
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	const HpackVariableInteger index = index_res.data.value;
+	const HpackVariableInteger index = hpack_variable_integer_result_get_as_ok(index_res).value;
 
 	// the name is the value from a table or a literal value
 	tstr header_key = tstr_null(); // NOLINT(clang-analyzer-deadcode.DeadStores)
@@ -570,15 +561,19 @@ parse_hpack_dynamic_table_size_update(size_t* pos, const size_t size, const uint
 	// | 0 | 0 | 1 |   Max size (5+)   |
 	// +---+---------------------------+
 
-	const HpackVariableIntegerResult new_size = decode_hpack_variable_integer(pos, size, data, 5);
+	const HpackVariableIntegerResult new_size_res =
+	    decode_hpack_variable_integer(pos, size, data, 5);
 
-	if(new_size.is_error) {
+	IF_HPACK_VARIABLE_INTEGER_RESULT_IS_ERROR_IGN(new_size_res) {
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
+	const HpackVariableInteger new_size =
+	    hpack_variable_integer_result_get_as_ok(new_size_res).value;
+
 	// TODO(Totto): this can't be greater than the http2 setting, but this is mostly used for
 	// setting it to 0, to evict things, so not a priority to check that right now
-	set_hpack_decompress_state_setting(decompress_state, new_size.data.value);
+	set_hpack_decompress_state_setting(decompress_state, new_size);
 
 	return GENERIC_RES_OK();
 }
@@ -614,11 +609,11 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_never_indexed(
 
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 4);
 
-	if(index_res.is_error) {
+	IF_HPACK_VARIABLE_INTEGER_RESULT_IS_ERROR_IGN(index_res) {
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	const HpackVariableInteger index = index_res.data.value;
+	const HpackVariableInteger index = hpack_variable_integer_result_get_as_ok(index_res).value;
 
 	// the name is the value from a table or a literal value
 	tstr header_key = tstr_null(); // NOLINT(clang-analyzer-deadcode.DeadStores)
@@ -714,11 +709,11 @@ NODISCARD static GenericResult parse_hpack_literal_header_field_without_indexing
 
 	const HpackVariableIntegerResult index_res = decode_hpack_variable_integer(pos, size, data, 4);
 
-	if(index_res.is_error) {
+	IF_HPACK_VARIABLE_INTEGER_RESULT_IS_ERROR_IGN(index_res) {
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	const HpackVariableInteger index = index_res.data.value;
+	const HpackVariableInteger index = hpack_variable_integer_result_get_as_ok(index_res).value;
 
 	// the name is the value from a table or a literal value
 	tstr header_key = tstr_null(); // NOLINT(clang-analyzer-deadcode.DeadStores)

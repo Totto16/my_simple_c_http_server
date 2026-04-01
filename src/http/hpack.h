@@ -73,13 +73,7 @@ void set_hpack_compress_state_setting(HpackCompressState* compress_state,
 
 typedef uint64_t HpackVariableInteger;
 
-typedef struct {
-	bool is_error;
-	union {
-		HpackVariableInteger value;
-		tstr_static error;
-	} data;
-} HpackVariableIntegerResult;
+GENERATE_VARIANT_ALL_HPACK_VARIABLE_INTEGER_RESULT()
 
 // this is only public for tests, are there better ways to only expose it for tests?
 NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, size_t size,
