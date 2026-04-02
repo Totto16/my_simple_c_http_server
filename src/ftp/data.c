@@ -603,6 +603,7 @@ NODISCARD static bool nts_internal_conn_identifier_eq(ConnectionTypeIdentifier i
 
 			return false;
 		}
+		VARIANT_CASE_END();
 		CASE_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(ident1, passive_1) {
 
 			IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(ident2, passive_2) {
@@ -612,6 +613,7 @@ NODISCARD static bool nts_internal_conn_identifier_eq(ConnectionTypeIdentifier i
 
 			return false;
 		}
+		VARIANT_CASE_END();
 		CASE_CONNECTION_TYPE_IDENTIFIER_IS_AUTOMATIC() {
 
 			IF_CONNECTION_TYPE_IDENTIFIER_IS_AUTOMATIC(ident2) {
@@ -620,6 +622,7 @@ NODISCARD static bool nts_internal_conn_identifier_eq(ConnectionTypeIdentifier i
 
 			return false;
 		}
+		VARIANT_CASE_END();
 		default: {
 			return false;
 		}

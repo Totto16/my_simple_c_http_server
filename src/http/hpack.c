@@ -2067,6 +2067,7 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 			return (TableFindResult){ .type = TableFindResultTypeAllFound,
 				                      .data = { .index = all_found.index } };
 		}
+		VARIANT_CASE_END();
 		CASE_STATIC_TABLE_FIND_RESULT_IS_KEY_FOUND_CONST(static_table_find_result) {
 			// - store the key found result, maybe we find a better entry, so we use that,
 			// otherwise we use this entry

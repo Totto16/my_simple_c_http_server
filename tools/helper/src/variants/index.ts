@@ -522,7 +522,9 @@ function getTagTypeFunctionName(name: TaggedName<"union">): string {
 function generateFunctions(taggedUnion: TaggedUnion, unnamedStructMap: UnnamedStructMap, structOrder: StructOrderResolved): string {
 
     return `${inlineFunctionSpecifiers} tstr_static ${getStateFunctionName(taggedUnion.name)}(${taggedUnion.enum.name.inner.PascalCase()} ${cConst} enum_value){
+			_Pragma ("GCC diagnostic push") _Pragma ("GCC diagnostic ignored \\"-Wswitch-bool\\"") /* FOR GCC */
 	switch(enum_value){
+			_Pragma ("GCC diagnostic pop")
 		${taggedUnion.member.map(mem => {
         return `case ${memberNameForEnum(mem, taggedUnion.enum.name)}: {
 	return TSTR_STATIC_LIT("${mem.name.inner.snake_case()}");

@@ -460,6 +460,7 @@ NODISCARD static GenericResult ws_send_message_internal(WebSocketConnection* con
 		CASE_WS_FRAGMENT_OPTION_IS_OFF() {
 			return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 		}
+		VARIANT_CASE_END();
 		CASE_WS_FRAGMENT_OPTION_IS_AUTO() {
 
 			int socket_fd = get_underlying_socket(
@@ -491,10 +492,12 @@ NODISCARD static GenericResult ws_send_message_internal(WebSocketConnection* con
 			return ws_send_message_internal_fragmented(connection, message, mask,
 			                                           chosen_fragment_size, extension_send_state);
 		}
+		VARIANT_CASE_END();
 		CASE_WS_FRAGMENT_OPTION_IS_SET_CONST(args.fragment_option) {
 			return ws_send_message_internal_fragmented(connection, message, mask, set.fragment_size,
 			                                           extension_send_state);
 		}
+		VARIANT_CASE_END();
 		default: {
 			return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 		}
