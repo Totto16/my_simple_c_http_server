@@ -1,4 +1,4 @@
-import { type TaggedUnion, makeUnionName, CaseName, makeMemberName, makeStructType, makeStructMember, makeSimpleType, makeEnumName, type TaggedType } from "./base.js";
+import { type TaggedUnion, makeUnionName, CaseName, makeMemberName, makeStructType, makeStructMember, makeSimpleType, makeEnumName, type TaggedType, type DeepPartial } from "./base.js";
 
 function resolveType(successType: string | null, successName: string | null): null | TaggedType {
     if (successType === null) {
@@ -15,7 +15,11 @@ function resolveType(successType: string | null, successName: string | null): nu
     }
 }
 
-function makeErrorVariant(baseName: string, successType: string | null, successName: string | null = null): TaggedUnion {
+interface ErrorVariantOptions {
+    usageOnlyInC: boolean
+}
+
+function makeErrorVariant(baseName: string, successType: string | null, successName: string | null = null, errorVariantOptions: DeepPartial<ErrorVariantOptions> = {}): TaggedUnion {
 
     const resolvedType: null | TaggedType = resolveType(successType, successName)
 
@@ -45,7 +49,7 @@ function makeErrorVariant(baseName: string, successType: string | null, successN
                 order: "best_size"
             },
             cppFeatures: {
-                tagAsErrorVariant: true
+                tagAsErrorVariant: errorVariantOptions.usageOnlyInC ? false : true
             }
         }
     };
@@ -339,7 +343,7 @@ export const globalTaggedUnions: TaggedUnion[] = [
     makeErrorVariant("GenericResult", null),
     makeOptionalVariant("HpackHeaderEntryResult", "HpackHeaderDynamicEntry"),
     makeErrorVariant("Http2HpackDecompressResult", "HttpHeaderFields"),
-    makeErrorVariant("LiteralStringResult", "tstr", "value"),
+    makeErrorVariant("LiteralStringResult", "tstr", "value", { usageOnlyInC: true }),
     makeErrorVariant("HpackVariableIntegerResult", "HpackVariableInteger", "value"),
     {
         name: makeUnionName(CaseName.fromPascalCase("HttpAnalyzeHeadersResult")),
@@ -373,9 +377,9 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
-    makeErrorVariant("HttpBodyReadResult", "SizedBuffer", "body"),
+    makeErrorVariant("HttpBodyReadResult", "SizedBuffer", "body", { usageOnlyInC: true }),
     makeErrorVariant("ParsedRequestUriResult", "ParsedRequestURI", "uri"),
-    makeErrorVariant("Http2FrameResult", "Http2Frame", "frame"),
+    makeErrorVariant("Http2FrameResult", "Http2Frame", "frame", { usageOnlyInC: true }),
     makeErrorVariant("Http2StartResult", null),
     {
         name: makeUnionName(CaseName.fromPascalCase("WsFragmentOption")),
@@ -408,6 +412,6 @@ export const globalTaggedUnions: TaggedUnion[] = [
         }
     },
     makeErrorVariant("Utf8DataResult", "Utf8Data", "result"),
-    makeErrorVariant("RawHeaderOneResult", "RawHeaderOne", "header"),
-    makeErrorVariant("WebSocketRawMessageResult", "WebSocketRawMessage", "message"),
+    makeErrorVariant("RawHeaderOneResult", "RawHeaderOne", "header", { usageOnlyInC: true }),
+    makeErrorVariant("WebSocketRawMessageResult", "WebSocketRawMessage", "message", { usageOnlyInC: true }),
 ]

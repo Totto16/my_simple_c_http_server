@@ -270,7 +270,7 @@ export interface TaggedUnion {
 
 type IsOneOf<T, Arr extends unknown[]> = Arr extends [] ? false : Arr extends [infer A, ...infer Rest] ? A extends T ? true : IsOneOf<T, Rest> : false
 
-type DeepPartial<T, Ends extends unknown[] = []> = IsOneOf<T, Ends> extends true ? T : T extends object ? {
+export type DeepPartial<T, Ends extends unknown[] = []> = IsOneOf<T, Ends> extends true ? T : T extends object ? {
     [P in keyof T]?: DeepPartial<T[P], Ends> | undefined
 } : T;
 
