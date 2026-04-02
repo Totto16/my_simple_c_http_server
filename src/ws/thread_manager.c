@@ -52,19 +52,13 @@ typedef struct {
 	uint8_t rsv_bytes;
 } RawHeaderOne;
 
-typedef struct {
-	bool has_error;
-	union {
-		RawHeaderOne header;
-		const char* error;
-	} data;
-} RawHeaderOneResult;
+GENERATE_VARIANT_ALL_RAW_HEADER_ONE_RESULT()
 
 typedef struct {
 	bool has_error;
 	union {
 		WebSocketRawMessage message;
-		const char* error;
+		tstr_static error;
 	} data;
 } WebSocketRawMessageResult;
 
@@ -116,18 +110,13 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allo
 
 	if(allowed_rsv_bytes == 0) {
 		if(rsv_bytes != 0) {
-			return (RawHeaderOneResult){
-				.has_error = true,
-				.data = { .error = "only 0 allowed for the rsv bytes" },
-			};
+			return new_raw_header_one_result_error(
+			    TSTR_STATIC_LIT("only 0 allowed for the rsv bytes"));
 		};
 	} else {
 
 		if((rsv_bytes | allowed_rsv_bytes) != allowed_rsv_bytes) {
-			return (RawHeaderOneResult){
-				.has_error = true,
-				.data = { .error = "invalid rsv bits set" },
-			};
+			return new_raw_header_one_result_error(TSTR_STATIC_LIT("invalid rsv bits set"));
 		}
 	}
 
@@ -144,11 +133,7 @@ get_raw_header(uint8_t const header_bytes[RAW_MESSAGE_HEADER_SIZE], uint8_t allo
 		                    .payload_len = payload_len,
 		                    .rsv_bytes = rsv_bytes };
 
-	RawHeaderOneResult result = {
-		.has_error = false,
-		.data = { .header = header },
-	};
-	return result;
+	return new_raw_header_one_result_ok(header);
 }
 
 NODISCARD static bool is_control_op_code(WsOpcode op_code) {
@@ -172,7 +157,7 @@ read_raw_message(WebSocketConnection* connection,
 	if(header_bytes_result.type != BufferedReadResultTypeOk) {
 		return (WebSocketRawMessageResult){
 			.has_error = true,
-			.data = { .error = "couldn't read header bytes (2)" },
+			.data = { .error = TSTR_STATIC_LIT("couldn't read header bytes (2)") },
 		};
 	}
 
@@ -185,12 +170,11 @@ read_raw_message(WebSocketConnection* connection,
 	// old data!
 	// free_sized_buffer(header_bytes);
 
-	if(raw_header_result.has_error) {
-		return (WebSocketRawMessageResult){ .has_error = true,
-			                                .data = { .error = raw_header_result.data.error } };
+	IF_RAW_HEADER_ONE_RESULT_IS_ERROR_CONST(raw_header_result) {
+		return (WebSocketRawMessageResult){ .has_error = true, .data = { .error = error.error } };
 	}
 
-	RawHeaderOne raw_header = raw_header_result.data.header;
+	const RawHeaderOne raw_header = raw_header_one_result_get_as_ok(raw_header_result).header;
 
 	uint64_t payload_len = (uint64_t)raw_header.payload_len;
 
@@ -201,7 +185,8 @@ read_raw_message(WebSocketConnection* connection,
 		if(payload_len_result.type != BufferedReadResultTypeOk) {
 			return (WebSocketRawMessageResult){
 				.has_error = true,
-				.data = { .error = "couldn't read extended payload length bytes (2)" }
+				.data = { .error = TSTR_STATIC_LIT(
+				              "couldn't read extended payload length bytes (2)") }
 			};
 		}
 
@@ -219,7 +204,8 @@ read_raw_message(WebSocketConnection* connection,
 		if(payload_len_result.type != BufferedReadResultTypeOk) {
 			return (WebSocketRawMessageResult){
 				.has_error = true,
-				.data = { .error = "couldn't read extended payload length bytes (8)" }
+				.data = { .error = TSTR_STATIC_LIT(
+				              "couldn't read extended payload length bytes (8)") }
 			};
 		}
 
@@ -238,9 +224,9 @@ read_raw_message(WebSocketConnection* connection,
 		    buffered_reader_get_amount(connection->reader, RAW_MESSAGE_MASK_BYTE_SIZE);
 
 		if(mask_byte_result.type != BufferedReadResultTypeOk) {
-			return (WebSocketRawMessageResult){
-				.has_error = true, .data = { .error = "couldn't read mask bytes (4)" }
-			};
+			return (WebSocketRawMessageResult){ .has_error = true,
+				                                .data = { .error = TSTR_STATIC_LIT(
+				                                              "couldn't read mask bytes (4)") } };
 		}
 		mask_bytes = sized_buffer_dup(mask_byte_result.value.buffer);
 	}
@@ -254,9 +240,9 @@ read_raw_message(WebSocketConnection* connection,
 
 		if(payload_result.type != BufferedReadResultTypeOk) {
 			free_sized_buffer(mask_bytes);
-			return (WebSocketRawMessageResult){
-				.has_error = true, .data = { .error = "couldn't read payload bytes" }
-			};
+			return (WebSocketRawMessageResult){ .has_error = true,
+				                                .data = { .error = TSTR_STATIC_LIT(
+				                                              "couldn't read payload bytes") } };
 		}
 		payload = sized_buffer_dup(payload_result.value.buffer);
 	}
@@ -851,8 +837,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					    FREE_AT_END();
 					    return NULL;
 				    },
-				    "Error while reading the needed bytes for a frame: %s",
-				    raw_message_result.data.error);
+				    "Error while reading the needed bytes for a frame: " TSTR_FMT "",
+				    TSTR_STATIC_FMT_ARGS(raw_message_result.data.error));
 
 				LOG_MESSAGE(LogLevelInfo, "%s\n", error_message);
 
@@ -1397,7 +1383,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 			if(!extension_send_state) {
 				CloseReason reason = { .code = CloseCodeProtocolError,
-					                   .message = "Coudln't form the send extension state",
+					                   .message = "Couldn't form the send extension state",
 					                   .message_len = -1 };
 
 				const GenericResult result =

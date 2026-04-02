@@ -2,11 +2,11 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <tstr.h>
 #include <vector>
-#include <optional>
 
 #include "./c_types.hpp"
 
@@ -106,6 +106,10 @@ template <typename T>
 GENERATE_VARIANT_ALL_LITERAL_STRING_RESULT()
 GENERATE_VARIANT_ALL_HTTP_BODY_READ_RESULT()
 GENERATE_VARIANT_ALL_HTTP2_FRAME_RESULT()
+typedef struct {
+	int unused;
+} RawHeaderOne;
+GENERATE_VARIANT_ALL_RAW_HEADER_ONE_RESULT()
 
 // END
 
