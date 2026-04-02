@@ -68,6 +68,14 @@
 
 #define UNUSED(v) ((void)(v))
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ExitCodeFailure = EXIT_FAILURE,
+	ExitCodeSuccess = EXIT_SUCCESS,
+} ExitCode;
+
 // cool trick from here:
 // https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
 #ifdef NDEBUG
@@ -199,14 +207,6 @@ NODISCARD GenericResult get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_byt
 // juts annotations
 #define MOVE(x) x
 #define MOVED(x) x
-
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	ExitCodeFailure = EXIT_FAILURE,
-	ExitCodeSuccess = EXIT_SUCCESS,
-} ExitCode;
 
 // just so that I don't add const, when I see the declaration without const xD
 #define MUT
