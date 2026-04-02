@@ -1095,6 +1095,8 @@ do {
     ]
 
 
+    const nameForCompoundLiteralIgnoreMacro = "__INTERNALS_IGNORE_C_COMPOUND_LITERALS_ERROR_IN_CPP"
+
     const headerData = `
 #pragma once
 
@@ -1110,7 +1112,17 @@ extern "C" {
 #include <tstr.h>
 
 #ifdef __cplusplus
-	#define ${getVariantDeclarationMacro(false)}() _Pragma ("GCC diagnostic push") _Pragma ("GCC diagnostic ignored \\"-Wc99-extensions\\"")
+
+#if defined(__clang__)
+	#define ${nameForCompoundLiteralIgnoreMacro}() _Pragma ("GCC diagnostic ignored \\"-Wc99-extensions\\"")
+#elif defined(__GNUC__)
+	/* I don't care, that this disables many errors, as this header should only be used from C, if it is used fom C++, the errors don't matter */
+	#define ${nameForCompoundLiteralIgnoreMacro}() _Pragma ("GCC diagnostic ignored \\"-Wpedantic\\"")
+#else
+	#define ${nameForCompoundLiteralIgnoreMacro}()
+#endif
+
+	#define ${getVariantDeclarationMacro(false)}() _Pragma ("GCC diagnostic push") ${nameForCompoundLiteralIgnoreMacro}()
 	#define ${getVariantDeclarationMacro(true)}() _Pragma ("GCC diagnostic pop")
 #else
 	#define ${getVariantDeclarationMacro(false)}()
