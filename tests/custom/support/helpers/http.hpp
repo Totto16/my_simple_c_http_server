@@ -44,10 +44,10 @@ namespace http {
 
 struct ParsedURIWrapper {
   private:
-	ParsedRequestURIResult m_result;
+	ParsedRequestUriResult m_result;
 
   public:
-	ParsedURIWrapper(ParsedRequestURIResult result);
+	ParsedURIWrapper(ParsedRequestUriResult result);
 
 	static ParsedURIWrapper parse(const std::string& uri);
 

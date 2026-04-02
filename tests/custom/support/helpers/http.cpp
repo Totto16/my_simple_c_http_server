@@ -74,7 +74,7 @@ std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
 	return lhs.weight == rhs.weight;
 }
 
-http::ParsedURIWrapper::ParsedURIWrapper(ParsedRequestURIResult result) : m_result{ result } {}
+http::ParsedURIWrapper::ParsedURIWrapper(ParsedRequestUriResult result) : m_result{ result } {}
 
 [[nodiscard]] const ParsedURLPath& http::ParsedURIWrapper::path() const {
 	if(m_result.is_error) {

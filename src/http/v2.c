@@ -133,13 +133,7 @@ NODISCARD HTTP2Context http2_default_context(void) {
 	};
 }
 
-typedef struct {
-	bool is_error;
-	union {
-		Http2Frame frame;
-		tstr_static error;
-	} data;
-} Http2FrameResult;
+GENERATE_VARIANT_ALL_HTTP2_FRAME_RESULT()
 
 NODISCARD static GenericResult http2_send_raw_frame(const ConnectionDescriptor* const descriptor,
                                                     const Http2RawHeader header,
@@ -537,7 +531,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if((http2_raw_header.flags & Http2DataFrameFlagsAllowed) != http2_raw_header.flags) {
@@ -546,7 +540,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	uint8_t padding_length = 0;
@@ -561,7 +555,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeProtocolError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		BufferedReadResult read_result = buffered_reader_get_amount(reader, 1);
@@ -573,7 +567,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		SizedBuffer padding_data = read_result.value.buffer;
@@ -587,7 +581,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeProtocolError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		payload_length = payload_length - 1 - padding_length;
@@ -601,7 +595,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer frame_data = read_result.value.buffer;
@@ -617,7 +611,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 	}
 
@@ -631,7 +625,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 		SizedBuffer padding_data = read_result.value.buffer;
 
@@ -644,7 +638,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 				    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 				                                context, Http2ErrorCodeProtocolError, error);
 				UNUSED(_);
-				return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+				return new_http2_frame_result_error(error);
 			}
 		}
 	}
@@ -657,7 +651,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 
 	Http2Frame frame = { .type = Http2FrameTypeData, .value = { .data = data_frame } };
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 #define HTTP2_PRIORITY_INFO_SIZE ((32 + 8) / 8)
@@ -706,7 +700,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if((http2_raw_header.flags & Http2HeadersFrameFlagsAllowed) != http2_raw_header.flags) {
@@ -715,7 +709,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	size_t payload_length = http2_raw_header.length;
@@ -731,7 +725,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeProtocolError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		BufferedReadResult read_result = buffered_reader_get_amount(reader, 1);
@@ -743,7 +737,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		SizedBuffer padding_data = read_result.value.buffer;
@@ -757,7 +751,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeProtocolError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		payload_length = payload_length - 1 - padding_length;
@@ -775,7 +769,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeProtocolError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		payload_length = payload_length - HTTP2_PRIORITY_INFO_SIZE;
@@ -790,7 +784,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		SizedBuffer priority_data = read_result.value.buffer;
@@ -808,7 +802,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer block_fragment = read_result.value.buffer;
@@ -825,7 +819,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 	}
 
@@ -839,7 +833,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 		SizedBuffer padding_data = read_result.value.buffer;
 
@@ -852,7 +846,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 				    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 				                                context, Http2ErrorCodeProtocolError, error);
 				UNUSED(_);
-				return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+				return new_http2_frame_result_error(error);
 			}
 		}
 	}
@@ -867,7 +861,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 
 	Http2Frame frame = { .type = Http2FrameTypeHeaders, .value = { .headers = headers_frame } };
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 /**
@@ -888,7 +882,7 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if((http2_raw_header.flags & Http2PriorityFrameFlagsAllowed) != http2_raw_header.flags) {
@@ -897,7 +891,7 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	const size_t payload_length = http2_raw_header.length;
@@ -908,7 +902,7 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeFrameSizeError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	BufferedReadResult read_result = buffered_reader_get_amount(reader, HTTP2_PRIORITY_INFO_SIZE);
@@ -920,7 +914,7 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer priority_data = read_result.value.buffer;
@@ -937,7 +931,7 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 		.value = { .priority = priority_frame },
 	};
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 /**
@@ -958,7 +952,7 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if((http2_raw_header.flags & Http2RestStreamFrameFlagsAllowed) != http2_raw_header.flags) {
@@ -967,7 +961,7 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	const size_t payload_length = http2_raw_header.length;
@@ -978,7 +972,7 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeFrameSizeError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	BufferedReadResult read_result = buffered_reader_get_amount(reader, HTTP2_RST_STREAM_SIZE);
@@ -990,7 +984,7 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer error_code_data = read_result.value.buffer;
@@ -1007,7 +1001,7 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 		.value = { .rst_stream = rst_stream_frame },
 	};
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 #define MAX_FLOW_CONTROL_WINDOW_SIZE ((1ULL << 31ULL) - 1) // 2^31-1
@@ -1040,7 +1034,7 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 		UNUSED(_);
 
 		FREE_AT_END();
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if(input.size > 0) {
@@ -1066,7 +1060,7 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 						UNUSED(_);
 
 						FREE_AT_END();
-						return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+						return new_http2_frame_result_error(error);
 					}
 					break;
 				}
@@ -1084,7 +1078,7 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 						UNUSED(_);
 
 						FREE_AT_END();
-						return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+						return new_http2_frame_result_error(error);
 					}
 					break;
 				}
@@ -1098,7 +1092,7 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 						UNUSED(_);
 
 						FREE_AT_END();
-						return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+						return new_http2_frame_result_error(error);
 					}
 					break;
 				}
@@ -1120,9 +1114,7 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 			if(push_res != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 
 				FREE_AT_END();
-				return (Http2FrameResult){ .is_error = true,
-					                       .data = { .error = TSTR_STATIC_LIT(
-					                                     "OOM in settings array push") } };
+				return new_http2_frame_result_error(TSTR_STATIC_LIT("OOM in settings array push"));
 			}
 		}
 	}
@@ -1132,7 +1124,7 @@ NODISCARD static Http2FrameResult parse_raw_http2_settings_frame(const SizedBuff
 		                     .settings = settings_frame,
 		                 } };
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 #undef FREE_AT_END
@@ -1147,7 +1139,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if((http2_raw_header.flags & Http2SettingsFrameFlagsAllowed) != http2_raw_header.flags) {
@@ -1156,7 +1148,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	const bool ack = (http2_raw_header.flags & Http2SettingsFrameFlagAck) != 0;
@@ -1169,7 +1161,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeFrameSizeError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		Http2Frame frame = { .type = Http2FrameTypeSettings,
@@ -1180,7 +1172,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 			                             .entries = TVEC_EMPTY(Http2SettingSingleValue),
 			                         },
 			                 } };
-		return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+		return new_http2_frame_result_ok(frame);
 	}
 
 	if((http2_raw_header.length % HTTP2_SETTINGS_FRAME_SINGLE_SIZE) != 0) {
@@ -1190,7 +1182,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeFrameSizeError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer frame_data = (SizedBuffer){ .data = NULL, .size = 0 };
@@ -1207,7 +1199,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		frame_data = read_result.value.buffer;
@@ -1237,7 +1229,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if((http2_raw_header.flags & Http2PushPromiseFrameFlagsAllowed) != http2_raw_header.flags) {
@@ -1246,7 +1238,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if(!context->settings.enable_push) {
@@ -1255,7 +1247,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	size_t payload_length = http2_raw_header.length;
@@ -1271,7 +1263,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeProtocolError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		BufferedReadResult read_result = buffered_reader_get_amount(reader, 1);
@@ -1283,7 +1275,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		SizedBuffer padding_data = read_result.value.buffer;
@@ -1297,7 +1289,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeProtocolError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		payload_length = payload_length - 1 - padding_length;
@@ -1310,7 +1302,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	payload_length = payload_length - 4;
@@ -1324,7 +1316,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer promised_stream_identifier_data = read_result.value.buffer;
@@ -1340,7 +1332,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer block_fragment = read_result.value.buffer;
@@ -1357,7 +1349,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 	}
 
@@ -1371,7 +1363,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 		SizedBuffer padding_data = read_result.value.buffer;
 
@@ -1384,7 +1376,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 				    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 				                                context, Http2ErrorCodeProtocolError, error);
 				UNUSED(_);
-				return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+				return new_http2_frame_result_error(error);
 			}
 		}
 	}
@@ -1401,7 +1393,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 		                     .push_promise = push_promise_frame,
 		                 } };
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const reader,
@@ -1414,7 +1406,7 @@ NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const r
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if((http2_raw_header.flags & Http2PingFrameFlagsAllowed) != http2_raw_header.flags) {
@@ -1423,7 +1415,7 @@ NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const r
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	const size_t payload_length = http2_raw_header.length;
@@ -1434,7 +1426,7 @@ NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const r
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeFrameSizeError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	BufferedReadResult read_result = buffered_reader_get_amount(reader, HTTP2_PING_FRAME_SIZE);
@@ -1446,7 +1438,7 @@ NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const r
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer opaque_data = sized_buffer_dup(read_result.value.buffer);
@@ -1457,7 +1449,7 @@ NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const r
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	Http2PingFrame ping_frame = {
@@ -1470,7 +1462,7 @@ NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const r
 		.value = { .ping = ping_frame },
 	};
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 #define BASE_HTTP2_GOAWAY_FRAME_SIZE ((32 + 32) / 8)
@@ -1493,7 +1485,7 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if((http2_raw_header.flags & Http2GoawayFrameFlagsAllowed) != http2_raw_header.flags) {
@@ -1502,7 +1494,7 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if(http2_raw_header.length < BASE_HTTP2_GOAWAY_FRAME_SIZE) {
@@ -1511,7 +1503,7 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeFrameSizeError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	const size_t additional_data_size = http2_raw_header.length - BASE_HTTP2_GOAWAY_FRAME_SIZE;
@@ -1525,7 +1517,7 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer frame_data = read_result.value.buffer;
@@ -1549,7 +1541,7 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 
 		additional_debug_data = sized_buffer_dup(read_result.value.buffer);
@@ -1560,7 +1552,7 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 	}
 
@@ -1575,7 +1567,7 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 		                     .goaway = goaway_frame,
 		                 } };
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 #define HTTP2_WINDOW_UPDATE_FRAME_SIZE (4)
@@ -1598,7 +1590,7 @@ NODISCARD static Http2FrameResult parse_http2_window_update_frame(BufferedReader
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if(http2_raw_header.length != HTTP2_WINDOW_UPDATE_FRAME_SIZE) {
@@ -1608,7 +1600,7 @@ NODISCARD static Http2FrameResult parse_http2_window_update_frame(BufferedReader
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeFrameSizeError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	BufferedReadResult read_result =
@@ -1621,7 +1613,7 @@ NODISCARD static Http2FrameResult parse_http2_window_update_frame(BufferedReader
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer frame_data = read_result.value.buffer;
@@ -1640,7 +1632,7 @@ NODISCARD static Http2FrameResult parse_http2_window_update_frame(BufferedReader
 		                     .window_update = window_update_frame,
 		                 } };
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader* const reader,
@@ -1653,7 +1645,7 @@ NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader*
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	if((http2_raw_header.flags & Http2ContinuationFrameFlagsAllowed) != http2_raw_header.flags) {
@@ -1662,7 +1654,7 @@ NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader*
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeProtocolError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	const size_t payload_length = http2_raw_header.length;
@@ -1675,7 +1667,7 @@ NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader*
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer block_fragment = read_result.value.buffer;
@@ -1692,7 +1684,7 @@ NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader*
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 	}
 
@@ -1705,7 +1697,7 @@ NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader*
 	Http2Frame frame = { .type = Http2FrameTypeContinuation,
 		                 .value = { .continuation = continuation_frame } };
 
-	return (Http2FrameResult){ .is_error = false, .data = { .frame = frame } };
+	return new_http2_frame_result_ok(frame);
 }
 
 NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2Context* const context,
@@ -1720,7 +1712,7 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2Context* const co
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeInternalError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	SizedBuffer header_data = read_result.value.buffer;
@@ -1733,7 +1725,7 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2Context* const co
 		    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader), context,
 		                                Http2ErrorCodeFrameSizeError, error);
 		UNUSED(_);
-		return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+		return new_http2_frame_result_error(error);
 	}
 
 	switch(http2_raw_header.type) {
@@ -1773,7 +1765,7 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2Context* const co
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
 			                                context, Http2ErrorCodeInternalError, error);
 			UNUSED(_);
-			return (Http2FrameResult){ .is_error = true, .data = { .error = error } };
+			return new_http2_frame_result_error(error);
 		}
 	}
 }
@@ -3075,19 +3067,19 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* const context,
 		const Http2FrameResult frame_result = parse_http2_frame(context, reader);
 		// process the frame, if possible, otherwise do it later (e.g. when the headers end)
 
-		if(frame_result.is_error) {
+		IF_HTTP2_FRAME_RESULT_IS_ERROR_CONST(frame_result) {
 			return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){
 				                                    .is_advanced = true,
-				                                    .value = { .advanced = frame_result.data.error ,}
+				                                    .value = { .advanced = error.error ,}
 
 				                                },
 				                        } };
 		}
 
-		Http2Frame frame = frame_result.data.frame;
+		MUT Http2Frame frame = http2_frame_result_get_as_ok(frame_result).frame;
 
 		// after the parsing of the frame, we can discard that data
 		buffered_reader_invalidate_old_data(reader);
@@ -3260,12 +3252,11 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 
 	Http2FrameResult frame_result = parse_http2_frame(context, reader);
 
-	if(frame_result.is_error) {
-		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = frame_result.data.error } };
+	IF_HTTP2_FRAME_RESULT_IS_ERROR_CONST(frame_result) {
+		return (Http2StartResult){ .is_error = true, .value = { .error = error.error } };
 	}
 
-	Http2Frame frame = frame_result.data.frame;
+	MUT Http2Frame frame = http2_frame_result_get_as_ok(frame_result).frame;
 
 	if(frame.type != Http2FrameTypeSettings) {
 		return (Http2StartResult){ .is_error = true,
@@ -3314,14 +3305,13 @@ NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context*
 			                                      "magic http2 preface not correct") } };
 	}
 
-	Http2FrameResult frame_result = parse_http2_frame(context, reader);
+	MUT Http2FrameResult frame_result = parse_http2_frame(context, reader);
 
-	if(frame_result.is_error) {
-		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = frame_result.data.error } };
+	IF_HTTP2_FRAME_RESULT_IS_ERROR_CONST(frame_result) {
+		return (Http2StartResult){ .is_error = true, .value = { .error = error.error } };
 	}
 
-	Http2Frame frame = frame_result.data.frame;
+	MUT Http2Frame frame = http2_frame_result_get_as_ok(frame_result).frame;
 
 	if(frame.type != Http2FrameTypeSettings) {
 		return (Http2StartResult){ .is_error = true,
@@ -3379,19 +3369,19 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 
 	free_sized_buffer(settings_data); // NOLINT(clang-analyzer-unix.Malloc)
 
-	if(settings_frame_result.is_error) {
+	IF_HTTP2_FRAME_RESULT_IS_ERROR_CONST(settings_frame_result) {
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 				                        .value = {
 				                            .error =
 				                                (HttpRequestError){
 				                                    .is_advanced = true,
-				                                    .value = { .advanced = settings_frame_result.data.error ,}
+				                                    .value = { .advanced = error.error ,}
 
 				                                },
 				                        } };
 	}
 
-	const Http2Frame frame = settings_frame_result.data.frame;
+	const Http2Frame frame = http2_frame_result_get_as_ok(settings_frame_result).frame;
 
 	// apply settings
 
