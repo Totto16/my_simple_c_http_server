@@ -72,12 +72,12 @@ TEST_CASE("testing hpack huffman decoding - from hpack spec <hpack_huffman_decod
 
 				REQUIRE_IS_NOT_ERROR(result);
 
-				const auto actual_result = result.data.result;
+				const auto actual_result = huffman_decode_result_get_as_ok(result).result;
 
 				const auto expected_result = helpers::buffer_from_string(test_case.str);
 
 				const std::string actual_result_str =
-				    std::string{ (char*)actual_result.data, actual_result.size };
+				    std::string{ (const char*)actual_result.data, actual_result.size };
 
 				INFO("the actual encoded string: ", test_case.str);
 				INFO("the decoded string: ", actual_result_str);
@@ -111,12 +111,12 @@ TEST_CASE("testing hpack huffman decoding (ascii) - generated "
 
 				REQUIRE_EQ(IsNotError{}, result);
 
-				const auto actual_result = result.data.result;
+				const auto actual_result = huffman_decode_result_get_as_ok(result).result;
 
 				const auto expected_result = helpers::buffer_from_string(test_case.str);
 
 				const std::string actual_result_str =
-				    std::string{ (char*)actual_result.data, actual_result.size };
+				    std::string{ (const char*)actual_result.data, actual_result.size };
 
 				INFO("the actual encoded string: ", test_case.str);
 				INFO("the decoded string: ", actual_result_str);
@@ -150,7 +150,7 @@ TEST_CASE("testing hpack huffman decoding (utf8) - generated "
 
 				REQUIRE_IS_NOT_ERROR(result);
 
-				const auto actual_result = result.data.result;
+				const auto actual_result = huffman_decode_result_get_as_ok(result).result;
 
 				const auto expected_result = helpers::buffer_from_raw_data(test_case.value);
 
@@ -213,7 +213,7 @@ TEST_CASE("testing hpack huffman encoding - from hpack spec <hpack_huffman_encod
 
 				REQUIRE_IS_NOT_ERROR(result);
 
-				const auto actual_result = result.data.result;
+				const auto actual_result = huffman_encode_result_get_as_ok(result).result;
 
 				const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
 
@@ -248,7 +248,7 @@ TEST_CASE("testing hpack huffman encoding (ascii) - generated "
 
 				REQUIRE_IS_NOT_ERROR(result);
 
-				const auto actual_result = result.data.result;
+				const auto actual_result = huffman_encode_result_get_as_ok(result).result;
 
 				const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
 
@@ -283,7 +283,7 @@ TEST_CASE("testing hpack huffman encoding (utf8) - generated "
 
 				REQUIRE_IS_NOT_ERROR(result);
 
-				const auto actual_result = result.data.result;
+				const auto actual_result = huffman_encode_result_get_as_ok(result).result;
 
 				const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
 
@@ -327,8 +327,8 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 
 				REQUIRE_IS_NOT_ERROR(result);
 
-				const auto intermediary_result =
-				    readonly_buffer_from_sized_buffer(result.data.result);
+				const auto intermediary_result = readonly_buffer_from_sized_buffer(
+				    huffman_encode_result_get_as_ok(result).result);
 
 				auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
 				CAutoFreePtr<HuffmanDecodeResult> defer2 = { &result_dec,
@@ -336,7 +336,7 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 
 				REQUIRE_IS_NOT_ERROR(result_dec);
 
-				const auto actual_result = result_dec.data.result;
+				const auto actual_result = huffman_decode_result_get_as_ok(result_dec).result;;
 
 				const auto expected_result = helpers::buffer_from_raw_data(test_case.value);
 

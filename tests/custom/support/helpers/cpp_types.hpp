@@ -168,6 +168,8 @@ std::ostream& operator<<(std::ostream& os, const IsNotError& error);
 
 #define REQUIRE_IS_NOT_ERROR(val) REQUIRE_EQ(IsNotError{}, val)
 
+#define REQUIRE_IS_ERROR(val) REQUIRE_NE(IsNotError{}, val)
+
 template <typename T>
     requires(IsCErrorVariant<T>)
 static std::ostream& operator<<(std::ostream& os, const T& entry) {

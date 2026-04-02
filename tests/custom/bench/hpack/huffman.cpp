@@ -63,15 +63,11 @@ static void BM_hpack_huffman_decode_spec(benchmark::State& state) {
 			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
 				                                        helpers::free_huffman_decode_result };
 
-			const char* error = nullptr;
-
-			if(result.is_error) {
-				error = result.data.error;
+			IF_HUFFMAN_DECODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
 			}
 
-			assert(error == nullptr);
-
-			const auto actual_result = result.data.result;
+			const auto actual_result = huffman_decode_result_get_as_ok(result).result;
 
 			const auto expected_result = helpers::buffer_from_string(test_case.str);
 
@@ -102,15 +98,11 @@ static void BM_hpack_huffman_decode_ascii_generated(benchmark::State& state) {
 			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
 				                                        helpers::free_huffman_decode_result };
 
-			const char* error = nullptr;
-
-			if(result.is_error) {
-				error = result.data.error;
+			IF_HUFFMAN_DECODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
 			}
 
-			assert(error == nullptr);
-
-			const auto actual_result = result.data.result;
+			const auto actual_result = huffman_decode_result_get_as_ok(result).result;
 
 			const auto expected_result = helpers::buffer_from_string(test_case.str);
 
@@ -141,15 +133,11 @@ static void BM_hpack_huffman_decode_utf8_generated(benchmark::State& state) {
 			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
 				                                        helpers::free_huffman_decode_result };
 
-			const char* error = nullptr;
-
-			if(result.is_error) {
-				error = result.data.error;
+			IF_HUFFMAN_DECODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
 			}
 
-			assert(error == nullptr);
-
-			const auto actual_result = result.data.result;
+			const auto actual_result = huffman_decode_result_get_as_ok(result).result;
 
 			const auto expected_result = helpers::buffer_from_raw_data(test_case.value);
 
@@ -206,16 +194,11 @@ static void BM_hpack_huffman_encode_spec(benchmark::State& state) {
 			auto result = hpack_huffman_encode_value(&input);
 			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
 				                                        helpers::free_huffman_encode_result };
-
-			const char* error = nullptr;
-
-			if(result.is_error) {
-				error = result.data.error;
+			IF_HUFFMAN_ENCODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
 			}
 
-			assert(error == nullptr);
-
-			const auto actual_result = result.data.result;
+			const auto actual_result = huffman_encode_result_get_as_ok(result).result;
 
 			const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
 
@@ -244,15 +227,11 @@ static void BM_hpack_huffman_encode_ascii_generated(benchmark::State& state) {
 			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
 				                                        helpers::free_huffman_encode_result };
 
-			const char* error = nullptr;
-
-			if(result.is_error) {
-				error = result.data.error;
+			IF_HUFFMAN_ENCODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
 			}
 
-			assert(error == nullptr);
-
-			const auto actual_result = result.data.result;
+			const auto actual_result = huffman_encode_result_get_as_ok(result).result;
 
 			const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
 
@@ -281,15 +260,11 @@ static void BM_hpack_huffman_encode_utf8_generated(benchmark::State& state) {
 			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
 				                                        helpers::free_huffman_encode_result };
 
-			const char* error = nullptr;
-
-			if(result.is_error) {
-				error = result.data.error;
+			IF_HUFFMAN_ENCODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
 			}
 
-			assert(error == nullptr);
-
-			const auto actual_result = result.data.result;
+			const auto actual_result = huffman_encode_result_get_as_ok(result).result;
 
 			const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
 
@@ -327,29 +302,22 @@ static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
 			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
 				                                        helpers::free_huffman_encode_result };
 
-			const char* error = nullptr;
-
-			if(result.is_error) {
-				error = result.data.error;
+			IF_HUFFMAN_ENCODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
 			}
 
-			assert(error == nullptr);
-
-			const auto intermediary_result = readonly_buffer_from_sized_buffer(result.data.result);
+			const auto intermediary_result =
+			    readonly_buffer_from_sized_buffer(huffman_encode_result_get_as_ok(result).result);
 
 			auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
 			CAutoFreePtr<HuffmanDecodeResult> defer2 = { &result_dec,
 				                                         helpers::free_huffman_decode_result };
 
-			const char* error2 = nullptr;
-
-			if(result_dec.is_error) {
-				error2 = result_dec.data.error;
+			IF_HUFFMAN_DECODE_RESULT_IS_ERROR_CONST(result_dec) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
 			}
 
-			assert(error2 == nullptr);
-
-			const auto actual_result = result_dec.data.result;
+			const auto actual_result = huffman_decode_result_get_as_ok(result_dec).result;
 
 			const auto expected_result = helpers::buffer_from_raw_data(test_case.value);
 

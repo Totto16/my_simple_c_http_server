@@ -364,7 +364,7 @@ TEST_CASE("testing password hashing with bcrypt <bcrypt>" *
 					bool matches = is_string_equal_to_hash_salted_string(
 					    test_case.settings, test_case.password.c_str(), result);
 
-					REQUIRE(matches);
+					REQUIRE_TRUE(matches);
 				}
 
 				{

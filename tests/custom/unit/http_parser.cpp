@@ -22,11 +22,11 @@ TEST_SUITE_BEGIN("http_parser" * doctest::description("http parser tests") *
 
 TEST_CASE("testing parsing of the Accept-Encoding header <encoding_parser>") {
 
-	REQUIRE(is_compression_supported(CompressionTypeGzip));
-	REQUIRE(is_compression_supported(CompressionTypeDeflate));
-	REQUIRE(is_compression_supported(CompressionTypeBr));
-	REQUIRE(is_compression_supported(CompressionTypeZstd));
-	REQUIRE(is_compression_supported(CompressionTypeCompress));
+	REQUIRE_TRUE(is_compression_supported(CompressionTypeGzip));
+	REQUIRE_TRUE(is_compression_supported(CompressionTypeDeflate));
+	REQUIRE_TRUE(is_compression_supported(CompressionTypeBr));
+	REQUIRE_TRUE(is_compression_supported(CompressionTypeZstd));
+	REQUIRE_TRUE(is_compression_supported(CompressionTypeCompress));
 
 	REQUIRE_FALSE(is_compression_supported((CompressionType)(CompressionTypeCompress + 2)));
 

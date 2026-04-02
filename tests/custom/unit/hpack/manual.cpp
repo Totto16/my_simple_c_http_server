@@ -48,7 +48,7 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 
 				REQUIRE_IS_NOT_ERROR(result);
 
-				const auto actual_result = result.data.value;
+				const auto actual_result = hpack_variable_integer_result_get_as_ok(result).value;
 
 				const auto& expected_result = test_case.result;
 
@@ -93,10 +93,11 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const auto result = decode_hpack_variable_integer(
 			    &pos, input.size, (const std::uint8_t*)input.data, prefix_bits);
 
-			REQUIRE(result.is_error);
+			REQUIRE_IS_ERROR(result);
 
 			const std::string expected_error = "not enough bytes";
-			const std::string actual_error = result.data.error;
+			const std::string actual_error =
+			    string_from_tstr_static(hpack_variable_integer_result_get_as_error(result).error);
 
 			REQUIRE_EQ(expected_error, actual_error);
 		}();
@@ -119,10 +120,11 @@ TEST_CASE("testing hpack deserializing - integer tests <hpack_integer_deserializ
 			const auto result = decode_hpack_variable_integer(
 			    &pos, input.size, (const std::uint8_t*)input.data, prefix_bits);
 
-			REQUIRE(result.is_error);
+			REQUIRE_IS_ERROR(result);
 
 			const std::string expected_error = "final integer would be too big";
-			const std::string actual_error = result.data.error;
+			const std::string actual_error =
+			    string_from_tstr_static(hpack_variable_integer_result_get_as_error(result).error);
 
 			REQUIRE_EQ(expected_error, actual_error);
 		}();
@@ -213,7 +215,7 @@ TEST_CASE("testing hpack deserializing - header field tests <hpack_header_fields
 
 				REQUIRE_IS_NOT_ERROR(result);
 
-				const auto actual_result = result.data.result;
+				const auto actual_result = http2_hpack_decompress_result_get_as_ok(result);
 
 				const auto& expected_result = test_case.result;
 
@@ -539,7 +541,7 @@ TEST_CASE("testing hpack deserializing - manual tests <hpack_deserialize_manual>
 
 					REQUIRE_IS_NOT_ERROR(result);
 
-					const auto actual_result = result.data.result;
+					const auto actual_result = http2_hpack_decompress_result_get_as_ok(result);
 
 					const auto& expected_result = subcase.result;
 

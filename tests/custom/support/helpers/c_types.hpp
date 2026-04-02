@@ -22,3 +22,5 @@ NODISCARD bool operator==(const ReadonlyBuffer& lhs, const ReadonlyBuffer& rhs);
 NODISCARD bool operator==(const ReadonlyBuffer& lhs, const SizedBuffer& rhs);
 
 NODISCARD bool operator==(const SizedBuffer& lhs, const ReadonlyBuffer& rhs);
+
+#define REQUIRE_TRUE(val) REQUIRE(val)

@@ -63,7 +63,8 @@
 \
 						REQUIRE_IS_NOT_ERROR(result); \
 \
-						const auto actual_result = result.data.result; \
+						const auto actual_result = \
+						    http2_hpack_decompress_result_get_as_ok(result); \
 \
 						const auto& expected_result = single_case.headers; \
 \
