@@ -15,43 +15,16 @@ bench_deps += dependency(
     },
 )
 
+bench_deps += http_server_dep
+
+bench_deps += support_dep
+
 bench_inc_dirs += include_directories('.')
 
-bench_inc_dirs += support_inc
 
 bench_src += files('main.cpp')
 
 bench_src += generated_cpp_tests
-
-add_languages(
-    'cpp',
-    native: false,
-)
-
-bench_src += support_src
-
-correct_cpp_args = []
-
-foreach internal_c_arg : internal_c_args
-
-    # cpp.get_supported_arguments reports true, but it is not really
-    if internal_c_arg not in ['-Werror=implicit', '-Werror=pointer-to-int-cast']
-        correct_cpp_args += internal_c_arg
-    endif
-
-endforeach
-
-cpp = meson.get_compiler('cpp')
-
-internal_cpp_args = []
-
-internal_cpp_args += cpp.get_supported_arguments(correct_cpp_args)
-
-internal_cpp_args += []
-
-if cpp.get_id() == 'gcc'
-    internal_cpp_args += cc.get_supported_arguments('-Wno-missing-braces')
-endif
 
 bench_src += files(
     'hash.cpp',
@@ -65,14 +38,14 @@ bench_exe = executable(
     'bench',
     bench_src,
     include_directories: bench_inc_dirs,
-    dependencies: [bench_deps, http_server_dep],
+    dependencies: bench_deps,
     cpp_args: internal_cpp_args,
     c_args: internal_c_args,
     override_options: {
         'warning_level': '3',
         'werror': true,
         'b_coverage': false,
-        'cpp_std': ['c++23', 'c++latest', 'c++20'],
+        'cpp_std': cpp_std_to_use,
     },
 )
 

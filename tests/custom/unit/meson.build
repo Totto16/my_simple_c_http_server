@@ -14,9 +14,11 @@ test_deps += dependency(
 
 test_deps += dependency('nlohmann_json')
 
-test_inc_dirs += include_directories('.')
+test_deps += http_server_dep
 
-test_inc_dirs += support_inc
+test_deps += support_dep
+
+test_inc_dirs += include_directories('.')
 
 test_src += files(
     'helpers/json.cpp',
@@ -27,39 +29,15 @@ test_src += files(
 
 test_src += generated_cpp_tests
 
-add_languages(
-    'cpp',
-    native: false,
-)
 
-test_src += support_src
-
-correct_cpp_args = []
-
-foreach internal_c_arg : internal_c_args
-
-    # cpp.get_supported_arguments reports true, but it is not really
-    if internal_c_arg not in ['-Werror=implicit', '-Werror=pointer-to-int-cast']
-        correct_cpp_args += internal_c_arg
-    endif
-
-endforeach
-
-cpp = meson.get_compiler('cpp')
-
-internal_cpp_args = []
-
-internal_cpp_args += cpp.get_supported_arguments(correct_cpp_args)
-
-internal_cpp_args += [
+test_cpp_args = [
     '-DDOCTEST_CONFIG_REQUIRE_STRINGIFICATION_FOR_ALL_USED_TYPES',
     '-DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING',
-    '-DDOCTEST_CONFIG_USE_STD_HEADERS',
+    '-DDOCTEST_CONFIG_USE_STD_HEADERS'
 ]
 
-if cpp.get_id() == 'gcc'
-    internal_cpp_args += cc.get_supported_arguments('-Wno-missing-braces')
-endif
+test_cpp_args += internal_cpp_args
+
 
 test_files_manual = [
     'basic.cpp',
@@ -101,14 +79,14 @@ foreach test_file : test_files_manual + test_files_hpack
         test_src,
         files(test_file),
         include_directories: test_inc_dirs,
-        dependencies: [test_deps, http_server_dep],
-        cpp_args: internal_cpp_args,
+        dependencies: test_deps,
+        cpp_args: test_cpp_args,
         c_args: internal_c_args,
         override_options: {
             'warning_level': '3',
             'werror': true,
             'b_coverage': false,
-            'cpp_std': ['c++23', 'c++latest', 'c++20'],
+            'cpp_std': cpp_std_to_use,
         },
     )
 
@@ -128,14 +106,14 @@ all_tests_manual = executable(
     test_src,
     files(test_files_manual),
     include_directories: test_inc_dirs,
-    dependencies: [test_deps, http_server_dep],
-    cpp_args: internal_cpp_args,
+    dependencies: test_deps,
+    cpp_args: test_cpp_args,
     c_args: internal_c_args,
     override_options: {
         'warning_level': '3',
         'werror': true,
         'b_coverage': false,
-        'cpp_std': ['c++23', 'c++latest', 'c++20'],
+        'cpp_std': cpp_std_to_use,
     },
 )
 
@@ -144,14 +122,14 @@ all_tests_hpack = executable(
     test_src,
     files(test_files_hpack),
     include_directories: test_inc_dirs,
-    dependencies: [test_deps, http_server_dep],
-    cpp_args: internal_cpp_args,
+    dependencies: test_deps,
+    cpp_args: test_cpp_args,
     c_args: internal_c_args,
     override_options: {
         'warning_level': '3',
         'werror': true,
         'b_coverage': false,
-        'cpp_std': ['c++23', 'c++latest', 'c++20'],
+        'cpp_std': cpp_std_to_use,
     },
 )
 
@@ -160,13 +138,13 @@ all_tests = executable(
     test_src,
     files(test_files_manual + test_files_hpack),
     include_directories: test_inc_dirs,
-    dependencies: [test_deps, http_server_dep],
-    cpp_args: internal_cpp_args,
+    dependencies: test_deps,
+    cpp_args: test_cpp_args,
     c_args: internal_c_args,
     override_options: {
         'warning_level': '3',
         'werror': true,
         'b_coverage': false,
-        'cpp_std': ['c++23', 'c++latest', 'c++20'],
+        'cpp_std': cpp_std_to_use,
     },
 )

@@ -6,6 +6,7 @@
 #include <string>
 #include <tstr.h>
 #include <vector>
+#include <optional>
 
 #include "./c_types.hpp"
 

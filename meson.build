@@ -297,12 +297,21 @@ http_server_dep = declare_dependency(
     compile_args: [compile_flags],
     dependencies: deps,
     version: meson.project_version(),
+    sources: variants_generated,
 )
+
+## mark as unusable
+compile_flags = {
+    'don\'t_use': true,
+}
+
+variants_generated = {
+    'don\'t_use': true,
+}
 
 executable(
     'server',
     files('src/main.c'),
-    variants_generated,
     c_args: [internal_c_args],
     dependencies: [http_server_dep],
 )
