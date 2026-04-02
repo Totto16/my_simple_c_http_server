@@ -179,7 +179,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 		[]() -> void {
 			const auto parsed_path = http::ParsedURIWrapper::parse("/");
 
-			REQUIRE_EQ(parsed_path.error(), nullptr);
+			REQUIRE_EQ(parsed_path.error(), TstrStaticIsNull{});
 
 			const auto& path = parsed_path.path();
 
@@ -195,7 +195,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 		[]() -> void {
 			const auto parsed_path = http::ParsedURIWrapper::parse("/test/hello");
 
-			REQUIRE_EQ(parsed_path.error(), nullptr);
+			REQUIRE_EQ(parsed_path.error(), TstrStaticIsNull{});
 
 			const auto& path = parsed_path.path();
 
@@ -212,7 +212,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 			const auto parsed_path =
 			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
-			REQUIRE_EQ(parsed_path.error(), nullptr);
+			REQUIRE_EQ(parsed_path.error(), TstrStaticIsNull{});
 
 			const auto& path = parsed_path.path();
 
@@ -274,7 +274,7 @@ TEST_CASE("testing the parsing of the http request - test url path parsing <url_
 			const auto parsed_path =
 			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
-			REQUIRE_EQ(parsed_path.error(), nullptr);
+			REQUIRE_EQ(parsed_path.error(), TstrStaticIsNull{});
 
 			const auto& path = parsed_path.path();
 

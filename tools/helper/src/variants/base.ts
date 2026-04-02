@@ -1,5 +1,5 @@
 import type { Expect, Equal } from "type-testing"
-import { assert, isUTF8String } from "../utils.js"
+import { arrayIsEq, assert, isUTF8String } from "../utils.js"
 
 
 function isUpperCase(str: string): boolean {
@@ -87,7 +87,10 @@ export class CaseName {
         parts.push(...other._parts)
 
         return new CaseName(parts)
+    }
 
+    public eq(other: CaseName): boolean {
+        return arrayIsEq<string>(this._parts, other._parts)
     }
 
     public PascalCase(): string {
@@ -224,10 +227,15 @@ interface TaggedUnionRequirements {
 
 export type StructOrder = "auto" | "tag_first" | "tag_second"
 
+export interface CppFeatures {
+    tagAsErrorVariant: boolean
+}
+
 interface TaggedUnionOptions {
     rawStruct: CaseName
     structOrder: StructOrder
     requirements: TaggedUnionRequirements
+    cppFeatures: CppFeatures
 }
 
 

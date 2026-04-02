@@ -53,7 +53,7 @@ struct ParsedURIWrapper {
 
 	[[nodiscard]] const ParsedURLPath& path() const;
 
-	[[nodiscard]] const char* error() const;
+	[[nodiscard]] tstr_static error() const;
 
 	~ParsedURIWrapper();
 };

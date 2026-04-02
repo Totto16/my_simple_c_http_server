@@ -68,8 +68,9 @@ template <typename T> using CAutoFreePtr = std::unique_ptr<T, void (*)(T*)>;
 
 [[nodiscard]] std::string string_from_tstr(const tstr& value);
 
-[[nodiscard]] tstr tstr_from_string(const std::string& value);
+[[nodiscard]] std::string string_from_tstr_static(const tstr_static& value);
 
+[[nodiscard]] tstr tstr_from_string(const std::string& value);
 
 template <typename T>
 [[nodiscard]] static inline bool vec_contains(const std::vector<T>& vec, const T& val) {
@@ -94,9 +95,49 @@ template <typename T>
 	return false;
 }
 
+// to have all generated error variant types
+
+#include <http/hpack.h>
+#include <http/hpack_huffman.h>
+#include <http/v2.h>
+
+GENERATE_VARIANT_ALL_LITERAL_STRING_RESULT()
+GENERATE_VARIANT_ALL_HTTP_BODY_READ_RESULT()
+GENERATE_VARIANT_ALL_HTTP2_FRAME_RESULT()
+
+// END
+
+#include <optional>
+
+CPP_DEFINE_ERROR_VARIANTS()
+
 template <typename T>
-concept is_errorable_type = requires(T) {
-	{ T::is_error } -> std::convertible_to<bool>;
+concept IsCErrorVariant = cpp::error_variants::IsErrorVariant<T>::value;
+
+struct Errorable {
+  private:
+	std::optional<std::string> m_value;
+
+	explicit Errorable();
+
+	explicit Errorable(std::string&& value);
+
+  public:
+	template <typename T>
+	    requires(IsCErrorVariant<T>)
+	static Errorable from_c_variant_with_error(const T& value) {
+		const std::optional<tstr_static> temp =
+		    cpp::error_variants::ErrorVariantConversionImpl<T>::to_cpp_type(value);
+		if(temp.has_value()) {
+			return Errorable{ string_from_tstr_static(temp.value()) };
+		}
+
+		return Errorable{};
+	}
+
+	[[nodiscard]] bool is_error() const;
+
+	[[nodiscard]] std::string error() const;
 };
 
 struct IsNotError {
@@ -106,34 +147,38 @@ struct IsNotError {
 	friend std::ostream& operator<<(std::ostream& os, const IsNotError& error);
 
 	template <typename T>
-	    requires(is_errorable_type<T>)
+	    requires(IsCErrorVariant<T>)
 	[[nodiscard]] bool operator==(const T& lhs) const {
-		return !lhs.is_error;
+		return !Errorable::from_c_variant_with_error<T>(lhs).is_error();
 	}
 };
+
+struct TstrStaticIsNull {
+  public:
+	TstrStaticIsNull();
+
+	friend std::ostream& operator<<(std::ostream& os, const TstrStaticIsNull& error);
+
+	[[nodiscard]] bool operator==(const tstr_static& lhs) const;
+};
+
+[[nodiscard]] bool operator==(const tstr_static& lhs, const TstrStaticIsNull& rhs);
 
 std::ostream& operator<<(std::ostream& os, const IsNotError& error);
 
 #define REQUIRE_IS_NOT_ERROR(val) REQUIRE_EQ(IsNotError{}, val)
 
 template <typename T>
-    requires(is_errorable_type<T> &&
-             requires(T val) {
-	             { val.data.error } -> std::convertible_to<const char*>;
-             })
-static std::string get_error_from(const T& entry) {
-	return std::string{ entry.data.error };
-}
-
-template <typename T>
-    requires(is_errorable_type<T>)
+    requires(IsCErrorVariant<T>)
 static std::ostream& operator<<(std::ostream& os, const T& entry) {
-	if(!entry.is_error) {
+	const auto& value = Errorable::from_c_variant_with_error<T>(entry);
+
+	if(!value.is_error()) {
 		os << "Printing not supported for non error variant of:" << typeid(entry).name();
 		return os;
 	}
 
-	os << typeid(entry).name() << "{ is_error: true, error: " << get_error_from<T>(entry) << " }";
+	os << typeid(entry).name() << "{ is_error: true, error: " << value.error() << " }";
 
 	return os;
 }
@@ -144,3 +189,7 @@ namespace helpers {
 }
 
 extern size_t g_doctest_timeout_multiplier;
+
+std::ostream& operator<<(std::ostream& os, const tstr& str);
+
+std::ostream& operator<<(std::ostream& os, const tstr_static& str);

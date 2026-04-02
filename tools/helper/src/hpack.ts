@@ -335,7 +335,7 @@
 
 
 import path from "node:path"
-import { addGenerateMacros, assert, BitArray, getBitArrayFromBits, getOtherFile, isUTF8String, numberArrayIsEq, writeFileAndDirs } from "./utils.js"
+import { addGenerateMacros, assert, BitArray, getBitArrayFromBits, getOtherFile, isUTF8String, writeFileAndDirs, arrayIsEq } from "./utils.js"
 
 interface RawHuffmanCode {
     sym: number,
@@ -1635,19 +1635,6 @@ function uniqueArr<T>(arr: T[]): T[] {
     return [...new Set<T>(arr)]
 }
 
-function arrayIsEq<T>(arr1: T[], arr2: T[]): boolean {
-    if (arr1.length != arr2.length) {
-        return false;
-    }
-
-    for (let i = 0; i < arr1.length; ++i) {
-        if (arr1.at(i) != arr2.at(i)) {
-            return false;
-        }
-    }
-
-    return true;
-}
 
 export async function generateHpackHuffmanCodeC(generatedHpackHuffmanFileH: string): Promise<void> {
 
@@ -2318,11 +2305,11 @@ export async function generateHpackTestCasesCPP(generatedHpackTestCasesFileHPP: 
         // manually constructed for "307"
         const testTestArrManaual = getManualTestArr([[0b011001, 6], [0b00000, 5], [0b011101, 6]])
 
-        if (!numberArrayIsEq(testTestArrManaual, testTestArrExpected)) {
+        if (!arrayIsEq<number>(testTestArrManaual, testTestArrExpected)) {
             throw new Error(`The manual encoding is not done correctly, as the manual and the expected array differ: ${testTestArrManaual.join(", ")} - ${testTestArrExpected.join(", ")}`)
         }
 
-        if (!numberArrayIsEq(tesTestArr, testTestArrExpected)) {
+        if (!arrayIsEq<number>(tesTestArr, testTestArrExpected)) {
             throw new Error(`The js encoding is not done correctly, as the js encoded and the expected array differ: ${tesTestArr.join(", ")} - ${testTestArrExpected.join(", ")}`)
         }
 

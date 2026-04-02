@@ -52,21 +52,18 @@ export class BitArray {
     }
 }
 
-export function numberArrayIsEq(arr1: number[], arr2: number[]): boolean {
-
+export function arrayIsEq<T>(arr1: T[], arr2: T[]): boolean {
     if (arr1.length != arr2.length) {
         return false;
     }
 
     for (let i = 0; i < arr1.length; ++i) {
-        if (arr1[i] != arr2[i]) {
+        if (arr1.at(i) != arr2.at(i)) {
             return false;
         }
     }
 
-
     return true;
-
 }
 
 
@@ -88,7 +85,7 @@ export function testBitarray(): void {
 
         const tempResult = temp.toNumberArray();
 
-        if (!numberArrayIsEq(tempResult, valueArray)) {
+        if (!arrayIsEq<number>(tempResult, valueArray)) {
             throw new Error(`The bitarray doesn't work as expected: ${tempResult.join(", ")} - ${valueArray.join(", ")}`)
         }
 

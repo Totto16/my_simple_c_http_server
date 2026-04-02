@@ -43,6 +43,9 @@ function makeErrorVariant(baseName: string, successType: string | null, successN
         options: {
             requirements: {
                 order: "best_size"
+            },
+            cppFeatures: {
+                tagAsErrorVariant: true
             }
         }
     };

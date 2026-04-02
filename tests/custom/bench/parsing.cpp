@@ -177,7 +177,7 @@ static void BM_url_parser(benchmark::State& state) {
 
 			auto parsed_path = http::ParsedURIWrapper::parse("/");
 
-			assert(parsed_path.error() == nullptr);
+			assert(tstr_static_is_null(parsed_path.error()));
 
 			const auto& path = parsed_path.path();
 
@@ -193,7 +193,7 @@ static void BM_url_parser(benchmark::State& state) {
 
 			auto parsed_path = http::ParsedURIWrapper::parse("/test/hello");
 
-			assert(parsed_path.error() == nullptr);
+			assert(tstr_static_is_null(parsed_path.error()));
 
 			const auto& path = parsed_path.path();
 
@@ -210,7 +210,7 @@ static void BM_url_parser(benchmark::State& state) {
 			auto parsed_path =
 			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
-			assert(parsed_path.error() == nullptr);
+			assert(tstr_static_is_null(parsed_path.error()));
 
 			const auto& path = parsed_path.path();
 
@@ -272,7 +272,7 @@ static void BM_url_parser(benchmark::State& state) {
 			auto parsed_path =
 			    http::ParsedURIWrapper::parse("/test/hello?param1=hello&param2&param3=");
 
-			assert(parsed_path.error() == nullptr);
+			assert(tstr_static_is_null(parsed_path.error()));
 
 			const auto& path = parsed_path.path();
 

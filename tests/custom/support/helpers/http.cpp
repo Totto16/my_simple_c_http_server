@@ -1,5 +1,7 @@
 #include "./http.hpp"
 
+#include "./cpp_types.hpp"
+
 compression::CompressionSettingsCpp::CompressionSettingsCpp(HttpHeaderFields http_header_fields)
     : m_settings{ get_compression_settings(http_header_fields) } {}
 
@@ -77,39 +79,44 @@ std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
 http::ParsedURIWrapper::ParsedURIWrapper(ParsedRequestUriResult result) : m_result{ result } {}
 
 [[nodiscard]] const ParsedURLPath& http::ParsedURIWrapper::path() const {
-	if(m_result.is_error) {
+	IF_PARSED_REQUEST_URI_RESULT_IS_ERROR_CONST(m_result) {
 		throw std::runtime_error("invalid parse url result: " +
-		                         std::string{ m_result.value.error });
+		                         string_from_tstr_static(error.error));
 	}
 
-	switch(m_result.value.uri.type) {
+	const ParsedRequestURI* const uri =
+	    &(parsed_request_uri_result_get_as_ok_const_ref(&(this->m_result))->uri);
+
+	switch(uri->type) {
 		case ParsedURITypeAbsoluteURI: {
-			return m_result.value.uri.data.uri.path;
+			return uri->data.uri.path;
 		};
 		case ParsedURITypeAbsPath: {
-			return m_result.value.uri.data.path;
+			return uri->data.path;
 		}
 		default: {
-			throw std::runtime_error("invalid parse url result: " +
-			                         std::to_string(m_result.value.uri.type));
+			throw std::runtime_error("invalid parse url result: " + std::to_string(uri->type));
 		}
 	}
 }
 
-[[nodiscard]] const char* http::ParsedURIWrapper::error() const {
-	if(m_result.is_error) {
-		return m_result.value.error;
+[[nodiscard]] tstr_static http::ParsedURIWrapper::error() const {
+	IF_PARSED_REQUEST_URI_RESULT_IS_ERROR_CONST(m_result) {
+		return error.error;
 	}
 
-	return NULL;
+	return tstr_static_null();
 }
 
 http::ParsedURIWrapper::~ParsedURIWrapper() {
-	if(m_result.is_error) {
+	IF_PARSED_REQUEST_URI_RESULT_IS_ERROR_IGN(m_result) {
 		return;
 	}
 
-	free_parsed_request_uri(this->m_result.value.uri);
+	const ParsedRequestURI* const uri =
+	    &(parsed_request_uri_result_get_as_ok_const_ref(&(this->m_result))->uri);
+
+	free_parsed_request_uri(*uri);
 }
 
 http::ParsedURIWrapper http::ParsedURIWrapper::parse(const std::string& uri) {

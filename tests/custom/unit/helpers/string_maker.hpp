@@ -60,8 +60,14 @@ template <> struct StringMaker<IsNotError> {
 	}
 };
 
+template <> struct StringMaker<TstrStaticIsNull> {
+	static String convert(const TstrStaticIsNull& is_null) {
+		return ::os_stream_formattable_to_doctest(is_null);
+	}
+};
+
 template <typename T>
-    requires(is_errorable_type<T>)
+    requires(IsCErrorVariant<T>)
 struct StringMaker<T> {
 	static String convert(const T& val) { return ::os_stream_formattable_to_doctest(val); }
 };
@@ -99,6 +105,16 @@ template <> struct StringMaker<hpack::DynamicTableCpp> {
 template <> struct StringMaker<hpack::DynamicEntry> {
 	static String convert(const hpack::DynamicEntry& entry) {
 		return ::os_stream_formattable_to_doctest(entry);
+	}
+};
+
+template <> struct StringMaker<tstr> {
+	static String convert(const tstr& str) { return ::os_stream_formattable_to_doctest(str); }
+};
+
+template <> struct StringMaker<tstr_static> {
+	static String convert(const tstr_static& str) {
+		return ::os_stream_formattable_to_doctest(str);
 	}
 };
 
