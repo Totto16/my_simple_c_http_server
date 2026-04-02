@@ -265,12 +265,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
                                                    BufferedReader* reader);
 
-typedef struct {
-	bool is_error;
-	union {
-		tstr_static error;
-	} value;
-} Http2StartResult;
+GENERATE_VARIANT_ALL_HTTP2_START_RESULT()
 
 NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* context,
                                                           BufferedReader* reader);

@@ -3243,25 +3243,21 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 	free_http2_settings_frame(frame_to_send);
 
 	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
-		return (Http2StartResult){
-			.is_error = true,
-			.value = { .error =
-			               TSTR_STATIC_LIT("error in sending settings frame (server preface)") }
-		};
+		return new_http2_start_result_error(
+		    TSTR_STATIC_LIT("error in sending settings frame (server preface)"));
 	}
 
 	Http2FrameResult frame_result = parse_http2_frame(context, reader);
 
 	IF_HTTP2_FRAME_RESULT_IS_ERROR_CONST(frame_result) {
-		return (Http2StartResult){ .is_error = true, .value = { .error = error.error } };
+		return new_http2_start_result_error(error.error);
 	}
 
 	MUT Http2Frame frame = http2_frame_result_get_as_ok(frame_result).frame;
 
 	if(frame.type != Http2FrameTypeSettings) {
-		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = TSTR_STATIC_LIT(
-			                                      "first frame has to be a settings frame") } };
+		return new_http2_start_result_error(
+		    TSTR_STATIC_LIT("first frame has to be a settings frame"));
 	}
 
 	// after the parsing of the frame, we can discard that data
@@ -3276,10 +3272,10 @@ NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* const co
 		        ? process_result.value.error.message
 		        : TSTR_STATIC_LIT(
 		              "error: implementation error (settings frame can't result in a request)");
-		return (Http2StartResult){ .is_error = true, .value = { .error = error } };
+		return new_http2_start_result_error(error);
 	}
 
-	return (Http2StartResult){ .is_error = false };
+	return new_http2_start_result_ok();
 }
 
 NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context* const context,
@@ -3291,32 +3287,27 @@ NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context*
 
 	if(read_result.type != BufferedReadResultTypeOk) {
 
-		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = TSTR_STATIC_LIT(
-			                                      "unable to read magic http2 preface") } };
+		return new_http2_start_result_error(TSTR_STATIC_LIT("unable to read magic http2 preface"));
 	}
 
 	const SizedBuffer buffer = read_result.value.buffer;
 
 	if(!sized_buffer_eq_data(buffer, HTTP2_CLIENT_PREFACE, SIZEOF_HTTP2_CLIENT_PREFACE)) {
 
-		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = TSTR_STATIC_LIT(
-			                                      "magic http2 preface not correct") } };
+		return new_http2_start_result_error(TSTR_STATIC_LIT("magic http2 preface not correct"));
 	}
 
 	MUT Http2FrameResult frame_result = parse_http2_frame(context, reader);
 
 	IF_HTTP2_FRAME_RESULT_IS_ERROR_CONST(frame_result) {
-		return (Http2StartResult){ .is_error = true, .value = { .error = error.error } };
+		return new_http2_start_result_error(error.error);
 	}
 
 	MUT Http2Frame frame = http2_frame_result_get_as_ok(frame_result).frame;
 
 	if(frame.type != Http2FrameTypeSettings) {
-		return (Http2StartResult){ .is_error = true,
-			                       .value = { .error = TSTR_STATIC_LIT(
-			                                      "first frame has to be a settings frame") } };
+		return new_http2_start_result_error(
+		    TSTR_STATIC_LIT("first frame has to be a settings frame"));
 	}
 
 	// after the parsing of the frame, we can discard that data
@@ -3331,10 +3322,10 @@ NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context*
 		        ? process_result.value.error.message
 		        : TSTR_STATIC_LIT(
 		              "error: implementation error (settings frame can't result in a request)");
-		return (Http2StartResult){ .is_error = true, .value = { .error = error } };
+		return new_http2_start_result_error(error);
 	}
 
-	return (Http2StartResult){ .is_error = false };
+	return new_http2_start_result_ok();
 }
 
 NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const context,
@@ -3405,7 +3396,7 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* const contex
 
 	const Http2StartResult start_result = http2_receive_preface_with_magic(context, reader);
 
-	if(start_result.is_error) {
+	IF_HTTP2_START_RESULT_IS_ERROR_IGN(start_result) {
 		return (HttpRequestResult){
 			.type = HttpRequestResultTypeError,
 			.value = { .error =

@@ -1134,7 +1134,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				const Http2StartResult start_result = http2_send_and_receive_preface(
 				    &reader->general_context.data.v2, reader->buffered_reader);
 
-				if(start_result.is_error) {
+				IF_HTTP2_START_RESULT_IS_ERROR_IGN(start_result) {
 					return (HttpRequestResult){
 						.type = HttpRequestResultTypeError,
 						.value = { .error =
@@ -1179,13 +1179,11 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 			const Http2StartResult start_result = http2_send_and_receive_preface(
 			    &reader->general_context.data.v2, reader->buffered_reader);
 
-			if(start_result.is_error) {
+			IF_HTTP2_START_RESULT_IS_ERROR_CONST(start_result) {
 				return (HttpRequestResult){
 					.type = HttpRequestResultTypeError,
-					.value = { .error =
-					               (HttpRequestError){
-					                   .is_advanced = true,
-					                   .value = { .advanced = start_result.value.error } } }
+					.value = { .error = (HttpRequestError){ .is_advanced = true,
+					                                        .value = { .advanced = error.error } } }
 				};
 			}
 
