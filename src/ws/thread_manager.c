@@ -488,49 +488,49 @@ NODISCARD static GenericResult ws_send_message_internal(WebSocketConnection* con
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	if(args.fragment_option.type == WsFragmentOptionTypeOff) {
-		return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
-	}
-
-	if(args.fragment_option.type == WsFragmentOptionTypeAuto) {
-
-		int socket_fd =
-		    get_underlying_socket(buffered_reader_get_connection_descriptor(connection->reader));
-
-		// the default value, if an error would occur
-		uint64_t chosen_fragment_size = DEFAULT_AUTO_FRAGMENT_SIZE - WS_MAXIMUM_HEADER_LENGTH;
-
-		if(socket_fd >= 0) {
-			int buffer_size = 0;
-			socklen_t buffer_size_len = sizeof(buffer_size);
-			int result =
-			    getsockopt(socket_fd, SOL_SOCKET, SO_SNDBUF, (char*)&buffer_size, &buffer_size_len);
-
-			if(result == 0) {
-				if(buffer_size >= WS_MAXIMUM_HEADER_LENGTH) {
-					// NOTE: this value is the doubled, if you set it, but we use the doubled value
-					// here anyway
-					// we subtract the header length, so that it is can fit into one buffer
-					chosen_fragment_size = ((uint64_t)buffer_size) - WS_MAXIMUM_HEADER_LENGTH;
-				}
-			} else {
-				LOG_MESSAGE(LogLevelWarn,
-				            "Couldn't get sockopt SO_SNDBUF, using default value: %s\n",
-				            strerror(errno));
-			}
+	SWITCH_WS_FRAGMENT_OPTION(args.fragment_option) {
+		CASE_WS_FRAGMENT_OPTION_IS_OFF() {
+			return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 		}
+		CASE_WS_FRAGMENT_OPTION_IS_AUTO() {
 
-		return ws_send_message_internal_fragmented(connection, message, mask, chosen_fragment_size,
-		                                           extension_send_state);
+			int socket_fd = get_underlying_socket(
+			    buffered_reader_get_connection_descriptor(connection->reader));
+
+			// the default value, if an error would occur
+			uint64_t chosen_fragment_size = DEFAULT_AUTO_FRAGMENT_SIZE - WS_MAXIMUM_HEADER_LENGTH;
+
+			if(socket_fd >= 0) {
+				int buffer_size = 0;
+				socklen_t buffer_size_len = sizeof(buffer_size);
+				int result = getsockopt(socket_fd, SOL_SOCKET, SO_SNDBUF, (char*)&buffer_size,
+				                        &buffer_size_len);
+
+				if(result == 0) {
+					if(buffer_size >= WS_MAXIMUM_HEADER_LENGTH) {
+						// NOTE: this value is the doubled, if you set it, but we use the doubled
+						// value here anyway we subtract the header length, so that it is can fit
+						// into one buffer
+						chosen_fragment_size = ((uint64_t)buffer_size) - WS_MAXIMUM_HEADER_LENGTH;
+					}
+				} else {
+					LOG_MESSAGE(LogLevelWarn,
+					            "Couldn't get sockopt SO_SNDBUF, using default value: %s\n",
+					            strerror(errno));
+				}
+			}
+
+			return ws_send_message_internal_fragmented(connection, message, mask,
+			                                           chosen_fragment_size, extension_send_state);
+		}
+		CASE_WS_FRAGMENT_OPTION_IS_SET_CONST(args.fragment_option) {
+			return ws_send_message_internal_fragmented(connection, message, mask, set.fragment_size,
+			                                           extension_send_state);
+		}
+		default: {
+			return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
+		}
 	}
-
-	if(args.fragment_option.type == WsFragmentOptionTypeSet) {
-		return ws_send_message_internal_fragmented(connection, message, mask,
-		                                           args.fragment_option.data.set.fragment_size,
-		                                           extension_send_state);
-	}
-
-	return ws_send_message_internal_normal(connection, message, mask, extension_send_state);
 }
 
 typedef C_23_ENUM_TYPE(uint16_t) CloseCodeEnumType;

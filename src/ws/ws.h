@@ -6,23 +6,7 @@
 #include "http/parser.h"
 #include "http/protocol.h"
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	WsFragmentOptionTypeOff,
-	WsFragmentOptionTypeAuto,
-	WsFragmentOptionTypeSet,
-} WsFragmentOptionType;
-
-typedef struct {
-	WsFragmentOptionType type;
-	union {
-		struct {
-			size_t fragment_size;
-		} set;
-	} data;
-} WsFragmentOption;
+GENERATE_VARIANT_ALL_WS_FRAGMENT_OPTION()
 
 typedef struct {
 	WsFragmentOption fragment_option;

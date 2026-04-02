@@ -368,10 +368,10 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedU
 	    find_search_key(path.search_path, TSTR_STATIC_LIT("fragmented"));
 
 	if(fragmented_paramater == NULL) {
-		return (WsFragmentOption){ .type = WsFragmentOptionTypeOff };
+		return new_ws_fragment_option_off();
 	}
 
-	WsFragmentOption result = { .type = WsFragmentOptionTypeAuto };
+	WsFragmentOption result = new_ws_fragment_option_auto();
 
 	const ParsedSearchPathEntry* fragment_size_parameter =
 	    find_search_key(path.search_path, TSTR_STATIC_LIT("fragment_size"));
@@ -386,12 +386,10 @@ NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedU
 		if(success) {
 			if(SIZE_MAX != UINT64_MAX) {
 				if(parsed <= SIZE_MAX) {
-					result.type = WsFragmentOptionTypeSet;
-					result.data.set.fragment_size = (size_t)parsed;
+					result = new_ws_fragment_option_set((size_t)parsed);
 				}
 			} else {
-				result.type = WsFragmentOptionTypeSet;
-				result.data.set.fragment_size = (size_t)parsed;
+				result = new_ws_fragment_option_set((size_t)parsed);
 			}
 		}
 	}

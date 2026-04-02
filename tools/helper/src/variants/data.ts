@@ -377,4 +377,34 @@ export const globalTaggedUnions: TaggedUnion[] = [
     makeErrorVariant("ParsedRequestUriResult", "ParsedRequestURI", "uri"),
     makeErrorVariant("Http2FrameResult", "Http2Frame", "frame"),
     makeErrorVariant("Http2StartResult", null),
+    {
+        name: makeUnionName(CaseName.fromPascalCase("WsFragmentOption")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Off")),
+                type: null
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Auto")),
+                type: null
+            }, {
+                name: makeMemberName(CaseName.fromPascalCase("Set")),
+                type: makeStructType([
+                    makeStructMember(
+                        "size_t",
+                        "fragment_size",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`WsFragmentOptionType`)),
+            underlyingType: "u8"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            }
+        }
+    },
 ]
