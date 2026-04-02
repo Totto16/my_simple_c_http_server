@@ -101,6 +101,7 @@ template <typename T>
 #include <http/hpack.h>
 #include <http/hpack_huffman.h>
 #include <http/v2.h>
+#include <utils/utf8_helper.h>
 
 GENERATE_VARIANT_ALL_LITERAL_STRING_RESULT()
 GENERATE_VARIANT_ALL_HTTP_BODY_READ_RESULT()

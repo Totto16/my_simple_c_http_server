@@ -961,7 +961,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						    get_utf8_string(((char*)(raw_message.payload.data)) + 2,
 						                    (long)(raw_message.payload.size - 2));
 
-						if(utf8_result.has_error) {
+						IF_UTF8_DATA_RESULT_IS_ERROR_CONST(utf8_result) {
 							char* error_message = NULL;
 							FORMAT_STRING(
 							    &error_message,
@@ -969,8 +969,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								    FREE_AT_END();
 								    return NULL;
 							    },
-							    "Invalid utf8 payload in control frame: %s",
-							    utf8_result.data.error);
+							    "Invalid utf8 payload in control frame: " TSTR_FMT "",
+							    TSTR_STATIC_FMT_ARGS(error.error));
 
 							CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
 								                   .message = error_message,
@@ -981,19 +981,19 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 							free(error_message);
 
-							IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+							IF_GENERIC_RESULT_IS_ERROR_CONST(result, error_2) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
 								            "Invalid utf8 payload in control frame: " TSTR_FMT "\n",
-								            TSTR_STATIC_FMT_ARGS(error.error));
+								            TSTR_STATIC_FMT_ARGS(error_2.error));
 							}
 
 							FREE_AT_END();
 							return NULL;
 						}
 
-						Utf8Data data =
-						    utf8_result.data.result; // NOLINT(clang-analyzer-unix.Malloc)
+						Utf8Data data = utf8_data_result_get_as_ok(utf8_result)
+						                    .result; // NOLINT(clang-analyzer-unix.Malloc)
 						// TODO(Totto): do something with this
 						free_utf8_data(data);
 					}
@@ -1104,13 +1104,14 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						Utf8DataResult utf8_result = get_utf8_string(
 						    current_message.buffer.data, (long)current_message.buffer.size);
 
-						if(utf8_result.has_error) {
+						IF_UTF8_DATA_RESULT_IS_ERROR_CONST(utf8_result) {
 
 							char* error_message = NULL;
 							// TODO(Totto): better report error
-							FORMAT_STRING(&error_message, FREE_AT_END(); return NULL;
-							              , "Invalid utf8 payload in fragmented message: %s",
-							              utf8_result.data.error);
+							FORMAT_STRING(
+							    &error_message, FREE_AT_END(); return NULL;
+							    , "Invalid utf8 payload in fragmented message: " TSTR_FMT "",
+							    TSTR_STATIC_FMT_ARGS(error.error));
 
 							CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
 								                   .message = error_message,
@@ -1121,19 +1122,19 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 							free(error_message);
 
-							IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+							IF_GENERIC_RESULT_IS_ERROR_CONST(result, error_2) {
 								LOG_MESSAGE(LogLevelError,
 								            "Error while closing the websocket connection: "
 								            "Invalid utf8 payload in fragmented message: " TSTR_FMT
 								            "\n",
-								            TSTR_STATIC_FMT_ARGS(error.error));
+								            TSTR_STATIC_FMT_ARGS(error_2.error));
 							}
 
 							FREE_AT_END();
 							return NULL;
 						}
 
-						Utf8Data data = utf8_result.data.result;
+						Utf8Data data = utf8_data_result_get_as_ok(utf8_result).result;
 						// TODO(Totto): do something with this
 						free_utf8_data(data);
 					}
@@ -1216,7 +1217,7 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 						Utf8DataResult utf8_result = get_utf8_string(
 						    current_message.buffer.data, (long)current_message.buffer.size);
 
-						if(utf8_result.has_error) {
+						IF_UTF8_DATA_RESULT_IS_ERROR_CONST(utf8_result) {
 							char* error_message = NULL;
 							FORMAT_STRING(
 							    &error_message,
@@ -1224,8 +1225,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 								    FREE_AT_END();
 								    return NULL;
 							    },
-							    "Invalid utf8 payload in un-fragmented message: %s",
-							    utf8_result.data.error);
+							    "Invalid utf8 payload in un-fragmented message: " TSTR_FMT "",
+							    TSTR_STATIC_FMT_ARGS(error.error));
 
 							CloseReason reason = { .code = CloseCodeInvalidFramePayloadData,
 								                   .message = error_message,
@@ -1236,20 +1237,20 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 
 							free(error_message);
 
-							IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+							IF_GENERIC_RESULT_IS_ERROR_CONST(result, error_2) {
 								LOG_MESSAGE(
 								    LogLevelError,
 								    "Error while closing the websocket connection: "
 								    "Invalid utf8 payload in un-fragmented message: " TSTR_FMT "\n",
-								    TSTR_STATIC_FMT_ARGS(error.error));
+								    TSTR_STATIC_FMT_ARGS(error_2.error));
 							}
 
 							FREE_AT_END();
 							return NULL;
 						}
 
-						Utf8Data data =
-						    utf8_result.data.result; // NOLINT(clang-analyzer-unix.Malloc)
+						Utf8Data data = utf8_data_result_get_as_ok(utf8_result)
+						                    .result; // NOLINT(clang-analyzer-unix.Malloc)
 						// TODO(Totto): do something with this
 						free_utf8_data(data);
 					}

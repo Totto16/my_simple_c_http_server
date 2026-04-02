@@ -407,4 +407,5 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
+    makeErrorVariant("Utf8DataResult", "Utf8Data", "result"),
 ]
