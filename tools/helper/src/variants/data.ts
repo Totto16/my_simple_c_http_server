@@ -409,4 +409,5 @@ export const globalTaggedUnions: TaggedUnion[] = [
     },
     makeErrorVariant("Utf8DataResult", "Utf8Data", "result"),
     makeErrorVariant("RawHeaderOneResult", "RawHeaderOne", "header"),
+    makeErrorVariant("WebSocketRawMessageResult", "WebSocketRawMessage", "message"),
 ]

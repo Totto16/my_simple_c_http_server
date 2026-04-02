@@ -103,6 +103,7 @@ template <typename T>
 #include <http/v2.h>
 #include <utils/utf8_helper.h>
 
+// TODO: don't generate thos, as they are only used in .c files
 GENERATE_VARIANT_ALL_LITERAL_STRING_RESULT()
 GENERATE_VARIANT_ALL_HTTP_BODY_READ_RESULT()
 GENERATE_VARIANT_ALL_HTTP2_FRAME_RESULT()
@@ -110,6 +111,10 @@ typedef struct {
 	int unused;
 } RawHeaderOne;
 GENERATE_VARIANT_ALL_RAW_HEADER_ONE_RESULT()
+typedef struct {
+	int unused;
+} WebSocketRawMessage;
+GENERATE_VARIANT_ALL_WEB_SOCKET_RAW_MESSAGE_RESULT()
 
 // END
 
