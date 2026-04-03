@@ -2076,13 +2076,13 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 
 			result = (TableFindResult){ .type = TableFindResultTypeKeyFound,
 				                        .data = { .index = key_found.index } };
-			break;
 		}
+		break;
 		VARIANT_CASE_END();
 		CASE_STATIC_TABLE_FIND_RESULT_IS_NOT_FOUND() {
 			//
-			break;
 		}
+		break;
 		VARIANT_CASE_END();
 		default: {
 			break;
