@@ -414,4 +414,36 @@ export const globalTaggedUnions: TaggedUnion[] = [
     makeErrorVariant("Utf8DataResult", "Utf8Data", "result"),
     makeErrorVariant("RawHeaderOneResult", "RawHeaderOne", "header", { usageOnlyInC: true }),
     makeErrorVariant("WebSocketRawMessageResult", "WebSocketRawMessage", "message", { usageOnlyInC: true }),
+    {
+        name: makeUnionName(CaseName.fromPascalCase("FtpCommandTypeInformation")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Normal")),
+                type: makeStructType([
+                    makeStructMember(
+                        "FtpTransmissionType",
+                        "type",
+                    )
+                ])
+            }, {
+                name: makeMemberName(CaseName.fromPascalCase("Other")),
+                type: makeStructType([
+                    makeStructMember(
+                        "uint8_t",
+                        "num",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`FtpCommandTypeInformationType`)),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            }
+        }
+    },
+    makeOptionalVariant("OptionalString", "tstr", "value")
 ]

@@ -1106,11 +1106,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			tstr actual_arg = tstr_null();
 
-			if(!arg.has_value) {
+			IF_OPTIONAL_STRING_IS_VALUE_CONST(arg) {
+				actual_arg = value.value;
+			}
+			else {
 				// A null argument implies the user's current working or default directory.
 				actual_arg = TSTR_LIT(".");
-			} else {
-				actual_arg = arg.value;
 			}
 
 			tstr final_file_path = resolve_path_in_cwd(state, tstr_cstr(&actual_arg));
@@ -1343,16 +1344,18 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandType: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_TYPE == FTP_COMMAND_TYPE_TYPE_INFO);
 
-			const FTPCommandTypeInformation* type_info =
+			const FtpCommandTypeInformation* type_info =
 			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_TYPE);
 
-			if(!type_info->is_normal) {
+			IF_FTP_COMMAND_TYPE_INFORMATION_IS_OTHER_IGN(*type_info) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeCommandNotImplementedForParam,
 				                               "Not Implemented!");
 				return true;
 			}
 
-			switch(type_info->data.type & FtpTransmissionTypeMaskBase) {
+			const FtpTransmissionType normal_data =ftp_command_type_information_get_as_normal_const_ref(type_info)->type; 
+
+			switch(normal_data & FtpTransmissionTypeMaskBase) {
 				case FtpTransmissionTypeAscii: {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError,
 					                               "ASCII type not supported atm!");

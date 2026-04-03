@@ -61,18 +61,9 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FtpCommandOpts,
 } FtpCommandEnum;
 
-typedef struct {
-	bool is_normal;
-	union {
-		FtpTransmissionType type;
-		uint8_t num;
-	} data;
-} FTPCommandTypeInformation;
+GENERATE_VARIANT_ALL_FTP_COMMAND_TYPE_INFORMATION()
 
-typedef struct {
-	bool has_value;
-	tstr value;
-} OptionalString;
+GENERATE_VARIANT_ALL_OPTIONAL_STRING()
 
 // command types
 #define FTP_COMMAND_TYPE_NONE 0
@@ -147,7 +138,7 @@ typedef struct {
 	union {
 		tstr PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_STRING);
 		OptionalString PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_OPT_STRING);
-		FTPCommandTypeInformation* PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_TYPE_INFO);
+		FtpCommandTypeInformation* PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_TYPE_INFO);
 		FTPPortInformation* PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_PORT_INFO);
 	} data;
 } FTPCommand;
@@ -158,4 +149,4 @@ void free_ftp_command(FTPCommand* cmd);
 
 NODISCARD const char* get_command_name(const FTPCommand* command);
 
-NODISCARD FTPCommandTypeInformation* parse_ftp_command_type_info(tstr_view arg);
+NODISCARD FtpCommandTypeInformation* parse_ftp_command_type_info(tstr_view arg);

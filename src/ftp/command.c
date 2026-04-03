@@ -5,16 +5,15 @@
 
 #include <string.h>
 
-FTPCommandTypeInformation* parse_ftp_command_type_info(const tstr_view arg) {
-	FTPCommandTypeInformation* info =
-	    (FTPCommandTypeInformation*)malloc(sizeof(FTPCommandTypeInformation));
+FtpCommandTypeInformation* parse_ftp_command_type_info(const tstr_view arg) {
+	FtpCommandTypeInformation* info =
+	    (FtpCommandTypeInformation*)malloc(sizeof(FtpCommandTypeInformation));
 
 	if(!info) {
 		return NULL;
 	}
 
-	info->is_normal = true;
-	info->data.type = FtpTransmissionTypeNone;
+	*info = new_ftp_command_type_information_normal(FtpTransmissionTypeNone);
 
 	// return <type-code>
 	// <type-code> ::= A [<sp> <form-code>]
@@ -33,18 +32,15 @@ FTPCommandTypeInformation* parse_ftp_command_type_info(const tstr_view arg) {
 	if(arg.len == 1) {
 		switch(arg.data[0]) {
 			case 'A': {
-				info->is_normal = true;
-				info->data.type = FtpTransmissionTypeAscii;
+				*info = new_ftp_command_type_information_normal(FtpTransmissionTypeAscii);
 				return info;
 			}
 			case 'E': {
-				info->is_normal = true;
-				info->data.type = FtpTransmissionTypeEbcdic;
+				*info = new_ftp_command_type_information_normal(FtpTransmissionTypeEbcdic);
 				return info;
 			}
 			case 'I': {
-				info->is_normal = true;
-				info->data.type = FtpTransmissionTypeImage;
+				*info = new_ftp_command_type_information_normal(FtpTransmissionTypeImage);
 				return info;
 			}
 			default: {
@@ -135,7 +131,7 @@ static FTPPortInformation* parse_ftp_command_port_info(const tstr_view arg) {
 
 #define FTP_COMMAND_SEPERATORS "\r\n"
 
-#define OPT_STRING_EMPTY ((OptionalString){ .has_value = false, .value = tstr_null() })
+#define OPT_STRING_EMPTY new_optional_string_null()
 
 NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_reader) {
 
@@ -370,7 +366,7 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 		command->type = FtpCommandList;
 		static_assert(FTP_COMMAND_TYPE_COMMAND_LIST == FTP_COMMAND_TYPE_OPT_STRING);
 		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_LIST) =
-		    (OptionalString){ .has_value = true, .value = tstr_from_view(argument_str) };
+		    new_optional_string_value(tstr_from_view(argument_str));
 		return command;
 	}
 
@@ -378,7 +374,7 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 		command->type = FtpCommandNlst;
 		static_assert(FTP_COMMAND_TYPE_COMMAND_NLST == FTP_COMMAND_TYPE_OPT_STRING);
 		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_NLST) =
-		    (OptionalString){ .has_value = true, .value = tstr_from_view(argument_str) };
+		    new_optional_string_value(tstr_from_view(argument_str));
 		return command;
 	}
 
@@ -394,7 +390,7 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 		command->type = FtpCommandStat;
 		static_assert(FTP_COMMAND_TYPE_COMMAND_STAT == FTP_COMMAND_TYPE_OPT_STRING);
 		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_STAT) =
-		    (OptionalString){ .has_value = true, .value = tstr_from_view(argument_str) };
+		    new_optional_string_value(tstr_from_view(argument_str));
 		return command;
 	}
 
@@ -402,7 +398,7 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 		command->type = FtpCommandHelp;
 		static_assert(FTP_COMMAND_TYPE_COMMAND_HELP == FTP_COMMAND_TYPE_OPT_STRING);
 		command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_HELP) =
-		    (OptionalString){ .has_value = true, .value = tstr_from_view(argument_str) };
+		    new_optional_string_value(tstr_from_view(argument_str));
 		return command;
 	}
 
@@ -449,7 +445,7 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 	if(tstr_view_eq_ignore_case(command_str, TSTR_TSV("TYPE"))) {
 		command->type = FtpCommandType;
 		static_assert(FTP_COMMAND_TYPE_COMMAND_TYPE == FTP_COMMAND_TYPE_TYPE_INFO);
-		FTPCommandTypeInformation* type_info = parse_ftp_command_type_info(argument_str);
+		FtpCommandTypeInformation* type_info = parse_ftp_command_type_info(argument_str);
 		if(type_info == NULL) {
 			free(command);
 			return NULL;
@@ -549,8 +545,9 @@ void free_ftp_command(FTPCommand* cmd) {
 		case FtpCommandHelp: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_HELP == FTP_COMMAND_TYPE_OPT_STRING);
 
-			if(cmd->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_OPT_STRING).has_value) {
-				tstr_free(&(cmd->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_OPT_STRING).value));
+			IF_OPTIONAL_STRING_IS_VALUE_MUT(
+			    cmd->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_OPT_STRING)) {
+				tstr_free(&value.value);
 			}
 			break;
 		}
