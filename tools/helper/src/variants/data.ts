@@ -497,4 +497,53 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("JsonVariant")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Object")),
+                type: makeStructType([
+                    makeStructMember(
+                        "JsonObject*",
+                        "obj",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Array")),
+                type: makeStructType([
+                    makeStructMember(
+                        "JsonArray*",
+                        "arr",
+                    )
+                ])
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Number")),
+                type: makeSimpleType("JsonNumber")
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("String")),
+                type: makeSimpleType("JsonString")
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Boolean")),
+                type: makeSimpleType("JsonBoolean")
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Null")),
+                type: null
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase("JsonVariantType")),
+            underlyingType: "u8"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            }
+        }
+    },
+    makeErrorVariant("JsonParseResult", "JsonVariant")
 ]
