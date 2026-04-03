@@ -65,7 +65,7 @@ test_files_hpack = [
 ]
 
 
-workdir = meson.project_source_root() / 'tests' / 'unit' / 'files'
+workdir = meson.project_source_root() / 'tests' / 'custom' / 'unit' / 'files'
 
 foreach test_file : test_files_manual + test_files_hpack
 
