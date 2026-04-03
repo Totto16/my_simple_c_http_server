@@ -149,10 +149,10 @@ NODISCARD static JsonObject* get_empty_json_object_impl(void) {
 
 NODISCARD static tstr_static json_object_add_entry_impl(JsonObject* const json_object,
                                                         const JsonObjectKey key,
-                                                        const JsonVariant variant) {
+                                                        const JsonVariant value) {
 
 	const TmapInsertResult result =
-	    TMAP_INSERT(JsonVariantMapImpl, &(json_object->value), key, variant, false);
+	    TMAP_INSERT(JsonVariantMapImpl, &(json_object->value), key, value, false);
 
 	switch(result) {
 		case TmapInsertResultOk: {
@@ -293,7 +293,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const s
 		}
 	}
 
-	// either members or a object_end
+	// either member or a end-object
 
 	json_parse_impl_skip_ws(str);
 
@@ -333,7 +333,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const s
 	{
 		// member *( value-separator member )
 
-		tstr_static member_result = json_parse_impl_parse_object_member(str, object);
+		const tstr_static member_result = json_parse_impl_parse_object_member(str, object);
 
 		if(!tstr_static_is_null(member_result)) {
 			FREE_AT_END();
@@ -346,6 +346,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const s
 			json_parse_impl_skip_ws(str);
 
 			if(str->len == 0) {
+				FREE_AT_END();
 				return new_json_parse_result_error(TSTR_STATIC_LIT("empty object"));
 			}
 
@@ -387,9 +388,194 @@ NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const s
 
 #undef FREE_AT_END
 
+NODISCARD static JsonArray* get_empty_json_array_impl(void) {
+	JsonArray* const array = malloc(sizeof(JsonArray));
+
+	if(array == NULL) {
+		return NULL;
+	}
+
+	array->value = TVEC_EMPTY(JsonVariant);
+	return array;
+}
+
+NODISCARD static tstr_static json_array_add_entry_impl(JsonArray* const json_array,
+                                                       const JsonVariant entry) {
+
+	const TvecResult result = TVEC_PUSH(JsonVariant, &(json_array->value), entry);
+
+	if(result != TvecResultOk) {
+		return TSTR_STATIC_LIT("json array add error");
+	}
+
+	return tstr_static_null();
+}
+
+NODISCARD static tstr_static json_parse_impl_parse_array_value(tstr_view* const str,
+                                                               JsonArray* const json_array) {
+	// just parsers a value and than adds it to the array
+
+	if(str->len == 0) {
+		return TSTR_STATIC_LIT("empty array value");
+	}
+
+	const JsonParseResult value_result = json_parse_impl_parse_value(str);
+
+	IF_JSON_PARSE_RESULT_IS_ERROR_CONST(value_result) {
+		return error.error;
+	}
+
+	JsonVariant value = json_parse_result_get_as_ok(value_result);
+
+#undef FREE_AT_END
+#define FREE_AT_END() \
+	do { \
+		free_json_variant(&value); \
+	} while(false)
+
+	const tstr_static add_result = json_array_add_entry_impl(json_array, value);
+
+	if(!tstr_static_is_null(add_result)) {
+		FREE_AT_END();
+		return add_result;
+	}
+
+	return tstr_static_null();
+}
+
+#undef FREE_AT_END
+
+static void free_json_array(JsonArray* json_arr);
+
 NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const str) {
-	UNUSED(str);
-	return new_json_parse_result_error(TSTR_STATIC_LIT("TODO"));
+
+	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
+
+	//       array = begin-array [ value *( value-separator value ) ] end-array
+	// begin-array     = ws %x5B ws  ; [ left square bracket
+	// end-array       = ws %x5D ws  ; ] right square bracket
+	// value-separator = ws %x2C ws  ; , comma
+
+	if(str->len == 0) {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+	}
+
+	{ // begin-array
+
+		json_parse_impl_skip_ws(str);
+
+		if(str->len == 0) {
+			return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+		}
+
+		if(str->data[0] != '[') {
+			return new_json_parse_result_error(TSTR_STATIC_LIT("wrong begin-array"));
+		}
+
+		tstr_view_advance(str, 1);
+
+		if(str->len == 0) {
+			return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+		}
+
+		json_parse_impl_skip_ws(str);
+
+		if(str->len == 0) {
+			return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+		}
+	}
+
+	// either end-array or value
+
+	json_parse_impl_skip_ws(str);
+
+	if(str->len == 0) {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+	}
+
+	const char next_char = str->data[0];
+
+	if(next_char == ']') {
+		// end-array
+
+		tstr_view_advance(str, 1);
+
+		json_parse_impl_skip_ws(str);
+
+		JsonArray* const array = get_empty_json_array_impl();
+
+		if(array == NULL) {
+			return new_json_parse_result_error(TSTR_STATIC_LIT("OOM"));
+		}
+
+		return new_json_parse_result_ok(new_json_variant_array(array));
+	}
+
+	JsonArray* const array = get_empty_json_array_impl();
+
+	if(array == NULL) {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("OOM"));
+	}
+
+#define FREE_AT_END() \
+	do { \
+		free_json_array(array); \
+	} while(false)
+
+	{
+		// value *( value-separator value )
+
+		const tstr_static value_result = json_parse_impl_parse_array_value(str, array);
+
+		if(!tstr_static_is_null(value_result)) {
+			FREE_AT_END();
+			return new_json_parse_result_error(value_result);
+		}
+
+		while(true) {
+			// end-array or value-separator
+
+			json_parse_impl_skip_ws(str);
+
+			if(str->len == 0) {
+				FREE_AT_END();
+				return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+			}
+
+			const char end_char = str->data[0];
+
+			if(end_char == ']') {
+				// end-array
+
+				tstr_view_advance(str, 1);
+
+				json_parse_impl_skip_ws(str);
+
+				return new_json_parse_result_ok(new_json_variant_array(array));
+			}
+
+			if(end_char != ',') {
+				FREE_AT_END();
+				return new_json_parse_result_error(
+				    TSTR_STATIC_LIT("invalid continuation of values in array"));
+			}
+
+			{
+				// value-separator
+
+				tstr_view_advance(str, 1);
+
+				json_parse_impl_skip_ws(str);
+			}
+
+			const tstr_static value_result_2 = json_parse_impl_parse_array_value(str, array);
+
+			if(!tstr_static_is_null(value_result_2)) {
+				FREE_AT_END();
+				return new_json_parse_result_error(value_result_2);
+			}
+		}
+	}
 }
 
 NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const str) {
