@@ -6,7 +6,7 @@
 
 // see: https://datatracker.ietf.org/doc/html/rfc8259
 
-TVEC_DEFINE_VEC_TYPE(JsonVariant)
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(JsonVariant)
 
 typedef TVEC_TYPENAME(JsonVariant) JsonVariantArr;
 
@@ -19,7 +19,16 @@ typedef struct {
 	JsonString string;
 } JsonObjectKey;
 
-TMAP_DEFINE_MAP_TYPE(JsonObjectKey, JsonObjectKeyName, JsonVariant, JsonVariantMapImpl)
+TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(JsonObjectKey, JsonObjectKeyName, JsonVariant,
+                                   JsonVariantMapImpl)
+
+TMAP_HASH_FUNC_SIG(JsonObjectKey, JsonObjectKeyName) {
+	return TMAP_HASH_BYTES(tstr_cstr(&key.string.value), tstr_len(&key.string.value));
+}
+
+TMAP_EQ_FUNC_SIG(JsonObjectKey, JsonObjectKeyName) {
+	return tstr_eq(&key1.string.value, &key2.string.value);
+}
 
 typedef TMAP_TYPENAME_MAP(JsonVariantMapImpl) JsonVariantMap;
 
