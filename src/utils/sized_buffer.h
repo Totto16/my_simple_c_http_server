@@ -1,14 +1,14 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdlib.h>
 #include <tstr.h>
 
 #include "./utils.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct {
 	void* data;

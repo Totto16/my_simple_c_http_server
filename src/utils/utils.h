@@ -10,6 +10,10 @@
 
 #include "variants.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // see https://clang.llvm.org/docs/AttributeReference.html#nullability-attributes
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -210,3 +214,7 @@ NODISCARD GenericResult get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_byt
 
 // just so that I don't add const, when I see the declaration without const xD
 #define MUT
+
+#ifdef __cplusplus
+}
+#endif

@@ -1653,17 +1653,16 @@ export async function generateHpackHuffmanCodeC(generatedHpackHuffmanFileH: stri
 
 ${await addGenerateMacros("hpack huffman code")}
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "utils/utils.h"
 
 #include <tstr.h>
-
 #include <http/protocol.h>
 
 #include "variants.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct HuffmanTreeImpl HuffmanTree;
 
@@ -2385,10 +2384,10 @@ namespace generated::c_test_fns {
 	std::vector<std::string> get_test_data_strings();
 } // namespace generated::c_test_fns
 
+
+#include "generated_hpack_huffman.h"
+
 extern "C" {
-
-	#include "generated_hpack_huffman.h"
-
 	${generateFastStringCompareDecl("generated_c_test_fns_fast_string_compare_test_data")}
 }
 

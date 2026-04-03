@@ -2,9 +2,7 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
 
 // needed h files
 #include "./compression.h"
@@ -17,6 +15,10 @@ extern "C" {
 #include "utils/utils.h"
 
 #include <tvec.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 // + 418

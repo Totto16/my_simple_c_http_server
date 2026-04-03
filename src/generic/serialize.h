@@ -1,10 +1,10 @@
 #pragma once
 
+#include "utils/utils.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "utils/utils.h"
 
 /**
  * @brief Abbreviations:

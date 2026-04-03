@@ -1,13 +1,11 @@
-
-
 #pragma once
+
+#include "utils/sized_buffer.h"
+#include "utils/utils.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "utils/sized_buffer.h"
-#include "utils/utils.h"
 
 typedef struct HashSaltResultTypeImpl HashSaltResultType;
 

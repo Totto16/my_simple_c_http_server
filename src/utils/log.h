@@ -1,12 +1,11 @@
-
 #pragma once
+
+#include "utils/utils.h"
+#include <tstr.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "utils/utils.h"
-#include <tstr.h>
 
 /**
  * @enum value

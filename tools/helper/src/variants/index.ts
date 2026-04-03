@@ -1103,15 +1103,6 @@ do {
 ${await addGenerateMacros("variants")}
 
 #ifdef __cplusplus
-extern "C" {
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wc99-extensions" // for compound literals
-#endif
-
-
-#include <tstr.h>
-
-#ifdef __cplusplus
 
 #if defined(__clang__)
 	#define ${nameForCompoundLiteralIgnoreMacro}() _Pragma ("GCC diagnostic ignored \\"-Wc99-extensions\\"")
@@ -1128,6 +1119,14 @@ extern "C" {
 	#define ${getVariantDeclarationMacro(false)}()
 	#define ${getVariantDeclarationMacro(true)}()
 #endif
+
+#include <tstr.h>
+
+#ifdef __cplusplus
+extern "C" {
+	${getVariantDeclarationMacro(false)}()
+#endif
+
 ${globalMacros.map(m => m.split("\n").join(" \\\n")).join("\n\n")}
 
 
@@ -1135,7 +1134,7 @@ ${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 
 
 #ifdef __cplusplus
-#pragma GCC diagnostic pop
+	${getVariantDeclarationMacro(true)}()
 }
 #endif
 

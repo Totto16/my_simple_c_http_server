@@ -1,9 +1,4 @@
-
 #pragma once
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include "variants.h"
 
@@ -11,6 +6,10 @@ extern "C" {
 #include "utils/sized_buffer.h"
 #include "utils/utils.h"
 #include <tstr.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 GENERATE_VARIANT_ALL_HUFFMAN_DECODE_RESULT()
 
