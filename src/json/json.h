@@ -33,7 +33,7 @@ GENERATE_VARIANT_ALL_JSON_PARSE_RESULT()
 
 NODISCARD JsonParseResult json_variant_parse_from_str(tstr_view str);
 
-NODISCARD JsonParseResult json_variant_parse_from_file(tstr_view str);
+NODISCARD JsonParseResult json_variant_parse_from_file(tstr str);
 
 void free_json_variant(JsonVariant* json_variant);
 

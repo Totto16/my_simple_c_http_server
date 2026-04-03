@@ -1,6 +1,9 @@
 
 #include "./json.h"
 
+#include <utils/path.h>
+#include <utils/sized_buffer.h>
+
 #include <tmap.h>
 #include <tvec.h>
 
@@ -41,9 +44,20 @@ NODISCARD JsonParseResult json_variant_parse_from_str(const tstr_view str) {
 	return new_json_parse_result_error(TSTR_STATIC_LIT("TODO"));
 }
 
-NODISCARD JsonParseResult json_variant_parse_from_file(const tstr_view str) {
-	UNUSED(str);
-	return new_json_parse_result_error(TSTR_STATIC_LIT("TODO"));
+NODISCARD JsonParseResult json_variant_parse_from_file(const tstr str) {
+
+	size_t file_size = 0;
+
+	const void* const file_data = read_entire_file(tstr_cstr(&str), &file_size);
+
+	if(file_data == NULL) {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("Error in reading file"));
+	}
+
+	const tstr_view str_view =
+	    tstr_view_from_readonly_buffer((ReadonlyBuffer){ .data = file_data, .size = file_size });
+
+	return json_variant_parse_from_str(str_view);
 }
 
 static void free_json_object(JsonObject* const json_obj) { // NOLINT(misc-no-recursion)
