@@ -30,7 +30,7 @@ test_src += files(
 test_cpp_args = [
     '-DDOCTEST_CONFIG_REQUIRE_STRINGIFICATION_FOR_ALL_USED_TYPES',
     '-DDOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING',
-    '-DDOCTEST_CONFIG_USE_STD_HEADERS'
+    '-DDOCTEST_CONFIG_USE_STD_HEADERS',
 ]
 
 test_cpp_args += internal_cpp_args
