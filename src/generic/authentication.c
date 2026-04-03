@@ -672,11 +672,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 #else
 	UNUSED(username);
 	UNUSED(password);
-	return (AuthenticationFindResult){
-		.validity = AuthenticationValidityError,
-		.data = { .error = { .error_message = "not implementzed for this OS" } }
-	};
-
+	return new_authentication_find_result_error("not implementzed for this OS");
 #endif
 }
 
