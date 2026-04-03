@@ -37,6 +37,15 @@ NODISCARD JsonParseResult json_variant_parse_from_file(tstr_view str);
 
 void free_json_variant(JsonVariant* json_variant);
 
+typedef struct {
+	size_t indent_size;
+} JsonSerializeOptions;
+
+NODISCARD tstr json_variant_to_string(JsonVariant json_variant);
+
+NODISCARD tstr json_variant_to_string_advanced(JsonVariant json_variant,
+                                               JsonSerializeOptions options);
+
 #ifdef __cplusplus
 }
 #endif
