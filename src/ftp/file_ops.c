@@ -1039,7 +1039,7 @@ NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* const f
 	return DirChangeResultOk;
 }
 
-NODISCARD bool write_to_file(const char* const path, const SizedBuffer buffer) {
+NODISCARD bool write_to_file(const char* const path, const ReadonlyBuffer buffer) {
 
 	FILE* file = fopen(path, "wb");
 

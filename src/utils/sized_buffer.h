@@ -32,8 +32,6 @@ NODISCARD SizedBuffer sized_buffer_get_exact_clone(SizedBuffer buffer);
 
 NODISCARD bool sized_buffer_eq(SizedBuffer buf1, SizedBuffer buf2);
 
-NODISCARD bool sized_buffer_eq_data(SizedBuffer buf1, const void* data, size_t size);
-
 NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer);
 
 NODISCARD tstr_view tstr_view_from_buffer(SizedBuffer buffer);
@@ -43,9 +41,15 @@ typedef struct {
 	size_t size;
 } ReadonlyBuffer;
 
+NODISCARD tstr_view tstr_view_from_readonly_buffer(ReadonlyBuffer buffer);
+
 NODISCARD ReadonlyBuffer readonly_buffer_from_sized_buffer(SizedBuffer buffer);
 
 NODISCARD ReadonlyBuffer readonly_buffer_from_tstr(const tstr* str);
+
+NODISCARD SizedBuffer sized_buffer_allocate_from_readonly_buffer(ReadonlyBuffer buffer);
+
+NODISCARD bool readonly_buffer_eq(ReadonlyBuffer buf1, ReadonlyBuffer buf2);
 
 #define SIZED_BUFFER_FMT "%.*s"
 

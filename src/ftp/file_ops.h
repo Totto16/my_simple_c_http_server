@@ -45,4 +45,4 @@ void free_send_data(SendData* data);
 void free_send_progress(SendProgress* progress);
 
 // NOTE: this overwrites files
-NODISCARD bool write_to_file(const char* path, SizedBuffer buffer);
+NODISCARD bool write_to_file(const char* path, ReadonlyBuffer buffer);

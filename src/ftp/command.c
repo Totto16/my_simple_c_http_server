@@ -142,15 +142,13 @@ NODISCARD FTPCommand* parse_single_ftp_command(BufferedReader* const buffered_re
 		return NULL;
 	}
 
-	const SizedBuffer data = read_result.value.buffer;
+	const ReadonlyBuffer data = read_result.value.buffer;
 
 	if(data.size < 3) {
 		return NULL;
 	}
 
-	// no need to free this, as it is owned by the buffered reader and freed at the end of that!
-	tstr temp_non_owned_str = tstr_own(data.data, data.size, data.size);
-	const tstr_view data_str = tstr_as_view(&temp_non_owned_str);
+	const tstr_view data_str = tstr_view_from_readonly_buffer(data);
 
 	FTPCommand* command = (FTPCommand*)malloc(sizeof(FTPCommand));
 	if(!command) {

@@ -190,8 +190,8 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader, const tst
 
 				++reader->data.cursor;
 
-				const SizedBuffer buffer = {
-					.data = (Byte*)reader->data.buffer.data + start_cursor,
+				const ReadonlyBuffer buffer = {
+					.data = (const Byte*)reader->data.buffer.data + start_cursor,
 					.size = (reader->data.cursor - start_cursor - delimiter.len),
 				};
 
@@ -226,7 +226,7 @@ NODISCARD BufferedReadResult buffered_reader_get_until_end(BufferedReader* const
 
 		if(reader->state == StreamStateClosed) {
 
-			const SizedBuffer buffer = {
+			const ReadonlyBuffer buffer = {
 				.data = NULL,
 				.size = 0,
 			};
@@ -272,8 +272,8 @@ break_while_outer:
 	UNUSED(start_cursor);
 	assert(reader->data.cursor == start_cursor && "check if old wrong behaviour is fixed");
 
-	const SizedBuffer buffer = {
-		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
+	const ReadonlyBuffer buffer = {
+		.data = (const Byte*)reader->data.buffer.data + reader->data.cursor,
 		.size = (reader->data.buffer.size - reader->data.cursor),
 	};
 
@@ -326,8 +326,8 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const re
 			                     .value = { .error = "Failed to get more data in get amount" } };
 	}
 
-	const SizedBuffer buffer = {
-		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
+	const ReadonlyBuffer buffer = {
+		.data = (const Byte*)reader->data.buffer.data + reader->data.cursor,
 		.size = amount,
 	};
 

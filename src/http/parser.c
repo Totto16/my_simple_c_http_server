@@ -98,7 +98,7 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 	}
 
-	const tstr_view request_line = tstr_view_from_buffer(read_result.value.buffer);
+	const tstr_view request_line = tstr_view_from_readonly_buffer(read_result.value.buffer);
 
 	tstr_view method = TSTR_EMPTY_VIEW;
 	tstr_view path = TSTR_EMPTY_VIEW;
@@ -789,7 +789,8 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 
 			reader->state = HTTPReaderStateEnd;
 
-			return new_http_body_read_result_ok(sized_buffer_dup(res.value.buffer));
+			return new_http_body_read_result_ok(
+			    sized_buffer_allocate_from_readonly_buffer(res.value.buffer));
 		}
 
 		case HTTPRequestLengthTypeContentLength: {
@@ -801,7 +802,8 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 				return new_http_body_read_result_error(TSTR_STATIC_LIT("read failed"));
 			}
 
-			return new_http_body_read_result_ok(res.value.buffer);
+			return new_http_body_read_result_ok(
+			    sized_buffer_allocate_from_readonly_buffer(res.value.buffer));
 		}
 		case HTTPRequestLengthTypeTransferEncoded: {
 			// TODO(Totto): implement
@@ -894,7 +896,7 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 				                                               "Failed to parse headers") } } } };
 		}
 
-		tstr_view header_line = tstr_view_from_buffer(read_result.value.buffer);
+		const tstr_view header_line = tstr_view_from_readonly_buffer(read_result.value.buffer);
 
 		if(header_line.len == 0) {
 			break;

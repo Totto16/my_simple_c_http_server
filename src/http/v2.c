@@ -570,9 +570,9 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 			return new_http2_frame_result_error(error);
 		}
 
-		SizedBuffer padding_data = read_result.value.buffer;
+		const ReadonlyBuffer padding_data = read_result.value.buffer;
 
-		padding_length = ((uint8_t*)padding_data.data)[0];
+		padding_length = ((const uint8_t*)padding_data.data)[0];
 
 		if(padding_length >= payload_length - 1) {
 			const tstr_static error =
@@ -598,14 +598,15 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer frame_data = read_result.value.buffer;
+	const ReadonlyBuffer frame_data_raw = read_result.value.buffer;
+	SizedBuffer frame_data_result;
 
-	if(frame_data.size == 0) {
-		frame_data.data = NULL;
+	if(frame_data_raw.size == 0) {
+		frame_data_result = get_empty_sized_buffer();
 	} else {
-		frame_data = sized_buffer_dup(frame_data);
+		frame_data_result = sized_buffer_allocate_from_readonly_buffer(frame_data_raw);
 
-		if(frame_data.data == NULL) {
+		if(frame_data_result.data == NULL) {
 			const tstr_static error = TSTR_STATIC_LIT("Failed allocate frame data content buffer");
 			const GenericResult _ =
 			    http2_send_connection_error(buffered_reader_get_connection_descriptor(reader),
@@ -627,10 +628,10 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 			UNUSED(_);
 			return new_http2_frame_result_error(error);
 		}
-		SizedBuffer padding_data = read_result.value.buffer;
+		const ReadonlyBuffer padding_data = read_result.value.buffer;
 
 		for(size_t i = 0; i < padding_data.size; ++i) {
-			uint8_t data = ((uint8_t*)padding_data.data)[i];
+			const uint8_t data = ((const uint8_t*)padding_data.data)[i];
 
 			if(data != 0) {
 				const tstr_static error = TSTR_STATIC_LIT("padding bytes are not 0");
@@ -644,7 +645,7 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 	}
 
 	const Http2DataFrame data_frame = {
-		.content = frame_data,
+		.content = frame_data_result,
 		.is_end = (http2_raw_header.flags & Http2DataFrameFlagEndStream) != 0,
 		.identifier = http2_raw_header.stream_identifier,
 	};
@@ -657,8 +658,8 @@ NODISCARD static Http2FrameResult parse_http2_data_frame(BufferedReader* const r
 #define HTTP2_PRIORITY_INFO_SIZE ((32 + 8) / 8)
 
 NODISCARD static Http2FramePriority
-get_http2_priority_info_from_raw_data(const SizedBuffer raw_data) {
-	uint8_t* priority_data_raw = (uint8_t*)raw_data.data;
+get_http2_priority_info_from_raw_data(const ReadonlyBuffer raw_data) {
+	const uint8_t* const priority_data_raw = (const uint8_t*)raw_data.data;
 
 	uint32_t stream_dependency_identifier_raw = deserialize_u32_be_to_host(priority_data_raw);
 
@@ -740,9 +741,9 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			return new_http2_frame_result_error(error);
 		}
 
-		SizedBuffer padding_data = read_result.value.buffer;
+		const ReadonlyBuffer padding_data = read_result.value.buffer;
 
-		padding_length = ((uint8_t*)padding_data.data)[0];
+		padding_length = ((const uint8_t*)padding_data.data)[0];
 
 		if(padding_length >= payload_length - 1) {
 			const tstr_static error =
@@ -787,7 +788,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			return new_http2_frame_result_error(error);
 		}
 
-		SizedBuffer priority_data = read_result.value.buffer;
+		const ReadonlyBuffer priority_data = read_result.value.buffer;
 
 		Http2FramePriority priority = get_http2_priority_info_from_raw_data(priority_data);
 
@@ -805,14 +806,15 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer block_fragment = read_result.value.buffer;
+	const ReadonlyBuffer block_fragment_raw = read_result.value.buffer;
+	SizedBuffer block_fragment_result;
 
-	if(block_fragment.size == 0) {
-		block_fragment.data = NULL;
+	if(block_fragment_raw.size == 0) {
+		block_fragment_result = get_empty_sized_buffer();
 	} else {
-		block_fragment = sized_buffer_dup(block_fragment);
+		block_fragment_result = sized_buffer_allocate_from_readonly_buffer(block_fragment_raw);
 
-		if(block_fragment.data == NULL) {
+		if(block_fragment_result.data == NULL) {
 			const tstr_static error =
 			    TSTR_STATIC_LIT("Failed allocate headers block fragment buffer");
 			const GenericResult _ =
@@ -835,10 +837,10 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 			UNUSED(_);
 			return new_http2_frame_result_error(error);
 		}
-		SizedBuffer padding_data = read_result.value.buffer;
+		const ReadonlyBuffer padding_data = read_result.value.buffer;
 
 		for(size_t i = 0; i < padding_data.size; ++i) {
-			uint8_t data = ((uint8_t*)padding_data.data)[i];
+			uint8_t data = ((const uint8_t*)padding_data.data)[i];
 
 			if(data != 0) {
 				const tstr_static error = TSTR_STATIC_LIT("padding bytes are not 0");
@@ -853,7 +855,7 @@ NODISCARD static Http2FrameResult parse_http2_headers_frame(BufferedReader* cons
 
 	Http2HeadersFrame headers_frame = {
 		.priority_opt = priority_opt,
-		.block_fragment = block_fragment,
+		.block_fragment = block_fragment_result,
 		.identifier = http2_raw_header.stream_identifier,
 		.end_stream = (http2_raw_header.flags & Http2HeadersFrameFlagEndStream) != 0,
 		.end_headers = (http2_raw_header.flags & Http2HeadersFrameFlagEndHeaders) != 0,
@@ -917,7 +919,7 @@ NODISCARD static Http2FrameResult parse_http2_priority_frame(BufferedReader* con
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer priority_data = read_result.value.buffer;
+	const ReadonlyBuffer priority_data = read_result.value.buffer;
 
 	Http2FramePriority priority = get_http2_priority_info_from_raw_data(priority_data);
 
@@ -987,9 +989,9 @@ NODISCARD static Http2FrameResult parse_http2_rst_stream_frame(BufferedReader* c
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer error_code_data = read_result.value.buffer;
+	const ReadonlyBuffer error_code_data = read_result.value.buffer;
 
-	const uint32_t error_code = deserialize_u32_be_to_host((uint8_t*)error_code_data.data);
+	const uint32_t error_code = deserialize_u32_be_to_host((const uint8_t*)error_code_data.data);
 
 	Http2RstStreamFrame rst_stream_frame = {
 		.error_code = error_code,
@@ -1185,7 +1187,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer frame_data = (SizedBuffer){ .data = NULL, .size = 0 };
+	SizedBuffer frame_data = get_empty_sized_buffer();
 
 	if(http2_raw_header.length > 0) {
 
@@ -1202,7 +1204,7 @@ NODISCARD static Http2FrameResult parse_http2_settings_frame(BufferedReader* con
 			return new_http2_frame_result_error(error);
 		}
 
-		frame_data = read_result.value.buffer;
+		frame_data = sized_buffer_allocate_from_readonly_buffer(read_result.value.buffer);
 	}
 
 	return parse_raw_http2_settings_frame(frame_data, reader, context, ack);
@@ -1278,9 +1280,9 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 			return new_http2_frame_result_error(error);
 		}
 
-		SizedBuffer padding_data = read_result.value.buffer;
+		const ReadonlyBuffer padding_data = read_result.value.buffer;
 
-		padding_length = ((uint8_t*)padding_data.data)[0];
+		padding_length = ((const uint8_t*)padding_data.data)[0];
 
 		if(padding_length >= payload_length - 1) {
 			const tstr_static error =
@@ -1319,10 +1321,10 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer promised_stream_identifier_data = read_result.value.buffer;
+	const ReadonlyBuffer promised_stream_identifier_data = read_result.value.buffer;
 
 	const Http2Identifier promised_stream_identifier =
-	    deserialize_identifier((uint8_t*)promised_stream_identifier_data.data);
+	    deserialize_identifier((const uint8_t*)promised_stream_identifier_data.data);
 
 	read_result = buffered_reader_get_amount(reader, payload_length);
 
@@ -1335,14 +1337,15 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer block_fragment = read_result.value.buffer;
+	const ReadonlyBuffer block_fragment_raw = read_result.value.buffer;
+	SizedBuffer block_fragment_result;
 
-	if(block_fragment.size == 0) {
-		block_fragment.data = NULL;
+	if(block_fragment_raw.size == 0) {
+		block_fragment_result = get_empty_sized_buffer();
 	} else {
-		block_fragment = sized_buffer_dup(block_fragment);
+		block_fragment_result = sized_buffer_allocate_from_readonly_buffer(block_fragment_raw);
 
-		if(block_fragment.data == NULL) {
+		if(block_fragment_result.data == NULL) {
 			const tstr_static error =
 			    TSTR_STATIC_LIT("Failed allocate headers block fragment buffer");
 			const GenericResult _ =
@@ -1365,10 +1368,11 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 			UNUSED(_);
 			return new_http2_frame_result_error(error);
 		}
-		SizedBuffer padding_data = read_result.value.buffer;
+
+		const ReadonlyBuffer padding_data = read_result.value.buffer;
 
 		for(size_t i = 0; i < padding_data.size; ++i) {
-			uint8_t data = ((uint8_t*)padding_data.data)[i];
+			uint8_t data = ((const uint8_t*)padding_data.data)[i];
 
 			if(data != 0) {
 				const tstr_static error = TSTR_STATIC_LIT("padding bytes are not 0");
@@ -1383,7 +1387,7 @@ NODISCARD static Http2FrameResult parse_http2_push_promise_frame(const HTTP2Cont
 
 	Http2PushPromiseFrame push_promise_frame = {
 		.promised_stream_identifier = promised_stream_identifier,
-		.block_fragment = block_fragment,
+		.block_fragment = block_fragment_result,
 		.identifier = http2_raw_header.stream_identifier,
 		.end_headers = (http2_raw_header.flags & Http2PushPromiseFrameFlagEndHeaders) != 0,
 	};
@@ -1441,7 +1445,7 @@ NODISCARD static Http2FrameResult parse_http2_ping_frame(BufferedReader* const r
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer opaque_data = sized_buffer_dup(read_result.value.buffer);
+	SizedBuffer opaque_data = sized_buffer_allocate_from_readonly_buffer(read_result.value.buffer);
 
 	if(opaque_data.data == NULL) {
 		const tstr_static error = TSTR_STATIC_LIT("Failed allocate frame data content buffer");
@@ -1520,9 +1524,9 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer frame_data = read_result.value.buffer;
+	const ReadonlyBuffer frame_data = read_result.value.buffer;
 
-	uint8_t* data = (uint8_t*)frame_data.data;
+	const uint8_t* data = (const uint8_t*)frame_data.data;
 
 	const Http2Identifier last_stream_id = deserialize_identifier(data);
 
@@ -1544,7 +1548,8 @@ NODISCARD static Http2FrameResult parse_http2_goaway_frame(BufferedReader* const
 			return new_http2_frame_result_error(error);
 		}
 
-		additional_debug_data = sized_buffer_dup(read_result.value.buffer);
+		additional_debug_data =
+		    sized_buffer_allocate_from_readonly_buffer(read_result.value.buffer);
 
 		if(additional_debug_data.data == NULL) {
 			const tstr_static error = TSTR_STATIC_LIT("Failed allocate frame data content buffer");
@@ -1616,9 +1621,9 @@ NODISCARD static Http2FrameResult parse_http2_window_update_frame(BufferedReader
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer frame_data = read_result.value.buffer;
+	const ReadonlyBuffer frame_data = read_result.value.buffer;
 
-	uint8_t* data = (uint8_t*)frame_data.data;
+	const uint8_t* data = (const uint8_t*)frame_data.data;
 
 	const uint32_t window_size_increment = deserialize_u32_be_to_host(data) & 0x7fffffffULL;
 
@@ -1670,14 +1675,15 @@ NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader*
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer block_fragment = read_result.value.buffer;
+	const ReadonlyBuffer block_fragment_raw = read_result.value.buffer;
+	SizedBuffer block_fragment_result;
 
-	if(block_fragment.size == 0) {
-		block_fragment.data = NULL;
+	if(block_fragment_raw.size == 0) {
+		block_fragment_result = get_empty_sized_buffer();
 	} else {
-		block_fragment = sized_buffer_dup(block_fragment);
+		block_fragment_result = sized_buffer_allocate_from_readonly_buffer(block_fragment_raw);
 
-		if(block_fragment.data == NULL) {
+		if(block_fragment_result.data == NULL) {
 			const tstr_static error =
 			    TSTR_STATIC_LIT("Failed allocate headers block fragment buffer");
 			const GenericResult _ =
@@ -1689,7 +1695,7 @@ NODISCARD static Http2FrameResult parse_http2_continuation_frame(BufferedReader*
 	}
 
 	Http2ContinuationFrame continuation_frame = {
-		.block_fragment = block_fragment,
+		.block_fragment = block_fragment_result,
 		.identifier = http2_raw_header.stream_identifier,
 		.end_headers = (http2_raw_header.flags & Http2ContinuationFrameFlagEndHeaders) != 0,
 	};
@@ -1715,7 +1721,7 @@ NODISCARD static Http2FrameResult parse_http2_frame(const HTTP2Context* const co
 		return new_http2_frame_result_error(error);
 	}
 
-	SizedBuffer header_data = read_result.value.buffer;
+	const ReadonlyBuffer header_data = read_result.value.buffer;
 
 	const Http2RawHeader http2_raw_header = parse_http2_raw_header(header_data.data);
 
@@ -3189,15 +3195,17 @@ NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
 		return Http2PrefaceStatusErr;
 	}
 
-	BufferedReadResult res =
+	const BufferedReadResult res =
 	    buffered_reader_get_amount(reader, SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE);
 
 	if(res.type != BufferedReadResultTypeOk) {
 		return Http2PrefaceStatusNotEnoughData;
 	}
 
-	if(sized_buffer_eq_data(res.value.buffer, HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE,
-	                        SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE)) {
+	if(readonly_buffer_eq(
+	       res.value.buffer,
+	       (ReadonlyBuffer){ .data = HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE,
+	                         .size = SIZEOF_HTTP2_CLIENT_PREFACE_AFTER_HTTP1_STATUS_LINE })) {
 
 		return Http2PrefaceStatusOk;
 	}
@@ -3290,9 +3298,10 @@ NODISCARD static Http2StartResult http2_receive_preface_with_magic(HTTP2Context*
 		return new_http2_start_result_error(TSTR_STATIC_LIT("unable to read magic http2 preface"));
 	}
 
-	const SizedBuffer buffer = read_result.value.buffer;
+	const ReadonlyBuffer buffer = read_result.value.buffer;
 
-	if(!sized_buffer_eq_data(buffer, HTTP2_CLIENT_PREFACE, SIZEOF_HTTP2_CLIENT_PREFACE)) {
+	if(!readonly_buffer_eq(buffer, (ReadonlyBuffer){ .data = HTTP2_CLIENT_PREFACE,
+	                                                 .size = SIZEOF_HTTP2_CLIENT_PREFACE })) {
 
 		return new_http2_start_result_error(TSTR_STATIC_LIT("magic http2 preface not correct"));
 	}

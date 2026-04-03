@@ -153,7 +153,7 @@ read_raw_message(WebSocketConnection* connection,
 		    TSTR_STATIC_LIT("couldn't read header bytes (2)"));
 	}
 
-	const SizedBuffer header_bytes = header_bytes_result.value.buffer;
+	const ReadonlyBuffer header_bytes = header_bytes_result.value.buffer;
 
 	RawHeaderOneResult raw_header_result =
 	    get_raw_header(header_bytes.data, pipeline_settings.allowed_rsv_bytes);
@@ -202,7 +202,7 @@ read_raw_message(WebSocketConnection* connection,
 		// free_sized_buffer(payload_len_result.value.buffer.data);
 	}
 
-	SizedBuffer mask_bytes = (SizedBuffer){ .data = NULL, .size = 0 };
+	SizedBuffer mask_bytes = get_empty_sized_buffer();
 
 	if(raw_header.has_mask) {
 
@@ -213,10 +213,10 @@ read_raw_message(WebSocketConnection* connection,
 			return new_web_socket_raw_message_result_error(
 			    TSTR_STATIC_LIT("couldn't read mask bytes (4)"));
 		}
-		mask_bytes = sized_buffer_dup(mask_byte_result.value.buffer);
+		mask_bytes = sized_buffer_allocate_from_readonly_buffer(mask_byte_result.value.buffer);
 	}
 
-	SizedBuffer payload = (SizedBuffer){ .data = NULL, .size = 0 };
+	SizedBuffer payload = get_empty_sized_buffer();
 
 	if(payload_len != 0) {
 
@@ -228,7 +228,7 @@ read_raw_message(WebSocketConnection* connection,
 			return new_web_socket_raw_message_result_error(
 			    TSTR_STATIC_LIT("couldn't read payload bytes"));
 		}
-		payload = sized_buffer_dup(payload_result.value.buffer);
+		payload = sized_buffer_allocate_from_readonly_buffer(payload_result.value.buffer);
 	}
 
 	if(raw_header.has_mask) {
