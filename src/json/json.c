@@ -39,9 +39,160 @@ struct JsonObjectImpl {
 	JsonVariantMap value;
 };
 
-NODISCARD JsonParseResult json_variant_parse_from_str(const tstr_view str) {
+static void json_parse_impl_skip_ws(tstr_view* const str) {
+	/*        ws = *(
+	          %x20 /              ; Space
+	          %x09 /              ; Horizontal tab
+	          %x0A /              ; Line feed or New line
+	          %x0D )              ; Carriage return */
+
+	size_t offset = 0;
+
+	while(str->len > offset) {
+
+		const char value = str->data[offset];
+
+		if(value == ' ' || value == '\t' || value == '\n' || value == '\r') {
+			++offset;
+			continue;
+		}
+
+		break;
+	}
+
+	if(offset == 0) {
+		return;
+	}
+
+	str->data += offset;
+	str->len -= offset;
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_boolean(tstr_view* const str) {
+
+	// boolean = false / true
+
+	// false = %x66.61.6c.73.65   ; false
+
+	// true  = %x74.72.75.65      ; true
+
+	{
+		const tstr_static false_value = TSTR_STATIC_LIT("false");
+		if(tstr_view_starts_with(*str, false_value.ptr)) {
+			str->len -= false_value.len;
+			return new_json_parse_result_ok(
+			    new_json_variant_boolean((JsonBoolean){ .value = false }));
+		}
+	}
+
+	{
+		const tstr_static true_value = TSTR_STATIC_LIT("true");
+		if(tstr_view_starts_with(*str, true_value.ptr)) {
+			str->len -= true_value.len;
+			return new_json_parse_result_ok(
+			    new_json_variant_boolean((JsonBoolean){ .value = true }));
+		}
+	}
+
+	return new_json_parse_result_error(TSTR_STATIC_LIT("not a boolean"));
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_null(tstr_view* const str) {
+
+	//  null  = %x6e.75.6c.6c      ; null
+
+	{
+		const tstr_static null_value = TSTR_STATIC_LIT("null");
+		if(tstr_view_starts_with(*str, null_value.ptr)) {
+			str->len -= null_value.len;
+			return new_json_parse_result_ok(new_json_variant_null());
+		}
+	}
+
+	return new_json_parse_result_error(TSTR_STATIC_LIT("not null"));
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const str) {
+
 	UNUSED(str);
 	return new_json_parse_result_error(TSTR_STATIC_LIT("TODO"));
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const str) {
+
+	UNUSED(str);
+	return new_json_parse_result_error(TSTR_STATIC_LIT("TODO"));
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const str) {
+
+	UNUSED(str);
+	return new_json_parse_result_error(TSTR_STATIC_LIT("TODO"));
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_value(tstr_view* const str) {
+
+	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
+	//       value = false / null / true / object / array / number / string
+
+	if(str->len == 0) {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("empty value"));
+	}
+
+	const char first_char = str->data[0];
+	switch(first_char) {
+		case 'f': {
+			return json_parse_impl_parse_boolean(str);
+		}
+		case 'n': {
+			return json_parse_impl_parse_null(str);
+		}
+		case 't': {
+			return json_parse_impl_parse_boolean(str);
+		}
+		case '{': {
+			return json_parse_impl_parse_object(str);
+		}
+		case '[': {
+			return json_parse_impl_parse_array(str);
+		}
+		case '-': {
+			return json_parse_impl_parse_number(str);
+		}
+		default: {
+			if(first_char >= '0' && first_char <= '9') {
+				return json_parse_impl_parse_number(str);
+			}
+
+			return new_json_parse_result_error(TSTR_STATIC_LIT("invalid value"));
+		}
+	}
+}
+
+NODISCARD JsonParseResult json_variant_parse_from_str(const tstr_view str) {
+
+	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
+
+	// JSON-text = ws value ws
+
+	tstr_view current = str;
+
+	json_parse_impl_skip_ws(&current);
+
+	const JsonParseResult result = json_parse_impl_parse_value(&current);
+
+	IF_JSON_PARSE_RESULT_IS_ERROR_IGN(result) {
+		return result;
+	}
+
+	json_parse_impl_skip_ws(&current);
+
+	if(current.len != 0) {
+		return new_json_parse_result_error(
+		    TSTR_STATIC_LIT("Didn't reach the end, invalid data at the end"));
+	}
+
+	return result;
 }
 
 NODISCARD JsonParseResult json_variant_parse_from_file(const tstr str) {
