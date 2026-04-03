@@ -5,8 +5,8 @@
 
 #include <errno.h>
 
-GenericResult send_data_to_connection(const ConnectionDescriptor* const descriptor, void* to_send,
-                                      size_t length) {
+GenericResult send_data_to_connection(const ConnectionDescriptor* const descriptor,
+                                      const void* const to_send, size_t length) {
 
 	size_t remaining_length = length;
 
@@ -14,7 +14,7 @@ GenericResult send_data_to_connection(const ConnectionDescriptor* const descript
 	// write bytes until all are written
 	while(true) {
 		const ssize_t wrote_bytes = write_to_descriptor(
-		    descriptor, (ReadonlyBuffer){ .data = ((uint8_t*)to_send) + already_written,
+		    descriptor, (ReadonlyBuffer){ .data = ((const uint8_t*)to_send) + already_written,
 		                                  .size = remaining_length });
 
 		if(wrote_bytes == -1) {
@@ -52,7 +52,7 @@ NODISCARD GenericResult send_buffer_to_connection(const ConnectionDescriptor* co
 
 // just a warpper to send a string buffer to a connection, it also frees the string buffer!
 GenericResult send_string_builder_to_connection(const ConnectionDescriptor* const descriptor,
-                                                StringBuilder** string_builder) {
+                                                StringBuilder** const string_builder) {
 
 	const SizedBuffer string_buffer = string_builder_release_into_sized_buffer(string_builder);
 

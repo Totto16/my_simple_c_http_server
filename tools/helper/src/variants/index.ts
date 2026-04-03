@@ -469,7 +469,7 @@ function generateGetAsRefFunctionForMember(member: TaggedMember, taggedUnion: Ta
         return null;
 
     } else if (isSimpleTaggedType(member.type)) {
-        return `${inlineFunctionSpecifiers}${cConstConditional(mutable)}${member.type.name}* ${functionForGetAsRefVariant(member, taggedUnion, mutable)}(${cConstConditional(mutable)}${taggedUnion.name.inner.PascalCase()}* ${cConst} variant_entry){
+        return `${inlineFunctionSpecifiers} ${member.type.name}${cConstConditional(mutable)}* ${functionForGetAsRefVariant(member, taggedUnion, mutable)}(${cConstConditional(mutable)}${taggedUnion.name.inner.PascalCase()}* ${cConst} variant_entry){
 	${getStateAssertNameFor(taggedUnion.name)}(variant_entry->${getUnionTagName(taggedUnion.name)}, ${memberNameForEnum(member, taggedUnion.enum.name)});
 	return &(variant_entry->${getUnionDataName(taggedUnion.name)}.${member.name.inner.snake_case()});
 }

@@ -236,15 +236,6 @@ NODISCARD tstr resolve_path_in_cwd(const FTPState* const state, const char* cons
 	return internal_resolve_path_in_cwd(state, file, NULL);
 }
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	SendTypeFile = 0,
-	SendTypeMultipleFiles,
-	SendTypeRawData,
-} SendType;
-
 typedef struct {
 	bool read;
 	bool write;
@@ -298,14 +289,7 @@ typedef struct {
 	FileSendFormat format;
 } SingleFile;
 
-struct SendDataImpl {
-	SendType type;
-	union {
-		SingleFile* file;
-		MultipleFiles* multiple_files;
-		SizedBuffer raw_data;
-	} value;
-};
+GENERATE_VARIANT_ALL_SEND_DATA()
 
 NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode send_mode) {
 
@@ -320,20 +304,22 @@ NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode
 
 	size_t original_data_count = 0;
 
-	switch(data->type) {
-		case SendTypeFile: {
+	SWITCH_SEND_DATA(*data) {
+		CASE_SEND_DATA_IS_FILE_IGN() {
 			original_data_count = 1;
-			break;
 		}
-		case SendTypeMultipleFiles: {
-			original_data_count =
-			    TVEC_LENGTH(FileWithMetadataPtr, data->value.multiple_files->files);
-			break;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_MULTIPLE_FILES_CONST(*data) {
+			original_data_count = TVEC_LENGTH(FileWithMetadataPtr, multiple_files->files);
 		}
-		case SendTypeRawData: {
-			original_data_count = data->value.raw_data.size;
-			break;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_RAW_DATA_CONST(*data) {
+			original_data_count = raw_data.data.size;
 		}
+		break;
+		VARIANT_CASE_END();
 		default: break;
 	}
 
@@ -676,6 +662,8 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, const char* const 
 		return NULL;
 	}
 
+	*data = new_send_data_raw_data(get_empty_sized_buffer());
+
 	// note: the exact data is not specified by the RFC :(
 	// So i just do the stuff that the FTP server did, I used to observer behaviour and looked at
 	// filezilla sourcecode, on which format it understands (as it has to parse it)
@@ -683,15 +671,13 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, const char* const 
 	// src/engine/directorylistingparser.h:4
 
 	if(is_folder) {
-		data->type = SendTypeMultipleFiles;
 		MultipleFiles* files = get_files_in_folder(path, format);
 		if(files == NULL) {
 			free(data);
 			return NULL;
 		}
-		data->value.multiple_files = files;
+		*data = new_send_data_multiple_files(files);
 	} else {
-		data->type = SendTypeFile;
 		SingleFile* file = get_metadata_for_single_file(path, format);
 
 		if(file == NULL) {
@@ -699,7 +685,7 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, const char* const 
 			return NULL;
 		}
 
-		data->value.file = file;
+		*data = new_send_data_file(file);
 	}
 
 	return data;
@@ -713,6 +699,8 @@ NODISCARD SendData* get_data_to_send_for_retr(const char* path) {
 		return NULL;
 	}
 
+	*data = new_send_data_raw_data(get_empty_sized_buffer());
+
 	size_t file_size = 0;
 
 	void* file_data = read_entire_file(path, &file_size);
@@ -725,8 +713,7 @@ NODISCARD SendData* get_data_to_send_for_retr(const char* path) {
 
 	SizedBuffer raw_data = { .data = file_data, .size = file_size };
 
-	data->type = SendTypeRawData;
-	data->value.raw_data = raw_data;
+	*data = new_send_data_raw_data(raw_data);
 
 	return data;
 }
@@ -917,18 +904,18 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		default: return false;
 	}
 
-	switch(data->type) {
-		case SendTypeFile: {
-			// TODO(Totto): dataement
+	SWITCH_SEND_DATA(*data) {
+		CASE_SEND_DATA_IS_FILE_IGN() {
+			// TODO(Totto): datamanagement
 			return false;
-			break;
 		}
-		case SendTypeMultipleFiles: {
-			FileWithMetadata* value = TVEC_AT(
-			    FileWithMetadataPtr, data->value.multiple_files->files, progress->data.sent_count);
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_MULTIPLE_FILES_CONST(*data) {
+			FileWithMetadata* value =
+			    TVEC_AT(FileWithMetadataPtr, multiple_files->files, progress->data.sent_count);
 
-			StringBuilder* string_builder = format_file_line(
-			    value, data->value.multiple_files->sizes, data->value.multiple_files->format);
+			StringBuilder* string_builder =
+			    format_file_line(value, multiple_files->sizes, multiple_files->format);
 
 			if(!string_builder) {
 				return false;
@@ -942,16 +929,14 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 			}
 
 			progress->data.sent_count++;
-
-			break;
 		}
-
-		case SendTypeRawData: {
-			SizedBuffer raw_data = data->value.raw_data;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_RAW_DATA_CONST(*data) {
 
 			size_t offset = progress->data.sent_count;
 
-			void* to_send = ((uint8_t*)raw_data.data) + offset;
+			const void* const to_send = ((const uint8_t*)raw_data.data.data) + offset;
 
 			size_t send_length = SEND_CHUNK_SIZE;
 
@@ -969,8 +954,9 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 			progress->data.sent_count += send_length;
 
 			return true;
-			break;
 		}
+		break;
+		VARIANT_CASE_END();
 		default: break;
 	}
 
@@ -989,19 +975,22 @@ static void free_single_file(SingleFile* file) {
 
 void free_send_data(SendData* data) {
 
-	switch(data->type) {
-		case SendTypeFile: {
-			free_single_file(data->value.file);
-			break;
+	SWITCH_SEND_DATA(*data) {
+		CASE_SEND_DATA_IS_FILE_CONST(*data) {
+			free_single_file(file);
 		}
-		case SendTypeMultipleFiles: {
-			free_multiple_files(data->value.multiple_files);
-			break;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_MULTIPLE_FILES_CONST(*data) {
+			free_multiple_files(multiple_files);
 		}
-		case SendTypeRawData: {
-			free_sized_buffer(data->value.raw_data);
-			break;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_RAW_DATA_CONST(*data) {
+			free_sized_buffer(raw_data.data);
 		}
+		break;
+		VARIANT_CASE_END();
 		default: {
 			break;
 		}

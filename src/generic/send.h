@@ -6,7 +6,7 @@
 #include "utils/string_builder.h"
 
 NODISCARD GenericResult send_data_to_connection(const ConnectionDescriptor* descriptor,
-                                                void* to_send, size_t length);
+                                                const void* to_send, size_t length);
 
 NODISCARD GenericResult send_buffer_to_connection(const ConnectionDescriptor* descriptor,
                                                   SizedBuffer buffer);

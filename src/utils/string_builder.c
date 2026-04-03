@@ -134,7 +134,8 @@ NODISCARD size_t string_builder_get_string_size(const StringBuilder* const strin
 	return current_string_size;
 }
 
-NODISCARD SizedBuffer string_builder_release_into_sized_buffer(StringBuilder** string_builder) {
+NODISCARD SizedBuffer
+string_builder_release_into_sized_buffer(StringBuilder** const string_builder) {
 
 	if(string_builder == NULL) {
 		return get_empty_sized_buffer();

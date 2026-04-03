@@ -467,4 +467,34 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("SendData")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("File")),
+                type: makeSimpleType("SingleFile*")
+            }, {
+                name: makeMemberName(CaseName.fromPascalCase("MultipleFiles")),
+                type: makeSimpleType("MultipleFiles*")
+            }, {
+                name: makeMemberName(CaseName.fromPascalCase("RawData")),
+                type: makeStructType([
+                    makeStructMember(
+                        "SizedBuffer",
+                        "data",
+                    )
+                ])
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`SendType`)),
+            underlyingType: "u8"
+        },
+        options: {
+            rawStruct: CaseName.fromPascalCase("SendDataImpl"),
+            requirements: {
+                order: "best_size"
+            }
+        }
+    },
 ]
