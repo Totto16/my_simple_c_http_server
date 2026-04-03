@@ -63,13 +63,7 @@ typedef struct {
 	int sock_fd;
 } ActiveConnectedDataImpl;
 
-typedef struct {
-	bool is_connected;
-	union {
-		ActiveResumeDataImpl resume_data;
-		ActiveConnectedDataImpl conn_data;
-	} value;
-} ActiveConnectionData;
+GENERATE_VARIANT_ALL_ACTIVE_CONNECTION_DATA()
 
 struct DataConnectionImpl {
 	DataConnectionState state;
@@ -91,8 +85,8 @@ static void free_active_data(ActiveConnectionData* data) {
 		return;
 	}
 
-	if(!data->is_connected) {
-		free(data->value.resume_data.connect_addr);
+	IF_ACTIVE_CONNECTION_DATA_IS_RESUMED_CONST(*data) {
+		free(resumed.connect_addr);
 	}
 
 	free(data);
@@ -486,13 +480,14 @@ nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 }
 
 NODISCARD static bool
-nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* active_conn_data) {
+nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* const active_conn_data) {
 
-	if(active_conn_data->is_connected) {
+	IF_ACTIVE_CONNECTION_DATA_IS_CONNECTED_IGN(*active_conn_data) {
 		return true;
 	}
 
-	ActiveResumeDataImpl* resume_data = &active_conn_data->value.resume_data;
+	const ActiveResumeDataImpl* const resume_data =
+	    active_connection_data_get_as_resumed_const_ref(active_conn_data);
 
 	int result = connect(resume_data->sock_fd, (struct sockaddr*)resume_data->connect_addr,
 	                     sizeof(*resume_data->connect_addr));
@@ -525,10 +520,10 @@ nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* active_
 
 connected:
 
-	active_conn_data->is_connected = true;
-
-	active_conn_data->value.conn_data.sock_fd = resume_data->sock_fd;
+	const ActiveConnectedDataImpl active_data = { .sock_fd = resume_data->sock_fd };
 	free(resume_data->connect_addr);
+
+	*active_conn_data = new_active_connection_data_connected(active_data);
 
 	return true;
 }
@@ -568,10 +563,8 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 
 	connect_addr->sin_addr = addr.addr.underlying;
 
-	active_conn_data->is_connected = false;
-
-	active_conn_data->value.resume_data.sock_fd = sock_fd;
-	active_conn_data->value.resume_data.connect_addr = connect_addr;
+	*active_conn_data = new_active_connection_data_resumed(
+	    (ActiveResumeDataImpl){ .sock_fd = sock_fd, .connect_addr = connect_addr });
 
 	if(!nts_internal_try_if_active_connection_is_connected(active_conn_data)) {
 		free(active_conn_data);
@@ -701,7 +694,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 							goto cleanup;
 						}
 
-						if(current_conn->active_data->is_connected) {
+						IF_ACTIVE_CONNECTION_DATA_IS_CONNECTED_CONST(*(current_conn->active_data)) {
 							connection = current_conn;
 							connection->state = DataConnectionStateHasBoth;
 							connection->control_state = DataConnectionControlStateRetrieved;
@@ -714,8 +707,8 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 							ConnectionContext* context = get_connection_context(options);
 
-							ConnectionDescriptor* const descriptor = get_connection_descriptor(
-							    context, connection->active_data->value.conn_data.sock_fd);
+							ConnectionDescriptor* const descriptor =
+							    get_connection_descriptor(context, connected.sock_fd);
 
 							connection->descriptor = descriptor;
 							// TODO(Totto): free appropriately
@@ -776,7 +769,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 				new_connection->active_data = active_data;
 
-				if(new_connection->active_data->is_connected) {
+				IF_ACTIVE_CONNECTION_DATA_IS_CONNECTED_IGN(*(new_connection->active_data)) {
 					connection = new_connection;
 					connection->state = DataConnectionStateHasBoth;
 					connection->control_state = DataConnectionControlStateRetrieved;

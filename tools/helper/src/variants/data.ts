@@ -445,5 +445,26 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
-    makeOptionalVariant("OptionalString", "tstr", "value")
+    makeOptionalVariant("OptionalString", "tstr", "value"),
+    {
+        name: makeUnionName(CaseName.fromPascalCase("ActiveConnectionData")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Connected")),
+                type: makeSimpleType("ActiveConnectedDataImpl")
+            }, {
+                name: makeMemberName(CaseName.fromPascalCase("Resumed")),
+                type: makeSimpleType("ActiveResumeDataImpl")
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`ActiveConnectionDataType`)),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            }
+        }
+    },
 ]
