@@ -16,7 +16,7 @@ test_deps += dependency('nlohmann_json')
 
 test_deps += http_server_dep
 
-test_deps += support_dep
+test_deps += test_support_dep
 
 test_inc_dirs += include_directories('.')
 
@@ -26,9 +26,6 @@ test_src += files(
     'helpers/main.cpp',
     'helpers/string_maker.hpp',
 )
-
-test_src += generated_cpp_tests
-
 
 test_cpp_args = [
     '-DDOCTEST_CONFIG_REQUIRE_STRINGIFICATION_FOR_ALL_USED_TYPES',

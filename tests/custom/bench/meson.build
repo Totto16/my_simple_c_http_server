@@ -17,14 +17,12 @@ bench_deps += dependency(
 
 bench_deps += http_server_dep
 
-bench_deps += support_dep
+bench_deps += test_support_dep
 
 bench_inc_dirs += include_directories('.')
 
 
 bench_src += files('main.cpp')
-
-bench_src += generated_cpp_tests
 
 bench_src += files(
     'hash.cpp',

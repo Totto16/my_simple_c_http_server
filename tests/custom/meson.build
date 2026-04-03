@@ -34,9 +34,11 @@ endif
 
 cpp_std_to_use = ['c++23', 'c++latest', 'c++20']
 
-support_lib = library(
-    '__internal_support',
+test_support_lib = library(
+    '__internal_test_support',
     support_src,
+    generated_cpp_tests['impl'],
+    generated_cpp_tests['header'],
     dependencies: http_server_dep,
     include_directories: support_inc,
     c_args: internal_c_args,
@@ -49,12 +51,13 @@ support_lib = library(
     },
 )
 
-support_dep = declare_dependency(
-    link_with: support_lib,
+test_support_dep = declare_dependency(
+    link_with: test_support_lib,
     include_directories: support_inc,
     compile_args: [],
     dependencies: http_server_dep,
     version: meson.project_version(),
+    sources: generated_cpp_tests['header']
 )
 
 
@@ -68,7 +71,16 @@ support_inc = {
 support_src = {
     'don\'t_use': true,
 }
+generated_cpp_tests = {
+    'don\'t_use': true,
+}
 
 subdir('unit')
 subdir('bench')
 
+test_support_lib = {
+    'don\'t_use': true,
+}
+test_support_dep = {
+    'don\'t_use': true,
+}

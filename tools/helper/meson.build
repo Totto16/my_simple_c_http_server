@@ -13,8 +13,8 @@ helper_script_depend_files = files(
     'src/subcommands.ts',
     'src/utils.ts',
     'src/variants/base.ts',
-    'src/variants/index.ts',
     'src/variants/data.ts',
+    'src/variants/index.ts',
     'src/ws_tests.ts',
 )
 
@@ -186,7 +186,7 @@ generated_hpack_header_h = custom_target(
 
 src_files += generated_hpack_header_h
 
-generated_hpack_file_cpp = custom_target(
+generated_hpack_tests_files = custom_target(
     'generated_hpack_tests.hpp',
     command: [
         node_like_runtime,
@@ -202,12 +202,15 @@ generated_hpack_file_cpp = custom_target(
     depends: helper_script_depends,
 )
 
-generated_cpp_tests += generated_hpack_file_cpp
+generated_cpp_tests = {
+    'impl': [generated_hpack_tests_files[1], generated_hpack_tests_files[2]],
+    'header': [generated_hpack_tests_files[0]],
+}
 
 generated_sources = alias_target(
     'generated_sources',
     generated_hpack_huffman_file_c,
     generated_hpack_header_h,
-    generated_hpack_file_cpp,
+    generated_hpack_tests_files,
     variants_generated,
 )

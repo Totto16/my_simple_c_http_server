@@ -278,7 +278,7 @@ endif
 src_files = []
 inc_dirs = []
 
-generated_cpp_tests = []
+generated_cpp_tests = {}
 
 subdir('src')
 subdir('tools/helper')
