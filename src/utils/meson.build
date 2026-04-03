@@ -7,6 +7,8 @@ src_files += files(
     'errors.h',
     'log.c',
     'log.h',
+    'number_parsing.c',
+    'number_parsing.h',
     'path.c',
     'path.h',
     'sized_buffer.c',

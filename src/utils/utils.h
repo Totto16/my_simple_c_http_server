@@ -8,6 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "variants.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // see https://clang.llvm.org/docs/AttributeReference.html#nullability-attributes
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -66,6 +72,14 @@
 
 #define UNUSED(v) ((void)(v))
 
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	ExitCodeFailure = EXIT_FAILURE,
+	ExitCodeSuccess = EXIT_SUCCESS,
+} ExitCode;
+
 // cool trick from here:
 // https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
 #ifdef NDEBUG
@@ -77,14 +91,14 @@
 	#define UNREACHABLE() \
 		do { \
 			fprintf(stderr, "[%s %s:%d]: UNREACHABLE\n", __func__, __FILE__, __LINE__); \
-			exit(EXIT_FAILURE); \
+			exit(ExitCodeFailure); \
 		} while(false)
 
 	#define OOM_ASSERT(value, message) \
 		do { \
 			if(!(value)) { \
 				fprintf(stderr, "[%s %s:%d]: OOM: %s\n", __func__, __FILE__, __LINE__, (message)); \
-				exit(EXIT_FAILURE); \
+				exit(ExitCodeFailure); \
 			} \
 		} while(false)
 
@@ -123,15 +137,6 @@
 
 #define CHECK_RESULT_FOR_THREAD_ERROR(errorString, statement) \
 	CHECK_FOR_THREAD_ERROR(result, errorString, statement)
-
-// copied from exercises before (PS 1-7, selfmade), it safely parses a long!
-NODISCARD long parse_long_safely(const char* to_parse, const char* description);
-
-NODISCARD long parse_long(const char* to_parse, OUT_PARAM(bool) success);
-
-NODISCARD size_t parse_size_t(const char* to_parse, OUT_PARAM(bool) success);
-
-NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* description);
 
 // a hacky but good and understandable way that is used with pthread functions
 // to annotate which type the really represent
@@ -181,13 +186,19 @@ NODISCARD uint16_t parse_u16_safely(const char* to_parse, const char* descriptio
 
 #define IMPL_STDERR_LOGGER(format, ...) fprintf(stderr, format, __VA_ARGS__)
 
-NODISCARD float parse_float(const char* value, OUT_PARAM(bool) success);
-
 NODISCARD uint32_t get_random_byte(void);
 
 NODISCARD uint32_t get_random_byte_in_range(uint32_t min, uint32_t max);
 
-NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
+GENERATE_VARIANT_ALL_GENERIC_RESULT()
+
+#define GENERIC_RES_OK() new_generic_result_ok()
+#define GENERIC_RES_ERR_RAW(err) new_generic_result_error(err)
+#define GENERIC_RES_ERR(err) GENERIC_RES_ERR_RAW(TSTR_STATIC_LIT(err))
+
+#define GENERIC_RES_ERR_UNIQUE() GENERIC_RES_ERR("" __FILE__ ":" STRINGIFY(__LINE__))
+
+NODISCARD GenericResult get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
 
 #define TSTR_KEYNAME TString
 
@@ -196,3 +207,14 @@ NODISCARD int get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_bytes);
 
 #define ZERO_STRUCT(Type) (Type){ 0 }
 #define ZERO_ARRAY() { 0 }
+
+// juts annotations
+#define MOVE(x) x
+#define MOVED(x) x
+
+// just so that I don't add const, when I see the declaration without const xD
+#define MUT
+
+#ifdef __cplusplus
+}
+#endif

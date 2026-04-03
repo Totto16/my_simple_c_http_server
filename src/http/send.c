@@ -10,18 +10,20 @@ typedef struct {
 	SizedBuffer body;
 } Http1ConcattedResponse;
 
-NODISCARD static int
+NODISCARD static GenericResult
 send_concatted_http1_response_to_connection(const ConnectionDescriptor* const descriptor,
 
                                             Http1ConcattedResponse* concatted_response) {
-	int result = send_string_builder_to_connection(descriptor, &concatted_response->headers);
-	if(result < 0) {
+	GenericResult result =
+	    send_string_builder_to_connection(descriptor, &concatted_response->headers);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		free(concatted_response);
 		return result;
 	}
 
 	if(concatted_response->body.data != NULL) {
-		result = send_sized_buffer_to_connection(descriptor, concatted_response->body);
+		result = send_buffer_to_connection(descriptor, concatted_response->body);
 	}
 
 	free(concatted_response);
@@ -59,7 +61,8 @@ static bool construct_http1_headers_for_request(
 		        ? DEFAULT_MIME_TYPE
 		        : mime_type;
 
-		add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_type),
+		add_http_header_field(result_header_fields,
+		                      tstr_from_static_tstr(HTTP_HEADER_NAME(content_type)),
 		                      actual_mime_type);
 	}
 
@@ -70,7 +73,8 @@ static bool construct_http1_headers_for_request(
 			char* content_length_buffer = NULL;
 			FORMAT_STRING(&content_length_buffer, return NULL;, "%ld", body.size);
 
-			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_length),
+			add_http_header_field(result_header_fields,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(content_length)),
 			                      tstr_own_cstr(content_length_buffer));
 		}
 	}
@@ -84,7 +88,8 @@ static bool construct_http1_headers_for_request(
 		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
 		   status != HttpStatusSwitchingProtocols) {
 
-			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(connection),
+			add_http_header_field(result_header_fields,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(connection)),
 			                      TSTR_LIT("close"));
 		}
 	}
@@ -94,7 +99,8 @@ static bool construct_http1_headers_for_request(
 
 		const tstr server_value = TSTR_LIT("Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
 
-		add_http_header_field(result_header_fields, HTTP_HEADER_NAME(server), server_value);
+		add_http_header_field(result_header_fields, tstr_from_static_tstr(HTTP_HEADER_NAME(server)),
+		                      server_value);
 	}
 
 	{
@@ -104,7 +110,8 @@ static bool construct_http1_headers_for_request(
 		if(send_settings.protocol_data.version != HTTPProtocolVersion2 &&
 		   status != HttpStatusSwitchingProtocols) {
 
-			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(alt_svc),
+			add_http_header_field(result_header_fields,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(alt_svc)),
 			                      tstr_from_static_cstr_with_len(g_alt_svc_constant_data,
 			                                                     SIZE_OF_GLOBAL_ALT_SVC_DATA - 1));
 		}
@@ -118,7 +125,8 @@ static bool construct_http1_headers_for_request(
 
 			const tstr content_encoding = get_string_for_compress_format(compression_format);
 
-			add_http_header_field(result_header_fields, HTTP_HEADER_NAME(content_encoding),
+			add_http_header_field(result_header_fields,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(content_encoding)),
 			                      content_encoding);
 		}
 	}
@@ -169,7 +177,8 @@ static bool construct_http2_headers_for_request(
 	char* status_code_buffer = NULL;
 	FORMAT_STRING(&status_code_buffer, return false;, "%u", status);
 
-	add_http_header_field(result_header_fields, HTTP_HEADER_NAME(http2_pseudo_status),
+	add_http_header_field(result_header_fields,
+	                      tstr_from_static_tstr(HTTP_HEADER_NAME(http2_pseudo_status)),
 	                      tstr_own_cstr(status_code_buffer));
 
 	return construct_http1_headers_for_request(send_settings, result_header_fields, mime_type,
@@ -183,29 +192,32 @@ typedef struct {
 	Http2Identifier stream_identifier;
 } Http2Response;
 
-NODISCARD static int send_http2_response_to_connection(const ConnectionDescriptor* const descriptor,
+NODISCARD static GenericResult
+send_http2_response_to_connection(const ConnectionDescriptor* const descriptor,
 
-                                                       const Http2Response* const response,
-                                                       HTTP2Context* const context) {
+                                  const Http2Response* const response,
+                                  HTTP2Context* const context) {
 
 	bool headers_are_end_stream = response->body.data == NULL;
 
-	int result = http2_send_headers(descriptor, response->stream_identifier, context->settings,
-	                                response->hpack_encoded_headers, headers_are_end_stream);
+	GenericResult result =
+	    http2_send_headers(descriptor, response->stream_identifier, context->settings,
+	                       response->hpack_encoded_headers, headers_are_end_stream);
 
-	if(result < 0) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		return result;
 	}
 
 	if(response->body.data != NULL) {
 		result = http2_send_data(descriptor, response->stream_identifier, context->settings,
 		                         response->body);
-		if(result < 0) {
+
+		IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 			return result;
 		}
 	}
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
 typedef struct {
@@ -487,53 +499,52 @@ static void free_http2_response(Http2Response* response) {
 	free(response);
 }
 
-NODISCARD static inline int send_message_to_connection_http1(const ConnectionDescriptor* descriptor,
-                                                             HTTPResponseToSend to_send,
-                                                             SendSettings send_settings) {
+NODISCARD static inline GenericResult
+send_message_to_connection_http1(const ConnectionDescriptor* descriptor, HTTPResponseToSend to_send,
+                                 SendSettings send_settings) {
 
 	Http1Response* http_response = construct_http1_response(to_send, send_settings);
 
 	Http1ConcattedResponse* concatted_response = http1_response_concat(http_response);
 
 	if(!concatted_response) {
-		// TODO(Totto): refactor error codes into an enum!
-		return -7; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	int result = send_concatted_http1_response_to_connection(descriptor, concatted_response);
+	GenericResult result =
+	    send_concatted_http1_response_to_connection(descriptor, concatted_response);
 	// body gets freed
 	free_http1_response(http_response);
 	return result;
 }
 
-NODISCARD static inline int send_message_to_connection_http2(HTTP2Context* const context,
-                                                             const ConnectionDescriptor* descriptor,
-                                                             HTTPResponseToSend to_send,
-                                                             SendSettings send_settings) {
+NODISCARD static inline GenericResult
+send_message_to_connection_http2(HTTP2Context* const context,
+                                 const ConnectionDescriptor* descriptor, HTTPResponseToSend to_send,
+                                 SendSettings send_settings) {
 
 	Http2Response* http_response =
 	    construct_http2_response(&(context->state), to_send, send_settings);
 
 	if(!http_response) {
-		// TODO(Totto): refactor error codes into an enum!
-		return -7; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	int result = send_http2_response_to_connection(descriptor, http_response, context);
+	GenericResult result = send_http2_response_to_connection(descriptor, http_response, context);
 	// body gets freed
 	free_http2_response(http_response);
 	return result;
 }
 
-NODISCARD static inline int send_message_to_connection(HTTPGeneralContext* const general_context,
-                                                       const ConnectionDescriptor* descriptor,
-                                                       HTTPResponseToSend to_send,
-                                                       SendSettings send_settings) {
+NODISCARD static inline GenericResult
+send_message_to_connection(HTTPGeneralContext* const general_context,
+                           const ConnectionDescriptor* descriptor, HTTPResponseToSend to_send,
+                           SendSettings send_settings) {
 
 	if(send_settings.protocol_data.version == HTTPProtocolVersion2) {
 		HTTP2Context* const context = http_general_context_get_http2_context(general_context);
 		if(context == NULL) {
-			return -143; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			return GENERIC_RES_ERR_UNIQUE();
 		}
 		return send_message_to_connection_http2(context, descriptor, to_send, send_settings);
 	}
@@ -544,9 +555,10 @@ NODISCARD static inline int send_message_to_connection(HTTPGeneralContext* const
 // sends a http message to the connection, takes status and if that special status needs some
 // special headers adds them, mimetype can be NULL, then default one is used, see http_protocol.h
 // for more
-int send_http_message_to_connection(HTTPGeneralContext* const general_context,
-                                    const ConnectionDescriptor* const descriptor,
-                                    HTTPResponseToSend to_send, SendSettings send_settings) {
+GenericResult send_http_message_to_connection(HTTPGeneralContext* const general_context,
+                                              const ConnectionDescriptor* const descriptor,
+                                              HTTPResponseToSend to_send,
+                                              SendSettings send_settings) {
 
 	return send_message_to_connection(general_context, descriptor, to_send, send_settings);
 }

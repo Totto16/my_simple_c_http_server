@@ -18,10 +18,10 @@ typedef struct {
 	HttpHeaderFields additional_headers;
 } HTTPResponseToSend;
 
-NODISCARD int send_http_message_to_connection(HTTPGeneralContext* general_context,
-                                              const ConnectionDescriptor* descriptor,
-                                              HTTPResponseToSend to_send,
-                                              SendSettings send_settings);
+NODISCARD GenericResult send_http_message_to_connection(HTTPGeneralContext* general_context,
+                                                        const ConnectionDescriptor* descriptor,
+                                                        HTTPResponseToSend to_send,
+                                                        SendSettings send_settings);
 
 NODISCARD HTTPResponseBody http_response_body_from_static_string(const char* static_string,
                                                                  bool send_body);

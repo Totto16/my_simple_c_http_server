@@ -52,11 +52,11 @@ bool has_flag(FLAGS_TYPE flags, LogFlags needle) {
 	return (flags & needle) != 0;
 }
 
-static const int level_flag_mask = 0b111;
+#define LEVEL_FLAG_MASK (0b111)
 
 LevelAndFlags get_level_and_flags(FLAGS_TYPE level_and_flags) {
-	FLAGS_TYPE level = level_and_flags & level_flag_mask;
-	FLAGS_TYPE flags = level_and_flags & (~(level_flag_mask));
+	const FLAGS_TYPE level = level_and_flags & LEVEL_FLAG_MASK;
+	const FLAGS_TYPE flags = level_and_flags & (~(LEVEL_FLAG_MASK));
 
 	return (LevelAndFlags){ .level = level, .flags = flags };
 }
@@ -124,10 +124,11 @@ const char* get_thread_name(void) {
 
 	g_global_value_log_thread_state.name = casted_static_buffer;
 
-	ThreadIdType tid = get_thread_id();
+	const ThreadIdType tid = get_thread_id();
 
-	int written = snprintf(casted_static_buffer, THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE,
-	                       "TID " PRI_THREADID, tid);
+	const int written = // NOLINT(totto-use-fixed-width-types-var)
+	    snprintf(casted_static_buffer, THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE, "TID " PRI_THREADID,
+	             tid);
 	if(written >= THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE) {
 		return g_global_value_log_thread_state.name;
 	}
@@ -136,33 +137,36 @@ const char* get_thread_name(void) {
 }
 
 void log_lock_mutex(void) {
-	int result = pthread_mutex_lock(&g_global_value_log_entry.mutex);
+	const int result = // NOLINT(totto-use-fixed-width-types-var)
+	    pthread_mutex_lock(&g_global_value_log_entry.mutex);
 
 	if(result != 0) {
 		/*pthread function don't set errno, but return the error value \
 		 * directly*/
 		fprintf(stderr, "An Error occurred while trying to lock the mutex for the logger: %s\n",
 		        strerror(result));
-		exit(EXIT_FAILURE);
+		exit(ExitCodeFailure);
 	}
 }
 
 void log_unlock_mutex(void) {
-	int result = pthread_mutex_unlock(&g_global_value_log_entry.mutex);
+	const int result = // NOLINT(totto-use-fixed-width-types-var)
+	    pthread_mutex_unlock(&g_global_value_log_entry.mutex);
 
 	if(result != 0) {
 		/*pthread function don't set errno, but return the error value \
 		 * directly*/
 		fprintf(stderr, "An Error occurred while trying to unlock the mutex for the logger: %s\n",
 		        strerror(result));
-		exit(EXIT_FAILURE);
+		exit(ExitCodeFailure);
 	}
 }
 
 void initialize_logger(void) {
 	g_global_value_log_entry.log_level = DEFAULT_LOG_LEVEL;
 
-	int result = pthread_mutex_init(&g_global_value_log_entry.mutex, NULL);
+	const int result = // NOLINT(totto-use-fixed-width-types-var)
+	    pthread_mutex_init(&g_global_value_log_entry.mutex, NULL);
 	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to initialize the mutex for the logger", return;);
 }
@@ -209,31 +213,39 @@ void unset_thread_name(void) {
 	g_global_value_log_thread_state.name = NULL;
 }
 
-int parse_log_level(const char* level) {
+NODISCARD LogLevel parse_log_level(const tstr_static level, OUT_PARAM(bool) success) {
 
-	if(strcmp(level, "trace") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("trace"))) {
+		*success = true;
 		return LogLevelTrace;
 	}
-	if(strcmp(level, "debug") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("debug"))) {
+		*success = true;
 		return LogLevelDebug;
 	}
-	if(strcmp(level, "info") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("info"))) {
+		*success = true;
 		return LogLevelInfo;
 	}
-	if(strcmp(level, "warn") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("warn"))) {
+		*success = true;
 		return LogLevelWarn;
 	}
-	if(strcmp(level, "error") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("error"))) {
+		*success = true;
 		return LogLevelError;
 	}
-	if(strcmp(level, "critical") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("critical"))) {
+		*success = true;
 		return LogLevelCritical;
 	}
-	if(strcmp(level, "off") == 0) {
+	if(tstr_static_eq(level, TSTR_STATIC_LIT("off"))) {
+		*success = true;
 		return LogLevelOff;
 	}
 
-	return -1;
+	*success = false;
+	return LogLevelError;
 }
 
 const char* get_level_name(LogLevel level) {

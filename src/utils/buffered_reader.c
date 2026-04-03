@@ -23,7 +23,7 @@ struct BufferedReaderImpl {
 	BufferedData data;
 };
 
-// TODO: this shopuld use non blockign reads internally everyhwere, but how to handle waits and
+// TODO(Totto): this should use non blocking reads internally everywere, but how to handle waits and
 // where? NOTE: creation should pass a timer of some sort and an interval, so that internally we
 // wait for that long, if we don't have data, and error with timeout is returned
 
@@ -78,7 +78,7 @@ static size_t buffered_reader_get_more_data_partially(BufferedReader* const read
 
 	reader->data.buffer.data = new_buffer;
 
-	ReadResult res = read_from_descriptor(reader->descriptor, buffer, amount);
+	const ReadResult res = read_from_descriptor(reader->descriptor, buffer, amount);
 
 	if(res.type == ReadResultTypeEOF) {
 		reader->state = StreamStateClosed;
@@ -151,8 +151,7 @@ static void buffered_reader_get_data_until(BufferedReader* const reader, size_t 
 }
 
 NODISCARD static BufferedReadResult
-buffered_reader_get_until_delimiter_impl(BufferedReader* const reader,
-                                         const SizedBuffer delimiter) {
+buffered_reader_get_until_delimiter_impl(BufferedReader* const reader, const tstr_view delimiter) {
 
 	if(!buffered_reader_is_safe_to_read(reader)) {
 		return (BufferedReadResult){
@@ -163,7 +162,7 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader,
 	}
 
 	size_t delimiter_index = 0;
-	Byte* delimiter_bytes = (Byte*)delimiter.data;
+	const Byte* const delimiter_bytes = (const Byte*)delimiter.data;
 
 	const size_t start_cursor = reader->data.cursor;
 
@@ -187,13 +186,13 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader,
 		if(data_byte == delimiter_byte) {
 			delimiter_index++;
 
-			if(delimiter_index >= delimiter.size) {
+			if(delimiter_index >= delimiter.len) {
 
 				++reader->data.cursor;
 
-				SizedBuffer buffer = {
-					.data = (Byte*)reader->data.buffer.data + start_cursor,
-					.size = (reader->data.cursor - start_cursor - delimiter.size),
+				const ReadonlyBuffer buffer = {
+					.data = (const Byte*)reader->data.buffer.data + start_cursor,
+					.size = (reader->data.cursor - start_cursor - delimiter.len),
 				};
 
 				return (BufferedReadResult){
@@ -211,13 +210,14 @@ buffered_reader_get_until_delimiter_impl(BufferedReader* const reader,
 
 NODISCARD BufferedReadResult buffered_reader_get_until_delimiter(BufferedReader* const reader,
                                                                  const char* const delimiter) {
-	SizedBuffer fixed = { .data = (void*)delimiter, .size = strlen(delimiter) };
+	const tstr_view fixed = { .data = delimiter, .len = strlen(delimiter) };
 	return buffered_reader_get_until_delimiter_impl(reader, fixed);
 }
 
 NODISCARD BufferedReadResult buffered_reader_get_until_delimiter_fixed(
     BufferedReader* const reader, const SizedBuffer delimiter) {
-	return buffered_reader_get_until_delimiter_impl(reader, delimiter);
+	const tstr_view delimiter_view = { .data = (const char*)delimiter.data, .len = delimiter.size };
+	return buffered_reader_get_until_delimiter_impl(reader, delimiter_view);
 }
 
 NODISCARD BufferedReadResult buffered_reader_get_until_end(BufferedReader* const reader) {
@@ -226,7 +226,7 @@ NODISCARD BufferedReadResult buffered_reader_get_until_end(BufferedReader* const
 
 		if(reader->state == StreamStateClosed) {
 
-			SizedBuffer buffer = {
+			const ReadonlyBuffer buffer = {
 				.data = NULL,
 				.size = 0,
 			};
@@ -272,8 +272,8 @@ break_while_outer:
 	UNUSED(start_cursor);
 	assert(reader->data.cursor == start_cursor && "check if old wrong behaviour is fixed");
 
-	SizedBuffer buffer = {
-		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
+	const ReadonlyBuffer buffer = {
+		.data = (const Byte*)reader->data.buffer.data + reader->data.cursor,
 		.size = (reader->data.buffer.size - reader->data.cursor),
 	};
 
@@ -326,8 +326,8 @@ NODISCARD BufferedReadResult buffered_reader_get_amount(BufferedReader* const re
 			                     .value = { .error = "Failed to get more data in get amount" } };
 	}
 
-	SizedBuffer buffer = {
-		.data = (Byte*)reader->data.buffer.data + reader->data.cursor,
+	const ReadonlyBuffer buffer = {
+		.data = (const Byte*)reader->data.buffer.data + reader->data.cursor,
 		.size = amount,
 	};
 
@@ -398,16 +398,22 @@ bool finish_buffered_reader(BufferedReader* const reader, ConnectionContext* con
 	// TODO(Totto): maybe half close the tcp connection and check if more data is given, that would
 	// be a client error!
 
-	int result = close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
-	CHECK_FOR_ERROR(result, "While trying to close the connection descriptor", { return false; });
+	const GenericResult result =
+	    close_connection_descriptor_advanced(reader->descriptor, context, allow_reuse);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "While trying to close the connection descriptor: %s\n", strerror(errno));
+		return false;
+	}
 
 	free_buffered_reader(reader);
 
 	return true;
 }
 
-NODISCARD ConnectionDescriptor*
-buffered_reader_get_connection_descriptor(BufferedReader* const reader) {
+NODISCARD ConnectionDescriptor* buffered_reader_get_connection_descriptor(
+    BufferedReader* const reader) { // NOLINT(totto-const-correctness-c)
 	return reader->descriptor;
 }
 

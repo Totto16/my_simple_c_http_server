@@ -52,13 +52,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	DataConnectionControlStateError
 } DataConnectionControlState;
 
-typedef struct {
-	bool is_active;
-	union {
-		FTPPortField port;
-		FTPConnectAddr addr;
-	} data;
-} ConnectionTypeIdentifier;
+GENERATE_VARIANT_ALL_CONNECTION_TYPE_IDENTIFIER()
 
 typedef struct {
 	int sock_fd;
@@ -69,13 +63,7 @@ typedef struct {
 	int sock_fd;
 } ActiveConnectedDataImpl;
 
-typedef struct {
-	bool is_connected;
-	union {
-		ActiveResumeDataImpl resume_data;
-		ActiveConnectedDataImpl conn_data;
-	} value;
-} ActiveConnectionData;
+GENERATE_VARIANT_ALL_ACTIVE_CONNECTION_DATA()
 
 struct DataConnectionImpl {
 	DataConnectionState state;
@@ -84,7 +72,8 @@ struct DataConnectionImpl {
 	// data, dependend on state
 	ConnectionDescriptor* descriptor;
 	ConnectionTypeIdentifier identifier;
-	// active only data
+	// TODO(Totto): move into another variant, so that access is correct!
+	//  active only data
 	ActiveConnectionData* active_data;
 	// passive only data
 	pthread_t associated_thread;
@@ -96,8 +85,8 @@ static void free_active_data(ActiveConnectionData* data) {
 		return;
 	}
 
-	if(!data->is_connected) {
-		free(data->value.resume_data.connect_addr);
+	IF_ACTIVE_CONNECTION_DATA_IS_RESUMED_CONST(*data) {
+		free(resumed.connect_addr);
 	}
 
 	free(data);
@@ -109,7 +98,7 @@ static void free_data_connection(DataConnection* connection) {
 		return;
 	}
 
-	if(connection->identifier.is_active) {
+	IF_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_IGN(connection->identifier) {
 		free_active_data(connection->active_data);
 		//
 	}
@@ -231,14 +220,15 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 			DataConnection* current_conn =
 			    TVEC_AT(DataConnectionPtr, data_controller->connections, i);
 
-			if(!current_conn->identifier.is_active &&
-			   current_conn->identifier.data.port == port_metadata->port) {
-				connection = current_conn;
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(current_conn->identifier) {
+				if(passive.port == port_metadata->port) {
+					connection = current_conn;
 
-				if(port_metadata->associated_connection == NULL) {
-					port_metadata->associated_connection = current_conn;
+					if(port_metadata->associated_connection == NULL) {
+						port_metadata->associated_connection = current_conn;
+					}
+					break;
 				}
-				break;
 			}
 		}
 
@@ -252,8 +242,7 @@ get_data_connection_for_data_thread_or_add_passive(DataController* const data_co
 
 			// NOTE: no check is performed, if this is a duplicate
 
-			connection->identifier.is_active = false;
-			connection->identifier.data.port = port_metadata->port;
+			connection->identifier = new_connection_type_identifier_passive(port_metadata->port);
 			connection->state = DataConnectionStateEmpty;
 			connection->descriptor = NULL;
 			connection->control_state = DataConnectionControlStateMissing;
@@ -412,7 +401,7 @@ nts_internal_data_connections_to_close(DataController* const data_controller,
 			       current_conn) &&
 			   (filter == NULL || current_conn == filter)) {
 
-				if(!current_conn->identifier.is_active) {
+				IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_IGN(current_conn->identifier) {
 					// dealloc port
 
 					bool port_found = false;
@@ -476,28 +465,29 @@ nts_internal_conn_identifier_from_settings(FTPDataSettings settings) {
 
 	switch(settings.mode) {
 		case FtpDataModeActive: {
-			return (ConnectionTypeIdentifier){ .is_active = true,
-				                               .data = { .addr = settings.addr } };
+			return new_connection_type_identifier_active(settings.addr);
 		}
 		case FtpDataModePassive: {
-			return (ConnectionTypeIdentifier){ .is_active = false,
-				                               .data = { .port = settings.addr.port } };
+			return new_connection_type_identifier_passive(settings.addr.port);
 		}
 		case FtpDataModeNone:
 		default: {
-			return (ConnectionTypeIdentifier){ .is_active = false, .data = { .port = 0 } };
+			// TODO: what does this mean, check everywhere were we check for passive connection, as
+			// previously we used passive + port : 0 as the auto mode!!
+			return new_connection_type_identifier_automatic();
 		}
 	}
 }
 
 NODISCARD static bool
-nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* active_conn_data) {
+nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* const active_conn_data) {
 
-	if(active_conn_data->is_connected) {
+	IF_ACTIVE_CONNECTION_DATA_IS_CONNECTED_IGN(*active_conn_data) {
 		return true;
 	}
 
-	ActiveResumeDataImpl* resume_data = &active_conn_data->value.resume_data;
+	const ActiveResumeDataImpl* const resume_data =
+	    active_connection_data_get_as_resumed_const_ref(active_conn_data);
 
 	int result = connect(resume_data->sock_fd, (struct sockaddr*)resume_data->connect_addr,
 	                     sizeof(*resume_data->connect_addr));
@@ -530,10 +520,10 @@ nts_internal_try_if_active_connection_is_connected(ActiveConnectionData* active_
 
 connected:
 
-	active_conn_data->is_connected = true;
-
-	active_conn_data->value.conn_data.sock_fd = resume_data->sock_fd;
+	const ActiveConnectedDataImpl active_data = { .sock_fd = resume_data->sock_fd };
 	free(resume_data->connect_addr);
+
+	*active_conn_data = new_active_connection_data_connected(active_data);
 
 	return true;
 }
@@ -573,10 +563,8 @@ nts_internal_setup_new_active_connection(FTPConnectAddr addr) {
 
 	connect_addr->sin_addr = addr.addr.underlying;
 
-	active_conn_data->is_connected = false;
-
-	active_conn_data->value.resume_data.sock_fd = sock_fd;
-	active_conn_data->value.resume_data.connect_addr = connect_addr;
+	*active_conn_data = new_active_connection_data_resumed(
+	    (ActiveResumeDataImpl){ .sock_fd = sock_fd, .connect_addr = connect_addr });
 
 	if(!nts_internal_try_if_active_connection_is_connected(active_conn_data)) {
 		free(active_conn_data);
@@ -599,15 +587,39 @@ NODISCARD static bool nts_internal_addr_eq(FTPConnectAddr addr1, FTPConnectAddr 
 NODISCARD static bool nts_internal_conn_identifier_eq(ConnectionTypeIdentifier ident1,
                                                       ConnectionTypeIdentifier ident2) {
 
-	if(ident1.is_active != ident2.is_active) {
-		return false;
-	}
+	SWITCH_CONNECTION_TYPE_IDENTIFIER(ident1) {
+		CASE_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_CONST(ident1, active_1) {
 
-	if(ident1.is_active) {
-		return nts_internal_addr_eq(ident1.data.addr, ident2.data.addr);
-	}
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_CONST(ident2, active_2) {
+				return nts_internal_addr_eq(active_1.addr, active_2.addr);
+			}
 
-	return ident1.data.port == ident2.data.port;
+			return false;
+		}
+		VARIANT_CASE_END();
+		CASE_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(ident1, passive_1) {
+
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(ident2, passive_2) {
+
+				return passive_1.port == passive_2.port;
+			}
+
+			return false;
+		}
+		VARIANT_CASE_END();
+		CASE_CONNECTION_TYPE_IDENTIFIER_IS_AUTOMATIC() {
+
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_AUTOMATIC(ident2) {
+				return true;
+			}
+
+			return false;
+		}
+		VARIANT_CASE_END();
+		default: {
+			return false;
+		}
+	}
 }
 
 NODISCARD DataConnection*
@@ -623,9 +635,17 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 	{
 
-		ConnectionTypeIdentifier identifier = nts_internal_conn_identifier_from_settings(settings);
+		const ConnectionTypeIdentifier identifier =
+		    nts_internal_conn_identifier_from_settings(settings);
 
-		if(!identifier.is_active && identifier.data.port == 0) {
+		IF_CONNECTION_TYPE_IDENTIFIER_IS_PASSIVE_CONST(identifier) {
+			if(passive.port == 0) {
+				goto cleanup;
+			}
+		}
+
+		// TODO: is this correct here?!
+		IF_CONNECTION_TYPE_IDENTIFIER_IS_AUTOMATIC(identifier) {
 			goto cleanup;
 		}
 
@@ -665,34 +685,36 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 					}
 				}
 
-				if(current_conn // NOLINT(readability-implicit-bool-conversion)
-				       ->identifier.is_active &&
-				   current_conn->active_data != NULL) {
+				IF_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_IGN(current_conn->identifier) {
+					// TODO(Totto): use variant rather than manual access to always present field
+					if(current_conn->active_data != NULL) {
 
-					if(!nts_internal_try_if_active_connection_is_connected(
-					       current_conn->active_data)) {
-						goto cleanup;
-					}
+						if(!nts_internal_try_if_active_connection_is_connected(
+						       current_conn->active_data)) {
+							goto cleanup;
+						}
 
-					if(current_conn->active_data->is_connected) {
-						connection = current_conn;
-						connection->state = DataConnectionStateHasBoth;
-						connection->control_state = DataConnectionControlStateRetrieved;
-						bool ignore = nts_internal_set_last_change_to_now(connection);
-						UNUSED(ignore);
-						// TODO(Totto): where do we get eventual ssl conetxts here?
-						const SecureOptions* const options =
-						    initialize_secure_options(false, "", "");
+						IF_ACTIVE_CONNECTION_DATA_IS_CONNECTED_CONST(*(current_conn->active_data)) {
+							connection = current_conn;
+							connection->state = DataConnectionStateHasBoth;
+							connection->control_state = DataConnectionControlStateRetrieved;
+							bool ignore = nts_internal_set_last_change_to_now(connection);
+							UNUSED(ignore);
 
-						ConnectionContext* context = get_connection_context(options);
+							// TODO(Totto): where do we get eventual ssl conetxts here?
+							const SecureOptions* const options = initialize_secure_options(
+							    false, tstr_static_null(), tstr_static_null());
 
-						ConnectionDescriptor* const descriptor = get_connection_descriptor(
-						    context, connection->active_data->value.conn_data.sock_fd);
+							ConnectionContext* context = get_connection_context(options);
 
-						connection->descriptor = descriptor;
-						// TODO(Totto): free appropriately
-						connection->active_data = NULL;
-						goto cleanup;
+							ConnectionDescriptor* const descriptor =
+							    get_connection_descriptor(context, connected.sock_fd);
+
+							connection->descriptor = descriptor;
+							// TODO(Totto): free appropriately
+							connection->active_data = NULL;
+							goto cleanup;
+						}
 					}
 				}
 
@@ -734,12 +756,12 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 			connection = NULL;
 
-			if(identifier.is_active) {
+			IF_CONNECTION_TYPE_IDENTIFIER_IS_ACTIVE_CONST(identifier) {
 
 				// setup connect_data
 
-				ActiveConnectionData* active_data =
-				    nts_internal_setup_new_active_connection(identifier.data.addr);
+				ActiveConnectionData* const active_data =
+				    nts_internal_setup_new_active_connection(active.addr);
 
 				if(active_data == NULL) {
 					goto cleanup;
@@ -747,7 +769,7 @@ get_data_connection_for_control_thread_or_add(DataController* const data_control
 
 				new_connection->active_data = active_data;
 
-				if(new_connection->active_data->is_connected) {
+				IF_ACTIVE_CONNECTION_DATA_IS_CONNECTED_IGN(*(new_connection->active_data)) {
 					connection = new_connection;
 					connection->state = DataConnectionStateHasBoth;
 					connection->control_state = DataConnectionControlStateRetrieved;
@@ -830,7 +852,7 @@ NODISCARD static bool nts_internal_close_connection(DataController* data_control
 	for(size_t i = 0; i < TVEC_LENGTH(ConnectionDescriptorPtr, *connections_to_close); ++i) {
 		ConnectionDescriptor* connection_to_close =
 		    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-		int _ = close_connection_descriptor(connection_to_close);
+		const GenericResult _ = close_connection_descriptor(connection_to_close);
 		UNUSED(_);
 	}
 

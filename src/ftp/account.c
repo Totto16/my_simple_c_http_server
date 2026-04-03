@@ -11,22 +11,22 @@ AccountInfo* alloc_default_account(void) {
 		return NULL;
 	}
 
-	account->state = AccountStateEmpty;
+	*account = new_account_info_empty();
 
 	return account;
 }
 
 void free_account_data(AccountInfo* account) {
-	switch(account->state) {
-		case AccountStateOk: {
-			tstr_free(&(account->data.ok_data.username));
-			break;
+	SWITCH_ACCOUNT_INFO((*account)) {
+		CASE_ACCOUNT_INFO_IS_OK_MUT(*account) {
+			tstr_free(&(ok.username));
 		}
-		case AccountStateOnlyUser: {
-			tstr_free(&(account->data.temp_data.username));
-			break;
+		break;
+		CASE_ACCOUNT_INFO_IS_ONLY_USER_MUT(*account) {
+			tstr_free(&(only_user.username));
 		}
-		case AccountStateEmpty:
+		break;
+		CASE_ACCOUNT_INFO_IS_EMPTY() {}
 		default: {
 			break;
 		}
@@ -41,22 +41,27 @@ account_verify(const AuthenticationProviders* auth_providers,
 	const AuthenticationFindResult result =
 	    authentication_providers_find_user_with_password(auth_providers, username, password);
 
-	switch(result.validity) {
-		case AuthenticationValidityError: {
+	SWITCH_AUTHENTICATION_FIND_RESULT(result) {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(result) {
 			LOG_MESSAGE(LogLevelError,
-			            "An error occurred, while trying to find a user with password: %s\n",
-			            result.data.error.error_message);
+			            "An error occurred, while trying to find a user with password: " TSTR_FMT
+			            "\n",
+			            TSTR_STATIC_FMT_ARGS(error.message));
 			return UserValidityInternalError;
 		}
-		case AuthenticationValidityNoSuchUser: {
+		VARIANT_CASE_END();
+		CASE_AUTHENTICATION_FIND_RESULT_IS_NO_SUCH_USER() {
 			return UserValidityNoSuchUser;
 		}
-		case AuthenticationValidityWrongPassword: {
+		VARIANT_CASE_END();
+		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD() {
 			return UserValidityWrongPassword;
 		}
-		case AuthenticationValidityOk: {
+		VARIANT_CASE_END();
+		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_IGN() {
 			return UserValidityOk;
 		}
+		VARIANT_CASE_END();
 		default: {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "An error occurred, while trying to find a user with "
 			                                  "password, unexpected return type enum value\n");

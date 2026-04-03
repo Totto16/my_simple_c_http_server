@@ -6,23 +6,7 @@
 #include "http/parser.h"
 #include "http/protocol.h"
 
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	WsFragmentOptionTypeOff,
-	WsFragmentOptionTypeAuto,
-	WsFragmentOptionTypeSet
-} WsFragmentOptionType;
-
-typedef struct {
-	WsFragmentOptionType type;
-	union {
-		struct {
-			size_t fragment_size;
-		} set;
-	} data;
-} WsFragmentOption;
+GENERATE_VARIANT_ALL_WS_FRAGMENT_OPTION()
 
 typedef struct {
 	WsFragmentOption fragment_option;
@@ -30,9 +14,10 @@ typedef struct {
 	bool trace;
 } WsConnectionArgs;
 
-NODISCARD int handle_ws_handshake(HttpRequest http_request, const ConnectionDescriptor* descriptor,
-                                  HTTPGeneralContext* general_context, SendSettings send_settings,
-                                  WSExtensions* extensions);
+NODISCARD GenericResult handle_ws_handshake(HttpRequest http_request,
+                                            const ConnectionDescriptor* descriptor,
+                                            HTTPGeneralContext* general_context,
+                                            SendSettings send_settings, WSExtensions* extensions);
 
 NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
                                                          WSExtensions extensions);

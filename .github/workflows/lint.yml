@@ -24,13 +24,37 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 21
-          echo "CC=clang-21" >> "$GITHUB_ENV"
+          sudo ./llvm.sh 22
+          sudo apt-get install clang-tidy-22 -y --no-install-recommends
+          echo "CC=clang-22" >> "$GITHUB_ENV"
+          echo "CXX=clang++-22" >> "$GITHUB_ENV"
+
+      - name: Setup Custom clang-tidy
+        run: |
+          wget https://apt.totto.lt/built/static/clang-tidy-22-custom-build.tar.gz
+          wget https://apt.totto.lt/built/static/clang-tidy-22-custom-build.sha256
+
+          cat ./clang-tidy-22-custom-build.sha256 | sha256sum --check --strict -
+
+          tar xvzf clang-tidy-22-custom-build.tar.gz
+
+          sudo mkdir -p /opt/clang-22-custom/
+          sudo mv ./clang-tidy /opt/clang-22-custom/
+          sudo chmod +x /opt/clang-22-custom/clang-tidy
+
+          sudo rm /usr/bin/clang-tidy
+          sudo rm /usr/bin/clang-tidy-22
+          sudo ln -sv /opt/clang-22-custom/clang-tidy /usr/bin/clang-tidy-22
 
       - name: Setup node
         uses: actions/setup-node@v6
         with:
           node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 10
 
       - name: Prepare compile_commands.json
         run: |
@@ -48,7 +72,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: file
-          version: 21
+          version: 22
           database: build
           files-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
           lines-changed-only: ${{ github.event_name != 'workflow_dispatch' }}
@@ -56,7 +80,8 @@ jobs:
           tidy-checks: ""
           step-summary: true
           file-annotations: true
-          ignore: subprojects|build|src/thirdparty|src/ws/macos_endian_compat.h|tests/unit|tests/bench|tests/support
+          ignore: subprojects|build|src/thirdparty|src/ws/macos_endian_compat.h|tests/
+          extra-args: "--experimental-custom-checks"
 
       - name: Fail CI run if linter checks failed
         if: steps.linter.outputs.checks-failed != 0

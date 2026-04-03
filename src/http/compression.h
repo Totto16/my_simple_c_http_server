@@ -2,12 +2,12 @@
 
 #pragma once
 
+#include "utils/sized_buffer.h"
+#include "utils/utils.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "utils/sized_buffer.h"
-#include "utils/utils.h"
 
 // see https://datatracker.ietf.org/doc/html/rfc7231#section-5.3.4
 
@@ -20,7 +20,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	CompressionTypeDeflate,
 	CompressionTypeBr,
 	CompressionTypeZstd,
-	CompressionTypeCompress
+	CompressionTypeCompress,
 } CompressionType;
 
 NODISCARD bool is_compression_supported(CompressionType format);

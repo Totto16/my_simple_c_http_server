@@ -7,30 +7,36 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-NODISCARD char* get_serve_folder(const char* folder_to_resolve) {
-	char* folder = realpath(folder_to_resolve, NULL);
+NODISCARD tstr get_serve_folder(const tstr* const folder_to_resolve) {
+	const char* const folder_impl = realpath(tstr_cstr(folder_to_resolve), NULL);
 
-	if(folder == NULL) {
-		fprintf(stderr, "Couldn't resolve folder '%s': %s\n", folder_to_resolve, strerror(errno));
-		return NULL;
+	if(folder_impl == NULL) {
+		fprintf(stderr, "Couldn't resolve folder '" TSTR_FMT "': %s\n",
+		        TSTR_FMT_ARGS(*folder_to_resolve), strerror(errno));
+		return tstr_null();
 	}
 
+	const tstr folder = tstr_from(folder_impl);
+
 	struct stat stat_result;
-	int result = stat(folder, &stat_result);
+	const int result = // NOLINT(totto-use-fixed-width-types-var)
+	    stat(tstr_cstr(&folder), &stat_result);
 
 	if(result != 0) {
-		fprintf(stderr, "Couldn't stat folder '%s': %s\n", folder, strerror(errno));
-		return NULL;
+		fprintf(stderr, "Couldn't stat folder '" TSTR_FMT "': %s\n", TSTR_FMT_ARGS(folder),
+		        strerror(errno));
+		return tstr_null();
 	}
 
 	if(!(S_ISDIR(stat_result.st_mode))) {
-		fprintf(stderr, "Folder '%s' is not a directory\n", folder);
-		return NULL;
+		fprintf(stderr, "Folder '" TSTR_FMT "' is not a directory\n", TSTR_FMT_ARGS(folder));
+		return tstr_null();
 	}
 
-	if(access(folder, R_OK) != 0) {
-		fprintf(stderr, "Can't read from folder '%s': %s\n", folder, strerror(errno));
-		return NULL;
+	if(access(tstr_cstr(&folder), R_OK) != 0) {
+		fprintf(stderr, "Can't read from folder '" TSTR_FMT "': %s\n", TSTR_FMT_ARGS(folder),
+		        strerror(errno));
+		return tstr_null();
 	}
 
 	return folder;
@@ -61,7 +67,8 @@ NODISCARD bool get_file_size_of_file(const char* file_path, OUT_PARAM(size_t) ou
 		return false;
 	}
 
-	int fseek_res = fseek(file, 0, SEEK_END);
+	const int fseek_res = // NOLINT(totto-use-fixed-width-types-var)
+	    fseek(file, 0, SEEK_END);
 
 	if(fseek_res != 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", file_path,
@@ -70,9 +77,11 @@ NODISCARD bool get_file_size_of_file(const char* file_path, OUT_PARAM(size_t) ou
 		return false;
 	}
 
-	long file_size = ftell(file);
+	const long file_size = // NOLINT(totto-use-fixed-width-types-var)
+	    ftell(file);
 
-	int fclose_result = fclose(file);
+	const int fclose_result = // NOLINT(totto-use-fixed-width-types-var)
+	    fclose(file);
 
 	if(fclose_result != 0) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n", file_path, strerror(errno));
@@ -99,7 +108,8 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 		return NULL;
 	}
 
-	int fseek_res = fseek(file, 0, SEEK_END);
+	const int fseek_res = // NOLINT(totto-use-fixed-width-types-var)
+	    fseek(file, 0, SEEK_END);
 
 	if(fseek_res != 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", file_path,
@@ -108,10 +118,13 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 		return NULL;
 	}
 
-	long file_size = ftell(file);
-	fseek_res = fseek(file, 0, SEEK_SET);
+	const long file_size = // NOLINT(totto-use-fixed-width-types-var)
+	    ftell(file);
 
-	if(fseek_res != 0) {
+	const int fseek_res2 // NOLINT(totto-use-fixed-width-types-var)
+	    = fseek(file, 0, SEEK_SET);
+
+	if(fseek_res2 != 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", file_path,
 		            strerror(errno));
 
@@ -126,7 +139,7 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 		return NULL;
 	}
 
-	size_t fread_result = fread(file_data, 1, file_size, file);
+	const size_t fread_result = fread(file_data, 1, file_size, file);
 
 	if(fread_result != (size_t)file_size) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't read the correct amount of bytes from file '%s': %s\n",
@@ -137,7 +150,8 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 		return NULL;
 	}
 
-	int fclose_result = fclose(file);
+	const int fclose_result = // NOLINT(totto-use-fixed-width-types-var)
+	    fclose(file);
 
 	if(fclose_result != 0) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n", file_path, strerror(errno));

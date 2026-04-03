@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <inttypes.h>
 #include <signal.h>
 
 #include "./folder.h"
@@ -42,10 +43,11 @@ static void receive_signal(int signal_number) {
 
 #define INT_ERROR_FROM_VOID_PTR(ERR) (-((int)((uintptr_t)(ERR))))
 
-NODISCARD static int process_http_error(const HttpRequestError error,
-                                        ConnectionDescriptor* const descriptor,
-                                        HTTPGeneralContext* general_context,
-                                        const SendSettings send_settings, const bool send_body) {
+NODISCARD static GenericResult process_http_error(const HttpRequestError error,
+                                                  ConnectionDescriptor* const descriptor,
+                                                  HTTPGeneralContext* general_context,
+                                                  const SendSettings send_settings,
+                                                  const bool send_body) {
 
 	if(error.is_advanced) {
 
@@ -53,9 +55,10 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 		string_builder_append_single(string_builder, "Bad Request: ");
 
-		string_builder_append_single(string_builder, error.value.advanced);
+		string_builder_append_tstr_static(string_builder, error.value.advanced);
 
-		LOG_MESSAGE(LogLevelError, "An advanced error occurred: %s\n", error.value.advanced);
+		LOG_MESSAGE(LogLevelError, "An advanced error occurred: " TSTR_FMT "\n",
+		            TSTR_STATIC_FMT_ARGS(error.value.advanced));
 
 		HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
 			                           .body = http_response_body_from_string_builder(
@@ -66,8 +69,11 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 		return send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 	}
 
-	LOG_MESSAGE(LogLevelWarn, "An enum error occurred: %s\n",
-	            get_error_string_for_http_request_error_type(error.value.enum_value));
+	const tstr_static enum_err =
+	    get_error_string_for_http_request_error_type(error.value.enum_value);
+
+	LOG_MESSAGE(LogLevelWarn, "An enum error occurred: " TSTR_FMT "\n",
+	            TSTR_STATIC_FMT_ARGS(enum_err));
 
 	switch(error.value.enum_value) {
 		case HttpRequestErrorTypeInvalidHttpVersion: {
@@ -83,7 +89,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 				if(success) {
 					char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 					if(date_str != NULL) {
-						add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+						add_http_header_field(&additional_headers,
+						                      tstr_from_static_tstr(HTTP_HEADER_NAME(date)),
 						                      tstr_own_cstr(date_str));
 					}
 				}
@@ -106,7 +113,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 
 				{ // all 405 have to have a Allow filed according to spec
 
-					add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+					add_http_header_field(&additional_headers,
+					                      tstr_from_static_tstr(HTTP_HEADER_NAME(allow)),
 					                      SUPPORTED_HTTP_METHODS);
 				}
 
@@ -118,7 +126,8 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 					if(success) {
 						char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 						if(date_str != NULL) {
-							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+							add_http_header_field(&additional_headers,
+							                      tstr_from_static_tstr(HTTP_HEADER_NAME(date)),
 							                      tstr_own_cstr(date_str));
 						}
 					}
@@ -152,7 +161,7 @@ NODISCARD static int process_http_error(const HttpRequestError error,
 		case HttpRequestErrorTypeInvalidHttp2Preface: {
 			return http2_send_connection_error(
 			    descriptor, http_general_context_get_http2_context(general_context),
-			    Http2ErrorCodeProtocolError, "invalid http2 preface");
+			    Http2ErrorCodeProtocolError, TSTR_STATIC_LIT("invalid http2 preface"));
 		}
 		case HttpRequestErrorTypeLengthRequired: {
 			HTTPResponseToSend to_send = { .status = HttpStatusLengthRequired,
@@ -225,7 +234,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 	if(selected_route == NULL) {
 
-		int result = 0;
+		GenericResult result = GENERIC_RES_ERR_UNIQUE();
 
 		switch(http_request.head.request_line.method) {
 			case HTTPRequestMethodGet:
@@ -249,7 +258,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{ // all 405 have to have a Allow filed according to spec
 
-						add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+						add_http_header_field(&additional_headers,
+						                      tstr_from_static_tstr(HTTP_HEADER_NAME(allow)),
 						                      SUPPORTED_HTTP_METHODS);
 					}
 
@@ -261,7 +271,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						if(success) {
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
-								add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+								add_http_header_field(&additional_headers,
+								                      tstr_from_static_tstr(HTTP_HEADER_NAME(date)),
 								                      tstr_own_cstr(date_str));
 							}
 						}
@@ -285,7 +296,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{ // all 405 have to have a Allow filed according to spec
 
-						add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+						add_http_header_field(&additional_headers,
+						                      tstr_from_static_tstr(HTTP_HEADER_NAME(allow)),
 						                      SUPPORTED_HTTP_METHODS);
 					}
 
@@ -297,7 +309,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						if(success) {
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
-								add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+								add_http_header_field(&additional_headers,
+								                      tstr_from_static_tstr(HTTP_HEADER_NAME(date)),
 								                      tstr_own_cstr(date_str));
 							}
 						}
@@ -327,9 +340,10 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 			}
 		}
 
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
+		IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			            "Error in sending response: " TSTR_FMT "\n",
+			            TSTR_STATIC_FMT_ARGS(error.error));
 		}
 
 		return JOB_ERROR_NONE;
@@ -339,7 +353,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 	HTTPRouteData route_data = selected_route_data.data;
 
-	int result = -1;
+	GenericResult result = GENERIC_RES_ERR_UNIQUE();
 
 	switch(route_data.type) {
 		case HTTPRouteTypeSpecial: {
@@ -357,15 +371,18 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 						{
 
-							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(x_shutdown),
-							                      TSTR_LIT("true"));
+							add_http_header_field(
+							    &additional_headers,
+							    tstr_from_static_tstr(HTTP_HEADER_NAME(x_shutdown)),
+							    TSTR_LIT("true"));
 						}
 
 					} else {
 
 						{ // all 405 have to have a Allow filed according to spec
 
-							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+							add_http_header_field(&additional_headers,
+							                      tstr_from_static_tstr(HTTP_HEADER_NAME(allow)),
 							                      TSTR_LIT("GET, HEAD"));
 						}
 
@@ -411,7 +428,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 						{ // all 405 have to have a Allow filed according to spec
 
-							add_http_header_field(&additional_headers, HTTP_HEADER_NAME(allow),
+							add_http_header_field(&additional_headers,
+							                      tstr_from_static_tstr(HTTP_HEADER_NAME(allow)),
 							                      TSTR_LIT("GET"));
 						}
 
@@ -431,13 +449,13 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					WSExtensions extensions = TVEC_EMPTY(WSExtension);
 
-					int ws_request_successful = handle_ws_handshake(
+					const GenericResult ws_request_successful = handle_ws_handshake(
 					    http_request, descriptor, general_context, send_settings, &extensions);
 
 					WsConnectionArgs websocket_args =
 					    get_ws_args_from_http_request(selected_route_data.path, extensions);
 
-					if(ws_request_successful >= 0) {
+					IF_GENERIC_RESULT_IS_NOT_ERROR(ws_request_successful) {
 						// move the context so that we can use it in the long standing web
 						// socket thread
 						ConnectionContext* new_context = copy_connection_context(context);
@@ -473,10 +491,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					break;
 				}
 				default: {
-					// TODO(Totto): refactor all these arbitrary -<int> error numbers into
-					// some error enum, e.g also -11
-					result =
-					    -10; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+					result = GENERIC_RES_ERR_UNIQUE();
 					break;
 				}
 			}
@@ -532,7 +547,8 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 							if(date_str != NULL) {
 
-								add_http_header_field(&additional_headers, HTTP_HEADER_NAME(date),
+								add_http_header_field(&additional_headers,
+								                      tstr_from_static_tstr(HTTP_HEADER_NAME(date)),
 								                      tstr_own_cstr(date_str));
 							}
 						}
@@ -570,13 +586,15 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 					{
 
-						add_http_header_field(&additional_headers,
-						                      HTTP_HEADER_NAME(content_transfer_encoding),
-						                      TSTR_LIT("binary"));
+						add_http_header_field(
+						    &additional_headers,
+						    tstr_from_static_tstr(HTTP_HEADER_NAME(content_transfer_encoding)),
+						    TSTR_LIT("binary"));
 
-						add_http_header_field(&additional_headers,
-						                      HTTP_HEADER_NAME(content_description),
-						                      TSTR_LIT("File Transfer"));
+						add_http_header_field(
+						    &additional_headers,
+						    tstr_from_static_tstr(HTTP_HEADER_NAME(content_description)),
+						    TSTR_LIT("File Transfer"));
 
 						{
 							char* content_disposition_buffer = NULL;
@@ -589,9 +607,10 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							    "attachment; filename=\"" TSTR_FMT "\"",
 							    TSTR_FMT_ARGS(file.file_name));
 
-							add_http_header_field(&additional_headers,
-							                      HTTP_HEADER_NAME(content_disposition),
-							                      tstr_own_cstr(content_disposition_buffer));
+							add_http_header_field(
+							    &additional_headers,
+							    tstr_from_static_tstr(HTTP_HEADER_NAME(content_disposition)),
+							    tstr_own_cstr(content_disposition_buffer));
 						}
 
 						{
@@ -603,9 +622,10 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 								char* date_str = get_date_string(now, TimeFormatHTTP1Dot1);
 								if(date_str != NULL) {
 
-									add_http_header_field(&additional_headers,
-									                      HTTP_HEADER_NAME(date),
-									                      tstr_own_cstr(date_str));
+									add_http_header_field(
+									    &additional_headers,
+									    tstr_from_static_tstr(HTTP_HEADER_NAME(date)),
+									    tstr_own_cstr(date_str));
 								}
 							}
 						}
@@ -619,7 +639,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						                           .mime_type = file.mime_type,
 						                           .additional_headers = additional_headers };
 
-					// TODO: files on nginx send also this:
+					// TODO(Totto): files on nginx send also this:
 					//  we also need to accapt range request (detect the header field),
 					//  this should not be done in theadditional headers, as it should
 					//  be done in the generic handler, so we need a send binary handler
@@ -732,9 +752,9 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 
 	free_selected_route(selected_route);
 
-	if(result < 0) {
-		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-		                   "Error in sending response\n");
+	IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "Error in sending response: " TSTR_FMT "\n", TSTR_STATIC_FMT_ARGS(error.error));
 	}
 
 	return JOB_ERROR_NONE;
@@ -800,7 +820,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 			                           .mime_type = MIME_TYPE_TEXT,
 			                           .additional_headers = TVEC_EMPTY(HttpHeaderField) };
 
-		int result =
+		const GenericResult result =
 		    send_http_message_to_connection(NULL, // not yet available!
 		                                    descriptor, to_send,
 		                                    (SendSettings){
@@ -808,7 +828,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 		                                        .protocol_data = DEFAULT_RESPONSE_PROTOCOL_DATA,
 		                                    });
 
-		if(result < 0) {
+		IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 			                   "Error in sending response\n");
 		}
@@ -831,10 +851,11 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 					.protocol_data = DEFAULT_RESPONSE_PROTOCOL_DATA,
 				};
 
-				int result = process_http_error(http_request_result.value.error, descriptor,
-				                                general_context, default_send_settings, true);
+				const GenericResult result =
+				    process_http_error(http_request_result.value.error, descriptor, general_context,
+				                       default_send_settings, true);
 
-				if(result < 0) {
+				IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending response\n");
 				}
@@ -903,17 +924,6 @@ cleanup:
 
 #undef FREE_AT_END
 
-// implemented specifically for the http Server, it just gets the internal value, but it's better to
-// not access that, since additional steps can be required, like  boundary checks!
-static int tqueue_size(TQueue* queue) {
-	if(queue->size < 0) {
-		LOG_MESSAGE(LogLevelCritical,
-		            "internal size implementation error in the queue, value negative: %d!",
-		            queue->size);
-	}
-	return queue->size;
-}
-
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
 ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgument*) arg) {
@@ -936,7 +946,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 	int sig_fd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	CHECK_FOR_ERROR(sig_fd, "While trying to cancel the listener Thread on signal",
-	                exit(EXIT_FAILURE););
+	                exit(ExitCodeFailure););
 
 	poll_fds[1].fd = sig_fd;
 	poll_fds[1].events = POLLIN;
@@ -950,9 +960,8 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// since it aborts on POLLIN from the socket_fd or the signalFd
 		int status = 0;
 		while(status == 0) {
-			status = poll(
-			    poll_fds, POLL_FD_AMOUNT,
-			    5000); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			status = poll(poll_fds, POLL_FD_AMOUNT,
+			              5000); // NOLINT(readability-magic-numbers)
 			if(status < 0) {
 				LOG_MESSAGE(LogLevelError, "poll failed: %s\n", strerror(errno));
 				continue;
@@ -1005,9 +1014,11 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(tqueue_push(argument.job_id_queue,
-		               pool_submit(argument.pool, http_socket_connection_handler,
-		                           connection_argument)) < 0) {
+		const GenericResult push_res = tqueue_push(
+		    argument.job_id_queue,
+		    pool_submit(argument.pool, http_socket_connection_handler, connection_argument));
+
+		IF_GENERIC_RESULT_IS_ERROR_IGN(push_res) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 
@@ -1016,10 +1027,12 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 		// so its super fast,but if not doing that, the queue would overflow, nothing in
 		// here is a cancellation point, so it's safe to cancel here, since only accept then
 		// really cancels
-		int size = tqueue_size(argument.job_id_queue);
+		// TODO(Totto): can I access this size, or is it a race condition?
+		const size_t size = argument.job_id_queue->size;
 		if(size > HTTP_MAX_QUEUE_SIZE) {
-			int boundary = size / 2;
-			while(size > boundary) {
+			const size_t boundary = size / 2;
+			size_t remaining_size = size;
+			while(remaining_size > boundary) {
 
 				JobId* job_id = (JobId*)tqueue_pop(argument.job_id_queue);
 
@@ -1037,7 +1050,7 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 					            result);
 				}
 
-				--size;
+				--remaining_size;
 			}
 		}
 
@@ -1049,26 +1062,27 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 	RUN_LIFECYCLE_FN(argument.fns.shutdown_fn);
 }
 
-int start_http_server(uint16_t port, SecureOptions* const options,
-                      AuthenticationProviders* const auth_providers, HTTPRoutes* routes) {
+ExitCode start_http_server(const uint16_t port, SecureOptions* const options,
+                           AuthenticationProviders* const auth_providers,
+                           HTTPRoutes* const routes) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
 	// the socket type is SOCK_STREAM, meaning it has reliable read and write capabilities,
 	// all other types are not that well suited for that example
 	int socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	CHECK_FOR_ERROR(socket_fd, "While Trying to create socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(socket_fd, "While Trying to create socket", return ExitCodeFailure;);
 
 	// set the reuse port option to the socket, so it can be reused
 	const int optval = 1;
 	int option_return = setsockopt(socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 	CHECK_FOR_ERROR(option_return, "While Trying to set socket option 'SO_REUSEPORT'",
-	                return EXIT_FAILURE;);
+	                return ExitCodeFailure;);
 
 	global_setup_port_data(port);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
-	// to be converted into ntework byte order (Big Endian, linux uses Little Endian) that
+	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
 	// is relevant for each multibyte value, essentially everything but char, so htox is
 	// used, where x stands for different lengths of numbers, s for int, l for long
 	struct sockaddr_in addr = ZERO_STRUCT(struct sockaddr_in);
@@ -1088,14 +1102,14 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
 	// getting that is being root, or executing as root: sudo ...)
 	int result = bind(socket_fd, (struct sockaddr*)&addr, sizeof(addr));
-	CHECK_FOR_ERROR(result, "While trying to bind socket to port", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result, "While trying to bind socket to port", return ExitCodeFailure;);
 
 	// SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
 	// the protocol discards these requests listen starts listening on that socket, meaning
 	// new connections can be accepted
 	result = listen(socket_fd, HTTP_SOCKET_BACKLOG_SIZE);
-	CHECK_FOR_ERROR(result, "While trying to listen on socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result, "While trying to listen on socket", return ExitCodeFailure;);
 
 	const char* protocol_string =
 	    is_secure(options) ? "https" : "http"; // NOLINT(readability-implicit-bool-conversion)
@@ -1104,7 +1118,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	            protocol_string, port);
 
 	if(routes == NULL) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	LOG_MESSAGE(LogLevelTrace, "Defined Routes (%zu):\n", TVEC_LENGTH(HTTPRoute, routes->routes));
@@ -1176,7 +1190,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 						const HTTPAuthorizationComplicatedData data = route.auth.data.complicated;
 
 						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
-						            "Complicated: (TODO %d)\n", data.todo);
+						            "Complicated: (TODO %" PRIu64 ")\n", data.todo);
 
 						break;
 					}
@@ -1266,7 +1280,8 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 						const HTTPRouteServeFolder data = route.data.value.serve_folder;
 
 						LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelTrace, LogPrintNoPrelude),
-						            "Serve Folder: %s\n", data.folder_path);
+						            "Serve Folder: " TSTR_FMT "\n",
+						            TSTR_FMT_ARGS(data.folder_path));
 
 						break;
 					}
@@ -1291,24 +1306,27 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	int result1 = sigaction(SIGINT, &action, NULL);
 	if(result1 < 0 || empty_set_result < 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't set signal interception: %s\n", strerror(errno));
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// create pool and queue! then initializing both!
 	// the pool is created and destroyed outside of the listener, so the listener can be
 	// cancelled and then the main thread destroys everything accordingly
 	ThreadPool pool;
-	int create_result = pool_create_dynamic(&pool);
-	if(create_result < 0) {
-		print_create_error(-create_result);
-		return EXIT_FAILURE;
+	const CreateResult create_result = pool_create(&pool, 0);
+	if(create_result.error != CreateErrorNone) {
+		print_create_error(create_result.error);
+		return ExitCodeFailure;
 	}
 
 	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
 	TQueue job_id_queue;
-	if(tqueue_init(&job_id_queue) < 0) {
-		return EXIT_FAILURE;
+
+	const GenericResult queue_init_res = tqueue_init(&job_id_queue);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(queue_init_res) {
+		return ExitCodeFailure;
 	};
 
 	// this is an array of pointers
@@ -1320,7 +1338,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	if(allocate_result == TvecResultErr) {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
@@ -1339,7 +1357,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		}
 		TVEC_FREE(ConnectionContextPtr, &contexts);
 
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	RouteManager* route_manager = initialize_route_manager(routes, auth_providers);
@@ -1352,10 +1370,10 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 		TVEC_FREE(ConnectionContextPtr, &contexts);
 
 		if(!free_thread_manager(web_socket_manager)) {
-			return EXIT_FAILURE;
+			return ExitCodeFailure;
 		}
 
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// create global http arguments
@@ -1376,14 +1394,14 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	result =
 	    pthread_create(&listener_thread, NULL, http_listener_thread_function, &thread_argument);
 	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to create a new Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
 	ListenerError return_value = LISTENER_ERROR_NONE;
 	result = pthread_join(listener_thread, &return_value);
 	CHECK_FOR_THREAD_ERROR(result, "An Error occurred while trying to wait for a Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	if(is_listener_error(return_value)) {
 		if(return_value != LISTENER_ERROR_NONE) {
@@ -1419,13 +1437,17 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	}
 
 	// then after all were awaited the pool is destroyed
-	if(pool_destroy(&pool) < 0) {
-		return EXIT_FAILURE;
+	const GenericResult destroy_result1 = pool_destroy(&pool);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result1) {
+		return ExitCodeFailure;
 	}
 
 	// then the queue is destroyed
-	if(tqueue_destroy(&job_id_queue) < 0) {
-		return EXIT_FAILURE;
+	const GenericResult destroy_result2 = tqueue_destroy(&job_id_queue);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result2) {
+		return ExitCodeFailure;
 	}
 
 	// finally closing the whole socket, so that the port is useable by other programs or by
@@ -1435,7 +1457,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	// essentially saying, also correctly closed sockets aren't available after a certain
 	// time, even if closed correctly!
 	result = close(socket_fd);
-	CHECK_FOR_ERROR(result, "While trying to close the socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result, "While trying to close the socket", return ExitCodeFailure;);
 
 	for(size_t i = 0; i < pool.worker_threads_amount; ++i) {
 		ConnectionContext* context = TVEC_AT(ConnectionContextPtr, contexts, i);
@@ -1443,11 +1465,11 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 	}
 
 	if(!thread_manager_remove_all_connections(web_socket_manager)) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	if(!free_thread_manager(web_socket_manager)) {
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	free_route_manager(route_manager);
@@ -1464,7 +1486,7 @@ int start_http_server(uint16_t port, SecureOptions* const options,
 
 	global_free_http_global_data();
 
-	return EXIT_SUCCESS;
+	return ExitCodeSuccess;
 }
 
 void global_initialize_http_global_data(void) {

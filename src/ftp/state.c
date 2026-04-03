@@ -47,17 +47,17 @@ static CustomFTPOptions* alloc_default_options() {
 }
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
-FTPState* alloc_default_state(const char* global_folder) {
+FTPState* alloc_default_state(const tstr global_folder) {
 	FTPState* state = (FTPState*)malloc(sizeof(FTPState));
 
 	if(!state) {
 		return NULL;
 	}
 
-	size_t global_folder_length = strlen(global_folder) + 1;
+	size_t global_folder_length_1 = tstr_len(&global_folder);
 
 	// invariant check
-	if(global_folder[global_folder_length - 2] == '/') {
+	if(tstr_cstr(&global_folder)[global_folder_length_1 - 1] == '/') {
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
 		                   "folder invariant 1 violated\n");
 
@@ -65,14 +65,18 @@ FTPState* alloc_default_state(const char* global_folder) {
 		return NULL;
 	}
 
-	state->current_working_directory = (char*)malloc(global_folder_length);
+	char* const current_working_directory_impl = (char*)malloc(global_folder_length_1 + 1);
 
-	if(!state->current_working_directory) {
+	if(!current_working_directory_impl) {
 		free(state);
 		return NULL;
 	}
 
-	memcpy(state->current_working_directory, global_folder, global_folder_length);
+	memcpy(current_working_directory_impl, tstr_cstr(&global_folder), global_folder_length_1);
+	current_working_directory_impl[global_folder_length_1] = '\0';
+
+	state->current_working_directory =
+	    tstr_own(current_working_directory_impl, global_folder_length_1, global_folder_length_1);
 
 	AccountInfo* account = alloc_default_account();
 

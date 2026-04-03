@@ -2,9 +2,7 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
 
 // needed h files
 #include "./compression.h"
@@ -17,6 +15,10 @@ extern "C" {
 #include "utils/utils.h"
 
 #include <tvec.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // according to https://datatracker.ietf.org/doc/html/rfc7231#section-6.1
 // + 418
@@ -87,7 +89,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPRequestMethodHead,
 	HTTPRequestMethodOptions,
 	HTTPRequestMethodConnect,
-	HTTPRequestMethodPRI
+	HTTPRequestMethodPRI,
 } HTTPRequestMethod;
 
 /**
@@ -156,16 +158,16 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HttpRequestErrorTypeInvalidHttp2Preface,
 	HttpRequestErrorTypeLengthRequired,
 	HttpRequestErrorTypeProtocolError,
-	HttpRequestErrorTypeNotSupported
+	HttpRequestErrorTypeNotSupported,
 } HttpRequestErrorType;
 
-NODISCARD const char* get_error_string_for_http_request_error_type(HttpRequestErrorType type);
+NODISCARD tstr_static get_error_string_for_http_request_error_type(HttpRequestErrorType type);
 
 typedef struct {
 	bool is_advanced;
 	union {
 		HttpRequestErrorType enum_value;
-		const char* advanced;
+		tstr_static advanced;
 	} value;
 } HttpRequestError;
 
@@ -182,9 +184,9 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 typedef struct {
 	HTTPPropertyType type;
 	union {
-		ParsedURLPath normal; // Method: POST | GET | HEAD
-		int todo_options;     // Method: OPTIONS
-		int todo_connect;     // Method: CONNECT
+		ParsedURLPath normal;  // Method: POST | GET | HEAD
+		uint64_t todo_options; // Method: OPTIONS
+		uint64_t todo_connect; // Method: CONNECT
 	} data;
 } HttpRequestProperties;
 
@@ -253,13 +255,13 @@ void free_http_request(HttpRequest request);
 
 void free_http_request_result(HTTPResultOk result);
 
-NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, tstr key);
+NODISCARD const ParsedSearchPathEntry* find_search_key(ParsedSearchPath path, tstr_static key);
 
 // simple helper for getting the status Message for a special status code, not all implemented,
 // only the ones needed
 NODISCARD const char* get_status_message(HttpStatusCode status_code);
 
-NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, tstr key);
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, tstr_static key);
 
 typedef struct {
 	CompressionType compression_to_use;
@@ -272,7 +274,9 @@ void free_http_header_field(HttpHeaderField field);
 
 void free_http_header_fields(HttpHeaderFields* header_fields);
 
-void add_http_header_field(HttpHeaderFields* header_fields, tstr key, tstr value);
+void add_http_header_field(HttpHeaderFields* header_fields,
+                           MOVED(tstr) key,    // NOLINT(totto-function-passing-type)
+                           MOVED(tstr) value); // NOLINT(totto-function-passing-type)
 
 #define HTTP_LINE_SEPERATORS "\r\n"
 

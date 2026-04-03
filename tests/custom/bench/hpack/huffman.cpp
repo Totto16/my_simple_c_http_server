@@ -1,0 +1,341 @@
+#include <benchmark/benchmark.h>
+
+#include <http/hpack_huffman.h>
+
+#include "generated_hpack_tests.hpp"
+
+#include <support/helpers.hpp>
+#include <support/helpers/hpack.hpp>
+#include <support/support.hpp>
+
+static helpers::GlobalHuffmanData g_global_huffman_data = {};
+
+struct TestCaseManual {
+	std::vector<std::uint8_t> encoded;
+	std::string str;
+};
+
+static void BM_hpack_huffman_decode_spec(benchmark::State& state) {
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4
+	const std::vector<TestCaseManual> test_cases = {
+		TestCaseManual{
+		    .encoded = { 0xf1, 0xe3, 0xc2, 0xe5, 0xf2, 0x3a, 0x6b, 0xa0, 0xab, 0x90, 0xf4, 0xff },
+		    .str = "www.example.com" },
+		TestCaseManual{ .encoded = { 0xa8, 0xeb, 0x10, 0x64, 0x9c, 0xbf }, .str = "no-cache" },
+		TestCaseManual{ .encoded = { 0x25, 0xa8, 0x49, 0xe9, 0x5b, 0xa9, 0x7d, 0x7f },
+		                .str = "custom-key" },
+		TestCaseManual{ .encoded = { 0x25, 0xa8, 0x49, 0xe9, 0x5b, 0xb8, 0xe8, 0xb4, 0xbf },
+		                .str = "custom-value" },
+		TestCaseManual{ .encoded = { 0xd0, 0x7a, 0xbe, 0x94, 0x10, 0x54, 0xd4, 0x44,
+		                             0xa8, 0x20, 0x05, 0x95, 0x04, 0x0b, 0x81, 0x66,
+		                             0xe0, 0x82, 0xa6, 0x2d, 0x1b, 0xff },
+		                .str = "Mon, 21 Oct 2013 20:13:21 GMT" },
+		TestCaseManual{ .encoded = { 0x9d, 0x29, 0xad, 0x17, 0x18, 0x63, 0xc7, 0x8f, 0x0b, 0x97,
+		                             0xc8, 0xe9, 0xae, 0x82, 0xae, 0x43, 0xd3 },
+		                .str = "https://www.example.com" },
+		TestCaseManual{ .encoded = { 0x64, 0x0e, 0xff }, .str = "307" },
+		TestCaseManual{ .encoded = { 0xd0, 0x7a, 0xbe, 0x94, 0x10, 0x54, 0xd4, 0x44,
+		                             0xa8, 0x20, 0x05, 0x95, 0x04, 0x0b, 0x81, 0x66,
+		                             0xe0, 0x84, 0xa6, 0x2d, 0x1b, 0xff },
+		                .str = "Mon, 21 Oct 2013 20:13:22 GMT" },
+		TestCaseManual{ .encoded = { 0x9b, 0xd9, 0xab }, .str = "gzip" },
+		TestCaseManual{ .encoded = { 0x94, 0xe7, 0x82, 0x1d, 0xd7, 0xf2, 0xe6, 0xc7, 0xb3,
+		                             0x35, 0xdf, 0xdf, 0xcd, 0x5b, 0x39, 0x60, 0xd5, 0xaf,
+		                             0x27, 0x08, 0x7f, 0x36, 0x72, 0xc1, 0xab, 0x27, 0x0f,
+		                             0xb5, 0x29, 0x1f, 0x95, 0x87, 0x31, 0x60, 0x65, 0xc0,
+		                             0x03, 0xed, 0x4e, 0xe5, 0xb1, 0x06, 0x3d, 0x50, 0x07 },
+		                .str = "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1" },
+	};
+
+	for(auto _ : state) {
+		// This code gets timed
+
+		for(size_t i = 0; i < test_cases.size(); ++i) {
+
+			const auto& test_case = test_cases.at(i);
+
+			assert(g_global_huffman_data.present == true);
+
+			const auto input = helpers::buffer_from_raw_data(test_case.encoded);
+
+			auto result = hpack_huffman_decode_bytes(input);
+			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
+				                                        helpers::free_huffman_decode_result };
+
+			IF_HUFFMAN_DECODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
+			}
+
+			const auto actual_result = huffman_decode_result_get_as_ok(result).result;
+
+			const auto expected_result = helpers::buffer_from_string(test_case.str);
+
+			const std::string actual_result_str =
+			    std::string{ (char*)actual_result.data, actual_result.size };
+
+			assert(actual_result == expected_result);
+		}
+	}
+}
+
+static void BM_hpack_huffman_decode_ascii_generated(benchmark::State& state) {
+
+	const auto& test_cases = generated::tests::test_cases_ascii;
+
+	for(auto _ : state) {
+		// This code gets timed
+
+		for(size_t i = 0; i < test_cases.size(); ++i) {
+
+			const auto& test_case = test_cases.at(i);
+
+			assert(g_global_huffman_data.present == true);
+
+			const auto input = helpers::buffer_from_raw_data(test_case.encoded);
+
+			auto result = hpack_huffman_decode_bytes(input);
+			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
+				                                        helpers::free_huffman_decode_result };
+
+			IF_HUFFMAN_DECODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
+			}
+
+			const auto actual_result = huffman_decode_result_get_as_ok(result).result;
+
+			const auto expected_result = helpers::buffer_from_string(test_case.str);
+
+			const std::string actual_result_str =
+			    std::string{ (char*)actual_result.data, actual_result.size };
+
+			assert(actual_result == expected_result);
+		}
+	}
+}
+
+static void BM_hpack_huffman_decode_utf8_generated(benchmark::State& state) {
+
+	const auto& test_cases = generated::tests::test_cases_utf8;
+
+	for(auto _ : state) {
+		// This code gets timed
+
+		for(size_t i = 0; i < test_cases.size(); ++i) {
+
+			const auto& test_case = test_cases.at(i);
+
+			assert(g_global_huffman_data.present == true);
+
+			const auto input = helpers::buffer_from_raw_data(test_case.encoded);
+
+			auto result = hpack_huffman_decode_bytes(input);
+			CAutoFreePtr<HuffmanDecodeResult> defer = { &result,
+				                                        helpers::free_huffman_decode_result };
+
+			IF_HUFFMAN_DECODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
+			}
+
+			const auto actual_result = huffman_decode_result_get_as_ok(result).result;
+
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.value);
+
+			assert(actual_result == expected_result);
+		}
+	}
+}
+
+static void BM_hpack_huffman_encode_spec(benchmark::State& state) {
+
+	// see: https://datatracker.ietf.org/doc/html/rfc7541#appendix-C.4
+	const std::vector<TestCaseManual> test_cases = {
+		TestCaseManual{
+		    .encoded = { 0xf1, 0xe3, 0xc2, 0xe5, 0xf2, 0x3a, 0x6b, 0xa0, 0xab, 0x90, 0xf4, 0xff },
+		    .str = "www.example.com" },
+		TestCaseManual{ .encoded = { 0xa8, 0xeb, 0x10, 0x64, 0x9c, 0xbf }, .str = "no-cache" },
+		TestCaseManual{ .encoded = { 0x25, 0xa8, 0x49, 0xe9, 0x5b, 0xa9, 0x7d, 0x7f },
+		                .str = "custom-key" },
+		TestCaseManual{ .encoded = { 0x25, 0xa8, 0x49, 0xe9, 0x5b, 0xb8, 0xe8, 0xb4, 0xbf },
+		                .str = "custom-value" },
+		TestCaseManual{ .encoded = { 0xd0, 0x7a, 0xbe, 0x94, 0x10, 0x54, 0xd4, 0x44,
+		                             0xa8, 0x20, 0x05, 0x95, 0x04, 0x0b, 0x81, 0x66,
+		                             0xe0, 0x82, 0xa6, 0x2d, 0x1b, 0xff },
+		                .str = "Mon, 21 Oct 2013 20:13:21 GMT" },
+		TestCaseManual{ .encoded = { 0x9d, 0x29, 0xad, 0x17, 0x18, 0x63, 0xc7, 0x8f, 0x0b, 0x97,
+		                             0xc8, 0xe9, 0xae, 0x82, 0xae, 0x43, 0xd3 },
+		                .str = "https://www.example.com" },
+		TestCaseManual{ .encoded = { 0x64, 0x0e, 0xff }, .str = "307" },
+		TestCaseManual{ .encoded = { 0xd0, 0x7a, 0xbe, 0x94, 0x10, 0x54, 0xd4, 0x44,
+		                             0xa8, 0x20, 0x05, 0x95, 0x04, 0x0b, 0x81, 0x66,
+		                             0xe0, 0x84, 0xa6, 0x2d, 0x1b, 0xff },
+		                .str = "Mon, 21 Oct 2013 20:13:22 GMT" },
+		TestCaseManual{ .encoded = { 0x9b, 0xd9, 0xab }, .str = "gzip" },
+		TestCaseManual{ .encoded = { 0x94, 0xe7, 0x82, 0x1d, 0xd7, 0xf2, 0xe6, 0xc7, 0xb3,
+		                             0x35, 0xdf, 0xdf, 0xcd, 0x5b, 0x39, 0x60, 0xd5, 0xaf,
+		                             0x27, 0x08, 0x7f, 0x36, 0x72, 0xc1, 0xab, 0x27, 0x0f,
+		                             0xb5, 0x29, 0x1f, 0x95, 0x87, 0x31, 0x60, 0x65, 0xc0,
+		                             0x03, 0xed, 0x4e, 0xe5, 0xb1, 0x06, 0x3d, 0x50, 0x07 },
+		                .str = "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1" },
+	};
+
+	for(auto _ : state) {
+		// This code gets timed
+
+		for(size_t i = 0; i < test_cases.size(); ++i) {
+
+			const auto& test_case = test_cases.at(i);
+
+			assert(g_global_huffman_data.present == true);
+
+			auto input = tstr_from_string(test_case.str);
+			CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
+
+			auto result = hpack_huffman_encode_value(&input);
+			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
+				                                        helpers::free_huffman_encode_result };
+			IF_HUFFMAN_ENCODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
+			}
+
+			const auto actual_result = huffman_encode_result_get_as_ok(result).result;
+
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
+
+			assert(actual_result == expected_result);
+		}
+	}
+}
+
+static void BM_hpack_huffman_encode_ascii_generated(benchmark::State& state) {
+
+	const auto& test_cases = generated::tests::test_cases_ascii;
+
+	for(auto _ : state) {
+		// This code gets timed
+
+		for(size_t i = 0; i < test_cases.size(); ++i) {
+
+			const auto& test_case = test_cases.at(i);
+
+			assert(g_global_huffman_data.present == true);
+
+			auto input = tstr_from_string(test_case.str);
+			CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
+
+			auto result = hpack_huffman_encode_value(&input);
+			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
+				                                        helpers::free_huffman_encode_result };
+
+			IF_HUFFMAN_ENCODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
+			}
+
+			const auto actual_result = huffman_encode_result_get_as_ok(result).result;
+
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
+
+			assert(actual_result == expected_result);
+		}
+	}
+}
+
+static void BM_hpack_huffman_encode_utf8_generated(benchmark::State& state) {
+
+	const auto& test_cases = generated::tests::test_cases_utf8;
+
+	for(auto _ : state) {
+		// This code gets timed
+
+		for(size_t i = 0; i < test_cases.size(); ++i) {
+
+			const auto& test_case = test_cases.at(i);
+
+			assert(g_global_huffman_data.present == true);
+
+			auto input = helpers::tstr_from_utf8_string(test_case.value);
+			CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
+
+			auto result = hpack_huffman_encode_value(&input);
+			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
+				                                        helpers::free_huffman_encode_result };
+
+			IF_HUFFMAN_ENCODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
+			}
+
+			const auto actual_result = huffman_encode_result_get_as_ok(result).result;
+
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.encoded);
+
+			assert(actual_result == expected_result);
+		}
+	}
+}
+
+struct TestCaseExtended {
+	std::vector<std::uint8_t> value;
+};
+
+static void BM_hpack_huffman_roundtrip(benchmark::State& state) {
+
+	const std::vector<TestCaseExtended> test_cases = {
+		TestCaseExtended{ .value = helpers::vector_from_string("test hello") },
+		TestCaseExtended{
+		    .value = helpers::vector_from_string("test hello a long non ascii string öäüß") },
+		TestCaseExtended{ .value = hpack::huffman::all_values_vector() },
+	};
+
+	for(auto _ : state) {
+		// This code gets timed
+
+		for(size_t i = 0; i < test_cases.size(); ++i) {
+
+			const auto& test_case = test_cases.at(i);
+
+			assert(g_global_huffman_data.present == true);
+
+			auto input = helpers::tstr_from_utf8_string(test_case.value);
+			CAutoFreePtr<tstr> defer_tstr = { &input, tstr_free };
+
+			auto result = hpack_huffman_encode_value(&input);
+			CAutoFreePtr<HuffmanEncodeResult> defer = { &result,
+				                                        helpers::free_huffman_encode_result };
+
+			IF_HUFFMAN_ENCODE_RESULT_IS_ERROR_CONST(result) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
+			}
+
+			const auto intermediary_result =
+			    readonly_buffer_from_sized_buffer(huffman_encode_result_get_as_ok(result).result);
+
+			auto result_dec = hpack_huffman_decode_bytes(intermediary_result);
+			CAutoFreePtr<HuffmanDecodeResult> defer2 = { &result_dec,
+				                                         helpers::free_huffman_decode_result };
+
+			IF_HUFFMAN_DECODE_RESULT_IS_ERROR_CONST(result_dec) {
+				throw std::runtime_error(string_from_tstr_static(error.error));
+			}
+
+			const auto actual_result = huffman_decode_result_get_as_ok(result_dec).result;
+
+			const auto expected_result = helpers::buffer_from_raw_data(test_case.value);
+
+			assert(actual_result == expected_result);
+		}
+	}
+}
+
+BENCHMARK(BM_hpack_huffman_decode_spec)->Name("hpack/huffman/decode_spec");
+
+BENCHMARK(BM_hpack_huffman_decode_ascii_generated)->Name("hpack/huffman/decode_ascii_generated");
+
+BENCHMARK(BM_hpack_huffman_decode_utf8_generated)->Name("hpack/huffman/decode_utf8_generated");
+
+BENCHMARK(BM_hpack_huffman_encode_spec)->Name("hpack/huffman/encode_spec");
+
+BENCHMARK(BM_hpack_huffman_encode_ascii_generated)->Name("hpack/huffman/encode_ascii_generated");
+
+BENCHMARK(BM_hpack_huffman_encode_utf8_generated)->Name("hpack/huffman/encode_utf8_generated");
+
+BENCHMARK(BM_hpack_huffman_roundtrip)->Name("hpack/huffman/roundtrip");

@@ -88,5 +88,3 @@ void extension_send_pipeline_process_start_message(ExtensionSendState* extension
 
 void extension_send_pipeline_process_cont_message(ExtensionSendState* extension_send_state,
                                                   WebSocketRawMessage* raw_message);
-
-NODISCARD long parse_long_tstr(tstr_view input, OUT_PARAM(bool) success);

@@ -140,8 +140,8 @@ static char json_get_random_char(void) {
 }
 
 static char* json_get_random_string(void) {
-	uint32_t random_key_length = get_random_byte_in_range(
-	    6, 30); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint32_t random_key_length =
+	    get_random_byte_in_range(6, 30); // NOLINT(readability-magic-numbers)
 
 	char* key = malloc((size_t)random_key_length + 3);
 
@@ -182,8 +182,7 @@ static char* json_get_null(void) {
 }
 
 static char* json_get_random_primitive_value(void) {
-	uint32_t random_type = get_random_byte_in_range(
-	    0, 4); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint32_t random_type = get_random_byte_in_range(0, 4); // NOLINT(readability-magic-numbers)
 
 	switch(random_type) {
 		case 0: return json_get_random_string();
@@ -214,8 +213,8 @@ static void add_random_object_key_and_value(StringBuilder* string_builder, bool 
 
 static void add_random_json_object(StringBuilder* string_builder, bool pretty) {
 
-	uint32_t random_key_amount = get_random_byte_in_range(
-	    4, 20); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint32_t random_key_amount =
+	    get_random_byte_in_range(4, 20); // NOLINT(readability-magic-numbers)
 
 	string_builder_append_single(string_builder, "{");
 	if(pretty) {
@@ -252,8 +251,7 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 	}
 
 	// for compression tests, has to be at least  1 MB big, so that it can be tested accordingly
-	size_t minimum_size =
-	    1 << 20; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	size_t minimum_size = 1 << 20; // NOLINT(readability-magic-numbers)
 
 	while(string_builder_get_string_size(string_builder) < minimum_size) {
 		if(pretty) {
@@ -281,7 +279,8 @@ static StringBuilder* get_random_json_string_builder(bool pretty) {
 
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_body) {
 
-	const ParsedSearchPathEntry* pretty_key = find_search_key(path.search_path, TSTR_LIT("pretty"));
+	const ParsedSearchPathEntry* pretty_key =
+	    find_search_key(path.search_path, TSTR_STATIC_LIT("pretty"));
 
 	bool pretty = pretty_key != NULL;
 
@@ -305,8 +304,8 @@ static HTTPResponseToSend auth_executor_fn(ParsedURLPath /* path */, AuthUserWit
 	string_builder_append_single(string_builder, "\", \"role\": \"");
 	string_builder_append_single(string_builder, get_name_for_user_role(user.user.role));
 	string_builder_append_single(string_builder, "\", \"provider\": \"");
-	string_builder_append_single(string_builder,
-	                             get_name_for_auth_provider_type(user.provider_type));
+	string_builder_append_tstr_static(string_builder,
+	                                  get_name_for_auth_provider_type(user.provider_type));
 	string_builder_append_single(string_builder, "\"}");
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
@@ -597,9 +596,9 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 
 		static const char* s_folder_env_variable = "WEBSERVER_TEST_WEBROOT";
 
-		char* folder_path = getenv(s_folder_env_variable);
+		char* folder_path_impl = getenv(s_folder_env_variable);
 
-		if(folder_path == NULL) {
+		if(folder_path_impl == NULL) {
 			LOG_MESSAGE(LogLevelError, "Couldn't find required env variable '%s'\n",
 			            s_folder_env_variable);
 
@@ -607,9 +606,11 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 			return NULL;
 		}
 
-		char* folder_path_resolved = get_serve_folder(folder_path);
+		const tstr folder_path = tstr_own_cstr(folder_path_impl);
 
-		if(folder_path_resolved == NULL) {
+		const tstr folder_path_resolved = get_serve_folder(&folder_path);
+
+		if(tstr_is_null(&folder_path_resolved)) {
 			FREE_AT_END();
 			return NULL;
 		}
@@ -633,7 +634,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 		const TvecResult push_res = TVEC_PUSH(HTTPRoute, &routes->routes, serve_route);
 		OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 
-		HTTPFreeFn free_route = { .data = folder_path_resolved, .fn = free };
+		HTTPFreeFn free_route = { .data = folder_path_impl, .fn = free };
 
 		const TvecResult push_res1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
 		OOM_ASSERT(push_res1 == TvecResultOk, "Vec push error");
@@ -822,7 +823,7 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view v
 	// TODO(Totto): support more auth-schemes
 
 	// see: https://www.iana.org/assignments/http-authschemes/http-authschemes.xhtml
-	if(tstr_view_eq_ignore_case(auth_scheme, "Basic")) {
+	if(tstr_view_eq_ignore_case(auth_scheme, TSTR_TSV("Basic"))) {
 		// see https://datatracker.ietf.org/doc/html/rfc7617
 
 		if(auth_param.len == 0) {
@@ -831,7 +832,7 @@ NODISCARD static HttpAuthHeaderValue parse_authorization_value(const tstr_view v
 		}
 
 		SizedBuffer decoded = base64_decode_buffer(
-		    (SizedBuffer){ .data = (void*)auth_param.data, .size = auth_param.len });
+		    (ReadonlyBuffer){ .data = auth_param.data, .size = auth_param.len });
 
 		if(!decoded.data) {
 			return (HttpAuthHeaderValue){ .type = HttpAuthHeaderValueTypeError,
@@ -949,33 +950,37 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 	tstr_free(&username);
 	tstr_free(&password);
 
-	switch(find_result.validity) {
-		case AuthenticationValidityNoSuchUser: {
+	SWITCH_AUTHENTICATION_FIND_RESULT(find_result) {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_NO_SUCH_USER() {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
 				                     .data = {
 				                         .unauthorized = { .reason = TSTR_LIT("no such user") } } };
 		}
-		case AuthenticationValidityWrongPassword: {
+		VARIANT_CASE_END();
+		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD() {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeUnauthorized,
 				                     .data = { .unauthorized = {
 				                                   .reason = TSTR_LIT("wrong password") } } };
 		}
-		case AuthenticationValidityOk: {
+		VARIANT_CASE_END();
+		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_CONST(find_result) {
 
 			return (HttpAuthStatus){ .type = HttpAuthStatusTypeAuthorized,
-				                     .data = { .authorized = find_result.data.ok } };
+				                     .data = { .authorized = ok } };
 		}
-		case AuthenticationValidityError: {
-			LOG_MESSAGE(LogLevelError, "Error in account find operation: %s\n",
-			            find_result.data.error.error_message);
+		VARIANT_CASE_END();
+		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(find_result) {
+			LOG_MESSAGE(LogLevelError, "Error in account find operation: " TSTR_FMT "\n",
+			            TSTR_STATIC_FMT_ARGS(error.message));
 			return (HttpAuthStatus){
 				.type = HttpAuthStatusTypeAuthorizationError,
 				.data = { .error = { .error_message =
 				                         "Underlying authentication provider error" } }
 			};
 		}
+		VARIANT_CASE_END();
 		default: {
 			return (
 			    HttpAuthStatus){ .type = HttpAuthStatusTypeError,
@@ -1049,11 +1054,13 @@ NODISCARD static SelectedRoute* process_matched_route(const RouteManager* const 
 				    },
 				    "Basic realm=\"%s\", charset=\"UTF-8\"", DEFAULT_AUTH_REALM);
 
-				add_http_header_field(&additional_headers, HTTP_HEADER_NAME(www_authenticate),
+				add_http_header_field(&additional_headers,
+				                      tstr_from_static_tstr(HTTP_HEADER_NAME(www_authenticate)),
 				                      tstr_own_cstr(www_authenticate_buffer));
 
 #ifndef NDEBUG
-				add_http_header_field(&additional_headers, HTTP_HEADER_NAME(x_special_reason),
+				add_http_header_field(&additional_headers,
+				                      tstr_from_static_tstr(HTTP_HEADER_NAME(x_special_reason)),
 				                      auth_status.data.unauthorized.reason);
 
 #endif
@@ -1191,14 +1198,14 @@ NODISCARD HTTPSelectedRoute get_selected_route_data(const SelectedRoute* const r
 }
 
 NODISCARD
-int route_manager_execute_route(const RouteManager* const route_manager, HTTPRouteFn route,
-                                const ConnectionDescriptor* const descriptor,
-                                HTTPGeneralContext* general_context, SendSettings send_settings,
-                                const HttpRequest http_request,
-                                const ConnectionContext* const context, ParsedURLPath path,
-                                AuthUserWithContext* auth_user, IPAddress address) {
+GenericResult
+route_manager_execute_route(const RouteManager* const route_manager, HTTPRouteFn route,
+                            const ConnectionDescriptor* const descriptor,
+                            HTTPGeneralContext* general_context, SendSettings send_settings,
+                            const HttpRequest http_request, const ConnectionContext* const context,
+                            ParsedURLPath path, AuthUserWithContext* auth_user, IPAddress address) {
 
-	HTTPResponseToSend response = {};
+	HTTPResponseToSend response;
 
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
@@ -1231,7 +1238,7 @@ int route_manager_execute_route(const RouteManager* const route_manager, HTTPRou
 			break;
 		}
 		default: {
-			return -11; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			return GENERIC_RES_ERR_UNIQUE();
 			break;
 		}
 	}
@@ -1248,7 +1255,7 @@ int route_manager_execute_route(const RouteManager* const route_manager, HTTPRou
 		}
 	}
 
-	int result =
+	GenericResult result =
 	    send_http_message_to_connection(general_context, descriptor, response, send_settings);
 
 	return result;

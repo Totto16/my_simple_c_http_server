@@ -6,13 +6,8 @@
 
 #include <netinet/in.h>
 #include <sys/socket.h>
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	IPProtocolVersionV4 = 0,
-	IPProtocolVersionV6,
-} IPProtocolVersion;
+
+#include "variants.h"
 
 typedef struct {
 	struct in_addr underlying; // this is in network order
@@ -22,13 +17,7 @@ typedef struct {
 	struct in6_addr underlying; // this is in network order
 } IPV6Address;
 
-typedef struct {
-	IPProtocolVersion version;
-	union {
-		IPV4Address v4;
-		IPV6Address v6;
-	} data;
-} IPAddress;
+GENERATE_VARIANT_ALL_IP_ADDRESS()
 
 NODISCARD IPAddress from_ipv4(struct in_addr address);
 

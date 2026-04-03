@@ -16,15 +16,16 @@ typedef struct WebSocketConnectionImpl WebSocketConnection;
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	WebSocketActionContinue = 0,
 	WebSocketActionError,
-	WebSocketActionClose
+	WebSocketActionClose,
 } WebSocketAction;
 
 typedef WebSocketAction (*WebSocketFunction)(WebSocketConnection* connection,
                                              WebSocketMessage* message, WsConnectionArgs args,
                                              ExtensionSendState* extension_send_state);
 
-NODISCARD int ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
-                              WsConnectionArgs args, ExtensionSendState* extension_send_state);
+NODISCARD GenericResult ws_send_message(WebSocketConnection* connection, WebSocketMessage* message,
+                                        WsConnectionArgs args,
+                                        ExtensionSendState* extension_send_state);
 
 void free_ws_message(WebSocketMessage message);
 
@@ -49,8 +50,8 @@ NODISCARD WebSocketConnection* thread_manager_add_connection(WebSocketThreadMana
  *
  * returns true if it was successfully removed, false if it was an invalid connection
  */
-NODISCARD int thread_manager_remove_connection(WebSocketThreadManager* manager,
-                                               WebSocketConnection* connection);
+NODISCARD GenericResult thread_manager_remove_connection(WebSocketThreadManager* manager,
+                                                         WebSocketConnection* connection);
 
 /**
  * NOT Thread safe

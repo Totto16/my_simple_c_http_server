@@ -8,11 +8,12 @@
 #include "http/protocol.h"
 #include "http/send.h"
 #include "utils/log.h"
+#include "utils/number_parsing.h"
 #include "utils/string_builder.h"
 
 #include <strings.h>
 
-NODISCARD static int
+NODISCARD static GenericResult
 send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const descriptor,
                                                HTTPGeneralContext* general_context,
                                                SendSettings send_settings) {
@@ -27,10 +28,11 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 	HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 	{
-		add_http_header_field(&additional_headers, HTTP_HEADER_NAME(upgrade),
+		add_http_header_field(&additional_headers, tstr_from_static_tstr(HTTP_HEADER_NAME(upgrade)),
 		                      TSTR_LIT("websocket"));
 
-		add_http_header_field(&additional_headers, HTTP_HEADER_NAME(connection),
+		add_http_header_field(&additional_headers,
+		                      tstr_from_static_tstr(HTTP_HEADER_NAME(connection)),
 		                      TSTR_LIT("upgrade"));
 	}
 
@@ -39,26 +41,30 @@ send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const
 		                           .mime_type = MIME_TYPE_TEXT,
 		                           .additional_headers = additional_headers };
 
-	int result =
+	const GenericResult result =
 	    send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 
-	if(result < 0) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in send_failed_handshake_message)\n");
+		return result;
 	}
-	return -1;
+
+	// note always returning an error, so we can just return ("chain") this value instead of
+	// returning an error, where this is used
+	return GENERIC_RES_ERR_UNIQUE();
 }
 
-NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* const descriptor,
-                                                   HTTPGeneralContext* general_context,
-                                                   const char* error_reason,
-                                                   SendSettings send_settings) {
+NODISCARD static GenericResult
+send_failed_handshake_message(const ConnectionDescriptor* const descriptor,
+                              HTTPGeneralContext* general_context, const char* error_reason,
+                              SendSettings send_settings) {
 
 	LOG_MESSAGE(LogLevelTrace, "Failed WS handshake: %s\n", error_reason);
 
 	StringBuilder* message = string_builder_init();
 
-	STRING_BUILDER_APPENDF(message, return false;
+	STRING_BUILDER_APPENDF(message, return GENERIC_RES_ERR_UNIQUE();
 	                       , "Error: The client handshake was invalid: %s", error_reason);
 
 	HTTPResponseToSend to_send = { .status = HttpStatusBadRequest,
@@ -68,20 +74,24 @@ NODISCARD static int send_failed_handshake_message(const ConnectionDescriptor* c
 
 	free_string_builder(message);
 
-	int result =
+	const GenericResult result =
 	    send_http_message_to_connection(general_context, descriptor, to_send, send_settings);
 
-	if(result < 0) {
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 		LOG_MESSAGE_SIMPLE(LogLevelError,
 		                   "Error while sending a response (in send_failed_handshake_message)\n");
+		return result;
 	}
-	return -1;
+
+	// note always returning an error, so we can just return ("chain") this value instead of
+	// returning an error, where this is used
+	return GENERIC_RES_ERR_UNIQUE();
 }
 
 #define EXPECTED_WS_HEADER_SEC_KEY_LENGTH 16
 
 NODISCARD static bool is_valid_sec_key(const tstr* const key) {
-	SizedBuffer b64_result = base64_decode_buffer(sized_buffer_from_tstr(key));
+	SizedBuffer b64_result = base64_decode_buffer(readonly_buffer_from_tstr(key));
 	if(!b64_result.data) {
 		return false;
 	}
@@ -93,15 +103,15 @@ NODISCARD static bool is_valid_sec_key(const tstr* const key) {
 
 static const char* const key_accept_constant = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-static char* generate_key_answer(const tstr* const sec_key) {
+static tstr generate_key_answer(const tstr* const sec_key) {
 
 	char* key_to_hash_buffer = NULL;
-	FORMAT_STRING(&key_to_hash_buffer, return NULL;
+	FORMAT_STRING(&key_to_hash_buffer, return tstr_null();
 	              , "%s%s", tstr_cstr(sec_key), key_accept_constant);
 
 	SizedBuffer sha1_hash = get_sha1_from_string(key_to_hash_buffer);
 
-	char* result = base64_encode_buffer(sha1_hash);
+	const tstr result = base64_encode_buffer(readonly_buffer_from_sized_buffer(sha1_hash));
 
 	free_sized_buffer(sha1_hash);
 	free(key_to_hash_buffer);
@@ -123,14 +133,15 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HandshakeHeaderHeaderAllFound = 0b11111,
 } NeededHeaderForHandshake;
 
-NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const descriptor,
-                                              HTTPGeneralContext* general_context,
-                                              SendSettings send_settings, WSExtensions extensions) {
+NODISCARD static GenericResult
+are_extensions_supported(const ConnectionDescriptor* const descriptor,
+                         HTTPGeneralContext* general_context, SendSettings send_settings,
+                         WSExtensions extensions) {
 
 	size_t extension_length = TVEC_LENGTH(WSExtension, extensions);
 
 	if(extension_length == 0) {
-		return 0;
+		return GENERIC_RES_OK();
 	}
 
 	// TODO(Totto): support more extensions
@@ -177,13 +188,13 @@ NODISCARD static int are_extensions_supported(const ConnectionDescriptor* const 
 		}
 	}
 
-	return 0;
+	return GENERIC_RES_OK();
 }
 
 static const bool send_http_upgrade_required_status_code = true;
 
 typedef struct {
-	const tstr field_name;
+	const tstr_static field_name;
 	bool success;
 } WsHeaderProcessArg;
 
@@ -191,15 +202,15 @@ static void process_ws_header(const tstr_view value, void* argument) {
 
 	WsHeaderProcessArg* arg = (WsHeaderProcessArg*)argument;
 
-	if(tstr_view_eq_ignore_case(value, tstr_cstr(&(arg->field_name)))) {
+	if(tstr_view_eq_ignore_case(value, tstr_static_as_view(arg->field_name))) {
 		arg->success = true;
 	}
 }
 
-int handle_ws_handshake(const HttpRequest http_request,
-                        const ConnectionDescriptor* const descriptor,
-                        HTTPGeneralContext* general_context, SendSettings send_settings,
-                        WSExtensions* extensions) {
+GenericResult handle_ws_handshake(const HttpRequest http_request,
+                                  const ConnectionDescriptor* const descriptor,
+                                  HTTPGeneralContext* general_context, SendSettings send_settings,
+                                  WSExtensions* extensions) {
 
 	// check if it is a valid Websocket request
 	// according to rfc https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
@@ -211,13 +222,13 @@ int handle_ws_handshake(const HttpRequest http_request,
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
 		const HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
-		if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(host))) {
+		if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(host))) {
 			found_list |= HandshakeHeaderHeaderHost;
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(upgrade))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(upgrade))) {
 			found_list |= HandshakeHeaderHeaderUpgrade;
 
 			WsHeaderProcessArg process_arg = {
-				.field_name = TSTR_LIT("websocket"),
+				.field_name = TSTR_STATIC_LIT("websocket"),
 				.success = false,
 			};
 
@@ -229,7 +240,7 @@ int handle_ws_handshake(const HttpRequest http_request,
 				                                     "upgrade does not contain 'websocket'",
 				                                     send_settings);
 			}
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(connection))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(connection))) {
 			found_list |= HandshakeHeaderHeaderConnection;
 
 			WsHeaderProcessArg process_arg = {
@@ -250,7 +261,8 @@ int handle_ws_handshake(const HttpRequest http_request,
 				                                     "connection does not contain 'upgrade'",
 				                                     send_settings);
 			}
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(ws_sec_websocket_key))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key,
+		                                          HTTP_HEADER_NAME(ws_sec_websocket_key))) {
 			found_list |= HandshakeHeaderHeaderSecWebsocketKey;
 			if(is_valid_sec_key(&header.value)) {
 				sec_key = header.value;
@@ -258,22 +270,23 @@ int handle_ws_handshake(const HttpRequest http_request,
 				return send_failed_handshake_message(descriptor, general_context,
 				                                     "sec-websocket-key is invalid", send_settings);
 			}
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(ws_sec_websocket_version))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key,
+		                                          HTTP_HEADER_NAME(ws_sec_websocket_version))) {
 			found_list |= HandshakeHeaderHeaderSecWebsocketVersion;
 			if(!tstr_eq_cstr(&header.value, "13")) {
 				return send_failed_handshake_message(descriptor, general_context,
 				                                     "sec-websocket-version has invalid value",
 				                                     send_settings);
 			}
-		} else if(tstr_eq_ignore_case(&header.key,
-		                              &HTTP_HEADER_NAME(ws_sec_websocket_extensions))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key,
+		                                          HTTP_HEADER_NAME(ws_sec_websocket_extensions))) {
 			// TODO(Totto): this header field may be specified multiple times, but we should
 			// combine all and than parse it, but lets see if the autobahn test suite tests for
 			// that first
 			// TODO: normalize headers in some place!
 			parse_ws_extensions(extensions, tstr_as_view(&header.value));
 
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(origin))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(origin))) {
 			from_browser = true;
 		} else {
 			// do nothing
@@ -300,8 +313,11 @@ int handle_ws_handshake(const HttpRequest http_request,
 		                                     "missing required headers", send_settings);
 	}
 
-	if(are_extensions_supported(descriptor, general_context, send_settings, *extensions) < 0) {
-		return -1;
+	const GenericResult result =
+	    are_extensions_supported(descriptor, general_context, send_settings, *extensions);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
+		return result;
 	}
 
 	// send server handshake
@@ -309,19 +325,21 @@ int handle_ws_handshake(const HttpRequest http_request,
 	HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 	{
-		add_http_header_field(&additional_headers, HTTP_HEADER_NAME(upgrade),
+		add_http_header_field(&additional_headers, tstr_from_static_tstr(HTTP_HEADER_NAME(upgrade)),
 		                      TSTR_LIT("websocket"));
 
-		add_http_header_field(&additional_headers, HTTP_HEADER_NAME(connection),
+		add_http_header_field(&additional_headers,
+		                      tstr_from_static_tstr(HTTP_HEADER_NAME(connection)),
 		                      TSTR_LIT("upgrade"));
 	}
 
-	char* key_answer = generate_key_answer(&sec_key);
+	const tstr key_answer = generate_key_answer(&sec_key);
 
-	if(key_answer != NULL) {
+	if(!tstr_is_null(&key_answer)) {
 
-		add_http_header_field(&additional_headers, HTTP_HEADER_NAME(ws_sec_websocket_accept),
-		                      tstr_own_cstr(key_answer));
+		add_http_header_field(&additional_headers,
+		                      tstr_from_static_tstr(HTTP_HEADER_NAME(ws_sec_websocket_accept)),
+		                      key_answer);
 	}
 
 	if(!TVEC_IS_EMPTY(WSExtension, *extensions)) {
@@ -329,9 +347,10 @@ int handle_ws_handshake(const HttpRequest http_request,
 
 		if(accepted_extensions != NULL) {
 
-			add_http_header_field(&additional_headers,
-			                      HTTP_HEADER_NAME(ws_sec_websocket_extensions),
-			                      tstr_own_cstr(accepted_extensions));
+			add_http_header_field(
+			    &additional_headers,
+			    tstr_from_static_tstr(HTTP_HEADER_NAME(ws_sec_websocket_extensions)),
+			    tstr_own_cstr(accepted_extensions));
 		}
 	}
 
@@ -346,29 +365,31 @@ int handle_ws_handshake(const HttpRequest http_request,
 NODISCARD static WsFragmentOption get_ws_fragment_args_from_http_request(ParsedURLPath path) {
 
 	const ParsedSearchPathEntry* fragmented_paramater =
-	    find_search_key(path.search_path, TSTR_LIT("fragmented"));
+	    find_search_key(path.search_path, TSTR_STATIC_LIT("fragmented"));
 
 	if(fragmented_paramater == NULL) {
-		return (WsFragmentOption){ .type = WsFragmentOptionTypeOff };
+		return new_ws_fragment_option_off();
 	}
 
-	WsFragmentOption result = { .type = WsFragmentOptionTypeAuto };
+	WsFragmentOption result = new_ws_fragment_option_auto();
 
 	const ParsedSearchPathEntry* fragment_size_parameter =
-	    find_search_key(path.search_path, TSTR_LIT("fragment_size"));
+	    find_search_key(path.search_path, TSTR_STATIC_LIT("fragment_size"));
 
 	if(fragment_size_parameter != NULL) {
 
 		bool success = true;
 
-		long parsed_long =
-		    parse_long_tstr(tstr_as_view(&fragment_size_parameter->value.val), &success);
+		const uint64_t parsed =
+		    parse_u64(tstr_as_view(&fragment_size_parameter->value.val), &success);
 
 		if(success) {
-
-			if(parsed_long >= 0 && (size_t)parsed_long < SIZE_MAX) {
-				result.type = WsFragmentOptionTypeSet;
-				result.data.set.fragment_size = (size_t)parsed_long;
+			if(SIZE_MAX != UINT64_MAX) {
+				if(parsed <= SIZE_MAX) {
+					result = new_ws_fragment_option_set((size_t)parsed);
+				}
+			} else {
+				result = new_ws_fragment_option_set((size_t)parsed);
 			}
 		}
 	}
@@ -380,7 +401,7 @@ NODISCARD WsConnectionArgs get_ws_args_from_http_request(ParsedURLPath path,
                                                          WSExtensions extensions) {
 
 	const ParsedSearchPathEntry* trace_paramater =
-	    find_search_key(path.search_path, TSTR_LIT("trace"));
+	    find_search_key(path.search_path, TSTR_STATIC_LIT("trace"));
 
 	return (WsConnectionArgs){ .fragment_option = get_ws_fragment_args_from_http_request(path),
 		                       .extensions = extensions,

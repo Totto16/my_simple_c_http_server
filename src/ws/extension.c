@@ -2,6 +2,7 @@
 #include "./extension.h"
 
 #include "http/compression.h"
+#include "utils/number_parsing.h"
 #include "utils/string_builder.h"
 
 #include <ctype.h>
@@ -56,7 +57,7 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(const tstr_v
 
 				if(current_param_value.len != 0) {
 					bool success = true;
-					long parsed_number = parse_long_tstr(current_param_value, &success);
+					const uint64_t parsed_number = parse_u64(current_param_value, &success);
 
 					if(!success) {
 						return false;
@@ -84,13 +85,13 @@ NODISCARD static bool parse_ws_extension_per_message_deflate_params(const tstr_v
 
 				if(current_param_value.len != 0) {
 					bool success = true;
-					long parsed_number = parse_long_tstr(current_param_value, &success);
+					const uint64_t parsed_number = parse_u64(current_param_value, &success);
 
 					if(!success) {
 						return false;
 					}
 
-					if(parsed_number < 0 || parsed_number > UINT8_MAX) {
+					if(parsed_number > UINT8_MAX) {
 						return false;
 					}
 
@@ -732,19 +733,4 @@ void extension_send_pipeline_process_cont_message(ExtensionSendState* extension_
 	// NOOP atm
 	UNUSED(extension_send_state);
 	UNUSED(raw_message);
-}
-
-NODISCARD long parse_long_tstr(const tstr_view input, OUT_PARAM(bool) const success) {
-
-	int result = 0;
-	// TODO(Totto): this can only parse ints, not longs, so the value might overflow
-	bool correct = tstr_view_to_int(input, &result);
-
-	if(!correct) {
-		*success = false;
-		return 0;
-	}
-
-	*success = true;
-	return (long)result;
 }

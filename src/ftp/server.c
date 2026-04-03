@@ -84,6 +84,8 @@ static bool setup_relevant_signal_handlers(void) {
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
+// TODO: use some macro and pragma posion magic to enforce those types!
+
 ANY_TYPE(JobError*)
 ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg_ign,
                                       WorkerInfo worker_info) {
@@ -151,22 +153,25 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 	BufferedReader* buffered_reader = get_buffered_reader(descriptor);
 
 	if(!buffered_reader) {
-		int result = send_ftp_message_to_connection_tstr(
+		const GenericResult result = send_ftp_message_to_connection_tstr(
 		    descriptor, FtpReturnCodeSyntaxError,
 		    TSTR_LIT("Request couldn't be read, a connection error occurred!"));
 
-		if(result < 0) {
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-			                   "Error in sending response\n");
+		IF_GENERIC_RESULT_IS_ERROR_CONST(result) {
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+			            "Error in sending response: " TSTR_FMT "\n",
+			            TSTR_STATIC_FMT_ARGS(error.error));
 		}
 
 		goto cleanup;
 	}
 
-	int hello_result = send_ftp_message_to_connection_tstr(descriptor, FtpReturnCodeSrvcReady,
-	                                                       TSTR_LIT("Simple FTP Server"));
-	if(hello_result < 0) {
-		LOG_MESSAGE_SIMPLE(LogLevelError, "Error in sending hello message\n");
+	const GenericResult hello_result = send_ftp_message_to_connection_tstr(
+	    descriptor, FtpReturnCodeSrvcReady, TSTR_LIT("Simple FTP Server"));
+
+	IF_GENERIC_RESULT_IS_ERROR_CONST(hello_result) {
+		LOG_MESSAGE(LogLevelError, "Error in sending hello message: " TSTR_FMT "\n",
+		            TSTR_STATIC_FMT_ARGS(error.error));
 		goto cleanup;
 	}
 
@@ -182,10 +187,10 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 		// ftp_commands can be null, then it wasn't parse-able, according to parseMultipleCommands,
 		// see there for more information
 		if(ftp_command == NULL) {
-			int result = send_ftp_message_to_connection_tstr(descriptor, FtpReturnCodeSyntaxError,
-			                                                 TSTR_LIT("Invalid Command Sequence"));
+			const GenericResult result = send_ftp_message_to_connection_tstr(
+			    descriptor, FtpReturnCodeSyntaxError, TSTR_LIT("Invalid Command Sequence"));
 
-			if(result < 0) {
+			IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 				LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 				                   "Error in sending response\n");
 				goto cleanup;
@@ -223,10 +228,12 @@ cleanup:
 
 #define SEND_RESPONSE_WITH_ERROR_CHECK(code, msg) \
 	do { \
-		int send_result = send_ftp_message_to_connection_tstr(descriptor, code, TSTR_LIT(msg)); \
-		if(send_result < 0) { \
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
-			                   "Error in sending response\n"); \
+		const GenericResult send_result = \
+		    send_ftp_message_to_connection_tstr(descriptor, code, TSTR_LIT(msg)); \
+		IF_GENERIC_RESULT_IS_ERROR_CONST(send_result) { \
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
+			            "Error in sending response: " TSTR_FMT "\n", \
+			            TSTR_STATIC_FMT_ARGS(error.error)); \
 			return false; \
 		} \
 	} while(false)
@@ -235,10 +242,12 @@ cleanup:
 	do { \
 		StringBuilder* string_builder = string_builder_init(); \
 		STRING_BUILDER_APPENDF(string_builder, return false;, format, __VA_ARGS__); \
-		int send_result = send_ftp_message_to_connection_sb(descriptor, code, string_builder); \
-		if(send_result < 0) { \
-			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
-			                   "Error in sending response\n"); \
+		const GenericResult send_result = \
+		    send_ftp_message_to_connection_sb(descriptor, code, string_builder); \
+		IF_GENERIC_RESULT_IS_ERROR_CONST(send_result) { \
+			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation), \
+			            "Error in sending response: " TSTR_FMT "\n", \
+			            TSTR_STATIC_FMT_ARGS(error.error)); \
 			return false; \
 		} \
 	} while(false)
@@ -263,9 +272,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			// see https://datatracker.ietf.org/doc/html/rfc1635
 			if(tstr_eq_ignore_case_cstr(arg, ANON_USERNAME)) {
-				free_account_data(state->account);
-
-				state->account->state = AccountStateOk;
 
 				const tstr duped_username = tstr_dup(arg);
 
@@ -275,19 +281,16 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				AccountOkData ok_data = { .permissions = AccountPermissionsRead,
-					                      .username = duped_username };
+				const AccountOkData ok_data = { .permissions = AccountPermissionsRead,
+					                            .username = duped_username };
 
-				state->account->data.ok_data = ok_data;
+				free_account_data(state->account);
+				*state->account = new_account_info_ok(ok_data);
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn, "Logged In as anon!");
 
 				return true;
 			}
-
-			free_account_data(state->account);
-
-			state->account->state = AccountStateOnlyUser;
 
 			const tstr duped_username = tstr_dup(arg);
 
@@ -297,7 +300,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			state->account->data.temp_data.username = duped_username;
+			free_account_data(state->account);
+
+			*state->account = new_account_info_only_user(duped_username);
 
 			SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNeedPswd, "Need Password!");
 
@@ -309,27 +314,29 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_PASS));
 
-			if(state->account->state == AccountStateOk &&
-			   tstr_eq_ignore_case_cstr( // NOLINT(readability-implicit-bool-conversion)
-			       &(state->account->data.ok_data.username), ANON_USERNAME)) {
-				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn,
-				                               "Already logged in as anon!");
+			IF_ACCOUNT_INFO_IS_OK_CONST((*state->account)) {
 
-				return true;
+				if(tstr_eq_ignore_case_cstr( // NOLINT(readability-implicit-bool-conversion)
+				       &(ok.username), ANON_USERNAME)) {
+					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn,
+					                               "Already logged in as anon!");
+
+					return true;
+				}
 			}
 
 			// TODO(Totto): allow user changing
-			if(state->account->state != AccountStateOnlyUser) {
+			IF_ACCOUNT_INFO_IS_NOT_ONLY_USER((*state->account)) {
 				free_account_data(state->account);
 
-				state->account->state = AccountStateEmpty;
+				*state->account = new_account_info_empty();
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeBadSequence, "No user specified!");
 
 				return true;
 			}
 
-			const tstr username = state->account->data.temp_data.username;
+			const tstr username = account_info_get_as_only_user(*(state->account)).username;
 
 			const tstr* passwd = arg;
 
@@ -339,10 +346,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			switch(user_validity) {
 				case UserValidityOk: {
 
-					free_account_data(state->account);
-
-					state->account->state = AccountStateOk;
-
 					const tstr duped_username = tstr_dup(&username);
 
 					if(tstr_is_null(&duped_username)) {
@@ -351,10 +354,12 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 						return true;
 					}
 
-					AccountOkData ok_data = { .permissions = AccountPermissionsReadWrite,
-						                      .username = duped_username };
+					const AccountOkData ok_data = { .permissions = AccountPermissionsReadWrite,
+						                            .username = duped_username };
 
-					state->account->data.ok_data = ok_data;
+					free_account_data(state->account);
+
+					*state->account = new_account_info_ok(ok_data);
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeUserLoggedIn, "Logged In as user!");
 
@@ -364,7 +369,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 					free_account_data(state->account);
 
-					state->account->state = AccountStateEmpty;
+					*state->account = new_account_info_empty();
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn, "No such user found!");
 
@@ -373,7 +378,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				case UserValidityWrongPassword: {
 					free_account_data(state->account);
 
-					state->account->state = AccountStateEmpty;
+					*state->account = new_account_info_empty();
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn, "Wrong password!");
 
@@ -383,7 +388,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				default: {
 					free_account_data(state->account);
 
-					state->account->state = AccountStateEmpty;
+					*state->account = new_account_info_empty();
 
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn, "Internal Error!");
 
@@ -396,7 +401,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandPwd: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_PWD == FTP_COMMAND_TYPE_NONE);
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
@@ -425,7 +430,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_CWD));
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
@@ -479,7 +484,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandCdup: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_CDUP == FTP_COMMAND_TYPE_NONE);
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
@@ -488,7 +493,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const char* cdup_argument = "..";
 
-			DirChangeResult dir_change_result = change_dirname_to(state, cdup_argument);
+			const DirChangeResult dir_change_result = change_dirname_to(state, cdup_argument);
 
 			switch(dir_change_result) {
 				case DirChangeResultOk: {
@@ -585,8 +590,10 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 				STRING_BUILDER_APPENDF(string_builder, return false;
 				                       , "%03d-Extensions supported:", FtpReturnCodeFeatureList);
-				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
-				if(send_result < 0) {
+				const GenericResult send_result =
+				    send_string_builder_to_connection(descriptor, &string_builder);
+
+				IF_GENERIC_RESULT_IS_ERROR_IGN(send_result) {
 					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
 					                   "Error in sending start feature response\n");
 					return false;
@@ -611,10 +618,13 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					                       , " " TSTR_FMT, TSTR_FMT_ARGS(feature.arguments));
 				}
 
-				int send_result = send_string_builder_to_connection(descriptor, &string_builder);
-				if(send_result < 0) {
-					LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-					                   "Error in sending manual feature response\n");
+				const GenericResult send_result =
+				    send_string_builder_to_connection(descriptor, &string_builder);
+
+				IF_GENERIC_RESULT_IS_ERROR_CONST(send_result) {
+					LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+					            "Error in sending manual feature response: " TSTR_FMT "\n",
+					            TSTR_STATIC_FMT_ARGS(error.error));
 					return false;
 				}
 			}
@@ -645,7 +655,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_STOR));
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't upload files!");
 
@@ -669,9 +679,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			// NOTE: we allow overwrites, as the ftp spec says
 
-			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
+			const tstr final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
 
-			if(!final_file_path) {
+			if(tstr_is_null(&final_file_path)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 				                               "Path resolve error");
 
@@ -679,7 +689,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			}
 
 			struct stat stat_result;
-			int result = stat(final_file_path, &stat_result);
+			int result = stat(tstr_cstr(&final_file_path), &stat_result);
 
 			if(result != 0) {
 				if(errno != ENOENT) {
@@ -712,7 +722,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					int _ = close_connection_descriptor(connection_to_close);
+					const GenericResult _ = close_connection_descriptor(connection_to_close);
 					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -825,7 +835,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				}
 
 				// store data
-				bool success = write_to_file(final_file_path, resulting_data.value.buffer);
+				bool success =
+				    write_to_file(tstr_cstr(&final_file_path), resulting_data.value.buffer);
 
 				free_buffered_reader(data_conn_reader);
 
@@ -848,7 +859,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			const tstr* arg = &(command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_RETR));
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
@@ -863,9 +874,9 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
+			const tstr final_file_path = resolve_path_in_cwd(state, tstr_cstr(arg));
 
-			if(!final_file_path) {
+			if(tstr_is_null(&final_file_path)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 				                               "Path resolve error");
 
@@ -873,7 +884,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			}
 
 			struct stat stat_result;
-			int result = stat(final_file_path, &stat_result);
+			int result = stat(tstr_cstr(&final_file_path), &stat_result);
 
 			if(result != 0) {
 				if(errno == ENOENT) {
@@ -897,7 +908,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			if(access(final_file_path, R_OK) != 0) {
+			if(access(tstr_cstr(&final_file_path), R_OK) != 0) {
 
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 				                               "Access to file denied");
@@ -917,7 +928,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					int _ = close_connection_descriptor(connection_to_close);
+					GenericResult _ = close_connection_descriptor(connection_to_close);
 					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -1025,7 +1036,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				SendData* data_to_send = get_data_to_send_for_retr(final_file_path);
+				SendData* data_to_send = get_data_to_send_for_retr(tstr_cstr(&final_file_path));
 
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
@@ -1076,7 +1087,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 			const OptionalString arg =
 			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_LIST);
 
-			if(state->account->state != AccountStateOk) {
+			IF_ACCOUNT_INFO_IS_NOT_OK((*state->account)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeNotLoggedIn,
 				                               "Not logged in: can't access files!");
 
@@ -1095,16 +1106,17 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			tstr actual_arg = tstr_null();
 
-			if(!arg.has_value) {
+			IF_OPTIONAL_STRING_IS_VALUE_CONST(arg) {
+				actual_arg = value.value;
+			}
+			else {
 				// A null argument implies the user's current working or default directory.
 				actual_arg = TSTR_LIT(".");
-			} else {
-				actual_arg = arg.value;
 			}
 
-			char* final_file_path = resolve_path_in_cwd(state, tstr_cstr(&actual_arg));
+			tstr final_file_path = resolve_path_in_cwd(state, tstr_cstr(&actual_arg));
 
-			if(!final_file_path) {
+			if(tstr_is_null(&final_file_path)) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionNotTaken,
 				                               "Path resolve error");
 
@@ -1114,11 +1126,11 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 #undef FREE_AT_END
 #define FREE_AT_END() \
 	do { \
-		free(final_file_path); \
+		tstr_free(&final_file_path); \
 	} while(false)
 
 			struct stat stat_result;
-			int stat_ret = stat(final_file_path, &stat_result);
+			int stat_ret = stat(tstr_cstr(&final_file_path), &stat_result);
 
 			if(stat_ret != 0) {
 				FREE_AT_END();
@@ -1138,7 +1150,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 
 			bool is_folder = S_ISDIR(stat_result.st_mode);
 
-			if(access(final_file_path, R_OK) != 0) {
+			if(access(tstr_cstr(&final_file_path), R_OK) != 0) {
 				const char* file_type_str =
 				    is_folder ? "folder" : "file"; // NOLINT(readability-implicit-bool-conversion)
 
@@ -1161,7 +1173,7 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					int _ = close_connection_descriptor(connection_to_close);
+					GenericResult _ = close_connection_descriptor(connection_to_close);
 					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -1280,8 +1292,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 					return true;
 				}
 
-				SendData* data_to_send = get_data_to_send_for_list(is_folder, final_file_path,
-				                                                   state->options->send_format);
+				SendData* data_to_send = get_data_to_send_for_list(
+				    is_folder, tstr_cstr(&final_file_path), state->options->send_format);
 
 				if(data_to_send == NULL) {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeFileActionAborted,
@@ -1296,7 +1308,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				SendProgress* send_progress = setup_send_progress(data_to_send, send_mode);
 
 				while(!send_progress_is_finished(send_progress)) {
-
 					if(!send_data_to_send(data_to_send, data_conn_descriptor, send_mode,
 					                      send_progress)) {
 						free_send_data(data_to_send);
@@ -1333,16 +1344,18 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 		case FtpCommandType: {
 			static_assert(FTP_COMMAND_TYPE_COMMAND_TYPE == FTP_COMMAND_TYPE_TYPE_INFO);
 
-			const FTPCommandTypeInformation* type_info =
+			const FtpCommandTypeInformation* type_info =
 			    command->data.PROPERTY_VALUE_FOR(FTP_COMMAND_TYPE_COMMAND_TYPE);
 
-			if(!type_info->is_normal) {
+			IF_FTP_COMMAND_TYPE_INFORMATION_IS_OTHER_IGN(*type_info) {
 				SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeCommandNotImplementedForParam,
 				                               "Not Implemented!");
 				return true;
 			}
 
-			switch(type_info->data.type & FtpTransmissionTypeMaskBase) {
+			const FtpTransmissionType normal_data =ftp_command_type_information_get_as_normal_const_ref(type_info)->type; 
+
+			switch(normal_data & FtpTransmissionTypeMaskBase) {
 				case FtpTransmissionTypeAscii: {
 					SEND_RESPONSE_WITH_ERROR_CHECK(FtpReturnCodeSyntaxError,
 					                               "ASCII type not supported atm!");
@@ -1421,17 +1434,6 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 	}
 }
 
-// implemented specifically for the ftp Server, it just gets the internal value, but it's better
-// to not access that, since additional steps can be required, like  boundary checks!
-static int tqueue_size(TQueue* queue) {
-	if(queue->size < 0) {
-		LOG_MESSAGE(LogLevelCritical,
-		            "internal size implementation error in the queue, value negative: %d!",
-		            queue->size);
-	}
-	return queue->size;
-}
-
 static volatile sig_atomic_t
     g_signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     0;
@@ -1462,7 +1464,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 	int sig_fd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	CHECK_FOR_ERROR(sig_fd, "While trying to cancel the listener Thread on signal",
-	                exit(EXIT_FAILURE););
+	                exit(ExitCodeFailure););
 
 	poll_fds[1].fd = sig_fd;
 	poll_fds[1].events = POLLIN;
@@ -1476,9 +1478,8 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		// since it aborts on POLLIN from the socket_fd or the signalFd
 		int status = 0;
 		while(status == 0) {
-			status = poll(
-			    poll_fds, POLL_FD_AMOUNT,
-			    5000); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			status = poll(poll_fds, POLL_FD_AMOUNT,
+			              5000); // NOLINT(readability-magic-numbers)
 			if(status < 0) {
 				LOG_MESSAGE(LogLevelError, "poll failed: %s\n", strerror(errno));
 				continue;
@@ -1506,7 +1507,8 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		socklen_t addr_len = sizeof(client_addr);
 
 		// would be better to set cancel state in the right places!!
-		int connection_fd = accept(argument.socket_fd, (struct sockaddr*)&client_addr, &addr_len);
+		const NativeFd connection_fd =
+		    accept(argument.socket_fd, (struct sockaddr*)&client_addr, &addr_len);
 		CHECK_FOR_ERROR(connection_fd, "While Trying to accept a socket",
 		                return LISTENER_ERROR_ACCEPT;);
 
@@ -1546,9 +1548,11 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 
 		// push to the queue, but not await, since when we wait it wouldn't be fast and
 		// ready to accept new connections
-		if(tqueue_push(argument.job_id_queue,
-		               pool_submit(argument.pool, ftp_control_socket_connection_handler,
-		                           connection_argument)) < 0) {
+		const GenericResult push_res = tqueue_push(
+		    argument.job_id_queue,
+		    pool_submit(argument.pool, ftp_control_socket_connection_handler, connection_argument));
+
+		IF_GENERIC_RESULT_IS_ERROR_IGN(push_res) {
 			return LISTENER_ERROR_QUEUE_PUSH;
 		}
 
@@ -1557,10 +1561,12 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		// so its super fast,but if not doing that, the queue would overflow, nothing in
 		// here is a cancellation point, so it's safe to cancel here, since only accept then
 		// really cancels
-		int size = tqueue_size(argument.job_id_queue);
+		// TODO(Totto): can I access this size, or is it a race condition?
+		const size_t size = argument.job_id_queue->size;
 		if(size > FTP_MAX_QUEUE_SIZE) {
-			int boundary = size / 2;
-			while(size > boundary) {
+			const size_t boundary = size / 2;
+			size_t remaining_size = size;
+			while(remaining_size > boundary) {
 
 				JobId* job_id = (JobId*)tqueue_pop(argument.job_id_queue);
 
@@ -1578,7 +1584,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 					            result);
 				}
 
-				--size;
+				--remaining_size;
 			}
 		}
 
@@ -1618,7 +1624,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 	int sig_fd = get_signal_like_fd(SIGINT);
 	// TODO(Totto): don't exit here
 	CHECK_FOR_ERROR(sig_fd, "While trying to cancel a data listener Thread on signal",
-	                exit(EXIT_FAILURE););
+	                exit(ExitCodeFailure););
 
 	poll_fds[POLL_SIG_ARR_INDEX].fd = sig_fd;
 	poll_fds[POLL_SIG_ARR_INDEX].events = POLLIN;
@@ -1668,7 +1674,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 				    ++i) {
 					ConnectionDescriptor* connection_to_close =
 					    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-					int _ = close_connection_descriptor(connection_to_close);
+					GenericResult _ = close_connection_descriptor(connection_to_close);
 					UNUSED(_);
 				}
 				TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -1705,7 +1711,9 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 		// TODO(Totto): get correct context, in future if we use tls
 		// TODO(Totto): should we also support tls here? Answer, there is a separate FTP rfc
 		// extension to set the encryption state of the data connection, per default it is off
-		const SecureOptions* const options = initialize_secure_options(false, "", "");
+
+		const SecureOptions* const options =
+		    initialize_secure_options(false, tstr_static_null(), tstr_static_null());
 
 		ConnectionContext* context = get_connection_context(options);
 
@@ -1731,7 +1739,7 @@ ANY_TYPE(ListenerError*) ftp_data_listener_thread_function(ANY_TYPE(FTPDataThrea
 			    ++i) {
 				ConnectionDescriptor* connection_to_close =
 				    TVEC_AT(ConnectionDescriptorPtr, *connections_to_close, i);
-				int _ = close_connection_descriptor(connection_to_close);
+				const GenericResult _ = close_connection_descriptor(connection_to_close);
 				UNUSED(_);
 			}
 			TVEC_FREE(ConnectionDescriptorPtr, connections_to_close);
@@ -1813,7 +1821,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 		continue;
 	}
 
-	bool is_error = false;
+	bool has_error = false;
 
 	// launched every thread, now wait for them
 	for(size_t i = 0; i < argument.port_amount; ++i) {
@@ -1823,7 +1831,7 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 		int result = pthread_join(port_status.thread_ref, &return_value);
 		CHECK_FOR_THREAD_ERROR(result,
 		                       "An Error occurred while trying to wait for a port listening Thread",
-		                       is_error = true;
+		                       has_error = true;
 		                       goto cont_outer2;);
 
 		if(is_listener_error(return_value)) {
@@ -1846,12 +1854,13 @@ ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg
 	}
 
 	free(local_port_status_arr);
-	return is_error ? LISTENER_ERROR_THREAD_CANCEL // NOLINT(readability-implicit-bool-conversion)
-	                : LISTENER_ERROR_NONE;
+	return has_error ? LISTENER_ERROR_THREAD_CANCEL // NOLINT(readability-implicit-bool-conversion)
+	                 : LISTENER_ERROR_NONE;
 }
 
-int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options,
-                     AuthenticationProviders* const auth_providers) {
+ExitCode start_ftp_server(const FTPPortField control_port, tstr folder,
+                          SecureOptions* const options,
+                          AuthenticationProviders* const auth_providers) {
 
 	// using TCP  and not 0, which is more explicit about what protocol to use
 	// so essentially a socket is created, the protocol is AF_INET alias the IPv4 Prototol,
@@ -1859,14 +1868,14 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// all other types are not that well suited for that example
 	int control_socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	CHECK_FOR_ERROR(control_socket_fd, "While Trying to create control socket",
-	                return EXIT_FAILURE;);
+	                return ExitCodeFailure;);
 
 	// set the reuse port option to the socket, so it can be reused
 	const int optval = 1;
 	int option_return1 =
 	    setsockopt(control_socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
 	CHECK_FOR_ERROR(option_return1, "While Trying to set the control socket option 'SO_REUSEPORT'",
-	                return EXIT_FAILURE;);
+	                return ExitCodeFailure;);
 
 	// creating the sockaddr_in struct, each number that is used in context of network has
 	// to be converted into network byte order (Big Endian, linux uses Little Endian) that
@@ -1889,14 +1898,15 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// to be able to bind to them ( CAP_NET_BIND_SERVICE capability) (the simple way of
 	// getting that is being root, or executing as root: sudo ...)
 	int result1 = bind(control_socket_fd, (struct sockaddr*)&control_addr, sizeof(control_addr));
-	CHECK_FOR_ERROR(result1, "While trying to bind control socket to port", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result1, "While trying to bind control socket to port",
+	                return ExitCodeFailure;);
 
 	// FTP_SOCKET_BACKLOG_SIZE is used, to be able to change it easily, here it denotes the
 	// connections that can be unaccepted in the queue, to be accepted, after that is full,
 	// the protocol discards these requests listen starts listening on that socket, meaning
 	// new connections can be accepted
 	result1 = listen(control_socket_fd, FTP_SOCKET_BACKLOG_SIZE);
-	CHECK_FOR_ERROR(result1, "While trying to listen on control socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result1, "While trying to listen on control socket", return ExitCodeFailure;);
 
 	LOG_MESSAGE(LogLevelInfo, "To use this simple FTP Server visit ftp://localhost:%d'.\n",
 	            control_port);
@@ -1912,24 +1922,27 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	int result_act = sigaction(SIGINT, &action, NULL);
 	if(result_act < 0 || empty_set_result < 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't set signal interception: %s\n", strerror(errno));
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// create pool and queue! then initializing both!
 	// the pool is created and destroyed outside of the listener, so the listener can be
 	// cancelled and then the main thread destroys everything accordingly
 	ThreadPool control_pool;
-	int create_result1 = pool_create_dynamic(&control_pool);
-	if(create_result1 < 0) {
-		print_create_error(-create_result1);
-		return EXIT_FAILURE;
+	const CreateResult create_result1 = pool_create(&control_pool, 0);
+	if(create_result1.error != CreateErrorNone) {
+		print_create_error(create_result1.error);
+		return ExitCodeFailure;
 	}
 
 	// this is a internal synchronized queue! tqueue_init creates a semaphore that handles
 	// that
 	TQueue control_job_id_queue;
-	if(tqueue_init(&control_job_id_queue) < 0) {
-		return EXIT_FAILURE;
+
+	const GenericResult queue_init_res = tqueue_init(&control_job_id_queue);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(queue_init_res) {
+		return ExitCodeFailure;
 	};
 
 	// this is an array of pointers
@@ -1941,13 +1954,13 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	if(allocate_result != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 		LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 		                   "Couldn't allocate memory!\n");
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	// TODO(Totto): implement implicit TLS
 	const SecureOptions* const final_options =
 	    is_secure(options) // NOLINT(readability-implicit-bool-conversion)
-	        ? initialize_secure_options(false, "", "")
+	        ? initialize_secure_options(false, tstr_static_null(), tstr_static_null())
 	        : options;
 
 	for(size_t i = 0; i < control_pool.worker_threads_amount; ++i) {
@@ -1958,7 +1971,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 
 		if(push_res != TvecResultOk) { // NOLINT(readability-implicit-bool-conversion)
 			TVEC_FREE(ConnectionContextPtr, &control_contexts);
-			return EXIT_FAILURE;
+			return ExitCodeFailure;
 		}
 	}
 
@@ -1974,7 +1987,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 			free_connection_context(TVEC_AT(ConnectionContextPtr, control_contexts, i));
 		}
 		TVEC_FREE(ConnectionContextPtr, &control_contexts);
-		return EXIT_FAILURE;
+		return ExitCodeFailure;
 	}
 
 	FTPPortField* ports = (FTPPortField*)malloc(port_amount * sizeof(FTPPortField));
@@ -1999,7 +2012,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	                             ftp_data_orchestrator_thread_function, &data_thread_argument);
 	CHECK_FOR_THREAD_ERROR(result2,
 	                       "An Error occurred while trying to create a new data listener Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	pthread_t control_listener_thread = {};
 	FTPControlThreadArgument control_thread_argument = {
@@ -2018,14 +2031,14 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	                         &control_thread_argument);
 	CHECK_FOR_THREAD_ERROR(result1,
 	                       "An Error occurred while trying to create a new control listener Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	// wait for the single listener thread to finish, that happens when he is cancelled via
 	// shutdown request
 	ListenerError control_return_value = LISTENER_ERROR_NONE;
 	result1 = pthread_join(control_listener_thread, &control_return_value);
 	CHECK_FOR_THREAD_ERROR(result1, "An Error occurred while trying to wait for a control Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	if(is_listener_error(control_return_value)) {
 		if(control_return_value != LISTENER_ERROR_NONE) {
@@ -2045,7 +2058,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	ListenerError data_return_value = LISTENER_ERROR_NONE;
 	result2 = pthread_join(data_orchestrator_thread, &data_return_value);
 	CHECK_FOR_THREAD_ERROR(result2, "An Error occurred while trying to wait for a data Thread",
-	                       return EXIT_FAILURE;);
+	                       return ExitCodeFailure;);
 
 	if(is_listener_error(data_return_value)) {
 		if(data_return_value != LISTENER_ERROR_NONE) {
@@ -2082,13 +2095,17 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	}
 
 	// then after all were awaited the pool is destroyed
-	if(pool_destroy(&control_pool) < 0) {
-		return EXIT_FAILURE;
+	const GenericResult destroy_result1 = pool_destroy(&control_pool);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result1) {
+		return ExitCodeFailure;
 	}
 
 	// then the queue is destroyed
-	if(tqueue_destroy(&control_job_id_queue) < 0) {
-		return EXIT_FAILURE;
+	const GenericResult destroy_result2 = tqueue_destroy(&control_job_id_queue);
+
+	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result2) {
+		return ExitCodeFailure;
 	}
 
 	// finally closing the whole socket, so that the port is useable by other programs or by
@@ -2098,7 +2115,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	// essentially saying, also correctly closed sockets aren't available after a certain
 	// time, even if closed correctly!
 	result1 = close(control_socket_fd);
-	CHECK_FOR_ERROR(result1, "While trying to close the control socket", return EXIT_FAILURE;);
+	CHECK_FOR_ERROR(result1, "While trying to close the control socket", return ExitCodeFailure;);
 
 	free(ports);
 
@@ -2106,7 +2123,7 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 		free_connection_context(TVEC_AT(ConnectionContextPtr, control_contexts, i));
 	}
 
-	free(folder);
+	tstr_free(&folder);
 
 	free_authentication_providers(auth_providers);
 
@@ -2114,5 +2131,5 @@ int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* opt
 	openssl_cleanup_global_state();
 #endif
 
-	return EXIT_SUCCESS;
+	return ExitCodeSuccess;
 }

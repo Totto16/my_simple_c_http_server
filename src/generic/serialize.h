@@ -1,10 +1,10 @@
 #pragma once
 
+#include "utils/utils.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "utils/utils.h"
 
 /**
  * @brief Abbreviations:
@@ -45,7 +45,7 @@ NODISCARD SerializeResult32 serialize_u32_no_to_host(uint32_t bytes);
 NODISCARD SerializeResult32 serialize_u32_host_to_be(uint32_t bytes);
 
 typedef struct {
-	uint8_t bytes[8]; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint8_t bytes[8]; // NOLINT(readability-magic-numbers)
 } SerializeResult64;
 
 NODISCARD SerializeResult64 serialize_u64_host_to_be(uint64_t bytes);

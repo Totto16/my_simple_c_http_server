@@ -4,7 +4,9 @@
 
 #include "./utils.h"
 
-NODISCARD char* get_serve_folder(const char* folder_to_resolve);
+#include <tstr.h>
+
+NODISCARD tstr get_serve_folder(const tstr* folder_to_resolve);
 
 NODISCARD bool file_is_absolute(const char* file);
 

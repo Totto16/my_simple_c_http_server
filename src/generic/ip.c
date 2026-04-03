@@ -6,17 +6,11 @@
 
 NODISCARD IPAddress from_ipv4(struct in_addr address) {
 
-	return (IPAddress){ .version = IPProtocolVersionV4,
-		                .data = {
-		                    .v4 = (IPV4Address){ .underlying = address },
-		                } };
+	return new_ip_address_v4((IPV4Address){ .underlying = address });
 }
 
 NODISCARD IPAddress from_ipv6(struct in6_addr address) {
-	return (IPAddress){ .version = IPProtocolVersionV6,
-		                .data = {
-		                    .v6 = (IPV6Address){ .underlying = address },
-		                } };
+	return new_ip_address_v6((IPV6Address){ .underlying = address });
 }
 
 NODISCARD char* ipv4_to_string(IPV4Address v4_address) {
@@ -59,13 +53,15 @@ NODISCARD char* ipv6_to_string(IPV6Address v6_address) {
 
 NODISCARD char* ipv_to_string(IPAddress address) {
 
-	switch(address.version) {
-		case IPProtocolVersionV4: {
-			return ipv4_to_string(address.data.v4);
+	SWITCH_IP_ADDRESS(address) {
+		CASE_IP_ADDRESS_IS_V4_CONST(address) {
+			return ipv4_to_string(v4);
 		}
-		case IPProtocolVersionV6: {
-			return ipv6_to_string(address.data.v6);
+		VARIANT_CASE_END();
+		CASE_IP_ADDRESS_IS_V6_CONST(address) {
+			return ipv6_to_string(v6);
 		}
+		VARIANT_CASE_END();
 		default: {
 			return NULL;
 		}
@@ -74,16 +70,16 @@ NODISCARD char* ipv_to_string(IPAddress address) {
 
 NODISCARD IPV4Address get_ipv4_address_from_host_bytes(const uint8_t* bytes) {
 
-	uint32_t addr = deserialize_u32_le_to_no(bytes);
+	const uint32_t addr = deserialize_u32_le_to_no(bytes);
 
-	struct in_addr value = { .s_addr = addr };
+	const struct in_addr value = { .s_addr = addr };
 
 	return (IPV4Address){ .underlying = value };
 }
 
 NODISCARD IPV4RawBytes get_raw_bytes_as_host_bytes_from_ipv4_address(IPV4Address address) {
 
-	SerializeResult32 result = serialize_u32_no_to_host(address.underlying.s_addr);
+	const SerializeResult32 result = serialize_u32_no_to_host(address.underlying.s_addr);
 
 	return (IPV4RawBytes){ .bytes = {
 		                       result.bytes[0],

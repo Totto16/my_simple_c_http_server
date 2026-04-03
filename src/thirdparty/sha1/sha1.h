@@ -14,16 +14,16 @@ extern "C" {
 #endif
 
 typedef struct {
-	uint32_t state[5]; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-	uint32_t count[2]; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	uint32_t state[5]; // NOLINT(readability-magic-numbers)
+	uint32_t count[2]; // NOLINT(readability-magic-numbers)
 	unsigned char
-	    buffer[64]; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	    buffer[64]; // NOLINT(readability-magic-numbers)
 } SHA1_CTX;
 
 void SHA1Transform(
-    uint32_t state[5], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    uint32_t state[5], // NOLINT(readability-magic-numbers)
     const unsigned char
-        buffer[64]); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        buffer[64]); // NOLINT(readability-magic-numbers)
 
 void SHA1Init(SHA1_CTX* context);
 
@@ -31,7 +31,7 @@ void SHA1Update(SHA1_CTX* context, const unsigned char* data, uint32_t len);
 
 void SHA1Final(
     unsigned char
-        digest[20], // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+        digest[20], // NOLINT(readability-magic-numbers)
     SHA1_CTX* context);
 
 void SHA1(char* hash_out, const char* str, uint32_t len);

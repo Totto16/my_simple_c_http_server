@@ -2,7 +2,7 @@ project(
     'simple http server',
     'c',
     license: 'MIT',
-    meson_version: '>=1.3.0',
+    meson_version: '>=1.10.0',
     default_options: {
         'buildtype': 'release',
         'optimization': '3',
@@ -252,7 +252,9 @@ internal_c_args += cc.get_supported_arguments(
     '-Wfloat-conversion',
     '-Wno-nullability-extension',
     '-Wno-nullability-completeness',
-    '-ftime-trace',
+    '-Wcast-qual',
+    '-Wwrite-strings',
+    '-Wdiscarded-qualifiers',
 )
 
 if cc.get_id() == 'gcc'
@@ -273,12 +275,14 @@ else
     compile_flags += '-D_SIMPLE_SERVER_DYNAMIC_HPACK_TABLE_FORTIFIED=0'
 endif
 
+subdir('tools/helper')
+
+deps += variants_dep
+deps += generated_hpack_huffman_dep
+deps += generated_hpack_dep
+
 src_files = []
 inc_dirs = []
-
-generated_cpp_tests = []
-generated_sources = []
-
 
 subdir('src')
 
@@ -298,6 +302,11 @@ http_server_dep = declare_dependency(
     version: meson.project_version(),
 )
 
+## mark as unusable
+compile_flags = {
+    'don\'t_use': true,
+}
+
 executable(
     'server',
     files('src/main.c'),
@@ -305,9 +314,6 @@ executable(
     dependencies: [http_server_dep],
 )
 
-
 if get_option('tests')
     subdir('tests')
 endif
-
-alias_target('generated_sources', generated_sources)

@@ -17,7 +17,8 @@ NODISCARD static HashSaltResultType* hash_salt_string_impl(HashSaltSettings sett
                                                            const char* const string) {
 	char result_salt[BCRYPT_HASHSIZE] = {};
 
-	int res = bcrypt_gensalt(settings.work_factor, result_salt);
+	int res = bcrypt_gensalt(settings.work_factor, // NOLINT(totto-use-fixed-width-types-var)
+	                         result_salt);
 
 	if(res != 0) {
 		return NULL;
@@ -47,7 +48,7 @@ NODISCARD static HashSaltResultType* hash_salt_string_sha512_impl(HashSaltSettin
 
 	char result_digest[BCRYPT_512BITS_BASE64_SIZE] = {};
 
-	int res = bcrypt_sha512(string, result_digest);
+	const int res = bcrypt_sha512(string, result_digest); // NOLINT(totto-use-fixed-width-types-var)
 
 	if(res != 0) {
 		return NULL;
@@ -78,7 +79,8 @@ NODISCARD static bool
 is_string_equal_to_hash_salted_string_impl(const char* const string,
                                            const HashSaltResultType* const hash_salted_string) {
 
-	int res = bcrypt_checkpw(string, hash_salted_string->hash);
+	const int res = // NOLINT(totto-use-fixed-width-types-var)
+	    bcrypt_checkpw(string, hash_salted_string->hash);
 
 	if(res < 0) {
 		return false;
@@ -92,7 +94,8 @@ NODISCARD static bool is_string_equal_to_hash_salted_string_sha512_impl(
 
 	char input_digest[BCRYPT_512BITS_BASE64_SIZE] = {};
 
-	int res = bcrypt_sha512(string, input_digest);
+	const int res = // NOLINT(totto-use-fixed-width-types-var)
+	    bcrypt_sha512(string, input_digest);
 
 	if(res != 0) {
 		return NULL;
@@ -104,7 +107,7 @@ NODISCARD static bool is_string_equal_to_hash_salted_string_sha512_impl(
 
 	memcpy(new_string, input_digest, BCRYPT_512BITS_BASE64_SIZE);
 
-	bool result = is_string_equal_to_hash_salted_string_impl(new_string, hash_salted_string);
+	const bool result = is_string_equal_to_hash_salted_string_impl(new_string, hash_salted_string);
 
 	return result;
 }
@@ -180,16 +183,18 @@ SizedBuffer get_sha1_from_string(const char* const string) {
 
 	EVP_MD_CTX* evp_context = EVP_MD_CTX_new();
 
-	int result = EVP_DigestInit_ex(evp_context, EVP_sha1(), NULL);
+	const int result = // NOLINT(totto-use-fixed-width-types-var)
+	    EVP_DigestInit_ex(evp_context, EVP_sha1(), NULL);
 
 	if(result != 1) {
 		EVP_MD_CTX_free(evp_context);
 		return get_empty_sized_buffer();
 	}
 
-	result = EVP_DigestUpdate(evp_context, (uint8_t*)string, strlen(string));
+	const int result2 = // NOLINT(totto-use-fixed-width-types-var)
+	    EVP_DigestUpdate(evp_context, (const void*)string, strlen(string));
 
-	if(result != 1) {
+	if(result2 != 1) {
 		EVP_MD_CTX_free(evp_context);
 		return get_empty_sized_buffer();
 	}
@@ -202,11 +207,12 @@ SizedBuffer get_sha1_from_string(const char* const string) {
 		return get_empty_sized_buffer();
 	}
 
-	unsigned int hash_len = 0;
+	unsigned int hash_len = 0; // NOLINT(totto-use-fixed-width-types-var)
 
-	result = EVP_DigestFinal_ex(evp_context, sha1_result, &hash_len);
+	const int result3 = // NOLINT(totto-use-fixed-width-types-var)
+	    EVP_DigestFinal_ex(evp_context, sha1_result, &hash_len);
 
-	if(result != 1) {
+	if(result3 != 1) {
 		free(sha1_result);
 		EVP_MD_CTX_free(evp_context);
 		return get_empty_sized_buffer();
@@ -231,7 +237,7 @@ SizedBuffer get_sha1_from_string(const char* const string) {
 
 	SHA1Init(&sha_context);
 
-	SHA1Update(&sha_context, (uint8_t*)string, strlen(string));
+	SHA1Update(&sha_context, (const uint8_t*)string, strlen(string));
 
 	uint8_t* sha1_result = malloc(SHA1_LEN * sizeof(uint8_t));
 
@@ -254,7 +260,7 @@ SizedBuffer get_sha1_from_string(const char* const string) {
 	#include <openssl/buffer.h>
 	#include <openssl/evp.h> //NOLINT(readability-duplicate-include)
 
-NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
+NODISCARD tstr base64_encode_buffer(ReadonlyBuffer input_buffer) {
 
 	BIO* mem_input = NULL;
 	BIO* b64_filter = NULL;
@@ -271,19 +277,19 @@ NODISCARD char* base64_encode_buffer(SizedBuffer input_buffer) {
 	BIO_flush(mem_input);
 	BIO_get_mem_ptr(mem_input, &buffer_ptr);
 
-	size_t length = buffer_ptr->length * sizeof(char);
+	const size_t length = buffer_ptr->length * sizeof(char);
 
 	char* result = (char*)malloc(length + 1);
 	memcpy(result, buffer_ptr->data, length);
 	result[length] = '\0';
 
 	BIO_free_all(mem_input);
-	return result;
+	return tstr_own(result, length, length);
 }
 
 	#define B64_CHUNK_SIZE 512
 
-NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
+NODISCARD SizedBuffer base64_decode_buffer(const ReadonlyBuffer input_buffer) {
 	if(input_buffer.size == 0) {
 
 		char* empty_str = malloc(1);
@@ -307,7 +313,8 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 	BIO_set_flags(mem_input, BIO_FLAGS_BASE64_NO_NL);
 	while(true) {
 		size_t read_size = 0;
-		int result = BIO_read_ex(mem_input, output_buffer_current, B64_CHUNK_SIZE, &read_size);
+		const int result = // NOLINT(totto-use-fixed-width-types-var)
+		    BIO_read_ex(mem_input, output_buffer_current, B64_CHUNK_SIZE, &read_size);
 
 		if(result != 1) {
 			BIO_free_all(mem_input);
@@ -319,7 +326,8 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 
 		// we need to perform more reads
 		if(read_size == B64_CHUNK_SIZE) {
-			void* new_chunk = realloc(output_buffer.data, output_buffer.size + B64_CHUNK_SIZE);
+			void* const new_chunk =
+			    realloc(output_buffer.data, output_buffer.size + B64_CHUNK_SIZE);
 			output_buffer.data = new_chunk;
 			output_buffer_current = (uint8_t*)output_buffer.data + output_buffer.size;
 			continue;
@@ -337,11 +345,12 @@ NODISCARD SizedBuffer base64_decode_buffer(SizedBuffer input_buffer) {
 
 	#include <b64/b64.h>
 
-NODISCARD char* base64_encode_buffer(const SizedBuffer input_buffer) {
-	return b64_encode(input_buffer.data, input_buffer.size);
+NODISCARD tstr base64_encode_buffer(const ReadonlyBuffer input_buffer) {
+	char* const result = b64_encode(input_buffer.data, input_buffer.size);
+	return tstr_own_cstr(result);
 }
 
-NODISCARD SizedBuffer base64_decode_buffer(const SizedBuffer input_buffer) {
+NODISCARD SizedBuffer base64_decode_buffer(const ReadonlyBuffer input_buffer) {
 	size_t result_size = 0;
 	uint8_t* result = b64_decode_ex(input_buffer.data, input_buffer.size, &result_size);
 
@@ -378,9 +387,9 @@ NODISCARD const char* get_base64_provider(void) {
 	#include <openssl/err.h>
 
 void openssl_initialize_crypto_thread_state(void) {
-	uint64_t options = 0;
+	const uint64_t options = 0;
 
-	int res = OPENSSL_init_crypto(options, NULL);
+	const int res = OPENSSL_init_crypto(options, NULL); // NOLINT(totto-use-fixed-width-types-var)
 
 	if(res != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "Failed to setup OPENSSL crypto thread state\n");

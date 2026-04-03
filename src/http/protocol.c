@@ -27,17 +27,17 @@ NODISCARD const char* get_http_protocol_version_string(HTTPProtocolVersion proto
 	}
 }
 
-NODISCARD const char*
+NODISCARD tstr_static
 get_error_string_for_http_request_error_type(const HttpRequestErrorType type) {
 	switch(type) {
-		case HttpRequestErrorTypeInvalidHttpVersion: return "InvalidHttpVersion";
-		case HttpRequestErrorTypeMethodNotSupported: return "MethodNotSupported";
-		case HttpRequestErrorTypeInvalidNonEmptyBody: return "InvalidNonEmptyBody";
-		case HttpRequestErrorTypeInvalidHttp2Preface: return "InvalidHttp2Preface";
-		case HttpRequestErrorTypeLengthRequired: return "LengthRequired";
-		case HttpRequestErrorTypeProtocolError: return "ProtocolError";
-		case HttpRequestErrorTypeNotSupported: return "NotSupported";
-		default: return "<Unknown>";
+		case HttpRequestErrorTypeInvalidHttpVersion: return TSTR_STATIC_LIT("InvalidHttpVersion");
+		case HttpRequestErrorTypeMethodNotSupported: return TSTR_STATIC_LIT("MethodNotSupported");
+		case HttpRequestErrorTypeInvalidNonEmptyBody: return TSTR_STATIC_LIT("InvalidNonEmptyBody");
+		case HttpRequestErrorTypeInvalidHttp2Preface: return TSTR_STATIC_LIT("InvalidHttp2Preface");
+		case HttpRequestErrorTypeLengthRequired: return TSTR_STATIC_LIT("LengthRequired");
+		case HttpRequestErrorTypeProtocolError: return TSTR_STATIC_LIT("ProtocolError");
+		case HttpRequestErrorTypeNotSupported: return TSTR_STATIC_LIT("NotSupported");
+		default: return TSTR_STATIC_LIT("<Unknown>");
 	}
 }
 
@@ -95,14 +95,14 @@ typedef struct {
 } HTTPContent;
 
 NODISCARD const ParsedSearchPathEntry* find_search_key(const ParsedSearchPath search_path,
-                                                       const tstr key) {
+                                                       const tstr_static key) {
 
 	if(TMAP_IS_EMPTY(ParsedSearchPathHashMap, &search_path.hash_map)) {
 		return NULL;
 	}
 
-	const ParsedSearchPathEntry* entry =
-	    TMAP_GET_ENTRY(ParsedSearchPathHashMap, &(search_path.hash_map), key);
+	const ParsedSearchPathEntry* entry = TMAP_GET_ENTRY(
+	    ParsedSearchPathHashMap, &(search_path.hash_map), tstr_from_static_tstr(key));
 
 	if(entry == NULL) {
 		return NULL;
@@ -163,11 +163,11 @@ const char* get_status_message(HttpStatusCode status_code) {
 	return result;
 }
 
-NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const tstr key) {
+NODISCARD HttpHeaderField* find_header_by_key(HttpHeaderFields array, const tstr_static key) {
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, array); ++i) {
 		HttpHeaderField* header = TVEC_GET_AT_MUT(HttpHeaderField, &array, i);
-		if(tstr_eq_ignore_case(&(header->key), &key)) {
+		if(tstr_eq_ignore_case_static_tstr(&(header->key), key)) {
 			return header;
 		}
 	}
@@ -203,9 +203,8 @@ compare_function_entries(const CompressionEntry* // NOLINT(bugprone-easily-swapp
 	// note weight is between 0.0 and 1.0
 
 	if(entry1->weight != entry2->weight) {
-		return (
-		    int)((entry1->weight - entry2->weight) *
-		         10000.0F); // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+		return (int)((entry1->weight - entry2->weight) *
+		             10000.0F); // NOLINT(readability-magic-numbers)
 	}
 
 	return 0;

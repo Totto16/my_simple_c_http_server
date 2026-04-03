@@ -38,7 +38,9 @@ HTTP_MIME_TYPE_MAKE(octet_stream, "application/octet-stream");
 // from: https://www.iana.org/assignments/media-types/media-types.xhtml
 // and nginx
 
+/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type) */
 TMAP_DEFINE_MAP_TYPE(tstr_view, TStringView, tstr, MimeTypeEntryHashMap)
+/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 
 typedef TMAP_TYPENAME_ENTRY(MimeTypeEntryHashMap) MimeTypeEntry;
 

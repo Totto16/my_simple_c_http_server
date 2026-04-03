@@ -1,0 +1,149 @@
+#include "./http.hpp"
+
+#include "./cpp_types.hpp"
+
+compression::CompressionSettingsCpp::CompressionSettingsCpp(HttpHeaderFields http_header_fields)
+    : m_settings{ get_compression_settings(http_header_fields) } {}
+
+compression::CompressionSettingsCpp::CompressionSettingsCpp(CompressionSettings settings)
+    : m_settings{ settings } {}
+
+compression::CompressionSettingsCpp::CompressionSettingsCpp(
+    const char* const accept_encoding_value) {
+
+	HttpHeaderFields http_header_fields = TVEC_EMPTY(HttpHeaderField);
+
+	add_http_header_field(&http_header_fields,
+	                      tstr_from_static_tstr(HTTP_HEADER_NAME(accept_encoding)),
+	                      tstr_from(accept_encoding_value));
+
+	this->m_settings = get_compression_settings(http_header_fields);
+
+	free_http_header_fields(&http_header_fields);
+}
+
+[[nodiscard]] const CompressionEntries& compression::CompressionSettingsCpp::entries() const {
+	return this->m_settings.entries;
+}
+
+compression::CompressionSettingsCpp::~CompressionSettingsCpp() {
+	free_compression_settings(this->m_settings);
+}
+
+[[nodiscard]] static const char* compression_type_to_string(CompressionType type) {
+	const tstr temp = get_string_for_compress_format(type);
+	return tstr_cstr(&temp);
+}
+
+[[nodiscard]] static const char* get_representation_for_compression_value(CompressionValue value) {
+	switch(value.type) {
+		case CompressionValueTypeNoEncoding: return "'identity'";
+		case CompressionValueTypeAllEncodings: return "'*'";
+		case CompressionValueTypeNormalEncoding: {
+			return compression_type_to_string(value.data.normal_compression);
+		}
+		default: {
+			UNREACHABLE();
+		}
+	}
+}
+
+[[nodiscard]] bool operator==(const CompressionValue& lhs, const CompressionValue& rhs) {
+
+	if(lhs.type != rhs.type) {
+		return false;
+	}
+
+	if(lhs.type == CompressionValueTypeNormalEncoding) {
+		return lhs.data.normal_compression == rhs.data.normal_compression;
+	}
+
+	return true;
+}
+
+std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
+	os << "CompressionEntry{value=" << get_representation_for_compression_value(entry.value)
+	   << ", weight=" << entry.weight << "}";
+	return os;
+}
+
+[[nodiscard]] bool operator==(const CompressionEntry& lhs, const CompressionEntry& rhs) {
+
+	if(lhs.value != rhs.value) {
+		return false;
+	}
+
+	return lhs.weight == rhs.weight;
+}
+
+http::ParsedURIWrapper::ParsedURIWrapper(ParsedRequestUriResult result) : m_result{ result } {}
+
+[[nodiscard]] const ParsedURLPath& http::ParsedURIWrapper::path() const {
+	IF_PARSED_REQUEST_URI_RESULT_IS_ERROR_CONST(m_result) {
+		throw std::runtime_error("invalid parse url result: " +
+		                         string_from_tstr_static(error.error));
+	}
+
+	const ParsedRequestURI* const uri =
+	    &(parsed_request_uri_result_get_as_ok_const_ref(&(this->m_result))->uri);
+
+	switch(uri->type) {
+		case ParsedURITypeAbsoluteURI: {
+			return uri->data.uri.path;
+		};
+		case ParsedURITypeAbsPath: {
+			return uri->data.path;
+		}
+		default: {
+			throw std::runtime_error("invalid parse url result: " + std::to_string(uri->type));
+		}
+	}
+}
+
+[[nodiscard]] tstr_static http::ParsedURIWrapper::error() const {
+	IF_PARSED_REQUEST_URI_RESULT_IS_ERROR_CONST(m_result) {
+		return error.error;
+	}
+
+	return tstr_static_null();
+}
+
+http::ParsedURIWrapper::~ParsedURIWrapper() {
+	IF_PARSED_REQUEST_URI_RESULT_IS_ERROR_IGN(m_result) {
+		return;
+	}
+
+	const ParsedRequestURI* const uri =
+	    &(parsed_request_uri_result_get_as_ok_const_ref(&(this->m_result))->uri);
+
+	free_parsed_request_uri(*uri);
+}
+
+http::ParsedURIWrapper http::ParsedURIWrapper::parse(const std::string& uri) {
+
+	auto result = parse_request_uri(tstr_view{ uri.data(), uri.size() });
+
+	return ParsedURIWrapper{ result };
+}
+
+[[nodiscard]] uint32_t serialize::select_native_value_u32(uint32_t LE_value, uint32_t BE_value) {
+
+	if constexpr(std::endian::native == std::endian::little) {
+		return LE_value;
+	} else if constexpr(std::endian::native == std::endian::big) {
+		return BE_value;
+	} else {
+		assert(false && "unreachable");
+	}
+}
+
+[[nodiscard]] uint16_t serialize::select_native_value_u16(uint16_t LE_value, uint16_t BE_value) {
+
+	if constexpr(std::endian::native == std::endian::little) {
+		return LE_value;
+	} else if constexpr(std::endian::native == std::endian::big) {
+		return BE_value;
+	} else {
+		assert(false && "unreachable");
+	}
+}

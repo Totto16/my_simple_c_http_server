@@ -6,6 +6,8 @@
 #include "utils/utils.h"
 #include <tstr.h>
 
+#include "variants.h"
+
 /**
  * @enum MASK / FLAGS
  */
@@ -13,32 +15,15 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	AccountPermissionsNone = 0x00,
 	AccountPermissionsRead = 0x01,
 	AccountPermissionsWrite = 0x02,
-	AccountPermissionsReadWrite = AccountPermissionsRead | AccountPermissionsWrite
+	AccountPermissionsReadWrite = AccountPermissionsRead | AccountPermissionsWrite,
 } AccountPermissions;
-
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	AccountStateEmpty = 0,
-	AccountStateOnlyUser,
-	AccountStateOk,
-} AccountState;
 
 typedef struct {
 	AccountPermissions permissions;
 	tstr username;
 } AccountOkData;
 
-typedef struct {
-	AccountState state;
-	union {
-		AccountOkData ok_data;
-		struct {
-			tstr username;
-		} temp_data;
-	} data;
-} AccountInfo;
+GENERATE_VARIANT_ALL_ACCOUNT_INFO()
 
 NODISCARD AccountInfo* alloc_default_account(void);
 

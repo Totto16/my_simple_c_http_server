@@ -34,17 +34,17 @@ STAILQ_HEAD(TQueueHeadImpl, TQueueEntryImpl);
 typedef struct {
 	TQueueHead head;
 	SemaphoreType can_access;
-	int size;
+	size_t size;
 } TQueue;
 
-NODISCARD int tqueue_init(TQueue* queue);
+NODISCARD GenericResult tqueue_init(TQueue* queue);
 
-NODISCARD int tqueue_destroy(TQueue* queue);
+NODISCARD GenericResult tqueue_destroy(TQueue* queue);
 
 NODISCARD bool tqueue_is_empty(TQueue* queue);
 
 // not checked for error code of malloc :(
 // modified to use void * instead of int as stored value
-NODISCARD int tqueue_push(TQueue* queue, void* value);
+NODISCARD GenericResult tqueue_push(TQueue* queue, void* value);
 
 NODISCARD void* tqueue_pop(TQueue* queue);

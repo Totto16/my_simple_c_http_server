@@ -4,6 +4,7 @@
 #include "./v2.h"
 #include "generic/hash.h"
 #include "utils/buffered_reader.h"
+#include "utils/number_parsing.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -97,7 +98,7 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeError };
 	}
 
-	const tstr_view request_line = tstr_view_from_buffer(read_result.value.buffer);
+	const tstr_view request_line = tstr_view_from_readonly_buffer(read_result.value.buffer);
 
 	tstr_view method = TSTR_EMPTY_VIEW;
 	tstr_view path = TSTR_EMPTY_VIEW;
@@ -130,15 +131,16 @@ NODISCARD static HttpRequestLineResult parse_http1_request_line(BufferedReader* 
 		}
 	}
 
-	ParsedRequestURIResult uri_result = parse_request_uri(path);
+	const ParsedRequestUriResult uri_result = parse_request_uri(path);
 
-	if(uri_result.is_error) {
+	IF_PARSED_REQUEST_URI_RESULT_IS_ERROR_CONST(uri_result) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
-		            "Invalid uri in HTTP request: %s\n", uri_result.value.error);
+		            "Invalid uri in HTTP request: " TSTR_FMT "\n",
+		            TSTR_STATIC_FMT_ARGS(error.error));
 		return (HttpRequestLineResult){ .type = HttpRequestLineResultTypeUriError };
 	}
 
-	result.uri = uri_result.value.uri;
+	result.uri = parsed_request_uri_result_get_as_ok(uri_result).uri;
 
 	bool success = false;
 
@@ -306,7 +308,7 @@ NODISCARD static bool parse_compression_quality_float_tstr(const tstr_view view,
 
 	float result = 0.0F;
 	bool had_dot = false;
-	float frac = 10.0F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+	float frac = 10.0F; // NOLINT(readability-magic-numbers)
 
 	for(size_t i = 0; i < view.len; i++) {
 		const char val = view.data[i];
@@ -328,13 +330,10 @@ NODISCARD static bool parse_compression_quality_float_tstr(const tstr_view view,
 
 		if(had_dot) {
 			result = result + (valf / frac);
-			frac = frac *
-			       10.0F; // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+			frac = frac * 10.0F; // NOLINT(readability-magic-numbers)
 		} else {
-			result =
-			    (result *
-			     10.0F) + // NOLINT(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
-			    valf;
+			result = (result * 10.0F) + // NOLINT(readability-magic-numbers)
+			         valf;
 		}
 	}
 
@@ -599,13 +598,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	HTTPAnalyzeHeaderErrorNotSupported,
 } HTTPAnalyzeHeaderError;
 
-typedef struct {
-	bool is_error;
-	union {
-		HTTPAnalyzeHeaderError error;
-		HTTPAnalyzeHeaders result;
-	} data;
-} HTTPAnalyzeHeadersResult;
+GENERATE_VARIANT_ALL_HTTP_ANALYZE_HEADERS_RESULT()
 
 typedef struct {
 	bool upgrade_h2c_present;
@@ -629,16 +622,16 @@ static void process_connection_header(const tstr_view value, void* argument) {
 
 	ConnectionHeaderType* state = (ConnectionHeaderType*)argument;
 
-	if(tstr_view_eq_ignore_case(value, "upgrade")) {
+	if(tstr_view_eq_ignore_case(value, TSTR_TSV("upgrade"))) {
 		*state = *state | ConnectionHeaderTypeUpgrade;
-	} else if(tstr_view_eq_ignore_case(value, "http2-settings")) {
+	} else if(tstr_view_eq_ignore_case(value, TSTR_TSV("http2-settings"))) {
 		*state = *state | ConnectionHeaderTypeHTTP2Settings;
 	} else {
 		*state = *state | ConnectionHeaderTypeOther;
 	}
 }
 
-NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest http_request) {
+NODISCARD static HttpAnalyzeHeadersResult http_analyze_headers(const HttpRequest http_request) {
 
 	HTTPAnalyzeHeaders analyze_result = {
 		.length = { .type = HTTPRequestLengthTypeNoBody },
@@ -661,70 +654,64 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	// https://datatracker.ietf.org/doc/html/rfc9112#section-6.3
 
 	for(size_t i = 0; i < TVEC_LENGTH(HttpHeaderField, http_request.head.header_fields); ++i) {
-		HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
+		const HttpHeaderField header = TVEC_AT(HttpHeaderField, http_request.head.header_fields, i);
 
-		if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(content_length))) {
+		if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(content_length))) {
 			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
 
 				FREE_AT_END();
-				return (HTTPAnalyzeHeadersResult){
-					.is_error = true,
-					.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-				};
+				return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorProtocolError);
 			}
 
 			bool success = false;
 
-			const size_t content_length = parse_size_t(tstr_cstr(&header.value), &success);
+			const uint64_t content_length = parse_u64(tstr_as_view(&header.value), &success);
 
 			if(!success) {
 				FREE_AT_END();
-				return (HTTPAnalyzeHeadersResult){
-					.is_error = true,
-					.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-				};
+				return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorProtocolError);
+			}
+
+			if(SIZE_MAX != UINT64_MAX) {
+				if(content_length > SIZE_MAX) {
+					return new_http_analyze_headers_result_error(
+					    HTTPAnalyzeHeaderErrorProtocolError);
+				}
 			}
 
 			analyze_result.length.type = HTTPRequestLengthTypeContentLength;
-			analyze_result.length.value.length = content_length;
+			analyze_result.length.value.length = (size_t)content_length;
 
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(transfer_encoding))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key,
+		                                          HTTP_HEADER_NAME(transfer_encoding))) {
 
 			if(analyze_result.length.type != HTTPRequestLengthTypeNoBody) {
 				// both transfer-encoding and length are used
 
 				FREE_AT_END();
-				return (HTTPAnalyzeHeadersResult){
-					.is_error = true,
-					.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-				};
+				return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorProtocolError);
 			}
 
 			analyze_result.length.type = HTTPRequestLengthTypeTransferEncoded;
 
 			// TODO(Totto): support more than chunked, as also compression can be used with
 			// chunked!
-			if(!tstr_eq_ignore_case_cstr(&header.value, "chunked")) {
+			if(!tstr_eq_ignore_case_static_tstr(&header.value, TSTR_STATIC_LIT("chunked"))) {
 				FREE_AT_END();
-				return (HTTPAnalyzeHeadersResult){
-					.is_error = true,
-					.data = { .error = HTTPAnalyzeHeaderErrorNotSupported },
-				};
+				return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorNotSupported);
 			}
 			analyze_result.length.value.encoding = HTTPEncodingChunked;
-
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(connection))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(connection))) {
 			// see https://datatracker.ietf.org/doc/html/rfc7230#section-6.1
-			if(tstr_eq_ignore_case_cstr(&header.value, "close")) {
+			if(tstr_eq_ignore_case_static_tstr(&header.value, TSTR_STATIC_LIT("close"))) {
 				analyze_result.length.type = HTTPRequestLengthTypeClose;
-			} else if(tstr_eq_ignore_case_cstr(&header.value, "keep-alive")) {
+			} else if(tstr_eq_ignore_case_static_tstr(&header.value,
+			                                          TSTR_STATIC_LIT("keep-alive"))) {
 				if(analyze_result.connection.type != HttpAnalyzeConnectionTypeNothingSpecial) {
 					FREE_AT_END();
-					return (HTTPAnalyzeHeadersResult){
-						.is_error = true,
-						.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-					};
+					return new_http_analyze_headers_result_error(
+					    HTTPAnalyzeHeaderErrorProtocolError);
 				}
 
 				analyze_result.connection.type = HttpAnalyzeConnectionTypeKeepAlive;
@@ -741,17 +728,16 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 					h2state.connection_has_both_upgrade_and_h2_settings = true;
 				}
 			}
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(upgrade))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(upgrade))) {
 			// see: https://datatracker.ietf.org/doc/html/rfc7230#section-6.7
 
 			if(tstr_eq_ignore_case_cstr(&header.value, "h2c")) {
 				h2state.upgrade_h2c_present = true;
 			}
-		} else if(tstr_eq_ignore_case(&header.key, &HTTP_HEADER_NAME(http2_settings))) {
+		} else if(tstr_eq_ignore_case_static_tstr(&header.key, HTTP_HEADER_NAME(http2_settings))) {
 
-			const SizedBuffer input = sized_buffer_from_tstr(&header.value);
-
-			h2state.settings_buffer = base64_decode_buffer(input);
+			h2state.settings_buffer =
+			    base64_decode_buffer(readonly_buffer_from_tstr(&header.value));
 		}
 	}
 
@@ -769,10 +755,7 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	   h2state.settings_buffer.data != NULL) {
 		if(analyze_result.connection.type != HttpAnalyzeConnectionTypeNothingSpecial) {
 			FREE_AT_END();
-			return (HTTPAnalyzeHeadersResult){
-				.is_error = true,
-				.data = { .error = HTTPAnalyzeHeaderErrorProtocolError },
-			};
+			return new_http_analyze_headers_result_error(HTTPAnalyzeHeaderErrorProtocolError);
 		}
 
 		analyze_result.connection = (HttpAnalyzeConnection){
@@ -785,21 +768,12 @@ NODISCARD static HTTPAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 	}
 
 	FREE_AT_END();
-	return (HTTPAnalyzeHeadersResult){
-		.is_error = false,
-		.data = { .result = analyze_result },
-	};
+	return new_http_analyze_headers_result_ok(analyze_result);
 }
 
 #undef FREE_AT_END
 
-typedef struct {
-	bool is_error;
-	union {
-		const char* error;
-		SizedBuffer body;
-	} data;
-} HttpBodyReadResult;
+GENERATE_VARIANT_ALL_HTTP_BODY_READ_RESULT()
 
 NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
                                                   const HTTPAnalyzeHeaders analyze) {
@@ -810,18 +784,13 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 			const BufferedReadResult res = buffered_reader_get_until_end(reader->buffered_reader);
 
 			if(res.type != BufferedReadResultTypeOk) {
-				return (HttpBodyReadResult){
-					.is_error = true,
-					.data = { .error = "read failed" },
-				};
+				return new_http_body_read_result_error(TSTR_STATIC_LIT("read failed"));
 			}
 
 			reader->state = HTTPReaderStateEnd;
 
-			return (HttpBodyReadResult){
-				.is_error = false,
-				.data = { .body = sized_buffer_dup(res.value.buffer) },
-			};
+			return new_http_body_read_result_ok(
+			    sized_buffer_allocate_from_readonly_buffer(res.value.buffer));
 		}
 
 		case HTTPRequestLengthTypeContentLength: {
@@ -830,35 +799,22 @@ NODISCARD static HttpBodyReadResult get_http_body(HTTPReader* const reader,
 			    buffered_reader_get_amount(reader->buffered_reader, analyze.length.value.length);
 
 			if(res.type != BufferedReadResultTypeOk) {
-				return (HttpBodyReadResult){
-					.is_error = true,
-					.data = { .error = "read failed" },
-				};
+				return new_http_body_read_result_error(TSTR_STATIC_LIT("read failed"));
 			}
 
-			return (HttpBodyReadResult){
-				.is_error = false,
-				.data = { .body = res.value.buffer },
-			};
+			return new_http_body_read_result_ok(
+			    sized_buffer_allocate_from_readonly_buffer(res.value.buffer));
 		}
 		case HTTPRequestLengthTypeTransferEncoded: {
 			// TODO(Totto): implement
-			return (HttpBodyReadResult){
-				.is_error = true,
-				.data = { .error = "transfer encoding not yet implemented" },
-			};
+			return new_http_body_read_result_error(
+			    TSTR_STATIC_LIT("transfer encoding not yet implemented"));
 		}
 		case HTTPRequestLengthTypeNoBody: {
-			return (HttpBodyReadResult){
-				.is_error = false,
-				.data = { .body = (SizedBuffer){ .data = NULL, .size = 0 } },
-			};
+			return new_http_body_read_result_ok((SizedBuffer){ .data = NULL, .size = 0 });
 		}
 		default: {
-			return (HttpBodyReadResult){
-				.is_error = true,
-				.data = { .error = "invalid length type" },
-			};
+			return new_http_body_read_result_error(TSTR_STATIC_LIT("invalid length type"));
 		}
 	}
 }
@@ -872,9 +828,12 @@ process_http2_upgrade_request(const HTTPResultOk ok_res, HTTPReader* const reade
 		HttpHeaderFields additional_headers = TVEC_EMPTY(HttpHeaderField);
 
 		{
-			add_http_header_field(&additional_headers, HTTP_HEADER_NAME(upgrade), TSTR_LIT("h2c"));
+			add_http_header_field(&additional_headers,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(upgrade)),
+			                      TSTR_LIT("h2c"));
 
-			add_http_header_field(&additional_headers, HTTP_HEADER_NAME(connection),
+			add_http_header_field(&additional_headers,
+			                      tstr_from_static_tstr(HTTP_HEADER_NAME(connection)),
 			                      TSTR_LIT("upgrade"));
 		}
 
@@ -885,18 +844,18 @@ process_http2_upgrade_request(const HTTPResultOk ok_res, HTTPReader* const reade
 
 		SendSettings send_settings = get_send_settings(ok_res.settings);
 
-		int result = send_http_message_to_connection(
+		const GenericResult result = send_http_message_to_connection(
 		    &(reader->general_context),
 		    buffered_reader_get_connection_descriptor(reader->buffered_reader), to_send,
 		    send_settings);
 
-		if(result < 0) {
+		IF_GENERIC_RESULT_IS_ERROR_IGN(result) {
 			return (HttpRequestResult){ .type = HttpRequestResultTypeError,
-				                        .value = {
-				                            .error = (HttpRequestError){
-				                                .is_advanced = true,
-				                                .value = { .advanced = "error in sending switching "
-				                                                       "protocls response" } } } };
+				                        .value = { .error = (HttpRequestError){
+				                                       .is_advanced = true,
+				                                       .value = { .advanced = TSTR_STATIC_LIT(
+				                                                      "error in sending switching "
+				                                                      "protocls response") } } } };
 		}
 	}
 
@@ -929,15 +888,15 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 		    buffered_reader_get_until_delimiter(reader->buffered_reader, HTTP_LINE_SEPERATORS);
 
 		if(read_result.type != BufferedReadResultTypeOk) {
-			return (
-			    HttpRequestResult){ .type = HttpRequestResultTypeError,
-				                    .value = { .error = (HttpRequestError){
-				                                   .is_advanced = true,
-				                                   .value = { .advanced =
-				                                                  "Failed to parse headers" } } } };
+			return (HttpRequestResult){ .type = HttpRequestResultTypeError,
+				                        .value = {
+				                            .error = (HttpRequestError){
+				                                .is_advanced = true,
+				                                .value = { .advanced = TSTR_STATIC_LIT(
+				                                               "Failed to parse headers") } } } };
 		}
 
-		tstr_view header_line = tstr_view_from_buffer(read_result.value.buffer);
+		const tstr_view header_line = tstr_view_from_readonly_buffer(read_result.value.buffer);
 
 		if(header_line.len == 0) {
 			break;
@@ -953,7 +912,8 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 					.value = { .error =
 					               (HttpRequestError){
 					                   .is_advanced = true,
-					                   .value = { .advanced = "Failed to parse header key" } } }
+					                   .value = { .advanced = TSTR_STATIC_LIT(
+					                                  "Failed to parse header key") } } }
 				};
 			}
 
@@ -968,12 +928,12 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 		}
 	}
 
-	const HTTPAnalyzeHeadersResult analyze_result = http_analyze_headers(request);
+	const HttpAnalyzeHeadersResult analyze_result = http_analyze_headers(request);
 
-	if(analyze_result.is_error) {
+	IF_HTTP_ANALYZE_HEADERS_RESULT_IS_ERROR_CONST(analyze_result) {
 
 		HttpRequestErrorType enum_value = HttpRequestErrorTypeProtocolError;
-		switch(analyze_result.data.error) {
+		switch(error.error) {
 			case HTTPAnalyzeHeaderErrorProtocolError: {
 				enum_value = HttpRequestErrorTypeProtocolError;
 				break;
@@ -994,20 +954,18 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 			                                       .value = { .enum_value = enum_value } } } };
 	}
 
-	const HTTPAnalyzeHeaders analyze = analyze_result.data.result;
+	const HTTPAnalyzeHeaders analyze = http_analyze_headers_result_get_as_ok(analyze_result).result;
 
 	const HttpBodyReadResult body_result = get_http_body(reader, analyze);
 
-	if(body_result.is_error) {
-		return (HttpRequestResult){
-			.type = HttpRequestResultTypeError,
-			.value = { .error =
-			               (HttpRequestError){ .is_advanced = true,
-			                                   .value = { .advanced = body_result.data.error } } }
-		};
+	IF_HTTP_BODY_READ_RESULT_IS_ERROR_CONST(body_result) {
+		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
+			                        .value = { .error = (HttpRequestError){
+			                                       .is_advanced = true,
+			                                       .value = { .advanced = error.error } } } };
 	}
 
-	request.body = body_result.data.body;
+	request.body = http_body_read_result_get_as_ok(body_result).body;
 
 	// check if the request body makes sense
 	if((request_line.method == HTTPRequestMethodGet ||
@@ -1046,14 +1004,13 @@ NODISCARD static HttpRequestResult parse_http1_request(const HttpRequestLine req
 		}
 		case HttpAnalyzeConnectionTypeUpgradeH2C: {
 			if(!first_request) {
-				return (HttpRequestResult){
-					.type = HttpRequestResultTypeError,
-					.value = { .error =
-					               (HttpRequestError){
-					                   .is_advanced = true,
-					                   .value = { .advanced = "only first http1 request can "
-					                                          "upgrade to http2" } } }
-				};
+				return (HttpRequestResult){ .type = HttpRequestResultTypeError,
+					                        .value = {
+					                            .error = (HttpRequestError){
+					                                .is_advanced = true,
+					                                .value = { .advanced = TSTR_STATIC_LIT(
+					                                               "only first http1 request can "
+					                                               "upgrade to http2") } } } };
 			}
 
 			return process_http2_upgrade_request(ok_result, reader, analyze.connection.value.h2c);
@@ -1116,19 +1073,19 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				.value = { .error =
 				               (HttpRequestError){
 				                   .is_advanced = true,
-				                   .value = { .advanced =
-				                                  "failed to parse URi in request line" } } }
+				                   .value = { .advanced = TSTR_STATIC_LIT(
+				                                  "failed to parse URi in request line") } } }
 			};
 		}
 		case HttpRequestLineResultTypeError:
 		default: {
-			return (HttpRequestResult){
-				.type = HttpRequestResultTypeError,
-				.value = { .error =
-				               (HttpRequestError){
-				                   .is_advanced = true,
-				                   .value = { .advanced = "failed to parse request line" } } }
-			};
+			return (
+			    HttpRequestResult){ .type = HttpRequestResultTypeError,
+				                    .value = {
+				                        .error = (HttpRequestError){
+				                            .is_advanced = true,
+				                            .value = { .advanced = TSTR_STATIC_LIT(
+				                                           "failed to parse request line") } } } };
 		}
 	}
 
@@ -1179,7 +1136,7 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 				const Http2StartResult start_result = http2_send_and_receive_preface(
 				    &reader->general_context.data.v2, reader->buffered_reader);
 
-				if(start_result.is_error) {
+				IF_HTTP2_START_RESULT_IS_ERROR_IGN(start_result) {
 					return (HttpRequestResult){
 						.type = HttpRequestResultTypeError,
 						.value = { .error =
@@ -1224,13 +1181,11 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 			const Http2StartResult start_result = http2_send_and_receive_preface(
 			    &reader->general_context.data.v2, reader->buffered_reader);
 
-			if(start_result.is_error) {
+			IF_HTTP2_START_RESULT_IS_ERROR_CONST(start_result) {
 				return (HttpRequestResult){
 					.type = HttpRequestResultTypeError,
-					.value = { .error =
-					               (HttpRequestError){
-					                   .is_advanced = true,
-					                   .value = { .advanced = start_result.value.error } } }
+					.value = { .error = (HttpRequestError){ .is_advanced = true,
+					                                        .value = { .advanced = error.error } } }
 				};
 			}
 
@@ -1258,21 +1213,22 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 						.value = { .error =
 						               (HttpRequestError){
 						                   .is_advanced = true,
-						                   .value = { .advanced = "Invalid path in combination "
-						                                          "with method: path '*' is only "
-						                                          "supported with OPTIONS" } } }
+						                   .value = { .advanced = TSTR_STATIC_LIT(
+						                                  "Invalid path in combination "
+						                                  "with method: path '*' is only "
+						                                  "supported with OPTIONS") } } }
 					};
 				}
 
 				// TODO(Totto): implement further, search for todo_options
-				return (
-				    HttpRequestResult){ .type = HttpRequestResultTypeError,
-					                    .value = { .error = (HttpRequestError){
-					                                   .is_advanced = true,
-					                                   .value = { .advanced = "not implemented for "
-					                                                          "method OPTIONS: "
-					                                                          "asterisk or normal "
-					                                                          "request" } } } };
+				return (HttpRequestResult){ .type = HttpRequestResultTypeError,
+					                        .value = { .error = (HttpRequestError){
+					                                       .is_advanced = true,
+					                                       .value = { .advanced = TSTR_STATIC_LIT(
+					                                                      "not implemented for "
+					                                                      "method OPTIONS: "
+					                                                      "asterisk or normal "
+					                                                      "request") } } } };
 			}
 
 			if(request_line.uri.type == ParsedURITypeAuthority) {
@@ -1283,21 +1239,22 @@ NODISCARD static HttpRequestResult parse_first_http_request(HTTPReader* const re
 						.value = { .error =
 						               (HttpRequestError){
 						                   .is_advanced = true,
-						                   .value = { .advanced = "Invalid path in combination "
-						                                          "with method: path '*' is only "
-						                                          "supported with OPTIONS" } } }
+						                   .value = { .advanced = TSTR_STATIC_LIT(
+						                                  "Invalid path in combination "
+						                                  "with method: path '*' is only "
+						                                  "supported with OPTIONS") } } }
 					};
 				}
 
 				// TODO(Totto): implement further, search for todo_options
 				return (HttpRequestResult){
 					.type = HttpRequestResultTypeError,
-					.value = { .error =
-					               (HttpRequestError){ .is_advanced = true,
-					                                   .value = { .advanced = "not implemented for "
-					                                                          "method CONNECT: "
-					                                                          "authority or normal "
-					                                                          "request" } } }
+					.value = { .error = (HttpRequestError){ .is_advanced = true,
+					                                        .value = { .advanced = TSTR_STATIC_LIT(
+					                                                       "not implemented for "
+					                                                       "method CONNECT: "
+					                                                       "authority or normal "
+					                                                       "request") } } }
 
 				};
 			}
@@ -1355,17 +1312,18 @@ NODISCARD static HttpRequestResult parse_next_http_request(HTTPReader* const rea
 	return (HttpRequestResult){ .type = HttpRequestResultTypeError,
 		                        .value = { .error = (HttpRequestError){
 		                                       .is_advanced = true,
-		                                       .value = { .advanced = "Not yet supported" } } } };
+		                                       .value = { .advanced = TSTR_STATIC_LIT(
+		                                                      "Not yet supported") } } } };
 }
 
 HttpRequestResult get_http_request(HTTPReader* const reader) {
 
 	if(!reader) {
 		return (HttpRequestResult){ .type = HttpRequestResultTypeError,
-			                        .value = {
-			                            .error = (HttpRequestError){
-			                                .is_advanced = true,
-			                                .value = { .advanced = "HTTP reader was null" } } } };
+			                        .value = { .error = (HttpRequestError){
+			                                       .is_advanced = true,
+			                                       .value = { .advanced = TSTR_STATIC_LIT(
+			                                                      "HTTP reader was null") } } } };
 	}
 
 	switch(reader->state) {
@@ -1382,9 +1340,10 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 					.value = { .error =
 					               (HttpRequestError){
 					                   .is_advanced = true,
-					                   .value = { .advanced = "HTTP reader tried to read more than "
-					                                          "one request on a non compatible "
-					                                          "connection" } } }
+					                   .value = { .advanced = TSTR_STATIC_LIT(
+					                                  "HTTP reader tried to read more than "
+					                                  "one request on a non compatible "
+					                                  "connection") } } }
 				};
 			}
 
@@ -1398,13 +1357,13 @@ HttpRequestResult get_http_request(HTTPReader* const reader) {
 		case HTTPReaderStateEnd:
 		case HTTPReaderStateError:
 		default: {
-			return (HttpRequestResult){
-				.type = HttpRequestResultTypeError,
-				.value = { .error =
-				               (HttpRequestError){
-				                   .is_advanced = true,
-				                   .value = { .advanced = "HTTP reader state was invalid" } } }
-			};
+			return (
+			    HttpRequestResult){ .type = HttpRequestResultTypeError,
+				                    .value = {
+				                        .error = (HttpRequestError){
+				                            .is_advanced = true,
+				                            .value = { .advanced = TSTR_STATIC_LIT(
+				                                           "HTTP reader state was invalid") } } } };
 		}
 	}
 }

@@ -46,7 +46,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	FtpStructureFile = 0,
 	FtpStructureRecord,
-	FtpStructurePage
+	FtpStructurePage,
 } FtpStructure;
 
 /**
@@ -112,10 +112,10 @@ typedef struct {
 } CustomFTPOptions;
 
 typedef struct {
-	const char* global_folder;
+	tstr global_folder;
 	AccountInfo* account;
 	// TODO(Totto): use tstr
-	char* current_working_directory;
+	tstr current_working_directory;
 	FtpTransmissionType current_type;
 	FtpMode mode;
 	FtpStructure structure;
@@ -125,7 +125,8 @@ typedef struct {
 } FTPState;
 
 // see https://datatracker.ietf.org/doc/html/rfc959#section-5
-NODISCARD FTPState* alloc_default_state(const char* global_folder);
+NODISCARD FTPState* alloc_default_state(MOVED(tstr) // NOLINT(totto-function-passing-type)
+                                        global_folder);
 
 void free_state(FTPState* state);
 

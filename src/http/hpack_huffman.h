@@ -1,46 +1,29 @@
-
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "variants.h"
 
 #include "generated_hpack_huffman.h"
 #include "utils/sized_buffer.h"
 #include "utils/utils.h"
 #include <tstr.h>
 
-typedef struct {
-	bool is_error;
-	union {
-		SizedBuffer result;
-		const char* error;
-	} data;
-} HuffmanDecodeResult;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(SizedBuffer input);
+GENERATE_VARIANT_ALL_HUFFMAN_DECODE_RESULT()
+
+NODISCARD HuffmanDecodeResult hpack_huffman_decode_bytes(ReadonlyBuffer buffer);
 
 NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* str);
 
-typedef struct {
-	bool is_error;
-	union {
-		size_t result_size;
-		const char* error;
-	} data;
-} HuffmanEncodeFixedResult;
+GENERATE_VARIANT_ALL_HUFFMAN_ENCODE_FIXED_RESULT()
 
 NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* data,
                                                                          size_t max_size,
                                                                          const tstr* str);
 
-typedef struct {
-	bool is_error;
-	union {
-		SizedBuffer result;
-		const char* error;
-	} data;
-} HuffmanEncodeResult;
+GENERATE_VARIANT_ALL_HUFFMAN_ENCODE_RESULT()
 
 NODISCARD HuffmanEncodeResult hpack_huffman_encode_value(const tstr* str);
 

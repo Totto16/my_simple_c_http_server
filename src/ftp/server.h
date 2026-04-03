@@ -21,8 +21,8 @@ typedef struct {
 	ThreadPool* pool;
 	TQueue* job_id_queue;
 	ConnectionContextPtrs contexts;
-	int socket_fd;
-	const char* const global_folder;
+	NativeFd socket_fd;
+	const tstr global_folder;
 	DataController* data_controller;
 	pthread_t data_orchestrator;
 	const AuthenticationProviders* auth_providers;
@@ -31,7 +31,7 @@ typedef struct {
 typedef struct {
 	ConnectionContextPtrs contexts;
 	pthread_t listener_thread;
-	int connection_fd;
+	NativeFd connection_fd;
 	FTPState* state;
 	RawNetworkAddress addr;
 	DataController* data_controller;
@@ -49,7 +49,7 @@ typedef struct {
 	DataController* data_controller;
 	FTPPortField port;
 	size_t port_index;
-	int fd;
+	NativeFd fd;
 } FTPDataThreadArgument;
 
 typedef struct {
@@ -77,5 +77,7 @@ NODISCARD ANY_TYPE(ListenerError*)
 NODISCARD ANY_TYPE(ListenerError*)
     ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
 
-NODISCARD int start_ftp_server(FTPPortField control_port, char* folder, SecureOptions* options,
-                               AuthenticationProviders* auth_providers);
+NODISCARD ExitCode start_ftp_server(FTPPortField control_port,
+                                    MOVED(tstr) folder, // NOLINT(totto-function-passing-type)
+                                    SecureOptions* options,
+                                    AuthenticationProviders* auth_providers);

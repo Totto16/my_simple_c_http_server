@@ -181,7 +181,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint16_t) {
 	Http2StreamStateReserved,
 	Http2StreamStateOpen,
 	Http2StreamStateHalfClosed,
-	Http2StreamStateClosed
+	Http2StreamStateClosed,
 } Http2StreamState;
 
 TVEC_DEFINE_VEC_TYPE(SizedBuffer)
@@ -259,18 +259,13 @@ NODISCARD HttpRequestResult parse_http2_request(HTTP2Context* context, BufferedR
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	Http2PrefaceStatusOk = 0,
 	Http2PrefaceStatusErr,
-	Http2PrefaceStatusNotEnoughData
+	Http2PrefaceStatusNotEnoughData,
 } Http2PrefaceStatus;
 
 NODISCARD Http2PrefaceStatus analyze_http2_preface(HttpRequestLine request_line,
                                                    BufferedReader* reader);
 
-typedef struct {
-	bool is_error;
-	union {
-		const char* error;
-	} value;
-} Http2StartResult;
+GENERATE_VARIANT_ALL_HTTP2_START_RESULT()
 
 NODISCARD Http2StartResult http2_send_and_receive_preface(HTTP2Context* context,
                                                           BufferedReader* reader);
@@ -279,23 +274,24 @@ NODISCARD HttpRequestResult http2_process_h2c_upgrade(HTTP2Context* context, Buf
                                                       SizedBuffer settings_data,
                                                       HttpRequest original_request);
 
-NODISCARD int http2_send_connection_error(const ConnectionDescriptor* descriptor,
-                                          const HTTP2Context* context, Http2ErrorCode error_code,
-                                          const char* error);
-
-NODISCARD int http2_send_connection_error_with_data(const ConnectionDescriptor* descriptor,
+NODISCARD GenericResult http2_send_connection_error(const ConnectionDescriptor* descriptor,
                                                     const HTTP2Context* context,
-                                                    Http2ErrorCode error_code,
-                                                    SizedBuffer debug_data);
+                                                    Http2ErrorCode error_code, tstr_static error);
 
-NODISCARD int http2_send_stream_error(const ConnectionDescriptor* descriptor,
-                                      Http2ErrorCode error_code, Http2Identifier stream_identifier);
+NODISCARD GenericResult http2_send_connection_error_with_data(
+    const ConnectionDescriptor* descriptor, const HTTP2Context* context, Http2ErrorCode error_code,
+    ReadonlyBuffer debug_data);
+
+NODISCARD GenericResult http2_send_stream_error(const ConnectionDescriptor* descriptor,
+                                                Http2ErrorCode error_code,
+                                                Http2Identifier stream_identifier);
 
 void free_http2_context(HTTP2Context context);
 
-NODISCARD int http2_send_headers(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
-                                 Http2Settings settings, SizedBuffer buffer,
-                                 bool headers_are_end_stream);
+NODISCARD GenericResult http2_send_headers(const ConnectionDescriptor* descriptor,
+                                           Http2Identifier identifier, Http2Settings settings,
+                                           SizedBuffer buffer, bool headers_are_end_stream);
 
-NODISCARD int http2_send_data(const ConnectionDescriptor* descriptor, Http2Identifier identifier,
-                              Http2Settings settings, SizedBuffer buffer);
+NODISCARD GenericResult http2_send_data(const ConnectionDescriptor* descriptor,
+                                        Http2Identifier identifier, Http2Settings settings,
+                                        SizedBuffer buffer);

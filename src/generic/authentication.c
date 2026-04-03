@@ -14,37 +14,38 @@ typedef struct {
 	UserRole role;
 } SimpleAccountEntry;
 
+/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type) */
 TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(tstr, TSTR_KEYNAME, SimpleAccountEntry,
                                    SimpleAccountEntryHashMap)
+/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 
 typedef struct {
 	TMAP_TYPENAME_MAP(SimpleAccountEntryHashMap) entries;
 	HashSaltSettings settings;
 } SimpleAuthenticationProviderData;
 
-struct AuthenticationProviderImpl {
-	AuthenticationProviderType type;
-	union {
-		SimpleAuthenticationProviderData simple;
-	} data;
-};
+GENERATE_VARIANT_CORE_AUTHENTICATION_PROVIDER()
 
-// TODO(Totto): do we really need to store ptrs here
+//  TODO(Totto): do we really need to store ptrs here
+/* NOLINTBEGIN(misc-use-internal-linkage) */
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE_EXTENDED(AuthenticationProvider*, AuthenticationProviderPtr)
+/* NOLINTEND(misc-use-internal-linkage) */
 
 struct AuthenticationProvidersImpl {
 	TVEC_TYPENAME(AuthenticationProviderPtr) providers;
 };
 
-NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType type) {
+NODISCARD tstr_static get_name_for_auth_provider_type(const AuthenticationProviderType type) {
 	switch(type) {
-		case AuthenticationProviderTypeSimple: return "simple authentication provider";
-		case AuthenticationProviderTypeSystem: return "system authentication provider";
-		default: return "<unknown>";
+		case AuthenticationProviderTypeSimple:
+			return TSTR_STATIC_LIT("simple authentication provider");
+		case AuthenticationProviderTypeSystem:
+			return TSTR_STATIC_LIT("system authentication provider");
+		default: return TSTR_STATIC_LIT("<unknown>");
 	}
 }
 
-NODISCARD const char* get_name_for_user_role(UserRole role) {
+NODISCARD const char* get_name_for_user_role(const UserRole role) {
 	switch(role) {
 		case UserRoleNone: return "None";
 		case UserRoleAdmin: return "Admin";
@@ -77,11 +78,12 @@ NODISCARD AuthenticationProvider* initialize_simple_authentication_provider(void
 		return NULL;
 	}
 
-	auth_provider->type = AuthenticationProviderTypeSimple;
-	auth_provider->data.simple =
+	*auth_provider = new_authentication_provider_simple(
 	    (SimpleAuthenticationProviderData){ .entries = TMAP_INIT(SimpleAccountEntryHashMap),
-		                                    .settings = { .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
-		                                                  .use_sha512 = true } };
+	                                        .settings = {
+	                                            .work_factor = BCRYPT_DEFAULT_WORK_FACTOR,
+	                                            .use_sha512 = true,
+	                                        } });
 
 	return auth_provider;
 #endif
@@ -94,13 +96,13 @@ NODISCARD AuthenticationProvider* initialize_system_authentication_provider(void
 		return NULL;
 	}
 
-	auth_provider->type = AuthenticationProviderTypeSystem;
+	*auth_provider = new_authentication_provider_system();
 
 	return auth_provider;
 }
 
-NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_providers,
-                                           AuthenticationProvider* provider) {
+NODISCARD bool add_authentication_provider(AuthenticationProviders* const auth_providers,
+                                           AuthenticationProvider* const provider) {
 
 	if(!provider) {
 		return false;
@@ -113,9 +115,9 @@ NODISCARD bool add_authentication_provider(AuthenticationProviders* auth_provide
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
-    AuthenticationProvider* simple_authentication_provider,
+    AuthenticationProvider* const simple_authentication_provider,
     const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
-    const tstr* const password, UserRole role) {
+    const tstr* const password, const UserRole role) {
 
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 	UNUSED(simple_authentication_provider);
@@ -125,11 +127,12 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 	return false;
 #else
 
-	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
+	IF_AUTHENTICATION_PROVIDER_IS_NOT_SIMPLE(*simple_authentication_provider) {
 		return false;
 	}
 
-	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
+	const SimpleAuthenticationProviderData* const data =
+	    authentication_provider_get_as_simple_const_ref(simple_authentication_provider);
 
 	// Note: this may take some time, as bcrypt takes some time, depending on work factor
 	HashSaltResultType* hash_salted_password =
@@ -141,20 +144,21 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_raw(
 }
 
 NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_salted(
-    AuthenticationProvider* simple_authentication_provider, const tstr* const username,
-    HashSaltResultType* hash_salted_password, UserRole role) {
+    AuthenticationProvider* const simple_authentication_provider, const tstr* const username,
+    HashSaltResultType* const hash_salted_password, const UserRole role) {
 
-	if(simple_authentication_provider->type != AuthenticationProviderTypeSimple) {
+	IF_AUTHENTICATION_PROVIDER_IS_NOT_SIMPLE(*simple_authentication_provider) {
 		return false;
 	}
 
-	SimpleAuthenticationProviderData* data = &simple_authentication_provider->data.simple;
+	SimpleAuthenticationProviderData* const data =
+	    authentication_provider_get_as_simple_mut_ref(simple_authentication_provider);
 
-	SimpleAccountEntry entry = { .hash_salted_password = hash_salted_password, .role = role };
+	const SimpleAccountEntry entry = { .hash_salted_password = hash_salted_password, .role = role };
 
 	tstr username_dup = tstr_dup(username);
 
-	TmapInsertResult insert_result =
+	const TmapInsertResult insert_result =
 	    TMAP_INSERT(SimpleAccountEntryHashMap, &(data->entries), username_dup, entry, false);
 
 	if(insert_result != TmapInsertResultOk) {
@@ -165,14 +169,14 @@ NODISCARD bool add_user_to_simple_authentication_provider_data_password_hash_sal
 	return true;
 }
 
-static void free_simple_authentication_provider(SimpleAuthenticationProviderData data) {
+static void free_simple_authentication_provider(SimpleAuthenticationProviderData* const data) {
 
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
 	UNUSED(data);
 #else
 
 	TMAP_TYPENAME_ITER(SimpleAccountEntryHashMap)
-	iter = TMAP_ITER_INIT(SimpleAccountEntryHashMap, &data.entries);
+	iter = TMAP_ITER_INIT(SimpleAccountEntryHashMap, &(data->entries));
 
 	TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) value;
 
@@ -181,30 +185,32 @@ static void free_simple_authentication_provider(SimpleAuthenticationProviderData
 		tstr_free(&value.key);
 	}
 
-	TMAP_FREE(SimpleAccountEntryHashMap, &data.entries);
+	TMAP_FREE(SimpleAccountEntryHashMap, &(data->entries));
 
 #endif
 }
 
-void free_authentication_provider(AuthenticationProvider* auth_provider) {
-	switch(auth_provider->type) {
-		case AuthenticationProviderTypeSimple: {
-			free_simple_authentication_provider(auth_provider->data.simple);
+void free_authentication_provider(AuthenticationProvider* const auth_provider) {
+	SWITCH_AUTHENTICATION_PROVIDER(*auth_provider) {
+		CASE_AUTHENTICATION_PROVIDER_IS_SIMPLE_MUT(*auth_provider) {
+			free_simple_authentication_provider(&simple);
 			free(auth_provider);
+		}
+		break;
+		CASE_AUTHENTICATION_PROVIDER_IS_SYSTEM() {
+			free(auth_provider);
+		}
+		break;
+		default: {
 			break;
 		}
-		case AuthenticationProviderTypeSystem: {
-			free(auth_provider);
-			break;
-		}
-		default: break;
 	}
 }
 
-void free_authentication_providers(AuthenticationProviders* auth_providers) {
+void free_authentication_providers(AuthenticationProviders* const auth_providers) {
 
 	for(size_t i = 0; i < TVEC_LENGTH(AuthenticationProviderPtr, auth_providers->providers); ++i) {
-		AuthenticationProvider** auth_provider =
+		AuthenticationProvider* const* const auth_provider =
 		    TVEC_GET_AT_MUT(AuthenticationProviderPtr, &(auth_providers->providers), i);
 		free_authentication_provider(*auth_provider);
 	}
@@ -217,7 +223,8 @@ void free_authentication_providers(AuthenticationProviders* auth_providers) {
 #ifdef _SIMPLE_SERVER_HAVE_BCRYPT
 
 NODISCARD static const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) *
-    find_user_by_name_simple(SimpleAuthenticationProviderData* data, const tstr* const username) {
+    find_user_by_name_simple(const SimpleAuthenticationProviderData* const data,
+                             const tstr* const username) {
 
 	if(TMAP_IS_EMPTY(SimpleAccountEntryHashMap, &(data->entries))) {
 		return NULL;
@@ -234,42 +241,37 @@ NODISCARD static const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap) *
 }
 
 NODISCARD static AuthenticationFindResult authentication_provider_simple_find_user_with_password(
-    AuthenticationProvider* auth_provider,
+    const AuthenticationProvider* const auth_provider,
     const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
     const tstr* const password) {
 
-	if(auth_provider->type != AuthenticationProviderTypeSimple) {
+	IF_AUTHENTICATION_PROVIDER_IS_NOT_SIMPLE(*auth_provider) {
 
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
-			                               .data = { .error = { .error_message =
-			                                                        "Implementation error" } } };
+		return new_authentication_find_result_error(TSTR_STATIC_LIT("Implementation error"));
 	}
 
-	SimpleAuthenticationProviderData* data = &auth_provider->data.simple;
+	const SimpleAuthenticationProviderData* const data =
+	    authentication_provider_get_as_simple_const_ref(auth_provider);
 
 	const TMAP_TYPENAME_ENTRY(SimpleAccountEntryHashMap)* entry =
 	    find_user_by_name_simple(data, username);
 
 	if(!entry) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
-			                               .data = {} };
+		return new_authentication_find_result_no_such_user();
 	}
 
-	bool is_valid_pw = is_string_equal_to_hash_salted_string(data->settings, tstr_cstr(password),
-	                                                         entry->value.hash_salted_password);
+	const bool is_valid_pw = is_string_equal_to_hash_salted_string(
+	    data->settings, tstr_cstr(password), entry->value.hash_salted_password);
 
 	if(!is_valid_pw) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
-			                               .data = {} };
+		return new_authentication_find_result_wrong_password();
 	}
 
 	// TODO(Totto): maybe don't allocate this?
-	AuthUser user = { .username = tstr_dup(&(entry->key)), .role = entry->value.role };
+	const AuthUser user = { .username = tstr_dup(&(entry->key)), .role = entry->value.role };
 
-	return (AuthenticationFindResult){
-		.validity = AuthenticationValidityOk,
-		.data = { .ok = { .provider_type = AuthenticationProviderTypeSimple, .user = user } }
-	};
+	return new_authentication_find_result_ok(
+	    (AuthUserWithContext){ .provider_type = AuthenticationProviderTypeSimple, .user = user });
 }
 
 #endif
@@ -282,7 +284,17 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 	#define INITIAL_SIZE_FOR_LINUX_FUNCS 0xFF
 
-NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid_t* group_id) {
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
+	LinuxUserResponseError = 0,
+	LinuxUserResponseOk,
+	LinuxUserResponseNoSuchUser,
+} LinuxUserResponse;
+
+NODISCARD MAYBE_UNUSED static LinuxUserResponse check_for_user_linux(const char* const username,
+                                                                     gid_t* const group_id) {
 
 	struct passwd result = {};
 
@@ -290,7 +302,8 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid
 
 	SizedBuffer buffer = { .data = NULL, .size = 0 };
 
-	long initial_size = sysconf(_SC_GETPW_R_SIZE_MAX);
+	long initial_size = // NOLINT(totto-use-fixed-width-types-var)
+	    sysconf(_SC_GETPW_R_SIZE_MAX);
 
 	if(initial_size < 0) {
 		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
@@ -299,23 +312,24 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid
 	buffer.data = malloc(initial_size);
 
 	if(!buffer.data) {
-		return -1;
+		return LinuxUserResponseError;
 	}
 
 	buffer.size = initial_size;
 
 	while(true) {
 
-		int res = getpwnam_r(username, &result, buffer.data, buffer.size, &result_ptr);
+		const int res = // NOLINT(totto-use-fixed-width-types-var)
+		    getpwnam_r(username, &result, buffer.data, buffer.size, &result_ptr);
 
 		if(res == 0) {
 			free_sized_buffer(buffer);
 			if(result_ptr == NULL) {
-				return 0;
+				return LinuxUserResponseNoSuchUser;
 			}
 
 			*group_id = result_ptr->pw_gid;
-			return 1;
+			return LinuxUserResponseOk;
 		}
 
 		if(res == ERANGE) {
@@ -325,7 +339,7 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid
 				free(buffer.data); // not calling free_sized_buffer, as the size is invalid, and if
 				                   // we in the future might use free_sized with own memory
 				                   // allocator, it could go wrong
-				return -1;
+				return LinuxUserResponseError;
 			}
 
 			buffer.data = new_data;
@@ -333,13 +347,13 @@ NODISCARD MAYBE_UNUSED static int check_for_user_linux(const char* username, gid
 		}
 
 		free_sized_buffer(buffer);
-		return -1;
+		return LinuxUserResponseError;
 	}
 }
 
 	#include <grp.h>
 
-NODISCARD static char* get_group_name(gid_t group_id) {
+NODISCARD static char* get_group_name(const gid_t group_id) {
 
 	struct group result = {};
 
@@ -347,7 +361,8 @@ NODISCARD static char* get_group_name(gid_t group_id) {
 
 	SizedBuffer buffer = { .data = NULL, .size = 0 };
 
-	long initial_size = sysconf(_SC_GETGR_R_SIZE_MAX);
+	long initial_size = // NOLINT(totto-use-fixed-width-types-var)
+	    sysconf(_SC_GETGR_R_SIZE_MAX);
 
 	if(initial_size < 0) {
 		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
@@ -363,7 +378,8 @@ NODISCARD static char* get_group_name(gid_t group_id) {
 
 	while(true) {
 
-		int res = getgrgid_r(group_id, &result, buffer.data, buffer.size, &result_ptr);
+		const int res = // NOLINT(totto-use-fixed-width-types-var)
+		    getgrgid_r(group_id, &result, buffer.data, buffer.size, &result_ptr);
 
 		if(res == 0) {
 			if(result_ptr == NULL) {
@@ -395,12 +411,13 @@ NODISCARD static char* get_group_name(gid_t group_id) {
 	}
 }
 
-NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* username,
-                                                               gid_t group_id) {
+NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* const username,
+                                                               const gid_t group_id) {
 
-	int ngroups = 0;
+	int ngroups = 0; // NOLINT(totto-use-fixed-width-types-var)
 
-	int res = getgrouplist(username, group_id, NULL, &ngroups);
+	int res = // NOLINT(totto-use-fixed-width-types-var)
+	    getgrouplist(username, group_id, NULL, &ngroups);
 
 	if(res != -1) {
 		return UserRoleNone;
@@ -410,7 +427,7 @@ NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* usern
 
 	res = getgrouplist(username, ngroups, group_ids, &ngroups);
 
-	if(res < 0) {
+	if(res < 0 || ngroups < 0) {
 		free(group_ids);
 		return UserRoleNone;
 	}
@@ -419,7 +436,7 @@ NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* usern
 	// admin etc
 	UserRole role = UserRoleNone;
 
-	for(int i = 0; i < ngroups; i++) {
+	for(size_t i = 0; i < (size_t)ngroups; i++) {
 		char* name = get_group_name(group_ids[i]);
 		if(name == NULL) {
 			continue;
@@ -467,11 +484,13 @@ typedef struct {
 
 // based on
 // https://github.com/linux-pam/linux-pam/blob/e3b66a60e4209e019cf6a45f521858cec2dbefa1/libpam_misc/misc_conv.c#L280
-NODISCARD static int pam_conversation_for_password(int num_msg, const struct pam_message** msgs,
-                                                   struct pam_response** resp,
-                                                   ANY_TYPE(PamAppdata) appdata_ptr) {
+NODISCARD static int // NOLINT(totto-use-fixed-width-types-var)
+pam_conversation_for_password(
+    const int num_msg,                     // NOLINT(totto-use-fixed-width-types-var)
+    const struct pam_message** const msgs, // NOLINT(totto-const-correctness-c)
+    struct pam_response** const resp, ANY_TYPE(PamAppdata) const appdata_ptr) {
 
-	PamAppdata* appdata = (PamAppdata*)appdata_ptr;
+	const PamAppdata* const appdata = (PamAppdata* const)appdata_ptr;
 
 	if(num_msg <= 0) {
 		return PAM_CONV_ERR;
@@ -482,7 +501,7 @@ NODISCARD static int pam_conversation_for_password(int num_msg, const struct pam
 		return PAM_CONV_ERR;
 	}
 
-	for(int i = 0; i < num_msg; ++i) {
+	for(size_t i = 0; i < (size_t)num_msg; ++i) {
 		const struct pam_message* msg = msgs[i];
 
 		switch(msg->msg_style) {
@@ -523,20 +542,21 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 // see https://stackoverflow.com/questions/64184960/pam-authenticate-a-user-in-c
 // and https://github.com/linux-pam/linux-pam/blob/master/examples/check_user.c
-NODISCARD static PamUserResponse
-pam_is_user_password_combo_ok(const char* username, // NOLINT(bugprone-easily-swappable-parameters)
-                              const char* password) {
+NODISCARD static PamUserResponse pam_is_user_password_combo_ok(
+    const char* const username, // NOLINT(bugprone-easily-swappable-parameters)
+    const char* const password) {
 
 	pam_handle_t* pamh = NULL;
 
-	PamAppdata app__data = { .password = password };
+	PamAppdata app_data = { .password = password };
 
-	struct pam_conv conv = { .conv = pam_conversation_for_password, .appdata_ptr = &app__data };
+	const struct pam_conv conv = { .conv = pam_conversation_for_password,
+		                           .appdata_ptr = &app_data };
 
-	int res = pam_start("check_user", username, &conv, &pamh);
+	int res = // NOLINT(totto-use-fixed-width-types-var)
+	    pam_start("check_user", username, &conv, &pamh);
 
 	if(res != PAM_SUCCESS) {
-
 		LOG_MESSAGE(LogLevelError, "pam_start failed: %s\n", pam_strerror(pamh, res));
 		return PamUserResponseError;
 	}
@@ -565,7 +585,7 @@ pam_is_user_password_combo_ok(const char* username, // NOLINT(bugprone-easily-sw
 		}
 	}
 
-	int pam_end_res = pam_end(pamh, res);
+	const int pam_end_res = pam_end(pamh, res); // NOLINT(totto-use-fixed-width-types-var)
 
 	if(pam_end_res != PAM_SUCCESS) {
 		return PamUserResponseError;
@@ -592,42 +612,48 @@ authentication_provider_system_find_user_with_password_linux(
 
 	gid_t group_id = 0;
 
-	int does_user_exist = check_for_user_linux(tstr_cstr(username), &group_id);
+	const LinuxUserResponse user_response = check_for_user_linux(tstr_cstr(username), &group_id);
 
-	if(does_user_exist < 0) {
-		return (AuthenticationFindResult){
-			.validity = AuthenticationValidityError,
-			.data = { .error = { .error_message = "couldn'T fetch user information" } }
-		};
+	switch(user_response) {
+		case LinuxUserResponseNoSuchUser: {
+			return new_authentication_find_result_no_such_user();
+		}
+		case LinuxUserResponseOk: {
+			break;
+		}
+		case LinuxUserResponseError:
+		default: {
+			return new_authentication_find_result_error(
+			    TSTR_STATIC_LIT("couldn't fetch user information"));
+		}
 	}
 
-	if(!does_user_exist) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityNoSuchUser,
-			                               .data = {} };
+	const PamUserResponse pam_response =
+	    pam_is_user_password_combo_ok(tstr_cstr(username), tstr_cstr(password));
+
+	switch(pam_response) {
+
+		case PamUserResponseNoSuchUser: {
+			return new_authentication_find_result_no_such_user();
+		}
+		case PamUserResponseOk: {
+			break;
+		}
+		case PamUserResponseError: {
+			return new_authentication_find_result_wrong_password();
+		}
+		default: {
+			return new_authentication_find_result_error(TSTR_STATIC_LIT("pam checking failed"));
+		}
 	}
 
-	int password_matches = pam_is_user_password_combo_ok(tstr_cstr(username), tstr_cstr(password));
-
-	if(password_matches < 0) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
-			                               .data = { .error = { .error_message =
-			                                                        "pam checking failed" } } };
-	}
-
-	if(!password_matches) {
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityWrongPassword,
-			                               .data = {} };
-	}
-
-	UserRole role = get_role_for_linux_user(tstr_cstr(username), group_id);
+	const UserRole role = get_role_for_linux_user(tstr_cstr(username), group_id);
 
 	// TODO(Totto): maybe don't allocate this?
-	AuthUser user = { .username = tstr_dup(username), .role = role };
+	const AuthUser user = { .username = tstr_dup(username), .role = role };
 
-	return (AuthenticationFindResult){
-		.validity = AuthenticationValidityOk,
-		.data = { .ok = { .provider_type = AuthenticationProviderTypeSystem, .user = user } }
-	};
+	return new_authentication_find_result_ok(
+	    (AuthUserWithContext){ .provider_type = AuthenticationProviderTypeSystem, .user = user });
 
 	#endif
 }
@@ -635,15 +661,13 @@ authentication_provider_system_find_user_with_password_linux(
 #endif
 
 NODISCARD static AuthenticationFindResult authentication_provider_system_find_user_with_password(
-    const AuthenticationProvider* auth_provider,
+    const AuthenticationProvider* const auth_provider,
     const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
     const tstr* const password) {
 
-	if(auth_provider->type != AuthenticationProviderTypeSystem) {
+	IF_AUTHENTICATION_PROVIDER_IS_NOT_SYSTEM(*auth_provider) {
 
-		return (AuthenticationFindResult){ .validity = AuthenticationValidityError,
-			                               .data = { .error = { .error_message =
-			                                                        "Implementation error" } } };
+		return new_authentication_find_result_error(TSTR_STATIC_LIT("Implementation error"));
 	}
 
 #if defined(__linux__)
@@ -651,101 +675,106 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 #else
 	UNUSED(username);
 	UNUSED(password);
-	return (AuthenticationFindResult){
-		.validity = AuthenticationValidityError,
-		.data = { .error = { .error_message = "not implementzed for this OS" } }
-	};
-
+	return new_authentication_find_result_error(TSTR_STATIC_LIT("not implementzed for this OS"));
 #endif
 }
 
-NODISCARD static int get_result_value_for_auth_result(AuthenticationFindResult auth) {
+NODISCARD static int8_t get_result_value_for_auth_result(const AuthenticationFindResult auth) {
 
-	switch(auth.validity) {
-		case AuthenticationValidityNoSuchUser: return 1;
-		case AuthenticationValidityWrongPassword: return 2;
-		case AuthenticationValidityOk: return 3;
-		case AuthenticationValidityError:
+	SWITCH_AUTHENTICATION_FIND_RESULT(auth) {
+		CASE_AUTHENTICATION_FIND_RESULT_IS_NO_SUCH_USER() {
+			return 1;
+		}
+		CASE_AUTHENTICATION_FIND_RESULT_IS_WRONG_PASSWORD() {
+			return 2;
+		}
+		CASE_AUTHENTICATION_FIND_RESULT_IS_OK_IGN() {
+			return 3;
+		}
+		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_IGN() {
+			return 0;
+		}
 		default: {
 			return 0;
 		}
 	}
 }
 
-NODISCARD static int compare_auth_results(AuthenticationFindResult auth1,
-                                          AuthenticationFindResult auth2) {
-	return get_result_value_for_auth_result(auth1) - get_result_value_for_auth_result(auth2);
+NODISCARD static int8_t compare_auth_results(const AuthenticationFindResult auth1,
+                                             const AuthenticationFindResult auth2) {
+	return (int8_t)(get_result_value_for_auth_result(auth1) -
+	                get_result_value_for_auth_result(auth2));
 }
-
+/* NOLINTBEGIN(misc-use-internal-linkage) */
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(AuthenticationFindResult)
+/* NOLINTEND(misc-use-internal-linkage) */
 
 NODISCARD AuthenticationFindResult authentication_providers_find_user_with_password(
-    const AuthenticationProviders* auth_providers,
+    const AuthenticationProviders* const auth_providers,
     const tstr* const username, // NOLINT(bugprone-easily-swappable-parameters)
     const tstr* const password) {
 
 	TVEC_TYPENAME(AuthenticationFindResult) results = TVEC_EMPTY(AuthenticationFindResult);
 
 	for(size_t i = 0; i < TVEC_LENGTH(AuthenticationProviderPtr, auth_providers->providers); ++i) {
-		AuthenticationProvider* provider =
+		const AuthenticationProvider* const provider =
 		    TVEC_AT(AuthenticationProviderPtr, auth_providers->providers, i);
 
 		AuthenticationFindResult result;
 
-		switch(provider->type) {
-			case AuthenticationProviderTypeSimple: {
+		SWITCH_AUTHENTICATION_PROVIDER(*provider) {
+			CASE_AUTHENTICATION_PROVIDER_IS_SIMPLE_IGN() {
 #ifndef _SIMPLE_SERVER_HAVE_BCRYPT
-				result = (AuthenticationFindResult){
-					.validity = AuthenticationValidityError,
-					.data = { .error = { .error_message = "not compiled with support for provider "
-					                                      "type simple" } }
-				};
+				result =
+				    new_authentication_find_result_error("not compiled with support for provider "
+				                                         "type simple");
 #else
 				result = authentication_provider_simple_find_user_with_password(provider, username,
 				                                                                password);
 #endif
-				break;
 			}
-			case AuthenticationProviderTypeSystem: {
+			break;
+			CASE_AUTHENTICATION_PROVIDER_IS_SYSTEM() {
 				result = authentication_provider_system_find_user_with_password(provider, username,
 				                                                                password);
 				break;
 			}
-			default:
-				result = (AuthenticationFindResult){
-					.validity = AuthenticationValidityError,
-					.data = { .error = { .error_message = "unrecognized provider type" } }
-				};
+			default: {
+				result = new_authentication_find_result_error(
+				    TSTR_STATIC_LIT("unrecognized provider type"));
 				break;
+			}
 		}
 
 		// note: the clang analyzer is incoreect here, we return a item, that is malloced, but
 		// we free it everywhere, we use this function!
-		if(result.validity == AuthenticationValidityOk) { // NOLINT(clang-analyzer-unix.Malloc)
+		IF_AUTHENTICATION_FIND_RESULT_IS_OK_IGN(result) { // NOLINT(clang-analyzer-unix.Malloc)
 			TVEC_FREE(AuthenticationFindResult, &results);
 			return result;
 		}
 
-		if(result.validity == AuthenticationValidityError) {
-			LOG_MESSAGE(LogLevelTrace, "Error in account find user, provider %s: %s\n",
-			            get_name_for_auth_provider_type(provider->type),
-			            result.data.error.error_message);
+		IF_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(result) {
+			const tstr_static provider_name = get_name_for_auth_provider_type(
+			    get_current_tag_type_for_authentication_provider(*provider));
+
+			LOG_MESSAGE(LogLevelTrace,
+			            "Error in account find user, provider " TSTR_FMT ": " TSTR_FMT "\n",
+			            TSTR_STATIC_FMT_ARGS(provider_name), TSTR_STATIC_FMT_ARGS(error.message));
 		}
 
 		// TODO(Totto): remove all auto_ = things, properly return in that cases
-		auto _ = TVEC_PUSH(AuthenticationFindResult, &results, result);
-		UNUSED(_);
+		const TvecResult push_res = TVEC_PUSH(AuthenticationFindResult, &results, result);
+		OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 	}
 
-	size_t results_length = TVEC_LENGTH(AuthenticationFindResult, results);
+	const size_t results_length = TVEC_LENGTH(AuthenticationFindResult, results);
 
-	AuthenticationFindResult best_result = (AuthenticationFindResult){
-		.validity = AuthenticationValidityError,
-		.data = { .error = { .error_message = "no single provider registered" } }
-	};
+	AuthenticationFindResult best_result =
+	    new_authentication_find_result_error(TSTR_STATIC_LIT("no single provider registered"));
 
 	for(size_t i = 0; i < results_length; ++i) {
-		AuthenticationFindResult current_result = TVEC_AT(AuthenticationFindResult, results, i);
+		const AuthenticationFindResult current_result =
+		    TVEC_AT(AuthenticationFindResult, results, i);
 
 		if(compare_auth_results(best_result, current_result) <= 0) {
 			best_result = current_result;

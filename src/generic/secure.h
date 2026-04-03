@@ -3,12 +3,14 @@
 
 #ifndef _SIMPLE_SERVER_SECURE_DISABLED
 	#include <openssl/ssl.h>
-	#define ESSL 167
 #endif
 
 #include "utils/utils.h"
 
+#include <tstr.h>
 #include <tvec.h>
+
+#include "utils/sized_buffer.h"
 
 typedef struct SecureDataImpl SecureData;
 
@@ -39,8 +41,8 @@ NODISCARD bool is_secure(const SecureOptions* options);
 
 NODISCARD bool is_secure_context(const ConnectionContext* context);
 
-NODISCARD SecureOptions* initialize_secure_options(bool secure, const char* public_cert_file,
-                                                   const char* private_cert_file);
+NODISCARD SecureOptions* initialize_secure_options(bool secure, tstr_static public_cert_file,
+                                                   tstr_static private_cert_file);
 
 void free_secure_options(SecureOptions* options);
 
@@ -50,13 +52,16 @@ NODISCARD ConnectionContext* copy_connection_context(const ConnectionContext* ol
 
 void free_connection_context(ConnectionContext* context);
 
+typedef int NativeFd;
+
 NODISCARD ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* context,
-                                                          int native_fd);
+                                                          NativeFd native_fd);
 
-NODISCARD int close_connection_descriptor(ConnectionDescriptor* descriptor);
+NODISCARD GenericResult close_connection_descriptor(ConnectionDescriptor* descriptor);
 
-NODISCARD int close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
-                                                   ConnectionContext* context, bool allow_reuse);
+NODISCARD GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descriptor,
+                                                             ConnectionContext* context,
+                                                             bool allow_reuse);
 
 /**
  * @enum value
@@ -68,8 +73,8 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } ReadResultType;
 
 typedef union {
-	int errno_error;
-	unsigned long ssl_error;
+	int errno_error;         // NOLINT(totto-use-fixed-width-types-var)
+	unsigned long ssl_error; // NOLINT(totto-use-fixed-width-types-var)
 } OpaqueError;
 
 typedef struct {
@@ -86,10 +91,10 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* descriptor
 NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
                                        OpaqueError opaque_error);
 
-NODISCARD ssize_t write_to_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
-                                      size_t n_bytes);
+NODISCARD ssize_t write_to_descriptor(const ConnectionDescriptor* descriptor,
+                                      ReadonlyBuffer buffer);
 
-NODISCARD int get_underlying_socket(const ConnectionDescriptor* descriptor);
+NODISCARD NativeFd get_underlying_socket(const ConnectionDescriptor* descriptor);
 
 /**
  * @enum value

@@ -34,28 +34,28 @@ struct SendProgressImpl {
 
 char* get_current_dir_name_relative_to_ftp_root(const FTPState* const state, bool escape) {
 
-	char* current_working_directory = state->current_working_directory;
+	const tstr current_working_directory = state->current_working_directory;
 
-	return get_dir_name_relative_to_ftp_root(state, current_working_directory, escape);
+	return get_dir_name_relative_to_ftp_root(state, tstr_cstr(&current_working_directory), escape);
 }
 
 char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char* const file,
                                         bool escape) {
 	// NOTE: file has to satisfy the same invariants as the current_working_directory
-	const char* global_folder = state->global_folder;
+	const tstr global_folder = state->global_folder;
 
-	size_t g_length = strlen(global_folder);
+	size_t g_length = tstr_len(&global_folder);
 	size_t f_length = strlen(file);
 
 	// invariant check 1
-	if((global_folder[g_length - 1] == '/') || (file[f_length - 1] == '/')) {
+	if((tstr_cstr(&global_folder)[g_length - 1] == '/') || (file[f_length - 1] == '/')) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
 		            "folder invariant 1 violated: %s\n", file);
 		return NULL;
 	}
 
 	// invariant check 2
-	if(strstr(file, global_folder) != file) {
+	if(strstr(file, tstr_cstr(&global_folder)) != file) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
 		            "folder invariant 2 violated: %s\n", file);
 		return NULL;
@@ -119,7 +119,7 @@ char* get_dir_name_relative_to_ftp_root(const FTPState* const state, const char*
 	return result;
 }
 
-NODISCARD static char*
+NODISCARD static tstr
 resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion)
                         const char* const user_file_input_to_sanitize, DirChangeResult* result) {
 
@@ -128,17 +128,18 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 
 	size_t buffer_size = strlen(user_file_input_to_sanitize) + 1;
 
-	char* file = (char*)malloc(buffer_size * sizeof(char));
+	char* file_impl = (char*)malloc(buffer_size * sizeof(char));
 
-	if(!file) {
+	if(!file_impl) {
 		if(result) {
 			*result = DirChangeResultError;
 		}
 
-		return NULL;
+		return tstr_null();
 	}
 
-	size_t buffer_size_result = cwk_path_normalize(user_file_input_to_sanitize, file, buffer_size);
+	size_t buffer_size_result =
+	    cwk_path_normalize(user_file_input_to_sanitize, file_impl, buffer_size);
 
 	// the normalization had not enough bytes in the file buffer
 	if(buffer_size_result >= buffer_size) {
@@ -146,37 +147,40 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 			*result = DirChangeResultError;
 		}
 
-		return NULL;
+		return tstr_null();
 	}
 
-	// NOTE: file has to satisfy the same invariants as the current_working_directory
-	const char* global_folder = state->global_folder;
+	const tstr file = tstr_from(file_impl);
 
-	size_t g_length = strlen(global_folder);
-	size_t f_length = strlen(file);
+	// NOTE: file has to satisfy the same invariants as the current_working_directory
+	const tstr global_folder = state->global_folder;
+
+	size_t g_length = tstr_len(&global_folder);
+	size_t f_length = tstr_len(&file);
 
 	// invariant check 1
-	if((global_folder[g_length - 1] == '/') || (file[f_length - 1] == '/')) {
+	if((tstr_cstr(&global_folder)[g_length - 1] == '/') ||
+	   (tstr_cstr(&file)[f_length - 1] == '/')) {
 		if(result) {
 			*result = DirChangeResultError;
 		} else {
 			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
-			            "folder invariant 1 violated: %s\n", file);
+			            "folder invariant 1 violated: " TSTR_FMT "\n", TSTR_FMT_ARGS(file));
 		}
 
-		return NULL;
+		return tstr_null();
 	}
 
 	// invariant check 2
-	if(strstr(file, global_folder) != file) {
+	if(strstr(tstr_cstr(&file), tstr_cstr(&global_folder)) != tstr_cstr(&file)) {
 		if(result) {
 			*result = DirChangeResultErrorPathTraversal;
 		} else {
 			LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelCritical, LogPrintLocation),
-			            "folder invariant 2 violated: %s\n", file);
+			            "folder invariant 2 violated: " TSTR_FMT "\n", TSTR_FMT_ARGS(file));
 		}
 
-		return NULL;
+		return tstr_null();
 	}
 
 	// everything is fine, after the invariants are
@@ -186,18 +190,18 @@ resolve_abs_path_in_cwd(const FTPState* const state, // NOLINT(misc-no-recursion
 	return file;
 }
 
-NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
-                                                    const char* const file,
-                                                    DirChangeResult* dir_result) {
+NODISCARD static tstr internal_resolve_path_in_cwd(const FTPState* const state,
+                                                   const char* const file,
+                                                   DirChangeResult* dir_result) {
 
 	// check if the file is absolute or relative
 	bool is_absolute = file_is_absolute(file);
 
-	const char* base_dir = is_absolute // NOLINT(readability-implicit-bool-conversion)
-	                           ? state->global_folder
-	                           : state->current_working_directory;
+	const tstr base_dir = is_absolute // NOLINT(readability-implicit-bool-conversion)
+	                          ? state->global_folder
+	                          : state->current_working_directory;
 
-	size_t b_length = strlen(base_dir);
+	size_t b_length = tstr_len(&base_dir);
 	size_t f_length = strlen(file);
 
 	// 1 for the "/" (only if relative) and one for the \0 byte
@@ -206,12 +210,12 @@ NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
 	char* abs_string = malloc(final_length * sizeof(char));
 
 	if(!abs_string) {
-		return NULL;
+		return tstr_null();
 	}
 
 	// NOTE: no need to normalize the resulting path to avoid bad patterns (e.g. <g>/../..), that is
 	// done in resolve_abs_path_in_cwd
-	memcpy(abs_string, base_dir, b_length);
+	memcpy(abs_string, tstr_cstr(&base_dir), b_length);
 
 	if(!is_absolute) {
 		abs_string[b_length] = '/';
@@ -221,25 +225,16 @@ NODISCARD static char* internal_resolve_path_in_cwd(const FTPState* const state,
 	       file, f_length);
 	abs_string[final_length - 1] = '\0';
 
-	char* result = resolve_abs_path_in_cwd(state, abs_string, dir_result);
+	const tstr result = resolve_abs_path_in_cwd(state, abs_string, dir_result);
 
 	free(abs_string);
 
 	return result;
 }
 
-NODISCARD char* resolve_path_in_cwd(const FTPState* const state, const char* const file) {
+NODISCARD tstr resolve_path_in_cwd(const FTPState* const state, const char* const file) {
 	return internal_resolve_path_in_cwd(state, file, NULL);
 }
-
-/**
- * @enum value
- */
-typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
-	SendTypeFile = 0,
-	SendTypeMultipleFiles,
-	SendTypeRawData,
-} SendType;
 
 typedef struct {
 	bool read;
@@ -294,14 +289,7 @@ typedef struct {
 	FileSendFormat format;
 } SingleFile;
 
-struct SendDataImpl {
-	SendType type;
-	union {
-		SingleFile* file;
-		MultipleFiles* multiple_files;
-		SizedBuffer raw_data;
-	} value;
-};
+GENERATE_VARIANT_ALL_SEND_DATA()
 
 NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode send_mode) {
 
@@ -316,20 +304,22 @@ NODISCARD SendProgress* setup_send_progress(const SendData* const data, SendMode
 
 	size_t original_data_count = 0;
 
-	switch(data->type) {
-		case SendTypeFile: {
+	SWITCH_SEND_DATA(*data) {
+		CASE_SEND_DATA_IS_FILE_IGN() {
 			original_data_count = 1;
-			break;
 		}
-		case SendTypeMultipleFiles: {
-			original_data_count =
-			    TVEC_LENGTH(FileWithMetadataPtr, data->value.multiple_files->files);
-			break;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_MULTIPLE_FILES_CONST(*data) {
+			original_data_count = TVEC_LENGTH(FileWithMetadataPtr, multiple_files->files);
 		}
-		case SendTypeRawData: {
-			original_data_count = data->value.raw_data.size;
-			break;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_RAW_DATA_CONST(*data) {
+			original_data_count = raw_data.data.size;
 		}
+		break;
+		VARIANT_CASE_END();
 		default: break;
 	}
 
@@ -396,9 +386,9 @@ NODISCARD static FilePermissions permissions_from_mode(mode_t mode) {
 
 NODISCARD FileWithMetadata* get_metadata_for_file(const char* absolute_path, const char* name);
 
-NODISCARD static FileWithMetadata* get_metadata_for_file_abs(char* const absolute_path) {
+NODISCARD static FileWithMetadata* get_metadata_for_file_abs(const char* const absolute_path) {
 
-	char* name_ptr = absolute_path;
+	const char* name_ptr = absolute_path;
 
 	// TODO(Totto). factor out  into helper function or use cwalk
 	while(true) {
@@ -420,7 +410,7 @@ NODISCARD static FileWithMetadata* get_metadata_for_file_abs(char* const absolut
 	return result;
 }
 
-NODISCARD static SingleFile* get_metadata_for_single_file(char* const absolute_path,
+NODISCARD static SingleFile* get_metadata_for_single_file(const char* const absolute_path,
                                                           FileSendFormat format) {
 
 	SingleFile* result = (SingleFile*)malloc(sizeof(SingleFile));
@@ -663,7 +653,7 @@ success:
 	return result;
 }
 
-NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
+NODISCARD SendData* get_data_to_send_for_list(bool is_folder, const char* const path,
                                               FileSendFormat format) {
 
 	SendData* data = (SendData*)malloc(sizeof(SendData));
@@ -672,6 +662,8 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 		return NULL;
 	}
 
+	*data = new_send_data_raw_data(get_empty_sized_buffer());
+
 	// note: the exact data is not specified by the RFC :(
 	// So i just do the stuff that the FTP server did, I used to observer behaviour and looked at
 	// filezilla sourcecode, on which format it understands (as it has to parse it)
@@ -679,15 +671,13 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 	// src/engine/directorylistingparser.h:4
 
 	if(is_folder) {
-		data->type = SendTypeMultipleFiles;
 		MultipleFiles* files = get_files_in_folder(path, format);
 		if(files == NULL) {
 			free(data);
 			return NULL;
 		}
-		data->value.multiple_files = files;
+		*data = new_send_data_multiple_files(files);
 	} else {
-		data->type = SendTypeFile;
 		SingleFile* file = get_metadata_for_single_file(path, format);
 
 		if(file == NULL) {
@@ -695,19 +685,21 @@ NODISCARD SendData* get_data_to_send_for_list(bool is_folder, char* const path,
 			return NULL;
 		}
 
-		data->value.file = file;
+		*data = new_send_data_file(file);
 	}
 
 	return data;
 }
 
-NODISCARD SendData* get_data_to_send_for_retr(char* path) {
+NODISCARD SendData* get_data_to_send_for_retr(const char* path) {
 
 	SendData* data = (SendData*)malloc(sizeof(SendData));
 
 	if(!data) {
 		return NULL;
 	}
+
+	*data = new_send_data_raw_data(get_empty_sized_buffer());
 
 	size_t file_size = 0;
 
@@ -721,8 +713,7 @@ NODISCARD SendData* get_data_to_send_for_retr(char* path) {
 
 	SizedBuffer raw_data = { .data = file_data, .size = file_size };
 
-	data->type = SendTypeRawData;
-	data->value.raw_data = raw_data;
+	*data = new_send_data_raw_data(raw_data);
 
 	return data;
 }
@@ -913,39 +904,39 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 		default: return false;
 	}
 
-	switch(data->type) {
-		case SendTypeFile: {
-			// TODO(Totto): dataement
+	SWITCH_SEND_DATA(*data) {
+		CASE_SEND_DATA_IS_FILE_IGN() {
+			// TODO(Totto): datamanagement
 			return false;
-			break;
 		}
-		case SendTypeMultipleFiles: {
-			FileWithMetadata* value = TVEC_AT(
-			    FileWithMetadataPtr, data->value.multiple_files->files, progress->data.sent_count);
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_MULTIPLE_FILES_CONST(*data) {
+			FileWithMetadata* value =
+			    TVEC_AT(FileWithMetadataPtr, multiple_files->files, progress->data.sent_count);
 
-			StringBuilder* string_builder = format_file_line(
-			    value, data->value.multiple_files->sizes, data->value.multiple_files->format);
+			StringBuilder* string_builder =
+			    format_file_line(value, multiple_files->sizes, multiple_files->format);
 
 			if(!string_builder) {
 				return false;
 			}
 
-			int send_result = send_string_builder_to_connection(descriptor, &string_builder);
-			if(send_result < 0) {
+			const GenericResult send_result =
+			    send_string_builder_to_connection(descriptor, &string_builder);
+
+			IF_GENERIC_RESULT_IS_ERROR_IGN(send_result) {
 				return false;
 			}
 
 			progress->data.sent_count++;
-
-			break;
 		}
-
-		case SendTypeRawData: {
-			SizedBuffer raw_data = data->value.raw_data;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_RAW_DATA_CONST(*data) {
 
 			size_t offset = progress->data.sent_count;
 
-			void* to_send = ((uint8_t*)raw_data.data) + offset;
+			const void* const to_send = ((const uint8_t*)raw_data.data.data) + offset;
 
 			size_t send_length = SEND_CHUNK_SIZE;
 
@@ -953,16 +944,19 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 				send_length = progress->data.total_count - offset;
 			}
 
-			int send_result = send_data_to_connection(descriptor, to_send, send_length);
-			if(send_result < 0) {
+			const GenericResult send_result =
+			    send_data_to_connection(descriptor, to_send, send_length);
+
+			IF_GENERIC_RESULT_IS_ERROR_IGN(send_result) {
 				return false;
 			}
 
 			progress->data.sent_count += send_length;
 
 			return true;
-			break;
 		}
+		break;
+		VARIANT_CASE_END();
 		default: break;
 	}
 
@@ -981,19 +975,22 @@ static void free_single_file(SingleFile* file) {
 
 void free_send_data(SendData* data) {
 
-	switch(data->type) {
-		case SendTypeFile: {
-			free_single_file(data->value.file);
-			break;
+	SWITCH_SEND_DATA(*data) {
+		CASE_SEND_DATA_IS_FILE_CONST(*data) {
+			free_single_file(file);
 		}
-		case SendTypeMultipleFiles: {
-			free_multiple_files(data->value.multiple_files);
-			break;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_MULTIPLE_FILES_CONST(*data) {
+			free_multiple_files(multiple_files);
 		}
-		case SendTypeRawData: {
-			free_sized_buffer(data->value.raw_data);
-			break;
+		break;
+		VARIANT_CASE_END();
+		CASE_SEND_DATA_IS_RAW_DATA_CONST(*data) {
+			free_sized_buffer(raw_data.data);
 		}
+		break;
+		VARIANT_CASE_END();
 		default: {
 			break;
 		}
@@ -1005,9 +1002,9 @@ void free_send_data(SendData* data) {
 NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* const file) {
 
 	DirChangeResult dir_result = DirChangeResultOk;
-	char* new_dir = internal_resolve_path_in_cwd(state, file, &dir_result);
+	const tstr new_dir = internal_resolve_path_in_cwd(state, file, &dir_result);
 
-	if(!new_dir) {
+	if(tstr_is_null(&new_dir)) {
 		if(dir_result == DirChangeResultErrorPathTraversal) {
 			// change nothing, leave as is
 			return DirChangeResultOk;
@@ -1017,12 +1014,12 @@ NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* const f
 	}
 
 	// invariant check 1
-	if(new_dir[strlen(new_dir) - 1] == '/') {
+	if(tstr_cstr(&new_dir)[tstr_len(&new_dir) - 1] == '/') {
 		return DirChangeResultError;
 	}
 
 	// invariant check 2
-	if(strstr(new_dir, state->global_folder) != new_dir) {
+	if(strstr(tstr_cstr(&new_dir), tstr_cstr(&state->global_folder)) != tstr_cstr(&new_dir)) {
 		return DirChangeResultErrorPathTraversal;
 	}
 
@@ -1031,7 +1028,7 @@ NODISCARD DirChangeResult change_dirname_to(FTPState* state, const char* const f
 	return DirChangeResultOk;
 }
 
-NODISCARD bool write_to_file(char* const path, const SizedBuffer buffer) {
+NODISCARD bool write_to_file(const char* const path, const ReadonlyBuffer buffer) {
 
 	FILE* file = fopen(path, "wb");
 

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "./errors.h"
 #include "./tqueue.h"
 #include "generic/sem.h"
 #include "utils.h"
@@ -62,20 +63,20 @@ typedef struct {
 NODISCARD ANY_TYPE(NULL)
     thread_pool_worker_thread_function(ANY_TYPE(MyThreadPoolThreadArgument*) arg);
 
+typedef struct {
+	CreateError error;
+	union {
+		size_t size;
+	} value;
+} CreateResult;
+
 // creates a pool, the size denotes the size of the worker threads, if you don't know how to choose
 // this value, use pool_create_dynamic to have an adjusted value, to your running system, it
 // determines the right amount of threads to use in the CURRENTLY running system, that is
 // recommended, since then this pool is more efficient, on every system
 // pool is a address of an already declared, either mallcoed or on the stack (please ensure the
 // lifetime is sufficient) thread_pool
-NODISCARD int pool_create(ThreadPool* pool, size_t size);
-
-// using get_nprocs_conf to make a dynamic amount of worker Threads
-// returns the used dynamic thread amount, to use it in some way (maybe print it)
-// this does the same as the pool_create method, but is recommended, since it calculates the worker
-// threads on the fly, so it's better suited for every system, and no hardcoded worker threads are
-// required!
-NODISCARD int pool_create_dynamic(ThreadPool* pool);
+NODISCARD CreateResult pool_create(ThreadPool* pool, size_t size);
 
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its NULL) so it is checked here and
@@ -89,4 +90,4 @@ NODISCARD ANY_TYPE(JobResult*) pool_await(JobId* job_description);
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined
 // behaviour! this cn also block, until all jobs are finished
-NODISCARD int pool_destroy(ThreadPool* pool);
+NODISCARD GenericResult pool_destroy(ThreadPool* pool);
