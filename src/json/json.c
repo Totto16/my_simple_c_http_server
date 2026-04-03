@@ -580,6 +580,73 @@ NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const st
 
 NODISCARD static tstr_static json_parse_impl_parse_number_int_part(tstr_view* const str,
                                                                    double* const out_result) {
+
+	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
+	//     int = zero / ( digit1-9 *DIGIT )
+	// digit1-9 = %x31-39         ; 1-9
+	// zero = %x30                ; 0
+
+	if(str->len == 0) {
+		return TSTR_STATIC_LIT("empty number int part");
+	}
+
+	const char first_value = str->data[0];
+
+	if(first_value == '0') {
+		tstr_view_advance(str, 1);
+		*out_result = 0;
+		return tstr_static_null();
+	}
+
+	if(first_value > '9' || first_value < '1') {
+		return TSTR_STATIC_LIT("invalid number int part: incorrect start");
+	}
+
+	uint64_t value = 0;
+
+	value += (first_value - '0');
+	tstr_view_advance(str, 1);
+
+	while(true) {
+		if(str->len == 0) {
+			break;
+		}
+
+		const char next_value = str->data[0];
+
+		if(next_value > '9' || next_value < '0') {
+			break;
+		}
+
+		const uint64_t previous_value = value;
+
+		value = (value * 10) + (next_value - '0');
+		tstr_view_advance(str, 1);
+
+		if(previous_value > value) {
+			// overflow detected
+			return TSTR_STATIC_LIT("invalid number int part: value overflowed a 64 bit number!");
+		}
+	}
+
+	// TODO: JSON overflows much earlier, Number.MAX_SAFE_INTEGER in js says, but is this in the
+	// spec?
+
+	// TODO: check if this has rounding errors!
+	*out_result = (double)value;
+	return tstr_static_null();
+}
+
+NODISCARD static tstr_static json_parse_impl_parse_number_frac_part(tstr_view* const str,
+                                                                    double* const out_result) {
+	// TODO
+	UNUSED(str);
+	UNUSED(out_result);
+	return TSTR_STATIC_LIT("TODO");
+}
+
+NODISCARD static tstr_static json_parse_impl_parse_number_exp_part(tstr_view* const str,
+                                                                   int64_t* const out_result) {
 	// TODO
 	UNUSED(str);
 	UNUSED(out_result);
@@ -658,16 +725,23 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 		// frac
 
 		saw_frac = true;
-		frac = 0.07007;
 
-		return new_json_parse_result_error(TSTR_STATIC_LIT("frac parsing is not implemented yet"));
+		const tstr_static frac_result = json_parse_impl_parse_number_frac_part(str, &frac);
+
+		if(!tstr_static_is_null(frac_result)) {
+			return new_json_parse_result_error(frac_result);
+		}
 	} else if(next_value == 'e' || next_value == 'E') {
 		// exp
 
 		saw_exp = true;
-		exp = 1000;
 
-		return new_json_parse_result_error(TSTR_STATIC_LIT("frac parsing is not implemented yet"));
+		const tstr_static exp_result = json_parse_impl_parse_number_exp_part(str, &exp);
+
+		if(!tstr_static_is_null(exp_result)) {
+			return new_json_parse_result_error(exp_result);
+		}
+
 	} else {
 		// have: minus + int
 		// no frac or exp at the end
@@ -727,9 +801,12 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 		// exp
 
 		saw_exp = true;
-		exp = 1000;
 
-		return new_json_parse_result_error(TSTR_STATIC_LIT("frac parsing is not implemented yet"));
+		const tstr_static exp_result = json_parse_impl_parse_number_exp_part(str, &exp);
+
+		if(!tstr_static_is_null(exp_result)) {
+			return new_json_parse_result_error(exp_result);
+		}
 	} else {
 		assert(saw_frac);
 		// have: minus + int + frac
