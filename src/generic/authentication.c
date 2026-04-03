@@ -35,11 +35,13 @@ struct AuthenticationProvidersImpl {
 	TVEC_TYPENAME(AuthenticationProviderPtr) providers;
 };
 
-NODISCARD const char* get_name_for_auth_provider_type(const AuthenticationProviderType type) {
+NODISCARD tstr_static get_name_for_auth_provider_type(const AuthenticationProviderType type) {
 	switch(type) {
-		case AuthenticationProviderTypeSimple: return "simple authentication provider";
-		case AuthenticationProviderTypeSystem: return "system authentication provider";
-		default: return "<unknown>";
+		case AuthenticationProviderTypeSimple:
+			return TSTR_STATIC_LIT("simple authentication provider");
+		case AuthenticationProviderTypeSystem:
+			return TSTR_STATIC_LIT("system authentication provider");
+		default: return TSTR_STATIC_LIT("<unknown>");
 	}
 }
 
@@ -245,7 +247,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_simple_find_us
 
 	IF_AUTHENTICATION_PROVIDER_IS_NOT_SIMPLE(*auth_provider) {
 
-		return new_authentication_find_result_error("Implementation error");
+		return new_authentication_find_result_error(TSTR_STATIC_LIT("Implementation error"));
 	}
 
 	const SimpleAuthenticationProviderData* const data =
@@ -621,7 +623,8 @@ authentication_provider_system_find_user_with_password_linux(
 		}
 		case LinuxUserResponseError:
 		default: {
-			return new_authentication_find_result_error("couldn't fetch user information");
+			return new_authentication_find_result_error(
+			    TSTR_STATIC_LIT("couldn't fetch user information"));
 		}
 	}
 
@@ -640,7 +643,7 @@ authentication_provider_system_find_user_with_password_linux(
 			return new_authentication_find_result_wrong_password();
 		}
 		default: {
-			return new_authentication_find_result_error("pam checking failed");
+			return new_authentication_find_result_error(TSTR_STATIC_LIT("pam checking failed"));
 		}
 	}
 
@@ -664,7 +667,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 
 	IF_AUTHENTICATION_PROVIDER_IS_NOT_SYSTEM(*auth_provider) {
 
-		return new_authentication_find_result_error("Implementation error");
+		return new_authentication_find_result_error(TSTR_STATIC_LIT("Implementation error"));
 	}
 
 #if defined(__linux__)
@@ -672,7 +675,7 @@ NODISCARD static AuthenticationFindResult authentication_provider_system_find_us
 #else
 	UNUSED(username);
 	UNUSED(password);
-	return new_authentication_find_result_error("not implementzed for this OS");
+	return new_authentication_find_result_error(TSTR_STATIC_LIT("not implementzed for this OS"));
 #endif
 }
 
@@ -737,7 +740,8 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 				break;
 			}
 			default: {
-				result = new_authentication_find_result_error("unrecognized provider type");
+				result = new_authentication_find_result_error(
+				    TSTR_STATIC_LIT("unrecognized provider type"));
 				break;
 			}
 		}
@@ -750,10 +754,12 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 		}
 
 		IF_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(result) {
-			LOG_MESSAGE(LogLevelTrace, "Error in account find user, provider %s: %s\n",
-			            get_name_for_auth_provider_type(
-			                get_current_tag_type_for_authentication_provider(*provider)),
-			            error.message);
+			const tstr_static provider_name = get_name_for_auth_provider_type(
+			    get_current_tag_type_for_authentication_provider(*provider));
+
+			LOG_MESSAGE(LogLevelTrace,
+			            "Error in account find user, provider " TSTR_FMT ": " TSTR_FMT "\n",
+			            TSTR_STATIC_FMT_ARGS(provider_name), TSTR_STATIC_FMT_ARGS(error.message));
 		}
 
 		// TODO(Totto): remove all auto_ = things, properly return in that cases
@@ -764,7 +770,7 @@ NODISCARD AuthenticationFindResult authentication_providers_find_user_with_passw
 	const size_t results_length = TVEC_LENGTH(AuthenticationFindResult, results);
 
 	AuthenticationFindResult best_result =
-	    new_authentication_find_result_error("no single provider registered");
+	    new_authentication_find_result_error(TSTR_STATIC_LIT("no single provider registered"));
 
 	for(size_t i = 0; i < results_length; ++i) {
 		const AuthenticationFindResult current_result =

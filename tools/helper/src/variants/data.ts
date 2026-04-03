@@ -179,7 +179,7 @@ export const globalTaggedUnions: TaggedUnion[] = [
                 name: makeMemberName(CaseName.fromPascalCase("Error")),
                 type: makeStructType([
                     makeStructMember(
-                        "const char*",
+                        "tstr_static",
                         "message",
                     )
                 ])

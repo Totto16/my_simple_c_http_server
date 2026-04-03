@@ -15,7 +15,7 @@ typedef struct AuthenticationProviderImpl AuthenticationProvider;
 
 GENERATE_VARIANT_ENUM_AUTHENTICATION_PROVIDER()
 
-NODISCARD const char* get_name_for_auth_provider_type(AuthenticationProviderType type);
+NODISCARD tstr_static get_name_for_auth_provider_type(AuthenticationProviderType type);
 
 /**
  * @enum value

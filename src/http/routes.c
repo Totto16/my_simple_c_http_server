@@ -304,8 +304,8 @@ static HTTPResponseToSend auth_executor_fn(ParsedURLPath /* path */, AuthUserWit
 	string_builder_append_single(string_builder, "\", \"role\": \"");
 	string_builder_append_single(string_builder, get_name_for_user_role(user.user.role));
 	string_builder_append_single(string_builder, "\", \"provider\": \"");
-	string_builder_append_single(string_builder,
-	                             get_name_for_auth_provider_type(user.provider_type));
+	string_builder_append_tstr_static(string_builder,
+	                                  get_name_for_auth_provider_type(user.provider_type));
 	string_builder_append_single(string_builder, "\"}");
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
@@ -972,7 +972,8 @@ handle_http_authorization_impl(const AuthenticationProviders* auth_providers,
 		}
 		VARIANT_CASE_END();
 		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(find_result) {
-			LOG_MESSAGE(LogLevelError, "Error in account find operation: %s\n", error.message);
+			LOG_MESSAGE(LogLevelError, "Error in account find operation: " TSTR_FMT "\n",
+			            TSTR_STATIC_FMT_ARGS(error.message));
 			return (HttpAuthStatus){
 				.type = HttpAuthStatusTypeAuthorizationError,
 				.data = { .error = { .error_message =

@@ -44,8 +44,9 @@ account_verify(const AuthenticationProviders* auth_providers,
 	SWITCH_AUTHENTICATION_FIND_RESULT(result) {
 		CASE_AUTHENTICATION_FIND_RESULT_IS_ERROR_CONST(result) {
 			LOG_MESSAGE(LogLevelError,
-			            "An error occurred, while trying to find a user with password: %s\n",
-			            error.message);
+			            "An error occurred, while trying to find a user with password: " TSTR_FMT
+			            "\n",
+			            TSTR_STATIC_FMT_ARGS(error.message));
 			return UserValidityInternalError;
 		}
 		VARIANT_CASE_END();
