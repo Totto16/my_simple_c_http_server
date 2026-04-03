@@ -578,9 +578,176 @@ NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const st
 	}
 }
 
-NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const str) {
+NODISCARD static tstr_static json_parse_impl_parse_number_int_part(tstr_view* const str,
+                                                                   double* const out_result) {
+	// TODO
 	UNUSED(str);
-	return new_json_parse_result_error(TSTR_STATIC_LIT("TODO"));
+	UNUSED(out_result);
+	return TSTR_STATIC_LIT("TODO");
+}
+
+NODISCARD static double json_number_make_value_int_exp(double int_value, int64_t exp) {
+
+	// TODO: make correct value from e.g.
+
+	// 10e100, -10e-1000 etc
+
+	UNUSED(int_value);
+	UNUSED(exp);
+	return 0.0;
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const str) {
+
+	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
+	//     number = [ minus ] int [ frac ] [ exp ]
+	// decimal-point = %x2E       ; .
+	// digit1-9 = %x31-39         ; 1-9
+	// e = %x65 / %x45            ; e E
+	// exp = e [ minus / plus ] 1*DIGIT
+	// frac = decimal-point 1*DIGIT
+	// int = zero / ( digit1-9 *DIGIT )
+	// minus = %x2D               ; -
+	// plus = %x2B                ; +
+	// zero = %x30                ; 0
+
+	bool minus = false;
+
+	if(str->len == 0) {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("empty number"));
+	}
+
+	if(str->data[0] == '-') {
+		minus = true;
+		tstr_view_advance(str, 1);
+	}
+
+	if(str->len == 0) {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("empty number"));
+	}
+
+	double int_value = 0.0;
+
+	const tstr_static int_result = json_parse_impl_parse_number_int_part(str, &int_value);
+
+	if(!tstr_static_is_null(int_result)) {
+		return new_json_parse_result_error(int_result);
+	}
+
+#define JSON_NUMBER_FROM_MINUS_INT() \
+	{ \
+		.value = minus ? -(int_value) : int_value \
+	}
+
+	// have: minus + int
+	// eof after that
+	if(str->len == 0) {
+		const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT();
+		return new_json_parse_result_ok(new_json_variant_number(number));
+	}
+
+	const char next_value = str->data[0];
+
+	double frac = 0.0;
+	int64_t exp = 1;
+
+	bool saw_frac = false;
+	bool saw_exp = false;
+
+	if(next_value == '.') {
+		// frac
+
+		saw_frac = true;
+		frac = 0.07007;
+
+		return new_json_parse_result_error(TSTR_STATIC_LIT("frac parsing is not implemented yet"));
+	} else if(next_value == 'e' || next_value == 'E') {
+		// exp
+
+		saw_exp = true;
+		exp = 1000;
+
+		return new_json_parse_result_error(TSTR_STATIC_LIT("frac parsing is not implemented yet"));
+	} else {
+		// have: minus + int
+		// no frac or exp at the end
+		if(str->len == 0) {
+			const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT();
+			return new_json_parse_result_ok(new_json_variant_number(number));
+		}
+	}
+
+	// saw frac or exp
+	assert(saw_frac || saw_exp);
+
+	// are eof
+	if(str->len == 0) {
+
+		if(saw_frac) {
+
+#define JSON_NUMBER_FROM_MINUS_INT_FRAC() \
+	{ \
+		.value = (minus ? -(int_value + frac) : int_value + frac) \
+	}
+
+			// have: minus + int + frac
+			const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT_FRAC();
+			return new_json_parse_result_ok(new_json_variant_number(number));
+		}
+
+		if(saw_exp) {
+
+#define JSON_NUMBER_FROM_MINUS_INT_EXP() \
+	{ \
+		.value = (minus ? -(json_number_make_value_int_exp(int_value, exp)) \
+		                : json_number_make_value_int_exp(int_value, exp)) \
+	}
+
+			// have: minus + int + exp
+			const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT_EXP();
+			return new_json_parse_result_ok(new_json_variant_number(number));
+		}
+
+		return new_json_parse_result_error(
+		    TSTR_STATIC_LIT("implementation error in int + frac + exp number parsing"));
+	}
+
+	// we are already finished
+	if(saw_exp) {
+		assert(!saw_frac);
+
+		// have: minus + int + exp
+		const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT_EXP();
+		return new_json_parse_result_ok(new_json_variant_number(number));
+	}
+
+	const char next_value2 = str->data[0];
+
+	if(next_value2 == 'e' || next_value2 == 'E') {
+		// exp
+
+		saw_exp = true;
+		exp = 1000;
+
+		return new_json_parse_result_error(TSTR_STATIC_LIT("frac parsing is not implemented yet"));
+	} else {
+		assert(saw_frac);
+		// have: minus + int + frac
+		const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT_FRAC();
+		return new_json_parse_result_ok(new_json_variant_number(number));
+	}
+
+	assert(saw_exp && saw_frac);
+
+#define JSON_NUMBER_FROM_MINUS_INT_FRAC_EXP() \
+	{ \
+		.value = (minus ? -(json_number_make_value_int_exp(int_value + frac, exp)) \
+		                : json_number_make_value_int_exp(int_value + frac, exp)) \
+	}
+
+	// have: minus + int + frac + exp
+	const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT_FRAC_EXP();
+	return new_json_parse_result_ok(new_json_variant_number(number));
 }
 
 NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const str) {
