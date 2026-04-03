@@ -2,7 +2,7 @@ project(
     'simple http server',
     'c',
     license: 'MIT',
-    meson_version: '>=1.3.0',
+    meson_version: '>=1.10.0',
     default_options: {
         'buildtype': 'release',
         'optimization': '3',
@@ -275,13 +275,16 @@ else
     compile_flags += '-D_SIMPLE_SERVER_DYNAMIC_HPACK_TABLE_FORTIFIED=0'
 endif
 
+subdir('tools/helper')
+
+deps += variants_dep
+deps += generated_hpack_huffman_dep
+deps += generated_hpack_dep
+
 src_files = []
 inc_dirs = []
 
-generated_cpp_tests = {}
-
 subdir('src')
-subdir('tools/helper')
 
 http_server_lib = library(
     'http_server',
@@ -297,15 +300,10 @@ http_server_dep = declare_dependency(
     compile_args: [compile_flags],
     dependencies: deps,
     version: meson.project_version(),
-    sources: variants_generated,
 )
 
 ## mark as unusable
 compile_flags = {
-    'don\'t_use': true,
-}
-
-variants_generated = {
     'don\'t_use': true,
 }
 

@@ -20,12 +20,9 @@ function isCallingThisScript(value: string): boolean {
         const thisPackageJson = getThisPackageFile()
 
         return thisPackageJson == packageJson;
-
-
     } catch (_err) {
         return false;
     }
-
 }
 
 

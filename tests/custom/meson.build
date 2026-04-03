@@ -37,9 +37,7 @@ cpp_std_to_use = ['c++23', 'c++latest', 'c++20']
 test_support_lib = library(
     '__internal_test_support',
     support_src,
-    generated_cpp_tests['impl'],
-    generated_cpp_tests['header'],
-    dependencies: http_server_dep,
+    dependencies: [http_server_dep, generated_hpack_tests_cpp_dep],
     include_directories: support_inc,
     c_args: internal_c_args,
     cpp_args: internal_cpp_args,
@@ -55,9 +53,9 @@ test_support_dep = declare_dependency(
     link_with: test_support_lib,
     include_directories: support_inc,
     compile_args: [],
-    dependencies: http_server_dep,
+    dependencies: [http_server_dep],
+    sources: generated_hpack_tests_cpp_generated_headers,
     version: meson.project_version(),
-    sources: generated_cpp_tests['header']
 )
 
 

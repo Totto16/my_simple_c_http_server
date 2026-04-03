@@ -41,6 +41,7 @@ install_dependencies = custom_target(
         'error',
     ],
     output: ['install_dependencies_date.txt', 'pnpm-lock-link.yaml'],
+    build_subdir: 'generated' / 'pseudo',
     depend_files: ['package.json'],
 )
 helper_script_depends += install_dependencies
@@ -60,6 +61,7 @@ type_check_helper_script = custom_target(
         'tsconfig.json',
     ],
     output: ['typecheck_code_date.txt'],
+    build_subdir: 'generated' / 'pseudo',
     depend_files: ['tsconfig.json'],
     depends: [install_dependencies],
 )
@@ -78,6 +80,7 @@ lint_helper_script = custom_target(
         'lint',
     ],
     output: ['lint_code_date.txt'],
+    build_subdir: 'generated' / 'pseudo',
     depend_files: helper_script_depend_files,
     depends: [install_dependencies],
 )
@@ -96,6 +99,7 @@ build_helper_script = custom_target(
         'build',
     ],
     output: ['build_code_date.txt'],
+    build_subdir: 'generated' / 'pseudo',
     depend_files: helper_script_depend_files,
     depends: [install_dependencies],
 )
@@ -131,7 +135,7 @@ else
 endif
 
 
-variants_generated = custom_target(
+variants_generated_tgt = custom_target(
     'variants',
     command: [
         node_like_runtime,
@@ -143,14 +147,18 @@ variants_generated = custom_target(
         '@OUTPUT0@',
     ],
     output: ['variants.h'],
+    build_subdir: 'generated' / 'c' / 'variants',
     depend_files: helper_script_depend_files,
     depends: helper_script_depends,
 )
 
-src_files += variants_generated
+variants_dep = declare_dependency(
+    version: meson.project_version(),
+    sources: variants_generated_tgt,
+)
 
 
-generated_hpack_huffman_file_c = custom_target(
+generated_hpack_huffman_c_tgt = custom_target(
     'generated_hpack_huffman.c',
     command: [
         node_like_runtime,
@@ -162,13 +170,18 @@ generated_hpack_huffman_file_c = custom_target(
         '@OUTPUT0@',
     ],
     output: ['generated_hpack_huffman.h', 'generated_hpack_huffman.c'],
+    build_subdir: 'generated' / 'c' / 'hpack' / 'huffman',
     depend_files: helper_script_depend_files,
-    depends: [helper_script_depends, variants_generated],
+    depends: helper_script_depends,
 )
 
-src_files += generated_hpack_huffman_file_c
+generated_hpack_huffman_dep = declare_dependency(
+    dependencies: variants_dep,
+    version: meson.project_version(),
+    sources: generated_hpack_huffman_c_tgt,
+)
 
-generated_hpack_header_h = custom_target(
+generated_hpack_c_tgt = custom_target(
     'generated_hpack.h',
     command: [
         node_like_runtime,
@@ -180,13 +193,18 @@ generated_hpack_header_h = custom_target(
         '@OUTPUT0@',
     ],
     output: ['generated_hpack.h', 'generated_hpack.c'],
+    build_subdir: 'generated' / 'c' / 'hpack' / 'normal',
     depend_files: helper_script_depend_files,
-    depends: [helper_script_depends, variants_generated],
+    depends: helper_script_depends,
 )
 
-src_files += generated_hpack_header_h
+generated_hpack_dep = declare_dependency(
+    dependencies: variants_dep,
+    version: meson.project_version(),
+    sources: generated_hpack_c_tgt,
+)
 
-generated_hpack_tests_files = custom_target(
+generated_hpack_tests_cpp_tgt = custom_target(
     'generated_hpack_tests.hpp',
     command: [
         node_like_runtime,
@@ -198,19 +216,23 @@ generated_hpack_tests_files = custom_target(
         '@OUTPUT0@',
     ],
     output: ['generated_hpack_tests.hpp', 'generated_hpack_tests.cpp', 'generated_hpack_tests.c'],
+    build_subdir: 'generated' / 'cpp' / 'tests',
     depend_files: helper_script_depend_files,
     depends: helper_script_depends,
 )
+generated_hpack_tests_cpp_dep = declare_dependency(
+    dependencies: generated_hpack_huffman_dep,
+    version: meson.project_version(),
+    sources: generated_hpack_tests_cpp_tgt,
+)
 
-generated_cpp_tests = {
-    'impl': [generated_hpack_tests_files[1], generated_hpack_tests_files[2]],
-    'header': [generated_hpack_tests_files[0]],
-}
+generated_hpack_tests_cpp_generated_headers = generated_hpack_tests_cpp_tgt[0]
+
 
 generated_sources = alias_target(
     'generated_sources',
-    generated_hpack_huffman_file_c,
-    generated_hpack_header_h,
-    generated_hpack_tests_files,
-    variants_generated,
+    generated_hpack_huffman_c_tgt,
+    generated_hpack_c_tgt,
+    generated_hpack_tests_cpp_tgt,
+    variants_generated_tgt,
 )
