@@ -602,9 +602,7 @@ NODISCARD static tstr_static json_parse_impl_parse_number_int_part(tstr_view* co
 		return TSTR_STATIC_LIT("invalid number int part: incorrect start");
 	}
 
-	uint64_t value = 0;
-
-	value += (first_value - '0');
+	uint64_t value = (first_value - '0');
 	tstr_view_advance(str, 1);
 
 	while(true) {
@@ -639,10 +637,53 @@ NODISCARD static tstr_static json_parse_impl_parse_number_int_part(tstr_view* co
 
 NODISCARD static tstr_static json_parse_impl_parse_number_frac_part(tstr_view* const str,
                                                                     double* const out_result) {
-	// TODO
-	UNUSED(str);
-	UNUSED(out_result);
-	return TSTR_STATIC_LIT("TODO");
+
+	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
+	//     frac = decimal-point 1*DIGIT
+	// decimal-point = %x2E       ; .
+
+	if(str->len == 0) {
+		return TSTR_STATIC_LIT("empty number frac part");
+	}
+
+	if(str->data[0] != '.') {
+		return TSTR_STATIC_LIT("wrong number frac part: missing starting .");
+	}
+
+	tstr_view_advance(str, 1);
+
+	if(str->len == 0) {
+		return TSTR_STATIC_LIT("empty number frac part");
+	}
+
+	const char first_value = str->data[0];
+
+	if(first_value > '9' || first_value < '0') {
+		return TSTR_STATIC_LIT("invalid number frac part: incorrect start");
+	}
+
+	double divider = 10.0;
+	double value = ((double)(first_value - '0')) / divider;
+	tstr_view_advance(str, 1);
+
+	while(true) {
+		if(str->len == 0) {
+			break;
+		}
+
+		const char next_value = str->data[0];
+
+		if(next_value > '9' || next_value < '0') {
+			break;
+		}
+
+		divider = divider * 10.0;
+		value = value + (((double)next_value - '0') / divider);
+		tstr_view_advance(str, 1);
+	}
+
+	*out_result = value;
+	return tstr_static_null();
 }
 
 NODISCARD static tstr_static json_parse_impl_parse_number_exp_part(tstr_view* const str,
