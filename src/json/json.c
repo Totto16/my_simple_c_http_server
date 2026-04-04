@@ -1773,6 +1773,8 @@ NODISCARD JsonString* json_get_string_from_tstr_view(tstr_view str_view) {
 		}
 	}
 
+	free_utf8_data(data);
+
 	return string;
 }
 #undef FREE_AT_END

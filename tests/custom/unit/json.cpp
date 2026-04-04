@@ -46,6 +46,15 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 		                                                       JsonVariantCpp::number((int64_t)2),
 		                                                       JsonVariantCpp::boolean(true) }) },
 	};
+	CAutoFreePtr<std::vector<JsonParseTestCase>> defer_tests = {
+		&json_parse_test_cases,
+		[](std::vector<JsonParseTestCase>* const values) -> void {
+		    for(size_t i = 0; i < values->size(); ++i) {
+			    auto* const value = &(values->at(i));
+			    free_json_variant(&(value->expected));
+		    }
+		}
+	};
 
 	for(const auto& test_case : json_parse_test_cases) {
 
