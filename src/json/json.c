@@ -735,23 +735,29 @@ NODISCARD static tstr_static json_parse_impl_parse_number_exp_part(tstr_view* co
 
 	bool minus = false;
 
-	const char first_value = str->data[0];
+	if(str->len == 0) {
+		return TSTR_STATIC_LIT("empty number exp part");
+	}
 
-	if(first_value == '+') {
-		minus = false;
-		tstr_view_advance(str, 1);
-	} else if(first_value == '-') {
-		minus = true;
-		tstr_view_advance(str, 1);
+	{
+		const char first_value = str->data[0];
+
+		if(first_value == '+') {
+			minus = false;
+			tstr_view_advance(str, 1);
+		} else if(first_value == '-') {
+			minus = true;
+			tstr_view_advance(str, 1);
+		}
 	}
 
 	if(str->len == 0) {
 		return TSTR_STATIC_LIT("empty number exp part");
 	}
 
-	const char first_real_value = str->data[0];
+	const char first_value = str->data[0];
 
-	if(first_real_value > '9' || first_real_value < '0') {
+	if(first_value > '9' || first_value < '0') {
 		return TSTR_STATIC_LIT("invalid number exp part: incorrect start");
 	}
 

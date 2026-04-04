@@ -42,10 +42,10 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 		                   .expected = new_json_variant_number(JsonNumber{ .value = 100 }) },
 		JsonParseTestCase{ .input = "1.2e3",
 		                   .expected = new_json_variant_number(JsonNumber{ .value = 1200 }) },
-		JsonParseTestCase{ .input = "1.2E+3",
-		                   .expected = new_json_variant_number(JsonNumber{ .value = 1200 }) },
-		JsonParseTestCase{ .input = "1.2E-2",
-		                   .expected = new_json_variant_number(JsonNumber{ .value = 0.012 }) },
+		JsonParseTestCase{ .input = "1.3E+3",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = 1300 }) },
+		JsonParseTestCase{ .input = "1.5E-2",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = 0.015 }) },
 	};
 
 	for(const auto& test_case : json_parse_test_cases) {
