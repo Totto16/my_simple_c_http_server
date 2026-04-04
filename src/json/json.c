@@ -1075,7 +1075,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 		continue;
 		//
 	add_codepoint_raw:
-		const auto string_add_result = json_string_add_char_impl(string, codepoint);
+		const tstr_static string_add_result = json_string_add_char_impl(string, codepoint);
 		if(!tstr_static_is_null(string_add_result)) {
 			FREE_AT_END();
 			return new_json_parse_result_error(string_add_result);
@@ -1378,15 +1378,71 @@ NODISCARD size_t json_object_count(const JsonObject* const object) {
 	return TMAP_SIZE(JsonVariantMapImpl, &(object->value));
 }
 
-i() {
-	TMAP_TYPENAME_ITER(JsonVariantMapImpl)
-	iter = TMAP_ITER_INIT(JsonVariantMapImpl, &(json_obj->value));
-
+struct JsonObjectEntryImpl {
 	TMAP_TYPENAME_ENTRY(JsonVariantMapImpl) value;
+};
 
-	while(TMAP_ITER_NEXT(JsonVariantMapImpl, &iter, &value)) {
+NODISCARD const JsonObjectEntry* json_object_get_entry_by_key(const JsonObject* const object,
+                                                              const JsonString* const key) {
 
-		free_json_variant(&value.value);
-		free_json_key(&value.key);
+	if(key == NULL) {
+		return NULL;
 	}
+
+	const JsonObjectKey correct_key = { .string = *key };
+
+	const TMAP_TYPENAME_ENTRY(JsonVariantMapImpl)* const result =
+	    TMAP_GET_ENTRY(JsonVariantMapImpl, &(object->value), correct_key);
+
+	// as this struct has only one member, it is safe to cast this
+	return (const JsonObjectEntry*)result;
+}
+
+struct JsonObjectIterImpl {
+	TMAP_TYPENAME_ITER(JsonVariantMapImpl) iter;
+	JsonObjectEntry value_slot;
+};
+
+NODISCARD JsonObjectIter* json_object_get_iterator(const JsonObject* const object) {
+
+	JsonObjectIter* iter = malloc(sizeof(JsonObjectIter));
+
+	if(iter == NULL) {
+		return NULL;
+	}
+
+	iter->iter = TMAP_ITER_INIT(JsonVariantMapImpl, &(object->value));
+	iter->value_slot = ZERO_STRUCT(JsonObjectEntry);
+
+	return iter;
+}
+
+NODISCARD const JsonObjectEntry* json_object_iterator_next(JsonObjectIter* const iter) {
+
+	const bool result =
+	    TMAP_ITER_NEXT(JsonVariantMapImpl, &(iter->iter), &(iter->value_slot.value));
+
+	if(!result) {
+		return NULL;
+	}
+
+	return &(iter->value_slot);
+}
+
+void json_object_free_iterator(JsonObjectIter* const iter) {
+	free(iter);
+}
+
+NODISCARD const JsonString* json_object_entry_get_key(const JsonObjectEntry* const object_entry) {
+	const TMAP_TYPENAME_ENTRY(JsonVariantMapImpl)* const entry =
+	    (const TMAP_TYPENAME_ENTRY(JsonVariantMapImpl)*)object_entry;
+
+	return &(entry->key.string);
+}
+
+NODISCARD JsonVariant json_object_entry_get_value(const JsonObjectEntry* const object_entry) {
+	const TMAP_TYPENAME_ENTRY(JsonVariantMapImpl)* const entry =
+	    (const TMAP_TYPENAME_ENTRY(JsonVariantMapImpl)*)object_entry;
+
+	return entry->value;
 }

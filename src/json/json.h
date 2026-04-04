@@ -54,7 +54,7 @@ NODISCARD size_t json_object_count(const JsonObject* object);
 
 typedef struct JsonObjectEntryImpl JsonObjectEntry;
 
-NODISCARD JsonObjectEntry* json_object_get_entry_by_key(const JsonObject* object, const JsonString* key);
+NODISCARD const JsonObjectEntry* json_object_get_entry_by_key(const JsonObject* object, const JsonString* key);
 
 typedef struct JsonObjectIterImpl JsonObjectIter;
 
