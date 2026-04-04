@@ -1363,3 +1363,13 @@ NODISCARD bool json_string_eq(const JsonString* const str1, const JsonString* co
 
 	return memcmp(data1, data2, sizeof(*data1) * len1) == 0;
 }
+
+NODISCARD size_t json_array_size(const JsonArray* const array) {
+	return TVEC_LENGTH(JsonVariant, array->value);
+}
+
+NODISCARD JsonVariant json_array_at(const JsonArray* const array, const size_t index) {
+	assert(index < json_array_size(array));
+
+	return TVEC_AT(JsonVariant, array->value, index);
+}

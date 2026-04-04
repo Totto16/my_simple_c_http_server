@@ -46,6 +46,10 @@ NODISCARD tstr json_variant_to_string_advanced(JsonVariant json_variant,
 
 NODISCARD bool json_string_eq(const JsonString* str1, const JsonString* str2);
 
+NODISCARD size_t json_array_size(const JsonArray* array);
+
+NODISCARD JsonVariant json_array_at(const JsonArray* array, size_t index);
+
 #ifdef __cplusplus
 }
 #endif
