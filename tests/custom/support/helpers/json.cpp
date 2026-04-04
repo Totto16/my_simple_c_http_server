@@ -135,18 +135,64 @@ JsonArrayCpp::JsonArrayCpp(JsonArray* value) : m_value{ value } {}
 	return json_array_eq_impl(this->m_value, json_array2);
 }
 
-
 JsonObjectCpp::JsonObjectCpp(JsonObject* value) : m_value{ value } {}
 
+[[nodiscard]] static bool json_object_entry_value_eq(const JsonObjectEntry* const entry1,
+                                                     const JsonObjectEntry* const entry2) {
+
+	const auto value1 = json_object_entry_get_value(entry1);
+
+	const auto value2 = json_object_entry_get_value(entry2);
+
+	return value1 == value2;
+}
+
 [[nodiscard]] static bool json_object_eq_impl(const JsonObject* const json_object1,
-                                             const JsonObject* const json_object2) {
-	
+                                              const JsonObject* const json_object2) {
+
+	const size_t size1 = json_object_count(json_object1);
+	const size_t size2 = json_object_count(json_object2);
+
+	if(size1 != size2) {
+		return false;
+	}
+
+	// as the iteration is not stable, we need to iterate over the one, and assert that the other
+	// one has also the same entry!
+	JsonObjectIter* iter1 = json_object_get_iterator(json_object1);
+	CAutoFreePtr<JsonObjectIter> defer = { iter1, json_object_free_iterator };
+
+	while(true) {
+
+		const JsonObjectEntry* entry1 = json_object_iterator_next(iter1);
+
+		if(entry1 == nullptr) {
+			break;
+		}
+
+		const auto* const key1 = json_object_entry_get_key(entry1);
+
+		assert(key1 != nullptr);
+
+		const JsonObjectEntry* entry2 = json_object_get_entry_by_key(json_object2, key1);
+
+		// the same key was not found
+		if(entry2 == nullptr) {
+			return false;
+		}
+
+		if(!json_object_entry_value_eq(entry1, entry2)) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 [[nodiscard]] bool JsonObjectCpp::operator==(const JsonObjectCpp& json_object2) const {
 	return json_object_eq_impl(this->m_value, json_object2.m_value);
 }
 
-[[nodiscard]] bool JsonObjectCpp::operator==(const JsonArray* const json_object2) const {
+[[nodiscard]] bool JsonObjectCpp::operator==(const JsonObject* const json_object2) const {
 	return json_object_eq_impl(this->m_value, json_object2);
 }

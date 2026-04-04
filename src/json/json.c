@@ -1373,3 +1373,20 @@ NODISCARD JsonVariant json_array_at(const JsonArray* const array, const size_t i
 
 	return TVEC_AT(JsonVariant, array->value, index);
 }
+
+NODISCARD size_t json_object_count(const JsonObject* const object) {
+	return TMAP_SIZE(JsonVariantMapImpl, &(object->value));
+}
+
+i() {
+	TMAP_TYPENAME_ITER(JsonVariantMapImpl)
+	iter = TMAP_ITER_INIT(JsonVariantMapImpl, &(json_obj->value));
+
+	TMAP_TYPENAME_ENTRY(JsonVariantMapImpl) value;
+
+	while(TMAP_ITER_NEXT(JsonVariantMapImpl, &iter, &value)) {
+
+		free_json_variant(&value.value);
+		free_json_key(&value.key);
+	}
+}

@@ -50,6 +50,24 @@ NODISCARD size_t json_array_size(const JsonArray* array);
 
 NODISCARD JsonVariant json_array_at(const JsonArray* array, size_t index);
 
+NODISCARD size_t json_object_count(const JsonObject* object);
+
+typedef struct JsonObjectEntryImpl JsonObjectEntry;
+
+NODISCARD JsonObjectEntry* json_object_get_entry_by_key(const JsonObject* object, const JsonString* key);
+
+typedef struct JsonObjectIterImpl JsonObjectIter;
+
+NODISCARD JsonObjectIter* json_object_get_iterator(const JsonObject* object);
+
+NODISCARD const JsonObjectEntry* json_object_iterator_next(JsonObjectIter* iter);
+
+void json_object_free_iterator(JsonObjectIter* iter);
+
+NODISCARD const JsonString* json_object_entry_get_key(const JsonObjectEntry* object_entry);
+
+NODISCARD JsonVariant json_object_entry_get_value(const JsonObjectEntry* object_entry);
+
 #ifdef __cplusplus
 }
 #endif
