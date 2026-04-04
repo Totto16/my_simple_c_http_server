@@ -29,11 +29,15 @@ GENERATE_VARIANT_ALL_JSON_VARIANT()
 
 GENERATE_VARIANT_ALL_JSON_PARSE_RESULT()
 
+// parse json strings
+
 NODISCARD JsonParseResult json_variant_parse_from_str(tstr_view str);
 
 NODISCARD JsonParseResult json_variant_parse_from_file(tstr str);
 
 void free_json_variant(JsonVariant* json_variant);
+
+// serialize json values
 
 typedef struct {
 	size_t indent_size;
@@ -43,6 +47,8 @@ NODISCARD tstr json_variant_to_string(JsonVariant json_variant);
 
 NODISCARD tstr json_variant_to_string_advanced(JsonVariant json_variant,
                                                JsonSerializeOptions options);
+
+// utility / get functions
 
 NODISCARD bool json_string_eq(const JsonString* str1, const JsonString* str2);
 
@@ -54,7 +60,8 @@ NODISCARD size_t json_object_count(const JsonObject* object);
 
 typedef struct JsonObjectEntryImpl JsonObjectEntry;
 
-NODISCARD const JsonObjectEntry* json_object_get_entry_by_key(const JsonObject* object, const JsonString* key);
+NODISCARD const JsonObjectEntry* json_object_get_entry_by_key(const JsonObject* object,
+                                                              const JsonString* key);
 
 typedef struct JsonObjectIterImpl JsonObjectIter;
 
@@ -67,6 +74,29 @@ void json_object_free_iterator(JsonObjectIter* iter);
 NODISCARD const JsonString* json_object_entry_get_key(const JsonObjectEntry* object_entry);
 
 NODISCARD JsonVariant json_object_entry_get_value(const JsonObjectEntry* object_entry);
+
+// create functions
+
+NODISCARD JsonString* json_get_string_from_cstr(const char* cstr);
+
+NODISCARD JsonString* json_get_string_from_tstr(const tstr* str);
+
+NODISCARD JsonString* json_get_string_from_tstr_view(tstr_view str_view);
+
+void free_json_string(JsonString* json_string);
+
+NODISCARD JsonArray* get_empty_json_array(void);
+
+NODISCARD tstr_static json_array_add_entry(JsonArray* json_array, JsonVariant entry);
+
+void free_json_array(JsonArray* json_arr);
+
+NODISCARD JsonObject* get_empty_json_object(void);
+
+NODISCARD tstr_static json_object_add_entry(JsonObject* json_object, const JsonString* key,
+                                            JsonVariant value);
+
+void free_json_object(JsonObject* json_obj);
 
 #ifdef __cplusplus
 }
