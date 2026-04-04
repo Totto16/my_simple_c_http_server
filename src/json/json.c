@@ -3,10 +3,11 @@
 
 #include <utils/path.h>
 #include <utils/sized_buffer.h>
+#include <utils/utf8_helper.h>
 
+#include <math.h>
 #include <tmap.h>
 #include <tvec.h>
-#include <math.h>
 
 // see: https://datatracker.ietf.org/doc/html/rfc8259
 
@@ -18,6 +19,14 @@ struct JsonArrayImpl {
 	JsonVariantArr value;
 };
 
+TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Utf8Codepoint)
+
+typedef TVEC_TYPENAME(Utf8Codepoint) JsonCharArr;
+
+struct JsonStringImpl {
+	JsonCharArr value;
+};
+
 // keys can only be strings
 typedef struct {
 	JsonString string;
@@ -27,11 +36,12 @@ TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(JsonObjectKey, JsonObjectKeyName, JsonVariant
                                    JsonVariantMapImpl)
 
 TMAP_HASH_FUNC_SIG(JsonObjectKey, JsonObjectKeyName) {
-	return TMAP_HASH_BYTES(tstr_cstr(&key.string.value), tstr_len(&key.string.value));
+	return TMAP_HASH_BYTES(TVEC_DATA_CONST(Utf8Codepoint, &key.string.value),
+	                       TVEC_LENGTH(Utf8Codepoint, key.string.value));
 }
 
 TMAP_EQ_FUNC_SIG(JsonObjectKey, JsonObjectKeyName) {
-	return tstr_eq(&key1.string.value, &key2.string.value);
+	return json_string_eq(&key1.string, &key2.string);
 }
 
 typedef TMAP_TYPENAME_MAP(JsonVariantMapImpl) JsonVariantMap;
@@ -175,7 +185,18 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* str);
 
 NODISCARD static JsonParseResult json_parse_impl_parse_value(tstr_view* str);
 
-static void free_json_string(JsonString json_string);
+NODISCARD static JsonObjectKey release_json_string_into_object_key(JsonString** const string) {
+
+	const JsonObjectKey result = { .string = **string };
+
+	free(*string);
+
+	*string = NULL;
+
+	return result;
+}
+
+static void free_json_string(JsonString* json_string);
 
 NODISCARD static tstr_static json_parse_impl_parse_object_member(tstr_view* const str,
                                                                  JsonObject* const json_object) {
@@ -198,7 +219,7 @@ NODISCARD static tstr_static json_parse_impl_parse_object_member(tstr_view* cons
 		return TSTR_STATIC_LIT("implementation error: string parser didn't return a string");
 	}
 
-	const JsonString key = json_variant_get_as_string(key_raw);
+	JsonString* key = json_variant_get_as_string(key_raw);
 
 #define FREE_AT_END() \
 	do { \
@@ -239,8 +260,9 @@ NODISCARD static tstr_static json_parse_impl_parse_object_member(tstr_view* cons
 		free_json_variant(&value); \
 	} while(false)
 
-	const tstr_static add_result =
-	    json_object_add_entry_impl(json_object, (JsonObjectKey){ .string = key }, value);
+	const JsonObjectKey correct_key = release_json_string_into_object_key(&key);
+
+	const tstr_static add_result = json_object_add_entry_impl(json_object, correct_key, value);
 
 	if(!tstr_static_is_null(add_result)) {
 		FREE_AT_END();
@@ -578,6 +600,8 @@ NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const st
 		}
 	}
 }
+
+#undef FREE_AT_END
 
 NODISCARD static tstr_static json_parse_impl_parse_number_int_part(tstr_view* const str,
                                                                    double* const out_result) {
@@ -944,10 +968,215 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 	return new_json_parse_result_ok(new_json_variant_number(number));
 }
 
-NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const str) {
-	UNUSED(str);
-	return new_json_parse_result_error(TSTR_STATIC_LIT("TODO"));
+NODISCARD static JsonString* get_empty_json_string_impl(void) {
+	JsonString* const string = malloc(sizeof(JsonString));
+
+	if(string == NULL) {
+		return NULL;
+	}
+
+	string->value = TVEC_EMPTY(Utf8Codepoint);
+	return string;
 }
+
+NODISCARD static tstr_static json_string_add_char_impl(JsonString* const json_string,
+                                                       const Utf8Codepoint codepoint) {
+
+	const TvecResult result = TVEC_PUSH(Utf8Codepoint, &(json_string->value), codepoint);
+
+	if(result != TvecResultOk) {
+		return TSTR_STATIC_LIT("json string add error");
+	}
+
+	return tstr_static_null();
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const str) {
+	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
+	//       string = quotation-mark *char quotation-mark
+	//  char = unescaped /
+	//      escape (
+	//          %x22 /          ; "    quotation mark  U+0022
+	//          %x5C /          ; \    reverse solidus U+005C
+	//          %x2F /          ; /    solidus         U+002F
+	//          %x62 /          ; b    backspace       U+0008
+	//          %x66 /          ; f    form feed       U+000C
+	//          %x6E /          ; n    line feed       U+000A
+	//          %x72 /          ; r    carriage return U+000D
+	//          %x74 /          ; t    tab             U+0009
+	//          %x75 4HEXDIG )  ; uXXXX                U+XXXX
+	//  escape = %x5C              ; \
+	//  quotation-mark = %x22      ; "
+	//  unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
+
+	if(str->len == 0) {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("empty string"));
+	}
+
+	if(str->data[0] != '"') {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("wrong quotation-mark"));
+	}
+
+	tstr_view_advance(str, 1);
+
+	if(str->len == 0) {
+		return new_json_parse_result_error(TSTR_STATIC_LIT("empty string"));
+	}
+
+	JsonString* const string = get_empty_json_string_impl();
+
+#define FREE_AT_END() \
+	do { \
+		free_json_string(string); \
+	} while(false)
+
+	while(true) {
+
+		if(str->len == 0) {
+			return new_json_parse_result_error(TSTR_STATIC_LIT("empty string"));
+		}
+
+		const Utf8NextCharResult result = utf8_get_next_char(str);
+
+		IF_UTF8_NEXT_CHAR_RESULT_IS_ERROR_CONST(result) {
+			FREE_AT_END();
+			return new_json_parse_result_error(error.error);
+		}
+
+		Utf8Codepoint codepoint = utf8_next_char_result_get_as_ok(result).codepoint;
+
+		if(codepoint < 0) {
+			FREE_AT_END();
+			return new_json_parse_result_error(
+			    TSTR_STATIC_LIT("invalid string char: range (-inf, 0)"));
+		} else if(codepoint >= 0 && codepoint < 0x20) {
+			FREE_AT_END();
+			return new_json_parse_result_error(
+			    TSTR_STATIC_LIT("invalid string char: range [0, 0x20)"));
+		} else if(codepoint >= 0x20 && codepoint <= 0x21) {
+			goto add_codepoint_raw;
+		} else if(codepoint == '"') {
+			static_assert(0x22 == '"');
+			break;
+		} else if(codepoint >= 0x23 && codepoint <= 0x5B) {
+			goto add_codepoint_raw;
+		} else if(codepoint == '\\') {
+			static_assert(0x5C == '\\');
+			goto escape_logic;
+		} else if(codepoint >= 0x5D && codepoint <= 0x10FFFF) {
+			goto add_codepoint_raw;
+		} else {
+			FREE_AT_END();
+			return new_json_parse_result_error(
+			    TSTR_STATIC_LIT("invalid string char: range (0x10FFFF, +inf)"));
+		}
+		//
+
+		continue;
+		//
+	add_codepoint_raw:
+		const auto string_add_result = json_string_add_char_impl(string, codepoint);
+		if(!tstr_static_is_null(string_add_result)) {
+			FREE_AT_END();
+			return new_json_parse_result_error(string_add_result);
+		}
+
+		continue;
+	//
+	escape_logic:
+		// NOTE. next char has to be ascii!
+
+		if(str->len == 0) {
+			FREE_AT_END();
+			return new_json_parse_result_error(TSTR_STATIC_LIT("empty string escape sequence"));
+		}
+
+		const char escape_char = str->data[0];
+
+		if(escape_char == '"') {
+			static_assert(0x22 == '"');
+			codepoint = '"';
+			goto add_codepoint_raw;
+		} else if(escape_char == '\\') {
+			static_assert(0x5C == '\\');
+			codepoint = '\\';
+			goto add_codepoint_raw;
+		} else if(escape_char == '/') {
+			static_assert(0x2F == '/');
+			codepoint = '/';
+			goto add_codepoint_raw;
+		} else if(escape_char == 'b') {
+			static_assert(0x62 == 'b');
+			static_assert(0x08 == '\b');
+			codepoint = '\b';
+			goto add_codepoint_raw;
+		} else if(escape_char == 'f') {
+			static_assert(0x66 == 'f');
+			static_assert(0x0C == '\f');
+			codepoint = '\f';
+			goto add_codepoint_raw;
+		} else if(escape_char == 'n') {
+			static_assert(0x6E == 'n');
+			static_assert(0x0A == '\n');
+			codepoint = '\n';
+			goto add_codepoint_raw;
+		} else if(escape_char == 'r') {
+			static_assert(0x72 == 'r');
+			static_assert(0x0D == '\r');
+			codepoint = '\r';
+			goto add_codepoint_raw;
+		} else if(escape_char == 't') {
+			static_assert(0x74 == 't');
+			static_assert(0x09 == '\t');
+			codepoint = '\t';
+			goto add_codepoint_raw;
+		} else if(escape_char == 'u') {
+			static_assert(0x75 == 'u');
+
+			if(str->len < 4) {
+				FREE_AT_END();
+				return new_json_parse_result_error(TSTR_STATIC_LIT(
+				    "invalid string escape sequence: unicode escape is missing values, it "
+				    "requires at least 4 chars after it"));
+			}
+
+			Utf8Codepoint composed_codepoint = 0;
+
+			for(size_t i = 0; i < 4; ++i) {
+				const char value = str->data[i];
+
+				uint8_t num = 0;
+
+				if(value >= '0' && value <= '9') {
+					num = value - '0';
+				} else if(value >= 'A' && value <= 'F') {
+					num = (value - 'A') + 10;
+				} else if(value >= 'a' && value <= 'f') {
+					num = (value - 'a') + 10;
+				} else {
+					FREE_AT_END();
+					return new_json_parse_result_error(TSTR_STATIC_LIT(
+					    "invalid string escape sequence: unicode escape has invalid digits"));
+				}
+
+				composed_codepoint = (composed_codepoint * 0x10) + num;
+			}
+
+			tstr_view_advance(str, 4);
+
+			codepoint = composed_codepoint;
+
+			goto add_codepoint_raw;
+		} else {
+			FREE_AT_END();
+			return new_json_parse_result_error(TSTR_STATIC_LIT("invalid string escape sequence"));
+		}
+	}
+
+	return new_json_parse_result_ok(new_json_variant_string(string));
+}
+
+#undef FREE_AT_END
 
 NODISCARD static JsonParseResult json_parse_impl_parse_value(tstr_view* const str) {
 
@@ -1037,6 +1266,15 @@ NODISCARD JsonParseResult json_variant_parse_from_file(const tstr str) {
 	return json_variant_parse_from_str(str_view);
 }
 
+static void free_json_string(JsonString* const json_string) {
+	TVEC_FREE(Utf8Codepoint, &(json_string->value));
+	free(json_string);
+}
+
+static void free_json_key(JsonObjectKey* const key) {
+	free_json_string(&(key->string));
+}
+
 static void free_json_object(JsonObject* const json_obj) { // NOLINT(misc-no-recursion)
 	TMAP_TYPENAME_ITER(JsonVariantMapImpl)
 	iter = TMAP_ITER_INIT(JsonVariantMapImpl, &(json_obj->value));
@@ -1046,6 +1284,7 @@ static void free_json_object(JsonObject* const json_obj) { // NOLINT(misc-no-rec
 	while(TMAP_ITER_NEXT(JsonVariantMapImpl, &iter, &value)) {
 
 		free_json_variant(&value.value);
+		free_json_key(&value.key);
 	}
 
 	TMAP_FREE(JsonVariantMapImpl, &(json_obj->value));
@@ -1057,11 +1296,7 @@ static void free_json_array(JsonArray* const json_arr) { // NOLINT(misc-no-recur
 		free_json_variant(value);
 	}
 	TVEC_FREE(JsonVariant, &(json_arr->value));
-}
-
-static void free_json_string(const JsonString json_string) {
-	JsonString temp = json_string;
-	tstr_free(&(temp.value));
+	free(json_arr);
 }
 
 void free_json_variant(JsonVariant* const json_variant) {
@@ -1113,4 +1348,18 @@ NODISCARD tstr json_variant_to_string_advanced(JsonVariant json_variant,
 	UNUSED(options);
 
 	return result;
+}
+
+NODISCARD bool json_string_eq(const JsonString* const str1, const JsonString* const str2) {
+	const size_t len1 = TVEC_LENGTH(Utf8Codepoint, str1->value);
+	const size_t len2 = TVEC_LENGTH(Utf8Codepoint, str2->value);
+
+	if(len1 != len2) {
+		return false;
+	}
+
+	const Utf8Codepoint* const data1 = TVEC_DATA_CONST(Utf8Codepoint, &(str1->value));
+	const Utf8Codepoint* const data2 = TVEC_DATA_CONST(Utf8Codepoint, &(str2->value));
+
+	return memcmp(data1, data2, sizeof(*data1) * len1) == 0;
 }

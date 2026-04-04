@@ -524,7 +524,7 @@ export const globalTaggedUnions: TaggedUnion[] = [
             },
             {
                 name: makeMemberName(CaseName.fromPascalCase("String")),
-                type: makeSimpleType("JsonString")
+                type: makeSimpleType("JsonString*")
             },
             {
                 name: makeMemberName(CaseName.fromPascalCase("Boolean")),
@@ -545,5 +545,6 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
-    makeErrorVariant("JsonParseResult", "JsonVariant")
+    makeErrorVariant("JsonParseResult", "JsonVariant"),
+    makeErrorVariant("Utf8NextCharResult", "Utf8Codepoint", "codepoint"),
 ]

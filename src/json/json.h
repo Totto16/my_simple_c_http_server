@@ -15,13 +15,11 @@ typedef struct JsonObjectImpl JsonObject;
 
 typedef struct JsonArrayImpl JsonArray;
 
+typedef struct JsonStringImpl JsonString;
+
 typedef struct {
 	double value;
 } JsonNumber;
-
-typedef struct {
-	tstr value;
-} JsonString;
 
 typedef struct {
 	bool value;
@@ -45,6 +43,8 @@ NODISCARD tstr json_variant_to_string(JsonVariant json_variant);
 
 NODISCARD tstr json_variant_to_string_advanced(JsonVariant json_variant,
                                                JsonSerializeOptions options);
+
+NODISCARD bool json_string_eq(const JsonString* str1, const JsonString* str2);
 
 #ifdef __cplusplus
 }
