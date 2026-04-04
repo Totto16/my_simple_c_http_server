@@ -75,3 +75,20 @@ struct JsonObjectCpp {
 };
 
 static_assert(std::ranges::range<JsonObjectCpp>);
+
+struct JsonVariantCpp {
+
+	[[nodiscard]] static JsonVariant null() { return new_json_variant_null(); }
+
+	[[nodiscard]] static JsonVariant boolean(const bool& value) {
+		return new_json_variant_boolean(JsonBoolean{ .value = value });
+	}
+
+	[[nodiscard]] static JsonVariant number(const double& value) {
+		return new_json_variant_number(JsonNumber{ .value = value });
+	}
+
+	[[nodiscard]] static JsonVariant number(const int64_t& value) {
+		return number(static_cast<double>(value));
+	}
+};
