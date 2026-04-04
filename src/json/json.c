@@ -688,10 +688,77 @@ NODISCARD static tstr_static json_parse_impl_parse_number_frac_part(tstr_view* c
 
 NODISCARD static tstr_static json_parse_impl_parse_number_exp_part(tstr_view* const str,
                                                                    int64_t* const out_result) {
-	// TODO
-	UNUSED(str);
-	UNUSED(out_result);
-	return TSTR_STATIC_LIT("TODO");
+
+	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2.
+	//      exp = e [ minus / plus ] 1*DIGIT
+	// digit1-9 = %x31-39         ; 1-9
+	// e = %x65 / %x45            ; e E
+	// minus = %x2D               ; -
+	// plus = %x2B                ; +
+
+	if(str->len == 0) {
+		return TSTR_STATIC_LIT("empty number exp part");
+	}
+
+	if(str->data[0] != 'e' && str->data[0] != 'E') {
+		return TSTR_STATIC_LIT("wrong number exp part: missing starting e/E");
+	}
+
+	tstr_view_advance(str, 1);
+
+	bool minus = false;
+
+	const char first_value = str->data[0];
+
+	if(first_value == '+') {
+		minus = false;
+		tstr_view_advance(str, 1);
+	} else if(first_value == '-') {
+		minus = true;
+		tstr_view_advance(str, 1);
+	}
+
+	if(str->len == 0) {
+		return TSTR_STATIC_LIT("empty number exp part");
+	}
+
+	const char first_real_value = str->data[0];
+
+	if(first_real_value > '9' || first_real_value < '0') {
+		return TSTR_STATIC_LIT("invalid number exp part: incorrect start");
+	}
+
+	int64_t value = (first_value - '0');
+	tstr_view_advance(str, 1);
+
+	while(true) {
+		if(str->len == 0) {
+			break;
+		}
+
+		const char next_value = str->data[0];
+
+		if(next_value > '9' || next_value < '0') {
+			break;
+		}
+
+		const int64_t previous_value = value;
+
+		value = (value * 10) + (next_value - '0');
+		tstr_view_advance(str, 1);
+
+		if(previous_value > value) {
+			// overflow detected
+			return TSTR_STATIC_LIT("invalid number exp part: value overflowed a 64 bit number!");
+		}
+	}
+
+	// TODO: JSON overflows much earlier, Number.MAX_SAFE_INTEGER in js says, but is this in the
+	// spec?
+
+	// TODO: check if this overflow when using -
+	*out_result = minus ? -(value) : value;
+	return tstr_static_null();
 }
 
 NODISCARD static double json_number_make_value_int_exp(double int_value, int64_t exp) {
