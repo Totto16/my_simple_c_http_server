@@ -917,10 +917,9 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 	} else {
 		// have: minus + int
 		// no frac or exp at the end
-		if(str->len == 0) {
-			const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT();
-			return new_json_parse_result_ok(new_json_variant_number(number));
-		}
+
+		const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT();
+		return new_json_parse_result_ok(new_json_variant_number(number));
 	}
 
 	// saw frac or exp

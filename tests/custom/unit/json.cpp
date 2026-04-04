@@ -40,6 +40,11 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 		                   .expected = JsonVariantCpp::string("hello world") },
 		JsonParseTestCase{ .input = R"("hello world\n\"\f\t")",
 		                   .expected = JsonVariantCpp::string("hello world\n\"\f\t") },
+		JsonParseTestCase{ .input = R"([null,  	1,2,   true ])",
+		                   .expected = JsonVariantCpp::array({ JsonVariantCpp::null(),
+		                                                       JsonVariantCpp::number((int64_t)1),
+		                                                       JsonVariantCpp::number((int64_t)2),
+		                                                       JsonVariantCpp::boolean(true) }) },
 	};
 
 	for(const auto& test_case : json_parse_test_cases) {
