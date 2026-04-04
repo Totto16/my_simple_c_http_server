@@ -3,11 +3,13 @@
 
 #include <utils/path.h>
 #include <utils/sized_buffer.h>
+#include <utils/string_builder.h>
 #include <utils/utf8_helper.h>
 
 #include <math.h>
 #include <tmap.h>
 #include <tvec.h>
+#include <utf8proc.h>
 
 // see: https://datatracker.ietf.org/doc/html/rfc8259
 
@@ -1338,16 +1340,271 @@ NODISCARD tstr json_variant_to_string(const JsonVariant json_variant) {
 	                                       (JsonSerializeOptions){ .indent_size = 0 });
 }
 
-NODISCARD tstr json_variant_to_string_advanced(JsonVariant json_variant,
-                                               JsonSerializeOptions options) {
+static void json_to_string_null_impl(StringBuilder* const sb, const JsonSerializeOptions options) {
+	UNUSED(options);
+	string_builder_append_tstr_static(sb, TSTR_STATIC_LIT("null"));
+}
 
-	tstr result = tstr_null();
+static void json_to_string_boolean_impl(StringBuilder* const sb, const JsonBoolean json_boolean,
+                                        const JsonSerializeOptions options) {
+	UNUSED(options);
+	if(json_boolean.value) {
+		string_builder_append_tstr_static(sb, TSTR_STATIC_LIT("true"));
+	} else {
+		string_builder_append_tstr_static(sb, TSTR_STATIC_LIT("false"));
+	}
+}
 
-	// TODO
-	UNUSED(json_variant);
+static void json_to_string_number_impl(StringBuilder* const sb, const JsonNumber json_number,
+                                       const JsonSerializeOptions options) {
+
+	UNUSED(options);
+	// TODO: use better formatting
+	STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "error in formatting json number");
+	                       , "%f", json_number.value);
+}
+
+// from my project ass_parser_c, modified slightly
+#define CHUNK_SIZE_NORMALIZE 256
+
+static tstr get_normalized_string_from_codepoints(JsonCharArr codepoints) {
+	if(codepoints.data == NULL) {
+		return tstr_null();
+	}
+
+	size_t buffer_size = CHUNK_SIZE_NORMALIZE;
+	uint8_t* buffer = (uint8_t*)malloc(buffer_size);
+
+	size_t current_size = 0;
+
+	if(!buffer) {
+		return tstr_null();
+	}
+
+	for(size_t i = 0; i < TVEC_LENGTH(Utf8Codepoint, codepoints); ++i) {
+
+		if(buffer_size - current_size < 4) {
+			buffer_size = buffer_size + CHUNK_SIZE_NORMALIZE;
+			uint8_t* new_buffer = (uint8_t*)realloc(buffer, buffer_size);
+
+			if(!new_buffer) {
+				free(buffer);
+				return tstr_null();
+			}
+
+			buffer = new_buffer;
+		}
+
+		long result = utf8proc_encode_char(codepoints.data[i], buffer + current_size);
+
+		if(result <= 0) {
+			free(buffer);
+			return tstr_null();
+		}
+
+		current_size = current_size + result;
+	}
+
+	if(buffer_size - current_size < 1) {
+		buffer_size = buffer_size + 1;
+		uint8_t* new_buffer = (uint8_t*)realloc(buffer, buffer_size);
+
+		if(!new_buffer) {
+			free(buffer);
+			return tstr_null();
+		}
+
+		buffer = new_buffer;
+	}
+
+	buffer[current_size] = '\0';
+
+	return tstr_own((char*)buffer, current_size, current_size);
+}
+
+static tstr get_tstr_from_json_string(const JsonString* const json_string) {
+
+	return get_normalized_string_from_codepoints(json_string->value);
+}
+
+static void json_to_string_string_impl(StringBuilder* const sb, const JsonString* const json_string,
+                                       const JsonSerializeOptions options) {
 	UNUSED(options);
 
-	return result;
+	// TODO: escape chacraters, that need escaping
+	tstr string_unescaped = get_tstr_from_json_string(json_string);
+
+	if(tstr_is_null(&string_unescaped)) {
+		OOM_ASSERT(false, "error in formatting json string");
+	}
+
+	STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "error in formatting json string");
+	                       , "\"" TSTR_FMT "\"", TSTR_FMT_ARGS(string_unescaped));
+
+	tstr_free(&string_unescaped);
+}
+
+static void json_to_string_variant_impl(StringBuilder* const sb, const JsonVariant json_variant,
+                                        const JsonSerializeOptions options);
+
+#define FORMAT_TSTR(tstr_res, statement, format, ...) \
+	do { \
+		char* buf = NULL; \
+		FORMAT_STRING(&buf, statement, format, __VA_ARGS__); \
+		tstr_res = tstr_own_cstr(buf); \
+	} while(false)
+
+static void json_to_string_array_impl(StringBuilder* const sb, const JsonArray* const json_array,
+                                      const JsonSerializeOptions options) {
+
+	tstr start_str = TSTR_LIT("[");
+	tstr separator_str = TSTR_LIT(", ");
+	tstr end_str = TSTR_LIT("]");
+
+	if(options.indent_size != 0) {
+		if(options.indent_size > 4) {
+			start_str = TSTR_LIT("[\n");
+			separator_str = TSTR_LIT(",\n");
+			end_str = TSTR_LIT("\n]");
+		} else {
+			FORMAT_TSTR(start_str, OOM_ASSERT(false, "error in formatting json array");
+			            , "[%*s", (int)options.indent_size, "");
+
+			FORMAT_TSTR(separator_str, OOM_ASSERT(false, "error in formatting json array");
+			            , ",%*s", (int)options.indent_size, "");
+
+			FORMAT_TSTR(end_str, OOM_ASSERT(false, "error in formatting json array");
+			            , "%*s]", (int)options.indent_size, "");
+		}
+	}
+
+	string_builder_append_tstr(sb, &start_str);
+
+	for(size_t i = 0; i < json_array_size(json_array); ++i) {
+		if(i != 0) {
+			string_builder_append_tstr(sb, &separator_str);
+		}
+
+		const JsonVariant value = json_array_at(json_array, i);
+		json_to_string_variant_impl(sb, value, options);
+	}
+
+	string_builder_append_tstr(sb, &end_str);
+
+	tstr_free(&start_str);
+	tstr_free(&separator_str);
+	tstr_free(&end_str);
+}
+
+static void json_to_string_object_impl(StringBuilder* const sb, const JsonObject* const json_object,
+                                       const JsonSerializeOptions options) {
+	tstr start_str = TSTR_LIT("{");
+	tstr separator_str = TSTR_LIT(", ");
+	tstr end_str = TSTR_LIT("}");
+
+	if(options.indent_size != 0) {
+		if(options.indent_size > 4) {
+			start_str = TSTR_LIT("{\n");
+			separator_str = TSTR_LIT(",\n");
+			end_str = TSTR_LIT("\n}");
+		} else {
+			FORMAT_TSTR(start_str, OOM_ASSERT(false, "error in formatting json object");
+			            , "{%*s", (int)options.indent_size, "");
+
+			FORMAT_TSTR(separator_str, OOM_ASSERT(false, "error in formatting json object");
+			            , ",%*s", (int)options.indent_size, "");
+
+			FORMAT_TSTR(end_str, OOM_ASSERT(false, "error in formatting json object");
+			            , "%*s}", (int)options.indent_size, "");
+		}
+	}
+
+	string_builder_append_tstr(sb, &start_str);
+
+	JsonObjectIter* iter = json_object_get_iterator(json_object);
+
+	bool start = true;
+
+	while(true) {
+
+		const JsonObjectEntry* const next_entry = json_object_iterator_next(iter);
+
+		if(next_entry == NULL) {
+			break;
+		}
+
+		if(!start) {
+			string_builder_append_tstr(sb, &separator_str);
+		} else {
+			start = false;
+		}
+
+		const JsonString* const key = json_object_entry_get_key(next_entry);
+
+		json_to_string_string_impl(sb, key, options);
+		string_builder_append_tstr_static(sb, TSTR_STATIC_LIT(": "));
+
+		const JsonVariant value = json_object_entry_get_value(next_entry);
+
+		json_to_string_variant_impl(sb, value, options);
+	}
+
+	string_builder_append_tstr(sb, &end_str);
+
+	tstr_free(&start_str);
+	tstr_free(&separator_str);
+	tstr_free(&end_str);
+}
+
+static void json_to_string_variant_impl(StringBuilder* const sb, const JsonVariant json_variant,
+                                        const JsonSerializeOptions options) {
+	SWITCH_JSON_VARIANT(json_variant) {
+		CASE_JSON_VARIANT_IS_OBJECT_CONST(json_variant) {
+			json_to_string_object_impl(sb, object.obj, options);
+		}
+		break;
+		VARIANT_CASE_END();
+		CASE_JSON_VARIANT_IS_ARRAY_CONST(json_variant) {
+			json_to_string_array_impl(sb, array.arr, options);
+		}
+		break;
+		VARIANT_CASE_END();
+		CASE_JSON_VARIANT_IS_NUMBER_CONST(json_variant) {
+			json_to_string_number_impl(sb, number, options);
+		}
+		break;
+		VARIANT_CASE_END();
+		CASE_JSON_VARIANT_IS_STRING_CONST(json_variant) {
+			json_to_string_string_impl(sb, string, options);
+		}
+		break;
+		VARIANT_CASE_END();
+		CASE_JSON_VARIANT_IS_BOOLEAN_CONST(json_variant) {
+			json_to_string_boolean_impl(sb, boolean, options);
+		}
+		break;
+		VARIANT_CASE_END();
+		CASE_JSON_VARIANT_IS_NULL() {
+			json_to_string_null_impl(sb, options);
+		}
+		break;
+		VARIANT_CASE_END();
+		default: {
+			break;
+		}
+	}
+}
+
+NODISCARD tstr json_variant_to_string_advanced(const JsonVariant json_variant,
+                                               const JsonSerializeOptions options) {
+
+	StringBuilder* sb = string_builder_init();
+
+	json_to_string_variant_impl(sb, json_variant, options);
+
+	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&sb);
+
+	return tstr_own(buffer.data, buffer.size, buffer.size);
 }
 
 NODISCARD bool json_string_eq(const JsonString* const str1, const JsonString* const str2) {
