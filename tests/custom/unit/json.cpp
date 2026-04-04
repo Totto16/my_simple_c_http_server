@@ -24,6 +24,28 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 
 	std::vector<JsonParseTestCase> json_parse_test_cases = {
 		JsonParseTestCase{ .input = "null", .expected = new_json_variant_null() },
+		JsonParseTestCase{ .input = "   null   ", .expected = new_json_variant_null() },
+		JsonParseTestCase{ .input = "\t			null   ", .expected = new_json_variant_null() },
+		JsonParseTestCase{ .input = "true",
+		                   .expected = new_json_variant_boolean(JsonBoolean{ .value = true }) },
+		JsonParseTestCase{ .input = "false",
+		                   .expected = new_json_variant_boolean(JsonBoolean{ .value = false }) },
+		JsonParseTestCase{ .input = "100",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = 100 }) },
+		JsonParseTestCase{ .input = "-100",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = -100 }) },
+		JsonParseTestCase{ .input = "-100.01",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = -100.01 }) },
+		JsonParseTestCase{ .input = "100.43",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = 100.43 }) },
+		JsonParseTestCase{ .input = "1e2",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = 100 }) },
+		JsonParseTestCase{ .input = "1.2e3",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = 1200 }) },
+		JsonParseTestCase{ .input = "1.2E+3",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = 1200 }) },
+		JsonParseTestCase{ .input = "1.2E-2",
+		                   .expected = new_json_variant_number(JsonNumber{ .value = 0.012 }) },
 	};
 
 	for(const auto& test_case : json_parse_test_cases) {
