@@ -1123,6 +1123,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 		}
 
 		const char escape_char = str->data[0];
+		tstr_view_advance(str, 1);
 
 		if(escape_char == '"') {
 			static_assert(0x22 == '"');
