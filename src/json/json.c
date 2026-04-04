@@ -6,6 +6,7 @@
 
 #include <tmap.h>
 #include <tvec.h>
+#include <math.h>
 
 // see: https://datatracker.ietf.org/doc/html/rfc8259
 
@@ -761,15 +762,23 @@ NODISCARD static tstr_static json_parse_impl_parse_number_exp_part(tstr_view* co
 	return tstr_static_null();
 }
 
+NODISCARD static double get_power_of_10(uint64_t value) {
+	// TODO: find a faster way than this
+	return pow(10.0, (double)value);
+}
+
 NODISCARD static double json_number_make_value_int_exp(double int_value, int64_t exp) {
 
-	// TODO: make correct value from e.g.
+	if(exp == 0) {
+		return int_value;
+	}
 
-	// 10e100, -10e-1000 etc
+	if(exp < 0) {
 
-	UNUSED(int_value);
-	UNUSED(exp);
-	return 0.0;
+		return int_value / get_power_of_10((uint64_t)(-exp));
+	}
+
+	return int_value * get_power_of_10(exp);
 }
 
 NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const str) {
