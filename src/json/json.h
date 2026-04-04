@@ -93,8 +93,14 @@ void free_json_array(JsonArray* json_arr);
 
 NODISCARD JsonObject* get_empty_json_object(void);
 
-NODISCARD tstr_static json_object_add_entry(JsonObject* json_object, const JsonString* key,
+NODISCARD tstr_static json_object_add_entry(JsonObject* json_object, JsonString** key_moved,
                                             JsonVariant value);
+
+NODISCARD tstr_static json_object_add_entry_tstr(JsonObject* json_object, const tstr* key,
+                                                 JsonVariant value);
+
+NODISCARD tstr_static json_object_add_entry_cstr(JsonObject* json_object, const char* key,
+                                                 JsonVariant value);
 
 void free_json_object(JsonObject* json_obj);
 

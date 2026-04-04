@@ -183,38 +183,6 @@ NODISCARD static tstr_static json_object_add_entry_impl(JsonObject* const json_o
 	}
 }
 
-NODISCARD static JsonString json_string_copy_raw(const JsonString* const json_string) {
-
-	JsonCharArr copied_arr = TVEC_EMPTY(Utf8Codepoint);
-	const TvecResult result = TVEC_COPY(Utf8Codepoint, &(json_string->value), &copied_arr);
-	OOM_ASSERT(result == TvecResultOk, "OOM");
-
-	const JsonString raw_string = { .value = copied_arr };
-
-	return raw_string;
-}
-
-NODISCARD static JsonObjectKey copy_json_string_into_object_key(const JsonString* const string) {
-
-	const JsonString raw_str = json_string_copy_raw(string);
-
-	const JsonObjectKey result = { .string = raw_str };
-
-	return result;
-}
-
-NODISCARD tstr_static json_object_add_entry(JsonObject* const json_object,
-                                            const JsonString* const key, const JsonVariant value) {
-
-	const JsonObjectKey correct_key = copy_json_string_into_object_key(key);
-
-	return json_object_add_entry_impl(json_object, correct_key, value);
-}
-
-NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* str);
-
-NODISCARD static JsonParseResult json_parse_impl_parse_value(tstr_view* str);
-
 NODISCARD static JsonObjectKey release_json_string_into_object_key(JsonString** const string) {
 
 	const JsonObjectKey result = { .string = **string };
@@ -225,6 +193,40 @@ NODISCARD static JsonObjectKey release_json_string_into_object_key(JsonString** 
 
 	return result;
 }
+
+NODISCARD tstr_static json_object_add_entry(JsonObject* const json_object,
+                                            JsonString** const key_moved, const JsonVariant value) {
+
+	const JsonObjectKey key = release_json_string_into_object_key(key_moved);
+
+	return json_object_add_entry_impl(json_object, key, value);
+}
+
+NODISCARD tstr_static json_object_add_entry_tstr(JsonObject* const json_object, const tstr* key,
+                                                 const JsonVariant value) {
+	JsonString* key_string = json_get_string_from_tstr(key);
+
+	if(key_string == NULL) {
+		return TSTR_STATIC_LIT("OOM");
+	}
+
+	return json_object_add_entry(json_object, &key_string, value);
+}
+
+NODISCARD tstr_static json_object_add_entry_cstr(JsonObject* json_object, const char* key,
+                                                 JsonVariant value) {
+	JsonString* key_string = json_get_string_from_cstr(key);
+
+	if(key_string == NULL) {
+		return TSTR_STATIC_LIT("OOM");
+	}
+
+	return json_object_add_entry(json_object, &key_string, value);
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* str);
+
+NODISCARD static JsonParseResult json_parse_impl_parse_value(tstr_view* str);
 
 NODISCARD static tstr_static json_parse_impl_parse_object_member(tstr_view* const str,
                                                                  JsonObject* const json_object) {
