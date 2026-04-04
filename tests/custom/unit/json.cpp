@@ -36,6 +36,9 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 		JsonParseTestCase{ .input = "1.2e3", .expected = JsonVariantCpp::number((int64_t)1200) },
 		JsonParseTestCase{ .input = "1.3E+3", .expected = JsonVariantCpp::number((int64_t)1300) },
 		JsonParseTestCase{ .input = "1.5E-2", .expected = JsonVariantCpp::number(0.015) },
+		JsonParseTestCase{ .input = R"("hello world")",
+		                   .expected = JsonVariantCpp::string("hello world") },
+
 	};
 
 	for(const auto& test_case : json_parse_test_cases) {

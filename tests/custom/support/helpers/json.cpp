@@ -1,5 +1,6 @@
 #include "./json.hpp"
 
+#include "../generic.hpp"
 #include "./cpp_types.hpp"
 
 [[nodiscard]] bool operator==(const JsonVariant& json_variant1, const JsonVariant& json_variant2) {
@@ -195,4 +196,48 @@ JsonObjectCpp::JsonObjectCpp(JsonObject* value) : m_value{ value } {}
 
 [[nodiscard]] bool JsonObjectCpp::operator==(const JsonObject* const json_object2) const {
 	return json_object_eq_impl(this->m_value, json_object2);
+}
+
+[[nodiscard]] JsonVariant JsonVariantCpp::null() {
+	return new_json_variant_null();
+}
+
+[[nodiscard]] JsonVariant JsonVariantCpp::boolean(const bool& value) {
+	return new_json_variant_boolean(JsonBoolean{ .value = value });
+}
+
+[[nodiscard]] JsonVariant JsonVariantCpp::number(const double& value) {
+	return new_json_variant_number(JsonNumber{ .value = value });
+}
+
+[[nodiscard]] JsonVariant JsonVariantCpp::number(const int64_t& value) {
+	return number(static_cast<double>(value));
+}
+
+[[nodiscard]] JsonVariant JsonVariantCpp::string(const std::string& value) {
+	JsonString* const string = json_get_string_from_tstr_view(helpers::tstr_view_from_str(value));
+
+	if(string == nullptr) {
+		throw std::runtime_error("JSON string initialization failed");
+	}
+
+	return new_json_variant_string(string);
+}
+
+[[nodiscard]] JsonVariant JsonVariantCpp::array(std::initializer_list<JsonVariant>&& values) {
+	JsonArray* const array = get_empty_json_array();
+
+	if(array == nullptr) {
+		throw std::runtime_error("JSON array initialization failed");
+	}
+
+	for(auto&& value : values) {
+		const auto add_result = json_array_add_entry(array, value);
+		if(!tstr_static_is_null(add_result)) {
+			throw std::runtime_error(std::string{ "JSON array initialization failed:" } +
+			                         string_from_tstr_static(add_result));
+		}
+	}
+
+	return new_json_variant_array(array);
 }
