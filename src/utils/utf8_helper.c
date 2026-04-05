@@ -43,33 +43,3 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
 void free_utf8_data(Utf8Data data) {
 	free(data.data);
 }
-
-static void tstr_view_advance(tstr_view* const str, size_t amount) {
-	assert(str->len >= amount);
-	str->data += amount;
-	str->len -= amount;
-}
-
-Utf8NextCharResult utf8_get_next_char(tstr_view* const view) {
-
-	if(view->len == 0) {
-		return new_utf8_next_char_result_error(TSTR_STATIC_LIT("empty str"));
-	}
-
-	utf8proc_int32_t codepoint = 0;
-	utf8proc_ssize_t result =
-	    utf8proc_iterate((const utf8proc_uint8_t*)((const void*)view->data), view->len, &codepoint);
-
-	if(result < 0) {
-		return new_utf8_next_char_result_error(
-		    tstr_static_from_static_cstr(utf8proc_errmsg(result)));
-	}
-
-	if(result == 0) {
-		return new_utf8_next_char_result_error(TSTR_STATIC_LIT("invalid codepoint length"));
-	}
-
-	tstr_view_advance(view, result);
-
-	return new_utf8_next_char_result_ok(codepoint);
-}

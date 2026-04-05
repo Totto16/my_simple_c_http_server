@@ -89,4 +89,7 @@ struct JsonVariantCpp {
 	[[nodiscard]] static JsonVariant string(const std::string& value);
 
 	[[nodiscard]] static JsonVariant array(std::initializer_list<JsonVariant>&& values);
+
+	[[nodiscard]] static JsonVariant
+	object(std::initializer_list<std::pair<std::string, JsonVariant>>&& values);
 };

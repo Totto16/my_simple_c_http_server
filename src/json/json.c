@@ -271,6 +271,12 @@ NODISCARD static tstr_static json_parse_impl_parse_object_member(tstr_view* cons
 			return TSTR_STATIC_LIT("wrong  name-separator");
 		}
 
+		tstr_view_advance(str, 1);
+
+		if(str->len == 0) {
+			return TSTR_STATIC_LIT("empty object member");
+		}
+
 		json_parse_impl_skip_ws(str);
 	}
 
@@ -1021,6 +1027,32 @@ NODISCARD static tstr_static json_string_add_char_impl(JsonString* const json_st
 	return tstr_static_null();
 }
 
+GENERATE_VARIANT_ALL_UTF8_NEXT_CHAR_RESULT()
+
+NODISCARD static Utf8NextCharResult utf8_get_next_char_and_consume(tstr_view* const view) {
+
+	if(view->len == 0) {
+		return new_utf8_next_char_result_error(TSTR_STATIC_LIT("empty str"));
+	}
+
+	utf8proc_int32_t codepoint = 0;
+	utf8proc_ssize_t result =
+	    utf8proc_iterate((const utf8proc_uint8_t*)((const void*)view->data), view->len, &codepoint);
+
+	if(result < 0) {
+		return new_utf8_next_char_result_error(
+		    tstr_static_from_static_cstr(utf8proc_errmsg(result)));
+	}
+
+	if(result == 0) {
+		return new_utf8_next_char_result_error(TSTR_STATIC_LIT("invalid codepoint length"));
+	}
+
+	tstr_view_advance(view, result);
+
+	return new_utf8_next_char_result_ok(codepoint);
+}
+
 NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const str) {
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	//       string = quotation-mark *char quotation-mark
@@ -1066,7 +1098,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 			return new_json_parse_result_error(TSTR_STATIC_LIT("empty string"));
 		}
 
-		const Utf8NextCharResult result = utf8_get_next_char(str);
+		const Utf8NextCharResult result = utf8_get_next_char_and_consume(str);
 
 		IF_UTF8_NEXT_CHAR_RESULT_IS_ERROR_CONST(result) {
 			FREE_AT_END();
@@ -1297,13 +1329,21 @@ NODISCARD JsonParseResult json_variant_parse_from_file(const tstr str) {
 	return json_variant_parse_from_str(str_view);
 }
 
-void free_json_string(JsonString* const json_string) {
+void static free_json_string_impl(JsonString* const json_string) {
 	TVEC_FREE(Utf8Codepoint, &(json_string->value));
+}
+
+void static free_json_string_malloced(JsonString* const json_string) {
+	free_json_string_impl(json_string);
 	free(json_string);
 }
 
+void free_json_string(JsonString* const json_string) {
+	free_json_string_malloced(json_string);
+}
+
 static void free_json_key(JsonObjectKey* const key) {
-	free_json_string(&(key->string));
+	free_json_string_impl(&(key->string));
 }
 
 void free_json_object(JsonObject* const json_obj) { // NOLINT(misc-no-recursion)

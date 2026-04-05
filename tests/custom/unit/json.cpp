@@ -45,6 +45,21 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 		                                                       JsonVariantCpp::number((int64_t)1),
 		                                                       JsonVariantCpp::number((int64_t)2),
 		                                                       JsonVariantCpp::boolean(true) }) },
+		JsonParseTestCase{
+		    .input =
+		        R"({"key1": "hello", "key2": null, "nested": { "nested_key"   : {"nested_key2": true, "array": []}}})",
+		    .expected = JsonVariantCpp::object(
+		        { { "key1", JsonVariantCpp::string("hello") },
+		          { "key2", JsonVariantCpp::null() },
+		          { "nested",
+		            JsonVariantCpp::object({
+		                { "nested_key", JsonVariantCpp::object({
+		                                    { "nested_key2", JsonVariantCpp::boolean(true) },
+		                                    { "array", JsonVariantCpp::array({}) },
+		                                }) },
+		            }
+
+		                                   ) } }) },
 	};
 	CAutoFreePtr<std::vector<JsonParseTestCase>> defer_tests = {
 		&json_parse_test_cases,

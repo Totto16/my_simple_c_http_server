@@ -546,5 +546,5 @@ export const globalTaggedUnions: TaggedUnion[] = [
         }
     },
     makeErrorVariant("JsonParseResult", "JsonVariant"),
-    makeErrorVariant("Utf8NextCharResult", "Utf8Codepoint", "codepoint"),
+    makeErrorVariant("Utf8NextCharResult", "Utf8Codepoint", "codepoint", { usageOnlyInC: true }),
 ]

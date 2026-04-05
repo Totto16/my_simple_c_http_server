@@ -241,3 +241,30 @@ JsonObjectCpp::JsonObjectCpp(JsonObject* value) : m_value{ value } {}
 
 	return new_json_variant_array(array);
 }
+
+[[nodiscard]] JsonVariant
+JsonVariantCpp::object(std::initializer_list<std::pair<std::string, JsonVariant>>&& values) {
+	JsonObject* const object = get_empty_json_object();
+
+	if(object == nullptr) {
+		throw std::runtime_error("JSON object initialization failed");
+	}
+
+	for(auto&& value : values) {
+		JsonString* key_moved =
+		    json_get_string_from_tstr_view(helpers::tstr_view_from_str(value.first));
+		if(key_moved == nullptr) {
+			throw std::runtime_error(
+			    "JSON object initialization failed: key initialization failed");
+		}
+
+		const JsonVariant final_value = value.second;
+		const auto add_result = json_object_add_entry(object, &key_moved, final_value);
+		if(!tstr_static_is_null(add_result)) {
+			throw std::runtime_error(std::string{ "JSON object initialization failed:" } +
+			                         string_from_tstr_static(add_result));
+		}
+	}
+
+	return new_json_variant_object(object);
+}
