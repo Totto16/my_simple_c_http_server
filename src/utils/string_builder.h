@@ -41,6 +41,8 @@ GenericResult string_builder_append_single(StringBuilder* string_builder,
 GenericResult string_builder_append_tstr_static(StringBuilder* string_builder,
                                                 tstr_static static_string);
 
+GenericResult string_builder_append_tstr(StringBuilder* string_builder, const tstr* str);
+
 NODISCARD char* string_builder_release_into_string(StringBuilder** string_builder);
 
 NODISCARD size_t string_builder_get_string_size(const StringBuilder* string_builder);

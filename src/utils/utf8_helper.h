@@ -4,8 +4,10 @@
 
 #include "utils/utils.h"
 
+typedef int32_t Utf8Codepoint;
+
 typedef struct {
-	int32_t* data;
+	Utf8Codepoint* data;
 	uint64_t size;
 } Utf8Data;
 

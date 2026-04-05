@@ -40,6 +40,7 @@ test_files_manual = [
     'basic.cpp',
     'hash.cpp',
     'http_parser.cpp',
+    'json.cpp',
     'serialize.cpp',
     # hpack
     'hpack/huffman.cpp',

@@ -16,4 +16,7 @@ namespace helpers {
 [[nodiscard]] std::vector<std::uint8_t> vector_from_string(const std::string& data);
 
 [[nodiscard]] ReadonlyBuffer buffer_from_raw_data(const std::vector<std::uint8_t>& data);
+
+[[nodiscard]] tstr_view tstr_view_from_str(const std::string& value);
+
 } // namespace helpers
