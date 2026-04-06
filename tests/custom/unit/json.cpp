@@ -10,9 +10,14 @@
 
 namespace {
 
-struct JsonParseTestCase {
+struct JsonParseTestCaseSuccess {
 	std::string input;
 	JsonVariant expected;
+};
+
+struct JsonParseTestCaseError {
+	std::string input;
+	std::string expected_error;
 };
 
 } // namespace
@@ -22,30 +27,36 @@ TEST_SUITE_BEGIN("json" * doctest::description("json tests") *
 
 TEST_CASE("testing parsing of json values <json_parser>") {
 
-	std::vector<JsonParseTestCase> json_parse_test_cases = {
-		JsonParseTestCase{ .input = "null", .expected = JsonVariantCpp::null() },
-		JsonParseTestCase{ .input = "   null   ", .expected = JsonVariantCpp::null() },
-		JsonParseTestCase{ .input = "\t			null   ", .expected = JsonVariantCpp::null() },
-		JsonParseTestCase{ .input = "true", .expected = JsonVariantCpp::boolean(true) },
-		JsonParseTestCase{ .input = "false", .expected = JsonVariantCpp::boolean(false) },
-		JsonParseTestCase{ .input = "100", .expected = JsonVariantCpp::number((int64_t)100) },
-		JsonParseTestCase{ .input = "-100", .expected = JsonVariantCpp::number((int64_t)-100) },
-		JsonParseTestCase{ .input = "-100.01", .expected = JsonVariantCpp::number(-100.01) },
-		JsonParseTestCase{ .input = "100.43", .expected = JsonVariantCpp::number(100.43) },
-		JsonParseTestCase{ .input = "1e2", .expected = JsonVariantCpp::number((int64_t)100) },
-		JsonParseTestCase{ .input = "1.2e3", .expected = JsonVariantCpp::number((int64_t)1200) },
-		JsonParseTestCase{ .input = "1.3E+3", .expected = JsonVariantCpp::number((int64_t)1300) },
-		JsonParseTestCase{ .input = "1.5E-2", .expected = JsonVariantCpp::number(0.015) },
-		JsonParseTestCase{ .input = R"("hello world")",
-		                   .expected = JsonVariantCpp::string("hello world") },
-		JsonParseTestCase{ .input = R"("hello world\n\"\f\t")",
-		                   .expected = JsonVariantCpp::string("hello world\n\"\f\t") },
-		JsonParseTestCase{ .input = R"([null,  	1,2,   true ])",
-		                   .expected = JsonVariantCpp::array({ JsonVariantCpp::null(),
-		                                                       JsonVariantCpp::number((int64_t)1),
-		                                                       JsonVariantCpp::number((int64_t)2),
-		                                                       JsonVariantCpp::boolean(true) }) },
-		JsonParseTestCase{
+	std::vector<JsonParseTestCaseSuccess> json_parse_test_cases = {
+		JsonParseTestCaseSuccess{ .input = "null", .expected = JsonVariantCpp::null() },
+		JsonParseTestCaseSuccess{ .input = "   null   ", .expected = JsonVariantCpp::null() },
+		JsonParseTestCaseSuccess{ .input = "\t			null   ",
+		                          .expected = JsonVariantCpp::null() },
+		JsonParseTestCaseSuccess{ .input = "true", .expected = JsonVariantCpp::boolean(true) },
+		JsonParseTestCaseSuccess{ .input = "false", .expected = JsonVariantCpp::boolean(false) },
+		JsonParseTestCaseSuccess{ .input = "100",
+		                          .expected = JsonVariantCpp::number((int64_t)100) },
+		JsonParseTestCaseSuccess{ .input = "-100",
+		                          .expected = JsonVariantCpp::number((int64_t)-100) },
+		JsonParseTestCaseSuccess{ .input = "-100.01", .expected = JsonVariantCpp::number(-100.01) },
+		JsonParseTestCaseSuccess{ .input = "100.43", .expected = JsonVariantCpp::number(100.43) },
+		JsonParseTestCaseSuccess{ .input = "1e2",
+		                          .expected = JsonVariantCpp::number((int64_t)100) },
+		JsonParseTestCaseSuccess{ .input = "1.2e3",
+		                          .expected = JsonVariantCpp::number((int64_t)1200) },
+		JsonParseTestCaseSuccess{ .input = "1.3E+3",
+		                          .expected = JsonVariantCpp::number((int64_t)1300) },
+		JsonParseTestCaseSuccess{ .input = "1.5E-2", .expected = JsonVariantCpp::number(0.015) },
+		JsonParseTestCaseSuccess{ .input = R"("hello world")",
+		                          .expected = JsonVariantCpp::string("hello world") },
+		JsonParseTestCaseSuccess{ .input = R"("hello world\n\"\f\t")",
+		                          .expected = JsonVariantCpp::string("hello world\n\"\f\t") },
+		JsonParseTestCaseSuccess{
+		    .input = R"([null,  	1,2,   true ])",
+		    .expected = JsonVariantCpp::array(
+		        { JsonVariantCpp::null(), JsonVariantCpp::number((int64_t)1),
+		          JsonVariantCpp::number((int64_t)2), JsonVariantCpp::boolean(true) }) },
+		JsonParseTestCaseSuccess{
 		    .input =
 		        R"({"key1": "hello", "key2": null, "nested": { "nested_key"   : {"nested_key2": true, "array": []}}})",
 		    .expected = JsonVariantCpp::object(
@@ -61,9 +72,9 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 
 		                                   ) } }) },
 	};
-	CAutoFreePtr<std::vector<JsonParseTestCase>> defer_tests = {
+	CAutoFreePtr<std::vector<JsonParseTestCaseSuccess>> defer_tests = {
 		&json_parse_test_cases,
-		[](std::vector<JsonParseTestCase>* const values) -> void {
+		[](std::vector<JsonParseTestCaseSuccess>* const values) -> void {
 		    for(size_t i = 0; i < values->size(); ++i) {
 			    auto* const value = &(values->at(i));
 			    free_json_variant(&(value->expected));
@@ -88,6 +99,32 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 	}
 }
 
-// TODO: compare withh nhlohmann json!
+TEST_CASE("testing parse errors of json values <json_parser_error>") {
+
+	std::vector<JsonParseTestCaseError> json_parse_test_cases = {
+		JsonParseTestCaseError{ .input = "not_null xD", .expected_error = "not null" },
+		JsonParseTestCaseError{ .input = "for_sure_not_false ", .expected_error = "not a boolean" },
+		JsonParseTestCaseError{ .input = "trivially_not_true ", .expected_error = "not a boolean" },
+	};
+
+	for(const auto& test_case : json_parse_test_cases) {
+
+		INFO("Test case: ", test_case.input);
+
+		const tstr_view str_view = helpers::tstr_view_from_str(test_case.input);
+
+		const auto parse_result = json_variant_parse_from_str(str_view);
+
+		REQUIRE_IS_ERROR(parse_result);
+
+		tstr_static result = json_parse_result_get_as_error(parse_result).error;
+
+		const auto actual_error = string_from_tstr_static(result);
+
+		REQUIRE_EQ(actual_error, test_case.expected_error);
+	}
+}
+
+// TODO: compare with nhlohmann json!
 
 TEST_SUITE_END();
