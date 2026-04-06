@@ -135,13 +135,17 @@ NODISCARD tstr_static json_object_add_entry_tstr(JsonObject* json_object, const 
 NODISCARD tstr_static json_object_add_entry_cstr(JsonObject* json_object, const char* key,
                                                  JsonVariant value);
 
+void free_json_object(JsonObject* json_obj);
+
 // utility functions
 
 NODISCARD SourceLocation make_null_source_location(void);
 
 NODISCARD bool is_null_source_location(SourceLocation location);
 
-void free_json_object(JsonObject* json_obj);
+NODISCARD tstr json_format_source_location(SourceLocation location);
+
+NODISCARD tstr json_format_error(JsonError error);
 
 #ifdef __cplusplus
 }

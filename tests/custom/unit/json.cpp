@@ -17,7 +17,7 @@ struct JsonParseTestCaseSuccess {
 
 struct JsonParseTestCaseError {
 	std::string input;
-	std::string expected_error;
+	JsonErrorCpp expected_error;
 };
 
 } // namespace
@@ -90,7 +90,7 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 
 		const auto parse_result = json_variant_parse_from_str(str_view);
 
-		REQUIRE_IS_NOT_ERROR(parse_result);
+		REQUIRE_EQ(get_current_tag_type_for_json_parse_result(parse_result), JsonParseResultTypeOk);
 
 		JsonVariant result = json_parse_result_get_as_ok(parse_result);
 		CAutoFreePtr<JsonVariant> defer = { &result, free_json_variant };
@@ -102,9 +102,12 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 TEST_CASE("testing parse errors of json values <json_parser_error>") {
 
 	std::vector<JsonParseTestCaseError> json_parse_test_cases = {
-		JsonParseTestCaseError{ .input = "not_null xD", .expected_error = "not null" },
-		JsonParseTestCaseError{ .input = "for_sure_not_false ", .expected_error = "not a boolean" },
-		JsonParseTestCaseError{ .input = "trivially_not_true ", .expected_error = "not a boolean" },
+		JsonParseTestCaseError{ .input = "not_null xD",
+		                        .expected_error = JsonErrorCpp::with_no_loc("not null") },
+		JsonParseTestCaseError{ .input = "for_sure_not_false ",
+		                        .expected_error = JsonErrorCpp::with_no_loc("not a boolean") },
+		JsonParseTestCaseError{ .input = "trivially_not_true ",
+		                        .expected_error = JsonErrorCpp::with_no_loc("not a boolean") },
 	};
 
 	for(const auto& test_case : json_parse_test_cases) {
@@ -115,11 +118,12 @@ TEST_CASE("testing parse errors of json values <json_parser_error>") {
 
 		const auto parse_result = json_variant_parse_from_str(str_view);
 
-		REQUIRE_IS_ERROR(parse_result);
+		REQUIRE_EQ(get_current_tag_type_for_json_parse_result(parse_result),
+		           JsonParseResultTypeError);
 
-		tstr_static result = json_parse_result_get_as_error(parse_result).error;
+		JsonError result = json_parse_result_get_as_error(parse_result);
 
-		const auto actual_error = string_from_tstr_static(result);
+		const auto actual_error = JsonErrorCpp{ result };
 
 		REQUIRE_EQ(actual_error, test_case.expected_error);
 	}

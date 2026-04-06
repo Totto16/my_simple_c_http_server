@@ -21,8 +21,8 @@ test_deps += test_support_dep
 test_inc_dirs += include_directories('.')
 
 test_src += files(
-    'helpers/json.cpp',
-    'helpers/json.hpp',
+    'helpers/tests.cpp',
+    'helpers/tests.hpp',
     'helpers/main.cpp',
     'helpers/string_maker.hpp',
 )

@@ -1985,3 +1985,56 @@ NODISCARD JsonString* json_get_string_from_tstr_view(tstr_view str_view) {
 	return string;
 }
 #undef FREE_AT_END
+
+static void json_format_source_location_impl(StringBuilder* const sb,
+                                             const SourceLocation location) {
+
+	if(is_null_source_location(location)) {
+		string_builder_append_single(sb, "<Nowhere>");
+		return;
+	}
+
+	SWITCH_JSON_SOURCE(location.source) {
+		CASE_JSON_SOURCE_IS_FILE_CONST(location.source) {
+			STRING_BUILDER_APPENDF(sb, return;, TSTR_FMT ":%zu:%zu", TSTR_FMT_ARGS(*file.file_path),
+			                                  location.pos.line, location.pos.col)
+			return;
+		}
+		VARIANT_CASE_END();
+		CASE_JSON_SOURCE_IS_STRING_IGN() {
+			// TODO: print the whole line of this string and after that the error
+			STRING_BUILDER_APPENDF(sb, return;
+			                       , "<string source>:%zu:%zu", location.pos.line, location.pos.col)
+			return;
+		}
+		VARIANT_CASE_END();
+		default: {
+			return;
+		}
+	}
+}
+
+NODISCARD tstr json_format_source_location(const SourceLocation location) {
+	StringBuilder* sb = string_builder_init();
+
+	json_format_source_location_impl(sb, location);
+
+	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&sb);
+
+	return tstr_own(buffer.data, buffer.size, buffer.size);
+}
+
+NODISCARD tstr json_format_error(const JsonError error) {
+
+	StringBuilder* sb = string_builder_init();
+
+	string_builder_append_tstr_static(sb, error.message);
+
+	string_builder_append_single(sb, ": ");
+
+	json_format_source_location_impl(sb, error.loc);
+
+	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&sb);
+
+	return tstr_own(buffer.data, buffer.size, buffer.size);
+}

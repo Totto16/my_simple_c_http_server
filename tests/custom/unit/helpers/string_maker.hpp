@@ -10,6 +10,7 @@
 #include <support/helpers.hpp>
 #include <support/helpers/hpack.hpp>
 #include <support/helpers/http.hpp>
+#include <support/helpers/json.hpp>
 
 template <typename T>
 concept is_cpp_stream_printable = requires(T val, std::ostream& os) {
@@ -121,6 +122,18 @@ template <> struct StringMaker<tstr_static> {
 template <> struct StringMaker<JsonVariant> {
 	static String convert(const JsonVariant& json_variant) {
 		return ::os_stream_formattable_to_doctest(json_variant);
+	}
+};
+
+template <> struct StringMaker<JsonErrorCpp> {
+	static String convert(const JsonErrorCpp& json_error) {
+		return ::os_stream_formattable_to_doctest(json_error);
+	}
+};
+
+template <> struct StringMaker<JsonError> {
+	static String convert(const JsonError& json_error) {
+		return ::os_stream_formattable_to_doctest(json_error);
 	}
 };
 

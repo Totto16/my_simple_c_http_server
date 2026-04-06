@@ -93,3 +93,26 @@ struct JsonVariantCpp {
 	[[nodiscard]] static JsonVariant
 	object(std::initializer_list<std::pair<std::string, JsonVariant>>&& values);
 };
+
+struct JsonErrorCpp {
+  private:
+	std::string m_message;
+	SourceLocation m_loc;
+
+	JsonErrorCpp(std::string&& message, SourceLocation loc);
+
+  public:
+	explicit JsonErrorCpp(const JsonError& value);
+
+	static JsonErrorCpp with_no_loc(std::string&& value);
+
+	[[nodiscard]] bool operator==(const JsonErrorCpp& json_error2) const;
+
+	[[nodiscard]] bool operator==(const JsonError& json_error2) const;
+
+	friend std::ostream& operator<<(std::ostream& os, const JsonErrorCpp& json_error);
+};
+
+std::ostream& operator<<(std::ostream& os, const JsonErrorCpp& json_error);
+
+std::ostream& operator<<(std::ostream& os, const JsonError& json_error);

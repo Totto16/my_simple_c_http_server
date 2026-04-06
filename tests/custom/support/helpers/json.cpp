@@ -268,3 +268,111 @@ JsonVariantCpp::object(std::initializer_list<std::pair<std::string, JsonVariant>
 
 	return new_json_variant_object(object);
 }
+
+JsonErrorCpp::JsonErrorCpp(std::string&& message, SourceLocation loc)
+    : m_message{ std::move(message) }, m_loc{ loc } {}
+
+JsonErrorCpp::JsonErrorCpp(const JsonError& value)
+    : JsonErrorCpp{ string_from_tstr_static(value.message), value.loc } {}
+
+JsonErrorCpp JsonErrorCpp::with_no_loc(std::string&& value) {
+	return JsonErrorCpp(std::move(value), make_null_source_location());
+}
+
+[[nodiscard]] static bool operator==(const SourcePosition& source_pos1,
+                                     const SourcePosition& source_pos2) {
+	if(source_pos1.col != source_pos2.col) {
+		return false;
+	}
+
+	return source_pos1.line == source_pos2.line;
+}
+
+[[nodiscard]] static bool operator==(const tstr_view& str_view1, const tstr_view& str_view2) {
+
+	if(str_view1.data != str_view2.data) {
+		return false;
+	}
+
+	return str_view1.len == str_view2.len;
+}
+
+[[nodiscard]] static bool operator==(const JsonStringSource& string_source1,
+                                     const JsonStringSource& string_source2) {
+	return string_source1.data == string_source2.data;
+}
+
+[[nodiscard]] static bool operator==(const tstr& str1, const tstr& str2) {
+
+	return tstr_eq(&str1, &str2);
+}
+
+[[nodiscard]] static bool operator==(const JsonFileSource& file_source1,
+                                     const JsonFileSource& file_source2) {
+	return *file_source1.file_path == *file_source2.file_path;
+}
+
+[[nodiscard]] static bool operator==(const SourceLocation& source_loc1,
+                                     const SourceLocation& source_loc2) {
+	if(get_current_tag_type_for_json_source(source_loc1.source) !=
+	   get_current_tag_type_for_json_source(source_loc2.source)) {
+		return false;
+	}
+
+	SWITCH_JSON_SOURCE(source_loc1.source) {
+		CASE_JSON_SOURCE_IS_STRING_CONST(source_loc1.source, string_1) {
+
+			IF_JSON_SOURCE_IS_STRING_CONST(source_loc2.source, string_2) {
+				return string_1 == string_2;
+			}
+			return false;
+		}
+		VARIANT_CASE_END();
+		CASE_JSON_SOURCE_IS_FILE_CONST(source_loc1.source, file_1) {
+			IF_JSON_SOURCE_IS_FILE_CONST(source_loc2.source, file_2) {
+				return file_1 == file_2;
+			}
+			return false;
+		}
+		VARIANT_CASE_END();
+		default: {
+			return false;
+		}
+	}
+
+	return source_loc1.pos == source_loc2.pos;
+}
+
+[[nodiscard]] bool JsonErrorCpp::operator==(const JsonErrorCpp& json_error2) const {
+	if(this->m_loc != json_error2.m_loc) {
+		return false;
+	}
+
+	return this->m_message == json_error2.m_message;
+}
+
+[[nodiscard]] bool JsonErrorCpp::operator==(const JsonError& json_error2) const {
+	if(this->m_loc != json_error2.loc) {
+		return false;
+	}
+
+	return this->m_message == string_from_tstr_static(json_error2.message);
+}
+
+std::ostream& operator<<(std::ostream& os, const JsonErrorCpp& json_error) {
+	os << json_error.m_message;
+	if(!is_null_source_location(json_error.m_loc)) {
+		tstr src_loc = json_format_source_location(json_error.m_loc);
+		os << ": " << src_loc;
+		tstr_free(&src_loc);
+	}
+
+	return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const JsonError& json_error) {
+	tstr error = json_format_error(json_error);
+	os << error;
+	tstr_free(&error);
+	return os;
+}
