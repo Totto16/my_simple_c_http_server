@@ -101,13 +101,34 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 
 TEST_CASE("testing parse errors of json values <json_parser_error>") {
 
+	// just here as a dummy tstr_view
+	const auto dummy_str_view = tstr_view_from("IGNORE");
+
 	std::vector<JsonParseTestCaseError> json_parse_test_cases = {
-		JsonParseTestCaseError{ .input = "not_null xD",
-		                        .expected_error = JsonErrorCpp::with_no_loc("not null") },
-		JsonParseTestCaseError{ .input = "for_sure_not_false ",
-		                        .expected_error = JsonErrorCpp::with_no_loc("not a boolean") },
-		JsonParseTestCaseError{ .input = "trivially_not_true ",
-		                        .expected_error = JsonErrorCpp::with_no_loc("not a boolean") },
+		JsonParseTestCaseError{
+		    .input = "not_null xD",
+		    .expected_error = JsonErrorCpp::with_string_loc(
+		        "not null", dummy_str_view, SourcePosition{ .line = 0, .col = 0 }) },
+		JsonParseTestCaseError{
+		    .input = "for_sure_not_false ",
+		    .expected_error = JsonErrorCpp::with_string_loc(
+		        "not a boolean", dummy_str_view, SourcePosition{ .line = 0, .col = 0 }) },
+		JsonParseTestCaseError{
+		    .input = "trivially_not_true ",
+		    .expected_error = JsonErrorCpp::with_string_loc(
+		        "not a boolean", dummy_str_view, SourcePosition{ .line = 0, .col = 0 }) },
+		JsonParseTestCaseError{
+		    .input = "  trivially_not_true ",
+		    .expected_error = JsonErrorCpp::with_string_loc(
+		        "not a boolean", dummy_str_view, SourcePosition{ .line = 0, .col = 2 }) },
+		JsonParseTestCaseError{
+		    .input = "  \ntrivially_not_true ",
+		    .expected_error = JsonErrorCpp::with_string_loc(
+		        "not a boolean", dummy_str_view, SourcePosition{ .line = 1, .col = 0 }) },
+		JsonParseTestCaseError{
+		    .input = "\n  trivially_not_true ",
+		    .expected_error = JsonErrorCpp::with_string_loc(
+		        "not a boolean", dummy_str_view, SourcePosition{ .line = 1, .col = 2 }) },
 	};
 
 	for(const auto& test_case : json_parse_test_cases) {

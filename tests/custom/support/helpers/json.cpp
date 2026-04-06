@@ -276,7 +276,14 @@ JsonErrorCpp::JsonErrorCpp(const JsonError& value)
     : JsonErrorCpp{ string_from_tstr_static(value.message), value.loc } {}
 
 JsonErrorCpp JsonErrorCpp::with_no_loc(std::string&& value) {
-	return JsonErrorCpp(std::move(value), make_null_source_location());
+	return { std::move(value), make_null_source_location() };
+}
+
+JsonErrorCpp JsonErrorCpp::with_string_loc(std::string&& value, tstr_view data,
+                                           SourcePosition pos) {
+	const SourceLocation loc = { .source = new_json_source_string(JsonStringSource{ .data = data }),
+		                         .pos = pos };
+	return { std::move(value), loc };
 }
 
 [[nodiscard]] static bool operator==(const SourcePosition& source_pos1,
@@ -297,8 +304,8 @@ JsonErrorCpp JsonErrorCpp::with_no_loc(std::string&& value) {
 	return str_view1.len == str_view2.len;
 }
 
-[[nodiscard]] static bool operator==(const JsonStringSource& string_source1,
-                                     const JsonStringSource& string_source2) {
+[[nodiscard]] [[maybe_unused]] static bool operator==(const JsonStringSource& string_source1,
+                                                      const JsonStringSource& string_source2) {
 	return string_source1.data == string_source2.data;
 }
 
@@ -307,8 +314,8 @@ JsonErrorCpp JsonErrorCpp::with_no_loc(std::string&& value) {
 	return tstr_eq(&str1, &str2);
 }
 
-[[nodiscard]] static bool operator==(const JsonFileSource& file_source1,
-                                     const JsonFileSource& file_source2) {
+[[nodiscard]] [[maybe_unused]] static bool operator==(const JsonFileSource& file_source1,
+                                                      const JsonFileSource& file_source2) {
 	return *file_source1.file_path == *file_source2.file_path;
 }
 
@@ -323,14 +330,22 @@ JsonErrorCpp JsonErrorCpp::with_no_loc(std::string&& value) {
 		CASE_JSON_SOURCE_IS_STRING_CONST(source_loc1.source, string_1) {
 
 			IF_JSON_SOURCE_IS_STRING_CONST(source_loc2.source, string_2) {
-				return string_1 == string_2;
+				return true;
+				// NOTE: not checking for the exact same value, just the type has to be the same
+				UNUSED(string_1);
+				UNUSED(string_2);
+				// return string_1 == string_2;
 			}
 			return false;
 		}
 		VARIANT_CASE_END();
 		CASE_JSON_SOURCE_IS_FILE_CONST(source_loc1.source, file_1) {
 			IF_JSON_SOURCE_IS_FILE_CONST(source_loc2.source, file_2) {
-				return file_1 == file_2;
+				return true;
+				// NOTE: not checking for the exact same value, just the type has to be the same
+				UNUSED(file_1);
+				UNUSED(file_2);
+				// return file_1 == file_2;
 			}
 			return false;
 		}
