@@ -25,15 +25,48 @@ typedef struct {
 	bool value;
 } JsonBoolean;
 
+typedef struct {
+	size_t line;
+	size_t col;
+} SourcePosition;
+
+typedef struct {
+	// NOTE: this "references" the original file path data, it can be freed, as this is passed by
+	// the user, the user can only free the file tstr, that he passed in, if he doesn't use this
+	// anymore
+	const tstr* file_path;
+} JsonFileSource;
+
+typedef struct {
+	// NOTE: this "references" the original data, it can be freed, as this is passed by the user,
+	// the user can only free the underlying data of the tstr_view, that he passed in, if he doesn't
+	// use this anymore
+	tstr_view data;
+} JsonStringSource;
+
+GENERATE_VARIANT_ALL_JSON_SOURCE()
+
+typedef struct {
+	JsonSource source;
+	SourcePosition pos;
+} SourceLocation;
+
+typedef struct {
+	tstr_static message;
+	// note: this has references to the original passed in data, either a tstr file_path or  the
+	// tstr_view of the passed ins tring, so it is only valid, until the user freed that data
+	SourceLocation loc;
+} JsonError;
+
 GENERATE_VARIANT_ALL_JSON_VARIANT()
 
 GENERATE_VARIANT_ALL_JSON_PARSE_RESULT()
 
 // parse json strings
 
-NODISCARD JsonParseResult json_variant_parse_from_str(tstr_view str);
+NODISCARD JsonParseResult json_variant_parse_from_str(tstr_view data);
 
-NODISCARD JsonParseResult json_variant_parse_from_file(tstr str);
+NODISCARD JsonParseResult json_variant_parse_from_file(const tstr* file_path);
 
 void free_json_variant(JsonVariant* json_variant);
 
@@ -101,6 +134,12 @@ NODISCARD tstr_static json_object_add_entry_tstr(JsonObject* json_object, const 
 
 NODISCARD tstr_static json_object_add_entry_cstr(JsonObject* json_object, const char* key,
                                                  JsonVariant value);
+
+// utility functions
+
+NODISCARD SourceLocation make_null_source_location(void);
+
+NODISCARD bool is_null_source_location(SourceLocation location);
 
 void free_json_object(JsonObject* json_obj);
 

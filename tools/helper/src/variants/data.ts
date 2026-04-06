@@ -545,6 +545,70 @@ export const globalTaggedUnions: TaggedUnion[] = [
             }
         }
     },
-    makeErrorVariant("JsonParseResult", "JsonVariant"),
-    makeErrorVariant("Utf8NextCharResult", "Utf8Codepoint", "codepoint", { usageOnlyInC: true }),
+    {
+        name: makeUnionName(CaseName.fromPascalCase("JsonParseResult")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: makeSimpleType("JsonVariant")
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: makeSimpleType("JsonError")
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`JsonParseResultType`)),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            },
+        }
+    },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("JsonSource")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("File")),
+                type: makeSimpleType("JsonFileSource")
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("String")),
+                type: makeSimpleType("JsonStringSource")
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`JsonSourceType`)),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            },
+        }
+    },
+    {
+        name: makeUnionName(CaseName.fromPascalCase("Utf8NextCharResult")),
+        member: [
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Ok")),
+                type: makeSimpleType("Utf8Codepoint")
+            },
+            {
+                name: makeMemberName(CaseName.fromPascalCase("Error")),
+                type: makeSimpleType("JsonError")
+            },
+        ],
+        enum: {
+            name: makeEnumName(CaseName.fromPascalCase(`Utf8NextCharResultType`)),
+            underlyingType: "bool"
+        },
+        options: {
+            requirements: {
+                order: "best_size"
+            },
+        }
+    },
 ]

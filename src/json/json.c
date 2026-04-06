@@ -52,7 +52,7 @@ struct JsonObjectImpl {
 	JsonVariantMap value;
 };
 
-static void tstr_view_advance(tstr_view* const str, size_t amount) {
+static void tstr_view_advance_by(tstr_view* const str, size_t amount) {
 	assert(str->len >= amount);
 	str->data += amount;
 	str->len -= amount;
@@ -78,15 +78,70 @@ static bool json_parse_impl_is_ws(const char value) {
 	}
 }
 
-static void json_parse_impl_skip_ws(tstr_view* const str) {
+static void source_position_location_process_new_line(SourceLocation* const loc) {
+	loc->pos.line++;
+	loc->pos.col = 0;
+}
+
+static void source_position_location_advance_col_by(SourceLocation* const loc, size_t amount) {
+	loc->pos.col += amount;
+}
+
+typedef struct {
+	tstr_view view;
+	SourceLocation loc;
+} JsonParseState;
+
+NODISCARD static bool json_parse_state_is_eof(const JsonParseState state) {
+	return state.view.len == 0;
+}
+
+NODISCARD static size_t json_parse_state_get_str_len(const JsonParseState state) {
+	return state.view.len;
+}
+
+static void json_parse_state_skip_by(JsonParseState* const state, size_t amount, bool advance_loc) {
+	assert(state->view.len >= amount);
+	tstr_view_advance_by(&(state->view), amount);
+	if(advance_loc) {
+		source_position_location_advance_col_by(&(state->loc), amount);
+	}
+}
+
+NODISCARD static char json_parse_state_get_next_char(JsonParseState* const state) {
+	assert(state->view.len > 0);
+	const char result = state->view.data[0];
+	json_parse_state_skip_by(state, 1, true);
+	return result;
+}
+
+NODISCARD static char json_parse_state_peek_char_at(const JsonParseState state, size_t index) {
+	assert(state.view.len > index);
+	return state.view.data[index];
+}
+
+NODISCARD static char json_parse_state_peek_next_char(const JsonParseState state) {
+	return json_parse_state_peek_char_at(state, 0);
+}
+
+#define JSON_NEWLINE_CHAR_FOR_LOCATION '\n'
+
+static void json_parse_impl_skip_ws(JsonParseState* const state) {
 
 	size_t offset = 0;
 
-	while(str->len > offset) {
+	while(json_parse_state_get_str_len(*state) > offset) {
 
-		const char value = str->data[offset];
+		const char value = json_parse_state_peek_char_at(*state, offset);
 
 		if(json_parse_impl_is_ws(value)) {
+			// NOTE: only treating newline (\n) as a new line, not \r\n or \r
+			if(value == JSON_NEWLINE_CHAR_FOR_LOCATION) {
+				source_position_location_process_new_line(&(state->loc));
+			} else {
+				source_position_location_advance_col_by(&(state->loc), 1);
+			}
+
 			++offset;
 			continue;
 		}
@@ -98,10 +153,35 @@ static void json_parse_impl_skip_ws(tstr_view* const str) {
 		return;
 	}
 
-	tstr_view_advance(str, offset);
+	json_parse_state_skip_by(state, offset, false);
 }
 
-NODISCARD static JsonParseResult json_parse_impl_parse_boolean(tstr_view* const str) {
+NODISCARD SourceLocation make_null_source_location(void) {
+	return (SourceLocation){ .source = new_json_source_file((JsonFileSource){ .file_path = NULL }),
+		                     .pos = (SourcePosition){ .col = 0, .line = 0 } };
+}
+
+NODISCARD bool is_null_source_location(SourceLocation location) {
+	SWITCH_JSON_SOURCE(location.source) {
+		CASE_JSON_SOURCE_IS_FILE_CONST(location.source) {
+			return file.file_path == NULL;
+		}
+		VARIANT_CASE_END();
+		CASE_JSON_SOURCE_IS_STRING_CONST(location.source) {
+			return string.data.data == NULL;
+		}
+		VARIANT_CASE_END();
+		default: {
+			return false;
+		}
+	}
+}
+
+NODISCARD static JsonError make_json_error_at(const SourceLocation loc, const tstr_static message) {
+	return (JsonError){ .message = message, .loc = loc };
+}
+
+NODISCARD static JsonParseResult json_parse_impl_parse_boolean(JsonParseState* const state) {
 
 	// boolean = false / true
 	// false = %x66.61.6c.73.65   ; false
@@ -109,9 +189,9 @@ NODISCARD static JsonParseResult json_parse_impl_parse_boolean(tstr_view* const 
 
 	{
 		const tstr_static false_value = TSTR_STATIC_LIT("false");
-		if(tstr_view_starts_with(*str, false_value.ptr)) {
+		if(tstr_view_starts_with(state->view, false_value.ptr)) {
 
-			tstr_view_advance(str, false_value.len);
+			json_parse_state_skip_by(state, false_value.len, true);
 
 			return new_json_parse_result_ok(
 			    new_json_variant_boolean((JsonBoolean){ .value = false }));
@@ -120,33 +200,34 @@ NODISCARD static JsonParseResult json_parse_impl_parse_boolean(tstr_view* const 
 
 	{
 		const tstr_static true_value = TSTR_STATIC_LIT("true");
-		if(tstr_view_starts_with(*str, true_value.ptr)) {
+		if(tstr_view_starts_with(state->view, true_value.ptr)) {
 
-			tstr_view_advance(str, true_value.len);
+			json_parse_state_skip_by(state, true_value.len, true);
 
 			return new_json_parse_result_ok(
 			    new_json_variant_boolean((JsonBoolean){ .value = true }));
 		}
 	}
 
-	return new_json_parse_result_error(TSTR_STATIC_LIT("not a boolean"));
+	return new_json_parse_result_error(
+	    make_json_error_at(state->loc, TSTR_STATIC_LIT("not a boolean")));
 }
 
-NODISCARD static JsonParseResult json_parse_impl_parse_null(tstr_view* const str) {
+NODISCARD static JsonParseResult json_parse_impl_parse_null(JsonParseState* const state) {
 
 	//  null  = %x6e.75.6c.6c      ; null
 
 	{
 		const tstr_static null_value = TSTR_STATIC_LIT("null");
-		if(tstr_view_starts_with(*str, null_value.ptr)) {
+		if(tstr_view_starts_with(state->view, null_value.ptr)) {
 
-			tstr_view_advance(str, null_value.len);
+			json_parse_state_skip_by(state, null_value.len, true);
 
 			return new_json_parse_result_ok(new_json_variant_null());
 		}
 	}
 
-	return new_json_parse_result_error(TSTR_STATIC_LIT("not null"));
+	return new_json_parse_result_error(make_json_error_at(state->loc, TSTR_STATIC_LIT("not null")));
 }
 
 NODISCARD JsonObject* get_empty_json_object(void) {
@@ -224,29 +305,39 @@ NODISCARD tstr_static json_object_add_entry_cstr(JsonObject* json_object, const 
 	return json_object_add_entry(json_object, &key_string, value);
 }
 
-NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* str);
+NODISCARD static inline JsonError json_error_none(const SourceLocation loc) {
+	return (JsonError){ .message = tstr_static_null(), .loc = loc };
+}
 
-NODISCARD static JsonParseResult json_parse_impl_parse_value(tstr_view* str);
+NODISCARD static bool json_error_is_none(const JsonError error) {
+	return tstr_static_is_null(error.message);
+}
 
-NODISCARD static tstr_static json_parse_impl_parse_object_member(tstr_view* const str,
-                                                                 JsonObject* const json_object) {
+NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* state);
+
+NODISCARD static JsonParseResult json_parse_impl_parse_value(JsonParseState* state);
+
+NODISCARD static JsonError json_parse_impl_parse_object_member(JsonParseState* const state,
+                                                               JsonObject* const json_object) {
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	// member = string name-separator value
 
-	if(str->len == 0) {
-		return TSTR_STATIC_LIT("empty object member");
+	if(json_parse_state_is_eof(*state)) {
+		return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object member"));
 	}
 
-	const JsonParseResult string_result = json_parse_impl_parse_string(str);
+	const JsonParseResult string_result = json_parse_impl_parse_string(state);
 
 	IF_JSON_PARSE_RESULT_IS_ERROR_CONST(string_result) {
-		return error.error;
+		return error;
 	}
 
 	const JsonVariant key_raw = json_parse_result_get_as_ok(string_result);
 
 	IF_JSON_VARIANT_IS_NOT_STRING(key_raw) {
-		return TSTR_STATIC_LIT("implementation error: string parser didn't return a string");
+		return make_json_error_at(
+		    state->loc,
+		    TSTR_STATIC_LIT("implementation error: string parser didn't return a string"));
 	}
 
 	JsonString* key = json_variant_get_as_string(key_raw);
@@ -259,32 +350,34 @@ NODISCARD static tstr_static json_parse_impl_parse_object_member(tstr_view* cons
 	{
 		// name-separator  = ws %x3A ws  ; : colon
 
-		json_parse_impl_skip_ws(str);
+		json_parse_impl_skip_ws(state);
 
-		if(str->len == 0) {
+		if(json_parse_state_is_eof(*state)) {
 			FREE_AT_END();
-			return TSTR_STATIC_LIT("empty object member");
+			return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object member"));
 		}
 
-		if(str->data[0] != ':') {
+		const char next_value = json_parse_state_peek_next_char(*state);
+
+		if(next_value != ':') {
 			FREE_AT_END();
-			return TSTR_STATIC_LIT("wrong  name-separator");
+			return make_json_error_at(state->loc, TSTR_STATIC_LIT("wrong  name-separator"));
 		}
 
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 
-		if(str->len == 0) {
-			return TSTR_STATIC_LIT("empty object member");
+		if(json_parse_state_is_eof(*state)) {
+			return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object member"));
 		}
 
-		json_parse_impl_skip_ws(str);
+		json_parse_impl_skip_ws(state);
 	}
 
-	const JsonParseResult value_result = json_parse_impl_parse_value(str);
+	const JsonParseResult value_result = json_parse_impl_parse_value(state);
 
 	IF_JSON_PARSE_RESULT_IS_ERROR_CONST(value_result) {
 		FREE_AT_END();
-		return error.error;
+		return error;
 	}
 
 	JsonVariant value = json_parse_result_get_as_ok(value_result);
@@ -302,15 +395,15 @@ NODISCARD static tstr_static json_parse_impl_parse_object_member(tstr_view* cons
 
 	if(!tstr_static_is_null(add_result)) {
 		FREE_AT_END();
-		return add_result;
+		return make_json_error_at(state->loc, add_result);
 	}
 
-	return tstr_static_null();
+	return json_error_none(state->loc);
 }
 
 #undef FREE_AT_END
 
-NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const str) {
+NODISCARD static JsonParseResult json_parse_impl_parse_object(JsonParseState* const state) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 
@@ -321,56 +414,65 @@ NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const s
 	// name-separator  = ws %x3A ws  ; : colon
 	// value-separator = ws %x2C ws  ; , comma
 
-	if(str->len == 0) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("empty object"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object")));
 	}
 
 	{ // begin-object
 
-		json_parse_impl_skip_ws(str);
+		json_parse_impl_skip_ws(state);
 
-		if(str->len == 0) {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("empty object"));
+		if(json_parse_state_is_eof(*state)) {
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object")));
 		}
 
-		if(str->data[0] != '{') {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("wrong begin-object"));
+		const char next_value = json_parse_state_peek_next_char(*state);
+
+		if(next_value != '{') {
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("wrong begin-object")));
 		}
 
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 
-		if(str->len == 0) {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("empty object"));
+		if(json_parse_state_is_eof(*state)) {
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object")));
 		}
 
-		json_parse_impl_skip_ws(str);
+		json_parse_impl_skip_ws(state);
 
-		if(str->len == 0) {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("empty object"));
+		if(json_parse_state_is_eof(*state)) {
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object")));
 		}
 	}
 
 	// either member or a end-object
 
-	json_parse_impl_skip_ws(str);
+	json_parse_impl_skip_ws(state);
 
-	if(str->len == 0) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("empty object"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object")));
 	}
 
-	const char next_char = str->data[0];
+	const char next_char = json_parse_state_peek_next_char(*state);
 
 	if(next_char == '}') {
 		// end-object
 
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 
-		json_parse_impl_skip_ws(str);
+		json_parse_impl_skip_ws(state);
 
 		JsonObject* const object = get_empty_json_object();
 
 		if(object == NULL) {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("OOM"));
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("OOM")));
 		}
 
 		return new_json_parse_result_ok(new_json_variant_object(object));
@@ -379,7 +481,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const s
 	JsonObject* const object = get_empty_json_object();
 
 	if(object == NULL) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("OOM"));
+		return new_json_parse_result_error(make_json_error_at(state->loc, TSTR_STATIC_LIT("OOM")));
 	}
 
 #define FREE_AT_END() \
@@ -390,9 +492,9 @@ NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const s
 	{
 		// member *( value-separator member )
 
-		const tstr_static member_result = json_parse_impl_parse_object_member(str, object);
+		const JsonError member_result = json_parse_impl_parse_object_member(state, object);
 
-		if(!tstr_static_is_null(member_result)) {
+		if(!json_error_is_none(member_result)) {
 			FREE_AT_END();
 			return new_json_parse_result_error(member_result);
 		}
@@ -400,42 +502,43 @@ NODISCARD static JsonParseResult json_parse_impl_parse_object(tstr_view* const s
 		while(true) {
 			// end-object or value-separator
 
-			json_parse_impl_skip_ws(str);
+			json_parse_impl_skip_ws(state);
 
-			if(str->len == 0) {
+			if(json_parse_state_is_eof(*state)) {
 				FREE_AT_END();
-				return new_json_parse_result_error(TSTR_STATIC_LIT("empty object"));
+				return new_json_parse_result_error(
+				    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object")));
 			}
 
-			const char end_char = str->data[0];
+			const char end_char = json_parse_state_peek_next_char(*state);
 
 			if(end_char == '}') {
 				// end-object
 
-				tstr_view_advance(str, 1);
+				json_parse_state_skip_by(state, 1, true);
 
-				json_parse_impl_skip_ws(str);
+				json_parse_impl_skip_ws(state);
 
 				return new_json_parse_result_ok(new_json_variant_object(object));
 			}
 
 			if(end_char != ',') {
 				FREE_AT_END();
-				return new_json_parse_result_error(
-				    TSTR_STATIC_LIT("invalid continuation of member in object"));
+				return new_json_parse_result_error(make_json_error_at(
+				    state->loc, TSTR_STATIC_LIT("invalid continuation of member in object")));
 			}
 
 			{
 				// value-separator
 
-				tstr_view_advance(str, 1);
+				json_parse_state_skip_by(state, 1, true);
 
-				json_parse_impl_skip_ws(str);
+				json_parse_impl_skip_ws(state);
 			}
 
-			tstr_static member_result_2 = json_parse_impl_parse_object_member(str, object);
+			const JsonError member_result_2 = json_parse_impl_parse_object_member(state, object);
 
-			if(!tstr_static_is_null(member_result_2)) {
+			if(!json_error_is_none(member_result_2)) {
 				FREE_AT_END();
 				return new_json_parse_result_error(member_result_2);
 			}
@@ -467,18 +570,18 @@ NODISCARD tstr_static json_array_add_entry(JsonArray* const json_array, const Js
 	return tstr_static_null();
 }
 
-NODISCARD static tstr_static json_parse_impl_parse_array_value(tstr_view* const str,
-                                                               JsonArray* const json_array) {
+NODISCARD static JsonError json_parse_impl_parse_array_value(JsonParseState* const state,
+                                                             JsonArray* const json_array) {
 	// just parsers a value and than adds it to the array
 
-	if(str->len == 0) {
-		return TSTR_STATIC_LIT("empty array value");
+	if(json_parse_state_is_eof(*state)) {
+		return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty array value"));
 	}
 
-	const JsonParseResult value_result = json_parse_impl_parse_value(str);
+	const JsonParseResult value_result = json_parse_impl_parse_value(state);
 
 	IF_JSON_PARSE_RESULT_IS_ERROR_CONST(value_result) {
-		return error.error;
+		return error;
 	}
 
 	JsonVariant value = json_parse_result_get_as_ok(value_result);
@@ -493,15 +596,15 @@ NODISCARD static tstr_static json_parse_impl_parse_array_value(tstr_view* const 
 
 	if(!tstr_static_is_null(add_result)) {
 		FREE_AT_END();
-		return add_result;
+		return make_json_error_at(state->loc, add_result);
 	}
 
-	return tstr_static_null();
+	return json_error_none(state->loc);
 }
 
 #undef FREE_AT_END
 
-NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const str) {
+NODISCARD static JsonParseResult json_parse_impl_parse_array(JsonParseState* const state) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 
@@ -510,56 +613,65 @@ NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const st
 	// end-array       = ws %x5D ws  ; ] right square bracket
 	// value-separator = ws %x2C ws  ; , comma
 
-	if(str->len == 0) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty array")));
 	}
 
 	{ // begin-array
 
-		json_parse_impl_skip_ws(str);
+		json_parse_impl_skip_ws(state);
 
-		if(str->len == 0) {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+		if(json_parse_state_is_eof(*state)) {
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty array")));
 		}
 
-		if(str->data[0] != '[') {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("wrong begin-array"));
+		const char next_value = json_parse_state_peek_next_char(*state);
+
+		if(next_value != '[') {
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("wrong begin-array")));
 		}
 
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 
-		if(str->len == 0) {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+		if(json_parse_state_is_eof(*state)) {
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty array")));
 		}
 
-		json_parse_impl_skip_ws(str);
+		json_parse_impl_skip_ws(state);
 
-		if(str->len == 0) {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+		if(json_parse_state_is_eof(*state)) {
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty array")));
 		}
 	}
 
 	// either end-array or value
 
-	json_parse_impl_skip_ws(str);
+	json_parse_impl_skip_ws(state);
 
-	if(str->len == 0) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty array")));
 	}
 
-	const char next_char = str->data[0];
+	const char next_char = json_parse_state_peek_next_char(*state);
 
 	if(next_char == ']') {
 		// end-array
 
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 
-		json_parse_impl_skip_ws(str);
+		json_parse_impl_skip_ws(state);
 
 		JsonArray* const array = get_empty_json_array();
 
 		if(array == NULL) {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("OOM"));
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("OOM")));
 		}
 
 		return new_json_parse_result_ok(new_json_variant_array(array));
@@ -568,7 +680,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const st
 	JsonArray* const array = get_empty_json_array();
 
 	if(array == NULL) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("OOM"));
+		return new_json_parse_result_error(make_json_error_at(state->loc, TSTR_STATIC_LIT("OOM")));
 	}
 
 #define FREE_AT_END() \
@@ -579,9 +691,9 @@ NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const st
 	{
 		// value *( value-separator value )
 
-		const tstr_static value_result = json_parse_impl_parse_array_value(str, array);
+		const JsonError value_result = json_parse_impl_parse_array_value(state, array);
 
-		if(!tstr_static_is_null(value_result)) {
+		if(!json_error_is_none(value_result)) {
 			FREE_AT_END();
 			return new_json_parse_result_error(value_result);
 		}
@@ -589,42 +701,43 @@ NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const st
 		while(true) {
 			// end-array or value-separator
 
-			json_parse_impl_skip_ws(str);
+			json_parse_impl_skip_ws(state);
 
-			if(str->len == 0) {
+			if(json_parse_state_is_eof(*state)) {
 				FREE_AT_END();
-				return new_json_parse_result_error(TSTR_STATIC_LIT("empty array"));
+				return new_json_parse_result_error(
+				    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty array")));
 			}
 
-			const char end_char = str->data[0];
+			const char end_char = json_parse_state_peek_next_char(*state);
 
 			if(end_char == ']') {
 				// end-array
 
-				tstr_view_advance(str, 1);
+				json_parse_state_skip_by(state, 1, true);
 
-				json_parse_impl_skip_ws(str);
+				json_parse_impl_skip_ws(state);
 
 				return new_json_parse_result_ok(new_json_variant_array(array));
 			}
 
 			if(end_char != ',') {
 				FREE_AT_END();
-				return new_json_parse_result_error(
-				    TSTR_STATIC_LIT("invalid continuation of values in array"));
+				return new_json_parse_result_error(make_json_error_at(
+				    state->loc, TSTR_STATIC_LIT("invalid continuation of values in array")));
 			}
 
 			{
 				// value-separator
 
-				tstr_view_advance(str, 1);
+				json_parse_state_skip_by(state, 1, true);
 
-				json_parse_impl_skip_ws(str);
+				json_parse_impl_skip_ws(state);
 			}
 
-			const tstr_static value_result_2 = json_parse_impl_parse_array_value(str, array);
+			const JsonError value_result_2 = json_parse_impl_parse_array_value(state, array);
 
-			if(!tstr_static_is_null(value_result_2)) {
+			if(!json_error_is_none(value_result_2)) {
 				FREE_AT_END();
 				return new_json_parse_result_error(value_result_2);
 			}
@@ -634,39 +747,40 @@ NODISCARD static JsonParseResult json_parse_impl_parse_array(tstr_view* const st
 
 #undef FREE_AT_END
 
-NODISCARD static tstr_static json_parse_impl_parse_number_int_part(tstr_view* const str,
-                                                                   double* const out_result) {
+NODISCARD static JsonError json_parse_impl_parse_number_int_part(JsonParseState* const state,
+                                                                 double* const out_result) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	//     int = zero / ( digit1-9 *DIGIT )
 	// digit1-9 = %x31-39         ; 1-9
 	// zero = %x30                ; 0
 
-	if(str->len == 0) {
-		return TSTR_STATIC_LIT("empty number int part");
+	if(json_parse_state_is_eof(*state)) {
+		return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty number int part"));
 	}
 
-	const char first_value = str->data[0];
+	const char first_value = json_parse_state_peek_next_char(*state);
 
 	if(first_value == '0') {
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 		*out_result = 0;
-		return tstr_static_null();
+		return json_error_none(state->loc);
 	}
 
 	if(first_value > '9' || first_value < '1') {
-		return TSTR_STATIC_LIT("invalid number int part: incorrect start");
+		return make_json_error_at(state->loc,
+		                          TSTR_STATIC_LIT("invalid number int part: incorrect start"));
 	}
 
 	uint64_t value = (first_value - '0');
-	tstr_view_advance(str, 1);
+	json_parse_state_skip_by(state, 1, true);
 
 	while(true) {
-		if(str->len == 0) {
+		if(json_parse_state_is_eof(*state)) {
 			break;
 		}
 
-		const char next_value = str->data[0];
+		const char next_value = json_parse_state_peek_next_char(*state);
 
 		if(next_value > '9' || next_value < '0') {
 			break;
@@ -675,11 +789,13 @@ NODISCARD static tstr_static json_parse_impl_parse_number_int_part(tstr_view* co
 		const uint64_t previous_value = value;
 
 		value = (value * 10) + (next_value - '0');
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 
 		if(previous_value > value) {
 			// overflow detected
-			return TSTR_STATIC_LIT("invalid number int part: value overflowed a 64 bit number!");
+			return make_json_error_at(
+			    state->loc,
+			    TSTR_STATIC_LIT("invalid number int part: value overflowed a 64 bit number!"));
 		}
 	}
 
@@ -688,46 +804,50 @@ NODISCARD static tstr_static json_parse_impl_parse_number_int_part(tstr_view* co
 
 	// TODO: check if this has rounding errors!
 	*out_result = (double)value;
-	return tstr_static_null();
+	return json_error_none(state->loc);
 }
 
-NODISCARD static tstr_static json_parse_impl_parse_number_frac_part(tstr_view* const str,
-                                                                    double* const out_result) {
+NODISCARD static JsonError json_parse_impl_parse_number_frac_part(JsonParseState* const state,
+                                                                  double* const out_result) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	//     frac = decimal-point 1*DIGIT
 	// decimal-point = %x2E       ; .
 
-	if(str->len == 0) {
-		return TSTR_STATIC_LIT("empty number frac part");
+	if(json_parse_state_is_eof(*state)) {
+		return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty number frac part"));
 	}
 
-	if(str->data[0] != '.') {
-		return TSTR_STATIC_LIT("wrong number frac part: missing starting .");
+	const char next_char = json_parse_state_peek_next_char(*state);
+
+	if(next_char != '.') {
+		return make_json_error_at(state->loc,
+		                          TSTR_STATIC_LIT("wrong number frac part: missing starting ."));
 	}
 
-	tstr_view_advance(str, 1);
+	json_parse_state_skip_by(state, 1, true);
 
-	if(str->len == 0) {
-		return TSTR_STATIC_LIT("empty number frac part");
+	if(json_parse_state_is_eof(*state)) {
+		return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty number frac part"));
 	}
 
-	const char first_value = str->data[0];
+	const char first_value = json_parse_state_peek_next_char(*state);
 
 	if(first_value > '9' || first_value < '0') {
-		return TSTR_STATIC_LIT("invalid number frac part: incorrect start");
+		return make_json_error_at(state->loc,
+		                          TSTR_STATIC_LIT("invalid number frac part: incorrect start"));
 	}
 
 	double divider = 10.0;
 	double value = ((double)(first_value - '0')) / divider;
-	tstr_view_advance(str, 1);
+	json_parse_state_skip_by(state, 1, true);
 
 	while(true) {
-		if(str->len == 0) {
+		if(json_parse_state_is_eof(*state)) {
 			break;
 		}
 
-		const char next_value = str->data[0];
+		const char next_value = json_parse_state_peek_next_char(*state);
 
 		if(next_value > '9' || next_value < '0') {
 			break;
@@ -735,15 +855,15 @@ NODISCARD static tstr_static json_parse_impl_parse_number_frac_part(tstr_view* c
 
 		divider = divider * 10.0;
 		value = value + (((double)next_value - '0') / divider);
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 	}
 
 	*out_result = value;
-	return tstr_static_null();
+	return json_error_none(state->loc);
 }
 
-NODISCARD static tstr_static json_parse_impl_parse_number_exp_part(tstr_view* const str,
-                                                                   int64_t* const out_result) {
+NODISCARD static JsonError json_parse_impl_parse_number_exp_part(JsonParseState* const state,
+                                                                 int64_t* const out_result) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2.
 	//      exp = e [ minus / plus ] 1*DIGIT
@@ -752,53 +872,56 @@ NODISCARD static tstr_static json_parse_impl_parse_number_exp_part(tstr_view* co
 	// minus = %x2D               ; -
 	// plus = %x2B                ; +
 
-	if(str->len == 0) {
-		return TSTR_STATIC_LIT("empty number exp part");
+	if(json_parse_state_is_eof(*state)) {
+		return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty number exp part"));
 	}
 
-	if(str->data[0] != 'e' && str->data[0] != 'E') {
-		return TSTR_STATIC_LIT("wrong number exp part: missing starting e/E");
-	}
+	const char next_char = json_parse_state_peek_next_char(*state);
 
-	tstr_view_advance(str, 1);
+	if(next_char != 'e' && next_char != 'E') {
+		return make_json_error_at(state->loc,
+		                          TSTR_STATIC_LIT("wrong number exp part: missing starting e/E"));
+	}
+	json_parse_state_skip_by(state, 1, true);
 
 	bool minus = false;
 
-	if(str->len == 0) {
-		return TSTR_STATIC_LIT("empty number exp part");
+	if(json_parse_state_is_eof(*state)) {
+		return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty number exp part"));
 	}
 
 	{
-		const char first_value = str->data[0];
+		const char first_value = json_parse_state_peek_next_char(*state);
 
 		if(first_value == '+') {
 			minus = false;
-			tstr_view_advance(str, 1);
+			json_parse_state_skip_by(state, 1, true);
 		} else if(first_value == '-') {
 			minus = true;
-			tstr_view_advance(str, 1);
+			json_parse_state_skip_by(state, 1, true);
 		}
 	}
 
-	if(str->len == 0) {
-		return TSTR_STATIC_LIT("empty number exp part");
+	if(json_parse_state_is_eof(*state)) {
+		return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty number exp part"));
 	}
 
-	const char first_value = str->data[0];
+	const char first_value = json_parse_state_peek_next_char(*state);
 
 	if(first_value > '9' || first_value < '0') {
-		return TSTR_STATIC_LIT("invalid number exp part: incorrect start");
+		return make_json_error_at(state->loc,
+		                          TSTR_STATIC_LIT("invalid number exp part: incorrect start"));
 	}
 
 	int64_t value = (first_value - '0');
-	tstr_view_advance(str, 1);
+	json_parse_state_skip_by(state, 1, true);
 
 	while(true) {
-		if(str->len == 0) {
+		if(json_parse_state_is_eof(*state)) {
 			break;
 		}
 
-		const char next_value = str->data[0];
+		const char next_value = json_parse_state_peek_next_char(*state);
 
 		if(next_value > '9' || next_value < '0') {
 			break;
@@ -807,11 +930,13 @@ NODISCARD static tstr_static json_parse_impl_parse_number_exp_part(tstr_view* co
 		const int64_t previous_value = value;
 
 		value = (value * 10) + (next_value - '0');
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 
 		if(previous_value > value) {
 			// overflow detected
-			return TSTR_STATIC_LIT("invalid number exp part: value overflowed a 64 bit number!");
+			return make_json_error_at(
+			    state->loc,
+			    TSTR_STATIC_LIT("invalid number exp part: value overflowed a 64 bit number!"));
 		}
 	}
 
@@ -820,7 +945,7 @@ NODISCARD static tstr_static json_parse_impl_parse_number_exp_part(tstr_view* co
 
 	// TODO: check if this overflow when using -
 	*out_result = minus ? -(value) : value;
-	return tstr_static_null();
+	return json_error_none(state->loc);
 }
 
 NODISCARD static double get_power_of_10(uint64_t value) {
@@ -842,7 +967,7 @@ NODISCARD static double json_number_make_value_int_exp(double int_value, int64_t
 	return int_value * get_power_of_10(exp);
 }
 
-NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const str) {
+NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* const state) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	//     number = [ minus ] int [ frac ] [ exp ]
@@ -858,24 +983,28 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 
 	bool minus = false;
 
-	if(str->len == 0) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("empty number"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty number")));
 	}
 
-	if(str->data[0] == '-') {
+	const char minus_char = json_parse_state_peek_next_char(*state);
+
+	if(minus_char == '-') {
 		minus = true;
-		tstr_view_advance(str, 1);
+		json_parse_state_skip_by(state, 1, true);
 	}
 
-	if(str->len == 0) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("empty number"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty number")));
 	}
 
 	double int_value = 0.0;
 
-	const tstr_static int_result = json_parse_impl_parse_number_int_part(str, &int_value);
+	const JsonError int_result = json_parse_impl_parse_number_int_part(state, &int_value);
 
-	if(!tstr_static_is_null(int_result)) {
+	if(!json_error_is_none(int_result)) {
 		return new_json_parse_result_error(int_result);
 	}
 
@@ -886,12 +1015,12 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 
 	// have: minus + int
 	// eof after that
-	if(str->len == 0) {
+	if(json_parse_state_is_eof(*state)) {
 		const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT();
 		return new_json_parse_result_ok(new_json_variant_number(number));
 	}
 
-	const char next_value = str->data[0];
+	const char next_value = json_parse_state_peek_next_char(*state);
 
 	double frac = 0.0;
 	int64_t exp = 1;
@@ -904,9 +1033,9 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 
 		saw_frac = true;
 
-		const tstr_static frac_result = json_parse_impl_parse_number_frac_part(str, &frac);
+		const JsonError frac_result = json_parse_impl_parse_number_frac_part(state, &frac);
 
-		if(!tstr_static_is_null(frac_result)) {
+		if(!json_error_is_none(frac_result)) {
 			return new_json_parse_result_error(frac_result);
 		}
 	} else if(next_value == 'e' || next_value == 'E') {
@@ -914,9 +1043,9 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 
 		saw_exp = true;
 
-		const tstr_static exp_result = json_parse_impl_parse_number_exp_part(str, &exp);
+		const JsonError exp_result = json_parse_impl_parse_number_exp_part(state, &exp);
 
-		if(!tstr_static_is_null(exp_result)) {
+		if(!json_error_is_none(exp_result)) {
 			return new_json_parse_result_error(exp_result);
 		}
 
@@ -932,7 +1061,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 	assert(saw_frac || saw_exp);
 
 	// are eof
-	if(str->len == 0) {
+	if(json_parse_state_is_eof(*state)) {
 
 		if(saw_frac) {
 
@@ -959,8 +1088,9 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 			return new_json_parse_result_ok(new_json_variant_number(number));
 		}
 
-		return new_json_parse_result_error(
-		    TSTR_STATIC_LIT("implementation error in int + frac + exp number parsing"));
+		return new_json_parse_result_error(make_json_error_at(
+		    state->loc,
+		    TSTR_STATIC_LIT("implementation error in int + frac + exp number parsing")));
 	}
 
 	// we are already finished
@@ -972,16 +1102,16 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(tstr_view* const s
 		return new_json_parse_result_ok(new_json_variant_number(number));
 	}
 
-	const char next_value2 = str->data[0];
+	const char next_value2 = json_parse_state_peek_next_char(*state);
 
 	if(next_value2 == 'e' || next_value2 == 'E') {
 		// exp
 
 		saw_exp = true;
 
-		const tstr_static exp_result = json_parse_impl_parse_number_exp_part(str, &exp);
+		const JsonError exp_result = json_parse_impl_parse_number_exp_part(state, &exp);
 
-		if(!tstr_static_is_null(exp_result)) {
+		if(!json_error_is_none(exp_result)) {
 			return new_json_parse_result_error(exp_result);
 		}
 	} else {
@@ -1029,31 +1159,32 @@ NODISCARD static tstr_static json_string_add_char_impl(JsonString* const json_st
 
 GENERATE_VARIANT_ALL_UTF8_NEXT_CHAR_RESULT()
 
-NODISCARD static Utf8NextCharResult utf8_get_next_char_and_consume(tstr_view* const view) {
+NODISCARD static Utf8NextCharResult utf8_get_next_char_and_consume(JsonParseState* const state) {
 
-	if(view->len == 0) {
-		return new_utf8_next_char_result_error(TSTR_STATIC_LIT("empty str"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_utf8_next_char_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty str")));
 	}
 
 	utf8proc_int32_t codepoint = 0;
-	utf8proc_ssize_t result =
-	    utf8proc_iterate((const utf8proc_uint8_t*)((const void*)view->data), view->len, &codepoint);
+	utf8proc_ssize_t result = utf8proc_iterate(
+	    (const utf8proc_uint8_t*)((const void*)state->view.data), state->view.len, &codepoint);
 
 	if(result < 0) {
 		return new_utf8_next_char_result_error(
-		    tstr_static_from_static_cstr(utf8proc_errmsg(result)));
+		    make_json_error_at(state->loc, tstr_static_from_static_cstr(utf8proc_errmsg(result))));
 	}
 
 	if(result == 0) {
-		return new_utf8_next_char_result_error(TSTR_STATIC_LIT("invalid codepoint length"));
+		return new_utf8_next_char_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("invalid codepoint length")));
 	}
-
-	tstr_view_advance(view, result);
+	json_parse_state_skip_by(state, result, true);
 
 	return new_utf8_next_char_result_ok(codepoint);
 }
 
-NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const str) {
+NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* const state) {
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	//       string = quotation-mark *char quotation-mark
 	//  char = unescaped /
@@ -1071,18 +1202,22 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 	//  quotation-mark = %x22      ; "
 	//  unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
 
-	if(str->len == 0) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("empty string"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty string")));
 	}
 
-	if(str->data[0] != '"') {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("wrong quotation-mark"));
+	const char next_char = json_parse_state_peek_next_char(*state);
+
+	if(next_char != '"') {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("wrong quotation-mark")));
 	}
+	json_parse_state_skip_by(state, 1, true);
 
-	tstr_view_advance(str, 1);
-
-	if(str->len == 0) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("empty string"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty string")));
 	}
 
 	JsonString* const string = get_empty_json_string_impl();
@@ -1094,27 +1229,32 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 
 	while(true) {
 
-		if(str->len == 0) {
-			return new_json_parse_result_error(TSTR_STATIC_LIT("empty string"));
+		if(json_parse_state_is_eof(*state)) {
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty string")));
 		}
 
-		const Utf8NextCharResult result = utf8_get_next_char_and_consume(str);
+		const Utf8NextCharResult result = utf8_get_next_char_and_consume(state);
 
 		IF_UTF8_NEXT_CHAR_RESULT_IS_ERROR_CONST(result) {
 			FREE_AT_END();
-			return new_json_parse_result_error(error.error);
+			return new_json_parse_result_error(error);
 		}
 
-		Utf8Codepoint codepoint = utf8_next_char_result_get_as_ok(result).codepoint;
+		Utf8Codepoint codepoint = utf8_next_char_result_get_as_ok(result);
 
 		if(codepoint < 0) {
 			FREE_AT_END();
-			return new_json_parse_result_error(
-			    TSTR_STATIC_LIT("invalid string char: range (-inf, 0)"));
+			return new_json_parse_result_error(make_json_error_at(
+			    state->loc, TSTR_STATIC_LIT("invalid string char: range (-inf, 0)")));
 		} else if(codepoint >= 0 && codepoint < 0x20) {
 			FREE_AT_END();
-			return new_json_parse_result_error(
-			    TSTR_STATIC_LIT("invalid string char: range [0, 0x20)"));
+
+			static_assert(JSON_NEWLINE_CHAR_FOR_LOCATION >= 0 &&
+			              JSON_NEWLINE_CHAR_FOR_LOCATION <= 0x020);
+
+			return new_json_parse_result_error(make_json_error_at(
+			    state->loc, TSTR_STATIC_LIT("invalid string char: range [0, 0x20)")));
 		} else if(codepoint >= 0x20 && codepoint <= 0x21) {
 			goto add_codepoint_raw;
 		} else if(codepoint == '"') {
@@ -1129,8 +1269,8 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 			goto add_codepoint_raw;
 		} else {
 			FREE_AT_END();
-			return new_json_parse_result_error(
-			    TSTR_STATIC_LIT("invalid string char: range (0x10FFFF, +inf)"));
+			return new_json_parse_result_error(make_json_error_at(
+			    state->loc, TSTR_STATIC_LIT("invalid string char: range (0x10FFFF, +inf)")));
 		}
 		//
 
@@ -1140,7 +1280,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 		const tstr_static string_add_result = json_string_add_char_impl(string, codepoint);
 		if(!tstr_static_is_null(string_add_result)) {
 			FREE_AT_END();
-			return new_json_parse_result_error(string_add_result);
+			return new_json_parse_result_error(make_json_error_at(state->loc, string_add_result));
 		}
 
 		continue;
@@ -1148,13 +1288,13 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 	escape_logic:
 		// NOTE. next char has to be ascii!
 
-		if(str->len == 0) {
+		if(json_parse_state_is_eof(*state)) {
 			FREE_AT_END();
-			return new_json_parse_result_error(TSTR_STATIC_LIT("empty string escape sequence"));
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty string escape sequence")));
 		}
 
-		const char escape_char = str->data[0];
-		tstr_view_advance(str, 1);
+		const char escape_char = json_parse_state_get_next_char(state);
 
 		if(escape_char == '"') {
 			static_assert(0x22 == '"');
@@ -1196,17 +1336,19 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 		} else if(escape_char == 'u') {
 			static_assert(0x75 == 'u');
 
-			if(str->len < 4) {
+			if(json_parse_state_get_str_len(*state) < 4) {
 				FREE_AT_END();
-				return new_json_parse_result_error(TSTR_STATIC_LIT(
-				    "invalid string escape sequence: unicode escape is missing values, it "
-				    "requires at least 4 chars after it"));
+				return new_json_parse_result_error(make_json_error_at(
+				    state->loc,
+				    TSTR_STATIC_LIT(
+				        "invalid string escape sequence: unicode escape is missing values, it "
+				        "requires at least 4 chars after it")));
 			}
 
 			Utf8Codepoint composed_codepoint = 0;
 
 			for(size_t i = 0; i < 4; ++i) {
-				const char value = str->data[i];
+				const char value = json_parse_state_peek_char_at(*state, i);
 
 				uint8_t num = 0;
 
@@ -1218,21 +1360,23 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 					num = (value - 'a') + 10;
 				} else {
 					FREE_AT_END();
-					return new_json_parse_result_error(TSTR_STATIC_LIT(
-					    "invalid string escape sequence: unicode escape has invalid digits"));
+					return new_json_parse_result_error(make_json_error_at(
+					    state->loc,
+					    TSTR_STATIC_LIT(
+					        "invalid string escape sequence: unicode escape has invalid digits")));
 				}
 
 				composed_codepoint = (composed_codepoint * 0x10) + num;
 			}
-
-			tstr_view_advance(str, 4);
+			json_parse_state_skip_by(state, 4, true);
 
 			codepoint = composed_codepoint;
 
 			goto add_codepoint_raw;
 		} else {
 			FREE_AT_END();
-			return new_json_parse_result_error(TSTR_STATIC_LIT("invalid string escape sequence"));
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("invalid string escape sequence")));
 		}
 	}
 
@@ -1241,92 +1385,115 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(tstr_view* const s
 
 #undef FREE_AT_END
 
-NODISCARD static JsonParseResult json_parse_impl_parse_value(tstr_view* const str) {
+NODISCARD static JsonParseResult json_parse_impl_parse_value(JsonParseState* const state) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	//       value = false / null / true / object / array / number / string
 
-	if(str->len == 0) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("empty value"));
+	if(json_parse_state_is_eof(*state)) {
+		return new_json_parse_result_error(
+		    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty value")));
 	}
 
-	const char first_char = str->data[0];
+	const char first_char = json_parse_state_peek_next_char(*state);
 	switch(first_char) {
 		case 'f': {
-			return json_parse_impl_parse_boolean(str);
+			return json_parse_impl_parse_boolean(state);
 		}
 		case 'n': {
-			return json_parse_impl_parse_null(str);
+			return json_parse_impl_parse_null(state);
 		}
 		case 't': {
-			return json_parse_impl_parse_boolean(str);
+			return json_parse_impl_parse_boolean(state);
 		}
 		case '{': {
-			return json_parse_impl_parse_object(str);
+			return json_parse_impl_parse_object(state);
 		}
 		case '[': {
-			return json_parse_impl_parse_array(str);
+			return json_parse_impl_parse_array(state);
 		}
 		case '-': {
-			return json_parse_impl_parse_number(str);
+			return json_parse_impl_parse_number(state);
 		}
 		case '"': {
-			return json_parse_impl_parse_string(str);
+			return json_parse_impl_parse_string(state);
 		}
 		default: {
 			if(first_char >= '0' && first_char <= '9') {
-				return json_parse_impl_parse_number(str);
+				return json_parse_impl_parse_number(state);
 			}
 
 			if(json_parse_impl_is_ws(first_char)) {
-				return new_json_parse_result_error(TSTR_STATIC_LIT(
-				    "implementation error, skip whitespace, before parsing 'value'"));
+				return new_json_parse_result_error(make_json_error_at(
+				    state->loc,
+				    TSTR_STATIC_LIT(
+				        "implementation error, skip whitespace, before parsing 'value'")));
 			}
 
-			return new_json_parse_result_error(TSTR_STATIC_LIT("invalid value"));
+			return new_json_parse_result_error(
+			    make_json_error_at(state->loc, TSTR_STATIC_LIT("invalid value")));
 		}
 	}
 }
 
-NODISCARD JsonParseResult json_variant_parse_from_str(const tstr_view str) {
+NODISCARD static JsonParseResult
+json_variant_parse_from_str_impl(const JsonParseState state_const) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	// JSON-text = ws value ws
 
-	tstr_view current = str;
+	JsonParseState state = state_const;
 
-	json_parse_impl_skip_ws(&current);
+	json_parse_impl_skip_ws(&state);
 
-	const JsonParseResult result = json_parse_impl_parse_value(&current);
+	const JsonParseResult result = json_parse_impl_parse_value(&state);
 
 	IF_JSON_PARSE_RESULT_IS_ERROR_IGN(result) {
 		return result;
 	}
 
-	json_parse_impl_skip_ws(&current);
+	json_parse_impl_skip_ws(&state);
 
-	if(current.len != 0) {
-		return new_json_parse_result_error(
-		    TSTR_STATIC_LIT("Didn't reach the end, invalid data at the end"));
+	if(!json_parse_state_is_eof(state)) {
+		return new_json_parse_result_error(make_json_error_at(
+		    state.loc, TSTR_STATIC_LIT("Didn't reach the end, invalid data at the end")));
 	}
 
 	return result;
 }
 
-NODISCARD JsonParseResult json_variant_parse_from_file(const tstr str) {
+NODISCARD JsonParseResult json_variant_parse_from_str(const tstr_view data) {
+	const JsonParseState state = {
+		.view = data,
+		.loc =
+		    (SourceLocation){ .source = new_json_source_string((JsonStringSource){ .data = data }),
+		                      .pos = (SourcePosition){ .col = 0, .line = 0 } }
+	};
+
+	return json_variant_parse_from_str_impl(state);
+}
+
+NODISCARD JsonParseResult json_variant_parse_from_file(const tstr* const file_path) {
 
 	size_t file_size = 0;
 
-	const void* const file_data = read_entire_file(tstr_cstr(&str), &file_size);
+	const void* const file_data = read_entire_file(tstr_cstr(file_path), &file_size);
 
 	if(file_data == NULL) {
-		return new_json_parse_result_error(TSTR_STATIC_LIT("Error in reading file"));
+		return new_json_parse_result_error(make_json_error_at(
+		    make_null_source_location(), TSTR_STATIC_LIT("Error in reading file")));
 	}
 
 	const tstr_view str_view =
 	    tstr_view_from_readonly_buffer((ReadonlyBuffer){ .data = file_data, .size = file_size });
 
-	return json_variant_parse_from_str(str_view);
+	const JsonParseState state = { .view = str_view,
+		                           .loc = (SourceLocation){
+		                               .source = new_json_source_file(
+		                                   (JsonFileSource){ .file_path = file_path }),
+		                               .pos = (SourcePosition){ .col = 0, .line = 0 } } };
+
+	return json_variant_parse_from_str_impl(state);
 }
 
 void static free_json_string_impl(JsonString* const json_string) {
