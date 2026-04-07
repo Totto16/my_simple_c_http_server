@@ -3,27 +3,27 @@
 #include "../generic.hpp"
 #include "./cpp_types.hpp"
 
-[[nodiscard]] bool operator==(const JsonVariant& json_variant1, const JsonVariant& json_variant2) {
-	const auto tag1 = get_current_tag_type_for_json_variant(json_variant1);
-	const auto tag2 = get_current_tag_type_for_json_variant(json_variant2);
+[[nodiscard]] bool operator==(const JsonValue& json_value1, const JsonValue& json_value2) {
+	const auto tag1 = get_current_tag_type_for_json_value(json_value1);
+	const auto tag2 = get_current_tag_type_for_json_value(json_value2);
 
 	if(tag1 != tag2) {
 		return false;
 	}
 
-	SWITCH_JSON_VARIANT(json_variant1) {
-		CASE_JSON_VARIANT_IS_NULL() {
+	SWITCH_JSON_VALUE(json_value1) {
+		CASE_JSON_VALUE_IS_NULL() {
 
-			IF_JSON_VARIANT_IS_NULL(json_variant2) {
+			IF_JSON_VALUE_IS_NULL(json_value2) {
 				return true;
 			}
 
 			return false;
 		}
 		VARIANT_CASE_END();
-		CASE_JSON_VARIANT_IS_BOOLEAN_CONST(json_variant1, boolean_1) {
+		CASE_JSON_VALUE_IS_BOOLEAN_CONST(json_value1, boolean_1) {
 
-			IF_JSON_VARIANT_IS_BOOLEAN_CONST(json_variant2, boolean_2) {
+			IF_JSON_VALUE_IS_BOOLEAN_CONST(json_value2, boolean_2) {
 
 				return boolean_1 == boolean_2;
 			}
@@ -31,9 +31,9 @@
 			return false;
 		}
 		VARIANT_CASE_END();
-		CASE_JSON_VARIANT_IS_NUMBER_CONST(json_variant1, number_1) {
+		CASE_JSON_VALUE_IS_NUMBER_CONST(json_value1, number_1) {
 
-			IF_JSON_VARIANT_IS_NUMBER_CONST(json_variant2, number_2) {
+			IF_JSON_VALUE_IS_NUMBER_CONST(json_value2, number_2) {
 
 				return number_1 == number_2;
 			}
@@ -41,9 +41,9 @@
 			return false;
 		}
 		VARIANT_CASE_END();
-		CASE_JSON_VARIANT_IS_STRING_CONST(json_variant1, string_1) {
+		CASE_JSON_VALUE_IS_STRING_CONST(json_value1, string_1) {
 
-			IF_JSON_VARIANT_IS_STRING_CONST(json_variant2, string_2) {
+			IF_JSON_VALUE_IS_STRING_CONST(json_value2, string_2) {
 
 				return JsonStringCpp{ string_1 } == string_2;
 			}
@@ -51,9 +51,9 @@
 			return false;
 		}
 		VARIANT_CASE_END();
-		CASE_JSON_VARIANT_IS_ARRAY_CONST(json_variant1, array_1) {
+		CASE_JSON_VALUE_IS_ARRAY_CONST(json_value1, array_1) {
 
-			IF_JSON_VARIANT_IS_ARRAY_CONST(json_variant2, array_2) {
+			IF_JSON_VALUE_IS_ARRAY_CONST(json_value2, array_2) {
 
 				return JsonArrayCpp{ array_1.arr } == array_2.arr;
 			}
@@ -61,9 +61,9 @@
 			return false;
 		}
 		VARIANT_CASE_END();
-		CASE_JSON_VARIANT_IS_OBJECT_CONST(json_variant1, object_1) {
+		CASE_JSON_VALUE_IS_OBJECT_CONST(json_value1, object_1) {
 
-			IF_JSON_VARIANT_IS_OBJECT_CONST(json_variant2, object_2) {
+			IF_JSON_VALUE_IS_OBJECT_CONST(json_value2, object_2) {
 
 				return JsonObjectCpp{ object_1.obj } == object_2.obj;
 			}
@@ -77,9 +77,9 @@
 	}
 }
 
-std::ostream& operator<<(std::ostream& os, const JsonVariant& json_variant) {
+std::ostream& operator<<(std::ostream& os, const JsonValue& json_value) {
 
-	const auto str = json_variant_to_string_advanced(json_variant, { .indent_size = 2 });
+	const auto str = json_value_to_string_advanced(json_value, { .indent_size = 2 });
 
 	os << str;
 
@@ -198,33 +198,33 @@ JsonObjectCpp::JsonObjectCpp(JsonObject* value) : m_value{ value } {}
 	return json_object_eq_impl(this->m_value, json_object2);
 }
 
-[[nodiscard]] JsonVariant JsonVariantCpp::null() {
-	return new_json_variant_null();
+[[nodiscard]] JsonValue JsonValueCpp::null() {
+	return new_json_value_null();
 }
 
-[[nodiscard]] JsonVariant JsonVariantCpp::boolean(const bool& value) {
-	return new_json_variant_boolean(JsonBoolean{ .value = value });
+[[nodiscard]] JsonValue JsonValueCpp::boolean(const bool& value) {
+	return new_json_value_boolean(JsonBoolean{ .value = value });
 }
 
-[[nodiscard]] JsonVariant JsonVariantCpp::number(const double& value) {
-	return new_json_variant_number(JsonNumber{ .value = value });
+[[nodiscard]] JsonValue JsonValueCpp::number(const double& value) {
+	return new_json_value_number(JsonNumber{ .value = value });
 }
 
-[[nodiscard]] JsonVariant JsonVariantCpp::number(const int64_t& value) {
+[[nodiscard]] JsonValue JsonValueCpp::number(const int64_t& value) {
 	return number(static_cast<double>(value));
 }
 
-[[nodiscard]] JsonVariant JsonVariantCpp::string(const std::string& value) {
+[[nodiscard]] JsonValue JsonValueCpp::string(const std::string& value) {
 	JsonString* const string = json_get_string_from_tstr_view(helpers::tstr_view_from_str(value));
 
 	if(string == nullptr) {
 		throw std::runtime_error("JSON string initialization failed");
 	}
 
-	return new_json_variant_string(string);
+	return new_json_value_string(string);
 }
 
-[[nodiscard]] JsonVariant JsonVariantCpp::array(std::initializer_list<JsonVariant>&& values) {
+[[nodiscard]] JsonValue JsonValueCpp::array(std::initializer_list<JsonValue>&& values) {
 	JsonArray* const array = get_empty_json_array();
 
 	if(array == nullptr) {
@@ -239,11 +239,11 @@ JsonObjectCpp::JsonObjectCpp(JsonObject* value) : m_value{ value } {}
 		}
 	}
 
-	return new_json_variant_array(array);
+	return new_json_value_array(array);
 }
 
-[[nodiscard]] JsonVariant
-JsonVariantCpp::object(std::initializer_list<std::pair<std::string, JsonVariant>>&& values) {
+[[nodiscard]] JsonValue
+JsonValueCpp::object(std::initializer_list<std::pair<std::string, JsonValue>>&& values) {
 	JsonObject* const object = get_empty_json_object();
 
 	if(object == nullptr) {
@@ -258,7 +258,7 @@ JsonVariantCpp::object(std::initializer_list<std::pair<std::string, JsonVariant>
 			    "JSON object initialization failed: key initialization failed");
 		}
 
-		const JsonVariant final_value = value.second;
+		const JsonValue final_value = value.second;
 		const auto add_result = json_object_add_entry(object, &key_moved, final_value);
 		if(!tstr_static_is_null(add_result)) {
 			throw std::runtime_error(std::string{ "JSON object initialization failed:" } +
@@ -266,7 +266,7 @@ JsonVariantCpp::object(std::initializer_list<std::pair<std::string, JsonVariant>
 		}
 	}
 
-	return new_json_variant_object(object);
+	return new_json_value_object(object);
 }
 
 JsonErrorCpp::JsonErrorCpp(std::string&& message, SourceLocation loc)

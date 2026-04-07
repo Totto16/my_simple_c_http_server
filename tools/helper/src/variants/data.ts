@@ -498,7 +498,7 @@ export const globalTaggedUnions: TaggedUnion[] = [
         }
     },
     {
-        name: makeUnionName(CaseName.fromPascalCase("JsonVariant")),
+        name: makeUnionName(CaseName.fromPascalCase("JsonValue")),
         member: [
             {
                 name: makeMemberName(CaseName.fromPascalCase("Object")),
@@ -536,7 +536,7 @@ export const globalTaggedUnions: TaggedUnion[] = [
             },
         ],
         enum: {
-            name: makeEnumName(CaseName.fromPascalCase("JsonVariantType")),
+            name: makeEnumName(CaseName.fromPascalCase("JsonValueType")),
             underlyingType: "u8"
         },
         options: {
@@ -550,7 +550,7 @@ export const globalTaggedUnions: TaggedUnion[] = [
         member: [
             {
                 name: makeMemberName(CaseName.fromPascalCase("Ok")),
-                type: makeSimpleType("JsonVariant")
+                type: makeSimpleType("JsonValue")
             },
             {
                 name: makeMemberName(CaseName.fromPascalCase("Error")),

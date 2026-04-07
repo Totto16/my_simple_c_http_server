@@ -12,7 +12,7 @@ namespace {
 
 struct JsonParseTestCaseSuccess {
 	std::string input;
-	JsonVariant expected;
+	JsonValue expected;
 };
 
 struct JsonParseTestCaseError {
@@ -28,56 +28,54 @@ TEST_SUITE_BEGIN("json" * doctest::description("json tests") *
 TEST_CASE("testing parsing of json values <json_parser>") {
 
 	std::vector<JsonParseTestCaseSuccess> json_parse_test_cases = {
-		JsonParseTestCaseSuccess{ .input = "null", .expected = JsonVariantCpp::null() },
-		JsonParseTestCaseSuccess{ .input = "   null   ", .expected = JsonVariantCpp::null() },
+		JsonParseTestCaseSuccess{ .input = "null", .expected = JsonValueCpp::null() },
+		JsonParseTestCaseSuccess{ .input = "   null   ", .expected = JsonValueCpp::null() },
 		JsonParseTestCaseSuccess{ .input = "\t			null   ",
-		                          .expected = JsonVariantCpp::null() },
-		JsonParseTestCaseSuccess{ .input = "true", .expected = JsonVariantCpp::boolean(true) },
-		JsonParseTestCaseSuccess{ .input = "false", .expected = JsonVariantCpp::boolean(false) },
-		JsonParseTestCaseSuccess{ .input = "100",
-		                          .expected = JsonVariantCpp::number((int64_t)100) },
+		                          .expected = JsonValueCpp::null() },
+		JsonParseTestCaseSuccess{ .input = "true", .expected = JsonValueCpp::boolean(true) },
+		JsonParseTestCaseSuccess{ .input = "false", .expected = JsonValueCpp::boolean(false) },
+		JsonParseTestCaseSuccess{ .input = "100", .expected = JsonValueCpp::number((int64_t)100) },
 		JsonParseTestCaseSuccess{ .input = "-100",
-		                          .expected = JsonVariantCpp::number((int64_t)-100) },
-		JsonParseTestCaseSuccess{ .input = "-100.01", .expected = JsonVariantCpp::number(-100.01) },
-		JsonParseTestCaseSuccess{ .input = "100.43", .expected = JsonVariantCpp::number(100.43) },
-		JsonParseTestCaseSuccess{ .input = "1e2",
-		                          .expected = JsonVariantCpp::number((int64_t)100) },
+		                          .expected = JsonValueCpp::number((int64_t)-100) },
+		JsonParseTestCaseSuccess{ .input = "-100.01", .expected = JsonValueCpp::number(-100.01) },
+		JsonParseTestCaseSuccess{ .input = "100.43", .expected = JsonValueCpp::number(100.43) },
+		JsonParseTestCaseSuccess{ .input = "1e2", .expected = JsonValueCpp::number((int64_t)100) },
 		JsonParseTestCaseSuccess{ .input = "1.2e3",
-		                          .expected = JsonVariantCpp::number((int64_t)1200) },
+		                          .expected = JsonValueCpp::number((int64_t)1200) },
 		JsonParseTestCaseSuccess{ .input = "1.3E+3",
-		                          .expected = JsonVariantCpp::number((int64_t)1300) },
-		JsonParseTestCaseSuccess{ .input = "1.5E-2", .expected = JsonVariantCpp::number(0.015) },
+		                          .expected = JsonValueCpp::number((int64_t)1300) },
+		JsonParseTestCaseSuccess{ .input = "1.5E-2", .expected = JsonValueCpp::number(0.015) },
 		JsonParseTestCaseSuccess{ .input = R"("hello world")",
-		                          .expected = JsonVariantCpp::string("hello world") },
+		                          .expected = JsonValueCpp::string("hello world") },
 		JsonParseTestCaseSuccess{ .input = R"("hello world\n\"\f\t")",
-		                          .expected = JsonVariantCpp::string("hello world\n\"\f\t") },
+		                          .expected = JsonValueCpp::string("hello world\n\"\f\t") },
 		JsonParseTestCaseSuccess{
 		    .input = R"([null,  	1,2,   true ])",
-		    .expected = JsonVariantCpp::array(
-		        { JsonVariantCpp::null(), JsonVariantCpp::number((int64_t)1),
-		          JsonVariantCpp::number((int64_t)2), JsonVariantCpp::boolean(true) }) },
+		    .expected = JsonValueCpp::array(
+		        { JsonValueCpp::null(), JsonValueCpp::number((int64_t)1),
+		          JsonValueCpp::number((int64_t)2), JsonValueCpp::boolean(true) }) },
 		JsonParseTestCaseSuccess{
 		    .input =
 		        R"({"key1": "hello", "key2": null, "nested": { "nested_key"   : {"nested_key2": true, "array": []}}})",
-		    .expected = JsonVariantCpp::object(
-		        { { "key1", JsonVariantCpp::string("hello") },
-		          { "key2", JsonVariantCpp::null() },
+		    .expected = JsonValueCpp::object(
+		        { { "key1", JsonValueCpp::string("hello") },
+		          { "key2", JsonValueCpp::null() },
 		          { "nested",
-		            JsonVariantCpp::object({
-		                { "nested_key", JsonVariantCpp::object({
-		                                    { "nested_key2", JsonVariantCpp::boolean(true) },
-		                                    { "array", JsonVariantCpp::array({}) },
+		            JsonValueCpp::object({
+		                { "nested_key", JsonValueCpp::object({
+		                                    { "nested_key2", JsonValueCpp::boolean(true) },
+		                                    { "array", JsonValueCpp::array({}) },
 		                                }) },
 		            }
 
-		                                   ) } }) },
+		                                 ) } }) },
 	};
 	CAutoFreePtr<std::vector<JsonParseTestCaseSuccess>> defer_tests = {
 		&json_parse_test_cases,
 		[](std::vector<JsonParseTestCaseSuccess>* const values) -> void {
 		    for(size_t i = 0; i < values->size(); ++i) {
 			    auto* const value = &(values->at(i));
-			    free_json_variant(&(value->expected));
+			    free_json_value(&(value->expected));
 		    }
 		}
 	};
@@ -88,12 +86,12 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 
 		const tstr_view str_view = helpers::tstr_view_from_str(test_case.input);
 
-		const auto parse_result = json_variant_parse_from_str(str_view);
+		const auto parse_result = json_value_parse_from_str(str_view);
 
 		REQUIRE_EQ(get_current_tag_type_for_json_parse_result(parse_result), JsonParseResultTypeOk);
 
-		JsonVariant result = json_parse_result_get_as_ok(parse_result);
-		CAutoFreePtr<JsonVariant> defer = { &result, free_json_variant };
+		JsonValue result = json_parse_result_get_as_ok(parse_result);
+		CAutoFreePtr<JsonValue> defer = { &result, free_json_value };
 
 		REQUIRE_EQ(result, test_case.expected);
 	}
@@ -102,7 +100,7 @@ TEST_CASE("testing parsing of json values <json_parser>") {
 TEST_CASE("testing parse errors of json values <json_parser_error>") {
 
 	// just here as a dummy tstr_view
-	const auto dummy_str_view = tstr_view_from("IGNORE");
+	const auto dummy_str_view = tstr_view_from("__dummy_str_view__impl__");
 
 	std::vector<JsonParseTestCaseError> json_parse_test_cases = {
 		JsonParseTestCaseError{
@@ -137,7 +135,7 @@ TEST_CASE("testing parse errors of json values <json_parser_error>") {
 
 		const tstr_view str_view = helpers::tstr_view_from_str(test_case.input);
 
-		const auto parse_result = json_variant_parse_from_str(str_view);
+		const auto parse_result = json_value_parse_from_str(str_view);
 
 		REQUIRE_EQ(get_current_tag_type_for_json_parse_result(parse_result),
 		           JsonParseResultTypeError);

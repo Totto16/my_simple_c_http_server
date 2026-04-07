@@ -7,9 +7,9 @@
 #include <ostream>
 #include <ranges>
 
-[[nodiscard]] bool operator==(const JsonVariant& json_variant1, const JsonVariant& json_variant2);
+[[nodiscard]] bool operator==(const JsonValue& json_value1, const JsonValue& json_value2);
 
-std::ostream& operator<<(std::ostream& os, const JsonVariant& json_variant);
+std::ostream& operator<<(std::ostream& os, const JsonValue& json_value);
 
 [[nodiscard]] bool operator==(const JsonBoolean& json_boolean1, const JsonBoolean& json_boolean2);
 
@@ -38,18 +38,18 @@ struct JsonArrayCpp {
 
 	[[nodiscard]] bool operator==(const JsonArray* json_array2) const;
 
-	[[nodiscard]] JsonVariant& operator[](size_t index);
+	[[nodiscard]] JsonValue& operator[](size_t index);
 
-	[[nodiscard]] const JsonVariant& operator[](size_t index) const;
+	[[nodiscard]] const JsonValue& operator[](size_t index) const;
 
 	[[nodiscard]] size_t size() const;
 
-	[[nodiscard]] JsonVariant* begin();
-	[[nodiscard]] JsonVariant* end();
+	[[nodiscard]] JsonValue* begin();
+	[[nodiscard]] JsonValue* end();
 
-	[[nodiscard]] const JsonVariant* begin() const;
+	[[nodiscard]] const JsonValue* begin() const;
 
-	[[nodiscard]] const JsonVariant* end() const;
+	[[nodiscard]] const JsonValue* end() const;
 };
 
 static_assert(std::ranges::range<JsonArrayCpp>);
@@ -76,22 +76,22 @@ struct JsonObjectCpp {
 
 static_assert(std::ranges::range<JsonObjectCpp>);
 
-struct JsonVariantCpp {
+struct JsonValueCpp {
 
-	[[nodiscard]] static JsonVariant null();
+	[[nodiscard]] static JsonValue null();
 
-	[[nodiscard]] static JsonVariant boolean(const bool& value);
+	[[nodiscard]] static JsonValue boolean(const bool& value);
 
-	[[nodiscard]] static JsonVariant number(const double& value);
+	[[nodiscard]] static JsonValue number(const double& value);
 
-	[[nodiscard]] static JsonVariant number(const int64_t& value);
+	[[nodiscard]] static JsonValue number(const int64_t& value);
 
-	[[nodiscard]] static JsonVariant string(const std::string& value);
+	[[nodiscard]] static JsonValue string(const std::string& value);
 
-	[[nodiscard]] static JsonVariant array(std::initializer_list<JsonVariant>&& values);
+	[[nodiscard]] static JsonValue array(std::initializer_list<JsonValue>&& values);
 
-	[[nodiscard]] static JsonVariant
-	object(std::initializer_list<std::pair<std::string, JsonVariant>>&& values);
+	[[nodiscard]] static JsonValue
+	object(std::initializer_list<std::pair<std::string, JsonValue>>&& values);
 };
 
 struct JsonErrorCpp {

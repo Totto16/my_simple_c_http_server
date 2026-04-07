@@ -119,9 +119,9 @@ template <> struct StringMaker<tstr_static> {
 	}
 };
 
-template <> struct StringMaker<JsonVariant> {
-	static String convert(const JsonVariant& json_variant) {
-		return ::os_stream_formattable_to_doctest(json_variant);
+template <> struct StringMaker<JsonValue> {
+	static String convert(const JsonValue& json_value) {
+		return ::os_stream_formattable_to_doctest(json_value);
 	}
 };
 

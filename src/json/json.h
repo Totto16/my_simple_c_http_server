@@ -58,17 +58,17 @@ typedef struct {
 	SourceLocation loc;
 } JsonError;
 
-GENERATE_VARIANT_ALL_JSON_VARIANT()
+GENERATE_VARIANT_ALL_JSON_VALUE()
 
 GENERATE_VARIANT_ALL_JSON_PARSE_RESULT()
 
 // parse json strings
 
-NODISCARD JsonParseResult json_variant_parse_from_str(tstr_view data);
+NODISCARD JsonParseResult json_value_parse_from_str(tstr_view data);
 
-NODISCARD JsonParseResult json_variant_parse_from_file(const tstr* file_path);
+NODISCARD JsonParseResult json_value_parse_from_file(const tstr* file_path);
 
-void free_json_variant(JsonVariant* json_variant);
+void free_json_value(JsonValue* json_value);
 
 // serialize json values
 
@@ -76,10 +76,9 @@ typedef struct {
 	size_t indent_size;
 } JsonSerializeOptions;
 
-NODISCARD tstr json_variant_to_string(JsonVariant json_variant);
+NODISCARD tstr json_value_to_string(JsonValue json_value);
 
-NODISCARD tstr json_variant_to_string_advanced(JsonVariant json_variant,
-                                               JsonSerializeOptions options);
+NODISCARD tstr json_value_to_string_advanced(JsonValue json_value, JsonSerializeOptions options);
 
 // utility / get functions
 
@@ -87,7 +86,7 @@ NODISCARD bool json_string_eq(const JsonString* str1, const JsonString* str2);
 
 NODISCARD size_t json_array_size(const JsonArray* array);
 
-NODISCARD JsonVariant json_array_at(const JsonArray* array, size_t index);
+NODISCARD JsonValue json_array_at(const JsonArray* array, size_t index);
 
 NODISCARD size_t json_object_count(const JsonObject* object);
 
@@ -106,7 +105,7 @@ void json_object_free_iterator(JsonObjectIter* iter);
 
 NODISCARD const JsonString* json_object_entry_get_key(const JsonObjectEntry* object_entry);
 
-NODISCARD JsonVariant json_object_entry_get_value(const JsonObjectEntry* object_entry);
+NODISCARD JsonValue json_object_entry_get_value(const JsonObjectEntry* object_entry);
 
 // create functions
 
@@ -120,20 +119,20 @@ void free_json_string(JsonString* json_string);
 
 NODISCARD JsonArray* get_empty_json_array(void);
 
-NODISCARD tstr_static json_array_add_entry(JsonArray* json_array, JsonVariant entry);
+NODISCARD tstr_static json_array_add_entry(JsonArray* json_array, JsonValue entry);
 
 void free_json_array(JsonArray* json_arr);
 
 NODISCARD JsonObject* get_empty_json_object(void);
 
 NODISCARD tstr_static json_object_add_entry(JsonObject* json_object, JsonString** key_moved,
-                                            JsonVariant value);
+                                            JsonValue value);
 
 NODISCARD tstr_static json_object_add_entry_tstr(JsonObject* json_object, const tstr* key,
-                                                 JsonVariant value);
+                                                 JsonValue value);
 
 NODISCARD tstr_static json_object_add_entry_cstr(JsonObject* json_object, const char* key,
-                                                 JsonVariant value);
+                                                 JsonValue value);
 
 void free_json_object(JsonObject* json_obj);
 
