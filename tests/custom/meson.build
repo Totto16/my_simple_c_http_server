@@ -9,12 +9,13 @@ add_languages(
     native: false,
 )
 
-
-correct_cpp_args = []
+#TODO: get rid of this once we use clang >= 22
+correct_cpp_args = ['-Wno-c2y-extensions']
 
 foreach internal_c_arg : internal_c_args
 
-    # cpp.get_supported_arguments reports true, but it is not really
+    # cpp.get_supported_arguments reports true, but it is not really smart and the actual compiler doesn't accept this :(
+    ##TODO: maybe file a meson bug?
     if internal_c_arg not in ['-Werror=implicit', '-Werror=pointer-to-int-cast']
         correct_cpp_args += internal_c_arg
     endif
@@ -30,7 +31,6 @@ internal_cpp_args += cpp.get_supported_arguments(correct_cpp_args)
 if cpp.get_id() == 'gcc'
     internal_cpp_args += cpp.get_supported_arguments('-Wno-missing-braces')
 endif
-
 
 cpp_std_to_use = ['c++23', 'c++latest', 'c++20']
 
