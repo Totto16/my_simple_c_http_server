@@ -1,7 +1,7 @@
 import path from "node:path"
 import { addGenerateMacros, assert, writeFileAndDirs } from "../utils.js"
 import { CaseName, getBrand, isSimpleTaggedType, type CEnumType, type CppFeatures, type ID, type StructOrder, type TaggedMember, type TaggedName, type TaggedType, type TaggedTypeSimple, type TaggedTypeStruct, type TaggedUnion, type TaggedUnionEnum } from "./base.js"
-import { globalTaggedUnions } from "./data.js"
+import { getGlobalTaggedUnions } from "./data.js"
 
 function bestEnumTypeForLength(len: number): CEnumType {
     if (len < maxLengthForCEnumType("bool")) {
@@ -1067,6 +1067,8 @@ export async function generateVariantCodeC(generatedVariantsFileH: string): Prom
     const tasks: Promise<void>[] = []
 
     assert(path.extname(generatedVariantsFileH) == ".h", "variant file has to end in .h")
+
+    const globalTaggedUnions = await getGlobalTaggedUnions()
 
     const globalMacros: string[] = [
         `#define UNREACHABLE_WITH_MESSAGE(msg, ...) do {
