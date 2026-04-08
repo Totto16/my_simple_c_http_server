@@ -1,11 +1,9 @@
 import { subcommandGenerator, subcommandWsTests } from "./src/subcommands.js"
-import { getThisPackageFile } from "./src/utils.js";
+import { fsAsyncExists, getThisPackageFile } from "./src/utils.js";
 
 import path from 'node:path';
-import fs from 'node:fs';
 
-
-function isCallingThisScript(value: string): boolean {
+async function isCallingThisScript(value: string): Promise<boolean> {
 
     try {
 
@@ -13,11 +11,11 @@ function isCallingThisScript(value: string): boolean {
 
         const packageJson = path.join(actualPath, "package.json")
 
-        if (!fs.existsSync(packageJson)) {
+        if (!(await fsAsyncExists(packageJson))) {
             return false;
         }
 
-        const thisPackageJson = getThisPackageFile()
+        const thisPackageJson = await getThisPackageFile()
 
         return thisPackageJson == packageJson;
     } catch (_err) {
@@ -47,7 +45,7 @@ async function main(): Promise<void> {
             continue
         }
 
-        if (isCallingThisScript(value)) {
+        if (await isCallingThisScript(value)) {
             continue
         }
 

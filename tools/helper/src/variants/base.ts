@@ -137,9 +137,7 @@ export function getBrand<T extends string = string>(b: Brand<T>): T {
     return b[__brand_tag_never_use]
 }
 
-
-
-interface StructMember extends Brand<"simple"> {
+export interface StructMember extends Brand<"simple"> {
     typeName: CType
     name: string,
 }
@@ -158,7 +156,7 @@ function makeCAnonymousStruct(members: StructMember[]): CAnonymousStruct {
 }
 
 
-function makeTaggedName<T>(value: T, name: CaseName): TaggedName<T> {
+export function makeTaggedName<T>(value: T, name: CaseName): TaggedName<T> {
     return {
         ...(makeBranded<"tagged_name">("tagged_name")),
         nameType: value,
@@ -221,7 +219,7 @@ export function makeEnumName(name: CaseName): TaggedName<"enum"> {
 
 type StructOrderRequirement = "best_size" | "aligned_access"
 
-interface TaggedUnionRequirements {
+export interface TaggedUnionRequirements {
     order: StructOrderRequirement
 }
 
@@ -231,8 +229,14 @@ export interface CppFeatures {
     tagAsErrorVariant: boolean
 }
 
+export interface TaggedName<T> extends Brand<"tagged_name"> {
+    nameType: T,
+    inner: CaseName
+}
+
+
 interface TaggedUnionOptions {
-    rawStruct: CaseName
+    rawStruct: TaggedName<"raw_struct">
     structOrder: StructOrder
     requirements: TaggedUnionRequirements
     cppFeatures: CppFeatures
@@ -247,10 +251,6 @@ export function makeStructMember(typeName: CType, name: string): StructMember {
     }
 }
 
-export interface TaggedName<T> extends Brand<"tagged_name"> {
-    nameType: T,
-    inner: CaseName
-}
 
 export type CEnumType = "bool" | "u8" | "u16" | "u32" | "u64"
 
@@ -261,11 +261,12 @@ export interface TaggedUnionEnum {
     name: TaggedName<"enum">
 }
 
+
 export interface TaggedUnion {
     name: TaggedName<"union">
     member: TaggedMember[]
     enum: TaggedUnionEnum
-    options: DeepPartial<TaggedUnionOptions, [CaseName]>
+    options: DeepPartial<TaggedUnionOptions, [TaggedName<"raw_struct">]>
 }
 
 type IsOneOf<T, Arr extends unknown[]> = Arr extends [] ? false : Arr extends [infer A, ...infer Rest] ? A extends T ? true : IsOneOf<T, Rest> : false
@@ -277,7 +278,7 @@ export type DeepPartial<T, Ends extends unknown[] = []> = IsOneOf<T, Ends> exten
 
 type _type_assert_0 = Expect<Equal<IsOneOf<CaseName, [CaseName]>, true>>
 
-type _type_assert_1 = Expect<Equal<(DeepPartial<TaggedUnionOptions, [CaseName]>["rawStruct"]), CaseName | undefined>>
+type _type_assert_1 = Expect<Equal<(DeepPartial<TaggedUnionOptions, [TaggedName<"raw_struct">]>["rawStruct"]), TaggedName<"raw_struct"> | undefined>>
 
 export function makeUnionName(name: CaseName): TaggedName<"union"> {
     return makeTaggedName<"union">("union", name)

@@ -29,6 +29,22 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
             continue
         }
 
+        if (value == '-i' || value == '--input') {
+            if (i + 1 >= args.length) {
+                throw new Error(
+                    `Expected another argument for the input argument`
+                )
+            }
+
+
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            const input = path.resolve(args[i + 1]!)
+
+            options.input = input
+            ++i
+            continue
+        }
+
         if (value == '-t' || value == '--type') {
             if (i + 1 >= args.length) {
                 throw new Error(
@@ -66,6 +82,10 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
 
     if (!options.output) {
         throw new Error(`No output given`)
+    }
+
+    if (options.type === "c_variants" && !options.input) {
+        throw new Error(`No input given`)
     }
 
     await generateFile(options as GenerateOptions)

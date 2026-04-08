@@ -145,6 +145,8 @@ variants_generated_tgt = custom_target(
         'c_variants',
         '-o',
         '@OUTPUT0@',
+        '-i',
+        'TODO:txt'
     ],
     output: ['variants.h'],
     build_subdir: 'generated' / 'c' / 'variants',

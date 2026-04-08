@@ -1,5 +1,5 @@
 import { generateHpackHeaderTableCodeH, generateHpackHuffmanCodeC, generateHpackTestCasesCPP } from "./hpack.js";
-import { testBitarray } from "./utils.js";
+import { assert, testBitarray } from "./utils.js";
 import { generateVariantCodeC } from "./variants/index.js";
 
 
@@ -21,7 +21,8 @@ export async function generateFile(options: GenerateOptions): Promise<void> {
         return;
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     } else if (options.type === "c_variants") {
-        await generateVariantCodeC(options.output)
+        assert(!!options.input, "expected input")
+        await generateVariantCodeC(options.output, options.input)
         return;
     }
 
@@ -35,5 +36,6 @@ export type GenerateType = "cpp_tests" | "c_hpack_huffman" | "c_header_table" | 
 export interface GenerateOptions {
     output: string,
     type: GenerateType
+    input: string
 }
 

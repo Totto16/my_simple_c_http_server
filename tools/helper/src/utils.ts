@@ -1,4 +1,3 @@
-import fs from "node:fs"
 import path from "node:path"
 import fsAsync from "node:fs/promises"
 import url from 'node:url';
@@ -210,7 +209,7 @@ export function isUTF8String(text: string): boolean {
     return array.length != text.length;
 }
 
-export function getThisPackageFile(): string {
+export async function getThisPackageFile(): Promise<string> {
     const __filename = url.fileURLToPath(import.meta.url);
 
     const ext = path.extname(__filename);
@@ -229,7 +228,7 @@ export function getThisPackageFile(): string {
 
     const thisPackageJson = path.join(thisPkgRoot, "package.json")
 
-    if (!fs.existsSync(thisPackageJson)) {
+    if (!(await fsAsyncExists(thisPackageJson))) {
         throw new Error(`Invalid local package detection`)
     }
 
@@ -267,7 +266,7 @@ async function getAllFilesInDir(dir: string): Promise<string[]> {
 }
 
 async function getSourceFiles(): Promise<string[]> {
-    const packageFile = getThisPackageFile();
+    const packageFile = await getThisPackageFile();
 
     const rootDir = path.dirname(packageFile)
 

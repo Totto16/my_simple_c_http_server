@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <utils/utils.h>
 
-#include "variants.h"
+#include "json_variants.h"
 
 #ifdef __cplusplus
 extern "C" {

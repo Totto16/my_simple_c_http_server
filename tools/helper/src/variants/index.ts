@@ -153,7 +153,7 @@ type StructInfo = [string, string]
 
 function getStructInfo(taggedUnion: TaggedUnion): StructInfo {
     if (taggedUnion.options.rawStruct) {
-        return [`struct ${taggedUnion.options.rawStruct.PascalCase()} `, ""]
+        return [`struct ${taggedUnion.options.rawStruct.inner.PascalCase()} `, ""]
     }
 
     return ["typedef struct ", ` ${taggedUnion.name.inner.PascalCase()}`]
@@ -1062,13 +1062,17 @@ function getCppFeatures(taggedUnions: TaggedUnion[]): string {
 
 }
 
-export async function generateVariantCodeC(generatedVariantsFileH: string): Promise<void> {
+export async function generateVariantCodeC(generatedVariantsFileH: string, inputDataPath: string): Promise<void> {
 
     const tasks: Promise<void>[] = []
 
     assert(path.extname(generatedVariantsFileH) == ".h", "variant file has to end in .h")
 
-    const globalTaggedUnions = await getGlobalTaggedUnions()
+    const globalTaggedUnions = await getGlobalTaggedUnions(inputDataPath)
+
+    if (globalTaggedUnions.length == 0) {
+        throw new Error('No tagged unions defined')
+    }
 
     const globalMacros: string[] = [
         `#define UNREACHABLE_WITH_MESSAGE(msg, ...) do {
