@@ -283,6 +283,8 @@ function convertParsedType(data: ParsedTaggedUnion[]): TaggedUnion[] {
 
 }
 
+const ParsedTaggedUnionFullSchemaZ = z.array(ParsedTaggedUnionZ).min(1)
+
 export async function getGlobalTaggedUnions(path: string): Promise<TaggedUnion[]> {
 
     console.log(JSON.stringify([
@@ -822,9 +824,26 @@ export async function getGlobalTaggedUnions(path: string): Promise<TaggedUnion[]
 
     const content = (await fsAsync.readFile(path)).toString()
 
-    const parsedResult = await z.array(ParsedTaggedUnionZ).parseAsync(content)
+    const parsedResult: ParsedTaggedUnion[] = await ParsedTaggedUnionFullSchemaZ.parseAsync(content)
 
     const result = convertParsedType(parsedResult)
 
     return result
+}
+
+
+export function outputVariantJsonSchema(): void {
+
+    const schema = z.toJSONSchema(ParsedTaggedUnionFullSchemaZ, {
+        unrepresentable: "throw",
+        cycles: "throw",
+        reused: "ref",
+        target: "draft-2020-12"
+
+    })
+
+    console.log(JSON.stringify(schema))
+
+
+
 }

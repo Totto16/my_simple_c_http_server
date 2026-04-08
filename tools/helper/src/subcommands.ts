@@ -1,6 +1,7 @@
 import path from "node:path"
 import { generateFile, type GenerateOptions, type GenerateType } from "./generator.js"
 import { runWsTests } from "./ws_tests.js"
+import { outputVariantJsonSchema } from "./variants/data.js"
 
 export async function subcommandGenerator(args: string[]): Promise<void> {
     const options: Partial<GenerateOptions> = {
@@ -11,6 +12,11 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
     for (let i = 0; i < args.length; ++i) {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const value = args[i]!
+
+        if (value == '--variant-json-schema') {
+            outputVariantJsonSchema()
+            return;
+        }
 
 
         if (value == '-o' || value == '--output') {
@@ -90,7 +96,6 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
 
     await generateFile(options as GenerateOptions)
 }
-
 
 
 interface WsTestOptions {

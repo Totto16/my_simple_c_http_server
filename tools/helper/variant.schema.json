@@ -1,0 +1,231 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "minItems": 1,
+    "type": "array",
+    "items": {
+        "$ref": "#/$defs/__schema0"
+    },
+    "$defs": {
+        "__schema0": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "$ref": "#/$defs/__schema1"
+                },
+                "member": {
+                    "minItems": 2,
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/__schema3"
+                    }
+                },
+                "enum": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "$ref": "#/$defs/__schema1"
+                        },
+                        "underlyingType": {
+                            "oneOf": [
+                                {
+                                    "oneOf": [
+                                        {
+                                            "type": "string",
+                                            "const": "bool"
+                                        },
+                                        {
+                                            "type": "string",
+                                            "const": "u8"
+                                        },
+                                        {
+                                            "type": "string",
+                                            "const": "u16"
+                                        },
+                                        {
+                                            "type": "string",
+                                            "const": "u32"
+                                        },
+                                        {
+                                            "type": "string",
+                                            "const": "u64"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "string",
+                                    "const": "best_match"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    },
+                    "required": [
+                        "name"
+                    ],
+                    "additionalProperties": false
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "rawStruct": {
+                            "$ref": "#/$defs/__schema1"
+                        },
+                        "structOrder": {
+                            "oneOf": [
+                                {
+                                    "type": "string",
+                                    "const": "auto"
+                                },
+                                {
+                                    "type": "string",
+                                    "const": "tag_first"
+                                },
+                                {
+                                    "type": "string",
+                                    "const": "tag_second"
+                                }
+                            ]
+                        },
+                        "requirements": {
+                            "type": "object",
+                            "properties": {
+                                "order": {
+                                    "oneOf": [
+                                        {
+                                            "type": "string",
+                                            "const": "best_size"
+                                        },
+                                        {
+                                            "type": "string",
+                                            "const": "aligned_access"
+                                        }
+                                    ]
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "cppFeatures": {
+                            "type": "object",
+                            "properties": {
+                                "tagAsErrorVariant": {
+                                    "type": "boolean"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "required": [
+                "name",
+                "member",
+                "enum"
+            ],
+            "additionalProperties": false
+        },
+        "__schema1": {
+            "oneOf": [
+                {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[A-Z][a-zA-Z0-9]*$"
+                },
+                {
+                    "minItems": 2,
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/__schema2"
+                    }
+                }
+            ]
+        },
+        "__schema2": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^([A-Z0-9]*)|([a-z0-9]*)$"
+        },
+        "__schema3": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "$ref": "#/$defs/__schema1"
+                },
+                "type": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "oneOf": [
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "struct": {
+                                            "type": "object",
+                                            "properties": {
+                                                "members": {
+                                                    "minItems": 1,
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/$defs/__schema4"
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "members"
+                                            ],
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "required": [
+                                        "struct"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        }
+                                    },
+                                    "required": [
+                                        "name"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "name",
+                "type"
+            ],
+            "additionalProperties": false
+        },
+        "__schema4": {
+            "type": "object",
+            "properties": {
+                "typeName": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "name": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "required": [
+                "typeName",
+                "name"
+            ],
+            "additionalProperties": false
+        }
+    }
+}
