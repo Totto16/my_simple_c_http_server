@@ -1062,16 +1062,26 @@ function getCppFeatures(taggedUnions: TaggedUnion[]): string {
 
 }
 
+function validateTaggedUnion(union: TaggedUnion): void {
+    if (union.enum.name.inner.eq(union.name.inner)) {
+        throw new Error(`Enum and Variant name are the same: ${union.name.inner.PascalCase()}`)
+    }
+}
+
 export async function generateVariantCodeC(generatedVariantsFileH: string, inputDataPath: string): Promise<void> {
 
     const tasks: Promise<void>[] = []
 
     assert(path.extname(generatedVariantsFileH) == ".h", "variant file has to end in .h")
 
-    const globalTaggedUnions = await getGlobalTaggedUnions(inputDataPath)
+    const taggedUnions = await getGlobalTaggedUnions(inputDataPath)
 
-    if (globalTaggedUnions.length == 0) {
+    if (taggedUnions.length == 0) {
         throw new Error('No tagged unions defined')
+    }
+
+    for (const union of taggedUnions) {
+        validateTaggedUnion(union)
     }
 
     const globalMacros: string[] = [
@@ -1136,7 +1146,7 @@ extern "C" {
 ${globalMacros.map(m => m.split("\n").join(" \\\n")).join("\n\n")}
 
 
-${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
+${taggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 
 
 #ifdef __cplusplus
@@ -1145,7 +1155,7 @@ ${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 #endif
 
 #ifdef __cplusplus
-${getCppFeatures(globalTaggedUnions)}
+${getCppFeatures(taggedUnions)}
 #endif
 `
 

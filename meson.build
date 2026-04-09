@@ -277,7 +277,8 @@ endif
 
 subdir('tools/helper')
 
-deps += variants_dep
+deps += all_variants_dep
+deps += json_variants_dep
 deps += generated_hpack_huffman_dep
 deps += generated_hpack_dep
 

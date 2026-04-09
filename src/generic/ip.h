@@ -7,7 +7,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-#include "variants.h"
+#include "all_variants.h"
 
 typedef struct {
 	struct in_addr underlying; // this is in network order

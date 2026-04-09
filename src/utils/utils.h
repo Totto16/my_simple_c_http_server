@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "variants.h"
+#include "all_variants.h"
 
 #ifdef __cplusplus
 extern "C" {

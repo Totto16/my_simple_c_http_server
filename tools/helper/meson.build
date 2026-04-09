@@ -135,8 +135,8 @@ else
 endif
 
 
-variants_generated_tgt = custom_target(
-    'variants',
+all_variants_generated_tgt = custom_target(
+    'all_variants',
     command: [
         node_like_runtime,
         '@CURRENT_SOURCE_DIR@',
@@ -144,19 +144,74 @@ variants_generated_tgt = custom_target(
         '--type',
         'c_variants',
         '-o',
-        '@OUTPUT0@',
+        '@OUTPUT@',
         '-i',
-        'TODO:txt'
+        '@INPUT@',
     ],
-    output: ['variants.h'],
+    input: [meson.project_source_root() / 'src' / 'all.variants.def.json'],
+    output: ['all_variants.h'],
     build_subdir: 'generated' / 'c' / 'variants',
     depend_files: helper_script_depend_files,
     depends: helper_script_depends,
 )
 
-variants_dep = declare_dependency(
+all_variants_dep = declare_dependency(
     version: meson.project_version(),
-    sources: variants_generated_tgt,
+    sources: all_variants_generated_tgt,
+)
+
+
+json_variants_generated_tgt = custom_target(
+    'json_variants',
+    command: [
+        node_like_runtime,
+        '@CURRENT_SOURCE_DIR@',
+        'generator',
+        '--type',
+        'c_variants',
+        '-o',
+        '@OUTPUT@',
+        '-i',
+        '@INPUT@',
+    ],
+    input: [meson.project_source_root() / 'src' / 'json' / 'json.variants.def.json'],
+    output: ['json_variants.h'],
+    build_subdir: 'generated' / 'c' / 'variants',
+    depend_files: helper_script_depend_files,
+    depends: helper_script_depends,
+)
+
+
+json_variants_dep = declare_dependency(
+    version: meson.project_version(),
+    sources: json_variants_generated_tgt,
+)
+
+
+genrated_variants_generated_tgt = custom_target(
+    'generated_variants',
+    command: [
+        node_like_runtime,
+        '@CURRENT_SOURCE_DIR@',
+        'generator',
+        '--type',
+        'c_variants',
+        '-o',
+        '@OUTPUT@',
+        '-i',
+        '@INPUT@',
+    ],
+    input: [meson.current_source_dir() / 'src' / 'generated.variants.def.json'],
+    output: ['generated_variants.h'],
+    build_subdir: 'generated' / 'c' / 'variants',
+    depend_files: helper_script_depend_files,
+    depends: helper_script_depends,
+)
+
+
+generated_variants_dep = declare_dependency(
+    version: meson.project_version(),
+    sources: genrated_variants_generated_tgt,
 )
 
 
@@ -178,7 +233,7 @@ generated_hpack_huffman_c_tgt = custom_target(
 )
 
 generated_hpack_huffman_dep = declare_dependency(
-    dependencies: variants_dep,
+    dependencies: generated_variants_dep,
     version: meson.project_version(),
     sources: generated_hpack_huffman_c_tgt,
 )
@@ -201,7 +256,7 @@ generated_hpack_c_tgt = custom_target(
 )
 
 generated_hpack_dep = declare_dependency(
-    dependencies: variants_dep,
+    dependencies: generated_variants_dep,
     version: meson.project_version(),
     sources: generated_hpack_c_tgt,
 )
@@ -236,5 +291,6 @@ generated_sources = alias_target(
     generated_hpack_huffman_c_tgt,
     generated_hpack_c_tgt,
     generated_hpack_tests_cpp_tgt,
-    variants_generated_tgt,
+    all_variants_generated_tgt,
+    json_variants_generated_tgt
 )

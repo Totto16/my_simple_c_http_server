@@ -1,0 +1,1021 @@
+[
+    {
+        "name": "AccountInfo",
+        "member": [
+            {
+                "name": "Empty",
+                "type": null
+            },
+            {
+                "name": "OnlyUser",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "username",
+                                "typeName": "tstr"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Ok",
+                "type": {
+                    "name": "AccountOkData"
+                }
+            }
+        ],
+        "enum": {
+            "name": "AccountState",
+            "underlyingType": "u8"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": [
+            "IP",
+            "address"
+        ],
+        "member": [
+            {
+                "name": "V4",
+                "type": {
+                    "name": "IPV4Address"
+                }
+            },
+            {
+                "name": "V6",
+                "type": {
+                    "name": "IPV6Address"
+                }
+            }
+        ],
+        "enum": {
+            "name": [
+                "IP",
+                "protocol",
+                "version"
+            ],
+            "underlyingType": "u8"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "AuthenticationProvider",
+        "member": [
+            {
+                "name": "Simple",
+                "type": {
+                    "name": "SimpleAuthenticationProviderData"
+                }
+            },
+            {
+                "name": "System",
+                "type": null
+            }
+        ],
+        "enum": {
+            "name": "AuthenticationProviderType",
+            "underlyingType": "u8"
+        },
+        "options": {
+            "rawStruct": "AuthenticationProviderImpl",
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "AuthenticationFindResult",
+        "member": [
+            {
+                "name": "NoSuchUser",
+                "type": null
+            },
+            {
+                "name": "WrongPassword",
+                "type": null
+            },
+            {
+                "name": "Ok",
+                "type": {
+                    "name": "AuthUserWithContext"
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "message",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "AuthenticationValidity",
+            "underlyingType": "u8"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "ConnectionTypeIdentifier",
+        "member": [
+            {
+                "name": "Active",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "addr",
+                                "typeName": "FTPConnectAddr"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Passive",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "port",
+                                "typeName": "FTPPortField"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Automatic",
+                "type": null
+            }
+        ],
+        "enum": {
+            "name": "ConnectionTypeIdentifierEnumType",
+            "underlyingType": "best_match"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "HuffmanDecodeResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "result",
+                                "typeName": "SizedBuffer"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "HuffmanDecodeResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": true
+            }
+        }
+    },
+    {
+        "name": "HuffmanEncodeFixedResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "size",
+                                "typeName": "size_t"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "HuffmanEncodeFixedResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": true
+            }
+        }
+    },
+    {
+        "name": "HuffmanEncodeResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "result",
+                                "typeName": "SizedBuffer"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "HuffmanEncodeResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": true
+            }
+        }
+    },
+    {
+        "name": "GenericResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": null
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "GenericResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": true
+            }
+        }
+    },
+    {
+        "name": "HpackHeaderEntryResult",
+        "member": [
+            {
+                "name": "Value",
+                "type": {
+                    "name": "HpackHeaderDynamicEntry"
+                }
+            },
+            {
+                "name": "Null",
+                "type": null
+            }
+        ],
+        "enum": {
+            "name": "HpackHeaderEntryResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "Http2HpackDecompressResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "name": "HttpHeaderFields"
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "Http2HpackDecompressResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": true
+            }
+        }
+    },
+    {
+        "name": "LiteralStringResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "value",
+                                "typeName": "tstr"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "LiteralStringResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": false
+            }
+        }
+    },
+    {
+        "name": "HpackVariableIntegerResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "value",
+                                "typeName": "HpackVariableInteger"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "HpackVariableIntegerResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": true
+            }
+        }
+    },
+    {
+        "name": "HttpAnalyzeHeadersResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "result",
+                                "typeName": "HTTPAnalyzeHeaders"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "HTTPAnalyzeHeaderError"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "HttpAnalyzeHeadersResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "HttpBodyReadResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "body",
+                                "typeName": "SizedBuffer"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "HttpBodyReadResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": false
+            }
+        }
+    },
+    {
+        "name": "ParsedRequestUriResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "uri",
+                                "typeName": "ParsedRequestURI"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "ParsedRequestUriResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": true
+            }
+        }
+    },
+    {
+        "name": "Http2FrameResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "frame",
+                                "typeName": "Http2Frame"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "Http2FrameResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": false
+            }
+        }
+    },
+    {
+        "name": "Http2StartResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": null
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "Http2StartResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": true
+            }
+        }
+    },
+    {
+        "name": "WsFragmentOption",
+        "member": [
+            {
+                "name": "Off",
+                "type": null
+            },
+            {
+                "name": "Auto",
+                "type": null
+            },
+            {
+                "name": "Set",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "fragment_size",
+                                "typeName": "size_t"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "WsFragmentOptionType",
+            "underlyingType": "u8"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "Utf8DataResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "result",
+                                "typeName": "Utf8Data"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "Utf8DataResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": true
+            }
+        }
+    },
+    {
+        "name": "RawHeaderOneResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "header",
+                                "typeName": "RawHeaderOne"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "RawHeaderOneResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": false
+            }
+        }
+    },
+    {
+        "name": "WebSocketRawMessageResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "message",
+                                "typeName": "WebSocketRawMessage"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "WebSocketRawMessageResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            },
+            "cppFeatures": {
+                "tagAsErrorVariant": false
+            }
+        }
+    },
+    {
+        "name": "FtpCommandTypeInformation",
+        "member": [
+            {
+                "name": "Normal",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "type",
+                                "typeName": "FtpTransmissionType"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Other",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "num",
+                                "typeName": "uint8_t"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "FtpCommandTypeInformationType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "OptionalString",
+        "member": [
+            {
+                "name": "Value",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "value",
+                                "typeName": "tstr"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Null",
+                "type": null
+            }
+        ],
+        "enum": {
+            "name": "OptionalStringType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "ActiveConnectionData",
+        "member": [
+            {
+                "name": "Connected",
+                "type": {
+                    "name": "ActiveConnectedDataImpl"
+                }
+            },
+            {
+                "name": "Resumed",
+                "type": {
+                    "name": "ActiveResumeDataImpl"
+                }
+            }
+        ],
+        "enum": {
+            "name": "ActiveConnectionDataType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "SendData",
+        "member": [
+            {
+                "name": "File",
+                "type": {
+                    "name": "SingleFile*"
+                }
+            },
+            {
+                "name": "MultipleFiles",
+                "type": {
+                    "name": "MultipleFiles*"
+                }
+            },
+            {
+                "name": "RawData",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "data",
+                                "typeName": "SizedBuffer"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "SendType",
+            "underlyingType": "u8"
+        },
+        "options": {
+            "rawStruct": "SendDataImpl",
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "Utf8NextCharResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "name": "Utf8Codepoint"
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "name": "JsonError"
+                }
+            }
+        ],
+        "enum": {
+            "name": "Utf8NextCharResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    }
+]
