@@ -157,7 +157,7 @@ static void json_parse_impl_skip_ws(JsonParseState* const state) {
 
 NODISCARD SourceLocation make_null_source_location(void) {
 	return (SourceLocation){ .source = new_json_source_file((JsonFileSource){ .file_path = NULL }),
-		                     .pos = (SourcePosition){ .col = 0, .line = 0 } };
+		                     .pos = (SourcePosition){ .line = 0, .col = 0 } };
 }
 
 NODISCARD bool is_null_source_location(SourceLocation location) {
@@ -1473,7 +1473,7 @@ NODISCARD JsonParseResult json_value_parse_from_str(const tstr_view data) {
 		.view = data,
 		.loc =
 		    (SourceLocation){ .source = new_json_source_string((JsonStringSource){ .data = data }),
-		                      .pos = (SourcePosition){ .col = 0, .line = 0 } }
+		                      .pos = (SourcePosition){ .line = 0, .col = 0 } }
 	};
 
 	return json_value_parse_from_str_impl(state);
@@ -1497,7 +1497,7 @@ NODISCARD JsonParseResult json_value_parse_from_file(const tstr* const file_path
 		                           .loc = (SourceLocation){
 		                               .source = new_json_source_file(
 		                                   (JsonFileSource){ .file_path = file_path }),
-		                               .pos = (SourcePosition){ .col = 0, .line = 0 } } };
+		                               .pos = (SourcePosition){ .line = 0, .col = 0 } } };
 
 	return json_value_parse_from_str_impl(state);
 }

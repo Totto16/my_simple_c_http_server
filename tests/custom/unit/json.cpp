@@ -148,6 +148,21 @@ TEST_CASE("testing parse errors of json values <json_parser_error>") {
 	}
 }
 
+TEST_CASE("testing helper functions of the json parser <json_parser_helper_fn>") {
+
+	const auto null_src = make_null_source_location();
+
+	REQUIRE_TRUE(is_null_source_location(null_src));
+
+	const tstr_static nonnull_src_str = "nothing"_tstr_static;
+
+	const auto nonnull_src = SourceLocation{ .source = new_json_source_string(JsonStringSource{
+		                                         .data = tstr_static_as_view(nonnull_src_str) }),
+		                                     .pos = SourcePosition{ .line = 0, .col = 0 } };
+
+	REQUIRE_FALSE(is_null_source_location(nonnull_src));
+}
+
 // TODO: compare with nhlohmann json!
 
 TEST_SUITE_END();
