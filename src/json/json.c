@@ -315,6 +315,8 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* st
 
 NODISCARD static JsonParseResult json_parse_impl_parse_value(JsonParseState* state);
 
+static void free_json_key(JsonObjectKey* key);
+
 NODISCARD static JsonError json_parse_impl_parse_object_member(JsonParseState* const state,
                                                                JsonObject* const json_object) {
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
@@ -387,23 +389,19 @@ NODISCARD static JsonError json_parse_impl_parse_object_member(JsonParseState* c
 	JsonValue value = json_parse_result_get_as_ok(value_result);
 
 #undef FREE_AT_END
+
+	JsonObjectKey correct_key = release_json_string_into_object_key(&key);
+
 #define FREE_AT_END() \
 	do { \
-		free_json_string(key); \
-		free_json_value(&value); \
-	} while(false)
-
-	const JsonObjectKey correct_key = release_json_string_into_object_key(&key);
-
-#undef FREE_AT_END
-#define FREE_AT_END() \
-	do { \
+		free_json_key(&correct_key); \
 		free_json_value(&value); \
 	} while(false)
 
 	const tstr_static add_result = json_object_add_entry_impl(json_object, correct_key, value);
 
 	if(!tstr_static_is_null(add_result)) {
+
 		FREE_AT_END();
 		return make_json_error_at(state->loc, add_result);
 	}
@@ -1538,6 +1536,7 @@ void free_json_object(JsonObject* const json_obj) { // NOLINT(misc-no-recursion)
 	}
 
 	TMAP_FREE(JsonValueMapImpl, &(json_obj->value));
+	free(json_obj);
 }
 
 void free_json_array(JsonArray* const json_arr) { // NOLINT(misc-no-recursion)
