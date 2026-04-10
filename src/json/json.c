@@ -1921,6 +1921,7 @@ static void json_to_string_object_impl(StringBuilder* const sb, const JsonObject
 	tstr_free(&start_str);
 	tstr_free(&separator_str);
 	tstr_free(&end_str);
+	json_object_free_iterator(iter);
 }
 
 static void json_to_string_variant_impl(StringBuilder* const sb, const JsonValue json_value,
