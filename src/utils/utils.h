@@ -157,13 +157,13 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 		if(internalBuffer != NULL) { \
 			free(internalBuffer); \
 		} \
-		int toWrite = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
+		const int toWrite = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
 		internalBuffer = (char*)malloc(toWrite * sizeof(char)); \
 		if(!internalBuffer) { \
 			logger_fn("Couldn't allocate memory for %d bytes!\n", toWrite); \
 			statement \
 		} \
-		int written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \
+		const int written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \
 		if(written >= toWrite) { \
 			logger_fn("snprintf did write more bytes then it had space in the buffer, available " \
 			          "space: '%d', actually written: '%d'!\n", \

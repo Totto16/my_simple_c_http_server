@@ -1610,15 +1610,125 @@ static void json_to_string_number_impl(StringBuilder* const sb, const JsonNumber
 	                       , "%f", json_number.value);
 }
 
-// from my project ass_parser_c, modified slightly
-#define CHUNK_SIZE_NORMALIZE 256
+NODISCARD static bool json_impl_needs_escapeing(Utf8Codepoint codepoint) {
 
-static tstr get_normalized_string_from_codepoints(JsonCharArr codepoints) {
+	// note: not all escapable chars are required to be escaped
+
+	//     (    %x22 /          ; "    quotation mark  U+0022
+	//          %x5C /          ; \    reverse solidus U+005C
+	//          %x2F /          ; /    solidus         U+002F
+	//          %x62 /          ; b    backspace       U+0008
+	//          %x66 /          ; f    form feed       U+000C
+	//          %x6E /          ; n    line feed       U+000A
+	//          %x72 /          ; r    carriage return U+000D
+	//          %x74 /          ; t    tab             U+0009
+	//          %x75 4HEXDIG   ; uXXXX                U+XXXX
+	//     )
+
+	switch(codepoint) {
+		case '"':
+		case '\\': {
+			return true;
+		}
+		case '/': {
+			// can be, but not required
+			return false;
+		}
+		case '\b':
+		case '\f':
+		case '\n':
+		case '\r':
+		case '\t': {
+			return true;
+		}
+		default: {
+			// utf8 control characters need also an escaping
+			const utf8proc_category_t cat = utf8proc_category(codepoint);
+			return (cat == UTF8PROC_CATEGORY_CC);
+		}
+	}
+}
+
+NODISCARD static long json_escape_char_into(const Utf8Codepoint codepoint, uint8_t* const dst) {
+	switch(codepoint) {
+		case '"':
+		case '\\':
+		case '/': {
+
+			dst[0] = '\\';
+			dst[1] = (uint8_t)codepoint;
+
+			return 2;
+		}
+		case '\b': {
+			dst[0] = '\\';
+			dst[1] = 'b';
+
+			return 2;
+		}
+		case '\f': {
+			dst[0] = '\\';
+			dst[1] = 'f';
+
+			return 2;
+		}
+		case '\n': {
+			dst[0] = '\\';
+			dst[1] = 'n';
+
+			return 2;
+		}
+		case '\r': {
+			dst[0] = '\\';
+			dst[1] = 'r';
+
+			return 2;
+		}
+		case '\t': {
+
+			dst[0] = '\\';
+			dst[1] = 't';
+
+			return 2;
+		}
+		default: {
+
+			if(codepoint > 0xFFFF) {
+				OOM_ASSERT(false, "Surrogate pair escaping not implemented yet");
+			}
+
+			const uint16_t small_codepoint = (uint16_t)codepoint;
+
+			dst[0] = '\\';
+			dst[1] = 'u';
+
+			char hex_buf[5];
+
+			const int result = snprintf(hex_buf, sizeof(hex_buf), "%04X", small_codepoint);
+			assert(result == 4 && "sprintf succeeded");
+
+			dst[2] = hex_buf[0];
+			dst[3] = hex_buf[1];
+			dst[4] = hex_buf[2];
+			dst[5] = hex_buf[3];
+
+			return 6;
+		}
+	}
+}
+
+// from my project ass_parser_c, modified slightly
+#define UTF8_CHUNK_SIZE_NORMALIZE 256
+
+// 4 for unicode chars, 6 for escaped chars, as the max there is \uXXXX
+#define UTF8_MAX_AMOUNT_PER_CHUNK_ITERATION 6
+
+static tstr get_normalized_string_from_codepoints_json_escaped(JsonCharArr codepoints) {
 	if(codepoints.data == NULL) {
 		return tstr_null();
 	}
 
-	size_t buffer_size = CHUNK_SIZE_NORMALIZE;
+	size_t buffer_size = UTF8_CHUNK_SIZE_NORMALIZE;
 	uint8_t* buffer = (uint8_t*)malloc(buffer_size);
 
 	size_t current_size = 0;
@@ -1629,8 +1739,8 @@ static tstr get_normalized_string_from_codepoints(JsonCharArr codepoints) {
 
 	for(size_t i = 0; i < TVEC_LENGTH(Utf8Codepoint, codepoints); ++i) {
 
-		if(buffer_size - current_size < 4) {
-			buffer_size = buffer_size + CHUNK_SIZE_NORMALIZE;
+		if(buffer_size - current_size < UTF8_MAX_AMOUNT_PER_CHUNK_ITERATION) {
+			buffer_size = buffer_size + UTF8_CHUNK_SIZE_NORMALIZE;
 			uint8_t* new_buffer = (uint8_t*)realloc(buffer, buffer_size);
 
 			if(!new_buffer) {
@@ -1641,14 +1751,30 @@ static tstr get_normalized_string_from_codepoints(JsonCharArr codepoints) {
 			buffer = new_buffer;
 		}
 
-		long result = utf8proc_encode_char(codepoints.data[i], buffer + current_size);
+		const Utf8Codepoint codepoint = TVEC_AT(Utf8Codepoint, codepoints, i);
 
-		if(result <= 0) {
-			free(buffer);
-			return tstr_null();
+		if(json_impl_needs_escapeing(codepoint)) {
+			// needs place for 6 / UTF8_MAX_AMOUNT_PER_CHUNK_ITERATION chars
+			long result = json_escape_char_into(codepoint, buffer + current_size);
+
+			if(result <= 0) {
+				free(buffer);
+				return tstr_null();
+			}
+
+			current_size = current_size + result;
+		} else {
+
+			// needs place for 4  chars
+			long result = utf8proc_encode_char(codepoint, buffer + current_size);
+
+			if(result <= 0) {
+				free(buffer);
+				return tstr_null();
+			}
+
+			current_size = current_size + result;
 		}
-
-		current_size = current_size + result;
 	}
 
 	if(buffer_size - current_size < 1) {
@@ -1668,26 +1794,25 @@ static tstr get_normalized_string_from_codepoints(JsonCharArr codepoints) {
 	return tstr_own((char*)buffer, current_size, current_size);
 }
 
-static tstr get_tstr_from_json_string(const JsonString* const json_string) {
+static tstr get_tstr_from_json_string_escaped(const JsonString* const json_string) {
 
-	return get_normalized_string_from_codepoints(json_string->value);
+	return get_normalized_string_from_codepoints_json_escaped(json_string->value);
 }
 
 static void json_to_string_string_impl(StringBuilder* const sb, const JsonString* const json_string,
                                        const JsonSerializeOptions options) {
 	UNUSED(options);
 
-	// TODO: escape chacraters, that need escaping
-	tstr string_unescaped = get_tstr_from_json_string(json_string);
+	tstr string_escaped = get_tstr_from_json_string_escaped(json_string);
 
-	if(tstr_is_null(&string_unescaped)) {
+	if(tstr_is_null(&string_escaped)) {
 		OOM_ASSERT(false, "error in formatting json string");
 	}
 
 	STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "error in formatting json string");
-	                       , "\"" TSTR_FMT "\"", TSTR_FMT_ARGS(string_unescaped));
+	                       , "\"" TSTR_FMT "\"", TSTR_FMT_ARGS(string_escaped));
 
-	tstr_free(&string_unescaped);
+	tstr_free(&string_escaped);
 }
 
 static void json_to_string_variant_impl(StringBuilder* const sb, const JsonValue json_value,
@@ -1846,9 +1971,17 @@ NODISCARD tstr json_value_to_string_advanced(const JsonValue json_value,
 
 	StringBuilder* sb = string_builder_init();
 
+	if(sb == NULL) {
+		return tstr_null();
+	}
+
 	json_to_string_variant_impl(sb, json_value, options);
 
 	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&sb);
+
+	if(buffer.data == NULL) {
+		return tstr_null();
+	}
 
 	return tstr_own(buffer.data, buffer.size, buffer.size);
 }
