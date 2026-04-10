@@ -20,6 +20,11 @@ struct JsonParseTestCaseError {
 	JsonErrorCpp expected_error;
 };
 
+struct JsonStringifyTest {
+	std::string expected;
+	JsonValue input;
+};
+
 } // namespace
 
 TEST_SUITE_BEGIN("json" * doctest::description("json tests") *
@@ -211,11 +216,90 @@ TEST_CASE("testing helper functions of the json parser <json_parser_helper_fn>")
 			    { "key_2", JsonValueCpp::number((int64_t)2) },
 			});
 
-			REQUIRE_EQ(json_value, expected_value);
+			CAutoFreePtr<JsonValue> defer = { &json_value, free_json_value };
+			CAutoFreePtr<JsonValue> defer2 = { &expected_value, free_json_value };
 
-			free_json_value(&json_value);
-			free_json_value(&expected_value);
+			REQUIRE_EQ(json_value, expected_value);
 		}();
+	}
+}
+
+TEST_CASE("testing stringification of json values <json_parser_stringify>") {
+
+	std::vector<JsonStringifyTest> json_stringify_test_case = {
+		JsonStringifyTest{ .expected = "null", .input = JsonValueCpp::null() },
+		JsonStringifyTest{ .expected = "true", .input = JsonValueCpp::boolean(true) },
+		JsonStringifyTest{ .expected = "false", .input = JsonValueCpp::boolean(false) },
+		// TODO: better format .000000, format it as int
+		JsonStringifyTest{ .expected = "100.000000", .input = JsonValueCpp::number((int64_t)100) },
+		JsonStringifyTest{ .expected = "-100.000000",
+		                   .input = JsonValueCpp::number((int64_t)-100) },
+		JsonStringifyTest{ .expected = "-100.010000", .input = JsonValueCpp::number(-100.01) },
+		JsonStringifyTest{ .expected = "100.430000", .input = JsonValueCpp::number(100.43) },
+		JsonStringifyTest{ .expected = R"("hello world")",
+		                   .input = JsonValueCpp::string("hello world") },
+		JsonStringifyTest{ .expected = R"("hello world\n\"\f\t")",
+		                   .input = JsonValueCpp::string("hello world\n\"\f\t") },
+		JsonStringifyTest{
+		    .expected = R"("smiley: 🙃 is not escapable as it is U+1F643")",
+		    .input = JsonValueCpp::string("smiley: 🙃 is not escapable as it is U+1F643") },
+		JsonStringifyTest{ .expected = R"([null, 1.000000, 2.000000, true])",
+		                   .input = JsonValueCpp::array(
+		                       { JsonValueCpp::null(), JsonValueCpp::number((int64_t)1),
+		                         JsonValueCpp::number((int64_t)2), JsonValueCpp::boolean(true) }) },
+		JsonStringifyTest{
+		    .expected =
+		        R"({"key1": "hello", "key2": null, "nested": {"nested_key": {"array": [], "nested_key2": true}}})",
+		    .input = JsonValueCpp::object(
+		        { { "key1", JsonValueCpp::string("hello") },
+		          { "key2", JsonValueCpp::null() },
+		          { "nested",
+		            JsonValueCpp::object({
+		                { "nested_key", JsonValueCpp::object({
+		                                    { "nested_key2", JsonValueCpp::boolean(true) },
+		                                    { "array", JsonValueCpp::array({}) },
+		                                }) },
+		            }
+
+		                                 ) } }) },
+	};
+	CAutoFreePtr<std::vector<JsonStringifyTest>> defer_tests = {
+		&json_stringify_test_case,
+		[](std::vector<JsonStringifyTest>* const values) -> void {
+		    for(size_t i = 0; i < values->size(); ++i) {
+			    auto* const value = &(values->at(i));
+			    free_json_value(&(value->input));
+		    }
+		}
+	};
+
+	for(const auto& test_case : json_stringify_test_case) {
+
+		INFO("Test case: ", test_case.input);
+
+		auto stringify_result = json_value_to_string(test_case.input);
+		CAutoFreePtr<tstr> defer = { &stringify_result, tstr_free };
+
+		REQUIRE_FALSE(tstr_is_null(&stringify_result));
+
+		std::string actual_result = string_from_tstr(stringify_result);
+
+		REQUIRE_EQ(actual_result, test_case.expected);
+
+		{ // extra check, check if parsing results in the value too!
+
+			const tstr_view str_view = tstr_as_view(&stringify_result);
+
+			const auto parse_result = json_value_parse_from_str(str_view);
+
+			REQUIRE_EQ(get_current_tag_type_for_json_parse_result(parse_result),
+			           JsonParseResultTypeOk);
+
+			JsonValue result = json_parse_result_get_as_ok(parse_result);
+			CAutoFreePtr<JsonValue> defer2 = { &result, free_json_value };
+
+			REQUIRE_EQ(result, test_case.input);
+		}
 	}
 }
 

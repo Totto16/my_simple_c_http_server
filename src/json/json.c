@@ -1838,14 +1838,12 @@ static void json_to_string_array_impl(StringBuilder* const sb, const JsonArray* 
 			separator_str = TSTR_LIT(",\n");
 			end_str = TSTR_LIT("\n]");
 		} else {
-			FORMAT_TSTR(start_str, OOM_ASSERT(false, "error in formatting json array");
-			            , "[%*s", (int)options.indent_size, "");
+			start_str = TSTR_LIT("[");
 
 			FORMAT_TSTR(separator_str, OOM_ASSERT(false, "error in formatting json array");
 			            , ",%*s", (int)options.indent_size, "");
 
-			FORMAT_TSTR(end_str, OOM_ASSERT(false, "error in formatting json array");
-			            , "%*s]", (int)options.indent_size, "");
+			end_str = TSTR_LIT("]");
 		}
 	}
 
@@ -1879,14 +1877,12 @@ static void json_to_string_object_impl(StringBuilder* const sb, const JsonObject
 			separator_str = TSTR_LIT(",\n");
 			end_str = TSTR_LIT("\n}");
 		} else {
-			FORMAT_TSTR(start_str, OOM_ASSERT(false, "error in formatting json object");
-			            , "{%*s", (int)options.indent_size, "");
+			start_str = TSTR_LIT("{");
 
 			FORMAT_TSTR(separator_str, OOM_ASSERT(false, "error in formatting json object");
 			            , ",%*s", (int)options.indent_size, "");
 
-			FORMAT_TSTR(end_str, OOM_ASSERT(false, "error in formatting json object");
-			            , "%*s}", (int)options.indent_size, "");
+			end_str = TSTR_LIT("}");
 		}
 	}
 
