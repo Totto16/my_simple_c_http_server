@@ -321,6 +321,11 @@ JsonErrorCpp JsonErrorCpp::with_string_loc(std::string&& value, tstr_view data,
 
 [[nodiscard]] static bool operator==(const SourceLocation& source_loc1,
                                      const SourceLocation& source_loc2) {
+
+	if(source_loc1.pos != source_loc2.pos) {
+		return false;
+	}
+
 	if(get_current_tag_type_for_json_source(source_loc1.source) !=
 	   get_current_tag_type_for_json_source(source_loc2.source)) {
 		return false;
@@ -354,8 +359,6 @@ JsonErrorCpp JsonErrorCpp::with_string_loc(std::string&& value, tstr_view data,
 			return false;
 		}
 	}
-
-	return source_loc1.pos == source_loc2.pos;
 }
 
 [[nodiscard]] bool JsonErrorCpp::operator==(const JsonErrorCpp& json_error2) const {
