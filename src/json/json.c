@@ -254,7 +254,7 @@ NODISCARD static tstr_static json_object_add_entry_impl(JsonObject* const json_o
 			return TSTR_STATIC_LIT("json object add error");
 		}
 		case TmapInsertResultWouldOverwrite: {
-			return TSTR_STATIC_LIT("duplicate key detected");
+			return TSTR_STATIC_LIT("json object has duplicate key");
 		}
 		default: {
 			return TSTR_STATIC_LIT("json object add unknown error");
@@ -394,6 +394,12 @@ NODISCARD static JsonError json_parse_impl_parse_object_member(JsonParseState* c
 	} while(false)
 
 	const JsonObjectKey correct_key = release_json_string_into_object_key(&key);
+
+#undef FREE_AT_END
+#define FREE_AT_END() \
+	do { \
+		free_json_value(&value); \
+	} while(false)
 
 	const tstr_static add_result = json_object_add_entry_impl(json_object, correct_key, value);
 

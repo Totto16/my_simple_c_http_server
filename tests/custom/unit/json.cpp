@@ -127,6 +127,10 @@ TEST_CASE("testing parse errors of json values <json_parser_error>") {
 		    .input = "\n  trivially_not_true ",
 		    .expected_error = JsonErrorCpp::with_string_loc(
 		        "not a boolean", dummy_str_view, SourcePosition{ .line = 1, .col = 2 }) },
+		JsonParseTestCaseError{ .input = R"({"key1": 1, "key1": 2 })",
+		                        .expected_error = JsonErrorCpp::with_string_loc(
+		                            "json object has duplicate key", dummy_str_view,
+		                            SourcePosition{ .line = 1, .col = 2 }) },
 	};
 
 	for(const auto& test_case : json_parse_test_cases) {
