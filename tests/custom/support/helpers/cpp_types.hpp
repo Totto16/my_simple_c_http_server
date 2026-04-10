@@ -108,7 +108,9 @@ template <typename T>
 
 #include <optional>
 
-CPP_DEFINE_ERROR_VARIANTS()
+CPP_DEFINE_ERROR_VARIANTS_START_DECLS()
+CPP_DEFINE_ERROR_VARIANTS_ALL_VARIANTS()
+CPP_DEFINE_ERROR_VARIANTS_JSON_VARIANTS()
 
 template <typename T>
 concept IsCErrorVariant = cpp::error_variants::IsErrorVariant<T>::value;

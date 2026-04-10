@@ -81,6 +81,76 @@ export class CaseName {
 
     }
 
+    public static fromSnakeCase(str: string): CaseName {
+
+        if (isUTF8String(str)) {
+            throw new Error(`Unicode strings not yet supported: ${str}`)
+        }
+
+        if (str.toLowerCase() != str) {
+            throw new Error(`snake case strings can't have uppercase characters: ${str}`)
+        }
+
+        const parts: string[] = []
+
+        {
+
+            type Temp = [chr: string, idx: number]
+
+            const indexes: number[] = (str.split("").map((chr, idx) => ([chr, idx])) as Temp[]).filter((([chr, _]) => {
+                return chr == '_';
+            })).map(([_, idx]) => idx)
+
+            if (indexes.length == 0) {
+                parts.push(str)
+            }
+
+            for (let i = 0; i < indexes.length; ++i) {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const start = indexes[i]!
+
+                if (i == 0) {
+                    const end = start
+
+                    if (end == 1) {
+                        throw new Error(`Two underscore (_) characters near each other: ${str}`)
+                    }
+
+                    const part = str.substring(0, end).toLowerCase()
+                    parts.push(part)
+
+                }
+
+                if (i - 1 < indexes.length) {
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                    const end = indexes[i + 1]!
+
+                    if ((end - start) == 1) {
+                        throw new Error(`Two underscore (_) characters near each other: ${str}`)
+                    }
+
+                    const part = str.substring(start + 1, end).toLowerCase()
+                    parts.push(part)
+
+                } else {
+                    const part = str.substring(start + 1).toLowerCase()
+                    parts.push(part)
+                }
+
+
+            }
+
+
+        }
+
+        const result = new CaseName(parts)
+        assert(str === result.snake_case(), "Implementation error in fromSnakeCase")
+
+
+        return result;
+
+    }
+
     public combine(other: CaseName): CaseName {
 
         const parts = [...this._parts]
