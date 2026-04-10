@@ -154,17 +154,69 @@ TEST_CASE("testing parse errors of json values <json_parser_error>") {
 
 TEST_CASE("testing helper functions of the json parser <json_parser_helper_fn>") {
 
-	const auto null_src = make_null_source_location();
+	SUBCASE("null source handling") {
+		[]() -> void {
+			const auto null_src = make_null_source_location();
 
-	REQUIRE_TRUE(is_null_source_location(null_src));
+			REQUIRE_TRUE(is_null_source_location(null_src));
 
-	const tstr_static nonnull_src_str = "nothing"_tstr_static;
+			const tstr_static nonnull_src_str = "nothing"_tstr_static;
 
-	const auto nonnull_src = SourceLocation{ .source = new_json_source_string(JsonStringSource{
-		                                         .data = tstr_static_as_view(nonnull_src_str) }),
-		                                     .pos = SourcePosition{ .line = 0, .col = 0 } };
+			const auto nonnull_src =
+			    SourceLocation{ .source = new_json_source_string(JsonStringSource{
+				                    .data = tstr_static_as_view(nonnull_src_str) }),
+				                .pos = SourcePosition{ .line = 0, .col = 0 } };
 
-	REQUIRE_FALSE(is_null_source_location(nonnull_src));
+			REQUIRE_FALSE(is_null_source_location(nonnull_src));
+		}();
+	}
+
+	SUBCASE("object add entry") {
+		[]() -> void {
+			JsonObject* const object = get_empty_json_object();
+
+			if(object == nullptr) {
+				throw std::runtime_error("JSON object initialization failed");
+			}
+
+			{
+				const auto key = "key_null"_tstr;
+
+				const auto add_result =
+				    json_object_add_entry_tstr(object, &key, JsonValueCpp::null());
+				if(!tstr_static_is_null(add_result)) {
+					throw std::runtime_error(
+					    std::string{ "JSON object entry addition failed for key: " } +
+					    string_from_tstr_static(add_result));
+				}
+			}
+
+			{
+
+				const auto key = "key_2";
+
+				const auto add_result =
+				    json_object_add_entry_cstr(object, key, JsonValueCpp::number((int64_t)2));
+				if(!tstr_static_is_null(add_result)) {
+					throw std::runtime_error(
+					    std::string{ "JSON object entry addition failed for key: " } +
+					    string_from_tstr_static(add_result));
+				}
+			}
+
+			auto json_value = new_json_value_object(object);
+
+			auto expected_value = JsonValueCpp::object({
+			    { "key_null", JsonValueCpp::null() },
+			    { "key_2", JsonValueCpp::number((int64_t)2) },
+			});
+
+			REQUIRE_EQ(json_value, expected_value);
+
+			free_json_value(&json_value);
+			free_json_value(&expected_value);
+		}();
+	}
 }
 
 // TODO: compare with nhlohmann json!

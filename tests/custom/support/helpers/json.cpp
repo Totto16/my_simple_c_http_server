@@ -261,7 +261,7 @@ JsonValueCpp::object(std::initializer_list<std::pair<std::string, JsonValue>>&& 
 		const JsonValue final_value = value.second;
 		const auto add_result = json_object_add_entry(object, &key_moved, final_value);
 		if(!tstr_static_is_null(add_result)) {
-			throw std::runtime_error(std::string{ "JSON object initialization failed:" } +
+			throw std::runtime_error(std::string{ "JSON object entry addition failed for key: " } +
 			                         string_from_tstr_static(add_result));
 		}
 	}
