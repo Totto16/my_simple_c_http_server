@@ -103,13 +103,7 @@ function unionNameFor(name: TaggedName<"union">): string {
 }
 
 
-function generateEnumDeclaration(unionEnum: TaggedUnionEnum, member: TaggedMember[]): string {
-
-    const underlyingType: CEnumType | null = resolveUnderlyingEnumType(unionEnum.underlyingType, member.length)
-
-    if (underlyingType !== null && maxLengthForCEnumType(underlyingType) < member.length) {
-        throw new Error(`Underlying enum type ${underlyingType} can#t fit ${member.length.toString()} members!`)
-    }
+function generateEnumDeclaration(unionEnum: TaggedUnionEnum, member: TaggedMember[], underlyingType: CEnumType | null): string {
 
     return `/* @enum value */
 typedef enum${underlyingType === null ? "" : ` C_23_NARROW_ENUM_TO(${cTypeForEnum(underlyingType)})`} {
@@ -687,10 +681,17 @@ function generateIfNotMacro(member: TaggedMember, taggedUnion: TaggedUnion): str
 	if((variant_entry).${getUnionTagName(taggedUnion.name)} != ${memberNameForEnum(member, taggedUnion.enum.name)})`
 }
 
-function generateSwitchMacro(taggedUnion: TaggedUnion): string {
+function generateSwitchMacro(taggedUnion: TaggedUnion, underlyingType: CEnumType | null): string {
+
+    let surrounding: [start: string, end: string] = ["", ""]
+
+    if (underlyingType === "bool") {
+        surrounding = [`_Pragma ("GCC diagnostic push") _Pragma ("GCC diagnostic ignored \\"-Wswitch-bool\\"") /* FOR GCC */ `,
+            ` _Pragma ("GCC diagnostic pop")`]
+    }
 
     return `#define ${getSwitchMacroName(taggedUnion.name)}(variant_entry)
-	switch((variant_entry).${getUnionTagName(taggedUnion.name)})`
+	${surrounding[0]}switch((variant_entry).${getUnionTagName(taggedUnion.name)})${surrounding[1]}`
 }
 
 
@@ -891,8 +892,15 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
     const dataName: string = getUnionDataName(taggedUnion.name);
 
+
+    const underlyingType: CEnumType | null = resolveUnderlyingEnumType(taggedUnion.enum.underlyingType, taggedUnion.member.length)
+
+    if (underlyingType !== null && maxLengthForCEnumType(underlyingType) < taggedUnion.member.length) {
+        throw new Error(`Underlying enum type ${underlyingType} can't fit ${taggedUnion.member.length.toString()} members!`)
+    }
+
     const generateMacroEnum = `#define GENERATE_VARIANT_ENUM_${taggedUnion.name.inner.MACRO_NAME()}()
-	${[generateEnumDeclaration(taggedUnion.enum, taggedUnion.member)].map(decl => decl.split("\n").join("\n	")).join("\n	\n")}`
+	${[generateEnumDeclaration(taggedUnion.enum, taggedUnion.member, underlyingType)].map(decl => decl.split("\n").join("\n	")).join("\n	\n")}`
 
 
     const generateMacroCore = `#define GENERATE_VARIANT_CORE_${taggedUnion.name.inner.MACRO_NAME()}()
@@ -931,7 +939,7 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
         }
         ),
         ...taggedUnion.member.map((mem): string => generateIfNotMacro(mem, taggedUnion)),
-        generateSwitchMacro(taggedUnion),
+        generateSwitchMacro(taggedUnion, underlyingType),
         ...taggedUnion.member.flatMap((mem): string[] => {
             const macros: GeneratedMacros = generateCaseMacros(mem, taggedUnion, unnamedStructMap)
             return macros.macros

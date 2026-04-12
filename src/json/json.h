@@ -58,9 +58,11 @@ typedef struct {
 	SourceLocation loc;
 } JsonError;
 
+// GCOVR_EXCL_START (external library)
 GENERATE_VARIANT_ALL_JSON_VALUE()
 
 GENERATE_VARIANT_ALL_JSON_PARSE_RESULT()
+// GCOVR_EXCL_STOP
 
 // parse json strings
 

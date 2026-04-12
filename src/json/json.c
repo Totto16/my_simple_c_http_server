@@ -177,7 +177,7 @@ NODISCARD bool is_null_source_location(SourceLocation location) {
 		}
 		VARIANT_CASE_END();
 		default: {
-			return false;
+			return false; // GCOVR_EXCL_BR_SOURCE (variant has no other type)
 		}
 	}
 }
@@ -1071,7 +1071,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* co
 	}
 
 	// saw frac or exp
-	assert(saw_frac || saw_exp); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
+	assert(saw_frac || saw_exp); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/4
 
 	// are eof
 	if(json_parse_state_is_eof(*state)) {
@@ -1108,6 +1108,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* co
 
 	// we are already finished
 	if(saw_exp) {
+		assert(false);     // TODO
 		assert(!saw_frac); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 
 		// have: minus + int + exp
@@ -1211,7 +1212,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 	//          %x72 /          ; r    carriage return U+000D
 	//          %x74 /          ; t    tab             U+0009
 	//          %x75 4HEXDIG )  ; uXXXX                U+XXXX
-	//  escape = %x5C              ; \
+	//  escape = %x5C              ; \  (\ char)
 	//  quotation-mark = %x22      ; "
 	//  unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
 
@@ -1512,11 +1513,11 @@ NODISCARD JsonParseResult json_value_parse_from_file(const tstr* const file_path
 	return json_value_parse_from_str_impl(state);
 }
 
-void static free_json_string_impl(JsonString* const json_string) {
+static void free_json_string_impl(JsonString* const json_string) {
 	TVEC_FREE(Utf8Codepoint, &(json_string->value));
 }
 
-void static free_json_string_malloced(JsonString* const json_string) {
+static void free_json_string_malloced(JsonString* const json_string) {
 	free_json_string_impl(json_string);
 	free(json_string);
 }
@@ -1616,7 +1617,7 @@ static void json_to_string_number_impl(StringBuilder* const sb, const JsonNumber
 	                       , "%f", json_number.value);
 }
 
-NODISCARD static bool json_impl_needs_escapeing(Utf8Codepoint codepoint) {
+NODISCARD static bool json_impl_needs_escaping(Utf8Codepoint codepoint) {
 
 	// note: not all escapable chars are required to be escaped
 
@@ -1655,7 +1656,8 @@ NODISCARD static bool json_impl_needs_escapeing(Utf8Codepoint codepoint) {
 	}
 }
 
-NODISCARD static long json_escape_char_into(const Utf8Codepoint codepoint, uint8_t* const dst) {
+NODISCARD static long json_impl_escape_char_into(const Utf8Codepoint codepoint,
+                                                 uint8_t* const dst) {
 	switch(codepoint) {
 		case '"':
 		case '\\':
@@ -1710,6 +1712,8 @@ NODISCARD static long json_escape_char_into(const Utf8Codepoint codepoint, uint8
 
 			char hex_buf[5];
 
+			// TODO: hit
+			assert(false);
 			const int result = snprintf(hex_buf, sizeof(hex_buf), "%04X", small_codepoint);
 			assert(result == 4 && "sprintf succeeded"); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 
@@ -1759,9 +1763,9 @@ static tstr get_normalized_string_from_codepoints_json_escaped(JsonCharArr codep
 
 		const Utf8Codepoint codepoint = TVEC_AT(Utf8Codepoint, codepoints, i);
 
-		if(json_impl_needs_escapeing(codepoint)) {
+		if(json_impl_needs_escaping(codepoint)) {
 			// needs place for 6 / UTF8_MAX_AMOUNT_PER_CHUNK_ITERATION chars
-			long result = json_escape_char_into(codepoint, buffer + current_size);
+			long result = json_impl_escape_char_into(codepoint, buffer + current_size);
 
 			if(result <= 0) {
 				free(buffer);
