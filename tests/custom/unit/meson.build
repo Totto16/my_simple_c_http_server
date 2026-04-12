@@ -21,10 +21,10 @@ test_deps += test_support_dep
 test_inc_dirs += include_directories('.')
 
 test_src += files(
-    'helpers/tests.cpp',
-    'helpers/tests.hpp',
     'helpers/main.cpp',
     'helpers/string_maker.hpp',
+    'helpers/tests.cpp',
+    'helpers/tests.hpp',
 )
 
 test_cpp_args = [
@@ -146,3 +146,11 @@ all_tests = executable(
         'cpp_std': cpp_std_to_use,
     },
 )
+
+if get_option('b_coverage')
+    # check if we have gcovr >= 8.4, as this is needed for the 'GCOVR_EXCL_BR_WITHOUT_HIT: x/y' feature
+    gocvr = find_program(
+        'gcovr',
+        version: '>=8.4',
+    )
+endif

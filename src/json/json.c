@@ -13,7 +13,9 @@
 
 // see: https://datatracker.ietf.org/doc/html/rfc8259
 
+// GCOVR_EXCL_START (external library)
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(JsonValue)
+// GCOVR_EXCL_STOP
 
 typedef TVEC_TYPENAME(JsonValue) JsonValueArr;
 
@@ -21,7 +23,9 @@ struct JsonArrayImpl {
 	JsonValueArr value;
 };
 
+// GCOVR_EXCL_START (external library)
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Utf8Codepoint)
+// GCOVR_EXCL_STOP
 
 typedef TVEC_TYPENAME(Utf8Codepoint) JsonCharArr;
 
@@ -34,7 +38,9 @@ typedef struct {
 	JsonString string;
 } JsonObjectKey;
 
+// GCOVR_EXCL_START (external library)
 TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(JsonObjectKey, JsonObjectKeyName, JsonValue, JsonValueMapImpl)
+// GCOVR_EXCL_STOP
 
 TMAP_HASH_FUNC_SIG(JsonObjectKey, JsonObjectKeyName) {
 	return TMAP_HASH_BYTES(TVEC_DATA_CONST(Utf8Codepoint, &key.string.value),
@@ -52,7 +58,7 @@ struct JsonObjectImpl {
 };
 
 static void tstr_view_advance_by(tstr_view* const str, size_t amount) {
-	assert(str->len >= amount);
+	assert(str->len >= amount); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 	str->data += amount;
 	str->len -= amount;
 }
@@ -100,7 +106,7 @@ NODISCARD static size_t json_parse_state_get_str_len(const JsonParseState state)
 }
 
 static void json_parse_state_skip_by(JsonParseState* const state, size_t amount, bool advance_loc) {
-	assert(state->view.len >= amount);
+	assert(state->view.len >= amount); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 	tstr_view_advance_by(&(state->view), amount);
 	if(advance_loc) {
 		source_position_location_advance_col_by(&(state->loc), amount);
@@ -108,14 +114,14 @@ static void json_parse_state_skip_by(JsonParseState* const state, size_t amount,
 }
 
 NODISCARD static char json_parse_state_get_next_char(JsonParseState* const state) {
-	assert(state->view.len > 0);
+	assert(state->view.len > 0); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 	const char result = state->view.data[0];
 	json_parse_state_skip_by(state, 1, true);
 	return result;
 }
 
 NODISCARD static char json_parse_state_peek_char_at(const JsonParseState state, size_t index) {
-	assert(state.view.len > index);
+	assert(state.view.len > index); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 	return state.view.data[index];
 }
 
@@ -1065,7 +1071,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* co
 	}
 
 	// saw frac or exp
-	assert(saw_frac || saw_exp);
+	assert(saw_frac || saw_exp); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 
 	// are eof
 	if(json_parse_state_is_eof(*state)) {
@@ -1102,7 +1108,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* co
 
 	// we are already finished
 	if(saw_exp) {
-		assert(!saw_frac);
+		assert(!saw_frac); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 
 		// have: minus + int + exp
 		const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT_EXP();
@@ -1122,13 +1128,13 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* co
 			return new_json_parse_result_error(exp_result);
 		}
 	} else {
-		assert(saw_frac);
+		assert(saw_frac); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 		// have: minus + int + frac
 		const JsonNumber number = JSON_NUMBER_FROM_MINUS_INT_FRAC();
 		return new_json_parse_result_ok(new_json_value_number(number));
 	}
 
-	assert(saw_exp && saw_frac);
+	assert(saw_exp && saw_frac); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 
 #define JSON_NUMBER_FROM_MINUS_INT_FRAC_EXP() \
 	{ \
@@ -1705,7 +1711,7 @@ NODISCARD static long json_escape_char_into(const Utf8Codepoint codepoint, uint8
 			char hex_buf[5];
 
 			const int result = snprintf(hex_buf, sizeof(hex_buf), "%04X", small_codepoint);
-			assert(result == 4 && "sprintf succeeded");
+			assert(result == 4 && "sprintf succeeded"); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 
 			dst[2] = hex_buf[0];
 			dst[3] = hex_buf[1];
@@ -2002,7 +2008,7 @@ NODISCARD size_t json_array_size(const JsonArray* const array) {
 }
 
 NODISCARD JsonValue json_array_at(const JsonArray* const array, const size_t index) {
-	assert(index < json_array_size(array));
+	assert(index < json_array_size(array)); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 
 	return TVEC_AT(JsonValue, array->value, index);
 }
