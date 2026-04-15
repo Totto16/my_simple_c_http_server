@@ -107,10 +107,13 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 	#define UNREACHABLE() \
 		do { \
-			assert(false && "UNREACHABLE"); \
+			assert(false && "UNREACHABLE"); /* NOLINT(cert-dcl03-c,misc-static-assert) */ \
 		} while(false)
 
-	#define OOM_ASSERT(value, message) assert((value) && (message));
+	#define OOM_ASSERT(value, message) \
+		do { \
+			assert((value) && (message)); /* NOLINT(cert-dcl03-c,misc-static-assert) */ \
+		} while(false)
 
 #endif
 

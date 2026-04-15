@@ -90,9 +90,9 @@ NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 		switch(insert_result) {
 			case TmapInsertResultWouldOverwrite: {
 				// TODO(Totto): search path keys can be non unique, either error, as we don't
-				// support duplicates here, or just appaned them to the existing string, but with
+				// support duplicates here, or just append them to the existing string, but with
 				// what separator?
-				UNREACHABLE(); // NOLINT8cert-dcl03-c,misc-static-assert
+				UNREACHABLE();
 				break;
 			}
 			case TmapInsertResultOk: {
@@ -102,7 +102,7 @@ NODISCARD ParsedURLPath parse_url_path(const tstr_view path) {
 			default: {
 				// TODO(Totto): allow error!
 				// return NULL;
-				UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
+				UNREACHABLE();
 			}
 		}
 	}
@@ -610,7 +610,7 @@ NODISCARD ParsedRequestURI duplicate_request_uri(const ParsedRequestURI uri) {
 				                                     duplicate_authority(uri.data.authority) } };
 		}
 		default: {
-			UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
+			UNREACHABLE();
 		}
 	}
 }

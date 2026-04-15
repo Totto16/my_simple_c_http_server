@@ -14,7 +14,9 @@
 // see: https://datatracker.ietf.org/doc/html/rfc8259
 
 // GCOVR_EXCL_START (external library)
+/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type) */
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(JsonValue)
+/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 // GCOVR_EXCL_STOP
 
 typedef TVEC_TYPENAME(JsonValue) JsonValueArr;
@@ -24,7 +26,9 @@ struct JsonArrayImpl {
 };
 
 // GCOVR_EXCL_START (external library)
+/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type) */
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Utf8Codepoint)
+/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 // GCOVR_EXCL_STOP
 
 typedef TVEC_TYPENAME(Utf8Codepoint) JsonCharArr;
@@ -806,10 +810,10 @@ NODISCARD static JsonError json_parse_impl_parse_number_int_part(JsonParseState*
 		}
 	}
 
-	// TODO: JSON overflows much earlier, Number.MAX_SAFE_INTEGER in js says, but is this in the
-	// spec?
+	// TODO(Totto): JSON overflows much earlier, Number.MAX_SAFE_INTEGER in js says, but is this in
+	// the spec?
 
-	// TODO: check if this has rounding errors!
+	// TODO(Totto): check if this has rounding errors!
 	*out_result = (double)value;
 	return json_error_none(state->loc);
 }
@@ -953,16 +957,16 @@ NODISCARD static JsonError json_parse_impl_parse_number_exp_part(JsonParseState*
 		}
 	}
 
-	// TODO: JSON overflows much earlier, Number.MAX_SAFE_INTEGER in js says, but is this in the
-	// spec?
+	// TODO(Totto): JSON overflows much earlier, Number.MAX_SAFE_INTEGER in js says, but is this in
+	// the spec?
 
-	// TODO: check if this overflow when using -
+	// TODO(Totto): check if this overflow when using -
 	*out_result = minus ? -(value) : value;
 	return json_error_none(state->loc);
 }
 
 NODISCARD static double get_power_of_10(uint64_t value) {
-	// TODO: find a faster way than this
+	// TODO(Totto): find a faster way than this
 	return pow(10.0, (double)value);
 }
 
@@ -1108,7 +1112,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* co
 
 	// we are already finished
 	if(saw_exp) {
-		assert(false);     // TODO
+		assert(false);     // TODO(Totto)
 		assert(!saw_frac); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 
 		// have: minus + int + exp
@@ -1612,7 +1616,7 @@ static void json_to_string_number_impl(StringBuilder* const sb, const JsonNumber
                                        const JsonSerializeOptions options) {
 
 	UNUSED(options);
-	// TODO: use better formatting
+	// TODO(Totto): use better formatting
 	STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "error in formatting json number");
 	                       , "%f", json_number.value);
 }
@@ -1712,7 +1716,7 @@ NODISCARD static long json_impl_escape_char_into(const Utf8Codepoint codepoint,
 
 			char hex_buf[5];
 
-			// TODO: hit
+			// TODO(Totto): hit
 			assert(false);
 			const int result = snprintf(hex_buf, sizeof(hex_buf), "%04X", small_codepoint);
 			if(result != 4) {
@@ -1811,7 +1815,8 @@ static tstr get_tstr_from_json_string_escaped(const JsonString* const json_strin
 	return get_normalized_string_from_codepoints_json_escaped(json_string->value);
 }
 
-static void json_to_string_string_impl(StringBuilder* const sb, const JsonString* const json_string,
+static void json_to_string_string_impl(StringBuilder* const string_builder,
+                                       const JsonString* const json_string,
                                        const JsonSerializeOptions options) {
 	UNUSED(options);
 
@@ -1821,14 +1826,14 @@ static void json_to_string_string_impl(StringBuilder* const sb, const JsonString
 		OOM_ASSERT(false, "error in formatting json string");
 	}
 
-	STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "error in formatting json string");
+	STRING_BUILDER_APPENDF(string_builder, OOM_ASSERT(false, "error in formatting json string");
 	                       , "\"" TSTR_FMT "\"", TSTR_FMT_ARGS(string_escaped));
 
 	tstr_free(&string_escaped);
 }
 
-static void json_to_string_variant_impl(StringBuilder* const sb, const JsonValue json_value,
-                                        const JsonSerializeOptions options);
+static void json_to_string_variant_impl(StringBuilder* string_builder, JsonValue json_value,
+                                        JsonSerializeOptions options);
 
 #define FORMAT_TSTR(tstr_res, statement, format, ...) \
 	do { \
@@ -1837,8 +1842,9 @@ static void json_to_string_variant_impl(StringBuilder* const sb, const JsonValue
 		tstr_res = tstr_own_cstr(buf); \
 	} while(false)
 
-static void json_to_string_array_impl(StringBuilder* const sb, const JsonArray* const json_array,
-                                      const JsonSerializeOptions options) {
+static void
+json_to_string_array_impl(StringBuilder* const string_builder, // NOLINT(misc-no-recursion)
+                          const JsonArray* const json_array, const JsonSerializeOptions options) {
 
 	tstr start_str = TSTR_LIT("[");
 	tstr separator_str = TSTR_LIT(", ");
@@ -1859,26 +1865,28 @@ static void json_to_string_array_impl(StringBuilder* const sb, const JsonArray* 
 		}
 	}
 
-	string_builder_append_tstr(sb, &start_str);
+	string_builder_append_tstr(string_builder, &start_str);
 
 	for(size_t i = 0; i < json_array_size(json_array); ++i) {
 		if(i != 0) {
-			string_builder_append_tstr(sb, &separator_str);
+			string_builder_append_tstr(string_builder, &separator_str);
 		}
 
 		const JsonValue value = json_array_at(json_array, i);
-		json_to_string_variant_impl(sb, value, options);
+		json_to_string_variant_impl(string_builder, value, options);
 	}
 
-	string_builder_append_tstr(sb, &end_str);
+	string_builder_append_tstr(string_builder, &end_str);
 
 	tstr_free(&start_str);
 	tstr_free(&separator_str);
 	tstr_free(&end_str);
 }
 
-static void json_to_string_object_impl(StringBuilder* const sb, const JsonObject* const json_object,
-                                       const JsonSerializeOptions options) {
+static void
+json_to_string_object_impl(StringBuilder* const string_builder, // NOLINT(misc-no-recursion)
+                           const JsonObject* const json_object,
+                           const JsonSerializeOptions options) {
 	tstr start_str = TSTR_LIT("{");
 	tstr separator_str = TSTR_LIT(", ");
 	tstr end_str = TSTR_LIT("}");
@@ -1898,7 +1906,7 @@ static void json_to_string_object_impl(StringBuilder* const sb, const JsonObject
 		}
 	}
 
-	string_builder_append_tstr(sb, &start_str);
+	string_builder_append_tstr(string_builder, &start_str);
 
 	JsonObjectIter* iter = json_object_get_iterator(json_object);
 
@@ -1913,22 +1921,22 @@ static void json_to_string_object_impl(StringBuilder* const sb, const JsonObject
 		}
 
 		if(!start) {
-			string_builder_append_tstr(sb, &separator_str);
+			string_builder_append_tstr(string_builder, &separator_str);
 		} else {
 			start = false;
 		}
 
 		const JsonString* const key = json_object_entry_get_key(next_entry);
 
-		json_to_string_string_impl(sb, key, options);
-		string_builder_append_tstr_static(sb, TSTR_STATIC_LIT(": "));
+		json_to_string_string_impl(string_builder, key, options);
+		string_builder_append_tstr_static(string_builder, TSTR_STATIC_LIT(": "));
 
 		const JsonValue value = json_object_entry_get_value(next_entry);
 
-		json_to_string_variant_impl(sb, value, options);
+		json_to_string_variant_impl(string_builder, value, options);
 	}
 
-	string_builder_append_tstr(sb, &end_str);
+	string_builder_append_tstr(string_builder, &end_str);
 
 	tstr_free(&start_str);
 	tstr_free(&separator_str);
@@ -1936,36 +1944,37 @@ static void json_to_string_object_impl(StringBuilder* const sb, const JsonObject
 	json_object_free_iterator(iter);
 }
 
-static void json_to_string_variant_impl(StringBuilder* const sb, const JsonValue json_value,
-                                        const JsonSerializeOptions options) {
+static void
+json_to_string_variant_impl(StringBuilder* const string_builder, // NOLINT(misc-no-recursion)
+                            const JsonValue json_value, const JsonSerializeOptions options) {
 	SWITCH_JSON_VALUE(json_value) {
 		CASE_JSON_VALUE_IS_OBJECT_CONST(json_value) {
-			json_to_string_object_impl(sb, object.obj, options);
+			json_to_string_object_impl(string_builder, object.obj, options);
 		}
 		break;
 		VARIANT_CASE_END();
 		CASE_JSON_VALUE_IS_ARRAY_CONST(json_value) {
-			json_to_string_array_impl(sb, array.arr, options);
+			json_to_string_array_impl(string_builder, array.arr, options);
 		}
 		break;
 		VARIANT_CASE_END();
 		CASE_JSON_VALUE_IS_NUMBER_CONST(json_value) {
-			json_to_string_number_impl(sb, number, options);
+			json_to_string_number_impl(string_builder, number, options);
 		}
 		break;
 		VARIANT_CASE_END();
 		CASE_JSON_VALUE_IS_STRING_CONST(json_value) {
-			json_to_string_string_impl(sb, string, options);
+			json_to_string_string_impl(string_builder, string, options);
 		}
 		break;
 		VARIANT_CASE_END();
 		CASE_JSON_VALUE_IS_BOOLEAN_CONST(json_value) {
-			json_to_string_boolean_impl(sb, boolean, options);
+			json_to_string_boolean_impl(string_builder, boolean, options);
 		}
 		break;
 		VARIANT_CASE_END();
 		CASE_JSON_VALUE_IS_NULL() {
-			json_to_string_null_impl(sb, options);
+			json_to_string_null_impl(string_builder, options);
 		}
 		break;
 		VARIANT_CASE_END();
@@ -1978,15 +1987,15 @@ static void json_to_string_variant_impl(StringBuilder* const sb, const JsonValue
 NODISCARD tstr json_value_to_string_advanced(const JsonValue json_value,
                                              const JsonSerializeOptions options) {
 
-	StringBuilder* sb = string_builder_init();
+	StringBuilder* string_builder = string_builder_init();
 
-	if(sb == NULL) {
+	if(string_builder == NULL) {
 		return tstr_null();
 	}
 
-	json_to_string_variant_impl(sb, json_value, options);
+	json_to_string_variant_impl(string_builder, json_value, options);
 
-	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&sb);
+	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&string_builder);
 
 	if(buffer.data == NULL) {
 		return tstr_null();
@@ -2106,7 +2115,7 @@ NODISCARD JsonString* json_get_string_from_tstr_view(tstr_view str_view) {
 		return NULL;
 	}
 
-	const Utf8DataResult result = get_utf8_string(str_view.data, str_view.len);
+	const Utf8DataResult result = get_utf8_string(str_view.data, (long)(str_view.len));
 
 #define FREE_AT_END() \
 	do { \
@@ -2137,11 +2146,11 @@ NODISCARD JsonString* json_get_string_from_tstr_view(tstr_view str_view) {
 }
 #undef FREE_AT_END
 
-static void json_format_source_location_impl(StringBuilder* const sb,
+static void json_format_source_location_impl(StringBuilder* const string_builder,
                                              const SourceLocation location) {
 
 	if(is_null_source_location(location)) {
-		string_builder_append_single(sb, "<Nowhere>");
+		string_builder_append_single(string_builder, "<Nowhere>");
 		return;
 	}
 
@@ -2149,15 +2158,17 @@ static void json_format_source_location_impl(StringBuilder* const sb,
 
 	SWITCH_JSON_SOURCE(location.source) {
 		CASE_JSON_SOURCE_IS_FILE_CONST(location.source) {
-			STRING_BUILDER_APPENDF(sb, return;, TSTR_FMT ":%zu:%zu", TSTR_FMT_ARGS(*file.file_path),
-			                                  location.pos.line + 1, location.pos.col + 1)
+			STRING_BUILDER_APPENDF(string_builder, return;
+			                       , TSTR_FMT ":%zu:%zu", TSTR_FMT_ARGS(*file.file_path),
+			                       location.pos.line + 1, location.pos.col + 1)
 			return;
 		}
 		VARIANT_CASE_END();
 		CASE_JSON_SOURCE_IS_STRING_IGN() {
-			// TODO: print the whole line of this string and after that the error
-			STRING_BUILDER_APPENDF(sb, return;, "<string source>:%zu:%zu", location.pos.line + 1,
-			                                  location.pos.col + 1)
+			// TODO(Totto): print the whole line of this string and after that the error
+			STRING_BUILDER_APPENDF(string_builder, return;, "<string source>:%zu:%zu",
+			                                              location.pos.line + 1,
+			                                              location.pos.col + 1)
 			return;
 		}
 		VARIANT_CASE_END();
@@ -2168,26 +2179,26 @@ static void json_format_source_location_impl(StringBuilder* const sb,
 }
 
 NODISCARD tstr json_format_source_location(const SourceLocation location) {
-	StringBuilder* sb = string_builder_init();
+	StringBuilder* string_builder = string_builder_init();
 
-	json_format_source_location_impl(sb, location);
+	json_format_source_location_impl(string_builder, location);
 
-	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&sb);
+	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&string_builder);
 
 	return tstr_own(buffer.data, buffer.size, buffer.size);
 }
 
 NODISCARD tstr json_format_error(const JsonError error) {
 
-	StringBuilder* sb = string_builder_init();
+	StringBuilder* string_builder = string_builder_init();
 
-	string_builder_append_tstr_static(sb, error.message);
+	string_builder_append_tstr_static(string_builder, error.message);
 
-	string_builder_append_single(sb, ": ");
+	string_builder_append_single(string_builder, ": ");
 
-	json_format_source_location_impl(sb, error.loc);
+	json_format_source_location_impl(string_builder, error.loc);
 
-	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&sb);
+	const SizedBuffer buffer = string_builder_release_into_sized_buffer(&string_builder);
 
 	return tstr_own(buffer.data, buffer.size, buffer.size);
 }

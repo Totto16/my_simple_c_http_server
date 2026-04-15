@@ -2006,7 +2006,7 @@ NODISCARD static Http2FrameCategory get_http2_frame_category(const Http2Frame fr
 				                                        continuation_frame.identifier } };
 		}
 		default: {
-			UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
+			UNREACHABLE();
 		}
 	}
 }
