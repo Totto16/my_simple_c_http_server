@@ -46,7 +46,7 @@ jobs:
             - name: Setup pnpm
               uses: pnpm/action-setup@v5
               with:
-                version: 10
+                  version: 10
 
             # NOTE: meson has no dependencies, so --break-system-packages doesn't really break anything!
             - name: Setup meson
@@ -56,7 +56,13 @@ jobs:
             - name: Install dependencies
               run: |
                   sudo apt-get update
-                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 gcovr libgmp-dev libpam0g-dev -y --no-install-recommends
+                  sudo apt-get install ninja-build openssl libssl-dev libzstd-dev zlib1g-dev libbrotli-dev wget ca-certificates bzip2 pipx libgmp-dev libpam0g-dev -y --no-install-recommends
+
+            # NOTE: the repos hav 7.0 but we need >= 8.4, so we install gcovr with pipx (it has to much dependencies for a raw install with --break-system-packages)
+            - name: Setup gcovr
+              run: |
+                  pipx ensurepath
+                  pipx install "gcovr>=8.4"
 
             - name: Unit Tests
               run: |
