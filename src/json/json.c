@@ -43,7 +43,9 @@ typedef struct {
 } JsonObjectKey;
 
 // GCOVR_EXCL_START (external library)
+/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type) */
 TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(JsonObjectKey, JsonObjectKeyName, JsonValue, JsonValueMapImpl)
+/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 // GCOVR_EXCL_STOP
 
 TMAP_HASH_FUNC_SIG(JsonObjectKey, JsonObjectKeyName) {
@@ -327,8 +329,9 @@ NODISCARD static JsonParseResult json_parse_impl_parse_value(JsonParseState* sta
 
 static void free_json_key(JsonObjectKey* key);
 
-NODISCARD static JsonError json_parse_impl_parse_object_member(JsonParseState* const state,
-                                                               JsonObject* const json_object) {
+NODISCARD static JsonError
+json_parse_impl_parse_object_member(JsonParseState* const state, // NOLINT(misc-no-recursion)
+                                    JsonObject* const json_object) {
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	// member = string name-separator value
 
@@ -421,7 +424,8 @@ NODISCARD static JsonError json_parse_impl_parse_object_member(JsonParseState* c
 
 #undef FREE_AT_END
 
-NODISCARD static JsonParseResult json_parse_impl_parse_object(JsonParseState* const state) {
+NODISCARD static JsonParseResult
+json_parse_impl_parse_object(JsonParseState* const state) { // NOLINT(misc-no-recursion)
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 
@@ -585,8 +589,9 @@ NODISCARD tstr_static json_array_add_entry(JsonArray* const json_array, const Js
 	return tstr_static_null();
 }
 
-NODISCARD static JsonError json_parse_impl_parse_array_value(JsonParseState* const state,
-                                                             JsonArray* const json_array) {
+NODISCARD static JsonError
+json_parse_impl_parse_array_value(JsonParseState* const state, // NOLINT(misc-no-recursion)
+                                  JsonArray* const json_array) {
 	// just parsers a value and than adds it to the array
 
 	if(json_parse_state_is_eof(*state)) {
@@ -619,7 +624,8 @@ NODISCARD static JsonError json_parse_impl_parse_array_value(JsonParseState* con
 
 #undef FREE_AT_END
 
-NODISCARD static JsonParseResult json_parse_impl_parse_array(JsonParseState* const state) {
+NODISCARD static JsonParseResult
+json_parse_impl_parse_array(JsonParseState* const state) { // NOLINT(misc-no-recursion)
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 
@@ -799,7 +805,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_int_part(JsonParseState*
 
 		const uint64_t previous_value = value;
 
-		value = (value * 10) + (next_value - '0');
+		value = (value * 10) + (next_value - '0'); // NOLINT(readability-magic-numbers)
 		json_parse_state_skip_by(state, 1, true);
 
 		if(previous_value > value) {
@@ -851,7 +857,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_frac_part(JsonParseState
 		                          TSTR_STATIC_LIT("invalid number frac part: incorrect start"));
 	}
 
-	double divider = 10.0;
+	double divider = 10.0; // NOLINT(readability-magic-numbers)
 	double value = ((double)(first_value - '0')) / divider;
 	json_parse_state_skip_by(state, 1, true);
 
@@ -866,7 +872,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_frac_part(JsonParseState
 			break;
 		}
 
-		divider = divider * 10.0;
+		divider = divider * 10.0; // NOLINT(readability-magic-numbers)
 		value = value + (((double)next_value - '0') / divider);
 		json_parse_state_skip_by(state, 1, true);
 	}
@@ -946,7 +952,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_exp_part(JsonParseState*
 
 		const int64_t previous_value = value;
 
-		value = (value * 10) + (next_value - '0');
+		value = (value * 10) + (next_value - '0'); // NOLINT(readability-magic-numbers)
 		json_parse_state_skip_by(state, 1, true);
 
 		if(previous_value > value) {
@@ -961,13 +967,13 @@ NODISCARD static JsonError json_parse_impl_parse_number_exp_part(JsonParseState*
 	// the spec?
 
 	// TODO(Totto): check if this overflow when using -
-	*out_result = minus ? -(value) : value;
+	*out_result = minus ? -(value) : value; // NOLINT(readability-implicit-bool-conversion)
 	return json_error_none(state->loc);
 }
 
 NODISCARD static double get_power_of_10(uint64_t value) {
 	// TODO(Totto): find a faster way than this
-	return pow(10.0, (double)value);
+	return pow(10.0, (double)value); // NOLINT(readability-magic-numbers)
 }
 
 NODISCARD static double json_number_make_value_int_exp(double int_value, int64_t exp) {
@@ -1186,7 +1192,9 @@ NODISCARD static Utf8NextCharResult utf8_get_next_char_and_consume(JsonParseStat
 
 	utf8proc_int32_t codepoint = 0;
 	utf8proc_ssize_t result = utf8proc_iterate(
-	    (const utf8proc_uint8_t*)((const void*)state->view.data), state->view.len, &codepoint);
+	    (const utf8proc_uint8_t*)((const void*) // NOLINT(bugprone-casting-through-void)
+	                              state->view.data),
+	    (long)(state->view.len), &codepoint);
 
 	if(result < 0) {
 		return new_utf8_next_char_result_error(
@@ -1248,6 +1256,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 	while(true) {
 
 		if(json_parse_state_is_eof(*state)) {
+			FREE_AT_END();
 			return new_json_parse_result_error(make_json_error_at(
 			    state->loc,
 			    TSTR_STATIC_LIT("empty string: expected '\"' or string-char but got eof")));
@@ -1266,31 +1275,45 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 			FREE_AT_END();
 			return new_json_parse_result_error(make_json_error_at(
 			    state->loc, TSTR_STATIC_LIT("invalid string char: range (-inf, 0)")));
-		} else if(codepoint >= 0 && codepoint < 0x20) {
+		}
+
+		if(codepoint >= 0 && codepoint < 0x20) { // NOLINT(readability-magic-numbers)
 			FREE_AT_END();
 
 			static_assert(JSON_NEWLINE_CHAR_FOR_LOCATION >= 0 &&
-			              JSON_NEWLINE_CHAR_FOR_LOCATION <= 0x020);
+			              JSON_NEWLINE_CHAR_FOR_LOCATION <=
+			                  0x020); // NOLINT(readability-magic-numbers)
 
 			return new_json_parse_result_error(make_json_error_at(
 			    state->loc, TSTR_STATIC_LIT("invalid string char: range [0, 0x20)")));
-		} else if(codepoint >= 0x20 && codepoint <= 0x21) {
-			goto add_codepoint_raw;
-		} else if(codepoint == '"') {
-			static_assert(0x22 == '"');
-			break;
-		} else if(codepoint >= 0x23 && codepoint <= 0x5B) {
-			goto add_codepoint_raw;
-		} else if(codepoint == '\\') {
-			static_assert(0x5C == '\\');
-			goto escape_logic;
-		} else if(codepoint >= 0x5D && codepoint <= 0x10FFFF) {
-			goto add_codepoint_raw;
-		} else {
-			FREE_AT_END();
-			return new_json_parse_result_error(make_json_error_at(
-			    state->loc, TSTR_STATIC_LIT("invalid string char: range (0x10FFFF, +inf)")));
 		}
+
+		if(codepoint >= 0x20 && codepoint <= 0x21) { // NOLINT(readability-magic-numbers)
+			goto add_codepoint_raw;
+		}
+
+		if(codepoint == '"') {
+			static_assert(0x22 == '"'); // NOLINT(readability-magic-numbers)
+			break;
+		}
+
+		if(codepoint >= 0x23 && codepoint <= 0x5B) { // NOLINT(readability-magic-numbers)
+			goto add_codepoint_raw;
+		}
+
+		if(codepoint == '\\') {
+			static_assert(0x5C == '\\'); // NOLINT(readability-magic-numbers)
+			goto escape_logic;
+		}
+
+		if(codepoint >= 0x5D && codepoint <= 0x10FFFF) { // NOLINT(readability-magic-numbers)
+			goto add_codepoint_raw;
+		}
+
+		FREE_AT_END();
+		return new_json_parse_result_error(make_json_error_at(
+		    state->loc, TSTR_STATIC_LIT("invalid string char: range (0x10FFFF, +inf)")));
+
 		//
 
 		continue;
@@ -1316,44 +1339,44 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 		const char escape_char = json_parse_state_get_next_char(state);
 
 		if(escape_char == '"') {
-			static_assert(0x22 == '"');
+			static_assert(0x22 == '"'); // NOLINT(readability-magic-numbers)
 			codepoint = '"';
 			goto add_codepoint_raw;
 		} else if(escape_char == '\\') {
-			static_assert(0x5C == '\\');
+			static_assert(0x5C == '\\'); // NOLINT(readability-magic-numbers)
 			codepoint = '\\';
 			goto add_codepoint_raw;
 		} else if(escape_char == '/') {
-			static_assert(0x2F == '/');
+			static_assert(0x2F == '/'); // NOLINT(readability-magic-numbers)
 			codepoint = '/';
 			goto add_codepoint_raw;
 		} else if(escape_char == 'b') {
-			static_assert(0x62 == 'b');
-			static_assert(0x08 == '\b');
+			static_assert(0x62 == 'b');  // NOLINT(readability-magic-numbers)
+			static_assert(0x08 == '\b'); // NOLINT(readability-magic-numbers)
 			codepoint = '\b';
 			goto add_codepoint_raw;
 		} else if(escape_char == 'f') {
-			static_assert(0x66 == 'f');
-			static_assert(0x0C == '\f');
+			static_assert(0x66 == 'f');  // NOLINT(readability-magic-numbers)
+			static_assert(0x0C == '\f'); // NOLINT(readability-magic-numbers)
 			codepoint = '\f';
 			goto add_codepoint_raw;
 		} else if(escape_char == 'n') {
-			static_assert(0x6E == 'n');
-			static_assert(0x0A == '\n');
+			static_assert(0x6E == 'n');  // NOLINT(readability-magic-numbers)
+			static_assert(0x0A == '\n'); // NOLINT(readability-magic-numbers)
 			codepoint = '\n';
 			goto add_codepoint_raw;
 		} else if(escape_char == 'r') {
-			static_assert(0x72 == 'r');
-			static_assert(0x0D == '\r');
+			static_assert(0x72 == 'r');  // NOLINT(readability-magic-numbers)
+			static_assert(0x0D == '\r'); // NOLINT(readability-magic-numbers)
 			codepoint = '\r';
 			goto add_codepoint_raw;
 		} else if(escape_char == 't') {
-			static_assert(0x74 == 't');
-			static_assert(0x09 == '\t');
+			static_assert(0x74 == 't');  // NOLINT(readability-magic-numbers)
+			static_assert(0x09 == '\t'); // NOLINT(readability-magic-numbers)
 			codepoint = '\t';
 			goto add_codepoint_raw;
 		} else if(escape_char == 'u') {
-			static_assert(0x75 == 'u');
+			static_assert(0x75 == 'u'); // NOLINT(readability-magic-numbers)
 
 			if(json_parse_state_get_str_len(*state) < 4) {
 				FREE_AT_END();
@@ -1374,9 +1397,9 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 				if(value >= '0' && value <= '9') {
 					num = value - '0';
 				} else if(value >= 'A' && value <= 'F') {
-					num = (value - 'A') + 10;
+					num = (value - 'A') + 10; // NOLINT(readability-magic-numbers)
 				} else if(value >= 'a' && value <= 'f') {
-					num = (value - 'a') + 10;
+					num = (value - 'a') + 10; // NOLINT(readability-magic-numbers)
 				} else {
 					FREE_AT_END();
 					return new_json_parse_result_error(make_json_error_at(
@@ -1385,7 +1408,8 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 					        "invalid string escape sequence: unicode escape has invalid digits")));
 				}
 
-				composed_codepoint = (composed_codepoint * 0x10) + num;
+				composed_codepoint =
+				    (composed_codepoint * 0x10) + num; // NOLINT(readability-magic-numbers)
 			}
 			json_parse_state_skip_by(state, 4, true);
 
@@ -1405,7 +1429,8 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 
 #undef FREE_AT_END
 
-NODISCARD static JsonParseResult json_parse_impl_parse_value(JsonParseState* const state) {
+NODISCARD static JsonParseResult
+json_parse_impl_parse_value(JsonParseState* const state) { // NOLINT(misc-no-recursion)
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
 	//       value = false / null / true / object / array / number / string
@@ -1458,6 +1483,23 @@ NODISCARD static JsonParseResult json_parse_impl_parse_value(JsonParseState* con
 	}
 }
 
+static void free_json_parse_result(JsonParseResult const parse_result) {
+	SWITCH_JSON_PARSE_RESULT(parse_result) {
+		CASE_JSON_PARSE_RESULT_IS_ERROR_IGN() {
+			return;
+		}
+		VARIANT_CASE_END();
+		CASE_JSON_PARSE_RESULT_IS_OK_MUT(parse_result) {
+			free_json_value(&ok);
+			return;
+		}
+		VARIANT_CASE_END();
+		default: {
+			break;
+		}
+	}
+}
+
 NODISCARD static JsonParseResult json_value_parse_from_str_impl(const JsonParseState state_const) {
 
 	// see: https://datatracker.ietf.org/doc/html/rfc8259#section-2
@@ -1473,9 +1515,10 @@ NODISCARD static JsonParseResult json_value_parse_from_str_impl(const JsonParseS
 		return result;
 	}
 
-	json_parse_impl_skip_ws(&state);
+	json_parse_impl_skip_ws(&state); // NOLINT(clang-analyzer-unix.Malloc)
 
 	if(!json_parse_state_is_eof(state)) {
+		free_json_parse_result(result);
 		return new_json_parse_result_error(make_json_error_at(
 		    state.loc, TSTR_STATIC_LIT("Didn't reach the end, invalid data at the end")));
 	}
@@ -1559,7 +1602,7 @@ void free_json_array(JsonArray* const json_arr) { // NOLINT(misc-no-recursion)
 	free(json_arr);
 }
 
-void free_json_value(JsonValue* const json_value) {
+void free_json_value(JsonValue* const json_value) { // NOLINT(misc-no-recursion)
 	SWITCH_JSON_VALUE(*json_value) {
 		CASE_JSON_VALUE_IS_OBJECT_CONST(*json_value) {
 			free_json_object(object.obj);
@@ -1597,27 +1640,30 @@ NODISCARD tstr json_value_to_string(const JsonValue json_value) {
 	return json_value_to_string_advanced(json_value, (JsonSerializeOptions){ .indent_size = 0 });
 }
 
-static void json_to_string_null_impl(StringBuilder* const sb, const JsonSerializeOptions options) {
+static void json_to_string_null_impl(StringBuilder* const string_builder,
+                                     const JsonSerializeOptions options) {
 	UNUSED(options);
-	string_builder_append_tstr_static(sb, TSTR_STATIC_LIT("null"));
+	string_builder_append_tstr_static(string_builder, TSTR_STATIC_LIT("null"));
 }
 
-static void json_to_string_boolean_impl(StringBuilder* const sb, const JsonBoolean json_boolean,
+static void json_to_string_boolean_impl(StringBuilder* const string_builder,
+                                        const JsonBoolean json_boolean,
                                         const JsonSerializeOptions options) {
 	UNUSED(options);
 	if(json_boolean.value) {
-		string_builder_append_tstr_static(sb, TSTR_STATIC_LIT("true"));
+		string_builder_append_tstr_static(string_builder, TSTR_STATIC_LIT("true"));
 	} else {
-		string_builder_append_tstr_static(sb, TSTR_STATIC_LIT("false"));
+		string_builder_append_tstr_static(string_builder, TSTR_STATIC_LIT("false"));
 	}
 }
 
-static void json_to_string_number_impl(StringBuilder* const sb, const JsonNumber json_number,
+static void json_to_string_number_impl(StringBuilder* const string_builder,
+                                       const JsonNumber json_number,
                                        const JsonSerializeOptions options) {
 
 	UNUSED(options);
 	// TODO(Totto): use better formatting
-	STRING_BUILDER_APPENDF(sb, OOM_ASSERT(false, "error in formatting json number");
+	STRING_BUILDER_APPENDF(string_builder, OOM_ASSERT(false, "error in formatting json number");
 	                       , "%f", json_number.value);
 }
 
@@ -1705,7 +1751,7 @@ NODISCARD static long json_impl_escape_char_into(const Utf8Codepoint codepoint,
 		}
 		default: {
 
-			if(codepoint > 0xFFFF) {
+			if(codepoint > 0xFFFF) { // NOLINT(readability-magic-numbers)
 				OOM_ASSERT(false, "Surrogate pair escaping not implemented yet");
 			}
 
@@ -1714,7 +1760,7 @@ NODISCARD static long json_impl_escape_char_into(const Utf8Codepoint codepoint,
 			dst[0] = '\\';
 			dst[1] = 'u';
 
-			char hex_buf[5];
+			char hex_buf[5]; // NOLINT(readability-magic-numbers)
 
 			// TODO(Totto): hit
 			assert(false);
@@ -1726,9 +1772,9 @@ NODISCARD static long json_impl_escape_char_into(const Utf8Codepoint codepoint,
 			dst[2] = hex_buf[0];
 			dst[3] = hex_buf[1];
 			dst[4] = hex_buf[2];
-			dst[5] = hex_buf[3];
+			dst[5] = hex_buf[3]; // NOLINT(readability-magic-numbers)
 
-			return 6;
+			return 6; // NOLINT(readability-magic-numbers)
 		}
 	}
 }
