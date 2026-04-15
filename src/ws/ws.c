@@ -9,9 +9,9 @@
 #include "http/send.h"
 #include "utils/log.h"
 #include "utils/number_parsing.h"
-#include "utils/string_builder.h"
 
 #include <strings.h>
+#include <tstr_builder.h>
 
 NODISCARD static GenericResult
 send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const descriptor,

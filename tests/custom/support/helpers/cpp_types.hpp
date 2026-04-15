@@ -101,7 +101,6 @@ template <typename T>
 #include <http/hpack.h>
 #include <http/hpack_huffman.h>
 #include <http/v2.h>
-#include <json/json.h>
 #include <utils/utf8_helper.h>
 
 // END
@@ -110,7 +109,6 @@ template <typename T>
 
 CPP_DEFINE_ERROR_VARIANTS_START_DECLS()
 CPP_DEFINE_ERROR_VARIANTS_ALL_VARIANTS()
-CPP_DEFINE_ERROR_VARIANTS_JSON_VARIANTS()
 
 template <typename T>
 concept IsCErrorVariant = cpp::error_variants::IsErrorVariant<T>::value;

@@ -3,8 +3,9 @@
 #include "./file_ops.h"
 #include "generic/send.h"
 #include "utils/clock.h"
+#include "utils/log.h"
 #include "utils/path.h"
-#include "utils/string_builder.h"
+#include "utils/utils.h"
 
 #include <cwalk.h>
 #include <dirent.h>
@@ -13,6 +14,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <tstr_builder.h>
 #include <unistd.h>
 
 typedef struct {

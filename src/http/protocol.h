@@ -9,9 +9,9 @@
 #include "generic/secure.h"
 #include "utils/log.h"
 #include "utils/sized_buffer.h"
-#include "utils/string_builder.h"
 #include "utils/utils.h"
 
+#include <tstr_builder.h>
 #include <tvec.h>
 
 #ifdef __cplusplus

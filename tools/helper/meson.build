@@ -148,35 +148,13 @@ all_variants_generated_tgt = custom_target(
     ],
     input: [meson.project_source_root() / 'src' / 'all.variants.def.json'],
     output: ['all_variants.h'],
-    build_subdir: 'generated' / 'c' / 'variants',
+    build_subdir: 'generated' / 'c' / 'variants' / 'all',
 )
 
 all_variants_dep = declare_dependency(
     version: meson.project_version(),
     sources: all_variants_generated_tgt,
 )
-
-
-json_variants_generated_tgt = custom_target(
-    'json_variants',
-    command: [
-        c_variant_generator,
-        '-o',
-        '@OUTPUT@',
-        '-i',
-        '@INPUT@',
-    ],
-    input: [meson.project_source_root() / 'src' / 'json' / 'json.variants.def.json'],
-    output: ['json_variants.h'],
-    build_subdir: 'generated' / 'c' / 'variants',
-)
-
-
-json_variants_dep = declare_dependency(
-    version: meson.project_version(),
-    sources: json_variants_generated_tgt,
-)
-
 
 genrated_variants_generated_tgt = custom_target(
     'generated_variants',
@@ -189,7 +167,7 @@ genrated_variants_generated_tgt = custom_target(
     ],
     input: [meson.current_source_dir() / 'src' / 'generated.variants.def.json'],
     output: ['generated_variants.h'],
-    build_subdir: 'generated' / 'c' / 'variants',
+    build_subdir: 'generated' / 'c' / 'variants' / 'generated',
 )
 
 
@@ -276,5 +254,4 @@ generated_sources = alias_target(
     generated_hpack_c_tgt,
     generated_hpack_tests_cpp_tgt,
     all_variants_generated_tgt,
-    json_variants_generated_tgt,
 )

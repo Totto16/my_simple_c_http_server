@@ -13,8 +13,6 @@ src_files += files(
     'path.h',
     'sized_buffer.c',
     'sized_buffer.h',
-    'string_builder.c',
-    'string_builder.h',
     'thread_helper.c',
     'thread_helper.h',
     'thread_pool.c',

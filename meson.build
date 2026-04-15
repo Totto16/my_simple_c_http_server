@@ -200,6 +200,22 @@ deps += dependency(
     version: ['>=1.0.0', '<2'],
 )
 
+deps += dependency(
+    'tjson',
+    allow_fallback: true,
+    default_options: {
+        'tests': get_option('tests'),
+    },
+    version: ['>=1.0.0', '<2'],
+)
+
+deps += dependency(
+    'tstr_builder',
+    allow_fallback: true,
+    version: ['>=1.0.0', '<2'],
+)
+
+
 cc = meson.get_compiler('c')
 
 deps += cc.find_library(
@@ -290,7 +306,6 @@ endif
 subdir('tools/helper')
 
 deps += all_variants_dep
-deps += json_variants_dep
 deps += generated_hpack_huffman_dep
 deps += generated_hpack_dep
 

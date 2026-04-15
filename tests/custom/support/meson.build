@@ -8,8 +8,6 @@ support_src += files(
     'helpers/hpack.hpp',
     'helpers/http.cpp',
     'helpers/http.hpp',
-    'helpers/json.cpp',
-    'helpers/json.hpp',
     'generic.cpp',
     'generic.hpp',
     'helpers.hpp',

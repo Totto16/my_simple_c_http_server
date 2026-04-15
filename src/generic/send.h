@@ -3,7 +3,8 @@
 #pragma once
 
 #include "secure.h"
-#include "utils/string_builder.h"
+
+#include <tstr_builder.h>
 
 NODISCARD GenericResult send_data_to_connection(const ConnectionDescriptor* descriptor,
                                                 const void* to_send, size_t length);
