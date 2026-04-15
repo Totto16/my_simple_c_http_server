@@ -1353,7 +1353,8 @@ bool ftp_process_command(ConnectionDescriptor* const descriptor, FTPAddrField se
 				return true;
 			}
 
-			const FtpTransmissionType normal_data =ftp_command_type_information_get_as_normal_const_ref(type_info)->type; 
+			const FtpTransmissionType normal_data =
+			    ftp_command_type_information_get_as_normal_const_ref(type_info)->type;
 
 			switch(normal_data & FtpTransmissionTypeMaskBase) {
 				case FtpTransmissionTypeAscii: {

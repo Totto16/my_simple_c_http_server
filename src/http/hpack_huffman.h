@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "generated_hpack_huffman.h"
 #include "utils/sized_buffer.h"
 #include "utils/utils.h"

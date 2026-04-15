@@ -101,8 +101,8 @@ template <typename T>
 #include <http/hpack.h>
 #include <http/hpack_huffman.h>
 #include <http/v2.h>
-#include <utils/utf8_helper.h>
 #include <json/json.h>
+#include <utils/utf8_helper.h>
 
 // END
 

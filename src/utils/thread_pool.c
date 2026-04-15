@@ -332,7 +332,7 @@ GenericResult pool_destroy(ThreadPool* const pool) {
 
 	// destroy the queue!
 	const GenericResult destroy_result = tqueue_destroy(&(pool->job_queue));
-	
+
 	IF_GENERIC_RESULT_IS_ERROR_IGN(destroy_result) {
 		return destroy_result;
 	}
