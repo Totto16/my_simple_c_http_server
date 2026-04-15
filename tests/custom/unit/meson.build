@@ -154,7 +154,7 @@ if get_option('b_coverage')
     # check if we have gcovr >= 8.4, as this is needed for the 'GCOVR_EXCL_BR_WITHOUT_HIT: x/y' feature
     gocvr = find_program(
         'gcovr',
-        version: '>=8.4',
+        version: ['>=8.4','<9'],
     )
 
     # GCOVR_EXCL_BR_SOURCE was added in gcovr 8.0, but requries gcc to have enough information, to use it! (it need branch to destination mapping (especially for switch cases), only gcc produces)

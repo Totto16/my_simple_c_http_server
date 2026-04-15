@@ -1,0 +1,9 @@
+[wrap-git]
+directory = c_variant_generator
+url = https://github.com/Totto16/c_variant_generator.git
+revision = ad951fd224738c18f37a10dc94ff55cad80826a9
+depth = 1
+
+[provide]
+program_names = c_variant_generator
+
