@@ -29,14 +29,11 @@ jobs:
                   fetch-depth: "0"
                   submodules: "recursive"
 
-            - name: Setup Clang
-              run: |
-                  wget https://apt.llvm.org/llvm.sh
-                  chmod +x llvm.sh
-                  sudo ./llvm.sh 21
-                  sudo apt-get install libc++-21* libc++abi*21* llvm-21 libclang-rt-21-dev -y --no-install-recommends
-                  echo "CC=clang-21" >> "$GITHUB_ENV"
-                  echo "CXX=clang++-21" >> "$GITHUB_ENV"
+            - name: Setup GCC
+              uses: egor-tensin/setup-gcc@v2
+              with:
+                  version: 14
+                  platform: x64 # note, this isn't really correct
 
             - name: Setup node
               uses: actions/setup-node@v6
