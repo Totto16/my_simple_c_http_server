@@ -16,8 +16,8 @@ project(
 
 deps = []
 compile_flags = [
-    '-DPROGRAM_NAME=' + meson.project_name(),
-    '-DVERSION_STRING=' + meson.project_version(),
+    '-D_SIMPLE_SERVER_PROGRAM_NAME=' + meson.project_name(),
+    '-D_SIMPLE_SERVER_VERSION_STRING=' + meson.project_version(),
 ]
 
 deps += dependency('threads')

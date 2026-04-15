@@ -563,7 +563,7 @@ static ExitCode rich_main(const ProgramArgs args) {
 	}
 
 	if(is_version_string(command)) {
-		printf(STRINGIFY(VERSION_STRING) "\n");
+		printf(STRINGIFY(_SIMPLE_SERVER_VERSION_STRING) "\n");
 		return ExitCodeSuccess;
 	}
 

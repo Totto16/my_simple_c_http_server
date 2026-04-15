@@ -97,7 +97,8 @@ static bool construct_http1_headers_for_request(
 	{
 		// Server
 
-		const tstr server_value = TSTR_LIT("Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
+		const tstr server_value =
+		    TSTR_LIT("Simple C HTTP Server: v" STRINGIFY(_SIMPLE_SERVER_VERSION_STRING));
 
 		add_http_header_field(result_header_fields, tstr_from_static_tstr(HTTP_HEADER_NAME(server)),
 		                      server_value);
