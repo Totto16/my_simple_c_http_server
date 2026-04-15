@@ -8,11 +8,14 @@ test_inc_dirs = []
 
 test_deps += dependency(
     'doctest_patched',
-    version: '>=2.4.12',
+    version: ['>=2.4.12','<3'],
     fallback: ['doctest', 'doctest_dep'],
 )
 
-test_deps += dependency('nlohmann_json')
+test_deps += dependency(
+    'nlohmann_json',
+    version: ['>=3.0', '<4'],
+)
 
 test_deps += http_server_dep
 

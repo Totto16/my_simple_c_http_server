@@ -27,7 +27,7 @@ secure_option = get_option('secure')
 openssl_dep = dependency(
     'openssl',
     required: secure_option,
-    version: '>=3.0',
+    version: ['>=3.0', '<4'],
 )
 
 if openssl_dep.found()
@@ -68,6 +68,7 @@ libbcrypt_dep = dependency(
     'libbcrypt',
     required: other_features_dict['bcrypt'],
     allow_fallback: true,
+    version: ['>=1.0.0', '<2'],
 )
 
 if libbcrypt_dep.found()
@@ -79,6 +80,7 @@ pam_dep = dependency(
     'pam',
     required: other_features_dict['pam'],
     allow_fallback: true,
+    version: ['>=1.0.0', '<2'],
 )
 
 if pam_dep.found()
@@ -86,6 +88,7 @@ if pam_dep.found()
         'pam_misc',
         required: other_features_dict['pam'],
         allow_fallback: true,
+        version: ['>=1.0.0', '<2'],
     )
     if pam_misc_dep.found()
         deps += [pam_dep, pam_misc_dep]
@@ -117,6 +120,7 @@ endforeach
 zlib_dep = dependency(
     'zlib',
     required: compression_features_dict['gzip'] or compression_features_dict['deflate'],
+    version: ['>=1.0.0', '<2'],
 )
 
 if zlib_dep.found()
@@ -129,6 +133,7 @@ brotli_dep = dependency(
     'brotli',
     'libbrotlienc',
     required: compression_features_dict['br'],
+    version: ['>=1.0.0', '<2'],
 )
 
 if brotli_dep.found()
@@ -139,6 +144,7 @@ endif
 zstd_dep = dependency(
     'libzstd',
     required: compression_features_dict['zstd'],
+    version: ['>=1.0.0', '<2'],
 )
 
 if zstd_dep.found()
@@ -149,6 +155,7 @@ endif
 lzws_dep = dependency(
     'lzws',
     required: compression_features_dict['compress'],
+    version: ['>=1.0.0', '<2'],
 )
 
 if lzws_dep.found()
@@ -163,21 +170,25 @@ deps += dependency(
     default_options: {
         'tests': 'disabled',
     },
+    version: ['>=2.0.0', '<3'],
 )
 
 deps += dependency(
     'cwalk',
     allow_fallback: true,
+    version: ['>=1.0.0', '<2'],
 )
 
 deps += dependency(
     'tvec.h',
     allow_fallback: true,
+    version: ['>=1.0.0', '<2'],
 )
 
 deps += dependency(
     'tmap.h',
     allow_fallback: true,
+    version: ['>=1.0.0', '<2'],
 )
 
 deps += dependency(
@@ -186,6 +197,7 @@ deps += dependency(
     default_options: {
         'static_string_modification_behavior': 'error',
     },
+    version: ['>=1.0.0', '<2'],
 )
 
 cc = meson.get_compiler('c')
