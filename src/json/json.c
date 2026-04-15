@@ -1715,7 +1715,9 @@ NODISCARD static long json_impl_escape_char_into(const Utf8Codepoint codepoint,
 			// TODO: hit
 			assert(false);
 			const int result = snprintf(hex_buf, sizeof(hex_buf), "%04X", small_codepoint);
-			assert(result == 4 && "sprintf succeeded"); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
+			if(result != 4) {
+				return -1;
+			}
 
 			dst[2] = hex_buf[0];
 			dst[3] = hex_buf[1];
