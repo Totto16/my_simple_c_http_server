@@ -156,10 +156,12 @@ if get_option('b_coverage')
 
     # GCOVR_EXCL_BR_SOURCE was added in gcovr 8.0, but requries gcc to have enough information, to use it! (it need branch to destination mapping (especially for switch cases), only gcc produces)
     if cc.get_id() != 'gcc' or cpp.get_id() != 'gcc'
-        error('we only support gcc for builds with coverage, as we use a gcovr gcc only feature: GCOVR_EXCL_BR_SOURCE')
+        error(
+            'we only support gcc for builds with coverage, as we use a gcovr gcc only feature: GCOVR_EXCL_BR_SOURCE'
+        )
     endif
 
-    if cc.version().version_compare('<14') or cpp.version().version_compare('<14') 
+    if cc.version().version_compare('<14') or cpp.version().version_compare('<14')
         error('require gcc >= 14 for the gcovr feature: GCOVR_EXCL_BR_SOURCE')
 
     endif

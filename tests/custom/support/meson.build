@@ -1,8 +1,5 @@
 
 support_src += files(
-    'generic.cpp',
-    'generic.hpp',
-    'helpers.hpp',
     'helpers/c_types.cpp',
     'helpers/c_types.hpp',
     'helpers/cpp_types.cpp',
@@ -13,6 +10,9 @@ support_src += files(
     'helpers/http.hpp',
     'helpers/json.cpp',
     'helpers/json.hpp',
+    'generic.cpp',
+    'generic.hpp',
+    'helpers.hpp',
     'sha1.cpp',
     'sha1.hpp',
     'support.hpp',

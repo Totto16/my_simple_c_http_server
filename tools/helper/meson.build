@@ -4,7 +4,9 @@ pnpm = find_program(
 )
 
 helper_script_depend_files = files(
-    'index.ts',
+    'src/variants/base.ts',
+    'src/variants/data.ts',
+    'src/variants/index.ts',
     'src/all_cases.ts',
     'src/compression.ts',
     'src/generator.ts',
@@ -12,10 +14,8 @@ helper_script_depend_files = files(
     'src/log.ts',
     'src/subcommands.ts',
     'src/utils.ts',
-    'src/variants/base.ts',
-    'src/variants/data.ts',
-    'src/variants/index.ts',
     'src/ws_tests.ts',
+    'index.ts',
 )
 
 helper_script_depends = []
@@ -292,5 +292,5 @@ generated_sources = alias_target(
     generated_hpack_c_tgt,
     generated_hpack_tests_cpp_tgt,
     all_variants_generated_tgt,
-    json_variants_generated_tgt
+    json_variants_generated_tgt,
 )
