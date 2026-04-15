@@ -1,0 +1,116 @@
+[
+    {
+        "name": "JsonValue",
+        "member": [
+            {
+                "name": "Object",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "obj",
+                                "typeName": "JsonObject*"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Array",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "arr",
+                                "typeName": "JsonArray*"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Number",
+                "type": {
+                    "name": "JsonNumber"
+                }
+            },
+            {
+                "name": "String",
+                "type": {
+                    "name": "JsonString*"
+                }
+            },
+            {
+                "name": "Boolean",
+                "type": {
+                    "name": "JsonBoolean"
+                }
+            },
+            {
+                "name": "Null",
+                "type": null
+            }
+        ],
+        "enum": {
+            "name": "JsonValueType",
+            "underlyingType": "u8"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "JsonParseResult",
+        "member": [
+            {
+                "name": "Ok",
+                "type": {
+                    "name": "JsonValue"
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "name": "JsonError"
+                }
+            }
+        ],
+        "enum": {
+            "name": "JsonParseResultType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "JsonSource",
+        "member": [
+            {
+                "name": "File",
+                "type": {
+                    "name": "JsonFileSource"
+                }
+            },
+            {
+                "name": "String",
+                "type": {
+                    "name": "JsonStringSource"
+                }
+            }
+        ],
+        "enum": {
+            "name": "JsonSourceType",
+            "underlyingType": "bool"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    }
+]

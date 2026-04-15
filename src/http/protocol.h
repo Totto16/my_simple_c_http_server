@@ -2,8 +2,6 @@
 
 #pragma once
 
-
-
 // needed h files
 #include "./compression.h"
 

@@ -1,0 +1,134 @@
+[
+    {
+        "name": "HuffmanNode",
+        "member": [
+            {
+                "name": "Node",
+                "type": {
+                    "name": "HuffmanNodeNode"
+                }
+            },
+            {
+                "name": "End",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "value",
+                                "typeName": "uint8_t"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "Error",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "error",
+                                "typeName": "tstr_static"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "HuffmanNodeType",
+            "underlyingType": "u8"
+        },
+        "options": {
+            "rawStruct": "HuffmanNodeImpl",
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "StaticTableFindResult",
+        "member": [
+            {
+                "name": "NotFound",
+                "type": null
+            },
+            {
+                "name": "KeyFound",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "index",
+                                "typeName": "size_t"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "AllFound",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "index",
+                                "typeName": "size_t"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "StaticTableFindResultType",
+            "underlyingType": "u8"
+        },
+        "options": {
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    },
+    {
+        "name": "FastStringCmpNode",
+        "member": [
+            {
+                "name": "Normal",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "prefixes",
+                                "typeName": "FastStringCmpPrefixes"
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "name": "End",
+                "type": {
+                    "struct": {
+                        "members": [
+                            {
+                                "name": "result",
+                                "typeName": "FastStringCompareResult"
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "enum": {
+            "name": "FastStringCmpNodeType",
+            "underlyingType": "u8"
+        },
+        "options": {
+            "rawStruct": "FastStringCmpNodeImpl",
+            "requirements": {
+                "order": "best_size"
+            }
+        }
+    }
+]

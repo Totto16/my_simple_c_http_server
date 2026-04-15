@@ -336,7 +336,8 @@ TEST_CASE("testing hpack huffman roundtrip - generated "
 
 				REQUIRE_IS_NOT_ERROR(result_dec);
 
-				const auto actual_result = huffman_decode_result_get_as_ok(result_dec).result;;
+				const auto actual_result = huffman_decode_result_get_as_ok(result_dec).result;
+				;
 
 				const auto expected_result = helpers::buffer_from_raw_data(test_case.value);
 

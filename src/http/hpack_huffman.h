@@ -1,11 +1,11 @@
 #pragma once
 
-#include "variants.h"
-
 #include "generated_hpack_huffman.h"
 #include "utils/sized_buffer.h"
 #include "utils/utils.h"
 #include <tstr.h>
+
+#include "all_variants.h"
 
 #ifdef __cplusplus
 extern "C" {

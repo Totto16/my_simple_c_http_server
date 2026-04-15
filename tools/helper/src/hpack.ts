@@ -1658,7 +1658,7 @@ ${await addGenerateMacros("hpack huffman code")}
 #include <tstr.h>
 #include <http/protocol.h>
 
-#include "variants.h"
+#include "generated_variants.h"
 
 #ifdef __cplusplus
 extern "C" {

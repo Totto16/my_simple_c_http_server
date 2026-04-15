@@ -25,3 +25,7 @@
 	const ReadonlyBuffer buffer = { .data = (const void*)data.data(), .size = data.size() };
 	return buffer;
 }
+
+[[nodiscard]] tstr_view helpers::tstr_view_from_str(const std::string& value) {
+	return tstr_view{ .data = value.data(), .len = value.size() };
+}

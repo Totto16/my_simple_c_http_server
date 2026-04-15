@@ -7,8 +7,8 @@
 #include <support/helpers.hpp>
 #include <support/helpers/hpack.hpp>
 
-#include "helpers/json.hpp"
 #include "helpers/string_maker.hpp"
+#include "helpers/tests.hpp"
 
 TEST_SUITE_BEGIN("hpack/manual" * doctest::description("manual hpack tests") *
                  doctest::timeout(2.0 * g_doctest_timeout_multiplier));

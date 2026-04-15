@@ -6,7 +6,7 @@
 #include "utils/utils.h"
 #include <tstr.h>
 
-#include "variants.h"
+#include "all_variants.h"
 
 /**
  * @enum MASK / FLAGS

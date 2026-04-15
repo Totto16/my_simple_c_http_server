@@ -11,6 +11,10 @@
 #include <tvec.h>
 #include <utils/sized_buffer.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // spec link:
 // https://datatracker.ietf.org/doc/html/rfc7540
 
@@ -295,3 +299,7 @@ NODISCARD GenericResult http2_send_headers(const ConnectionDescriptor* descripto
 NODISCARD GenericResult http2_send_data(const ConnectionDescriptor* descriptor,
                                         Http2Identifier identifier, Http2Settings settings,
                                         SizedBuffer buffer);
+
+#ifdef __cplusplus
+}
+#endif

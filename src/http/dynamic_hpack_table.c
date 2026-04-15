@@ -236,7 +236,7 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 		    (void*)dynamic_table->entries, new_capacity * sizeof(HpackHeaderDynamicEntry));
 
 		if(new_entries == NULL) {
-			UNREACHABLE(); // NOLINT(cert-dcl03-c,misc-static-assert)
+			UNREACHABLE();
 		}
 
 		dynamic_table->entries = new_entries;

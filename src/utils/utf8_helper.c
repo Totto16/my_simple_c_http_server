@@ -4,7 +4,7 @@
 
 #include <utf8proc.h>
 
-NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
+NODISCARD Utf8DataResult get_utf8_string(const void* const data, const size_t size) {
 
 	utf8proc_int32_t* buffer = malloc(sizeof(utf8proc_int32_t) * size);
 
@@ -13,7 +13,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
 	}
 
 	utf8proc_ssize_t result = utf8proc_decompose(
-	    data, size, buffer, size,
+	    data, (long)size, buffer, (long)size,
 	    (utf8proc_option_t)0); // NOLINT(cppcoreguidelines-narrowing-conversions,clang-analyzer-optin.core.EnumCastOutOfRange)
 
 	if(result < 0) {
@@ -21,7 +21,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
 		return new_utf8_data_result_error(tstr_static_from_static_cstr(utf8proc_errmsg(result)));
 	}
 
-	if(result != size) {
+	if(result != (utf8proc_ssize_t)size) {
 		// truncate the buffer
 		void* new_buffer = realloc(buffer, sizeof(utf8proc_int32_t) * result);
 
@@ -32,7 +32,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* data, long size) {
 		buffer = new_buffer;
 	}
 
-	Utf8Data utf8_data = {
+	const Utf8Data utf8_data = {
 		.data = buffer,
 		.size = result,
 	};

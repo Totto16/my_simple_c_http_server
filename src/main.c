@@ -169,7 +169,7 @@ NODISCARD static AuthenticationProviders* initialize_default_authentication_prov
 
 typedef struct {
 	size_t size;
-	const char* const* data; // NOLINT(totto-use-fixed-width-types-var) "interfacing with libc"
+	const LibCChar* const* data;
 } ProgramArgs;
 
 #define PROGRAM_ARGS_AT(args, index) \
@@ -572,8 +572,7 @@ static ExitCode rich_main(const ProgramArgs args) {
 	return ExitCodeFailure;
 }
 
-int main(const int argc, // NOLINT(totto-use-fixed-width-types-var) "interfacing with libc"
-         const char* const* const argv) { // NOLINT(totto-use-fixed-width-types-var)
+int main(const LibCInt argc, const LibCChar* const* const argv) {
 	const ProgramArgs args = { .size = argc, .data = argv };
 	return rich_main(args);
 }

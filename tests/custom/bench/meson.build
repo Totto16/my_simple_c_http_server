@@ -25,8 +25,8 @@ bench_inc_dirs += include_directories('.')
 bench_src += files('main.cpp')
 
 bench_src += files(
-    'hash.cpp',
     'hpack/huffman.cpp',
+    'hash.cpp',
     'parsing.cpp',
     'serialize.cpp',
     'string_compare.cpp',

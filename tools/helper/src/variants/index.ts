@@ -1,7 +1,7 @@
 import path from "node:path"
 import { addGenerateMacros, assert, writeFileAndDirs } from "../utils.js"
 import { CaseName, getBrand, isSimpleTaggedType, type CEnumType, type CppFeatures, type ID, type StructOrder, type TaggedMember, type TaggedName, type TaggedType, type TaggedTypeSimple, type TaggedTypeStruct, type TaggedUnion, type TaggedUnionEnum } from "./base.js"
-import { globalTaggedUnions } from "./data.js"
+import { getGlobalTaggedUnions } from "./data.js"
 
 function bestEnumTypeForLength(len: number): CEnumType {
     if (len < maxLengthForCEnumType("bool")) {
@@ -103,13 +103,7 @@ function unionNameFor(name: TaggedName<"union">): string {
 }
 
 
-function generateEnumDeclaration(unionEnum: TaggedUnionEnum, member: TaggedMember[]): string {
-
-    const underlyingType: CEnumType | null = resolveUnderlyingEnumType(unionEnum.underlyingType, member.length)
-
-    if (underlyingType !== null && maxLengthForCEnumType(underlyingType) < member.length) {
-        throw new Error(`Underlying enum type ${underlyingType} can#t fit ${member.length.toString()} members!`)
-    }
+function generateEnumDeclaration(unionEnum: TaggedUnionEnum, member: TaggedMember[], underlyingType: CEnumType | null): string {
 
     return `/* @enum value */
 typedef enum${underlyingType === null ? "" : ` C_23_NARROW_ENUM_TO(${cTypeForEnum(underlyingType)})`} {
@@ -153,7 +147,7 @@ type StructInfo = [string, string]
 
 function getStructInfo(taggedUnion: TaggedUnion): StructInfo {
     if (taggedUnion.options.rawStruct) {
-        return [`struct ${taggedUnion.options.rawStruct.PascalCase()} `, ""]
+        return [`struct ${taggedUnion.options.rawStruct.inner.PascalCase()} `, ""]
     }
 
     return ["typedef struct ", ` ${taggedUnion.name.inner.PascalCase()}`]
@@ -687,10 +681,17 @@ function generateIfNotMacro(member: TaggedMember, taggedUnion: TaggedUnion): str
 	if((variant_entry).${getUnionTagName(taggedUnion.name)} != ${memberNameForEnum(member, taggedUnion.enum.name)})`
 }
 
-function generateSwitchMacro(taggedUnion: TaggedUnion): string {
+function generateSwitchMacro(taggedUnion: TaggedUnion, underlyingType: CEnumType | null): string {
+
+    let surrounding: [start: string, end: string] = ["", ""]
+
+    if (underlyingType === "bool") {
+        surrounding = [`_Pragma ("GCC diagnostic push") _Pragma ("GCC diagnostic ignored \\"-Wswitch-bool\\"") /* FOR GCC */ `,
+            ` _Pragma ("GCC diagnostic pop")`]
+    }
 
     return `#define ${getSwitchMacroName(taggedUnion.name)}(variant_entry)
-	switch((variant_entry).${getUnionTagName(taggedUnion.name)})`
+	${surrounding[0]}switch((variant_entry).${getUnionTagName(taggedUnion.name)})${surrounding[1]}`
 }
 
 
@@ -891,8 +892,15 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
 
     const dataName: string = getUnionDataName(taggedUnion.name);
 
+
+    const underlyingType: CEnumType | null = resolveUnderlyingEnumType(taggedUnion.enum.underlyingType, taggedUnion.member.length)
+
+    if (underlyingType !== null && maxLengthForCEnumType(underlyingType) < taggedUnion.member.length) {
+        throw new Error(`Underlying enum type ${underlyingType} can't fit ${taggedUnion.member.length.toString()} members!`)
+    }
+
     const generateMacroEnum = `#define GENERATE_VARIANT_ENUM_${taggedUnion.name.inner.MACRO_NAME()}()
-	${[generateEnumDeclaration(taggedUnion.enum, taggedUnion.member)].map(decl => decl.split("\n").join("\n	")).join("\n	\n")}`
+	${[generateEnumDeclaration(taggedUnion.enum, taggedUnion.member, underlyingType)].map(decl => decl.split("\n").join("\n	")).join("\n	\n")}`
 
 
     const generateMacroCore = `#define GENERATE_VARIANT_CORE_${taggedUnion.name.inner.MACRO_NAME()}()
@@ -931,7 +939,7 @@ function generatedUnionForCHeader(taggedUnion: TaggedUnion): string {
         }
         ),
         ...taggedUnion.member.map((mem): string => generateIfNotMacro(mem, taggedUnion)),
-        generateSwitchMacro(taggedUnion),
+        generateSwitchMacro(taggedUnion, underlyingType),
         ...taggedUnion.member.flatMap((mem): string[] => {
             const macros: GeneratedMacros = generateCaseMacros(mem, taggedUnion, unnamedStructMap)
             return macros.macros
@@ -950,65 +958,73 @@ ${generatePoisonPragma(poisonedNames)
 `)
 }
 
-function generateCppTagAsErrorVariantFeature(taggedUnions: TaggedUnion[]): string {
-    const macro = `#define CPP_DEFINE_ERROR_VARIANTS()
+function generateCppTagAsErrorVariantFeature(taggedUnions: TaggedUnion[], fileName: CaseName): string[] {
+
+    const implMacroName = `CPP_DEFINE_ERROR_VARIANTS_${fileName.MACRO_NAME()}`
+
+    const predefineMacroName = `CPP_DEFINE_ERROR_VARIANTS_START_DECLS`
+
+    const rawMacros: string[] = [
+        `#define ${predefineMacroName}()
 namespace cpp::error_variants {
 	template <typename T>
 	struct IsErrorVariant : std::false_type {};
 
 	template <typename T>
 	struct ErrorVariantConversionImpl;
-
+}`,
+        `#define ${implMacroName}()
+namespace cpp::error_variants {
 ${taggedUnions.map((union): string => {
 
-        const members = union.member
+            const members = union.member
 
-        if (members.length != 2) {
-            throw new Error("Trying to use a non error variant as one! Reason: not 2 members")
-        }
-
-        let errorMemberIdx: number;
-
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        if (members[0]!.name.inner.eq(CaseName.fromPascalCase("Error"))) {
-            errorMemberIdx = 0
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        } else if (members[1]!.name.inner.eq(CaseName.fromPascalCase("Error"))) {
-            errorMemberIdx = 1
-        } else {
-            throw new Error("Trying to use a non error variant as one! Reason: no error member found")
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const errorMember = members[errorMemberIdx]!
-
-        let errorGetter: string
-
-        if (errorMember.type === null) {
-            throw new Error("Trying to use a non error variant as one! Reason: type is null")
-        } else if (isSimpleTaggedType(errorMember.type)) {
-            if (errorMember.type.name != "tstr_static") {
-                throw new Error("Trying to use a non error variant as one! Reason: type is not a valid error type, 1")
+            if (members.length != 2) {
+                throw new Error("Trying to use a non error variant as one! Reason: not 2 members")
             }
-            errorGetter = ""
-        } else {
-            const structMembers = errorMember.type.struct.members
-            if (structMembers.length != 1) {
-                throw new Error("Trying to use a non error variant as one! Reason: type is not a valid error type, 2")
+
+            let errorMemberIdx: number;
+
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            if (members[0]!.name.inner.eq(CaseName.fromPascalCase("Error"))) {
+                errorMemberIdx = 0
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            } else if (members[1]!.name.inner.eq(CaseName.fromPascalCase("Error"))) {
+                errorMemberIdx = 1
+            } else {
+                throw new Error("Trying to use a non error variant as one! Reason: no error member found")
             }
 
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            const structErrorMembers = structMembers[0]!
+            const errorMember = members[errorMemberIdx]!
 
-            if (structErrorMembers.typeName != "tstr_static") {
-                throw new Error("Trying to use a non error variant as one! Reason: type is not a valid error type, 3")
+            let errorGetter: string
+
+            if (errorMember.type === null) {
+                throw new Error("Trying to use a non error variant as one! Reason: type is null")
+            } else if (isSimpleTaggedType(errorMember.type)) {
+                if (errorMember.type.name != "tstr_static") {
+                    throw new Error("Trying to use a non error variant as one! Reason: type is not a valid error type, 1")
+                }
+                errorGetter = ""
+            } else {
+                const structMembers = errorMember.type.struct.members
+                if (structMembers.length != 1) {
+                    throw new Error("Trying to use a non error variant as one! Reason: type is not a valid error type, 2")
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const structErrorMembers = structMembers[0]!
+
+                if (structErrorMembers.typeName != "tstr_static") {
+                    throw new Error("Trying to use a non error variant as one! Reason: type is not a valid error type, 3")
+                }
+
+                errorGetter = `.${structErrorMembers.name}`
             }
 
-            errorGetter = `.${structErrorMembers.name}`
-        }
 
-
-        return `/* Specialization of IsErrorVariant for ${union.name.inner.PascalCase()} */
+            return `/* Specialization of IsErrorVariant for ${union.name.inner.PascalCase()} */
 template <>
 struct IsErrorVariant<${union.name.inner.PascalCase()}> : std::true_type {};
 
@@ -1025,14 +1041,32 @@ struct ErrorVariantConversionImpl<${union.name.inner.PascalCase()}> {
 `
 
 
-    }).join("\n\n")}
-}`
+        }).join("\n\n")}
+}`,
+    ]
 
+    const macros: string[] = [...rawMacros.map(m => m.split("\n").join(" \\\n	")),
+    `#if !defined(CPP_DEFINE_ERROR_VARIANTS) && !defined(CPP_DEFINE_ERROR_VARIANTS_HAVE_MULTIPLE)
+${(`#define CPP_DEFINE_ERROR_VARIANTS()
+	${predefineMacroName}()
+	${implMacroName}`).split("\n").join(" \\\n	")}
+#else
+	//NOTE: if we have multiple generated variant header available, this macros can't be used, so disable them!
+	#ifdef CPP_DEFINE_ERROR_VARIANTS
+		#undef CPP_DEFINE_ERROR_VARIANTS
+	#endif
 
-    return macro.split("\n").join(" \\\n	")
+	#ifndef CPP_DEFINE_ERROR_VARIANTS_HAVE_MULTIPLE
+		#define CPP_DEFINE_ERROR_VARIANTS_HAVE_MULTIPLE
+	#endif
+#endif
+    `
+    ]
+
+    return macros
 }
 
-function getCppFeatures(taggedUnions: TaggedUnion[]): string {
+function getCppFeatures(taggedUnions: TaggedUnion[], fileName: CaseName): string {
 
     const features: (keyof CppFeatures)[] = ["tagAsErrorVariant"]
 
@@ -1047,7 +1081,7 @@ function getCppFeatures(taggedUnions: TaggedUnion[]): string {
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             case "tagAsErrorVariant": {
 
-                results.push(generateCppTagAsErrorVariantFeature(haveFeature));
+                results.push(...generateCppTagAsErrorVariantFeature(haveFeature, fileName));
                 break;
             }
             default: {
@@ -1062,11 +1096,29 @@ function getCppFeatures(taggedUnions: TaggedUnion[]): string {
 
 }
 
-export async function generateVariantCodeC(generatedVariantsFileH: string): Promise<void> {
+function validateTaggedUnion(union: TaggedUnion): void {
+    if (union.enum.name.inner.eq(union.name.inner)) {
+        throw new Error(`Enum and Variant name are the same: ${union.name.inner.PascalCase()}`)
+    }
+}
+
+export async function generateVariantCodeC(generatedVariantsFileH: string, inputDataPath: string): Promise<void> {
 
     const tasks: Promise<void>[] = []
 
     assert(path.extname(generatedVariantsFileH) == ".h", "variant file has to end in .h")
+
+    const fileName = CaseName.fromSnakeCase(path.basename(generatedVariantsFileH).replace(/\.[^.]*$/, ""))
+
+    const taggedUnions = await getGlobalTaggedUnions(inputDataPath)
+
+    if (taggedUnions.length == 0) {
+        throw new Error('No tagged unions defined')
+    }
+
+    for (const union of taggedUnions) {
+        validateTaggedUnion(union)
+    }
 
     const globalMacros: string[] = [
         `#define UNREACHABLE_WITH_MESSAGE(msg, ...) do {
@@ -1130,7 +1182,7 @@ extern "C" {
 ${globalMacros.map(m => m.split("\n").join(" \\\n")).join("\n\n")}
 
 
-${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
+${taggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 
 
 #ifdef __cplusplus
@@ -1139,7 +1191,7 @@ ${globalTaggedUnions.map(un => generatedUnionForCHeader(un)).join("\n\n")}
 #endif
 
 #ifdef __cplusplus
-${getCppFeatures(globalTaggedUnions)}
+${getCppFeatures(taggedUnions, fileName)}
 #endif
 `
 

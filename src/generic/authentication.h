@@ -7,7 +7,7 @@
 
 #include <tstr.h>
 
-#include "variants.h"
+#include "all_variants.h"
 
 typedef struct AuthenticationProvidersImpl AuthenticationProviders;
 

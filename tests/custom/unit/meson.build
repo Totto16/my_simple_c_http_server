@@ -21,10 +21,10 @@ test_deps += test_support_dep
 test_inc_dirs += include_directories('.')
 
 test_src += files(
-    'helpers/json.cpp',
-    'helpers/json.hpp',
     'helpers/main.cpp',
     'helpers/string_maker.hpp',
+    'helpers/tests.cpp',
+    'helpers/tests.hpp',
 )
 
 test_cpp_args = [
@@ -40,6 +40,7 @@ test_files_manual = [
     'basic.cpp',
     'hash.cpp',
     'http_parser.cpp',
+    'json.cpp',
     'serialize.cpp',
     # hpack
     'hpack/huffman.cpp',
@@ -145,3 +146,24 @@ all_tests = executable(
         'cpp_std': cpp_std_to_use,
     },
 )
+
+if get_option('b_coverage')
+    # check if we have gcovr >= 8.4, as this is needed for the 'GCOVR_EXCL_BR_WITHOUT_HIT: x/y' feature
+    gocvr = find_program(
+        'gcovr',
+        version: '>=8.4',
+    )
+
+    # GCOVR_EXCL_BR_SOURCE was added in gcovr 8.0, but requries gcc to have enough information, to use it! (it need branch to destination mapping (especially for switch cases), only gcc produces)
+    if cc.get_id() != 'gcc' or cpp.get_id() != 'gcc'
+        error(
+            'we only support gcc for builds with coverage, as we use a gcovr gcc only feature: GCOVR_EXCL_BR_SOURCE'
+        )
+    endif
+
+    if cc.version().version_compare('<14') or cpp.version().version_compare('<14')
+        error('require gcc >= 14 for the gcovr feature: GCOVR_EXCL_BR_SOURCE')
+
+    endif
+
+endif

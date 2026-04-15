@@ -93,11 +93,21 @@ static std::string_view sv_from_tstr_static(const tstr_static& str) {
 }
 
 std::ostream& operator<<(std::ostream& os, const tstr& str) {
+	if(tstr_is_null(&str)) {
+		os << "<tstr NULL>";
+		return os;
+	}
+
 	os << sv_from_tstr(str);
 	return os;
 }
 
 std::ostream& operator<<(std::ostream& os, const tstr_static& str) {
+	if(tstr_static_is_null(str)) {
+		os << "<tstr_static NULL>";
+		return os;
+	}
+
 	os << sv_from_tstr_static(str);
 	return os;
 }

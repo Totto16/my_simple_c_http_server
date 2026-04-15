@@ -80,6 +80,11 @@ GenericResult string_builder_append_tstr_static(StringBuilder* const string_buil
 	return string_builder_append_string_impl(string_builder, static_string.ptr, static_string.len);
 }
 
+GenericResult string_builder_append_tstr(StringBuilder* const string_builder,
+                                         const tstr* const str) {
+	return string_builder_append_string_impl(string_builder, tstr_cstr(str), tstr_len(str));
+}
+
 GenericResult string_builder_append_string_builder(StringBuilder* const string_builder,
                                                    StringBuilder** const string_builder2) {
 

@@ -5,7 +5,7 @@
 
 #include <doctest.h>
 
-#include "helpers/json.hpp"
+#include "helpers/tests.hpp"
 
 #define IMPLEMENT_HPACK_TEST_CASE \
 	TEST_CASE("testing hpack deserializing - external tests (" HPACK_TEST_CASE_VALUE \

@@ -81,6 +81,76 @@ export class CaseName {
 
     }
 
+    public static fromSnakeCase(str: string): CaseName {
+
+        if (isUTF8String(str)) {
+            throw new Error(`Unicode strings not yet supported: ${str}`)
+        }
+
+        if (str.toLowerCase() != str) {
+            throw new Error(`snake case strings can't have uppercase characters: ${str}`)
+        }
+
+        const parts: string[] = []
+
+        {
+
+            type Temp = [chr: string, idx: number]
+
+            const indexes: number[] = (str.split("").map((chr, idx) => ([chr, idx])) as Temp[]).filter((([chr, _]) => {
+                return chr == '_';
+            })).map(([_, idx]) => idx)
+
+            if (indexes.length == 0) {
+                parts.push(str)
+            }
+
+            for (let i = 0; i < indexes.length; ++i) {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                const start = indexes[i]!
+
+                if (i == 0) {
+                    const end = start
+
+                    if (end == 1) {
+                        throw new Error(`Two underscore (_) characters near each other: ${str}`)
+                    }
+
+                    const part = str.substring(0, end).toLowerCase()
+                    parts.push(part)
+
+                }
+
+                if (i - 1 < indexes.length) {
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                    const end = indexes[i + 1]!
+
+                    if ((end - start) == 1) {
+                        throw new Error(`Two underscore (_) characters near each other: ${str}`)
+                    }
+
+                    const part = str.substring(start + 1, end).toLowerCase()
+                    parts.push(part)
+
+                } else {
+                    const part = str.substring(start + 1).toLowerCase()
+                    parts.push(part)
+                }
+
+
+            }
+
+
+        }
+
+        const result = new CaseName(parts)
+        assert(str === result.snake_case(), "Implementation error in fromSnakeCase")
+
+
+        return result;
+
+    }
+
     public combine(other: CaseName): CaseName {
 
         const parts = [...this._parts]
@@ -137,9 +207,7 @@ export function getBrand<T extends string = string>(b: Brand<T>): T {
     return b[__brand_tag_never_use]
 }
 
-
-
-interface StructMember extends Brand<"simple"> {
+export interface StructMember extends Brand<"simple"> {
     typeName: CType
     name: string,
 }
@@ -158,7 +226,7 @@ function makeCAnonymousStruct(members: StructMember[]): CAnonymousStruct {
 }
 
 
-function makeTaggedName<T>(value: T, name: CaseName): TaggedName<T> {
+export function makeTaggedName<T>(value: T, name: CaseName): TaggedName<T> {
     return {
         ...(makeBranded<"tagged_name">("tagged_name")),
         nameType: value,
@@ -221,7 +289,7 @@ export function makeEnumName(name: CaseName): TaggedName<"enum"> {
 
 type StructOrderRequirement = "best_size" | "aligned_access"
 
-interface TaggedUnionRequirements {
+export interface TaggedUnionRequirements {
     order: StructOrderRequirement
 }
 
@@ -231,8 +299,14 @@ export interface CppFeatures {
     tagAsErrorVariant: boolean
 }
 
+export interface TaggedName<T> extends Brand<"tagged_name"> {
+    nameType: T,
+    inner: CaseName
+}
+
+
 interface TaggedUnionOptions {
-    rawStruct: CaseName
+    rawStruct: TaggedName<"raw_struct">
     structOrder: StructOrder
     requirements: TaggedUnionRequirements
     cppFeatures: CppFeatures
@@ -247,10 +321,6 @@ export function makeStructMember(typeName: CType, name: string): StructMember {
     }
 }
 
-export interface TaggedName<T> extends Brand<"tagged_name"> {
-    nameType: T,
-    inner: CaseName
-}
 
 export type CEnumType = "bool" | "u8" | "u16" | "u32" | "u64"
 
@@ -261,11 +331,12 @@ export interface TaggedUnionEnum {
     name: TaggedName<"enum">
 }
 
+
 export interface TaggedUnion {
     name: TaggedName<"union">
     member: TaggedMember[]
     enum: TaggedUnionEnum
-    options: DeepPartial<TaggedUnionOptions, [CaseName]>
+    options: DeepPartial<TaggedUnionOptions, [TaggedName<"raw_struct">]>
 }
 
 type IsOneOf<T, Arr extends unknown[]> = Arr extends [] ? false : Arr extends [infer A, ...infer Rest] ? A extends T ? true : IsOneOf<T, Rest> : false
@@ -277,7 +348,7 @@ export type DeepPartial<T, Ends extends unknown[] = []> = IsOneOf<T, Ends> exten
 
 type _type_assert_0 = Expect<Equal<IsOneOf<CaseName, [CaseName]>, true>>
 
-type _type_assert_1 = Expect<Equal<(DeepPartial<TaggedUnionOptions, [CaseName]>["rawStruct"]), CaseName | undefined>>
+type _type_assert_1 = Expect<Equal<(DeepPartial<TaggedUnionOptions, [TaggedName<"raw_struct">]>["rawStruct"]), TaggedName<"raw_struct"> | undefined>>
 
 export function makeUnionName(name: CaseName): TaggedName<"union"> {
     return makeTaggedName<"union">("union", name)

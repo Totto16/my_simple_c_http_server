@@ -1,6 +1,7 @@
 import path from "node:path"
 import { generateFile, type GenerateOptions, type GenerateType } from "./generator.js"
 import { runWsTests } from "./ws_tests.js"
+import { outputVariantJsonSchema } from "./variants/data.js"
 
 export async function subcommandGenerator(args: string[]): Promise<void> {
     const options: Partial<GenerateOptions> = {
@@ -11,6 +12,11 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
     for (let i = 0; i < args.length; ++i) {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const value = args[i]!
+
+        if (value == '--variant-json-schema') {
+            outputVariantJsonSchema()
+            return;
+        }
 
 
         if (value == '-o' || value == '--output') {
@@ -25,6 +31,22 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
             const output = path.resolve(args[i + 1]!)
 
             options.output = output
+            ++i
+            continue
+        }
+
+        if (value == '-i' || value == '--input') {
+            if (i + 1 >= args.length) {
+                throw new Error(
+                    `Expected another argument for the input argument`
+                )
+            }
+
+
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            const input = path.resolve(args[i + 1]!)
+
+            options.input = input
             ++i
             continue
         }
@@ -68,9 +90,12 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
         throw new Error(`No output given`)
     }
 
+    if (options.type === "c_variants" && !options.input) {
+        throw new Error(`No input given`)
+    }
+
     await generateFile(options as GenerateOptions)
 }
-
 
 
 interface WsTestOptions {
