@@ -302,8 +302,7 @@ NODISCARD MAYBE_UNUSED static LinuxUserResponse check_for_user_linux(const char*
 
 	SizedBuffer buffer = { .data = NULL, .size = 0 };
 
-	long initial_size = // NOLINT(totto-use-fixed-width-types-var)
-	    sysconf(_SC_GETPW_R_SIZE_MAX);
+	LibCLong initial_size = sysconf(_SC_GETPW_R_SIZE_MAX);
 
 	if(initial_size < 0) {
 		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
@@ -319,8 +318,7 @@ NODISCARD MAYBE_UNUSED static LinuxUserResponse check_for_user_linux(const char*
 
 	while(true) {
 
-		const int res = // NOLINT(totto-use-fixed-width-types-var)
-		    getpwnam_r(username, &result, buffer.data, buffer.size, &result_ptr);
+		const LibCInt res = getpwnam_r(username, &result, buffer.data, buffer.size, &result_ptr);
 
 		if(res == 0) {
 			free_sized_buffer(buffer);
@@ -361,8 +359,7 @@ NODISCARD static char* get_group_name(const gid_t group_id) {
 
 	SizedBuffer buffer = { .data = NULL, .size = 0 };
 
-	long initial_size = // NOLINT(totto-use-fixed-width-types-var)
-	    sysconf(_SC_GETGR_R_SIZE_MAX);
+	LibCLong initial_size = sysconf(_SC_GETGR_R_SIZE_MAX);
 
 	if(initial_size < 0) {
 		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
@@ -378,8 +375,7 @@ NODISCARD static char* get_group_name(const gid_t group_id) {
 
 	while(true) {
 
-		const int res = // NOLINT(totto-use-fixed-width-types-var)
-		    getgrgid_r(group_id, &result, buffer.data, buffer.size, &result_ptr);
+		const LibCInt res = getgrgid_r(group_id, &result, buffer.data, buffer.size, &result_ptr);
 
 		if(res == 0) {
 			if(result_ptr == NULL) {
@@ -414,10 +410,9 @@ NODISCARD static char* get_group_name(const gid_t group_id) {
 NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* const username,
                                                                const gid_t group_id) {
 
-	int ngroups = 0; // NOLINT(totto-use-fixed-width-types-var)
+	LibCInt ngroups = 0;
 
-	int res = // NOLINT(totto-use-fixed-width-types-var)
-	    getgrouplist(username, group_id, NULL, &ngroups);
+	LibCInt res = getgrouplist(username, group_id, NULL, &ngroups);
 
 	if(res != -1) {
 		return UserRoleNone;
@@ -484,9 +479,8 @@ typedef struct {
 
 // based on
 // https://github.com/linux-pam/linux-pam/blob/e3b66a60e4209e019cf6a45f521858cec2dbefa1/libpam_misc/misc_conv.c#L280
-NODISCARD static int // NOLINT(totto-use-fixed-width-types-var)
-pam_conversation_for_password(
-    const int num_msg,                     // NOLINT(totto-use-fixed-width-types-var)
+NODISCARD static LibCInt pam_conversation_for_password(
+    const LibCInt num_msg,
     const struct pam_message** const msgs, // NOLINT(totto-const-correctness-c)
     struct pam_response** const resp, ANY_TYPE(PamAppdata) const appdata_ptr) {
 
@@ -553,8 +547,7 @@ NODISCARD static PamUserResponse pam_is_user_password_combo_ok(
 	const struct pam_conv conv = { .conv = pam_conversation_for_password,
 		                           .appdata_ptr = &app_data };
 
-	int res = // NOLINT(totto-use-fixed-width-types-var)
-	    pam_start("check_user", username, &conv, &pamh);
+	LibCInt res = pam_start("check_user", username, &conv, &pamh);
 
 	if(res != PAM_SUCCESS) {
 		LOG_MESSAGE(LogLevelError, "pam_start failed: %s\n", pam_strerror(pamh, res));
@@ -585,7 +578,7 @@ NODISCARD static PamUserResponse pam_is_user_password_combo_ok(
 		}
 	}
 
-	const int pam_end_res = pam_end(pamh, res); // NOLINT(totto-use-fixed-width-types-var)
+	const LibCInt pam_end_res = pam_end(pamh, res);
 
 	if(pam_end_res != PAM_SUCCESS) {
 		return PamUserResponseError;

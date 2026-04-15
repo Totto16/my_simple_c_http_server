@@ -56,8 +56,7 @@ static bool impl_get_time(Time* time, clockid_t clockid) {
 		return false;
 	}
 
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    clock_gettime(clockid, &time->_impl_value);
+	const LibCInt result = clock_gettime(clockid, &time->_impl_value);
 
 	if(result != 0) {
 		LOG_MESSAGE(LogLevelError, "Error in getting time for clock: %s\n", strerror(errno));

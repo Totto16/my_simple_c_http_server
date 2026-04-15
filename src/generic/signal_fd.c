@@ -10,7 +10,7 @@
 
 #include "./signal_fd.h"
 
-int get_signal_like_fd(int signal) { // NOLINT(totto-use-fixed-width-types-var)
+LibCInt get_signal_like_fd(LibCInt signal) {
 
 #ifdef _DONT_HAVE_SYS_SIGNALFD
 	// see https://stackoverflow.com/questions/10591531/alternative-to-signalfd

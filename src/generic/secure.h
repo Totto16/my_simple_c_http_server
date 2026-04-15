@@ -52,7 +52,7 @@ NODISCARD ConnectionContext* copy_connection_context(const ConnectionContext* ol
 
 void free_connection_context(ConnectionContext* context);
 
-typedef int NativeFd;
+typedef LibCInt NativeFd;
 
 NODISCARD ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* context,
                                                           NativeFd native_fd);
@@ -73,7 +73,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } ReadResultType;
 
 typedef union {
-	int errno_error;         // NOLINT(totto-use-fixed-width-types-var)
+	LibCInt errno_error;
 	unsigned long ssl_error; // NOLINT(totto-use-fixed-width-types-var)
 } OpaqueError;
 

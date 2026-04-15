@@ -13,11 +13,13 @@
 
 // see: https://datatracker.ietf.org/doc/html/rfc8259
 
+/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type,totto-use-fixed-width-types-var)
+ */
 // GCOVR_EXCL_START (external library)
-/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type) */
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(JsonValue)
-/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 // GCOVR_EXCL_STOP
+/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type,totto-use-fixed-width-types-var)
+ */
 
 typedef TVEC_TYPENAME(JsonValue) JsonValueArr;
 
@@ -25,11 +27,11 @@ struct JsonArrayImpl {
 	JsonValueArr value;
 };
 
-// GCOVR_EXCL_START (external library)
 /* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type) */
+// GCOVR_EXCL_START (external library)
 TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(Utf8Codepoint)
-/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 // GCOVR_EXCL_STOP
+/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 
 typedef TVEC_TYPENAME(Utf8Codepoint) JsonCharArr;
 
@@ -42,11 +44,11 @@ typedef struct {
 	JsonString string;
 } JsonObjectKey;
 
+/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type,totto-const-correctness-c) */
 // GCOVR_EXCL_START (external library)
-/* NOLINTBEGIN(misc-use-internal-linkage,totto-function-passing-type) */
 TMAP_DEFINE_AND_IMPLEMENT_MAP_TYPE(JsonObjectKey, JsonObjectKeyName, JsonValue, JsonValueMapImpl)
-/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type) */
 // GCOVR_EXCL_STOP
+/* NOLINTEND(misc-use-internal-linkage,totto-function-passing-type,totto-const-correctness-c) */
 
 TMAP_HASH_FUNC_SIG(JsonObjectKey, JsonObjectKeyName) {
 	return TMAP_HASH_BYTES(TVEC_DATA_CONST(Utf8Codepoint, &key.string.value),
@@ -69,7 +71,7 @@ static void tstr_view_advance_by(tstr_view* const str, size_t amount) {
 	str->len -= amount;
 }
 
-static bool json_parse_impl_is_ws(const char value) {
+static bool json_parse_impl_is_ws(const LibCChar value) {
 	/*        ws = *(
 	      %x20 /              ; Space
 	      %x09 /              ; Horizontal tab
@@ -119,19 +121,19 @@ static void json_parse_state_skip_by(JsonParseState* const state, size_t amount,
 	}
 }
 
-NODISCARD static char json_parse_state_get_next_char(JsonParseState* const state) {
+NODISCARD static LibCChar json_parse_state_get_next_char(JsonParseState* const state) {
 	assert(state->view.len > 0); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
-	const char result = state->view.data[0];
+	const LibCChar result = state->view.data[0];
 	json_parse_state_skip_by(state, 1, true);
 	return result;
 }
 
-NODISCARD static char json_parse_state_peek_char_at(const JsonParseState state, size_t index) {
+NODISCARD static LibCChar json_parse_state_peek_char_at(const JsonParseState state, size_t index) {
 	assert(state.view.len > index); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 	return state.view.data[index];
 }
 
-NODISCARD static char json_parse_state_peek_next_char(const JsonParseState state) {
+NODISCARD static LibCChar json_parse_state_peek_next_char(const JsonParseState state) {
 	return json_parse_state_peek_char_at(state, 0);
 }
 
@@ -143,7 +145,7 @@ static void json_parse_impl_skip_ws(JsonParseState* const state) {
 
 	while(json_parse_state_get_str_len(*state) > offset) {
 
-		const char value = json_parse_state_peek_char_at(*state, offset);
+		const LibCChar value = json_parse_state_peek_char_at(*state, offset);
 
 		if(json_parse_impl_is_ws(value)) {
 			// NOTE: only treating newline (\n) as a new line, not \r\n or \r
@@ -374,7 +376,7 @@ json_parse_impl_parse_object_member(JsonParseState* const state, // NOLINT(misc-
 			    TSTR_STATIC_LIT("empty object member: missing 'name-separator' after member name"));
 		}
 
-		const char next_value = json_parse_state_peek_next_char(*state);
+		const LibCChar next_value = json_parse_state_peek_next_char(*state);
 
 		if(next_value != ':') {
 			FREE_AT_END();
@@ -450,7 +452,7 @@ json_parse_impl_parse_object(JsonParseState* const state) { // NOLINT(misc-no-re
 			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty object: missing '{'")));
 		}
 
-		const char next_value = json_parse_state_peek_next_char(*state);
+		const LibCChar next_value = json_parse_state_peek_next_char(*state);
 
 		if(next_value != '{') {
 			return new_json_parse_result_error(
@@ -478,7 +480,7 @@ json_parse_impl_parse_object(JsonParseState* const state) { // NOLINT(misc-no-re
 		        "empty object: missing 'member' or 'end-object' after 'begin-object'")));
 	}
 
-	const char next_char = json_parse_state_peek_next_char(*state);
+	const LibCChar next_char = json_parse_state_peek_next_char(*state);
 
 	if(next_char == '}') {
 		// end-object
@@ -529,7 +531,7 @@ json_parse_impl_parse_object(JsonParseState* const state) { // NOLINT(misc-no-re
 				    state->loc, TSTR_STATIC_LIT("empty object: missing 'member' or 'end-object'")));
 			}
 
-			const char end_char = json_parse_state_peek_next_char(*state);
+			const LibCChar end_char = json_parse_state_peek_next_char(*state);
 
 			if(end_char == '}') {
 				// end-object
@@ -648,7 +650,7 @@ json_parse_impl_parse_array(JsonParseState* const state) { // NOLINT(misc-no-rec
 			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty array: missing '['")));
 		}
 
-		const char next_value = json_parse_state_peek_next_char(*state);
+		const LibCChar next_value = json_parse_state_peek_next_char(*state);
 
 		if(next_value != '[') {
 			return new_json_parse_result_error(
@@ -675,7 +677,7 @@ json_parse_impl_parse_array(JsonParseState* const state) { // NOLINT(misc-no-rec
 		    TSTR_STATIC_LIT("empty array: missing 'value' or 'end-array' after 'begin-array'")));
 	}
 
-	const char next_char = json_parse_state_peek_next_char(*state);
+	const LibCChar next_char = json_parse_state_peek_next_char(*state);
 
 	if(next_char == ']') {
 		// end-array
@@ -726,7 +728,7 @@ json_parse_impl_parse_array(JsonParseState* const state) { // NOLINT(misc-no-rec
 				    state->loc, TSTR_STATIC_LIT("empty array: missing 'value' or 'end-array'")));
 			}
 
-			const char end_char = json_parse_state_peek_next_char(*state);
+			const LibCChar end_char = json_parse_state_peek_next_char(*state);
 
 			if(end_char == ']') {
 				// end-array
@@ -776,7 +778,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_int_part(JsonParseState*
 		return make_json_error_at(state->loc, TSTR_STATIC_LIT("empty number int part"));
 	}
 
-	const char first_value = json_parse_state_peek_next_char(*state);
+	const LibCChar first_value = json_parse_state_peek_next_char(*state);
 
 	if(first_value == '0') {
 		json_parse_state_skip_by(state, 1, true);
@@ -797,7 +799,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_int_part(JsonParseState*
 			break;
 		}
 
-		const char next_value = json_parse_state_peek_next_char(*state);
+		const LibCChar next_value = json_parse_state_peek_next_char(*state);
 
 		if(next_value > '9' || next_value < '0') {
 			break;
@@ -836,7 +838,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_frac_part(JsonParseState
 		    state->loc, TSTR_STATIC_LIT("empty number frac part: expected '.' but got eof"));
 	}
 
-	const char next_char = json_parse_state_peek_next_char(*state);
+	const LibCChar next_char = json_parse_state_peek_next_char(*state);
 
 	if(next_char != '.') {
 		return make_json_error_at(state->loc,
@@ -850,7 +852,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_frac_part(JsonParseState
 		                          TSTR_STATIC_LIT("empty number frac part: <EOF> after '.'"));
 	}
 
-	const char first_value = json_parse_state_peek_next_char(*state);
+	const LibCChar first_value = json_parse_state_peek_next_char(*state);
 
 	if(first_value > '9' || first_value < '0') {
 		return make_json_error_at(state->loc,
@@ -866,7 +868,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_frac_part(JsonParseState
 			break;
 		}
 
-		const char next_value = json_parse_state_peek_next_char(*state);
+		const LibCChar next_value = json_parse_state_peek_next_char(*state);
 
 		if(next_value > '9' || next_value < '0') {
 			break;
@@ -896,7 +898,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_exp_part(JsonParseState*
 		    state->loc, TSTR_STATIC_LIT("empty number exp part: expected 'e' or 'E' but got eof"));
 	}
 
-	const char next_char = json_parse_state_peek_next_char(*state);
+	const LibCChar next_char = json_parse_state_peek_next_char(*state);
 
 	if(next_char != 'e' && next_char != 'E') {
 		return make_json_error_at(
@@ -912,7 +914,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_exp_part(JsonParseState*
 	}
 
 	{
-		const char first_value = json_parse_state_peek_next_char(*state);
+		const LibCChar first_value = json_parse_state_peek_next_char(*state);
 
 		if(first_value == '+') {
 			minus = false;
@@ -929,7 +931,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_exp_part(JsonParseState*
 		    TSTR_STATIC_LIT("empty number exp part: no values after 'e' and optional sign"));
 	}
 
-	const char first_value = json_parse_state_peek_next_char(*state);
+	const LibCChar first_value = json_parse_state_peek_next_char(*state);
 
 	if(first_value > '9' || first_value < '0') {
 		return make_json_error_at(state->loc,
@@ -944,7 +946,7 @@ NODISCARD static JsonError json_parse_impl_parse_number_exp_part(JsonParseState*
 			break;
 		}
 
-		const char next_value = json_parse_state_peek_next_char(*state);
+		const LibCChar next_value = json_parse_state_peek_next_char(*state);
 
 		if(next_value > '9' || next_value < '0') {
 			break;
@@ -1011,7 +1013,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* co
 		    state->loc, TSTR_STATIC_LIT("empty number: expected number-start but got eof")));
 	}
 
-	const char minus_char = json_parse_state_peek_next_char(*state);
+	const LibCChar minus_char = json_parse_state_peek_next_char(*state);
 
 	if(minus_char == '-') {
 		minus = true;
@@ -1043,7 +1045,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* co
 		return new_json_parse_result_ok(new_json_value_number(number));
 	}
 
-	const char next_value = json_parse_state_peek_next_char(*state);
+	const LibCChar next_value = json_parse_state_peek_next_char(*state);
 
 	double frac = 0.0;
 	int64_t exp = 1;
@@ -1126,7 +1128,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_number(JsonParseState* co
 		return new_json_parse_result_ok(new_json_value_number(number));
 	}
 
-	const char next_value2 = json_parse_state_peek_next_char(*state);
+	const LibCChar next_value2 = json_parse_state_peek_next_char(*state);
 
 	if(next_value2 == 'e' || next_value2 == 'E') {
 		// exp
@@ -1191,7 +1193,7 @@ NODISCARD static Utf8NextCharResult utf8_get_next_char_and_consume(JsonParseStat
 	}
 
 	utf8proc_int32_t codepoint = 0;
-	utf8proc_ssize_t result = utf8proc_iterate(
+	const utf8proc_ssize_t result = utf8proc_iterate(
 	    (const utf8proc_uint8_t*)((const void*) // NOLINT(bugprone-casting-through-void)
 	                              state->view.data),
 	    (long)(state->view.len), &codepoint);
@@ -1233,7 +1235,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 		    state->loc, TSTR_STATIC_LIT("empty string: expected '\"' but got eof")));
 	}
 
-	const char next_char = json_parse_state_peek_next_char(*state);
+	const LibCChar next_char = json_parse_state_peek_next_char(*state);
 
 	if(next_char != '"') {
 		return new_json_parse_result_error(
@@ -1336,7 +1338,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 			    make_json_error_at(state->loc, TSTR_STATIC_LIT("empty string escape sequence")));
 		}
 
-		const char escape_char = json_parse_state_get_next_char(state);
+		const LibCChar escape_char = json_parse_state_get_next_char(state);
 
 		if(escape_char == '"') {
 			static_assert(0x22 == '"'); // NOLINT(readability-magic-numbers)
@@ -1390,7 +1392,7 @@ NODISCARD static JsonParseResult json_parse_impl_parse_string(JsonParseState* co
 			Utf8Codepoint composed_codepoint = 0;
 
 			for(size_t i = 0; i < 4; ++i) {
-				const char value = json_parse_state_peek_char_at(*state, i);
+				const LibCChar value = json_parse_state_peek_char_at(*state, i);
 
 				uint8_t num = 0;
 
@@ -1440,7 +1442,7 @@ json_parse_impl_parse_value(JsonParseState* const state) { // NOLINT(misc-no-rec
 		    state->loc, TSTR_STATIC_LIT("empty value: expected value but got eof")));
 	}
 
-	const char first_char = json_parse_state_peek_next_char(*state);
+	const LibCChar first_char = json_parse_state_peek_next_char(*state);
 	switch(first_char) {
 		case 'f': {
 			return json_parse_impl_parse_boolean(state);
@@ -1706,8 +1708,8 @@ NODISCARD static bool json_impl_needs_escaping(Utf8Codepoint codepoint) {
 	}
 }
 
-NODISCARD static long json_impl_escape_char_into(const Utf8Codepoint codepoint,
-                                                 uint8_t* const dst) {
+NODISCARD static int8_t json_impl_escape_char_into(const Utf8Codepoint codepoint,
+                                                   uint8_t* const dst) {
 	switch(codepoint) {
 		case '"':
 		case '\\':
@@ -1764,7 +1766,7 @@ NODISCARD static long json_impl_escape_char_into(const Utf8Codepoint codepoint,
 
 			// TODO(Totto): hit
 			assert(false);
-			const int result = snprintf(hex_buf, sizeof(hex_buf), "%04X", small_codepoint);
+			const LibCInt result = snprintf(hex_buf, sizeof(hex_buf), "%04X", small_codepoint);
 			if(result != 4) {
 				return -1;
 			}
@@ -1817,7 +1819,7 @@ static tstr get_normalized_string_from_codepoints_json_escaped(JsonCharArr codep
 
 		if(json_impl_needs_escaping(codepoint)) {
 			// needs place for 6 / UTF8_MAX_AMOUNT_PER_CHUNK_ITERATION chars
-			long result = json_impl_escape_char_into(codepoint, buffer + current_size);
+			const int8_t result = json_impl_escape_char_into(codepoint, buffer + current_size);
 
 			if(result <= 0) {
 				free(buffer);
@@ -1828,7 +1830,7 @@ static tstr get_normalized_string_from_codepoints_json_escaped(JsonCharArr codep
 		} else {
 
 			// needs place for 4  chars
-			long result = utf8proc_encode_char(codepoint, buffer + current_size);
+			const utf8proc_ssize_t result = utf8proc_encode_char(codepoint, buffer + current_size);
 
 			if(result <= 0) {
 				free(buffer);
@@ -2009,7 +2011,7 @@ json_to_string_variant_impl(StringBuilder* const string_builder, // NOLINT(misc-
 		}
 		break;
 		VARIANT_CASE_END();
-		CASE_JSON_VALUE_IS_STRING_CONST(json_value) {
+		CASE_JSON_VALUE_IS_STRING_CONST(json_value) { // NOLINT(totto-const-correctness-c)
 			json_to_string_string_impl(string_builder, string, options);
 		}
 		break;

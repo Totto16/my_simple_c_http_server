@@ -17,13 +17,13 @@ NODISCARD static HashSaltResultType* hash_salt_string_impl(HashSaltSettings sett
                                                            const char* const string) {
 	char result_salt[BCRYPT_HASHSIZE] = {};
 
-	int res = bcrypt_gensalt(settings.work_factor, // NOLINT(totto-use-fixed-width-types-var)
-	                         result_salt);
+	LibCInt res = bcrypt_gensalt(settings.work_factor, result_salt);
 
 	if(res != 0) {
 		return NULL;
 	}
 
+	// TODO(Totto): also warn in this cases with (totto-use-fixed-width-types-var)
 	char result_hash[BCRYPT_HASHSIZE] = {};
 
 	res = bcrypt_hashpw(string, result_salt, result_hash);
@@ -48,7 +48,7 @@ NODISCARD static HashSaltResultType* hash_salt_string_sha512_impl(HashSaltSettin
 
 	char result_digest[BCRYPT_512BITS_BASE64_SIZE] = {};
 
-	const int res = bcrypt_sha512(string, result_digest); // NOLINT(totto-use-fixed-width-types-var)
+	const LibCInt res = bcrypt_sha512(string, result_digest);
 
 	if(res != 0) {
 		return NULL;
@@ -79,8 +79,7 @@ NODISCARD static bool
 is_string_equal_to_hash_salted_string_impl(const char* const string,
                                            const HashSaltResultType* const hash_salted_string) {
 
-	const int res = // NOLINT(totto-use-fixed-width-types-var)
-	    bcrypt_checkpw(string, hash_salted_string->hash);
+	const LibCInt res = bcrypt_checkpw(string, hash_salted_string->hash);
 
 	if(res < 0) {
 		return false;
@@ -94,8 +93,7 @@ NODISCARD static bool is_string_equal_to_hash_salted_string_sha512_impl(
 
 	char input_digest[BCRYPT_512BITS_BASE64_SIZE] = {};
 
-	const int res = // NOLINT(totto-use-fixed-width-types-var)
-	    bcrypt_sha512(string, input_digest);
+	const LibCInt res = bcrypt_sha512(string, input_digest);
 
 	if(res != 0) {
 		return NULL;
@@ -183,16 +181,14 @@ SizedBuffer get_sha1_from_string(const char* const string) {
 
 	EVP_MD_CTX* evp_context = EVP_MD_CTX_new();
 
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    EVP_DigestInit_ex(evp_context, EVP_sha1(), NULL);
+	const LibCInt result = EVP_DigestInit_ex(evp_context, EVP_sha1(), NULL);
 
 	if(result != 1) {
 		EVP_MD_CTX_free(evp_context);
 		return get_empty_sized_buffer();
 	}
 
-	const int result2 = // NOLINT(totto-use-fixed-width-types-var)
-	    EVP_DigestUpdate(evp_context, (const void*)string, strlen(string));
+	const LibCInt result2 = EVP_DigestUpdate(evp_context, (const void*)string, strlen(string));
 
 	if(result2 != 1) {
 		EVP_MD_CTX_free(evp_context);
@@ -209,8 +205,7 @@ SizedBuffer get_sha1_from_string(const char* const string) {
 
 	unsigned int hash_len = 0; // NOLINT(totto-use-fixed-width-types-var)
 
-	const int result3 = // NOLINT(totto-use-fixed-width-types-var)
-	    EVP_DigestFinal_ex(evp_context, sha1_result, &hash_len);
+	const LibCInt result3 = EVP_DigestFinal_ex(evp_context, sha1_result, &hash_len);
 
 	if(result3 != 1) {
 		free(sha1_result);
@@ -313,7 +308,7 @@ NODISCARD SizedBuffer base64_decode_buffer(const ReadonlyBuffer input_buffer) {
 	BIO_set_flags(mem_input, BIO_FLAGS_BASE64_NO_NL);
 	while(true) {
 		size_t read_size = 0;
-		const int result = // NOLINT(totto-use-fixed-width-types-var)
+		const LibCInt result =
 		    BIO_read_ex(mem_input, output_buffer_current, B64_CHUNK_SIZE, &read_size);
 
 		if(result != 1) {
@@ -389,7 +384,7 @@ NODISCARD const char* get_base64_provider(void) {
 void openssl_initialize_crypto_thread_state(void) {
 	const uint64_t options = 0;
 
-	const int res = OPENSSL_init_crypto(options, NULL); // NOLINT(totto-use-fixed-width-types-var)
+	const LibCInt res = OPENSSL_init_crypto(options, NULL);
 
 	if(res != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "Failed to setup OPENSSL crypto thread state\n");

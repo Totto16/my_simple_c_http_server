@@ -19,8 +19,7 @@ NODISCARD tstr get_serve_folder(const tstr* const folder_to_resolve) {
 	const tstr folder = tstr_from(folder_impl);
 
 	struct stat stat_result;
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    stat(tstr_cstr(&folder), &stat_result);
+	const LibCInt result = stat(tstr_cstr(&folder), &stat_result);
 
 	if(result != 0) {
 		fprintf(stderr, "Couldn't stat folder '" TSTR_FMT "': %s\n", TSTR_FMT_ARGS(folder),
@@ -67,8 +66,7 @@ NODISCARD bool get_file_size_of_file(const char* file_path, OUT_PARAM(size_t) ou
 		return false;
 	}
 
-	const int fseek_res = // NOLINT(totto-use-fixed-width-types-var)
-	    fseek(file, 0, SEEK_END);
+	const LibCInt fseek_res = fseek(file, 0, SEEK_END);
 
 	if(fseek_res != 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", file_path,
@@ -77,11 +75,9 @@ NODISCARD bool get_file_size_of_file(const char* file_path, OUT_PARAM(size_t) ou
 		return false;
 	}
 
-	const long file_size = // NOLINT(totto-use-fixed-width-types-var)
-	    ftell(file);
+	const LibCLong file_size = ftell(file);
 
-	const int fclose_result = // NOLINT(totto-use-fixed-width-types-var)
-	    fclose(file);
+	const LibCInt fclose_result = fclose(file);
 
 	if(fclose_result != 0) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n", file_path, strerror(errno));
@@ -108,8 +104,7 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 		return NULL;
 	}
 
-	const int fseek_res = // NOLINT(totto-use-fixed-width-types-var)
-	    fseek(file, 0, SEEK_END);
+	const LibCInt fseek_res = fseek(file, 0, SEEK_END);
 
 	if(fseek_res != 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", file_path,
@@ -118,11 +113,9 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 		return NULL;
 	}
 
-	const long file_size = // NOLINT(totto-use-fixed-width-types-var)
-	    ftell(file);
+	const LibCLong file_size = ftell(file);
 
-	const int fseek_res2 // NOLINT(totto-use-fixed-width-types-var)
-	    = fseek(file, 0, SEEK_SET);
+	const LibCInt fseek_res2 = fseek(file, 0, SEEK_SET);
 
 	if(fseek_res2 != 0) {
 		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", file_path,
@@ -150,8 +143,7 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 		return NULL;
 	}
 
-	const int fclose_result = // NOLINT(totto-use-fixed-width-types-var)
-	    fclose(file);
+	const LibCInt fclose_result = fclose(file);
 
 	if(fclose_result != 0) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't close file '%s': %s\n", file_path, strerror(errno));

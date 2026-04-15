@@ -160,13 +160,13 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 		if(internalBuffer != NULL) { \
 			free(internalBuffer); \
 		} \
-		const int toWrite = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
+		const LibCInt toWrite = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
 		internalBuffer = (char*)malloc(toWrite * sizeof(char)); \
 		if(!internalBuffer) { \
 			logger_fn("Couldn't allocate memory for %d bytes!\n", toWrite); \
 			statement \
 		} \
-		const int written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \
+		const LibCInt written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \
 		if(written >= toWrite) { \
 			logger_fn("snprintf did write more bytes then it had space in the buffer, available " \
 			          "space: '%d', actually written: '%d'!\n", \
@@ -217,6 +217,13 @@ NODISCARD GenericResult get_random_bytes(size_t size, OUT_PARAM(uint8_t) out_byt
 
 // just so that I don't add const, when I see the declaration without const xD
 #define MUT
+
+// NOTE: these are used for surpressing the clang-tidy error "totto-use-fixed-width-types-var"
+// in places, where we interface with libc, it is intentional, that this check doesn't resolves
+// aliases, as we intend to use this alias, we can use non-fixed types
+typedef char LibCChar;
+typedef int LibCInt;
+typedef long LibCLong;
 
 #ifdef __cplusplus
 }

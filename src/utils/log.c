@@ -126,9 +126,8 @@ const char* get_thread_name(void) {
 
 	const ThreadIdType tid = get_thread_id();
 
-	const int written = // NOLINT(totto-use-fixed-width-types-var)
-	    snprintf(casted_static_buffer, THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE, "TID " PRI_THREADID,
-	             tid);
+	const LibCInt written = snprintf(casted_static_buffer, THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE,
+	                                 "TID " PRI_THREADID, tid);
 	if(written >= THREAD_LOCAL_STORAGE_FALLBACK_BUFF_SIZE) {
 		return g_global_value_log_thread_state.name;
 	}
@@ -137,8 +136,7 @@ const char* get_thread_name(void) {
 }
 
 void log_lock_mutex(void) {
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    pthread_mutex_lock(&g_global_value_log_entry.mutex);
+	const LibCInt result = pthread_mutex_lock(&g_global_value_log_entry.mutex);
 
 	if(result != 0) {
 		/*pthread function don't set errno, but return the error value \
@@ -150,8 +148,7 @@ void log_lock_mutex(void) {
 }
 
 void log_unlock_mutex(void) {
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    pthread_mutex_unlock(&g_global_value_log_entry.mutex);
+	const LibCInt result = pthread_mutex_unlock(&g_global_value_log_entry.mutex);
 
 	if(result != 0) {
 		/*pthread function don't set errno, but return the error value \
@@ -165,8 +162,7 @@ void log_unlock_mutex(void) {
 void initialize_logger(void) {
 	g_global_value_log_entry.log_level = DEFAULT_LOG_LEVEL;
 
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    pthread_mutex_init(&g_global_value_log_entry.mutex, NULL);
+	const LibCInt result = pthread_mutex_init(&g_global_value_log_entry.mutex, NULL);
 	CHECK_FOR_THREAD_ERROR(
 	    result, "An Error occurred while trying to initialize the mutex for the logger", return;);
 }

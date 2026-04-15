@@ -50,8 +50,7 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) cons
 	// looping until receiving the shutdown signal, to know more about that, read pool_destroy
 	while(true) {
 		// block here until a job is available and can be worked upon
-		const int result = comp_sem_wait( // NOLINT(totto-use-fixed-width-types-var)
-		    &(argument.thread_pool->jobs_available));
+		const LibCInt result = comp_sem_wait(&(argument.thread_pool->jobs_available));
 		CHECK_FOR_ERROR(result, "Couldn't wait for the internal thread pool Semaphore",
 		                return WORKER_ERROR_SEM_WAIT;);
 
@@ -73,8 +72,7 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) cons
 			RUN_LIFECYCLE_FN(argument.thread_pool->fns.shutdown_fn);
 
 			// to be able to await for this job too, it has to post the sempahore before leaving!
-			const int result2 = // NOLINT(totto-use-fixed-width-types-var)
-			    comp_sem_post(&(current_job->status));
+			const LibCInt result2 = comp_sem_post(&(current_job->status));
 			CHECK_FOR_ERROR(result2,
 			                "Couldn't post the internal thread pool Semaphore for a single job",
 			                return WORKER_ERROR_SEM_POST;);
@@ -90,8 +88,7 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) cons
 		current_job->result = return_value;
 
 		// finally cleaning up by posting the semaphore
-		const int result3 = // NOLINT(totto-use-fixed-width-types-var)
-		    comp_sem_post(&(current_job->status));
+		const LibCInt result3 = comp_sem_post(&(current_job->status));
 		CHECK_FOR_ERROR(result3,
 		                "Couldn't post the internal thread pool Semaphore for a single job",
 		                return WORKER_ERROR_SEM_POST;);
@@ -167,8 +164,7 @@ CreateResult pool_create(ThreadPool* const pool, const size_t size) { // NOLINT(
 	// now initialize the thread jobs_available sempahore, it denotes how many jobs are in the
 	// queue, so that a worker thread can get one from the queue and work upon that job pshared i 0,
 	// since it'S shared between threads!
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    comp_sem_init(&(pool->jobs_available), 0, true);
+	const LibCInt result = comp_sem_init(&(pool->jobs_available), 0, true);
 	CHECK_FOR_ERROR(result, "Couldn't initialize the internal thread pool Semaphore",
 	                return (CreateResult){ .error = CreateErrorSemInit };);
 
@@ -191,9 +187,8 @@ CreateResult pool_create(ThreadPool* const pool, const size_t size) { // NOLINT(
 		thread_argument->thread_pool = pool;
 		// now launch the worker thread
 
-		const int result2 = // NOLINT(totto-use-fixed-width-types-var)
-		    pthread_create(&((pool->worker_threads[i]).thread), NULL,
-		                   thread_pool_worker_thread_function, thread_argument);
+		const LibCInt result2 = pthread_create(&((pool->worker_threads[i]).thread), NULL,
+		                                       thread_pool_worker_thread_function, thread_argument);
 		CHECK_FOR_THREAD_ERROR(result2,
 		                       "An Error occurred while trying to create a new Worker "
 		                       "Thread in the implementation of thread pool",
@@ -224,8 +219,7 @@ static JobId* int_pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_T
 
 	// initializing with 0, it gets posted after the job was proccessed by a worker!!
 	// pshared i 0, since it'S shared between threads!
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    comp_sem_init(&(job_description->status), 0, true);
+	const LibCInt result = comp_sem_init(&(job_description->status), 0, true);
 	CHECK_FOR_ERROR(result,
 	                "Couldn't initialize the internal thread pool Semaphore for a single job",
 	                return SUBMIT_ERROR_SEM_INIT;);
@@ -235,8 +229,7 @@ static JobId* int_pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_T
 		return SUBMIT_ERROR_QUEUE_PUSH;
 	}
 	// after the push the semaphore gets posted, so a worker can get the job already, if available
-	const int result2 = // NOLINT(totto-use-fixed-width-types-var)
-	    comp_sem_post(&(pool->jobs_available));
+	const LibCInt result2 = comp_sem_post(&(pool->jobs_available));
 	CHECK_FOR_ERROR(result2, "Couldn't post the internal thread pool Semaphore",
 	                return SUBMIT_ERROR_SEM_POST);
 
@@ -266,8 +259,7 @@ JobId* pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_TYPE(JobArg)
 // copy, DON'T use it, it is undefined what happens when using this already freed chunk of memory
 static ANY_TYPE(JobResult) impl_pool_await(JobId* const job_description) {
 	// wait for the internal semaphore, that can block
-	int result = // NOLINT(totto-use-fixed-width-types-var)
-	    comp_sem_wait(&(job_description->status));
+	LibCInt result = comp_sem_wait(&(job_description->status));
 	CHECK_FOR_ERROR(result, "Couldn't wait for the internal thread pool Semaphore for a single job",
 	                return JOB_ERROR_SEM_WAIT;);
 
@@ -319,8 +311,7 @@ GenericResult pool_destroy(ThreadPool* const pool) {
 	// that it is already executed before calling join, if not it just blocks a littel amount of
 	// time, nothing to bad can happen
 	for(size_t i = 0; i < pool->worker_threads_amount; ++i) {
-		const int result = // NOLINT(totto-use-fixed-width-types-var)
-		    pthread_join(pool->worker_threads[i].thread, NULL);
+		const LibCInt result = pthread_join(pool->worker_threads[i].thread, NULL);
 		CHECK_FOR_THREAD_ERROR(result,
 		                       "An Error occurred while trying to wait for a Worker "
 		                       "Thread in the implementation of thread pool",
@@ -338,8 +329,7 @@ GenericResult pool_destroy(ThreadPool* const pool) {
 	}
 
 	// and the finally the semaphore, that is responsible for the jobs
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    comp_sem_destroy(&(pool->jobs_available));
+	const LibCInt result = comp_sem_destroy(&(pool->jobs_available));
 	CHECK_FOR_ERROR(result, "Couldn't destroy the internal thread pool Semaphore",
 	                return GENERIC_RES_ERR_UNIQUE(););
 

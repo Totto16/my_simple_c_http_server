@@ -89,8 +89,7 @@ static bool file_exists(const tstr_static file) {
 // NOTE: this has to return the number of bytes written, if this returns <= 0, the error reporting
 // stops, see
 // https://github.com/openssl/openssl/blob/3b90a847ece93b3886f14adc7061e70456d564e1/crypto/err/err_prn.c#L44
-static int error_logger(const char* const str, // NOLINT(totto-use-fixed-width-types-var)
-                        const size_t len,
+static int error_logger(const LibCChar* const str, const size_t len,
                         void* const user_data) { // NOLINT(totto-const-correctness-c)
 
 	UNUSED(user_data);
@@ -107,7 +106,7 @@ static const unsigned char g_alpn_protos[] = {
 
 // inspired by the docs and
 // https://github.com/openssl/openssl/blob/master/demos/guide/quic-server-block.c#L95
-static int alpn_select_cb(SSL* const /* ssl */,        // NOLINT(totto-use-fixed-width-types-var)
+static int alpn_select_cb(SSL* const /* ssl */,
                           const unsigned char** out,   // NOLINT(totto-use-fixed-width-types-var)
                           unsigned char* const outlen, // NOLINT(totto-use-fixed-width-types-var)
                           const unsigned char* in_buf, // NOLINT(totto-use-fixed-width-types-var)
@@ -169,8 +168,7 @@ static SecureData* initialize_secure_data(const tstr_static public_cert_file,
 	 * TLS versions older than TLS 1.2 are deprecated by IETF and SHOULD
 	 * be avoided if possible.
 	 */
-	int result = SSL_CTX_set_min_proto_version( // NOLINT(totto-use-fixed-width-types-var)
-	    ssl_context, TLS1_2_VERSION);
+	LibCInt result = SSL_CTX_set_min_proto_version(ssl_context, TLS1_2_VERSION);
 
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_set_min_proto_version failed:\n");
@@ -474,8 +472,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 
 	SSL* const ssl_structure = context->data.secure.ssl_structure;
 
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    SSL_set_fd(ssl_structure, native_fd);
+	const LibCInt result = SSL_set_fd(ssl_structure, native_fd);
 
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_set_fd failed:\n");
@@ -484,7 +481,7 @@ ConnectionDescriptor* get_connection_descriptor(const ConnectionContext* const c
 		return NULL;
 	}
 
-	const int ssl_result = SSL_accept(ssl_structure); // NOLINT(totto-use-fixed-width-types-var)
+	const LibCInt ssl_result = SSL_accept(ssl_structure);
 
 	if(ssl_result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_accept failed:\n");
@@ -536,8 +533,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 	if(!is_secure_descriptor(descriptor)) {
 		// TODO(Totto): we use shutdown in the ssl variant, should we use it here too?
 		//  shutdown(fd, SHUT_WR);
-		const int result = // NOLINT(totto-use-fixed-width-types-var)
-		    close(descriptor->data.normal.fd);
+		const LibCInt result = close(descriptor->data.normal.fd);
 		free(descriptor);
 
 		if(result == 0) {
@@ -559,7 +555,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 
 	SSL* ssl_structure = descriptor->data.secure.ssl_structure;
 
-	int result = 0; // NOLINT(totto-use-fixed-width-types-var)
+	LibCInt result = 0;
 
 	// do a bidirectional shutdown, if SSL_shutdown returns 0, we have to repeat the call, if it
 	// returns 1, we where successful
@@ -570,8 +566,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 			// if we already shutdown on our side, it is not strictly speaking an error, the other
 			// side did not terminate correctly, but we shouldn't error out because of that
 
-			const int shutdown_flags = // NOLINT(totto-use-fixed-width-types-var)
-			    SSL_get_shutdown(ssl_structure);
+			const LibCInt shutdown_flags = SSL_get_shutdown(ssl_structure);
 
 			if((shutdown_flags & SSL_SENT_SHUTDOWN) != 0) {
 				break;
@@ -586,8 +581,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 
 	// check the way the connection was closed, either both ends closed it correctly, or the other
 	// side didn't clean up correctly
-	const int shutdown_flags = // NOLINT(totto-use-fixed-width-types-var)
-	    SSL_get_shutdown(ssl_structure);
+	const LibCInt shutdown_flags = SSL_get_shutdown(ssl_structure);
 	bool was_closed_correctly = false;
 
 	if((shutdown_flags & SSL_SENT_SHUTDOWN) != 0 && (shutdown_flags & SSL_RECEIVED_SHUTDOWN) != 0) {
@@ -662,8 +656,7 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const desc
 
 	size_t bytes_read = 0;
 
-	const int result = // NOLINT(totto-use-fixed-width-types-var)
-	    SSL_read_ex(ssl_structure, buffer, (int)n_bytes, &bytes_read);
+	const LibCInt result = SSL_read_ex(ssl_structure, buffer, (int)n_bytes, &bytes_read);
 
 	if(result > 0) {
 		return (ReadResult){
@@ -672,8 +665,7 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const desc
 		};
 	}
 
-	const int error = // NOLINT(totto-use-fixed-width-types-var)
-	    SSL_get_error(ssl_structure, result);
+	const LibCInt error = SSL_get_error(ssl_structure, result);
 
 	unsigned long ssl_error = 0; // NOLINT(totto-use-fixed-width-types-var)
 
