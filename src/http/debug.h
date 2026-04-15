@@ -17,7 +17,7 @@ html_from_string(StringBuilder* head_content, // NOLINT(bugprone-easily-swappabl
                  StringBuilder* script_content, StringBuilder* style_content,
                  StringBuilder* body_content);
 
-NODISCARD StringBuilder* http_request_to_json(HttpRequest request, bool https,
+NODISCARD tstr http_request_to_json(HttpRequest request, bool https,
                                               SendSettings send_settings);
 
 // really simple and dumb html boilerplate, this is used for demonstration purposes, and is

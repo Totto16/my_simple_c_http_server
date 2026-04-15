@@ -1638,7 +1638,7 @@ void free_json_value(JsonValue* const json_value) { // NOLINT(misc-no-recursion)
 	*json_value = new_json_value_null();
 }
 
-NODISCARD tstr json_value_to_string(const JsonValue json_value) {
+NODISCARD tstr json_value_to_string(const JsonValue* const json_value) {
 	return json_value_to_string_advanced(json_value, (JsonSerializeOptions){ .indent_size = 0 });
 }
 
@@ -1880,7 +1880,7 @@ static void json_to_string_string_impl(StringBuilder* const string_builder,
 	tstr_free(&string_escaped);
 }
 
-static void json_to_string_variant_impl(StringBuilder* string_builder, JsonValue json_value,
+static void json_to_string_variant_impl(StringBuilder* string_builder, const JsonValue* json_value,
                                         JsonSerializeOptions options);
 
 #define FORMAT_TSTR(tstr_res, statement, format, ...) \
@@ -1920,7 +1920,7 @@ json_to_string_array_impl(StringBuilder* const string_builder, // NOLINT(misc-no
 			string_builder_append_tstr(string_builder, &separator_str);
 		}
 
-		const JsonValue value = json_array_at(json_array, i);
+		const JsonValue* const value = json_array_at(json_array, i);
 		json_to_string_variant_impl(string_builder, value, options);
 	}
 
@@ -1979,7 +1979,7 @@ json_to_string_object_impl(StringBuilder* const string_builder, // NOLINT(misc-n
 		json_to_string_string_impl(string_builder, key, options);
 		string_builder_append_tstr_static(string_builder, TSTR_STATIC_LIT(": "));
 
-		const JsonValue value = json_object_entry_get_value(next_entry);
+		const JsonValue* const value = json_object_entry_get_value(next_entry);
 
 		json_to_string_variant_impl(string_builder, value, options);
 	}
@@ -1994,29 +1994,29 @@ json_to_string_object_impl(StringBuilder* const string_builder, // NOLINT(misc-n
 
 static void
 json_to_string_variant_impl(StringBuilder* const string_builder, // NOLINT(misc-no-recursion)
-                            const JsonValue json_value, const JsonSerializeOptions options) {
-	SWITCH_JSON_VALUE(json_value) {
-		CASE_JSON_VALUE_IS_OBJECT_CONST(json_value) {
+                            const JsonValue* const json_value, const JsonSerializeOptions options) {
+	SWITCH_JSON_VALUE(*json_value) {
+		CASE_JSON_VALUE_IS_OBJECT_CONST(*json_value) {
 			json_to_string_object_impl(string_builder, object.obj, options);
 		}
 		break;
 		VARIANT_CASE_END();
-		CASE_JSON_VALUE_IS_ARRAY_CONST(json_value) {
+		CASE_JSON_VALUE_IS_ARRAY_CONST(*json_value) {
 			json_to_string_array_impl(string_builder, array.arr, options);
 		}
 		break;
 		VARIANT_CASE_END();
-		CASE_JSON_VALUE_IS_NUMBER_CONST(json_value) {
+		CASE_JSON_VALUE_IS_NUMBER_CONST(*json_value) {
 			json_to_string_number_impl(string_builder, number, options);
 		}
 		break;
 		VARIANT_CASE_END();
-		CASE_JSON_VALUE_IS_STRING_CONST(json_value) { // NOLINT(totto-const-correctness-c)
+		CASE_JSON_VALUE_IS_STRING_CONST(*json_value) { // NOLINT(totto-const-correctness-c)
 			json_to_string_string_impl(string_builder, string, options);
 		}
 		break;
 		VARIANT_CASE_END();
-		CASE_JSON_VALUE_IS_BOOLEAN_CONST(json_value) {
+		CASE_JSON_VALUE_IS_BOOLEAN_CONST(*json_value) {
 			json_to_string_boolean_impl(string_builder, boolean, options);
 		}
 		break;
@@ -2032,7 +2032,7 @@ json_to_string_variant_impl(StringBuilder* const string_builder, // NOLINT(misc-
 	}
 }
 
-NODISCARD tstr json_value_to_string_advanced(const JsonValue json_value,
+NODISCARD tstr json_value_to_string_advanced(const JsonValue* const json_value,
                                              const JsonSerializeOptions options) {
 
 	StringBuilder* string_builder = string_builder_init();
@@ -2070,10 +2070,10 @@ NODISCARD size_t json_array_size(const JsonArray* const array) {
 	return TVEC_LENGTH(JsonValue, array->value);
 }
 
-NODISCARD JsonValue json_array_at(const JsonArray* const array, const size_t index) {
+NODISCARD const JsonValue* json_array_at(const JsonArray* const array, const size_t index) {
 	assert(index < json_array_size(array)); // GCOVR_EXCL_BR_WITHOUT_HIT: 1/2
 
-	return TVEC_AT(JsonValue, array->value, index);
+	return TVEC_GET_AT(JsonValue, &(array->value), index);
 }
 
 NODISCARD size_t json_object_count(const JsonObject* const object) {
@@ -2141,11 +2141,11 @@ NODISCARD const JsonString* json_object_entry_get_key(const JsonObjectEntry* con
 	return &(entry->key.string);
 }
 
-NODISCARD JsonValue json_object_entry_get_value(const JsonObjectEntry* const object_entry) {
+NODISCARD const JsonValue* json_object_entry_get_value(const JsonObjectEntry* const object_entry) {
 	const TMAP_TYPENAME_ENTRY(JsonValueMapImpl)* const entry =
 	    (const TMAP_TYPENAME_ENTRY(JsonValueMapImpl)*)object_entry;
 
-	return entry->value;
+	return &(entry->value);
 }
 
 NODISCARD JsonString* json_get_string_from_cstr(const char* cstr) {

@@ -28,6 +28,8 @@ NODISCARD HTTPResponseBody http_response_body_from_static_string(const char* sta
 
 NODISCARD HTTPResponseBody http_response_body_from_string(char* string, bool send_body);
 
+NODISCARD HTTPResponseBody http_response_body_from_tstr(tstr* string, bool send_body);
+
 NODISCARD HTTPResponseBody http_response_body_from_string_builder(StringBuilder** string_builder,
                                                                   bool send_body);
 

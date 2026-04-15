@@ -78,9 +78,10 @@ typedef struct {
 	size_t indent_size;
 } JsonSerializeOptions;
 
-NODISCARD tstr json_value_to_string(JsonValue json_value);
+NODISCARD tstr json_value_to_string(const JsonValue* json_value);
 
-NODISCARD tstr json_value_to_string_advanced(JsonValue json_value, JsonSerializeOptions options);
+NODISCARD tstr json_value_to_string_advanced(const JsonValue* json_value,
+                                             JsonSerializeOptions options);
 
 // utility / get functions
 
@@ -88,7 +89,7 @@ NODISCARD bool json_string_eq(const JsonString* str1, const JsonString* str2);
 
 NODISCARD size_t json_array_size(const JsonArray* array);
 
-NODISCARD JsonValue json_array_at(const JsonArray* array, size_t index);
+NODISCARD const JsonValue* json_array_at(const JsonArray* array, size_t index);
 
 NODISCARD size_t json_object_count(const JsonObject* object);
 
@@ -107,7 +108,7 @@ void json_object_free_iterator(JsonObjectIter* iter);
 
 NODISCARD const JsonString* json_object_entry_get_key(const JsonObjectEntry* object_entry);
 
-NODISCARD JsonValue json_object_entry_get_value(const JsonObjectEntry* object_entry);
+NODISCARD const JsonValue* json_object_entry_get_value(const JsonObjectEntry* object_entry);
 
 // create functions
 

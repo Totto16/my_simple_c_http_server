@@ -277,7 +277,7 @@ TEST_CASE("testing stringification of json values <json_parser_stringify>") {
 
 		INFO("Test case: ", test_case.input);
 
-		auto stringify_result = json_value_to_string(test_case.input);
+		auto stringify_result = json_value_to_string(&test_case.input);
 		CAutoFreePtr<tstr> defer = { &stringify_result, tstr_free };
 
 		REQUIRE_FALSE(tstr_is_null(&stringify_result));
