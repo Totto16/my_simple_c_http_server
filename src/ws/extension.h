@@ -34,7 +34,7 @@ TVEC_DEFINE_VEC_TYPE(WSExtension)
 
 typedef TVEC_TYPENAME(WSExtension) WSExtensions;
 
-NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions);
+NODISCARD tstr get_accepted_ws_extensions_as_string(WSExtensions extensions);
 
 void parse_ws_extensions(WSExtensions* extensions, tstr_view value);
 

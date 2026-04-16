@@ -581,9 +581,8 @@ NODISCARD HTTPResponseBody http_response_body_from_tstr(tstr* string, bool send_
 
 NODISCARD HTTPResponseBody http_response_body_from_string_builder(StringBuilder** string_builder,
                                                                   bool send_body) {
-	SizedBuffer string_builder_buffer = string_builder_release_into_sized_buffer(string_builder);
-	HTTPResponseBody result = http_response_body_from_data(string_builder_buffer.data,
-	                                                       string_builder_buffer.size, send_body);
+	tstr string_builder_buffer = string_builder_release_into_tstr(string_builder);
+	HTTPResponseBody result = http_response_body_from_tstr(&string_builder_buffer, send_body);
 	return result;
 }
 

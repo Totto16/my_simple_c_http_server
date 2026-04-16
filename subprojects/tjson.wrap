@@ -1,7 +1,7 @@
 [wrap-git]
 directory = tjson
 url = https://github.com/Totto16/tjson.git
-revision = 20799ff21c7c6e94f5270aa688ec19bb5c2d21a4 
+revision = 3b112e8909a02332807c603089bb4cb35bacd1f7
 depth = 1
 
 [provide]

@@ -1,8 +1,9 @@
 #include "./debug.h"
-#include "utils/string_builder.h"
+
 #include "utils/utils.h"
 
-#include <json/json.h>
+#include <tjson.h>
+#include <tstr_builder.h>
 
 // returning a stringbuilder, that makes a string from the http_request, this is useful for
 // debugging

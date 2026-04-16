@@ -8,8 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "all_variants.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,9 +47,27 @@ extern "C" {
 #if _SIMPLE_SERVER_COMPILE_WITH_NARROWED_ENUMS
 	#define C_23_NARROW_ENUM_TO(x) : x
 	#define C_23_ENUM_TYPE(x) x
+
+	#define VARIANT_IMPL_ALL_USE_NARROWED_ENUMS 1
 #else
 	#define C_23_NARROW_ENUM_TO(x)
 	#define C_23_ENUM_TYPE(x) int
+
+	#define VARIANT_IMPL_ALL_USE_NARROWED_ENUMS 0
+#endif
+
+#define VARIANT_IMPL_ALL_VARIANTS_COMPILED_WITH_NARROWED_ENUMS VARIANT_IMPL_ALL_USE_NARROWED_ENUMS
+#define VARIANT_IMPL_GENERATED_VARIANTS_COMPILED_WITH_NARROWED_ENUMS \
+	VARIANT_IMPL_ALL_USE_NARROWED_ENUMS
+
+#ifdef __cplusplus
+}
+#endif
+
+#include "all_variants.h"
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 #if defined(__clang__)
