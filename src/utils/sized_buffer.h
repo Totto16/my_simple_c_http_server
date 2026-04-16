@@ -47,6 +47,8 @@ NODISCARD ReadonlyBuffer readonly_buffer_from_sized_buffer(SizedBuffer buffer);
 
 NODISCARD ReadonlyBuffer readonly_buffer_from_tstr(const tstr* str);
 
+NODISCARD SizedBuffer sized_buffer_from_tstr(tstr* str);
+
 NODISCARD SizedBuffer sized_buffer_allocate_from_readonly_buffer(ReadonlyBuffer buffer);
 
 NODISCARD bool readonly_buffer_eq(ReadonlyBuffer buf1, ReadonlyBuffer buf2);

@@ -3,7 +3,8 @@
 
 #include "http/compression.h"
 #include "utils/number_parsing.h"
-#include "utils/string_builder.h"
+
+#include <tstr_builder.h>
 
 #include <ctype.h>
 
@@ -254,12 +255,12 @@ NODISCARD static bool append_ws_extension_as_string(StringBuilder* string_builde
 	return true;
 }
 
-NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
+NODISCARD tstr get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 
 	StringBuilder* string_builder = string_builder_init();
 
 	if(!string_builder) {
-		return NULL;
+		return tstr_null();
 	}
 
 	size_t extensions_length = TVEC_LENGTH(WSExtension, extensions);
@@ -271,7 +272,7 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 
 		if(!success) {
 			free_string_builder(string_builder);
-			return NULL;
+			return tstr_null();
 		}
 
 		if(i != extensions_length - 1) {
@@ -279,7 +280,7 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 		}
 	}
 
-	return string_builder_release_into_string(&string_builder);
+	return string_builder_release_into_tstr(&string_builder);
 }
 
 // note: ws spec defines how to handle multiple extensions and how to chain them, we only support

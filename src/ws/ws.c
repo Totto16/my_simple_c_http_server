@@ -9,9 +9,9 @@
 #include "http/send.h"
 #include "utils/log.h"
 #include "utils/number_parsing.h"
-#include "utils/string_builder.h"
 
 #include <strings.h>
+#include <tstr_builder.h>
 
 NODISCARD static GenericResult
 send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const descriptor,
@@ -343,14 +343,14 @@ GenericResult handle_ws_handshake(const HttpRequest http_request,
 	}
 
 	if(!TVEC_IS_EMPTY(WSExtension, *extensions)) {
-		char* accepted_extensions = get_accepted_ws_extensions_as_string(*extensions);
+		tstr accepted_extensions = get_accepted_ws_extensions_as_string(*extensions);
 
-		if(accepted_extensions != NULL) {
+		if(!tstr_is_null(&accepted_extensions)) {
 
 			add_http_header_field(
 			    &additional_headers,
 			    tstr_from_static_tstr(HTTP_HEADER_NAME(ws_sec_websocket_extensions)),
-			    tstr_own_cstr(accepted_extensions));
+			    accepted_extensions);
 		}
 	}
 

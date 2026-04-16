@@ -82,6 +82,10 @@ NODISCARD ReadonlyBuffer readonly_buffer_from_tstr(const tstr* const str) {
 	return (ReadonlyBuffer){ .data = tstr_cstr(str), .size = tstr_len(str) };
 }
 
+NODISCARD SizedBuffer sized_buffer_from_tstr(tstr* const str) {
+	return (SizedBuffer){ .data = tstr_data(str), .size = tstr_len(str) };
+}
+
 NODISCARD SizedBuffer sized_buffer_allocate_from_readonly_buffer(const ReadonlyBuffer buffer) {
 	return sized_buffer_dup_impl(buffer.data, buffer.size);
 }

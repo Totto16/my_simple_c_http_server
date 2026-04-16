@@ -54,9 +54,11 @@ NODISCARD GenericResult send_buffer_to_connection(const ConnectionDescriptor* co
 GenericResult send_string_builder_to_connection(const ConnectionDescriptor* const descriptor,
                                                 StringBuilder** const string_builder) {
 
-	const SizedBuffer string_buffer = string_builder_release_into_sized_buffer(string_builder);
+	tstr string_buffer = string_builder_release_into_tstr(string_builder);
 
-	const GenericResult result = send_buffer_to_connection(descriptor, string_buffer);
-	free_sized_buffer(string_buffer);
+	const SizedBuffer buf = sized_buffer_from_tstr(&string_buffer);
+
+	const GenericResult result = send_buffer_to_connection(descriptor, buf);
+	tstr_free(&string_buffer);
 	return result;
 }

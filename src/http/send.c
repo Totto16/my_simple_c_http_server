@@ -97,7 +97,8 @@ static bool construct_http1_headers_for_request(
 	{
 		// Server
 
-		const tstr server_value = TSTR_LIT("Simple C HTTP Server: v" STRINGIFY(VERSION_STRING));
+		const tstr server_value =
+		    TSTR_LIT("Simple C HTTP Server: v" STRINGIFY(_SIMPLE_SERVER_VERSION_STRING));
 
 		add_http_header_field(result_header_fields, tstr_from_static_tstr(HTTP_HEADER_NAME(server)),
 		                      server_value);
@@ -574,11 +575,14 @@ NODISCARD HTTPResponseBody http_response_body_from_string(char* string, bool sen
 	return http_response_body_from_data(string, strlen(string), send_body);
 }
 
+NODISCARD HTTPResponseBody http_response_body_from_tstr(tstr* string, bool send_body) {
+	return http_response_body_from_data(tstr_data(string), tstr_len(string), send_body);
+}
+
 NODISCARD HTTPResponseBody http_response_body_from_string_builder(StringBuilder** string_builder,
                                                                   bool send_body) {
-	SizedBuffer string_builder_buffer = string_builder_release_into_sized_buffer(string_builder);
-	HTTPResponseBody result = http_response_body_from_data(string_builder_buffer.data,
-	                                                       string_builder_buffer.size, send_body);
+	tstr string_builder_buffer = string_builder_release_into_tstr(string_builder);
+	HTTPResponseBody result = http_response_body_from_tstr(&string_builder_buffer, send_body);
 	return result;
 }
 
