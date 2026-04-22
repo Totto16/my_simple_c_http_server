@@ -240,7 +240,7 @@ CustomChecks:
         Message: Function that uses this parameter
         Level: Note
   - Name: no-auto-usage-c
-    # matches any variable delcaration, which type is auto, canonical type means, it resolves tru typedefs and macros
+    # matches any variable declaration, which type is auto, canonical type means, it resolves tru typedefs and macros
     Query: |
       match varDecl(
               hasType(
