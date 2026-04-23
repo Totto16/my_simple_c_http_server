@@ -24,7 +24,7 @@ MimeTypeMappings
 #define TMAP_INSERT_AND_ASSERT(Typename, map, key, value) \
 	do { \
 		const TmapInsertResult insert_result = TMAP_INSERT(Typename, map, key, value, false); \
-		assert(insert_result == TmapInsertResultOk && "insertion failed"); \
+		ASSERT(insert_result == TmapInsertResultOk && "insertion failed"); \
 	} while(false)
 
 #define TMAP_INSERT_AND_ASSERT_MIME_ENTRY(key, value) \

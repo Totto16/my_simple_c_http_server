@@ -609,7 +609,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 
 		// if context is NULL; we don't allow reallocating of the new context
 		if(context != NULL) {
-			assert(context->data.secure.ssl_structure == ssl_structure);
+			ASSERT(context->data.secure.ssl_structure == ssl_structure);
 			context->data.secure.ssl_structure =
 			    new_ssl_structure_from_ctx(context->data.secure.options->value.data->ssl_context);
 

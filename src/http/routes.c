@@ -204,7 +204,7 @@ static void add_random_object_key_and_value(JsonObject* const object) {
 
 	tstr_static result = json_object_add_entry(object, &key_moved, value);
 
-	assert(tstr_static_is_null(result));
+	ASSERT(tstr_static_is_null(result));
 }
 
 static void add_random_json_object_to_array(JsonArray* const array) {
@@ -220,7 +220,7 @@ static void add_random_json_object_to_array(JsonArray* const array) {
 
 	tstr_static result = json_array_add_entry(array, new_json_value_object(object));
 
-	assert(tstr_static_is_null(result));
+	ASSERT(tstr_static_is_null(result));
 }
 
 static JsonValue get_random_json_value(const JsonSerializeOptions options) {

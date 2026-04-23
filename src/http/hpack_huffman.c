@@ -61,7 +61,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 	const HuffmanNode* current_node = tree->root;
 
 	while(current_pos.pos < buffer.size) {
-		assert(get_current_tag_type_for_huffman_node(*current_node) == HuffmanNodeTypeNode);
+		ASSERT(get_current_tag_type_for_huffman_node(*current_node) == HuffmanNodeTypeNode);
 
 		const HuffmanNodeNode* const current_node_node =
 		    huffman_node_get_as_node_const_ref(current_node);
@@ -206,7 +206,7 @@ NODISCARD static size_t hpack_huffman_get_encoded_size_impl(const HuffmanEncodeM
 
 NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* const str) {
 	if(g_huffman_data.map == NULL) {
-		assert(false && "global map is not initialized");
+		ASSERT(false && "global map is not initialized");
 		return 0;
 	};
 

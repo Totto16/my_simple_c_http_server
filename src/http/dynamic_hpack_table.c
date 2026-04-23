@@ -40,9 +40,9 @@ void free_dynamic_entry(HpackHeaderDynamicEntry* const entry) {
 
 #if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
 static void assert_is_null_entry(const HpackHeaderDynamicEntry entry) {
-	assert(tstr_is_null(&entry.key));
+	ASSERT(tstr_is_null(&entry.key));
 
-	assert(tstr_is_null(&entry.value));
+	ASSERT(tstr_is_null(&entry.value));
 }
 
 MAYBE_UNUSED static void print_table(const HpackHeaderDynamicTable* table) {
@@ -156,7 +156,7 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 		// shrink the capcity, only shrink if we have 4 times the capcity, but we shrink it by 2, so
 		// leaving enough room, that another insert doesn't need another reallocation
-		assert(new_capacity != 0);
+		ASSERT(new_capacity != 0);
 
 		// first reallocate all entries into the first new_capacity entries
 		if(dynamic_table->start >= new_capacity) {
@@ -170,13 +170,13 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 				const size_t new_idx = i - 1;
 
-				assert(new_idx < dynamic_table->count && new_idx < new_capacity);
+				ASSERT(new_idx < dynamic_table->count && new_idx < new_capacity);
 
 #if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
 				assert_is_null_entry(dynamic_table->entries[new_idx]);
 #endif
 
-				assert(old_idx != new_idx);
+				ASSERT(old_idx != new_idx);
 
 				dynamic_table->entries[new_idx] = old_entry;
 
@@ -201,19 +201,19 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 
 				// SHOULD NEVER wrap around, logically (it is count long, start before the half, so
 				// it should never reach the wraparound case)
-				assert((dynamic_table->start + i) < dynamic_table->capacity);
+				ASSERT((dynamic_table->start + i) < dynamic_table->capacity);
 				const size_t old_idx = (dynamic_table->start + i) % dynamic_table->capacity;
 				const HpackHeaderDynamicEntry old_entry = dynamic_table->entries[old_idx];
 
 				const size_t new_idx = i;
 
-				assert(new_idx < dynamic_table->count && new_idx < new_capacity);
+				ASSERT(new_idx < dynamic_table->count && new_idx < new_capacity);
 
 #if DYNAMIC_HPACK_TABLE_FORTIFIED == 1
 				assert_is_null_entry(dynamic_table->entries[new_idx]);
 #endif
 
-				assert(old_idx != new_idx);
+				ASSERT(old_idx != new_idx);
 
 				dynamic_table->entries[new_idx] = old_entry;
 
@@ -312,7 +312,7 @@ NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* cons
 			// valid SSO tstr, that signifies empty
 
 			const size_t free_amount = dynamic_table->capacity - dynamic_table->count;
-			assert(free_amount > 0);
+			ASSERT(free_amount > 0);
 
 			const size_t start_idx =
 			    (dynamic_table->start + dynamic_table->count) % dynamic_table->capacity;

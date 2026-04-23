@@ -144,7 +144,7 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 	}
 
 	if(value <= HPACK_STATIC_HEADER_TABLE_SIZE) {
-		assert(g_hpack_static_data.static_header_table != NULL);
+		ASSERT(g_hpack_static_data.static_header_table != NULL);
 
 		HpackHeaderStaticEntry static_entry = g_hpack_static_data.static_header_table[value - 1];
 
@@ -168,7 +168,7 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 	}
 
 	// asserts errors in the underlying dynamic table
-	assert(!tstr_is_null(&(dynamic_entry_res.entry.key)));
+	ASSERT(!tstr_is_null(&(dynamic_entry_res.entry.key)));
 
 	return new_hpack_header_entry_result_value(
 	    (HpackHeaderDynamicEntry){ .key = tstr_dup(&dynamic_entry_res.entry.key),
@@ -369,7 +369,7 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 		const SizedBuffer result_buf = huffman_decode_result_get_as_ok(huffman_res).result;
 
 #ifndef NDEBUG
-		assert(strlen(result_buf.data) == result_buf.size);
+		ASSERT(strlen(result_buf.data) == result_buf.size);
 #endif
 
 		const tstr result = tstr_own(result_buf.data, result_buf.size, result_buf.size);
@@ -854,7 +854,7 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 				goto return_error;
 			}
 		} else {
-			assert(
+			ASSERT(
 			    (byte & 0xF0) == 0 &&
 			    "this should always be true logically, this is an implementation error otherwise");
 
@@ -2099,7 +2099,7 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 		const HpackHeaderDynamicEntryResult dynamic_entry_res =
 		    hpack_dynamic_table_at(&(compress_state->dynamic_table_state.dynamic_table), i);
 
-		assert(dynamic_entry_res.ok);
+		ASSERT(dynamic_entry_res.ok);
 
 		const TableFindResultType matches_entry =
 		    table_entry_matches_dynamic(field, &dynamic_entry_res.entry);
@@ -2215,7 +2215,7 @@ encode_single_header_field_indexed_header_field(const size_t entry_table_idx) {
 	// set the first bit
 	data[i] = 0x80; // NOLINT(readability-magic-numbers)
 
-	assert(entry_table_idx != 0);
+	ASSERT(entry_table_idx != 0);
 	int8_t result = encode_hpack_variable_integer(data + i, entry_table_idx,
 	                                              7); // NOLINT(readability-magic-numbers)
 

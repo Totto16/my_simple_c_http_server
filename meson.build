@@ -283,6 +283,10 @@ internal_c_args += cc.get_supported_arguments(
     '-Wcast-qual',
     '-Wwrite-strings',
     '-Wdiscarded-qualifiers',
+    '-Wconversion',
+    '-Wsign-conversion',
+    '-Waddress',
+    '-Wfloat-equal',
 )
 
 if cc.get_id() == 'gcc'

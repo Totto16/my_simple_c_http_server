@@ -173,10 +173,10 @@ typedef struct {
 } ProgramArgs;
 
 #define PROGRAM_ARGS_AT(args, index) \
-	(assert((index) < (args).size), tstr_static_from_static_cstr((args).data[(index)]))
+	(ASSERT((index) < (args).size), tstr_static_from_static_cstr((args).data[(index)]))
 
 static inline ProgramArgs advance_program_args(const ProgramArgs args, const size_t amount) {
-	assert(args.size >= amount);
+	ASSERT(args.size >= amount);
 	return (ProgramArgs){ .size = args.size - amount, .data = args.data + amount };
 }
 

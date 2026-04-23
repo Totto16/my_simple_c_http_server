@@ -184,7 +184,7 @@ compress_buffer_with_zlib_impl(SizedBuffer buffer,
 		return SIZED_BUFFER_ERROR;
 	}
 
-	assert(result_buffer.size == zstream.total_out);
+	ASSERT(result_buffer.size == zstream.total_out);
 
 	int deflate_end_result = deflateEnd(&zstream);
 
@@ -315,7 +315,7 @@ decompress_buffer_with_zlib_impl(SizedBuffer buffer,
 		return SIZED_BUFFER_ERROR;
 	}
 
-	assert(result_buffer.size == zstream.total_out);
+	ASSERT(result_buffer.size == zstream.total_out);
 
 	int inflate_end_result = inflateEnd(&zstream);
 
