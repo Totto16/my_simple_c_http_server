@@ -618,9 +618,11 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	                                   ConnectionHeaderTypeHTTP2Settings
 } ConnectionHeaderType;
 
-static void process_connection_header(const tstr_view value, void* argument) {
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(ConnectionHeaderType)
 
-	ConnectionHeaderType* state = (ConnectionHeaderType*)argument;
+static void process_connection_header(const tstr_view value, RTTIAnnotatedValue argument) {
+
+	ConnectionHeaderType* state = TRTTI_ANNOTATED_VALUE_CAST(ConnectionHeaderType, argument);
 
 	if(tstr_view_eq_ignore_case(value, TSTR_TSV("upgrade"))) {
 		*state = *state | ConnectionHeaderTypeUpgrade;
@@ -721,8 +723,11 @@ NODISCARD static HttpAnalyzeHeadersResult http_analyze_headers(const HttpRequest
 
 				ConnectionHeaderType state = ConnectionHeaderTypeNone;
 
+				RTTIAnnotatedValue state_value =
+				    TRTTI_ANNOTATED_VALUE_GET(ConnectionHeaderType, &state);
+
 				process_delimitered_header_value(tstr_as_view(&header.value), ",",
-				                                 process_connection_header, &state);
+				                                 process_connection_header, state_value);
 
 				if((state & ConnectionHeaderTypeNeededForH2C) == ConnectionHeaderTypeNeededForH2C) {
 					h2state.connection_has_both_upgrade_and_h2_settings = true;

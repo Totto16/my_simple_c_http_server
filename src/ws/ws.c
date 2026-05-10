@@ -197,10 +197,11 @@ typedef struct {
 	const tstr_static field_name;
 	bool success;
 } WsHeaderProcessArg;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(WsHeaderProcessArg)
 
-static void process_ws_header(const tstr_view value, void* argument) {
+static void process_ws_header(const tstr_view value, RTTIAnnotatedValue argument) {
 
-	WsHeaderProcessArg* arg = (WsHeaderProcessArg*)argument;
+	WsHeaderProcessArg* arg = TRTTI_ANNOTATED_VALUE_CAST(WsHeaderProcessArg, argument);
 
 	if(tstr_view_eq_ignore_case(value, tstr_static_as_view(arg->field_name))) {
 		arg->success = true;
@@ -232,8 +233,11 @@ GenericResult handle_ws_handshake(const HttpRequest http_request,
 				.success = false,
 			};
 
+			RTTIAnnotatedValue process_value =
+			    TRTTI_ANNOTATED_VALUE_GET(WsHeaderProcessArg, &process_arg);
+
 			process_delimitered_header_value(tstr_as_view(&header.value), ",", process_ws_header,
-			                                 &process_arg);
+			                                 process_value);
 
 			if(!process_arg.success) {
 				return send_failed_handshake_message(descriptor, general_context,
@@ -248,8 +252,11 @@ GenericResult handle_ws_handshake(const HttpRequest http_request,
 				.success = false,
 			};
 
+			RTTIAnnotatedValue process_value =
+			    TRTTI_ANNOTATED_VALUE_GET(WsHeaderProcessArg, &process_arg);
+
 			process_delimitered_header_value(tstr_as_view(&header.value), ",", process_ws_header,
-			                                 &process_arg);
+			                                 process_value);
 
 			if(!process_arg.success) {
 				if(send_http_upgrade_required_status_code) {

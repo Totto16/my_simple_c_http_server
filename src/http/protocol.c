@@ -291,7 +291,7 @@ void add_http_header_field(HttpHeaderFields* const header_fields, const tstr key
 
 void process_delimitered_header_value(const tstr_view value, const char* const delimiter,
                                       ProcessHeaderValue callback_function,
-                                      void* callback_argument) {
+                                      RTTIAnnotatedValue callback_argument) {
 
 	tstr_split_iter iter = tstr_split_init(value, delimiter);
 

@@ -186,6 +186,12 @@ deps += dependency(
 )
 
 deps += dependency(
+    'trtti',
+    allow_fallback: true,
+    version: ['>=1.0.0', '<2'],
+)
+
+deps += dependency(
     'tmap.h',
     allow_fallback: true,
     version: ['>=1.0.0', '<2'],

@@ -1,0 +1,8 @@
+[wrap-git]
+directory = trtti
+url = https://github.com/Totto16/trtti.git
+revision = 77018e9af84dce71e1973c33247bfc6211033393
+depth = 1
+
+[provide]
+dependency_names = trtti
