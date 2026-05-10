@@ -181,12 +181,16 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 			free(internalBuffer); \
 		} \
 		const LibCInt toWrite = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
-		internalBuffer = (char*)malloc(toWrite * sizeof(char)); \
+		if(toWrite < 0) { \
+			logger_fn("snprintf Internal error: negative value returned: %d\n", toWrite); \
+			statement \
+		} \
+		internalBuffer = (char*)malloc((size_t)toWrite * sizeof(char)); \
 		if(!internalBuffer) { \
 			logger_fn("Couldn't allocate memory for %d bytes!\n", toWrite); \
 			statement \
 		} \
-		const LibCInt written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \
+		const LibCInt written = snprintf(internalBuffer, (size_t)toWrite, format, __VA_ARGS__); \
 		if(written >= toWrite) { \
 			logger_fn("snprintf did write more bytes then it had space in the buffer, available " \
 			          "space: '%d', actually written: '%d'!\n", \

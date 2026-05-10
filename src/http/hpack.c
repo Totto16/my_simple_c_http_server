@@ -29,7 +29,7 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
                                                                    uint8_t prefix_bits) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1
 
-	const uint8_t mask = (1 << prefix_bits) - 1;
+	const uint8_t mask = (uint8_t)((((uint8_t)1U) << prefix_bits) - (uint8_t)1U);
 	const uint8_t first_byte = (data[*pos]) & mask;
 
 	if(first_byte < mask) {
@@ -58,9 +58,8 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 			    TSTR_STATIC_LIT("final integer would be too big"));
 		}
 
-		result += (byte & 0x7F) // NOLINT(readability-magic-numbers)
-		          << amount;
-		if((byte & 0x80) == // NOLINT(readability-magic-numbers)
+		result += (byte & 0x7FU) << amount; // NOLINT(readability-magic-numbers)
+		if((byte & 0x80) ==                 // NOLINT(readability-magic-numbers)
 		   0) {
 			// this was the last byte
 			break;
@@ -79,7 +78,7 @@ NODISCARD static int8_t encode_hpack_variable_integer(
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1
 
-	const uint8_t mask = (1 << prefix_bits) - 1;
+	const uint8_t mask = (uint8_t)((((uint8_t)1U) << prefix_bits) - (uint8_t)1U);
 
 	if(input < mask) {
 		// it can be done in one value
@@ -112,7 +111,7 @@ NODISCARD static int8_t encode_hpack_variable_integer(
 			                   to_encode;
 			value /= 0x80; // NOLINT(readability-magic-numbers)
 		} else {
-			out_bytes[idx++] = value;
+			out_bytes[idx++] = (uint8_t)value;
 			break;
 		}
 	}
@@ -1044,7 +1043,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 	}
 
 	{ // encode value
@@ -1060,7 +1059,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(field_value), value_size);
 
@@ -1126,7 +1125,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 	}
 
 	{ // encode value
@@ -1142,7 +1141,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, field_value);
@@ -1266,7 +1265,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->key)), key_size);
 
@@ -1286,7 +1285,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->value)), value_size);
 
@@ -1360,7 +1359,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &(field->key));
@@ -1396,7 +1395,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
@@ -1513,7 +1512,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_no_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 	}
 
 	{ // encode value
@@ -1529,7 +1528,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_no_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->value)), value_size);
 
@@ -1605,7 +1604,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 	}
 
 	{ // encode value
@@ -1621,7 +1620,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
@@ -1753,7 +1752,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_no_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->key)), key_size);
 
@@ -1773,7 +1772,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_no_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->value)), value_size);
 
@@ -1856,7 +1855,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &(field->key));
@@ -1892,7 +1891,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
@@ -2224,7 +2223,7 @@ encode_single_header_field_indexed_header_field(const size_t entry_table_idx) {
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	i += result;
+	i += (uint8_t)result;
 
 	if(i > buffer.size) {
 		// NOTE: too much data used

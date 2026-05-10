@@ -39,7 +39,7 @@ char g_alt_svc_constant_data // NOLINT(cppcoreguidelines-avoid-non-const-global-
     [SIZE_OF_GLOBAL_ALT_SVC_DATA] = { 'h', '2', '=', '"', 0, 0, 0, 0, 0, '"', '\0' };
 
 void global_setup_port_data(uint16_t port) {
-	size_t result =
+	LibCInt result =
 	    snprintf(g_alt_svc_constant_data, SIZE_OF_GLOBAL_ALT_SVC_DATA, "h2=\"%u\"", port);
 
 	assert(result <= SIZE_OF_GLOBAL_ALT_SVC_DATA);

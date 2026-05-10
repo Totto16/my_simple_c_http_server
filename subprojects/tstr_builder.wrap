@@ -1,7 +1,7 @@
 [wrap-git]
 directory = tstr_builder
 url = https://github.com/Totto16/tstr_builder.git
-revision = 13b1a3e566c5ae7e8d7c8c09d87bcb9a497533f6
+revision = 2f00d979adc98c69d3f1d275bf4b1a5c98303e7d
 depth = 1
 
 [provide]

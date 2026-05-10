@@ -292,7 +292,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 NODISCARD static GenericResult
 http2_send_settings_frame(const ConnectionDescriptor* const descriptor, Http2SettingsFrame frame) {
 
-	uint32_t length = TVEC_LENGTH(Http2SettingSingleValue, frame.entries);
+	uint32_t length = (uint32_t)(TVEC_LENGTH(Http2SettingSingleValue, frame.entries));
 
 	uint8_t flags =
 	    frame.ack ? Http2SettingsFrameFlagAck : 0; // NOLINT(readability-implicit-bool-conversion)
@@ -400,7 +400,7 @@ NODISCARD static GenericResult http2_send_data_frame(const ConnectionDescriptor*
                                                      const Http2DataFrame frame) {
 
 	Http2RawHeader header = {
-		.length = frame.content.size,
+		.length = (uint32_t)frame.content.size,
 		.type = Http2FrameTypeData,
 		.flags = frame.is_end // NOLINT(readability-implicit-bool-conversion)
 		             ? Http2DataFrameFlagEndStream
@@ -450,7 +450,7 @@ http2_send_headers_frame(const ConnectionDescriptor* const descriptor,
 	}
 
 	Http2RawHeader header = {
-		.length = frame.block_fragment.size,
+		.length = (uint32_t)frame.block_fragment.size,
 		.type = Http2FrameTypeHeaders,
 		.flags = flags,
 		.stream_identifier = frame.identifier,
@@ -474,7 +474,7 @@ NODISCARD static GenericResult
 http2_send_continuation_frame(const ConnectionDescriptor* const descriptor,
                               const Http2ContinuationFrame frame) {
 	Http2RawHeader header = {
-		.length = frame.block_fragment.size,
+		.length = (uint32_t)frame.block_fragment.size,
 		.type = Http2FrameTypeContinuation,
 		.flags = frame.end_headers ? // NOLINT(readability-implicit-bool-conversion)
 		             Http2ContinuationFrameFlagEndHeaders

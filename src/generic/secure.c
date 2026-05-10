@@ -168,7 +168,7 @@ static SecureData* initialize_secure_data(const tstr_static public_cert_file,
 	 * TLS versions older than TLS 1.2 are deprecated by IETF and SHOULD
 	 * be avoided if possible.
 	 */
-	LibCInt result = SSL_CTX_set_min_proto_version(ssl_context, TLS1_2_VERSION);
+	LibCLong result = SSL_CTX_set_min_proto_version(ssl_context, TLS1_2_VERSION);
 
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_set_min_proto_version failed:\n");
@@ -656,7 +656,7 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const desc
 
 	size_t bytes_read = 0;
 
-	const LibCInt result = SSL_read_ex(ssl_structure, buffer, (int)n_bytes, &bytes_read);
+	const LibCInt result = SSL_read_ex(ssl_structure, buffer, n_bytes, &bytes_read);
 
 	if(result > 0) {
 		return (ReadResult){

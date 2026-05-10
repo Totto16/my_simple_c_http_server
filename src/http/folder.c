@@ -411,7 +411,7 @@ NODISCARD static bool is_the_same_path(const tstr* const path1, const tstr* cons
 		return tstr_eq(path1, path2);
 	}
 
-	uint64_t diff = abs_i64((int64_t)len1) - ((int64_t)len2);
+	uint64_t diff = abs_i64((int64_t)len1 - (int64_t)len2);
 
 	if(diff > 1) {
 		return false;

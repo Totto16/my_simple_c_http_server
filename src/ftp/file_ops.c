@@ -373,9 +373,9 @@ NODISCARD static FilePermissions permissions_from_mode(mode_t mode) {
 
 	FilePermissions file_permissions = { .special_type = special_type, .permissions = {} };
 
-	int masks[3] = { S_IRWXU, S_IRWXG, S_IRWXO };
+	mode_t masks[3] = { S_IRWXU, S_IRWXG, S_IRWXO };
 	for(size_t i = 0; i < 3; ++i) {
-		int mask = masks[i];
+		mode_t mask = masks[i];
 		mode_t value =
 		    (mode & mask) >> ((2 - i) * 3); // NOLINT(readability-implicit-bool-conversion)
 		file_permissions.permissions[i] = (OnePermission){ .read = (value & 0b100) != 0,
@@ -394,7 +394,7 @@ NODISCARD static FileWithMetadata* get_metadata_for_file_abs(const char* const a
 
 	// TODO(Totto). factor out  into helper function or use cwalk
 	while(true) {
-		char* result = strstr(name_ptr, "/");
+		const char* result = strstr(name_ptr, "/");
 
 		if(result == NULL) {
 			break;
@@ -486,7 +486,16 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 
 	if(result != 0) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-		            "Couldn't stat folder '%s': %s\n", absolute_path, strerror(errno));
+		            "Couldn't stat file '%s': %s\n", absolute_path, strerror(errno));
+
+		free(metadata);
+		return NULL;
+	}
+
+	if(stat_result.st_size < 0) {
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "Couldn't stat file '%s': file size is negative: %ld\n", absolute_path,
+		            stat_result.st_size);
 
 		free(metadata);
 		return NULL;
@@ -510,7 +519,7 @@ NODISCARD FileWithMetadata* get_metadata_for_file(
 	metadata->mode = stat_result.st_mode;
 	metadata->link_amount = stat_result.st_nlink;
 	metadata->owners = owners;
-	metadata->size = stat_result.st_size;
+	metadata->size = (size_t)stat_result.st_size;
 #ifdef __APPLE__
 	metadata->last_mod = time_from_struct(stat_result.st_mtimespec);
 #else

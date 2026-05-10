@@ -1993,7 +1993,7 @@ ExitCode start_ftp_server(const FTPPortField control_port, tstr folder,
 
 	FTPPortField* ports = (FTPPortField*)malloc(port_amount * sizeof(FTPPortField));
 
-	for(size_t i = 0; i < port_amount; ++i) {
+	for(uint32_t i = 0; i < port_amount; ++i) {
 		uint32_t next_port = ((uint32_t)control_port) + 1 + i;
 		if(next_port > UINT16_MAX) {
 			next_port = control_port - (next_port - UINT16_MAX);
