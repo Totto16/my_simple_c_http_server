@@ -20,7 +20,7 @@ struct TestCaseBase64 {
 };
 
 TEST_SUITE_BEGIN("hash" * doctest::description("hash tests") *
-                 doctest::timeout(2.0 * g_doctest_timeout_multiplier));
+                 doctest::timeout(2.0 * (double)g_doctest_timeout_multiplier));
 
 TEST_CASE("testing sha1 generation with openssl <sha1>") {
 
@@ -324,7 +324,7 @@ struct TestCaseBaseBcrypt {
 	#define BCRYPT_DEFAULT_WORK_FACTOR_FOR_TESTS 10
 
 TEST_CASE("testing password hashing with bcrypt <bcrypt>" *
-          doctest::timeout(10.0 * g_doctest_timeout_multiplier)) {
+          doctest::timeout(10.0 * (double)g_doctest_timeout_multiplier)) {
 
 	std::vector<TestCaseBaseBcrypt> test_cases = {
 		{ .name = "normal password (bcrypt)",

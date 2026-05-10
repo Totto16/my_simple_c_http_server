@@ -150,15 +150,15 @@ hpack::hacky_trick::HpackDecodingErrorStateHack::get_errors() const {
 [[nodiscard]] static std::uint8_t parse_hex_byte(const char& val) {
 
 	if(val >= '0' && val <= '9') {
-		return val - '0';
+		return static_cast<std::uint8_t>(val - '0');
 	}
 
 	if(val >= 'a' && val <= 'f') {
-		return 10 + (val - 'a');
+		return static_cast<std::uint8_t>(10 + (val - 'a'));
 	}
 
 	if(val >= 'A' && val <= 'F') {
-		return 10 + (val - 'A');
+		return static_cast<std::uint8_t>(10 + (val - 'A'));
 	}
 
 	throw std::runtime_error("invalid byte data");
@@ -179,7 +179,7 @@ hpack::helpers::parse_wire_data(const std::string& raw_wire) {
 		const auto first_byte = parse_hex_byte(raw_wire.at(i));
 		const auto second_byte = parse_hex_byte(raw_wire.at(i + 1));
 
-		result.push_back((first_byte << 4) + second_byte);
+		result.push_back(static_cast<std::uint8_t>((first_byte << 4) + second_byte));
 	}
 
 	return result;

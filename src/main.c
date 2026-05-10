@@ -573,6 +573,10 @@ static ExitCode rich_main(const ProgramArgs args) {
 }
 
 int main(const LibCInt argc, const LibCChar* const* const argv) {
-	const ProgramArgs args = { .size = argc, .data = argv };
+	if(argc < 0) {
+		return 42;
+	}
+
+	const ProgramArgs args = { .size = (size_t)argc, .data = argv };
 	return rich_main(args);
 }

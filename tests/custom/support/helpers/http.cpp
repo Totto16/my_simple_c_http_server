@@ -73,7 +73,13 @@ std::ostream& operator<<(std::ostream& os, const CompressionEntry& entry) {
 		return false;
 	}
 
+	// NOTE: here it is fine for us, to compare float values, as this is a strict equal!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+
 	return lhs.weight == rhs.weight;
+
+#pragma GCC diagnostic pop
 }
 
 http::ParsedURIWrapper::ParsedURIWrapper(ParsedRequestUriResult result) : m_result{ result } {}

@@ -46,7 +46,7 @@ namespace details {
 	}
 
 	*success = true;
-	return (first << 4) | second;
+	return static_cast<std::uint8_t>(first << 4) | second;
 }
 
 constexpr const size_t sha1_buffer_size = 20;

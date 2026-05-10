@@ -129,9 +129,9 @@ compress_buffer_with_zlib_impl(SizedBuffer buffer,
 	zstream.zfree = Z_NULL;
 	zstream.opaque = Z_NULL;
 
-	zstream.avail_in = buffer.size;
+	zstream.avail_in = (uInt)buffer.size;
 	zstream.next_in = (Bytef*)buffer.data;
-	zstream.avail_out = chunk_size;
+	zstream.avail_out = (uInt)chunk_size;
 	zstream.next_out = (Bytef*)result_buffer.data;
 
 	int result = deflateInit2(&zstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits,
@@ -167,7 +167,7 @@ compress_buffer_with_zlib_impl(SizedBuffer buffer,
 			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			result_buffer.data = new_chunk;
 
-			zstream.avail_out = chunk_size;
+			zstream.avail_out = (uInt)chunk_size;
 			zstream.next_out = (Bytef*)new_chunk + result_buffer.size;
 			continue;
 		}
@@ -261,9 +261,9 @@ decompress_buffer_with_zlib_impl(SizedBuffer buffer,
 	zstream.zfree = Z_NULL;
 	zstream.opaque = Z_NULL;
 
-	zstream.avail_in = buffer.size;
+	zstream.avail_in = (uInt)buffer.size;
 	zstream.next_in = (Bytef*)buffer.data;
-	zstream.avail_out = chunk_size;
+	zstream.avail_out = (uInt)chunk_size;
 	zstream.next_out = (Bytef*)result_buffer.data;
 
 	int result = inflateInit2(&zstream, window_bits);
@@ -298,7 +298,7 @@ decompress_buffer_with_zlib_impl(SizedBuffer buffer,
 			}
 			result_buffer.data = new_chunk;
 
-			zstream.avail_out = chunk_size;
+			zstream.avail_out = (uInt)chunk_size;
 			zstream.next_out = (Bytef*)new_chunk + result_buffer.size;
 			continue;
 		}

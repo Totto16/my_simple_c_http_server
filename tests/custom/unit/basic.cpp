@@ -43,7 +43,7 @@ struct U64TestCase {
 } // namespace
 
 TEST_SUITE_BEGIN("basic" * doctest::description("basic tests") *
-                 doctest::timeout(2.0 * g_doctest_timeout_multiplier));
+                 doctest::timeout(2.0 * (double)g_doctest_timeout_multiplier));
 
 TEST_CASE("testing parsing of i64 <i64_parser>") {
 
