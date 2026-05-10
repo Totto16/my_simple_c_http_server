@@ -230,7 +230,16 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 
 	if(result_stat_int != 0) {
 		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
-		            "Couldn't stat folder '%s': %s\n", absolute_path, strerror(errno));
+		            "Couldn't stat file '%s': %s\n", absolute_path, strerror(errno));
+
+		result.file_name = tstr_null();
+		return result;
+	}
+
+	if(stat_result.st_size < 0) {
+		LOG_MESSAGE(COMBINE_LOG_FLAGS(LogLevelError, LogPrintLocation),
+		            "Couldn't stat file '%s': file size is negative: %ld\n", absolute_path,
+		            stat_result.st_size);
 
 		result.file_name = tstr_null();
 		return result;
@@ -262,7 +271,7 @@ NODISCARD static ServeFolderFolderEntry get_folder_entry_for_file(
 	result.date = time_from_struct(stat_result.st_mtim);
 #endif
 
-	result.size = stat_result.st_size;
+	result.size = (size_t)stat_result.st_size;
 
 	return result;
 }

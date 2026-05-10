@@ -17,7 +17,7 @@ GenericResult send_data_to_connection(const ConnectionDescriptor* const descript
 		    descriptor, (ReadonlyBuffer){ .data = ((const uint8_t*)to_send) + already_written,
 		                                  .size = remaining_length });
 
-		if(wrote_bytes == -1) {
+		if(wrote_bytes < 0) {
 			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));
 			// TODO(Totto): don't use strerror, as it uses an internal buffer, use better memory
 			// management and maybe don't use the current locale!
@@ -38,8 +38,8 @@ GenericResult send_data_to_connection(const ConnectionDescriptor* const descript
 		}
 
 		// otherwise repeat until that happened
-		remaining_length -= wrote_bytes;
-		already_written += wrote_bytes;
+		remaining_length -= (size_t)wrote_bytes;
+		already_written += (size_t)wrote_bytes;
 	}
 
 	return GENERIC_RES_OK();

@@ -193,7 +193,7 @@ NODISCARD static GenericResult http2_send_goaway_frame(const ConnectionDescripto
                                                        const Http2ErrorCode error_code,
                                                        const ReadonlyBuffer additional_debug_data) {
 
-	uint32_t length = additional_debug_data.size + HTTP2_FRAME_GOAWAY_BASE_SIZE;
+	uint32_t length = (uint32_t)additional_debug_data.size + HTTP2_FRAME_GOAWAY_BASE_SIZE;
 
 	Http2RawHeader header = {
 		.length = length,

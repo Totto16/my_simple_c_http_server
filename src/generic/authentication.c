@@ -308,13 +308,13 @@ NODISCARD MAYBE_UNUSED static LinuxUserResponse check_for_user_linux(const char*
 		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
 	}
 
-	buffer.data = malloc(initial_size);
+	buffer.data = malloc((size_t)initial_size);
 
 	if(!buffer.data) {
 		return LinuxUserResponseError;
 	}
 
-	buffer.size = initial_size;
+	buffer.size = (size_t)initial_size;
 
 	while(true) {
 
