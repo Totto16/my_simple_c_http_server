@@ -21,6 +21,8 @@ int b64_buf_malloc(b64_buffer_t* buf) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wimplicit-int-conversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
 
 int b64_buf_realloc(b64_buffer_t* buf, size_t size) {
 	if(size > buf->bufc * B64_BUFFER_SIZE) {

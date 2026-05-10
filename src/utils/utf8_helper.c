@@ -23,7 +23,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* const data, const size_t si
 
 	if(result != (utf8proc_ssize_t)size) {
 		// truncate the buffer
-		void* new_buffer = realloc(buffer, sizeof(utf8proc_int32_t) * result);
+		void* new_buffer = realloc(buffer, sizeof(utf8proc_int32_t) * (size_t)result);
 
 		if(!new_buffer) {
 			free(buffer);
@@ -34,7 +34,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* const data, const size_t si
 
 	const Utf8Data utf8_data = {
 		.data = buffer,
-		.size = result,
+		.size = (size_t)result,
 	};
 
 	return new_utf8_data_result_ok(utf8_data);

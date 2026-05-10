@@ -10,7 +10,6 @@
 #include "b64.h"
 
 
-	// NOTE: here it is fine for us, to compare float values, as this is a strict equal!
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wimplicit-int-conversion"
 
