@@ -163,10 +163,12 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 // a hacky but good and understandable way that is used with pthread functions
 // to annotate which type the really represent
-#define ANY RTTIAnnotatedPtr
+#define ANY void*
 
 // Type helper for readability
 #define ANY_TYPE(type) ANY
+
+#define TRTTI_PTR(Type) RTTIAnnotatedPtr
 
 typedef void* GenericData;
 typedef const void* GenericDataConst;

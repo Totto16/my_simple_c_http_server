@@ -38,6 +38,7 @@ typedef struct {
 	pthread_t data_orchestrator;
 	const AuthenticationProviders* auth_providers;
 } FTPControlConnectionArgument;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(FTPControlConnectionArgument)
 
 typedef struct {
 	DataController* data_controller;
@@ -63,7 +64,7 @@ NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPAddrFiel
                                    const FTPCommand* command);
 
 NODISCARD ANY_TYPE(JobError*)
-    ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg_ign,
+    ftp_control_socket_connection_handler(TRTTI_PTR(FTPControlConnectionArgument) arg_ign,
                                           WorkerInfo worker_info);
 
 // this is the function, that runs in the listener, it receives all necessary information

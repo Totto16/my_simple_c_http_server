@@ -33,6 +33,8 @@
 typedef void (*__sighandler_t)(int);
 #endif
 
+TRTTI_IMPLEMENTATION_FOR_TYPE(FTPControlConnectionArgument)
+
 static bool setup_signal_handler_impl_with_handler(int signal_number, __sighandler_t handle) {
 	// set up the signal handler
 	// just create a sigaction structure, then add the handler
@@ -84,14 +86,9 @@ static bool setup_relevant_signal_handlers(void) {
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-// TODO: use some macro and pragma posion magic to enforce those types!
-
-ANY_TYPE(JobError*)
-ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg_ign,
-                                      WorkerInfo worker_info) {
-
-	// attention arg is malloced!
-	FTPControlConnectionArgument* argument = (FTPControlConnectionArgument*)arg_ign;
+NODISCARD static JobError
+ftp_control_socket_connection_handler_impl(FTPControlConnectionArgument* argument,
+                                           WorkerInfo worker_info) {
 
 	ConnectionContext* context =
 	    TVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
@@ -104,7 +101,7 @@ ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) ar
 	do { \
 		unset_thread_name(); \
 		free(thread_name_buffer); \
-		free(argument); \
+		TRTTI_DESTROY(FTPControlConnectionArgument, argument); \
 	} while(false)
 
 	bool signal_result = setup_relevant_signal_handlers();
@@ -225,6 +222,15 @@ cleanup:
 }
 
 #undef FREE_AT_END
+
+ANY_TYPE(JobError)
+ftp_control_socket_connection_handler(TRTTI_PTR(FTPControlConnectionArgument) arg_ign,
+                                      WorkerInfo worker_info) {
+	FTPControlConnectionArgument* argument =
+	    TRTTI_ANNOTATED_PTR_CAST(FTPControlConnectionArgument, arg_ign);
+
+	return ftp_control_socket_connection_handler_impl(argument, worker_info);
+}
 
 #define SEND_RESPONSE_WITH_ERROR_CHECK(code, msg) \
 	do { \
@@ -1520,7 +1526,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		}
 
 		FTPControlConnectionArgument* connection_argument =
-		    (FTPControlConnectionArgument*)malloc(sizeof(FTPControlConnectionArgument));
+		    TRTTI_ALLOC(FTPControlConnectionArgument);
 
 		if(!connection_argument) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
@@ -1533,7 +1539,7 @@ ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg) {
 		if(!connection_ftp_state) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
 			                   "Couldn't allocate memory!\n");
-			free(connection_argument);
+			TRTTI_DESTROY(FTPControlConnectionArgument, connection_argument);
 			return LISTENER_ERROR_MALLOC;
 		}
 

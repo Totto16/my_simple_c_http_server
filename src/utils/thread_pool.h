@@ -63,7 +63,7 @@ typedef struct {
 // it reads from the queue and then executes the job, and then marks it as complete (posting the job
 // semaphore)
 NODISCARD ANY_TYPE(NULL)
-    thread_pool_worker_thread_function(ANY_TYPE(MyThreadPoolThreadArgument*) arg);
+    thread_pool_worker_thread_function(TRTTI_PTR(MyThreadPoolThreadArgument) arg);
 
 typedef struct {
 	CreateError error;
