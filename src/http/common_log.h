@@ -6,6 +6,8 @@
 #include "http/send.h"
 #include "utils/clock.h"
 
+#include <trtti.h>
+
 typedef struct {
 	IPAddress host;
 	char* ident;
@@ -23,10 +25,11 @@ typedef TVEC_TYPENAME(LogEntry) LogEntries;
 typedef struct {
 	LogEntries entries;
 } LogCollector;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(LogCollector)
 
-LogCollector* initialize_log_collector(void);
+RTTIAnnotatedPtr initialize_log_collector(void);
 
-void free_log_collector(LogCollector* collector);
+void free_log_collector(RTTIAnnotatedPtr ptr);
 
 void log_collector_collect(LogCollector* collector, IPAddress address, HttpRequest http_request,
                            HTTPResponseToSend response);

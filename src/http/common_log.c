@@ -3,9 +3,9 @@
 
 TVEC_IMPLEMENT_VEC_TYPE(LogEntry)
 
-LogCollector* initialize_log_collector(void) {
+RTTIAnnotatedPtr initialize_log_collector(void) {
 
-	LogCollector* collector = malloc(sizeof(LogCollector));
+	LogCollector* collector = TRTTI_ALLOC(LogCollector);
 
 	if(collector == NULL) {
 		return NULL;
@@ -24,7 +24,9 @@ static void free_log_entry(LogEntry entry) {
 	free_parsed_request_uri(entry.request.uri);
 }
 
-void free_log_collector(LogCollector* collector) {
+void free_log_collector(RTTIAnnotatedPtr ptr) {
+
+	LogCollector* collector = TRTTI_ANNOTATED_PTR_CAST(LogCollector, ptr);
 
 	for(size_t i = 0; i < TVEC_LENGTH(LogEntry, collector->entries); ++i) {
 		LogEntry entry = TVEC_AT(LogEntry, collector->entries, i);
@@ -33,7 +35,7 @@ void free_log_collector(LogCollector* collector) {
 
 	TVEC_FREE(LogEntry, &collector->entries);
 
-	free(collector);
+	TRTTI_FREE(collector);
 }
 
 void log_collector_collect(LogCollector* collector, IPAddress address, HttpRequest http_request,

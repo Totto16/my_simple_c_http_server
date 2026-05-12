@@ -24,7 +24,8 @@ struct RouteManagerImpl {
 static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
                                                      const HttpRequest http_request,
                                                      const ConnectionContext* const context,
-                                                     ParsedURLPath path, void* /* data */) {
+                                                     ParsedURLPath path,
+                                                     RTTIAnnotatedPtr /* data */) {
 
 	UNUSED(path);
 
@@ -57,9 +58,9 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 static HTTPResponseToSend
 well_known_folder_fn_extended(SendSettings /* send_settings */, const HttpRequest http_request,
                               const ConnectionContext* const /* context */, ParsedURLPath path,
-                              void* data) {
+                              RTTIAnnotatedPtr data) {
 
-	LogCollector* collector = (LogCollector*)data;
+	LogCollector* collector = TRTTI_ANNOTATED_PTR_CAST(LogCollector, data);
 
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
@@ -98,8 +99,8 @@ well_known_folder_fn_extended(SendSettings /* send_settings */, const HttpReques
 
 static void log_collector_collect_fn(const HttpRequest http_request,
                                      const HTTPResponseToSend response, IPAddress address,
-                                     void* data) {
-	LogCollector* collector = (LogCollector*)data;
+                                     RTTIAnnotatedPtr data) {
+	LogCollector* collector = TRTTI_ANNOTATED_PTR_CAST(LogCollector, data);
 
 	log_collector_collect(collector, address, http_request, response);
 }
@@ -107,7 +108,8 @@ static void log_collector_collect_fn(const HttpRequest http_request,
 static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
                                                     const HttpRequest http_request,
                                                     const ConnectionContext* const context,
-                                                    ParsedURLPath /* path */, void* /* data */) {
+                                                    ParsedURLPath /* path */,
+                                                    RTTIAnnotatedPtr /* data */) {
 
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
@@ -525,7 +527,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 
 	// logs collector
 
-	LogCollector* log_collector = initialize_log_collector();
+	RTTIAnnotatedPtr log_collector = initialize_log_collector();
 
 	if(!log_collector) {
 		LOG_MESSAGE(LogLevelWarn, "Failed to initialize log collector: %s\n", "<unknown error>")
@@ -540,7 +542,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 		    TVEC_PUSH(HTTPRequestProxy, &routes->proxies, logs_collector_proxy);
 		OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 
-		HTTPFreeFn free_route = { .data = log_collector, .fn = (FreeFnImpl)free_log_collector };
+		HTTPFreeFn free_route = { .data = log_collector, .fn = free_log_collector };
 
 		const TvecResult push_res1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
 		OOM_ASSERT(push_res1 == TvecResultOk, "Vec push error");
