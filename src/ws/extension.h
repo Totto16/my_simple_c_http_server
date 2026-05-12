@@ -5,6 +5,7 @@
 #include "utils/utils.h"
 
 #include <tvec.h>
+#include <trtti.h>
 
 /**
  * @enum value
@@ -22,6 +23,7 @@ typedef struct {
 	WsDeflateSingleOption client;
 	WsDeflateSingleOption server;
 } WsDeflateOptions;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(WsDeflateOptions)
 
 typedef struct {
 	WSExtensionType type;

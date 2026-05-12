@@ -485,6 +485,13 @@ HTTPRoutes* get_default_routes(void) {
 
 static void free_routes(HTTPRoutes* routes);
 
+static void free_log_collector_generic(RTTIAnnotatedPtr ptr) {
+
+	LogCollector* collector = TRTTI_ANNOTATED_PTR_CAST(LogCollector, ptr);
+
+	free_log_collector(collector);
+}
+
 #define FREE_AT_END() \
 	do { \
 		free_routes(routes); \
@@ -542,7 +549,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 		    TVEC_PUSH(HTTPRequestProxy, &routes->proxies, logs_collector_proxy);
 		OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 
-		HTTPFreeFn free_route = { .data = log_collector, .fn = free_log_collector };
+		HTTPFreeFn free_route = { .data = log_collector, .fn = free_log_collector_generic };
 
 		const TvecResult push_res1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
 		OOM_ASSERT(push_res1 == TvecResultOk, "Vec push error");

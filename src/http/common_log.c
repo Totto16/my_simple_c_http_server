@@ -5,7 +5,7 @@ TVEC_IMPLEMENT_VEC_TYPE(LogEntry)
 
 TRTTI_IMPLEMENTATION_FOR_TYPE(LogCollector)
 
-RTTIAnnotatedPtr initialize_log_collector(void) {
+LogCollector* initialize_log_collector(void) {
 
 	LogCollector* collector = TRTTI_ALLOC(LogCollector);
 
@@ -26,10 +26,7 @@ static void free_log_entry(LogEntry entry) {
 	free_parsed_request_uri(entry.request.uri);
 }
 
-void free_log_collector(RTTIAnnotatedPtr ptr) {
-
-	LogCollector* collector = TRTTI_ANNOTATED_PTR_CAST(LogCollector, ptr);
-
+void free_log_collector(LogCollector* collector) {
 	for(size_t i = 0; i < TVEC_LENGTH(LogEntry, collector->entries); ++i) {
 		LogEntry entry = TVEC_AT(LogEntry, collector->entries, i);
 		free_log_entry(entry);

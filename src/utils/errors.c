@@ -53,29 +53,32 @@ void print_job_error(JobError error) {
 	LOG_MESSAGE(LogLevelError, "Job Error: %s\n", error_str);
 }
 
-bool is_listener_error(ListenerError error) {
-	return error == LISTENER_ERROR_NONE || // NOLINT(readability-implicit-bool-conversion)
-	       (error >= LISTENER_ERROR_START && error <= LISTENER_ERROR_END);
+bool is_listener_error(ANY_TYPE(ListenerError) error) {
+	return (ListenerError)error ==
+	           ListenerErrorNone || // NOLINT(readability-implicit-bool-conversion)
+	       ((ListenerError)error >= ListenerErrorStart && (ListenerError)error <= ListenerErrorEnd);
 }
 
 void print_listener_error(ListenerError error) {
 
 	const char* error_str = "Unknown error";
 
-	if(error == LISTENER_ERROR_NONE) {
+	if(error == ListenerErrorNone) {
 		error_str = "None";
-	} else if(error == LISTENER_ERROR_MALLOC) {
+	} else if(error == ListenerErrorMalloc) {
 		error_str = "Malloc";
-	} else if(error == LISTENER_ERROR_THREAD_CANCEL) {
+	} else if(error == ListenerErrorThreadCancel) {
 		error_str = "ThreadCancel";
-	} else if(error == LISTENER_ERROR_QUEUE_PUSH) {
+	} else if(error == ListenerErrorQueuePush) {
 		error_str = "QueuePush";
-	} else if(error == LISTENER_ERROR_ACCEPT) {
+	} else if(error == ListenerErrorAccept) {
 		error_str = "Accept";
-	} else if(error == LISTENER_ERROR_DATA_CONTROLLER) {
+	} else if(error == ListenerErrorDataController) {
 		error_str = "DataController";
-	} else if(error == LISTENER_ERROR_THREAD_AFTER_CANCEL) {
+	} else if(error == ListenerErrorThreadAfterCancel) {
 		error_str = "ThreadAfterCancel";
+	} else if(error == ListenerErrorGeneric) {
+		error_str = "Generic";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Listener Error: %s\n", error_str);
@@ -100,17 +103,17 @@ void print_submit_error(SubmitError error) {
 
 	const char* error_str = "Unknown error";
 
-	if(error == SUBMIT_ERROR_NONE) {
+	if(error == SubmitErrorNone) {
 		error_str = "None";
-	} else if(error == SUBMIT_ERROR_MALLOC) {
+	} else if(error == SubmitErrorMalloc) {
 		error_str = "Malloc";
-	} else if(error == SUBMIT_ERROR_SEM_INIT) {
+	} else if(error == SubmitErrorSemInit) {
 		error_str = "SemInit";
-	} else if(error == SUBMIT_ERROR_SEM_POST) {
+	} else if(error == SubmitErrorSemPost) {
 		error_str = "SemPost";
-	} else if(error == SUBMIT_ERROR_INVALID_START_ROUTINE) {
+	} else if(error == SubmitErrorInvalidStartRoutine) {
 		error_str = "InvalidStartRoutine";
-	} else if(error == SUBMIT_ERROR_QUEUE_PUSH) {
+	} else if(error == SubmitErrorQueuePush) {
 		error_str = "QueuePush";
 	}
 
@@ -121,11 +124,11 @@ void print_worker_error(WorkerError error) {
 
 	const char* error_str = "Unknown error";
 
-	if(error == WORKER_ERROR_NONE) {
+	if(error == WorkerErrorNone) {
 		error_str = "None";
-	} else if(error == WORKER_ERROR_SEM_POST) {
+	} else if(error == WorkerErrorSemPost) {
 		error_str = "SemPost";
-	} else if(error == WORKER_ERROR_SEM_WAIT) {
+	} else if(error == WorkerErrorSemWait) {
 		error_str = "SemWait";
 	}
 

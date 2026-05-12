@@ -4,6 +4,8 @@
 #include "generic/helper.h"
 #include "utils/log.h"
 
+TRTTI_IMPLEMENTATION_FOR_TYPE(MyThreadPoolThreadArgument)
+
 #define THREAD_SHUTDOWN_JOB_INTERNAL 0x02
 
 // defining the Shutdown Macro
@@ -37,22 +39,19 @@ static void thread_pool_worker_thread_shutdown_function(void) {
 // callable from different threads.
 // it reads from the queue and then executes the job, and then marks it as complete (posting the job
 // semaphore)
-ANY_TYPE(NULL)
-thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) const arg) {
-	// casting it to the given element, (arg) is a malloced struct, so it has to be freed at the end
-	// of that function!
-	const MyThreadPoolThreadArgument argument = *((const MyThreadPoolThreadArgument* const)arg);
+NODISCARD static WorkerError
+thread_pool_worker_thread_function_impl(MyThreadPoolThreadArgument* const argument) {
 	// extracting the queue for later use
-	TQueue* const jobs_queue = &(argument.thread_pool->job_queue);
+	TQueue* const jobs_queue = &(argument->thread_pool->job_queue);
 
-	RUN_LIFECYCLE_FN(argument.thread_pool->fns.startup_fn);
+	RUN_LIFECYCLE_FN(argument->thread_pool->fns.startup_fn);
 
 	// looping until receiving the shutdown signal, to know more about that, read pool_destroy
 	while(true) {
 		// block here until a job is available and can be worked upon
-		const LibCInt result = comp_sem_wait(&(argument.thread_pool->jobs_available));
+		const LibCInt result = comp_sem_wait(&(argument->thread_pool->jobs_available));
 		CHECK_FOR_ERROR(result, "Couldn't wait for the internal thread pool Semaphore",
-		                return WORKER_ERROR_SEM_WAIT;);
+		                return WorkerErrorSemWait;);
 
 		// that here is an assert, but it'S that important, so that I wrote it without assertions,
 		// since there is a way to  disable assertions!
@@ -69,19 +68,19 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) cons
 
 		// when receiving shutdown signal, It breaks out of the while loop and finsishes
 		if(current_job->job_function == THREAD_SHUTDOWN_JOB) {
-			RUN_LIFECYCLE_FN(argument.thread_pool->fns.shutdown_fn);
+			RUN_LIFECYCLE_FN(argument->thread_pool->fns.shutdown_fn);
 
 			// to be able to await for this job too, it has to post the sempahore before leaving!
 			const LibCInt result2 = comp_sem_post(&(current_job->status));
 			CHECK_FOR_ERROR(result2,
 			                "Couldn't post the internal thread pool Semaphore for a single job",
-			                return WORKER_ERROR_SEM_POST;);
+			                return WorkerErrorSemPost;);
 			break;
 		}
 
 		// otherwise it just calls the function, and therefore executes it
 		ANY_TYPE(JobResult)
-		return_value = current_job->job_function(current_job->argument, argument.worker_info);
+		return_value = current_job->job_function(current_job->argument, argument->worker_info);
 		// atm a warning issued, when a functions returns something other than NULL, but thats
 		// only there, to show that it doesn't get returned, it wouldn't be that big of a deal to
 		// implement this, but it isn't needed and required
@@ -91,13 +90,24 @@ thread_pool_worker_thread_function(ANY_TYPE(my_thread_pool_ThreadArgument*) cons
 		const LibCInt result3 = comp_sem_post(&(current_job->status));
 		CHECK_FOR_ERROR(result3,
 		                "Couldn't post the internal thread pool Semaphore for a single job",
-		                return WORKER_ERROR_SEM_POST;);
+		                return WorkerErrorSemPost;);
 	}
 
-	// was malloced and not freed elsewhere, so it gets freed after use
-	free(arg);
 	// nothing to return, so NULL is returned
-	return WORKER_ERROR_NONE;
+	return WorkerErrorNone;
+}
+
+ANY_TYPE(WorkerError)
+thread_pool_worker_thread_function(TRTTI_PTR(MyThreadPoolThreadArgument) const arg) {
+
+	MyThreadPoolThreadArgument* const argument =
+	    TRTTI_ANNOTATED_PTR_CAST(MyThreadPoolThreadArgument, arg);
+
+	WorkerError result = thread_pool_worker_thread_function_impl(argument);
+
+	TRTTI_DESTROY(MyThreadPoolThreadArgument, argument);
+
+	return (ANY)result;
 }
 
 // using get_nprocs_conf to make a dynamic amount of worker Threads
@@ -172,8 +182,7 @@ CreateResult pool_create(ThreadPool* const pool, const size_t size) { // NOLINT(
 		// doing a malloc for every single one, so that it can be freed after the threads is
 		// finished, here a struct, that is allocated on the stack wouldn't have a lifetime that is
 		// suited for that use case, after the for loop it's "dead", unusable
-		MyThreadPoolThreadArgument* thread_argument =
-		    (MyThreadPoolThreadArgument*)malloc(sizeof(MyThreadPoolThreadArgument));
+		MyThreadPoolThreadArgument* thread_argument = TRTTI_ALLOC(MyThreadPoolThreadArgument);
 
 		if(!thread_argument) {
 			LOG_MESSAGE_SIMPLE(COMBINE_LOG_FLAGS(LogLevelWarn, LogPrintLocation),
@@ -209,7 +218,7 @@ static JobId* int_pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_T
 	JobId* job_description = (JobId*)malloc(sizeof(JobId));
 
 	if(!job_description) {
-		return SUBMIT_ERROR_MALLOC;
+		return (JobId*)SubmitErrorMalloc;
 	}
 
 	// initializing the struct
@@ -222,16 +231,16 @@ static JobId* int_pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_T
 	const LibCInt result = comp_sem_init(&(job_description->status), 0, true);
 	CHECK_FOR_ERROR(result,
 	                "Couldn't initialize the internal thread pool Semaphore for a single job",
-	                return SUBMIT_ERROR_SEM_INIT;);
+	                return (JobId*)SubmitErrorSemInit;);
 	// then finally push the job to the queue, so it can worked upon
 	const GenericResult push_res = tqueue_push(&(pool->job_queue), job_description);
 	IF_GENERIC_RESULT_IS_ERROR_IGN(push_res) {
-		return SUBMIT_ERROR_QUEUE_PUSH;
+		return (JobId*)SubmitErrorQueuePush;
 	}
 	// after the push the semaphore gets posted, so a worker can get the job already, if available
 	const LibCInt result2 = comp_sem_post(&(pool->jobs_available));
 	CHECK_FOR_ERROR(result2, "Couldn't post the internal thread pool Semaphore",
-	                return SUBMIT_ERROR_SEM_POST);
+	                return (JobId*)SubmitErrorSemPost);
 
 	// finally return the job_id struct, it's malloced, so it has to be freed later! (that is done
 	// by the pool_await!)
@@ -247,7 +256,7 @@ JobId* pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_TYPE(JobArg)
 	}
 
 	LOG_MESSAGE_SIMPLE(LogLevelWarn, "invalid job_function passed to pool_submit!\n");
-	return SUBMIT_ERROR_INVALID_START_ROUTINE;
+	return (JobId*)SubmitErrorInvalidStartRoutine;
 }
 
 // if a job is not awaited, its memory is NOT freed, and some other problems occur, so ALWAYS await

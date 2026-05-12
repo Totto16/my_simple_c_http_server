@@ -58,6 +58,7 @@ typedef struct {
 	ThreadPool* thread_pool;
 	WorkerInfo worker_info;
 } MyThreadPoolThreadArgument;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(MyThreadPoolThreadArgument)
 
 // this function is used internally as worker thread Function, therefore the rather cryptic name
 // it handles all the submitted jobs, it wait for them with a semaphore, that is thread safe, and
@@ -90,7 +91,7 @@ NODISCARD JobId* pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_TY
 // visible to the user, checks for "invalid" input before invoking the inner "real" function!
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its NULL) so it is checked here and
 // printing a warning if its _THREAD_SHUTDOWN_JOB
-NODISCARD ANY_TYPE(JobResult*) pool_await(JobId* job_description);
+NODISCARD ANY_TYPE(JobResult) pool_await(JobId* job_description);
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined
 // behaviour! this cn also block, until all jobs are finished

@@ -60,6 +60,7 @@ typedef struct {
 	WebSocketConnection* connection;
 	WebSocketThreadManager* manager;
 } WebSocketListenerArg;
+TRTTI_DEFINE_TYPE_AS_SUPPORTED(WebSocketListenerArg)
 
 static void thread_manager_thread_startup_function(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
@@ -706,9 +707,7 @@ NODISCARD static GenericResult close_websocket_connection(WebSocketConnection** 
 // sequence
 // note: regarding utf8 parsing
 
-static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg) {
-
-	WebSocketListenerArg* argument = (WebSocketListenerArg*)arg;
+static ANY ws_listener_function_impl(WebSocketListenerArg* argument) {
 
 	char* thread_name_buffer = NULL;
 	// TODO(Totto): better report error
@@ -1454,6 +1453,16 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg) 
 	return NULL;
 }
 
+static ANY_TYPE(NULL) ws_listener_function(TRTTI_PTR(WebSocketListenerArg*) arg) {
+	WebSocketListenerArg* const argument = TRTTI_ANNOTATED_PTR_CAST(WebSocketListenerArg, arg);
+
+	ANY result = ws_listener_function_impl(argument);
+
+	TRTTI_DESTROY(WebSocketListenerArg, argument);
+
+	return result;
+}
+
 #undef FREE_ADDITIONALLY
 #undef FREE_WS_RAW_MESSAGE
 
@@ -1548,8 +1557,7 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 		next_node = current_node->next;
 	}
 
-	WebSocketListenerArg* thread_argument =
-	    (WebSocketListenerArg*)malloc(sizeof(WebSocketListenerArg));
+	WebSocketListenerArg* thread_argument = TRTTI_ALLOC(WebSocketListenerArg);
 
 	if(!thread_argument) {
 		// TODO(Totto): better report error

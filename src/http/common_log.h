@@ -27,9 +27,9 @@ typedef struct {
 } LogCollector;
 TRTTI_DECLARE_TYPE_AS_SUPPORTED(LogCollector)
 
-RTTIAnnotatedPtr initialize_log_collector(void);
+LogCollector* initialize_log_collector(void);
 
-void free_log_collector(RTTIAnnotatedPtr ptr);
+void free_log_collector(LogCollector* collector);
 
 void log_collector_collect(LogCollector* collector, IPAddress address, HttpRequest http_request,
                            HTTPResponseToSend response);
