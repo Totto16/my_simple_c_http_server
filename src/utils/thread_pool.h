@@ -17,7 +17,9 @@ typedef struct {
 	size_t worker_index;
 } WorkerInfo;
 
-typedef ANY_TYPE(JobResult*) (*JobFunction)(ANY_TYPE(UserType*), WorkerInfo);
+typedef ANY JobResult;
+
+typedef ANY_TYPE(JobResult) (*JobFunction)(ANY_TYPE(UserType*), WorkerInfo);
 
 typedef struct {
 	pthread_t thread;

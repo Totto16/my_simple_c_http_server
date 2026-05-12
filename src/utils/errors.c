@@ -6,46 +6,48 @@
 
 #include "utils/log.h"
 
-bool is_job_error(JobError error) {
-	return error == JOB_ERROR_NONE || // NOLINT(readability-implicit-bool-conversion)
-	       error == JOB_ERROR_CONNECTION_UPGRADE ||
-	       (error >= JOB_ERROR_START && error <= JOB_ERROR_END);
+bool is_job_error(ANY_TYPE(JobError) error) {
+	return (JobError)error == JobErrorNone || // NOLINT(readability-implicit-bool-conversion)
+	       (JobError)error == JobErrorConnectionUpgrade ||
+	       ((JobError)error >= JobErrorStart && (JobError)error <= JobErrorEnd);
 }
 
 void print_job_error(JobError error) {
 
 	const char* error_str = "Unknown error";
 
-	if(error == JOB_ERROR_NONE) {
+	if(error == JobErrorNone) {
 		error_str = "None";
-	} else if(error == JOB_ERROR_CONNECTION_UPGRADE) {
+	} else if(error == JobErrorConnectionUpgrade) {
 		error_str = "Connection Upgrade";
-	} else if(error == JOB_ERROR_DESC) {
+	} else if(error == JobErrorDesc) {
 		error_str = "Desc";
-	} else if(error == JOB_ERROR_THREAD_CANCEL) {
+	} else if(error == JobErrorThreadCancel) {
 		error_str = "ThreadCancel";
-	} else if(error == JOB_ERROR_MALLOC) {
+	} else if(error == JobErrorMalloc) {
 		error_str = "Malloc";
-	} else if(error == JOB_ERROR_CLOSE) {
+	} else if(error == JobErrorClose) {
 		error_str = "Close";
-	} else if(error == JOB_ERROR_STRING_FORMAT) {
+	} else if(error == JobErrorStringFormat) {
 		error_str = "StringFormat";
-	} else if(error == JOB_ERROR_INVALID_JOB) {
+	} else if(error == JobErrorInvalidJob) {
 		error_str = "InvalidJob";
-	} else if(error == JOB_ERROR_NO_RESULT) {
+	} else if(error == JobErrorNoResult) {
 		error_str = "NoResult";
-	} else if(error == JOB_ERROR_SEM_WAIT) {
+	} else if(error == JobErrorSemWait) {
 		error_str = "SemWait";
-	} else if(error == JOB_ERROR_SEM_DEST) {
+	} else if(error == JobErrorSemDest) {
 		error_str = "SemDest";
-	} else if(error == JOB_ERROR_SIG_HANDLER) {
+	} else if(error == JobErrorSigHandler) {
 		error_str = "SigHandler";
-	} else if(error == JOB_ERROR_GET_SOCK_NAME) {
+	} else if(error == JobErrorGetSockName) {
 		error_str = "GetSockName";
-	} else if(error == JOB_ERROR_CONNECTION_ADD) {
+	} else if(error == JobErrorConnectionAdd) {
 		error_str = "ConnectionAdd";
-	} else if(error == JOB_ERROR_CLEANUP_CONNECTION) {
+	} else if(error == JobErrorCleanupConnection) {
 		error_str = "CleanupConnection";
+	} else if(error == JobErrorGeneric) {
+		error_str = "Generic";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Job Error: %s\n", error_str);

@@ -215,7 +215,7 @@ static JobId* int_pool_submit(ThreadPool* pool, JobFunction start_routine, ANY_T
 	// initializing the struct
 	job_description->argument = arg;
 	job_description->job_function = start_routine;
-	job_description->result = JOB_ERROR_NO_RESULT;
+	job_description->result = (JobResult)JobErrorNoResult;
 
 	// initializing with 0, it gets posted after the job was proccessed by a worker!!
 	// pshared i 0, since it'S shared between threads!
@@ -261,12 +261,12 @@ static ANY_TYPE(JobResult) impl_pool_await(JobId* const job_description) {
 	// wait for the internal semaphore, that can block
 	LibCInt result = comp_sem_wait(&(job_description->status));
 	CHECK_FOR_ERROR(result, "Couldn't wait for the internal thread pool Semaphore for a single job",
-	                return JOB_ERROR_SEM_WAIT;);
+	                return (JobResult)JobErrorSemWait;);
 
 	// then finally destroy the semaphore, it isn't used anymore
 	result = comp_sem_destroy(&(job_description->status));
 	CHECK_FOR_ERROR(result, "Couldn't destroy the internal thread pool Semaphore",
-	                return JOB_ERROR_SEM_DEST;);
+	                return (JobResult)JobErrorSemDest;);
 
 	OOM_ASSERT(job_description != (GenericData)THREAD_SHUTDOWN_JOB_INTERNAL, "error description");
 
@@ -289,7 +289,7 @@ ANY_TYPE(JobResult) pool_await(JobId* job_description) {
 	}
 
 	LOG_MESSAGE_SIMPLE(LogLevelError, "WARNING: invalid job_function passed to pool_submit!\n");
-	return JOB_ERROR_INVALID_JOB;
+	return (JobResult)JobErrorInvalidJob;
 }
 
 // destroys the thread_pool, has to be called AFTER all jobs where awaited, otherwise it'S undefined

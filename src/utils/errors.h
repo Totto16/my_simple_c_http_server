@@ -7,30 +7,38 @@
 
 // job errors
 
-typedef ANY JobError;
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint64_t) {
+	JobErrorNone = 0x02,
+	// is used to communicate something
+	JobErrorConnectionUpgrade = 0x04,
+	//
+	JobErrorDesc = 0x20,
+	JobErrorThreadCancel = 0x21,
+	JobErrorMalloc = 0x22,
+	JobErrorClose = 0x23,
+	JobErrorStringFormat = 0x24,
+	JobErrorInvalidJob = 0x25,
+	JobErrorNoResult = 0x26,
+	JobErrorSemWait = 0x27,
+	JobErrorSemDest = 0x28,
+	JobErrorSigHandler = 0x29,
+	JobErrorGetSockName = 0x2A,
+	JobErrorConnectionAdd = 0x2B,
+	JobErrorCleanupConnection = 0x2C,
+	JobErrorGeneric = 0x2D,
 
-#define JOB_ERROR_NONE ((JobError)0x02)
+	JobErrorStart = JobErrorDesc,
+	JobErrorEnd = JobErrorGeneric,
+} JobError;
 
-#define JOB_ERROR_CONNECTION_UPGRADE ((JobError)0x04)
+static_assert(sizeof(uint64_t) == sizeof(uint8_t*));
 
-#define JOB_ERROR_DESC ((JobError)0x20)
-#define JOB_ERROR_THREAD_CANCEL ((JobError)0x21)
-#define JOB_ERROR_MALLOC ((JobError)0x22)
-#define JOB_ERROR_CLOSE ((JobError)0x23)
-#define JOB_ERROR_STRING_FORMAT ((JobError)0x24)
-#define JOB_ERROR_INVALID_JOB ((JobError)0x25)
-#define JOB_ERROR_NO_RESULT ((JobError)0x26)
-#define JOB_ERROR_SEM_WAIT ((JobError)0x27)
-#define JOB_ERROR_SEM_DEST ((JobError)0x28)
-#define JOB_ERROR_SIG_HANDLER ((JobError)0x29)
-#define JOB_ERROR_GET_SOCK_NAME ((JobError)0x2A)
-#define JOB_ERROR_CONNECTION_ADD ((JobError)0x2B)
-#define JOB_ERROR_CLEANUP_CONNECTION ((JobError)0x2C)
+static_assert(sizeof(GenericData) == sizeof(uint8_t*));
 
-#define JOB_ERROR_START JOB_ERROR_DESC
-#define JOB_ERROR_END JOB_ERROR_CLEANUP_CONNECTION
-
-NODISCARD bool is_job_error(JobError error);
+NODISCARD bool is_job_error(ANY_TYPE(JobError) error);
 
 void print_job_error(JobError error);
 

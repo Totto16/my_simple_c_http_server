@@ -26,6 +26,8 @@
 	#include <openssl/crypto.h>
 #endif
 
+TRTTI_IMPLEMENTATION_FOR_TYPE(HTTPConnectionArgument)
+
 static volatile sig_atomic_t
     g_signal_received = // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     0;
@@ -346,7 +348,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 			            TSTR_STATIC_FMT_ARGS(error.error));
 		}
 
-		return JOB_ERROR_NONE;
+		return JobErrorNone;
 	}
 
 	HTTPSelectedRoute selected_route_data = get_selected_route_data(selected_route);
@@ -416,7 +418,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 					int cancel_result = pthread_cancel(argument->listener_thread);
 					CHECK_FOR_ERROR(cancel_result, "While trying to cancel the listener Thread", {
 						FREE_AT_END();
-						return JOB_ERROR_THREAD_CANCEL;
+						return JobErrorThreadCancel;
 					});
 
 					break;
@@ -475,7 +477,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							free_selected_route(selected_route);
 							FREE_AT_END();
 
-							return JOB_ERROR_CONNECTION_ADD;
+							return JobErrorConnectionAdd;
 						}
 
 						// finally free everything necessary
@@ -483,7 +485,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 						free_selected_route(selected_route);
 						FREE_AT_END();
 
-						return JOB_ERROR_CONNECTION_UPGRADE;
+						return JobErrorConnectionUpgrade;
 					}
 
 					// the error was already sent, just close the descriptor and free the
@@ -602,7 +604,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 							    &content_disposition_buffer,
 							    {
 								    TVEC_FREE(HttpHeaderField, &additional_headers);
-								    return NULL;
+								    return JobErrorStringFormat;
 							    },
 							    "attachment; filename=\"" TSTR_FMT "\"",
 							    TSTR_FMT_ARGS(file.file_name));
@@ -757,7 +759,7 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 		            "Error in sending response: " TSTR_FMT "\n", TSTR_STATIC_FMT_ARGS(error.error));
 	}
 
-	return JOB_ERROR_NONE;
+	return JobErrorNone;
 }
 
 #undef FREE_AT_END
@@ -766,18 +768,14 @@ process_http_request(const HttpRequest http_request, ConnectionDescriptor* const
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-ANY_TYPE(JobError*)
-http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
-                               const WorkerInfo worker_info) {
-
-	// attention arg is malloced!
-	HTTPConnectionArgument* argument = (HTTPConnectionArgument*)arg_ign;
+NODISCARD static JobError http_socket_connection_handler_impl(HTTPConnectionArgument* argument,
+                                                              const WorkerInfo worker_info) {
 
 	ConnectionContext* context =
 	    TVEC_AT(ConnectionContextPtr, argument->contexts, worker_info.worker_index);
 
 	char* thread_name_buffer = NULL;
-	FORMAT_STRING(&thread_name_buffer, return JOB_ERROR_STRING_FORMAT;
+	FORMAT_STRING(&thread_name_buffer, return JobErrorStringFormat;
 	              , "connection handler %lu", worker_info.worker_index);
 	set_thread_name(thread_name_buffer);
 
@@ -794,7 +792,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 
 	if(!sig_result) {
 		FREE_AT_END();
-		return NULL;
+		return JobErrorGeneric;
 	}
 
 	LOG_MESSAGE_SIMPLE(LogLevelTrace, "Starting Connection handler\n");
@@ -806,10 +804,10 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 		LOG_MESSAGE_SIMPLE(LogLevelError, "get_connection_descriptor failed\n");
 
 		FREE_AT_END();
-		return JOB_ERROR_DESC;
+		return JobErrorDesc;
 	}
 
-	JobError job_error = JOB_ERROR_NONE;
+	JobError job_error = JobErrorNone;
 
 	HTTPReader* http_reader = initialize_http_reader_from_connection(descriptor);
 
@@ -873,20 +871,20 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 
 				free_http_request_result(http_result);
 
-				if(process_error == JOB_ERROR_CLEANUP_CONNECTION) {
-					job_error = JOB_ERROR_NONE;
+				if(process_error == JobErrorCleanupConnection) {
+					job_error = JobErrorNone;
 					goto cleanup;
 				}
 
-				if(process_error == JOB_ERROR_CONNECTION_UPGRADE) {
+				if(process_error == JobErrorConnectionUpgrade) {
 
 					// we already have release the buffered reader so that it can be safely freed
 					// without closing the needed connection descriptor to early!
-					job_error = JOB_ERROR_NONE;
+					job_error = JobErrorNone;
 					goto cleanup;
 				}
 
-				if(process_error != JOB_ERROR_NONE) {
+				if(process_error != JobErrorNone) {
 					job_error = process_error;
 					goto cleanup;
 				}
@@ -894,7 +892,7 @@ http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
 				break;
 			}
 			case HttpRequestResultTypeCloseConnection: {
-				job_error = JOB_ERROR_NONE;
+				job_error = JobErrorNone;
 				goto cleanup;
 			}
 			default: {
@@ -916,13 +914,26 @@ cleanup:
 	FREE_AT_END();
 
 	if(!finished_cleanly) {
-		job_error = JOB_ERROR_CLOSE;
+		job_error = JobErrorClose;
 	}
 
 	return job_error;
 }
 
 #undef FREE_AT_END
+
+ANY_TYPE(JobError)
+http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg,
+                               const WorkerInfo worker_info) {
+
+	HTTPConnectionArgument* const argument = TRTTI_ANNOTATED_PTR_CAST(HTTPConnectionArgument, arg);
+
+	JobError result = http_socket_connection_handler_impl(argument, worker_info);
+
+	TRTTI_DESTROY(HTTPConnectionArgument, argument);
+
+	return (ANY)result;
+}
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
@@ -1036,11 +1047,11 @@ ANY_TYPE(ListenerError*) http_listener_thread_function(ANY_TYPE(HTTPThreadArgume
 
 				JobId* job_id = (JobId*)tqueue_pop(argument.job_id_queue);
 
-				JobError result = pool_await(job_id);
+				ANY_TYPE(JobError) result = pool_await(job_id);
 
 				if(is_job_error(result)) {
-					if(result != JOB_ERROR_NONE) {
-						print_job_error(result);
+					if((JobError)result != JobErrorNone) {
+						print_job_error((JobError)result);
 					}
 				} else if(result == PTHREAD_CANCELED) {
 					LOG_MESSAGE_SIMPLE(LogLevelError, "A connection thread was cancelled!\n");
@@ -1422,11 +1433,11 @@ ExitCode start_http_server(const uint16_t port, SecureOptions* const options,
 	while(!tqueue_is_empty(&job_id_queue)) {
 		JobId* job_id = (JobId*)tqueue_pop(&job_id_queue);
 
-		JobError job_result = pool_await(job_id);
+		ANY_TYPE(JobError) job_result = pool_await(job_id);
 
 		if(is_job_error(job_result)) {
-			if(job_result != JOB_ERROR_NONE) {
-				print_job_error(job_result);
+			if((JobError)job_result != JobErrorNone) {
+				print_job_error((JobError)job_result);
 			}
 		} else if(job_result == PTHREAD_CANCELED) {
 			LOG_MESSAGE_SIMPLE(LogLevelError, "A connection thread was cancelled!\n");

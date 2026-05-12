@@ -22,11 +22,12 @@ typedef struct {
 	TQueue* job_id_queue;
 	ConnectionContextPtrs contexts;
 	NativeFd socket_fd;
-	const tstr global_folder;
+	tstr global_folder;
 	DataController* data_controller;
 	pthread_t data_orchestrator;
 	const AuthenticationProviders* auth_providers;
 } FTPControlThreadArgument;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(FTPControlThreadArgument)
 
 typedef struct {
 	ConnectionContextPtrs contexts;
@@ -64,7 +65,7 @@ NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPAddrFiel
                                    const FTPCommand* command);
 
 NODISCARD ANY_TYPE(JobError*)
-    ftp_control_socket_connection_handler(TRTTI_PTR(FTPControlConnectionArgument) arg_ign,
+    ftp_control_socket_connection_handler(TRTTI_PTR(FTPControlConnectionArgument) arg,
                                           WorkerInfo worker_info);
 
 // this is the function, that runs in the listener, it receives all necessary information

@@ -706,9 +706,9 @@ NODISCARD static GenericResult close_websocket_connection(WebSocketConnection** 
 // sequence
 // note: regarding utf8 parsing
 
-static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_ign) {
+static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg) {
 
-	WebSocketListenerArg* argument = (WebSocketListenerArg*)arg_ign;
+	WebSocketListenerArg* argument = (WebSocketListenerArg*)arg;
 
 	char* thread_name_buffer = NULL;
 	// TODO(Totto): better report error
