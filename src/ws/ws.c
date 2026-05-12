@@ -197,7 +197,7 @@ typedef struct {
 	const tstr_static field_name;
 	bool success;
 } WsHeaderProcessArg;
-TRTTI_DECLARE_TYPE_AS_SUPPORTED(WsHeaderProcessArg)
+TRTTI_DEFINE_TYPE_AS_SUPPORTED(WsHeaderProcessArg)
 
 static void process_ws_header(const tstr_view value, RTTIAnnotatedValue argument) {
 

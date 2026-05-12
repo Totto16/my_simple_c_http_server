@@ -3,6 +3,8 @@
 
 TVEC_IMPLEMENT_VEC_TYPE(LogEntry)
 
+TRTTI_IMPLEMENTATION_FOR_TYPE(LogCollector)
+
 RTTIAnnotatedPtr initialize_log_collector(void) {
 
 	LogCollector* collector = TRTTI_ALLOC(LogCollector);
@@ -35,7 +37,7 @@ void free_log_collector(RTTIAnnotatedPtr ptr) {
 
 	TVEC_FREE(LogEntry, &collector->entries);
 
-	TRTTI_FREE(collector);
+	TRTTI_DESTROY(LogCollector, collector);
 }
 
 void log_collector_collect(LogCollector* collector, IPAddress address, HttpRequest http_request,

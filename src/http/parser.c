@@ -618,7 +618,7 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	                                   ConnectionHeaderTypeHTTP2Settings
 } ConnectionHeaderType;
 
-TRTTI_DECLARE_TYPE_AS_SUPPORTED(ConnectionHeaderType)
+TRTTI_DEFINE_TYPE_AS_SUPPORTED(ConnectionHeaderType)
 
 static void process_connection_header(const tstr_view value, RTTIAnnotatedValue argument) {
 
