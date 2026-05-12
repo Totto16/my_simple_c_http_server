@@ -19,7 +19,7 @@ NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* str);
 
 GENERATE_VARIANT_ALL_HUFFMAN_ENCODE_FIXED_RESULT()
 
-NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* data,
+NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(GenericData data,
                                                                          size_t max_size,
                                                                          const tstr* str);
 

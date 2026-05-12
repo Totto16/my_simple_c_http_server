@@ -163,10 +163,13 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 
 // a hacky but good and understandable way that is used with pthread functions
 // to annotate which type the really represent
-#define ANY void*
+#define ANY RTTIAnnotatedPtr
 
 // Type helper for readability
 #define ANY_TYPE(type) ANY
+
+typedef void* GenericData;
+typedef const void* GenericDataConst;
 
 // uses snprintf feature with passing NULL,0 as first two arguments to automatically determine the
 // required buffer size, for more read man page

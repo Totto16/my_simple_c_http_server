@@ -3,7 +3,7 @@
 #include "./generic.hpp"
 
 [[nodiscard]] ReadonlyBuffer helpers::buffer_from_string(const std::string& inp) {
-	return ReadonlyBuffer{ .data = (const void*)inp.c_str(), .size = inp.size() };
+	return ReadonlyBuffer{ .data = static_cast<GenericDataConst>(inp.c_str()), .size = inp.size() };
 }
 [[nodiscard]] tstr helpers::tstr_from_utf8_string(const std::vector<std::uint8_t>& val) {
 	const tstr buffer = tstr_from_len((const char*)val.data(), val.size());
@@ -22,7 +22,8 @@
 }
 
 [[nodiscard]] ReadonlyBuffer helpers::buffer_from_raw_data(const std::vector<std::uint8_t>& data) {
-	const ReadonlyBuffer buffer = { .data = (const void*)data.data(), .size = data.size() };
+	const ReadonlyBuffer buffer = { .data = static_cast<GenericDataConst>(data.data()),
+		                            .size = data.size() };
 	return buffer;
 }
 

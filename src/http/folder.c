@@ -177,7 +177,7 @@ static ServeFolderResult get_serve_folder_content_for_file(const tstr* const pat
 
 		file_content = (SizedBuffer){ .data = NULL, .size = file_size };
 	} else {
-		void* file_data = read_entire_file(tstr_cstr(path), &file_size);
+		GenericData file_data = read_entire_file(tstr_cstr(path), &file_size);
 
 		if(file_data == NULL) {
 

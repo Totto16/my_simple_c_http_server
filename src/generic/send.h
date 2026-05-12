@@ -7,7 +7,7 @@
 #include <tstr_builder.h>
 
 NODISCARD GenericResult send_data_to_connection(const ConnectionDescriptor* descriptor,
-                                                const void* to_send, size_t length);
+                                                GenericDataConst to_send, size_t length);
 
 NODISCARD GenericResult send_buffer_to_connection(const ConnectionDescriptor* descriptor,
                                                   SizedBuffer buffer);

@@ -4,7 +4,7 @@
 
 #include <utf8proc.h>
 
-NODISCARD Utf8DataResult get_utf8_string(const void* const data, const size_t size) {
+NODISCARD Utf8DataResult get_utf8_string(const GenericDataConst data, const size_t size) {
 
 	utf8proc_int32_t* buffer = malloc(sizeof(utf8proc_int32_t) * size);
 
@@ -23,7 +23,7 @@ NODISCARD Utf8DataResult get_utf8_string(const void* const data, const size_t si
 
 	if(result != (utf8proc_ssize_t)size) {
 		// truncate the buffer
-		void* new_buffer = realloc(buffer, sizeof(utf8proc_int32_t) * (size_t)result);
+		GenericData new_buffer = realloc(buffer, sizeof(utf8proc_int32_t) * (size_t)result);
 
 		if(!new_buffer) {
 			free(buffer);

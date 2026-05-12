@@ -142,7 +142,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 huffman_return_ok:
 
 	// resize the actual buffer
-	void* new_values = realloc(values, values_idx + 1);
+	GenericData new_values = realloc(values, values_idx + 1);
 
 	if(new_values == NULL) {
 		return new_huffman_decode_result_error(
@@ -214,8 +214,9 @@ NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* const str) {
 }
 
 NODISCARD static HuffmanEncodeFixedResult
-hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, void* const data,
-                                           const size_t max_size, const tstr* const str) {
+hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map,
+                                           const GenericData data, const size_t max_size,
+                                           const tstr* const str) {
 
 	const size_t str_len = tstr_len(str);
 
@@ -276,7 +277,7 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 	return new_huffman_encode_fixed_result_ok(current_pos.pos);
 }
 
-NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* const data,
+NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(const GenericData data,
                                                                          const size_t max_size,
                                                                          const tstr* const str) {
 	if(g_huffman_data.map == NULL) {

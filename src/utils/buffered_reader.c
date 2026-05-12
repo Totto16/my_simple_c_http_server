@@ -67,14 +67,15 @@ static size_t buffered_reader_get_more_data_partially(BufferedReader* const read
 		return 0;
 	}
 
-	void* new_buffer = realloc(reader->data.buffer.data, reader->data.buffer.size + amount);
+	const GenericData new_buffer =
+	    realloc(reader->data.buffer.data, reader->data.buffer.size + amount);
 
 	if(new_buffer == NULL) {
 		reader->state = StreamStateError;
 		return 0;
 	}
 
-	void* buffer = (Byte*)new_buffer + reader->data.buffer.size;
+	const GenericData buffer = (Byte*)new_buffer + reader->data.buffer.size;
 
 	reader->data.buffer.data = new_buffer;
 
@@ -342,7 +343,7 @@ void buffered_reader_invalidate_old_data(BufferedReader* const reader) {
 		return;
 	}
 
-	void* current_data = reader->data.buffer.data;
+	GenericData current_data = reader->data.buffer.data;
 
 	const size_t offset = reader->data.cursor;
 
@@ -355,7 +356,7 @@ void buffered_reader_invalidate_old_data(BufferedReader* const reader) {
 		return;
 	}
 
-	void* new_data = malloc(available_length);
+	GenericData new_data = malloc(available_length);
 
 	if(!new_data) {
 		return;

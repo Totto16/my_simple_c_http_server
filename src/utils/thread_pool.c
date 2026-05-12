@@ -268,7 +268,7 @@ static ANY_TYPE(JobResult) impl_pool_await(JobId* const job_description) {
 	CHECK_FOR_ERROR(result, "Couldn't destroy the internal thread pool Semaphore",
 	                return JOB_ERROR_SEM_DEST;);
 
-	OOM_ASSERT(job_description != (void*)THREAD_SHUTDOWN_JOB_INTERNAL, "error description");
+	OOM_ASSERT(job_description != (GenericData)THREAD_SHUTDOWN_JOB_INTERNAL, "error description");
 
 	ANY_TYPE(JobResult)
 	const job_result =
@@ -284,7 +284,7 @@ static ANY_TYPE(JobResult) impl_pool_await(JobId* const job_description) {
 // _THREAD_SHUTDOWN_JOB can't be delivered by the user! (its an invalid function pointer) so it is
 // checked here and printing a warning if its _THREAD_SHUTDOWN_JOB
 ANY_TYPE(JobResult) pool_await(JobId* job_description) {
-	if(job_description != (void*)THREAD_SHUTDOWN_JOB_INTERNAL) {
+	if(job_description != (GenericData)THREAD_SHUTDOWN_JOB_INTERNAL) {
 		return impl_pool_await(job_description);
 	}
 

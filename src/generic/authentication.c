@@ -7,6 +7,7 @@
 #include "utils/log.h"
 
 #include <tmap.h>
+#include <trtti.h>
 #include <tvec.h>
 
 typedef struct {
@@ -332,7 +333,7 @@ NODISCARD MAYBE_UNUSED static LinuxUserResponse check_for_user_linux(const char*
 
 		if(res == ERANGE) {
 			buffer.size = buffer.size * 2;
-			void* new_data = realloc(buffer.data, buffer.size);
+			GenericData new_data = realloc(buffer.data, buffer.size);
 			if(!new_data) {
 				free(buffer.data); // not calling free_sized_buffer, as the size is invalid, and if
 				                   // we in the future might use free_sized with own memory
@@ -390,7 +391,7 @@ NODISCARD static char* get_group_name(const gid_t group_id) {
 
 		if(res == ERANGE) {
 			buffer.size = buffer.size * 2;
-			void* new_data = realloc(buffer.data, buffer.size);
+			GenericData new_data = realloc(buffer.data, buffer.size);
 			if(!new_data) {
 				free(buffer.data); // not calling free_sized_buffer, as the size is invalid, and if
 				                   // we in the future might use free_sized with own memory

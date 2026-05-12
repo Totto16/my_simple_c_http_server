@@ -714,7 +714,7 @@ NODISCARD SendData* get_data_to_send_for_retr(const char* path) {
 
 	size_t file_size = 0;
 
-	void* file_data = read_entire_file(path, &file_size);
+	GenericData file_data = read_entire_file(path, &file_size);
 
 	if(file_data == NULL) {
 
@@ -947,7 +947,8 @@ NODISCARD bool send_data_to_send(const SendData* const data, ConnectionDescripto
 
 			size_t offset = progress->data.sent_count;
 
-			const void* const to_send = ((const uint8_t*)raw_data.data.data) + offset;
+			const GenericDataConst to_send =
+			    (const GenericDataConst)(((const uint8_t* const)raw_data.data.data) + offset);
 
 			size_t send_length = SEND_CHUNK_SIZE;
 

@@ -23,7 +23,7 @@
 typedef struct TQueueEntryImpl TQueueEntry;
 
 struct TQueueEntryImpl {
-	void* value;
+	GenericData value;
 	STAILQ_ENTRY(TQueueEntryImpl) entries;
 };
 
@@ -43,8 +43,10 @@ NODISCARD GenericResult tqueue_destroy(TQueue* queue);
 
 NODISCARD bool tqueue_is_empty(TQueue* queue);
 
+//NOTE: use trtti or tvec.h non generic push!
+
 // not checked for error code of malloc :(
 // modified to use void * instead of int as stored value
-NODISCARD GenericResult tqueue_push(TQueue* queue, void* value);
+NODISCARD GenericResult tqueue_push(TQueue* queue,GenericData value);
 
-NODISCARD void* tqueue_pop(TQueue* queue);
+NODISCARD GenericData tqueue_pop(TQueue* queue);

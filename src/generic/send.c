@@ -6,7 +6,7 @@
 #include <errno.h>
 
 GenericResult send_data_to_connection(const ConnectionDescriptor* const descriptor,
-                                      const void* const to_send, size_t length) {
+                                      const GenericDataConst to_send, size_t length) {
 
 	size_t remaining_length = length;
 

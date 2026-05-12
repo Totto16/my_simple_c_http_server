@@ -233,7 +233,7 @@ hpack_dynamic_table_pop_at_end(HpackHeaderDynamicTable* const dynamic_table) {
 		// request the realloc, if it fails, we have a problem, we just set the capcity and
 		// leave the memory area bigger, but a realloc with a smaller size should never fail!
 		HpackHeaderDynamicEntry* new_entries = (HpackHeaderDynamicEntry*)realloc(
-		    (void*)dynamic_table->entries, new_capacity * sizeof(HpackHeaderDynamicEntry));
+		    (GenericData)dynamic_table->entries, new_capacity * sizeof(HpackHeaderDynamicEntry));
 
 		if(new_entries == NULL) {
 			UNREACHABLE();
@@ -273,7 +273,7 @@ NODISCARD bool hpack_dynamic_table_insert_at_start(HpackHeaderDynamicTable* cons
 		const size_t new_capacity = IMPL_CALC_GROW(dynamic_table->capacity);
 
 		HpackHeaderDynamicEntry* new_entries = (HpackHeaderDynamicEntry*)realloc(
-		    (void*)dynamic_table->entries, new_capacity * sizeof(HpackHeaderDynamicEntry));
+		    (GenericData)dynamic_table->entries, new_capacity * sizeof(HpackHeaderDynamicEntry));
 		if(new_entries == NULL) {
 			return false;
 		}

@@ -229,7 +229,7 @@ NODISCARD static GenericResult http2_send_goaway_frame(const ConnectionDescripto
 
 		/* Optional debug data */
 		if(additional_debug_data.size > 0) {
-			memcpy((void*)(data + i), additional_debug_data.data, additional_debug_data.size);
+			memcpy((GenericData)(data + i), additional_debug_data.data, additional_debug_data.size);
 			i += additional_debug_data.size;
 		}
 
@@ -2777,7 +2777,7 @@ NODISCARD static ConcatDataBlocksResult http2_concat_data_blocks(const DataBlock
 	for(size_t i = 0; i < TVEC_LENGTH(SizedBuffer, data_blocks); ++i) {
 		SizedBuffer entry = TVEC_AT(SizedBuffer, data_blocks, i);
 
-		memcpy((void*)(result_ptr + current_offset), entry.data, entry.size);
+		memcpy((GenericData)(result_ptr + current_offset), entry.data, entry.size);
 
 		current_offset += entry.size;
 	}

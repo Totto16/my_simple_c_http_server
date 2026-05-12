@@ -9,6 +9,8 @@
 #include "generic/sem.h"
 #include "utils.h"
 
+#include <trtti.h>
+
 // defining the type defs
 
 typedef struct {

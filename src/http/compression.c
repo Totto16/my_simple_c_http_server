@@ -117,7 +117,7 @@ compress_buffer_with_zlib_impl(SizedBuffer buffer,
 
 	const size_t chunk_size = 1UL << max_window_bits;
 
-	void* start_chunk = malloc(chunk_size);
+	GenericData start_chunk = malloc(chunk_size);
 	if(!start_chunk) {
 		return SIZED_BUFFER_ERROR;
 	}
@@ -164,7 +164,7 @@ compress_buffer_with_zlib_impl(SizedBuffer buffer,
 
 		if((deflate_result == Z_BUF_ERROR || deflate_result == Z_OK) && zstream.avail_out == 0) {
 
-			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
+			GenericData new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			result_buffer.data = new_chunk;
 
 			zstream.avail_out = (uInt)chunk_size;
@@ -249,7 +249,7 @@ decompress_buffer_with_zlib_impl(SizedBuffer buffer,
 
 	const size_t chunk_size = 1UL << max_window_bits;
 
-	void* start_chunk = malloc(chunk_size);
+	GenericData start_chunk = malloc(chunk_size);
 	if(!start_chunk) {
 		return SIZED_BUFFER_ERROR;
 	}
@@ -291,7 +291,7 @@ decompress_buffer_with_zlib_impl(SizedBuffer buffer,
 				break;
 			}
 
-			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
+			GenericData new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			if(!new_chunk) {
 				free_sized_buffer(result_buffer);
 				return SIZED_BUFFER_ERROR;
@@ -382,7 +382,7 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 
 	const size_t chunk_size = (1 << BROTLI_WINDOW_SIZE) - 16;
 
-	void* start_chunk = malloc(chunk_size);
+	GenericData start_chunk = malloc(chunk_size);
 	if(!start_chunk) {
 		BrotliEncoderDestroyInstance(state);
 		return SIZED_BUFFER_ERROR;
@@ -420,7 +420,7 @@ static SizedBuffer compress_buffer_with_br(SizedBuffer buffer) {
 		result_buffer.size += (available_out_before - available_out);
 
 		if(available_out == 0) {
-			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
+			GenericData new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			result_buffer.data = new_chunk;
 
 			available_out += chunk_size;
@@ -470,7 +470,7 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 
 	const size_t chunk_size = (1 << ZSTD_CHUNK_SIZE);
 
-	void* start_chunk = malloc(chunk_size);
+	GenericData start_chunk = malloc(chunk_size);
 	if(!start_chunk) {
 		ZSTD_freeCStream(stream);
 		return SIZED_BUFFER_ERROR;
@@ -498,7 +498,7 @@ static SizedBuffer compress_buffer_with_zstd(SizedBuffer buffer) {
 		result_buffer.size = out_buffer.pos;
 
 		if(out_buffer.size == out_buffer.pos) {
-			void* new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
+			GenericData new_chunk = realloc(result_buffer.data, result_buffer.size + chunk_size);
 			result_buffer.data = new_chunk;
 
 			out_buffer.size += chunk_size;
@@ -589,7 +589,7 @@ static SizedBuffer compress_buffer_with_compress(SizedBuffer buffer) {
 		if(result == LZWS_COMPRESSOR_NEEDS_MORE_DESTINATION) {
 			size_t current_size = compressor_buffer.size - remaining_compressor_buffer.size;
 
-			void* new_chunk = realloc(compressor_buffer.data, current_size + chunk_size);
+			GenericData new_chunk = realloc(compressor_buffer.data, current_size + chunk_size);
 			compressor_buffer.data = new_chunk;
 			compressor_buffer.size = current_size + chunk_size;
 

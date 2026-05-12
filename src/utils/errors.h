@@ -3,6 +3,8 @@
 
 #include "utils/utils.h"
 
+#include <trtti.h>
+
 // job errors
 
 typedef ANY JobError;

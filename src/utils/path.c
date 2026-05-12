@@ -95,7 +95,7 @@ NODISCARD bool get_file_size_of_file(const char* file_path, OUT_PARAM(size_t) ou
 	return true;
 }
 
-NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_len) {
+NODISCARD GenericData read_entire_file(const char* file_path, OUT_PARAM(size_t) out_len) {
 
 	if(out_len == NULL) {
 		return NULL;

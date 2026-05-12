@@ -8,6 +8,8 @@
 
 #include <ctype.h>
 
+#include <trtti.h>
+
 TVEC_IMPLEMENT_VEC_TYPE(WSExtension)
 
 #define DEFAULT_MAX_WINDOW_BITS 15

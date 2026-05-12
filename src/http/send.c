@@ -586,7 +586,8 @@ NODISCARD HTTPResponseBody http_response_body_from_string_builder(StringBuilder*
 	return result;
 }
 
-NODISCARD HTTPResponseBody http_response_body_from_data(void* data, size_t size, bool send_body) {
+NODISCARD HTTPResponseBody http_response_body_from_data(GenericData data, size_t size,
+                                                        bool send_body) {
 	return (HTTPResponseBody){ .content = (SizedBuffer){ .data = data, .size = size },
 		                       .send_body_data = send_body };
 }

@@ -79,7 +79,7 @@ struct Sha1BufferType {
 
 	constexpr void set_error(bool error) { m_is_error = error; }
 
-	[[nodiscard]] SizedBuffer get_sized_buffer() const;
+	[[nodiscard]] ReadonlyBuffer get_buffer() const;
 
 	friend std::ostream& operator<<(std::ostream& os, const Sha1BufferType& buffer);
 
