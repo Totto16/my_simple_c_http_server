@@ -87,34 +87,34 @@ html_from_string(StringBuilder* head_content, // NOLINT(bugprone-easily-swappabl
 }
 
 static JsonValue get_json_auth_repr(const ParsedAuthority authority) {
-	JsonObject* const authority_obj = get_empty_json_object();
+	JsonObject* const authority_obj = json_object_get_empty();
 
 	{
 
-		JsonObject* const user_obj = get_empty_json_object();
+		JsonObject* const user_obj = json_object_get_empty();
 
 		{
 			tstr_static insert_result = json_object_add_entry_cstr(
 			    user_obj, "name",
-			    new_json_value_string(json_get_string_from_tstr(&authority.user_info.username)));
+			    new_json_value_string_rc(json_get_string_from_tstr(&authority.user_info.username)));
 
 			ASSERT(tstr_static_is_null(insert_result));
 
 			insert_result = json_object_add_entry_cstr(
 			    user_obj, "password",
-			    new_json_value_string(json_get_string_from_tstr(&authority.user_info.password)));
+			    new_json_value_string_rc(json_get_string_from_tstr(&authority.user_info.password)));
 
 			ASSERT(tstr_static_is_null(insert_result));
 		}
 
 		tstr_static insert_result =
-		    json_object_add_entry_cstr(authority_obj, "user", new_json_value_object(user_obj));
+		    json_object_add_entry_cstr(authority_obj, "user", new_json_value_object_rc(user_obj));
 
 		ASSERT(tstr_static_is_null(insert_result));
 
 		insert_result = json_object_add_entry_cstr(
 		    authority_obj, "host",
-		    new_json_value_string(json_get_string_from_tstr(&authority.host)));
+		    new_json_value_string_rc(json_get_string_from_tstr(&authority.host)));
 
 		ASSERT(tstr_static_is_null(insert_result));
 
@@ -124,7 +124,7 @@ static JsonValue get_json_auth_repr(const ParsedAuthority authority) {
 		ASSERT(tstr_static_is_null(insert_result));
 	}
 
-	return new_json_value_object(authority_obj);
+	return new_json_value_object_rc(authority_obj);
 }
 
 tstr http_request_to_json(const HttpRequest request, bool https, SendSettings send_settings) {
@@ -133,14 +133,14 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 	const char* protocol_version =
 	    get_http_protocol_version_string(request.head.request_line.protocol_data.version);
 
-	JsonObject* const root = get_empty_json_object();
+	JsonObject* const root = json_object_get_empty();
 
 	tstr_static insert_result = json_object_add_entry_cstr(
-	    root, "request", new_json_value_string(json_get_string_from_cstr(method)));
+	    root, "request", new_json_value_string_rc(json_get_string_from_cstr(method)));
 
 	ASSERT(tstr_static_is_null(insert_result));
 
-	JsonObject* const request_uri_obj = get_empty_json_object();
+	JsonObject* const request_uri_obj = json_object_get_empty();
 
 	{
 
@@ -153,7 +153,7 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 
 				insert_result = json_object_add_entry_cstr(
 				    request_uri_obj, "type",
-				    new_json_value_string(json_get_string_from_cstr("asterisk")));
+				    new_json_value_string_rc(json_get_string_from_cstr("asterisk")));
 
 				ASSERT(tstr_static_is_null(insert_result));
 
@@ -163,11 +163,11 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 
 				insert_result = json_object_add_entry_cstr(
 				    request_uri_obj, "type",
-				    new_json_value_string(json_get_string_from_cstr("uri")));
+				    new_json_value_string_rc(json_get_string_from_cstr("uri")));
 
 				ASSERT(tstr_static_is_null(insert_result));
 
-				JsonObject* const data_obj = get_empty_json_object();
+				JsonObject* const data_obj = json_object_get_empty();
 
 				{
 
@@ -177,30 +177,30 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 					tstr path_str = get_parsed_url_as_string(uri.path);
 					tstr uri_str = get_uri_as_string(uri);
 
-					JsonObject* const path_obj = get_empty_json_object();
+					JsonObject* const path_obj = json_object_get_empty();
 
 					{
 						insert_result = json_object_add_entry_cstr(
 						    path_obj, "str_form",
-						    new_json_value_string(json_get_string_from_tstr(&path_str)));
+						    new_json_value_string_rc(json_get_string_from_tstr(&path_str)));
 
 						ASSERT(tstr_static_is_null(insert_result));
 					}
 
 					insert_result = json_object_add_entry_cstr(data_obj, "path",
-					                                           new_json_value_object(path_obj));
+					                                           new_json_value_object_rc(path_obj));
 
 					ASSERT(tstr_static_is_null(insert_result));
 
 					insert_result = json_object_add_entry_cstr(
 					    data_obj, "uri_str",
-					    new_json_value_string(json_get_string_from_tstr(&uri_str)));
+					    new_json_value_string_rc(json_get_string_from_tstr(&uri_str)));
 
 					ASSERT(tstr_static_is_null(insert_result));
 
 					insert_result = json_object_add_entry_cstr(
 					    data_obj, "scheme",
-					    new_json_value_string(json_get_string_from_tstr(&uri.scheme)));
+					    new_json_value_string_rc(json_get_string_from_tstr(&uri.scheme)));
 
 					ASSERT(tstr_static_is_null(insert_result));
 
@@ -213,7 +213,7 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 				}
 
 				insert_result = json_object_add_entry_cstr(request_uri_obj, "data",
-				                                           new_json_value_object(data_obj));
+				                                           new_json_value_object_rc(data_obj));
 
 				ASSERT(tstr_static_is_null(insert_result));
 
@@ -224,22 +224,22 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 
 				insert_result = json_object_add_entry_cstr(
 				    request_uri_obj, "type",
-				    new_json_value_string(json_get_string_from_cstr("path")));
+				    new_json_value_string_rc(json_get_string_from_cstr("path")));
 
 				ASSERT(tstr_static_is_null(insert_result));
 
-				JsonObject* const path_obj = get_empty_json_object();
+				JsonObject* const path_obj = json_object_get_empty();
 
 				{
 					insert_result = json_object_add_entry_cstr(
 					    path_obj, "str_form",
-					    new_json_value_string(json_get_string_from_tstr(&path_str)));
+					    new_json_value_string_rc(json_get_string_from_tstr(&path_str)));
 
 					ASSERT(tstr_static_is_null(insert_result));
 				}
 
 				insert_result = json_object_add_entry_cstr(request_uri_obj, "data",
-				                                           new_json_value_object(path_obj));
+				                                           new_json_value_object_rc(path_obj));
 
 				ASSERT(tstr_static_is_null(insert_result));
 
@@ -250,7 +250,7 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 
 				insert_result = json_object_add_entry_cstr(
 				    request_uri_obj, "type",
-				    new_json_value_string(json_get_string_from_cstr("authority")));
+				    new_json_value_string_rc(json_get_string_from_cstr("authority")));
 
 				ASSERT(tstr_static_is_null(insert_result));
 
@@ -269,13 +269,13 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 	}
 
 	insert_result =
-	    json_object_add_entry_cstr(root, "request_uri", new_json_value_object(request_uri_obj));
+	    json_object_add_entry_cstr(root, "request_uri", new_json_value_object_rc(request_uri_obj));
 
 	ASSERT(tstr_static_is_null(insert_result));
 
 	insert_result = json_object_add_entry_cstr(
 	    root, "protocol_version",
-	    new_json_value_string(json_get_string_from_cstr(protocol_version)));
+	    new_json_value_string_rc(json_get_string_from_cstr(protocol_version)));
 
 	ASSERT(tstr_static_is_null(insert_result));
 
@@ -284,7 +284,7 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 
 	ASSERT(tstr_static_is_null(insert_result));
 
-	JsonArray* const json_headers = get_empty_json_array();
+	JsonArray* const json_headers = json_array_get_empty();
 
 	const size_t header_amount = TVEC_LENGTH(HttpHeaderField, request.head.header_fields);
 
@@ -292,42 +292,45 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 
 		HttpHeaderField entry = TVEC_AT(HttpHeaderField, request.head.header_fields, i);
 
-		JsonObject* const json_entry_obj = get_empty_json_object();
+		JsonObject* const json_entry_obj = json_object_get_empty();
 
 		{
 			insert_result = json_object_add_entry_cstr(
 			    json_entry_obj, "key",
-			    new_json_value_string(json_get_string_from_tstr(&entry.key)));
+			    new_json_value_string_rc(json_get_string_from_tstr(&entry.key)));
 
 			ASSERT(tstr_static_is_null(insert_result));
 
 			insert_result = json_object_add_entry_cstr(
 			    json_entry_obj, "value",
-			    new_json_value_string(json_get_string_from_tstr(&entry.value)));
+			    new_json_value_string_rc(json_get_string_from_tstr(&entry.value)));
 
 			ASSERT(tstr_static_is_null(insert_result));
 		}
 
-		insert_result = json_array_add_entry(json_headers, new_json_value_object(json_entry_obj));
+		insert_result =
+		    json_array_add_entry(json_headers, new_json_value_object_rc(json_entry_obj));
 
 		ASSERT(tstr_static_is_null(insert_result));
 	}
 
-	insert_result = json_object_add_entry_cstr(root, "headers", new_json_value_array(json_headers));
+	insert_result =
+	    json_object_add_entry_cstr(root, "headers", new_json_value_array_rc(json_headers));
 
 	ASSERT(tstr_static_is_null(insert_result));
 
-	insert_result = json_object_add_entry_cstr(
-	    root, "body",
-	    new_json_value_string(json_get_string_from_tstr_view(tstr_view_from_buffer(request.body))));
+	insert_result =
+	    json_object_add_entry_cstr(root, "body",
+	                               new_json_value_string_rc(json_get_string_from_tstr_view(
+	                                   tstr_view_from_buffer(request.body))));
 
 	ASSERT(tstr_static_is_null(insert_result));
 
-	JsonObject* const settings_obj = get_empty_json_object();
+	JsonObject* const settings_obj = json_object_get_empty();
 
 	{
 
-		JsonObject* const send_settings_obj = get_empty_json_object();
+		JsonObject* const send_settings_obj = json_object_get_empty();
 
 		{
 
@@ -336,7 +339,7 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 
 			insert_result = json_object_add_entry_cstr(
 			    send_settings_obj, "compression",
-			    new_json_value_string(json_get_string_from_tstr(&compress_format)));
+			    new_json_value_string_rc(json_get_string_from_tstr(&compress_format)));
 
 			ASSERT(tstr_static_is_null(insert_result));
 
@@ -345,23 +348,23 @@ tstr http_request_to_json(const HttpRequest request, bool https, SendSettings se
 
 			insert_result = json_object_add_entry_cstr(
 			    send_settings_obj, "http_protocol",
-			    new_json_value_string(json_get_string_from_cstr(http_protocol_versio)));
+			    new_json_value_string_rc(json_get_string_from_cstr(http_protocol_versio)));
 
 			ASSERT(tstr_static_is_null(insert_result));
 		}
 
 		insert_result = json_object_add_entry_cstr(settings_obj, "send_settings",
-		                                           new_json_value_object(send_settings_obj));
+		                                           new_json_value_object_rc(send_settings_obj));
 
 		ASSERT(tstr_static_is_null(insert_result));
 	}
 
 	insert_result =
-	    json_object_add_entry_cstr(root, "settings", new_json_value_object(settings_obj));
+	    json_object_add_entry_cstr(root, "settings", new_json_value_object_rc(settings_obj));
 
 	ASSERT(tstr_static_is_null(insert_result));
 
-	JsonValue val = new_json_value_object(root);
+	JsonValue val = new_json_value_object_rc(root);
 
 	const tstr str = json_value_to_string(&val);
 

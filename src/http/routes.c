@@ -187,7 +187,7 @@ static JsonValue json_get_random_primitive_value(void) {
 	uint32_t random_type = get_random_byte_in_range(0, 4); // NOLINT(readability-magic-numbers)
 
 	switch(random_type) {
-		case 0: return new_json_value_string(json_get_random_string());
+		case 0: return new_json_value_string_rc(json_get_random_string());
 		case 1: return json_get_random_number();
 		case 2: return json_get_random_boolean();
 		case 3:
@@ -214,20 +214,20 @@ static void add_random_json_object_to_array(JsonArray* const array) {
 	uint32_t random_key_amount =
 	    get_random_byte_in_range(4, 20); // NOLINT(readability-magic-numbers)
 
-	JsonObject* const object = get_empty_json_object();
+	JsonObject* const object = json_object_get_empty();
 
 	for(size_t i = 0; i < random_key_amount; ++i) {
 		add_random_object_key_and_value(object);
 	}
 
-	tstr_static result = json_array_add_entry(array, new_json_value_object(object));
+	tstr_static result = json_array_add_entry(array, new_json_value_object_rc(object));
 
 	ASSERT(tstr_static_is_null(result));
 }
 
 static JsonValue get_random_json_value(const JsonSerializeOptions options) {
 
-	JsonArray* const array = get_empty_json_array();
+	JsonArray* const array = json_array_get_empty();
 
 	{
 
@@ -237,7 +237,7 @@ static JsonValue get_random_json_value(const JsonSerializeOptions options) {
 		while(true) {
 
 			{
-				auto temp = new_json_value_array(array);
+				JsonValue temp = new_json_value_array_rc(array);
 
 				tstr serialized = json_value_to_string_advanced(&temp, options);
 
@@ -254,7 +254,7 @@ static JsonValue get_random_json_value(const JsonSerializeOptions options) {
 		}
 	}
 
-	JsonValue value = new_json_value_array(array);
+	JsonValue value = new_json_value_array_rc(array);
 
 	return value;
 }
