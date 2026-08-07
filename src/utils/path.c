@@ -130,7 +130,7 @@ NODISCARD GenericData read_entire_file(const char* file_path, OUT_PARAM(size_t) 
 	const LibCInt fseek_res2 = fseek(file, 0, SEEK_SET);
 
 	if(fseek_res2 != 0) {
-		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", file_path,
+		LOG_MESSAGE(LogLevelError, "Couldn't seek to start of file '%s': %s\n", file_path,
 		            strerror(errno));
 
 		return NULL;
