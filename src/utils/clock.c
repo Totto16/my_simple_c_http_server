@@ -83,7 +83,7 @@ bool get_current_time(Time* time) {
 uint64_t get_time_in_seconds(Time time) {
 	assert(valid_time(time) && "Valid time");
 
-	return time._impl_value.tv_sec;
+	return (uint64_t)time._impl_value.tv_sec;
 }
 
 #define NS_TO_US(x) ((x) / S_TO_MS_RATE)
@@ -93,9 +93,9 @@ uint64_t get_time_in_seconds(Time time) {
 uint64_t get_time_in_milli_seconds(Time time) {
 	assert(valid_time(time) && "Valid time");
 
-	uint64_t result = S_TO_MS(time._impl_value.tv_sec);
+	uint64_t result = (uint64_t)(S_TO_MS(time._impl_value.tv_sec));
 
-	result += NS_TO_MS(time._impl_value.tv_nsec, time_t);
+	result += (uint64_t)(NS_TO_MS(time._impl_value.tv_nsec, time_t));
 
 	return result;
 }
@@ -103,9 +103,9 @@ uint64_t get_time_in_milli_seconds(Time time) {
 uint64_t get_time_in_nano_seconds(Time time) {
 	assert(valid_time(time) && "Valid time");
 
-	uint64_t result = S_TO_NS(time._impl_value.tv_sec, time_t);
+	uint64_t result = (uint64_t)(S_TO_NS(time._impl_value.tv_sec, time_t));
 
-	result += time._impl_value.tv_nsec;
+	result += (uint64_t)time._impl_value.tv_nsec;
 
 	return result;
 }
@@ -158,7 +158,8 @@ static TimeDiff impl_time_diff(Time time1, Time time2) {
 	const time_t diff_s_part = (time_t)(diff_ns / ((uint64_t)(S_TO_NS_RATE)));
 
 	result.diff._impl_value.tv_sec = diff_s_part;
-	result.diff._impl_value.tv_nsec = (long)(diff_ns - (diff_s_part * ((time_t)(S_TO_NS_RATE))));
+	result.diff._impl_value.tv_nsec =
+	    (long)(diff_ns - (uint64_t)(diff_s_part * ((time_t)(S_TO_NS_RATE))));
 
 	return result;
 }

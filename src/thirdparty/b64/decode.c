@@ -10,6 +10,11 @@
 #include <ctype.h>
 #include "b64.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-int-conversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+
+
 #ifdef b64_USE_CUSTOM_MALLOC
 extern void* b64_malloc(size_t);
 #endif
@@ -115,3 +120,5 @@ b64_decode_ex (const char *src, size_t len, size_t *decsize) {
 
   return (unsigned char*) decbuf.ptr;
 }
+
+#pragma GCC diagnostic pop

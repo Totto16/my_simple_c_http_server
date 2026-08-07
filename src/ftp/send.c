@@ -42,7 +42,9 @@ NODISCARD GenericResult send_ftp_message_to_connection_buffer(
 GenericResult send_ftp_message_to_connection_sb(const ConnectionDescriptor* const descriptor,
                                                 FtpReturnCode status, StringBuilder* body) {
 
-	const SizedBuffer val = string_builder_release_into_sized_buffer(&body);
+	tstr val = string_builder_release_into_tstr(&body);
 
-	return send_ftp_message_to_connection_buffer(descriptor, status, val);
+	const SizedBuffer buf = sized_buffer_from_tstr(&val);
+
+	return send_ftp_message_to_connection_buffer(descriptor, status, buf);
 }

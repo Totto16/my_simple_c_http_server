@@ -36,6 +36,7 @@ typedef struct {
 	const RouteManager* route_manager;
 	LifecycleFunctions fns;
 } HTTPThreadArgument;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(HTTPThreadArgument)
 
 typedef struct {
 	ConnectionContextPtrs contexts;
@@ -45,14 +46,14 @@ typedef struct {
 	const RouteManager* route_manager;
 	IPAddress address;
 } HTTPConnectionArgument;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(HTTPConnectionArgument)
 
 // the connectionHandler, that ist the thread spawned by the listener, or better said by the thread
 // pool, but the listener adds it
 // it receives all the necessary information and also handles the html parsing and response
 
-NODISCARD ANY_TYPE(JobError*)
-    http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg_ign,
-                                   WorkerInfo worker_info);
+NODISCARD ANY_TYPE(JobError)
+    http_socket_connection_handler(ANY_TYPE(HTTPConnectionArgument*) arg, WorkerInfo worker_info);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument

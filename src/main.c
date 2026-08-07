@@ -173,10 +173,10 @@ typedef struct {
 } ProgramArgs;
 
 #define PROGRAM_ARGS_AT(args, index) \
-	(assert((index) < (args).size), tstr_static_from_static_cstr((args).data[(index)]))
+	(ASSERT((index) < (args).size), tstr_static_from_static_cstr((args).data[(index)]))
 
 static inline ProgramArgs advance_program_args(const ProgramArgs args, const size_t amount) {
-	assert(args.size >= amount);
+	ASSERT(args.size >= amount);
 	return (ProgramArgs){ .size = args.size - amount, .data = args.data + amount };
 }
 
@@ -563,7 +563,7 @@ static ExitCode rich_main(const ProgramArgs args) {
 	}
 
 	if(is_version_string(command)) {
-		printf(STRINGIFY(VERSION_STRING) "\n");
+		printf(STRINGIFY(_SIMPLE_SERVER_VERSION_STRING) "\n");
 		return ExitCodeSuccess;
 	}
 
@@ -573,6 +573,10 @@ static ExitCode rich_main(const ProgramArgs args) {
 }
 
 int main(const LibCInt argc, const LibCChar* const* const argv) {
-	const ProgramArgs args = { .size = argc, .data = argv };
+	if(argc < 0) {
+		return 42;
+	}
+
+	const ProgramArgs args = { .size = (size_t)argc, .data = argv };
 	return rich_main(args);
 }

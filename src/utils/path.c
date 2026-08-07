@@ -51,6 +51,7 @@ NODISCARD bool file_is_absolute(const char* const file) {
 	return cwk_path_is_absolute(file);
 }
 
+// TODO: replace with stat and open instead of fopen and ftell with fseek
 NODISCARD bool get_file_size_of_file(const char* file_path, OUT_PARAM(size_t) out_len) {
 
 	if(out_len == NULL) {
@@ -77,6 +78,11 @@ NODISCARD bool get_file_size_of_file(const char* file_path, OUT_PARAM(size_t) ou
 
 	const LibCLong file_size = ftell(file);
 
+	if(file_size < 0) {
+		LOG_MESSAGE(LogLevelError, "File size is negative: '%s': %ld\n", file_path, file_size);
+		return false;
+	}
+
 	const LibCInt fclose_result = fclose(file);
 
 	if(fclose_result != 0) {
@@ -85,11 +91,11 @@ NODISCARD bool get_file_size_of_file(const char* file_path, OUT_PARAM(size_t) ou
 		return false;
 	}
 
-	*out_len = file_size;
+	*out_len = (size_t)file_size;
 	return true;
 }
 
-NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_len) {
+NODISCARD GenericData read_entire_file(const char* file_path, OUT_PARAM(size_t) out_len) {
 
 	if(out_len == NULL) {
 		return NULL;
@@ -115,16 +121,22 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 
 	const LibCLong file_size = ftell(file);
 
+	if(file_size < 0) {
+		LOG_MESSAGE(LogLevelError, "File size is negative: '%s': %ld\n", file_path, file_size);
+
+		return NULL;
+	}
+
 	const LibCInt fseek_res2 = fseek(file, 0, SEEK_SET);
 
 	if(fseek_res2 != 0) {
-		LOG_MESSAGE(LogLevelError, "Couldn't seek to end of file '%s': %s\n", file_path,
+		LOG_MESSAGE(LogLevelError, "Couldn't seek to start of file '%s': %s\n", file_path,
 		            strerror(errno));
 
 		return NULL;
 	}
 
-	uint8_t* file_data = (uint8_t*)malloc(file_size * sizeof(uint8_t));
+	uint8_t* file_data = (uint8_t*)malloc((size_t)file_size * sizeof(uint8_t));
 
 	if(!file_data) {
 
@@ -132,7 +144,7 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 		return NULL;
 	}
 
-	const size_t fread_result = fread(file_data, 1, file_size, file);
+	const size_t fread_result = fread(file_data, 1, (size_t)file_size, file);
 
 	if(fread_result != (size_t)file_size) {
 		LOG_MESSAGE(LogLevelWarn, "Couldn't read the correct amount of bytes from file '%s': %s\n",
@@ -152,6 +164,6 @@ NODISCARD void* read_entire_file(const char* file_path, OUT_PARAM(size_t) out_le
 		return NULL;
 	}
 
-	*out_len = file_size;
+	*out_len = (size_t)file_size;
 	return file_data;
 }

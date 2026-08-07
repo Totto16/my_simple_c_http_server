@@ -10,6 +10,7 @@
 #include "utils/utils.h"
 
 #include <tvec.h>
+#include <trtti.h>
 
 typedef struct RouteManagerImpl RouteManager;
 
@@ -30,10 +31,11 @@ typedef HTTPResponseToSend (*HTTPRouteFnExecutorAuth)(ParsedURLPath path, AuthUs
 typedef HTTPResponseToSend (*HTTPRouteFnExecutorExtended)(SendSettings send_settings,
                                                           const HttpRequest http_request,
                                                           const ConnectionContext* const context,
-                                                          ParsedURLPath path, void* data);
+                                                          ParsedURLPath path,
+                                                          RTTIAnnotatedPtr data);
 
 typedef struct {
-	void* data;
+	RTTIAnnotatedPtr data;
 	HTTPRouteFnExecutorExtended executor_extended;
 } HTTPRouteFnExecutorExtendedData;
 
@@ -166,10 +168,10 @@ TVEC_DEFINE_VEC_TYPE(HTTPRoute)
 
 typedef TVEC_TYPENAME(HTTPRoute) HTTPRoutesArray;
 
-typedef void (*FreeFnImpl)(void*);
+typedef void (*FreeFnImpl)(RTTIAnnotatedPtr);
 
 typedef struct {
-	void* data;
+	RTTIAnnotatedPtr data;
 	FreeFnImpl fn;
 } HTTPFreeFn;
 
@@ -186,11 +188,11 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 } HTTPRequestProxyType;
 
 typedef void (*HTTPRequestProxyPreFn)(const HttpRequest http_request, IPAddress address,
-                                      void* data);
+                                      RTTIAnnotatedPtr data);
 
 typedef void (*HTTPRequestProxyPostFn)(const HttpRequest http_request,
                                        const HTTPResponseToSend response, IPAddress address,
-                                       void* data);
+                                       RTTIAnnotatedPtr data);
 
 typedef struct {
 	HTTPRequestProxyType type;
@@ -198,7 +200,7 @@ typedef struct {
 		HTTPRequestProxyPreFn pre;
 		HTTPRequestProxyPostFn post;
 	} value;
-	void* data;
+	RTTIAnnotatedPtr data;
 } HTTPRequestProxy;
 
 TVEC_DEFINE_VEC_TYPE(HTTPRequestProxy)

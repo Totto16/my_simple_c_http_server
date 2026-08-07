@@ -5,6 +5,7 @@
 #include "utils/utils.h"
 
 #include <tvec.h>
+#include <trtti.h>
 
 /**
  * @enum value
@@ -22,6 +23,7 @@ typedef struct {
 	WsDeflateSingleOption client;
 	WsDeflateSingleOption server;
 } WsDeflateOptions;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(WsDeflateOptions)
 
 typedef struct {
 	WSExtensionType type;
@@ -34,7 +36,7 @@ TVEC_DEFINE_VEC_TYPE(WSExtension)
 
 typedef TVEC_TYPENAME(WSExtension) WSExtensions;
 
-NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions);
+NODISCARD tstr get_accepted_ws_extensions_as_string(WSExtensions extensions);
 
 void parse_ws_extensions(WSExtensions* extensions, tstr_view value);
 

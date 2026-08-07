@@ -31,8 +31,8 @@ NODISCARD int64_t parse_i64(const tstr_view to_parse, OUT_PARAM(bool) const succ
 			return 0;
 		}
 		const uint64_t old_result = result_temp;
-		result_temp =
-		    (result_temp * 10UL) + (to_parse.data[i] - '0'); // NOLINT(readability-magic-numbers)
+		result_temp = (result_temp * 10UL) + // NOLINT(readability-magic-numbers)
+		              (uint8_t)(to_parse.data[i] - '0');
 
 		// check for overflow
 		if(result_temp < old_result) {
@@ -78,7 +78,8 @@ NODISCARD uint64_t parse_u64(tstr_view to_parse, OUT_PARAM(bool) success) {
 			return 0;
 		}
 		const uint64_t old_result = result;
-		result = (result * 10UL) + (to_parse.data[i] - '0'); // NOLINT(readability-magic-numbers)
+		result = (result * 10UL) +
+		         (uint8_t)(to_parse.data[i] - '0'); // NOLINT(readability-magic-numbers)
 
 		// check for overflow
 		if(result < old_result) {

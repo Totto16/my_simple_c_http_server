@@ -9,9 +9,10 @@
 #include "generic/secure.h"
 #include "utils/log.h"
 #include "utils/sized_buffer.h"
-#include "utils/string_builder.h"
 #include "utils/utils.h"
 
+#include <trtti.h>
+#include <tstr_builder.h>
 #include <tvec.h>
 
 #ifdef __cplusplus
@@ -283,11 +284,11 @@ void add_http_header_field(HttpHeaderFields* header_fields,
 static_assert((sizeof(HTTP_LINE_SEPERATORS) / (sizeof(HTTP_LINE_SEPERATORS[0]))) - 1 ==
               SIZEOF_HTTP_LINE_SEPERATORS);
 
-typedef void (*ProcessHeaderValue)(const tstr_view value, void* argument);
+typedef void (*ProcessHeaderValue)(const tstr_view value, RTTIAnnotatedValue argument);
 
 void process_delimitered_header_value(tstr_view value, const char* delimiter,
                                       ProcessHeaderValue callback_function,
-                                      void* callback_argument);
+                                      RTTIAnnotatedValue callback_argument);
 
 #ifdef __cplusplus
 }

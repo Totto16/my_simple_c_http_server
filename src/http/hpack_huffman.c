@@ -61,7 +61,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 	const HuffmanNode* current_node = tree->root;
 
 	while(current_pos.pos < buffer.size) {
-		assert(get_current_tag_type_for_huffman_node(*current_node) == HuffmanNodeTypeNode);
+		ASSERT(get_current_tag_type_for_huffman_node(*current_node) == HuffmanNodeTypeNode);
 
 		const HuffmanNodeNode* const current_node_node =
 		    huffman_node_get_as_node_const_ref(current_node);
@@ -131,7 +131,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 		    TSTR_STATIC_LIT("8 or more bits not decoded, is also invalid"));
 	}
 
-	uint8_t bits_mask = ((1 << bits_not_decoded) - 1);
+	uint8_t bits_mask = (uint8_t)((1U << bits_not_decoded) - 1U);
 
 	if((data[last_pos.pos] & bits_mask) != (EOS_BYTE & bits_mask)) {
 		// last not decoded bits are not the eos bytes
@@ -142,7 +142,7 @@ NODISCARD static HuffmanDecodeResult decode_bytes_huffman_impl(const HuffmanTree
 huffman_return_ok:
 
 	// resize the actual buffer
-	void* new_values = realloc(values, values_idx + 1);
+	GenericData new_values = realloc(values, values_idx + 1);
 
 	if(new_values == NULL) {
 		return new_huffman_decode_result_error(
@@ -206,7 +206,7 @@ NODISCARD static size_t hpack_huffman_get_encoded_size_impl(const HuffmanEncodeM
 
 NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* const str) {
 	if(g_huffman_data.map == NULL) {
-		assert(false && "global map is not initialized");
+		ASSERT(false && "global map is not initialized");
 		return 0;
 	};
 
@@ -214,8 +214,9 @@ NODISCARD size_t hpack_huffman_get_encoded_size(const tstr* const str) {
 }
 
 NODISCARD static HuffmanEncodeFixedResult
-hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, void* const data,
-                                           const size_t max_size, const tstr* const str) {
+hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map,
+                                           const GenericData data, const size_t max_size,
+                                           const tstr* const str) {
 
 	const size_t str_len = tstr_len(str);
 
@@ -253,9 +254,9 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 			const uint8_t bit = value & 0x01;
 			value = value >> 1;
 
-			data_ptr[current_pos.pos] =
-			    data_ptr[current_pos.pos] | (bit << (7 - // NOLINT(readability-magic-numbers)
-			                                         current_pos.bits_pos));
+			data_ptr[current_pos.pos] = data_ptr[current_pos.pos] |
+			                            (uint8_t)(bit << (7U - // NOLINT(readability-magic-numbers)
+			                                              current_pos.bits_pos));
 
 			bit_pos_inc(&current_pos);
 		}
@@ -266,7 +267,8 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 	if(current_pos.bits_pos > 0) {
 		const size_t missing_bits = 8 - current_pos.bits_pos;
 		// set the last bits to EOS bits (all 1s)
-		data_ptr[current_pos.pos] = data_ptr[current_pos.pos] | ((1 << missing_bits) - 1);
+		data_ptr[current_pos.pos] =
+		    data_ptr[current_pos.pos] | (uint8_t)((1U << missing_bits) - 1U);
 
 		current_pos.bits_pos = 0;
 		current_pos.pos += 1;
@@ -275,7 +277,7 @@ hpack_huffman_encode_value_fixed_size_impl(const HuffmanEncodeMap* const map, vo
 	return new_huffman_encode_fixed_result_ok(current_pos.pos);
 }
 
-NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(void* const data,
+NODISCARD HuffmanEncodeFixedResult hpack_huffman_encode_value_fixed_size(const GenericData data,
                                                                          const size_t max_size,
                                                                          const tstr* const str) {
 	if(g_huffman_data.map == NULL) {

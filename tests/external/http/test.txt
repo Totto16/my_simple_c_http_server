@@ -18,3 +18,5 @@ https://manpages.org/httest
 https://github.com/ibnesayeed/webserver-tester
 
 https://github.com/init/http-test-suite
+
+https://github.com/bradcypert/httpspec

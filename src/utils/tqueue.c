@@ -39,7 +39,7 @@ bool tqueue_is_empty(TQueue* queue) {
 
 // not checked for error code of malloc :(
 // modified to use void * instead of int as stored value
-GenericResult tqueue_push(TQueue* queue, void* value) {
+GenericResult tqueue_push(TQueue* queue, GenericData value) {
 
 	int result = comp_sem_wait(&(queue->can_access));
 	CHECK_FOR_ERROR(result, "Couldn't wait for the internal queue Semaphore",
@@ -60,7 +60,7 @@ GenericResult tqueue_push(TQueue* queue, void* value) {
 	return GENERIC_RES_OK();
 }
 
-void* tqueue_pop(TQueue* queue) {
+GenericData tqueue_pop(TQueue* queue) {
 
 	int result = comp_sem_wait(&(queue->can_access));
 	CHECK_FOR_ERROR(result, "Couldn't wait for the internal queue Semaphore", return NULL);
@@ -71,7 +71,7 @@ void* tqueue_pop(TQueue* queue) {
 	bool empty = STAILQ_EMPTY(q_head);
 	assert(!empty && "The queue was empty on pop!");
 	TQueueEntry* entry = STAILQ_FIRST(q_head);
-	void* value = entry->value;
+	GenericData value = entry->value;
 	STAILQ_REMOVE_HEAD(q_head, entries);
 	free(entry);
 

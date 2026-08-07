@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <trtti.h>
+
 TVEC_IMPLEMENT_VEC_TYPE_EXTENDED(ConnectionContext*, ConnectionContextPtr)
 
 // general notes: the openssl docs are quite extensive, even i didn't use them at the beginning, but
@@ -90,7 +92,7 @@ static bool file_exists(const tstr_static file) {
 // stops, see
 // https://github.com/openssl/openssl/blob/3b90a847ece93b3886f14adc7061e70456d564e1/crypto/err/err_prn.c#L44
 static int error_logger(const LibCChar* const str, const size_t len,
-                        void* const user_data) { // NOLINT(totto-const-correctness-c)
+                        const RTTIAnnotatedPtr user_data) { // NOLINT(totto-const-correctness-c)
 
 	UNUSED(user_data);
 
@@ -111,7 +113,7 @@ static int alpn_select_cb(SSL* const /* ssl */,
                           unsigned char* const outlen, // NOLINT(totto-use-fixed-width-types-var)
                           const unsigned char* in_buf, // NOLINT(totto-use-fixed-width-types-var)
                           unsigned int inlen,          // NOLINT(totto-use-fixed-width-types-var)
-                          void* /* arg */) {
+                          RTTIAnnotatedPtr /* arg */) {
 
 	// this is an exception, as we don't modify the char that the pointer double points too, but
 	// the function signature says that, but ut isn't true
@@ -168,7 +170,7 @@ static SecureData* initialize_secure_data(const tstr_static public_cert_file,
 	 * TLS versions older than TLS 1.2 are deprecated by IETF and SHOULD
 	 * be avoided if possible.
 	 */
-	LibCInt result = SSL_CTX_set_min_proto_version(ssl_context, TLS1_2_VERSION);
+	LibCLong result = SSL_CTX_set_min_proto_version(ssl_context, TLS1_2_VERSION);
 
 	if(result != 1) {
 		LOG_MESSAGE_SIMPLE(LogLevelError, "SSL_CTX_set_min_proto_version failed:\n");
@@ -609,7 +611,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 
 		// if context is NULL; we don't allow reallocating of the new context
 		if(context != NULL) {
-			assert(context->data.secure.ssl_structure == ssl_structure);
+			ASSERT(context->data.secure.ssl_structure == ssl_structure);
 			context->data.secure.ssl_structure =
 			    new_ssl_structure_from_ctx(context->data.secure.options->value.data->ssl_context);
 
@@ -626,7 +628,7 @@ GenericResult close_connection_descriptor_advanced(ConnectionDescriptor* descrip
 }
 
 NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const descriptor,
-                                          void* buffer, size_t n_bytes) {
+                                          GenericData buffer, size_t n_bytes) {
 	if(!is_secure_descriptor(descriptor)) {
 		const ssize_t result = read(descriptor->data.normal.fd, buffer, n_bytes);
 
@@ -656,7 +658,7 @@ NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* const desc
 
 	size_t bytes_read = 0;
 
-	const LibCInt result = SSL_read_ex(ssl_structure, buffer, (int)n_bytes, &bytes_read);
+	const LibCInt result = SSL_read_ex(ssl_structure, buffer, n_bytes, &bytes_read);
 
 	if(result > 0) {
 		return (ReadResult){

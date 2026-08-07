@@ -21,10 +21,10 @@ NODISCARD uint32_t get_random_byte(void) {
 			LOG_MESSAGE(LogLevelWarn, "Get random failed: %s\n", strerror(errno));
 		}
 
-		unsigned int seed = time(NULL);
+		unsigned int seed = (unsigned int)time(NULL);
 
 		// use rand_r like normal rand:
-		random_bytes = rand_r(&seed);
+		random_bytes = (uint32_t)rand_r(&seed);
 	}
 #endif
 	return random_bytes;

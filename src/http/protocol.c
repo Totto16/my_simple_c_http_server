@@ -202,10 +202,15 @@ compare_function_entries(const CompressionEntry* // NOLINT(bugprone-easily-swapp
 
 	// note weight is between 0.0 and 1.0
 
+	// NOTE: here it is fine for us, to compare float values, as this is a strict equal!
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+
 	if(entry1->weight != entry2->weight) {
 		return (int)((entry1->weight - entry2->weight) *
 		             10000.0F); // NOLINT(readability-magic-numbers)
 	}
+#pragma GCC diagnostic pop
 
 	return 0;
 }
@@ -286,7 +291,7 @@ void add_http_header_field(HttpHeaderFields* const header_fields, const tstr key
 
 void process_delimitered_header_value(const tstr_view value, const char* const delimiter,
                                       ProcessHeaderValue callback_function,
-                                      void* callback_argument) {
+                                      RTTIAnnotatedValue callback_argument) {
 
 	tstr_split_iter iter = tstr_split_init(value, delimiter);
 

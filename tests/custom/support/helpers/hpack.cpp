@@ -73,7 +73,7 @@ static void g_hack_trick_add_error(const tstr* const str) {
 }
 
 void setup_global_env_for_hack() {
-	void* cb_fn = malloc(sizeof(uint8_t) + sizeof(void*) + 1);
+	GenericData cb_fn = malloc(sizeof(uint8_t) + sizeof(GenericData) + 1);
 
 	if(cb_fn == NULL) {
 		throw std::runtime_error("OOM");
@@ -85,24 +85,24 @@ void setup_global_env_for_hack() {
 	// to be a valid ptr, the byte nmask is also always non zero guaranteed)
 
 	{
-		uint8_t* const byte_mask_ptr = (uint8_t*)((uint8_t*)cb_fn + sizeof(void*));
+		uint8_t* const byte_mask_ptr = (uint8_t*)((uint8_t*)cb_fn + sizeof(GenericData));
 
-		static_assert(sizeof(void*) <= (sizeof(uint8_t) * 8));
+		static_assert(sizeof(GenericData) <= (sizeof(uint8_t) * 8));
 		*byte_mask_ptr = 0xFF;
 
 		// set 0 terminator
-		*(((uint8_t*)cb_fn) + (sizeof(uint8_t) + sizeof(void*))) = 0x00;
+		*(((uint8_t*)cb_fn) + (sizeof(uint8_t) + sizeof(GenericData))) = 0x00;
 
 		{
 			CbFn fn_ptr = &g_hack_trick_add_error;
 
-			memcpy(cb_fn, (void*)&fn_ptr, sizeof(void*));
+			memcpy(cb_fn, (GenericData)&fn_ptr, sizeof(GenericData));
 		}
 
 		{
 			uint8_t* const fn_values = (uint8_t*)cb_fn;
 
-			for(size_t i = 0; i < sizeof(void*); ++i) {
+			for(size_t i = 0; i < sizeof(GenericData); ++i) {
 				const uint8_t val = fn_values[i];
 
 				if(val == 0) {
@@ -115,10 +115,10 @@ void setup_global_env_for_hack() {
 
 	const size_t cb_len = strlen((char*)cb_fn);
 
-	if(cb_len != (sizeof(void*) + sizeof(uint8_t))) {
+	if(cb_len != (sizeof(GenericData) + sizeof(uint8_t))) {
 		throw std::runtime_error(std::string{ "invalid encoding of the ptr: size is " } +
 		                         std::to_string(cb_len) + " but not " +
-		                         std::to_string((sizeof(void*) + sizeof(uint8_t))));
+		                         std::to_string((sizeof(GenericData) + sizeof(uint8_t))));
 	}
 
 	setenv(TEST_ENV_PREFIX "_CALLBACK_FN", (char*)cb_fn, 1);
@@ -150,15 +150,15 @@ hpack::hacky_trick::HpackDecodingErrorStateHack::get_errors() const {
 [[nodiscard]] static std::uint8_t parse_hex_byte(const char& val) {
 
 	if(val >= '0' && val <= '9') {
-		return val - '0';
+		return static_cast<std::uint8_t>(val - '0');
 	}
 
 	if(val >= 'a' && val <= 'f') {
-		return 10 + (val - 'a');
+		return static_cast<std::uint8_t>(10 + (val - 'a'));
 	}
 
 	if(val >= 'A' && val <= 'F') {
-		return 10 + (val - 'A');
+		return static_cast<std::uint8_t>(10 + (val - 'A'));
 	}
 
 	throw std::runtime_error("invalid byte data");
@@ -179,7 +179,7 @@ hpack::helpers::parse_wire_data(const std::string& raw_wire) {
 		const auto first_byte = parse_hex_byte(raw_wire.at(i));
 		const auto second_byte = parse_hex_byte(raw_wire.at(i + 1));
 
-		result.push_back((first_byte << 4) + second_byte);
+		result.push_back(static_cast<std::uint8_t>((first_byte << 4) + second_byte));
 	}
 
 	return result;

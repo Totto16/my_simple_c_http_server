@@ -4,9 +4,6 @@ pnpm = find_program(
 )
 
 helper_script_depend_files = files(
-    'src/variants/base.ts',
-    'src/variants/data.ts',
-    'src/variants/index.ts',
     'src/all_cases.ts',
     'src/compression.ts',
     'src/generator.ts',
@@ -134,15 +131,16 @@ else
     error('No JS runtime to generate sources')
 endif
 
+c_variant_generator = find_program(
+    'c_variant_generator',
+    version: ['>=1.0.0', '<2'],
+)
+
 
 all_variants_generated_tgt = custom_target(
     'all_variants',
     command: [
-        node_like_runtime,
-        '@CURRENT_SOURCE_DIR@',
-        'generator',
-        '--type',
-        'c_variants',
+        c_variant_generator,
         '-o',
         '@OUTPUT@',
         '-i',
@@ -150,9 +148,7 @@ all_variants_generated_tgt = custom_target(
     ],
     input: [meson.project_source_root() / 'src' / 'all.variants.def.json'],
     output: ['all_variants.h'],
-    build_subdir: 'generated' / 'c' / 'variants',
-    depend_files: helper_script_depend_files,
-    depends: helper_script_depends,
+    build_subdir: 'generated' / 'c' / 'variants' / 'all',
 )
 
 all_variants_dep = declare_dependency(
@@ -160,42 +156,10 @@ all_variants_dep = declare_dependency(
     sources: all_variants_generated_tgt,
 )
 
-
-json_variants_generated_tgt = custom_target(
-    'json_variants',
-    command: [
-        node_like_runtime,
-        '@CURRENT_SOURCE_DIR@',
-        'generator',
-        '--type',
-        'c_variants',
-        '-o',
-        '@OUTPUT@',
-        '-i',
-        '@INPUT@',
-    ],
-    input: [meson.project_source_root() / 'src' / 'json' / 'json.variants.def.json'],
-    output: ['json_variants.h'],
-    build_subdir: 'generated' / 'c' / 'variants',
-    depend_files: helper_script_depend_files,
-    depends: helper_script_depends,
-)
-
-
-json_variants_dep = declare_dependency(
-    version: meson.project_version(),
-    sources: json_variants_generated_tgt,
-)
-
-
 genrated_variants_generated_tgt = custom_target(
     'generated_variants',
     command: [
-        node_like_runtime,
-        '@CURRENT_SOURCE_DIR@',
-        'generator',
-        '--type',
-        'c_variants',
+        c_variant_generator,
         '-o',
         '@OUTPUT@',
         '-i',
@@ -203,9 +167,7 @@ genrated_variants_generated_tgt = custom_target(
     ],
     input: [meson.current_source_dir() / 'src' / 'generated.variants.def.json'],
     output: ['generated_variants.h'],
-    build_subdir: 'generated' / 'c' / 'variants',
-    depend_files: helper_script_depend_files,
-    depends: helper_script_depends,
+    build_subdir: 'generated' / 'c' / 'variants' / 'generated',
 )
 
 
@@ -292,5 +254,4 @@ generated_sources = alias_target(
     generated_hpack_c_tgt,
     generated_hpack_tests_cpp_tgt,
     all_variants_generated_tgt,
-    json_variants_generated_tgt,
 )

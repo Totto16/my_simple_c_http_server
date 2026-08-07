@@ -60,6 +60,7 @@ typedef struct {
 	WebSocketConnection* connection;
 	WebSocketThreadManager* manager;
 } WebSocketListenerArg;
+TRTTI_DEFINE_TYPE_AS_SUPPORTED(WebSocketListenerArg)
 
 static void thread_manager_thread_startup_function(void) {
 #ifdef _SIMPLE_SERVER_USE_OPENSSL
@@ -282,20 +283,21 @@ NODISCARD static GenericResult ws_send_message_raw_internal(WebSocketConnection*
 		return GENERIC_RES_ERR_UNIQUE();
 	}
 
-	uint8_t header_one = ((raw_message.fin & 0b1) // NOLINT(readability-implicit-bool-conversion)
-	                      << 7)                   // NOLINT(readability-magic-numbers)
-	                     | ((raw_message.rsv_bytes & 0b111) << 4) |
-	                     (raw_message.op_code & 0b1111); // NOLINT(readability-magic-numbers)
+	uint8_t header_one =
+	    (uint8_t)(((raw_message.fin & 0b1) // NOLINT(readability-implicit-bool-conversion)
+	               << 7U)                  // NOLINT(readability-magic-numbers)
+	              | ((raw_message.rsv_bytes & 0b111) << 4U) |
+	              (raw_message.op_code & 0b1111)); // NOLINT(readability-magic-numbers)
 
 	uint8_t additional_payload_len_2 = payload_additional_len == 2 ? EXTENDED_PAYLOAD_MAGIC_NUMBER1
 	                                                               : EXTENDED_PAYLOAD_MAGIC_NUMBER2;
 
 	uint8_t payload_len_1 =
-	    payload_additional_len == 0 ? raw_message.payload.size : additional_payload_len_2;
+	    payload_additional_len == 0 ? (uint8_t)raw_message.payload.size : additional_payload_len_2;
 
-	uint8_t header_two = ((has_mask & 0b1)       // NOLINT(readability-implicit-bool-conversion)
-	                      << 7) |                // NOLINT(readability-magic-numbers)
-	                     (payload_len_1 & 0x7F); // NOLINT(readability-magic-numbers)
+	uint8_t header_two = (uint8_t)(((has_mask & 0b1) // NOLINT(readability-implicit-bool-conversion)
+	                                << 7) |          // NOLINT(readability-magic-numbers)
+	                               (payload_len_1 & 0x7F)); // NOLINT(readability-magic-numbers)
 
 	resulting_frame[0] = header_one;
 	resulting_frame[1] = header_two;
@@ -705,9 +707,7 @@ NODISCARD static GenericResult close_websocket_connection(WebSocketConnection** 
 // sequence
 // note: regarding utf8 parsing
 
-static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_ign) {
-
-	WebSocketListenerArg* argument = (WebSocketListenerArg*)arg_ign;
+static ANY ws_listener_function_impl(WebSocketListenerArg* argument) {
 
 	char* thread_name_buffer = NULL;
 	// TODO(Totto): better report error
@@ -929,9 +929,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 							return NULL;
 						}
 
-						Utf8DataResult utf8_result =
-						    get_utf8_string(((char*)(raw_message.payload.data)) + 2,
-						                    (long)(raw_message.payload.size - 2));
+						Utf8DataResult utf8_result = get_utf8_string(
+						    ((char*)(raw_message.payload.data)) + 2, raw_message.payload.size - 2);
 
 						IF_UTF8_DATA_RESULT_IS_ERROR_CONST(utf8_result) {
 							char* error_message = NULL;
@@ -1073,8 +1072,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					}
 
 					if(current_message.is_text) {
-						Utf8DataResult utf8_result = get_utf8_string(
-						    current_message.buffer.data, (long)current_message.buffer.size);
+						Utf8DataResult utf8_result = get_utf8_string(current_message.buffer.data,
+						                                             current_message.buffer.size);
 
 						IF_UTF8_DATA_RESULT_IS_ERROR_CONST(utf8_result) {
 
@@ -1186,8 +1185,8 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 					}
 
 					if(current_message.is_text) {
-						Utf8DataResult utf8_result = get_utf8_string(
-						    current_message.buffer.data, (long)current_message.buffer.size);
+						Utf8DataResult utf8_result = get_utf8_string(current_message.buffer.data,
+						                                             current_message.buffer.size);
 
 						IF_UTF8_DATA_RESULT_IS_ERROR_CONST(utf8_result) {
 							char* error_message = NULL;
@@ -1454,6 +1453,16 @@ static ANY_TYPE(NULL) ws_listener_function(ANY_TYPE(WebSocketListenerArg*) arg_i
 	return NULL;
 }
 
+static ANY_TYPE(NULL) ws_listener_function(TRTTI_PTR(WebSocketListenerArg*) arg) {
+	WebSocketListenerArg* const argument = TRTTI_ANNOTATED_PTR_CAST(WebSocketListenerArg, arg);
+
+	ANY result = ws_listener_function_impl(argument);
+
+	TRTTI_DESTROY(WebSocketListenerArg, argument);
+
+	return result;
+}
+
 #undef FREE_ADDITIONALLY
 #undef FREE_WS_RAW_MESSAGE
 
@@ -1548,8 +1557,7 @@ WebSocketConnection* thread_manager_add_connection(WebSocketThreadManager* manag
 		next_node = current_node->next;
 	}
 
-	WebSocketListenerArg* thread_argument =
-	    (WebSocketListenerArg*)malloc(sizeof(WebSocketListenerArg));
+	WebSocketListenerArg* thread_argument = TRTTI_ALLOC(WebSocketListenerArg);
 
 	if(!thread_argument) {
 		// TODO(Totto): better report error

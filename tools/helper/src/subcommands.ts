@@ -1,23 +1,16 @@
 import path from "node:path"
 import { generateFile, type GenerateOptions, type GenerateType } from "./generator.js"
 import { runWsTests } from "./ws_tests.js"
-import { outputVariantJsonSchema } from "./variants/data.js"
 
 export async function subcommandGenerator(args: string[]): Promise<void> {
     const options: Partial<GenerateOptions> = {
     }
 
-    const allTypes: GenerateType[] = ["c_hpack_huffman", "c_header_table", "cpp_tests", "c_variants"] as const
+    const allTypes: GenerateType[] = ["c_hpack_huffman", "c_header_table", "cpp_tests"] as const
 
     for (let i = 0; i < args.length; ++i) {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const value = args[i]!
-
-        if (value == '--variant-json-schema') {
-            outputVariantJsonSchema()
-            return;
-        }
-
 
         if (value == '-o' || value == '--output') {
             if (i + 1 >= args.length) {
@@ -88,10 +81,6 @@ export async function subcommandGenerator(args: string[]): Promise<void> {
 
     if (!options.output) {
         throw new Error(`No output given`)
-    }
-
-    if (options.type === "c_variants" && !options.input) {
-        throw new Error(`No input given`)
     }
 
     await generateFile(options as GenerateOptions)

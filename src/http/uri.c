@@ -1,7 +1,7 @@
 
 #include "./uri.h"
 
-#include "utils/string_builder.h"
+#include <tstr_builder.h>
 
 TMAP_IMPLEMENT_MAP_TYPE(tstr, TSTR_KEYNAME, ParsedSearchPathValue, ParsedSearchPathHashMap)
 
@@ -435,9 +435,7 @@ NODISCARD tstr get_parsed_url_as_string(ParsedURLPath path) {
 		}
 	}
 
-	SizedBuffer result = string_builder_release_into_sized_buffer(&string_builder);
-
-	return tstr_own(result.data, result.size, result.size);
+	return string_builder_release_into_tstr(&string_builder);
 }
 
 NODISCARD tstr get_parsed_authority_as_string(ParsedAuthority authority) {
@@ -459,9 +457,7 @@ NODISCARD tstr get_parsed_authority_as_string(ParsedAuthority authority) {
 		STRING_BUILDER_APPENDF(string_builder, return tstr_null();, ":%u", authority.port);
 	}
 
-	SizedBuffer result = string_builder_release_into_sized_buffer(&string_builder);
-
-	return tstr_own(result.data, result.size, result.size);
+	return string_builder_release_into_tstr(&string_builder);
 }
 
 NODISCARD tstr get_uri_as_string(ParsedURI uri) {
@@ -481,9 +477,7 @@ NODISCARD tstr get_uri_as_string(ParsedURI uri) {
 	string_builder_append_single(string_builder, tstr_cstr(&path_str));
 	tstr_free(&path_str);
 
-	SizedBuffer result = string_builder_release_into_sized_buffer(&string_builder);
-
-	return tstr_own(result.data, result.size, result.size);
+	return string_builder_release_into_tstr(&string_builder);
 }
 
 NODISCARD tstr get_request_uri_as_string(ParsedRequestURI uri) {

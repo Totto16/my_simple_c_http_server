@@ -9,6 +9,11 @@
 #include <stdlib.h>
 #include "b64.h"
 
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-int-conversion"
+
+
 #ifdef b64_USE_CUSTOM_MALLOC
 extern void* b64_malloc(size_t);
 #endif
@@ -91,3 +96,5 @@ b64_encode (const unsigned char *src, size_t len) {
 
   return encbuf.ptr;
 }
+
+#pragma GCC diagnostic pop

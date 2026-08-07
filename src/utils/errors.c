@@ -6,74 +6,79 @@
 
 #include "utils/log.h"
 
-bool is_job_error(JobError error) {
-	return error == JOB_ERROR_NONE || // NOLINT(readability-implicit-bool-conversion)
-	       error == JOB_ERROR_CONNECTION_UPGRADE ||
-	       (error >= JOB_ERROR_START && error <= JOB_ERROR_END);
+bool is_job_error(ANY_TYPE(JobError) error) {
+	return (JobError)error == JobErrorNone || // NOLINT(readability-implicit-bool-conversion)
+	       (JobError)error == JobErrorConnectionUpgrade ||
+	       ((JobError)error >= JobErrorStart && (JobError)error <= JobErrorEnd);
 }
 
 void print_job_error(JobError error) {
 
 	const char* error_str = "Unknown error";
 
-	if(error == JOB_ERROR_NONE) {
+	if(error == JobErrorNone) {
 		error_str = "None";
-	} else if(error == JOB_ERROR_CONNECTION_UPGRADE) {
+	} else if(error == JobErrorConnectionUpgrade) {
 		error_str = "Connection Upgrade";
-	} else if(error == JOB_ERROR_DESC) {
+	} else if(error == JobErrorDesc) {
 		error_str = "Desc";
-	} else if(error == JOB_ERROR_THREAD_CANCEL) {
+	} else if(error == JobErrorThreadCancel) {
 		error_str = "ThreadCancel";
-	} else if(error == JOB_ERROR_MALLOC) {
+	} else if(error == JobErrorMalloc) {
 		error_str = "Malloc";
-	} else if(error == JOB_ERROR_CLOSE) {
+	} else if(error == JobErrorClose) {
 		error_str = "Close";
-	} else if(error == JOB_ERROR_STRING_FORMAT) {
+	} else if(error == JobErrorStringFormat) {
 		error_str = "StringFormat";
-	} else if(error == JOB_ERROR_INVALID_JOB) {
+	} else if(error == JobErrorInvalidJob) {
 		error_str = "InvalidJob";
-	} else if(error == JOB_ERROR_NO_RESULT) {
+	} else if(error == JobErrorNoResult) {
 		error_str = "NoResult";
-	} else if(error == JOB_ERROR_SEM_WAIT) {
+	} else if(error == JobErrorSemWait) {
 		error_str = "SemWait";
-	} else if(error == JOB_ERROR_SEM_DEST) {
+	} else if(error == JobErrorSemDest) {
 		error_str = "SemDest";
-	} else if(error == JOB_ERROR_SIG_HANDLER) {
+	} else if(error == JobErrorSigHandler) {
 		error_str = "SigHandler";
-	} else if(error == JOB_ERROR_GET_SOCK_NAME) {
+	} else if(error == JobErrorGetSockName) {
 		error_str = "GetSockName";
-	} else if(error == JOB_ERROR_CONNECTION_ADD) {
+	} else if(error == JobErrorConnectionAdd) {
 		error_str = "ConnectionAdd";
-	} else if(error == JOB_ERROR_CLEANUP_CONNECTION) {
+	} else if(error == JobErrorCleanupConnection) {
 		error_str = "CleanupConnection";
+	} else if(error == JobErrorGeneric) {
+		error_str = "Generic";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Job Error: %s\n", error_str);
 }
 
-bool is_listener_error(ListenerError error) {
-	return error == LISTENER_ERROR_NONE || // NOLINT(readability-implicit-bool-conversion)
-	       (error >= LISTENER_ERROR_START && error <= LISTENER_ERROR_END);
+bool is_listener_error(ANY_TYPE(ListenerError) error) {
+	return (ListenerError)error ==
+	           ListenerErrorNone || // NOLINT(readability-implicit-bool-conversion)
+	       ((ListenerError)error >= ListenerErrorStart && (ListenerError)error <= ListenerErrorEnd);
 }
 
 void print_listener_error(ListenerError error) {
 
 	const char* error_str = "Unknown error";
 
-	if(error == LISTENER_ERROR_NONE) {
+	if(error == ListenerErrorNone) {
 		error_str = "None";
-	} else if(error == LISTENER_ERROR_MALLOC) {
+	} else if(error == ListenerErrorMalloc) {
 		error_str = "Malloc";
-	} else if(error == LISTENER_ERROR_THREAD_CANCEL) {
+	} else if(error == ListenerErrorThreadCancel) {
 		error_str = "ThreadCancel";
-	} else if(error == LISTENER_ERROR_QUEUE_PUSH) {
+	} else if(error == ListenerErrorQueuePush) {
 		error_str = "QueuePush";
-	} else if(error == LISTENER_ERROR_ACCEPT) {
+	} else if(error == ListenerErrorAccept) {
 		error_str = "Accept";
-	} else if(error == LISTENER_ERROR_DATA_CONTROLLER) {
+	} else if(error == ListenerErrorDataController) {
 		error_str = "DataController";
-	} else if(error == LISTENER_ERROR_THREAD_AFTER_CANCEL) {
+	} else if(error == ListenerErrorThreadAfterCancel) {
 		error_str = "ThreadAfterCancel";
+	} else if(error == ListenerErrorGeneric) {
+		error_str = "Generic";
 	}
 
 	LOG_MESSAGE(LogLevelError, "Listener Error: %s\n", error_str);
@@ -98,17 +103,17 @@ void print_submit_error(SubmitError error) {
 
 	const char* error_str = "Unknown error";
 
-	if(error == SUBMIT_ERROR_NONE) {
+	if(error == SubmitErrorNone) {
 		error_str = "None";
-	} else if(error == SUBMIT_ERROR_MALLOC) {
+	} else if(error == SubmitErrorMalloc) {
 		error_str = "Malloc";
-	} else if(error == SUBMIT_ERROR_SEM_INIT) {
+	} else if(error == SubmitErrorSemInit) {
 		error_str = "SemInit";
-	} else if(error == SUBMIT_ERROR_SEM_POST) {
+	} else if(error == SubmitErrorSemPost) {
 		error_str = "SemPost";
-	} else if(error == SUBMIT_ERROR_INVALID_START_ROUTINE) {
+	} else if(error == SubmitErrorInvalidStartRoutine) {
 		error_str = "InvalidStartRoutine";
-	} else if(error == SUBMIT_ERROR_QUEUE_PUSH) {
+	} else if(error == SubmitErrorQueuePush) {
 		error_str = "QueuePush";
 	}
 
@@ -119,11 +124,11 @@ void print_worker_error(WorkerError error) {
 
 	const char* error_str = "Unknown error";
 
-	if(error == WORKER_ERROR_NONE) {
+	if(error == WorkerErrorNone) {
 		error_str = "None";
-	} else if(error == WORKER_ERROR_SEM_POST) {
+	} else if(error == WorkerErrorSemPost) {
 		error_str = "SemPost";
-	} else if(error == WORKER_ERROR_SEM_WAIT) {
+	} else if(error == WorkerErrorSemWait) {
 		error_str = "SemWait";
 	}
 

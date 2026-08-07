@@ -3,52 +3,66 @@
 
 #include "utils/utils.h"
 
+#include <trtti.h>
+
 // job errors
 
-typedef ANY JobError;
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint64_t) {
+	JobErrorNone = 0x02,
+	// is used to communicate something
+	JobErrorConnectionUpgrade = 0x04,
+	//
+	JobErrorDesc = 0x20,
+	JobErrorThreadCancel = 0x21,
+	JobErrorMalloc = 0x22,
+	JobErrorClose = 0x23,
+	JobErrorStringFormat = 0x24,
+	JobErrorInvalidJob = 0x25,
+	JobErrorNoResult = 0x26,
+	JobErrorSemWait = 0x27,
+	JobErrorSemDest = 0x28,
+	JobErrorSigHandler = 0x29,
+	JobErrorGetSockName = 0x2A,
+	JobErrorConnectionAdd = 0x2B,
+	JobErrorCleanupConnection = 0x2C,
+	JobErrorGeneric = 0x2D,
+	//
+	JobErrorStart = JobErrorDesc,
+	JobErrorEnd = JobErrorGeneric,
+} JobError;
 
-#define JOB_ERROR_NONE ((JobError)0x02)
+static_assert(sizeof(uint64_t) == sizeof(uint8_t*));
 
-#define JOB_ERROR_CONNECTION_UPGRADE ((JobError)0x04)
+static_assert(sizeof(GenericData) == sizeof(uint8_t*));
 
-#define JOB_ERROR_DESC ((JobError)0x20)
-#define JOB_ERROR_THREAD_CANCEL ((JobError)0x21)
-#define JOB_ERROR_MALLOC ((JobError)0x22)
-#define JOB_ERROR_CLOSE ((JobError)0x23)
-#define JOB_ERROR_STRING_FORMAT ((JobError)0x24)
-#define JOB_ERROR_INVALID_JOB ((JobError)0x25)
-#define JOB_ERROR_NO_RESULT ((JobError)0x26)
-#define JOB_ERROR_SEM_WAIT ((JobError)0x27)
-#define JOB_ERROR_SEM_DEST ((JobError)0x28)
-#define JOB_ERROR_SIG_HANDLER ((JobError)0x29)
-#define JOB_ERROR_GET_SOCK_NAME ((JobError)0x2A)
-#define JOB_ERROR_CONNECTION_ADD ((JobError)0x2B)
-#define JOB_ERROR_CLEANUP_CONNECTION ((JobError)0x2C)
-
-#define JOB_ERROR_START JOB_ERROR_DESC
-#define JOB_ERROR_END JOB_ERROR_CLEANUP_CONNECTION
-
-NODISCARD bool is_job_error(JobError error);
+NODISCARD bool is_job_error(ANY_TYPE(JobError) error);
 
 void print_job_error(JobError error);
 
 // listeners errors
 
-typedef ANY ListenerError;
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint64_t) {
+	ListenerErrorNone = 0x02,
+	//
+	ListenerErrorMalloc = 0x80,
+	ListenerErrorThreadCancel = 0x81,
+	ListenerErrorQueuePush = 0x82,
+	ListenerErrorAccept = 0x83,
+	ListenerErrorDataController = 0x84,
+	ListenerErrorThreadAfterCancel = 0x85,
+	ListenerErrorGeneric = 0x86,
+	//
+	ListenerErrorStart = ListenerErrorMalloc,
+	ListenerErrorEnd = ListenerErrorGeneric,
+} ListenerError;
 
-#define LISTENER_ERROR_NONE ((ListenerError)0x02)
-
-#define LISTENER_ERROR_MALLOC ((ListenerError)0x80)
-#define LISTENER_ERROR_THREAD_CANCEL ((ListenerError)0x81)
-#define LISTENER_ERROR_QUEUE_PUSH ((ListenerError)0x82)
-#define LISTENER_ERROR_ACCEPT ((ListenerError)0x83)
-#define LISTENER_ERROR_DATA_CONTROLLER ((ListenerError)0x84)
-#define LISTENER_ERROR_THREAD_AFTER_CANCEL ((ListenerError)0x85)
-
-#define LISTENER_ERROR_START LISTENER_ERROR_MALLOC
-#define LISTENER_ERROR_END LISTENER_ERROR_THREAD_AFTER_CANCEL
-
-NODISCARD bool is_listener_error(ListenerError error);
+NODISCARD bool is_listener_error(ANY_TYPE(ListenerError) error);
 
 void print_listener_error(ListenerError error);
 
@@ -59,6 +73,7 @@ void print_listener_error(ListenerError error);
  */
 typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 	CreateErrorNone = 0,
+	//
 	CreateErrorThreadCreate,
 	CreateErrorMalloc,
 	CreateErrorSemInit,
@@ -69,25 +84,31 @@ void print_create_error(CreateError error);
 
 // submit errors
 
-typedef ANY SubmitError;
-
-#define SUBMIT_ERROR_NONE ((SubmitError)0x02)
-
-#define SUBMIT_ERROR_MALLOC ((SubmitError)0xA0)
-#define SUBMIT_ERROR_SEM_INIT ((SubmitError)0xA1)
-#define SUBMIT_ERROR_SEM_POST ((SubmitError)0xA2)
-#define SUBMIT_ERROR_INVALID_START_ROUTINE ((SubmitError)0xA3)
-#define SUBMIT_ERROR_QUEUE_PUSH ((SubmitError)0xA4)
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint64_t) {
+	SubmitErrorNone = 0x02,
+	//
+	SubmitErrorMalloc = 0xA0,
+	SubmitErrorSemInit = 0xA1,
+	SubmitErrorSemPost = 0xA2,
+	SubmitErrorInvalidStartRoutine = 0xA3,
+	SubmitErrorQueuePush = 0xA4,
+} SubmitError;
 
 void print_submit_error(SubmitError error);
 
 // worker errors
 
-typedef ANY WorkerError;
-
-#define WORKER_ERROR_NONE ((WorkerError)0x02)
-
-#define WORKER_ERROR_SEM_POST ((WorkerError)0xC0)
-#define WORKER_ERROR_SEM_WAIT ((WorkerError)0xC1)
+/**
+ * @enum value
+ */
+typedef enum C_23_NARROW_ENUM_TO(uint64_t) {
+	WorkerErrorNone = 0x02,
+	//
+	WorkerErrorSemPost = 0xC0,
+	WorkerErrorSemWait = 0xC1,
+} WorkerError;
 
 void print_worker_error(WorkerError error);

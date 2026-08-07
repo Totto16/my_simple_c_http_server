@@ -8,6 +8,8 @@
 #include "http/send.h"
 #include "utils/path.h"
 
+#include <tjson.h>
+
 TVEC_IMPLEMENT_VEC_TYPE(HTTPRoute)
 
 TVEC_IMPLEMENT_VEC_TYPE(HTTPFreeFn)
@@ -22,7 +24,8 @@ struct RouteManagerImpl {
 static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
                                                      const HttpRequest http_request,
                                                      const ConnectionContext* const context,
-                                                     ParsedURLPath path, void* /* data */) {
+                                                     ParsedURLPath path,
+                                                     RTTIAnnotatedPtr /* data */) {
 
 	UNUSED(path);
 
@@ -55,9 +58,9 @@ static HTTPResponseToSend index_executor_fn_extended(SendSettings send_settings,
 static HTTPResponseToSend
 well_known_folder_fn_extended(SendSettings /* send_settings */, const HttpRequest http_request,
                               const ConnectionContext* const /* context */, ParsedURLPath path,
-                              void* data) {
+                              RTTIAnnotatedPtr data) {
 
-	LogCollector* collector = (LogCollector*)data;
+	LogCollector* collector = TRTTI_ANNOTATED_PTR_CAST(LogCollector, data);
 
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
@@ -96,8 +99,8 @@ well_known_folder_fn_extended(SendSettings /* send_settings */, const HttpReques
 
 static void log_collector_collect_fn(const HttpRequest http_request,
                                      const HTTPResponseToSend response, IPAddress address,
-                                     void* data) {
-	LogCollector* collector = (LogCollector*)data;
+                                     RTTIAnnotatedPtr data) {
+	LogCollector* collector = TRTTI_ANNOTATED_PTR_CAST(LogCollector, data);
 
 	log_collector_collect(collector, address, http_request, response);
 }
@@ -105,16 +108,17 @@ static void log_collector_collect_fn(const HttpRequest http_request,
 static HTTPResponseToSend json_executor_fn_extended(SendSettings send_settings,
                                                     const HttpRequest http_request,
                                                     const ConnectionContext* const context,
-                                                    ParsedURLPath /* path */, void* /* data */) {
+                                                    ParsedURLPath /* path */,
+                                                    RTTIAnnotatedPtr /* data */) {
 
 	const bool send_body = http_request.head.request_line.method != HTTPRequestMethodHead;
 
-	StringBuilder* json_string_builder =
+	tstr json_string =
 	    http_request_to_json(http_request, is_secure_context(context), send_settings);
 
 	HTTPResponseToSend result = {
 		.status = HttpStatusOk,
-		.body = http_response_body_from_string_builder(&json_string_builder, send_body),
+		.body = http_response_body_from_tstr(&json_string, send_body),
 		.mime_type = MIME_TYPE_JSON,
 		.additional_headers = TVEC_EMPTY(HttpHeaderField),
 	};
@@ -139,7 +143,7 @@ static char json_get_random_char(void) {
 	return charset[random_index];
 }
 
-static char* json_get_random_string(void) {
+static JsonString* json_get_random_string(void) {
 	uint32_t random_key_length =
 	    get_random_byte_in_range(6, 30); // NOLINT(readability-magic-numbers)
 
@@ -153,39 +157,37 @@ static char* json_get_random_string(void) {
 		key[i] = json_get_random_char();
 	}
 
-	return key;
+	JsonString* const str = json_get_string_from_cstr(key);
+
+	return str;
 }
 
-static char* json_get_random_boolean(void) {
+static JsonValue json_get_random_boolean(void) {
 	uint32_t number = get_random_byte();
 
-	if(number % 2 == 0) {
-		return strdup("false");
-	}
+	JsonBoolean bool_val = { .value = number % 2 != 0 };
 
-	return strdup("true");
+	return new_json_value_boolean(bool_val);
 }
 
-static char* json_get_random_number(void) {
+static JsonValue json_get_random_number(void) {
 
 	uint32_t number = get_random_byte();
 
-	StringBuilder* result = string_builder_init();
+	const JsonNumber num = { .value = (double)number };
 
-	STRING_BUILDER_APPENDF(result, return NULL;, "%u", number);
-
-	return string_builder_release_into_string(&result);
+	return new_json_value_number(num);
 }
 
-static char* json_get_null(void) {
-	return strdup("null");
+static JsonValue json_get_null(void) {
+	return new_json_value_null();
 }
 
-static char* json_get_random_primitive_value(void) {
+static JsonValue json_get_random_primitive_value(void) {
 	uint32_t random_type = get_random_byte_in_range(0, 4); // NOLINT(readability-magic-numbers)
 
 	switch(random_type) {
-		case 0: return json_get_random_string();
+		case 0: return new_json_value_string_rc(json_get_random_string());
 		case 1: return json_get_random_number();
 		case 2: return json_get_random_boolean();
 		case 3:
@@ -193,88 +195,68 @@ static char* json_get_random_primitive_value(void) {
 	}
 }
 
-static char* json_get_random_key(void) {
+static JsonString* json_get_random_key(void) {
 	return json_get_random_string();
 }
 
-static void add_random_object_key_and_value(StringBuilder* string_builder, bool pretty) {
-	char* key = json_get_random_key();
+static void add_random_object_key_and_value(JsonObject* const object) {
+	JsonString* key_moved = json_get_random_key();
 
-	string_builder_append_string(string_builder, key);
-	if(pretty) {
-		string_builder_append_single(string_builder, " ");
-	}
-	string_builder_append_single(string_builder, ":");
+	JsonValue value = json_get_random_primitive_value();
 
-	char* value = json_get_random_primitive_value();
+	tstr_static result = json_object_add_entry(object, &key_moved, value);
 
-	string_builder_append_string(string_builder, value);
+	ASSERT(tstr_static_is_null(result));
 }
 
-static void add_random_json_object(StringBuilder* string_builder, bool pretty) {
+static void add_random_json_object_to_array(JsonArray* const array) {
 
 	uint32_t random_key_amount =
 	    get_random_byte_in_range(4, 20); // NOLINT(readability-magic-numbers)
 
-	string_builder_append_single(string_builder, "{");
-	if(pretty) {
-		string_builder_append_single(string_builder, "\n");
-	}
+	JsonObject* const object = json_object_get_empty();
 
 	for(size_t i = 0; i < random_key_amount; ++i) {
-		add_random_object_key_and_value(string_builder, pretty);
-
-		string_builder_append_single(string_builder, ",");
-		if(pretty) {
-			string_builder_append_single(string_builder, "\n");
-		}
+		add_random_object_key_and_value(object);
 	}
 
-	add_random_object_key_and_value(string_builder, pretty);
+	tstr_static result = json_array_add_entry(array, new_json_value_object_rc(object));
 
-	if(pretty) {
-		string_builder_append_single(string_builder, "\n");
-	}
-	string_builder_append_single(string_builder, "}");
-
-	//
+	ASSERT(tstr_static_is_null(result));
 }
 
-static StringBuilder* get_random_json_string_builder(bool pretty) {
+static JsonValue get_random_json_value(const JsonSerializeOptions options) {
 
-	StringBuilder* string_builder = string_builder_init();
+	JsonArray* const array = json_array_get_empty();
 
-	string_builder_append_single(string_builder, "[");
+	{
 
-	if(pretty) {
-		string_builder_append_single(string_builder, "\n");
-	}
+		// for compression tests, has to be at least  1 MB big, so that it can be tested accordingly
+		size_t minimum_size = 1 << 20; // NOLINT(readability-magic-numbers)
 
-	// for compression tests, has to be at least  1 MB big, so that it can be tested accordingly
-	size_t minimum_size = 1 << 20; // NOLINT(readability-magic-numbers)
+		while(true) {
 
-	while(string_builder_get_string_size(string_builder) < minimum_size) {
-		if(pretty) {
-			string_builder_append_single(string_builder, "\n");
+			{
+				JsonValue temp = new_json_value_array_rc(array);
+
+				tstr serialized = json_value_to_string_advanced(&temp, options);
+
+				const size_t len = tstr_len(&serialized);
+
+				tstr_free(&serialized);
+
+				if(len >= minimum_size) {
+					break;
+				}
+			}
+
+			add_random_json_object_to_array(array);
 		}
-
-		add_random_json_object(string_builder, pretty);
-		string_builder_append_single(string_builder, ",");
-
-		if(pretty) {
-			string_builder_append_single(string_builder, "\n");
-		}
 	}
 
-	add_random_json_object(string_builder, pretty);
+	JsonValue value = new_json_value_array_rc(array);
 
-	if(pretty) {
-		string_builder_append_single(string_builder, "\n");
-	}
-
-	string_builder_append_single(string_builder, "]");
-
-	return string_builder;
+	return value;
 }
 
 static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_body) {
@@ -282,15 +264,20 @@ static HTTPResponseToSend huge_executor_fn(ParsedURLPath path, const bool send_b
 	const ParsedSearchPathEntry* pretty_key =
 	    find_search_key(path.search_path, TSTR_STATIC_LIT("pretty"));
 
-	bool pretty = pretty_key != NULL;
+	const JsonSerializeOptions options = pretty_key == NULL
+	                                         ? (JsonSerializeOptions){ .indent_size = 0 }
+	                                         : (JsonSerializeOptions){ .indent_size = 2 };
 
-	StringBuilder* string_builder = get_random_json_string_builder(pretty);
+	JsonValue json_value = get_random_json_value(options);
+
+	tstr json_str = json_value_to_string_advanced(&json_value, options);
+	free_json_value(&json_value);
 
 	HTTPResponseToSend result = { .status = HttpStatusOk,
-		                          .body = http_response_body_from_string_builder(&string_builder,
-		                                                                         send_body),
+		                          .body = http_response_body_from_tstr(&json_str, send_body),
 		                          .mime_type = MIME_TYPE_JSON,
 		                          .additional_headers = TVEC_EMPTY(HttpHeaderField) };
+
 	return result;
 }
 
@@ -498,6 +485,13 @@ HTTPRoutes* get_default_routes(void) {
 
 static void free_routes(HTTPRoutes* routes);
 
+static void free_log_collector_generic(RTTIAnnotatedPtr ptr) {
+
+	LogCollector* collector = TRTTI_ANNOTATED_PTR_CAST(LogCollector, ptr);
+
+	free_log_collector(collector);
+}
+
 #define FREE_AT_END() \
 	do { \
 		free_routes(routes); \
@@ -540,7 +534,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 
 	// logs collector
 
-	LogCollector* log_collector = initialize_log_collector();
+	RTTIAnnotatedPtr log_collector = initialize_log_collector();
 
 	if(!log_collector) {
 		LOG_MESSAGE(LogLevelWarn, "Failed to initialize log collector: %s\n", "<unknown error>")
@@ -555,7 +549,7 @@ NODISCARD HTTPRoutes* get_webserver_test_routes(void) {
 		    TVEC_PUSH(HTTPRequestProxy, &routes->proxies, logs_collector_proxy);
 		OOM_ASSERT(push_res == TvecResultOk, "Vec push error");
 
-		HTTPFreeFn free_route = { .data = log_collector, .fn = (FreeFnImpl)free_log_collector };
+		HTTPFreeFn free_route = { .data = log_collector, .fn = free_log_collector_generic };
 
 		const TvecResult push_res1 = TVEC_PUSH(HTTPFreeFn, &routes->free_fns, free_route);
 		OOM_ASSERT(push_res1 == TvecResultOk, "Vec push error");

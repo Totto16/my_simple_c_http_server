@@ -22,11 +22,12 @@ typedef struct {
 	TQueue* job_id_queue;
 	ConnectionContextPtrs contexts;
 	NativeFd socket_fd;
-	const tstr global_folder;
+	tstr global_folder;
 	DataController* data_controller;
 	pthread_t data_orchestrator;
 	const AuthenticationProviders* auth_providers;
 } FTPControlThreadArgument;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(FTPControlThreadArgument)
 
 typedef struct {
 	ConnectionContextPtrs contexts;
@@ -38,12 +39,14 @@ typedef struct {
 	pthread_t data_orchestrator;
 	const AuthenticationProviders* auth_providers;
 } FTPControlConnectionArgument;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(FTPControlConnectionArgument)
 
 typedef struct {
 	DataController* data_controller;
 	FTPPortField* ports;
 	size_t port_amount;
 } FTPDataOrchestratorArgument;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(FTPDataOrchestratorArgument)
 
 typedef struct {
 	DataController* data_controller;
@@ -51,6 +54,7 @@ typedef struct {
 	size_t port_index;
 	NativeFd fd;
 } FTPDataThreadArgument;
+TRTTI_DECLARE_TYPE_AS_SUPPORTED(FTPDataThreadArgument)
 
 typedef struct {
 	pthread_t thread_ref;
@@ -62,19 +66,19 @@ NODISCARD bool ftp_process_command(ConnectionDescriptor* descriptor, FTPAddrFiel
                                    FTPControlConnectionArgument* argument,
                                    const FTPCommand* command);
 
-NODISCARD ANY_TYPE(JobError*)
-    ftp_control_socket_connection_handler(ANY_TYPE(FTPControlConnectionArgument*) arg_ign,
+NODISCARD ANY_TYPE(JobError)
+    ftp_control_socket_connection_handler(TRTTI_PTR(FTPControlConnectionArgument) arg,
                                           WorkerInfo worker_info);
 
 // this is the function, that runs in the listener, it receives all necessary information
 // trough the argument
-NODISCARD ANY_TYPE(ListenerError*)
+NODISCARD ANY_TYPE(ListenerError)
     ftp_control_listener_thread_function(ANY_TYPE(FTPControlThreadArgument*) arg);
 
-NODISCARD ANY_TYPE(ListenerError*)
+NODISCARD ANY_TYPE(ListenerError)
     ftp_data_listener_thread_function(ANY_TYPE(FTPDataThreadArgument*) arg);
 
-NODISCARD ANY_TYPE(ListenerError*)
+NODISCARD ANY_TYPE(ListenerError)
     ftp_data_orchestrator_thread_function(ANY_TYPE(FTPDataOrchestratorArgument*) arg);
 
 NODISCARD ExitCode start_ftp_server(FTPPortField control_port,

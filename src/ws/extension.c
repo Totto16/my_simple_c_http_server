@@ -3,9 +3,12 @@
 
 #include "http/compression.h"
 #include "utils/number_parsing.h"
-#include "utils/string_builder.h"
+
+#include <tstr_builder.h>
 
 #include <ctype.h>
+
+TRTTI_IMPLEMENTATION_FOR_TYPE(WsDeflateOptions)
 
 TVEC_IMPLEMENT_VEC_TYPE(WSExtension)
 
@@ -254,12 +257,12 @@ NODISCARD static bool append_ws_extension_as_string(StringBuilder* string_builde
 	return true;
 }
 
-NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
+NODISCARD tstr get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 
 	StringBuilder* string_builder = string_builder_init();
 
 	if(!string_builder) {
-		return NULL;
+		return tstr_null();
 	}
 
 	size_t extensions_length = TVEC_LENGTH(WSExtension, extensions);
@@ -271,7 +274,7 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 
 		if(!success) {
 			free_string_builder(string_builder);
-			return NULL;
+			return tstr_null();
 		}
 
 		if(i != extensions_length - 1) {
@@ -279,7 +282,7 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 		}
 	}
 
-	return string_builder_release_into_string(&string_builder);
+	return string_builder_release_into_tstr(&string_builder);
 }
 
 // note: ws spec defines how to handle multiple extensions and how to chain them, we only support
@@ -288,16 +291,16 @@ NODISCARD char* get_accepted_ws_extensions_as_string(WSExtensions extensions) {
 
 typedef char* (*WsProcessReceiveMessageFn)(WebSocketMessage* message,
                                            const ExtensionMessageReceiveState* const message_state,
-                                           ANY arg);
+                                           RTTIAnnotatedValue arg);
 
 typedef char* (*WsProcessSendMessageRawFn)(WebSocketMessage* message,
                                            const ExtensionMessageReceiveState* message_state,
-                                           ANY arg);
+                                           RTTIAnnotatedValue arg);
 
 typedef struct {
 	WsProcessReceiveMessageFn receive_fn;
 	WsProcessSendMessageRawFn send_fn;
-	ANY arg;
+	RTTIAnnotatedValue arg;
 } WsProcessFn;
 
 /**
@@ -342,7 +345,7 @@ NODISCARD static ExtensionReceivePipelineSettings get_pipeline_settings(WSExtens
 // does't modify the message at all
 static char* noop_process_receive_fn(WebSocketMessage* message,
                                      const ExtensionMessageReceiveState* const message_state,
-                                     ANY_TYPE(NULL) arg) {
+                                     RTTIAnnotatedValue arg) {
 	UNUSED(message);
 	UNUSED(message_state);
 	UNUSED(arg);
@@ -351,7 +354,7 @@ static char* noop_process_receive_fn(WebSocketMessage* message,
 
 static char* noop_process_send_fn(WebSocketMessage* message,
                                   const ExtensionMessageReceiveState* message_state,
-                                  ANY_TYPE(NULL) arg) {
+                                  RTTIAnnotatedValue arg) {
 	UNUSED(message);
 	UNUSED(arg);
 	UNUSED(message_state);
@@ -367,11 +370,13 @@ TVEC_DEFINE_AND_IMPLEMENT_VEC_TYPE(WsProcessFn)
 
 typedef TVEC_TYPENAME(WsProcessFn) ArrayProcessArg;
 
+TRTTI_DEFINE_TYPE_AS_SUPPORTED(ArrayProcessArg)
+
 static char* array_process_receive_fn(WebSocketMessage* message,
                                       const ExtensionMessageReceiveState* const message_state,
-                                      ANY_TYPE(ArrayProcessArg) arg) {
+                                      RTTIAnnotatedValue arg) {
 
-	const ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
+	const ArrayProcessArg* process_arg = TRTTI_ANNOTATED_VALUE_CAST(ArrayProcessArg, arg);
 
 	size_t process_arg_length = TVEC_LENGTH(WsProcessFn, *process_arg);
 
@@ -394,9 +399,9 @@ static char* array_process_receive_fn(WebSocketMessage* message,
 
 static char* array_process_send_fn(WebSocketMessage* message,
                                    const ExtensionMessageReceiveState* message_state,
-                                   ANY_TYPE(ArrayProcessArg) arg) {
+                                   RTTIAnnotatedValue arg) {
 
-	ArrayProcessArg* process_arg = (ArrayProcessArg*)arg;
+	ArrayProcessArg* process_arg = TRTTI_ANNOTATED_VALUE_CAST(ArrayProcessArg, arg);
 
 	for(size_t i = 0; i < TVEC_LENGTH(WsProcessFn, *process_arg); ++i) {
 		WsProcessFn process_fn = TVEC_AT(WsProcessFn, *process_arg, i);
@@ -493,28 +498,33 @@ static char* compress_ws_message(WebSocketMessage* message, WsDeflateOptions* op
 static char*
 permessage_deflate_process_receive_fn(WebSocketMessage* message,
                                       const ExtensionMessageReceiveState* const message_state,
-                                      ANY_TYPE(WsDeflateOptions*) arg) {
+                                      RTTIAnnotatedValue arg) {
 
 	if(!message_state->is_compressed_message) {
 		return NULL;
 	}
 
-	WsDeflateOptions* process_arg = (WsDeflateOptions*)arg;
+	WsDeflateOptions* process_arg = TRTTI_ANNOTATED_VALUE_CAST(WsDeflateOptions, arg);
 
 	return decompress_ws_message(message, process_arg);
 }
 
 static char* permessage_deflate_process_send_fn(WebSocketMessage* message,
                                                 const ExtensionMessageReceiveState* message_state,
-                                                ANY_TYPE(WsDeflateOptions*) arg) {
+                                                RTTIAnnotatedValue arg) {
 
 	if(!message_state->is_compressed_message) {
 		return NULL;
 	}
 
-	WsDeflateOptions* process_arg = (WsDeflateOptions*)arg;
+	WsDeflateOptions* process_arg = TRTTI_ANNOTATED_VALUE_CAST(WsDeflateOptions, arg);
 
 	return compress_ws_message(message, process_arg);
+}
+
+static void free_array_process_args(ArrayProcessArg* array_args) {
+	TVEC_FREE(WsProcessFn, array_args);
+	free(array_args);
 }
 
 NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
@@ -532,7 +542,7 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 	extension_pipeline->active_extensions = extension_length;
 
 	if(extension_length == 0) {
-		extension_pipeline->process_fn.arg = NULL;
+		extension_pipeline->process_fn.arg = (RTTIAnnotatedValue){};
 		extension_pipeline->process_fn.receive_fn = noop_process_receive_fn;
 		extension_pipeline->process_fn.send_fn = noop_process_send_fn;
 		return extension_pipeline;
@@ -554,16 +564,20 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 		WsProcessFn process_fn = {};
 		switch(extension->type) {
 			case WSExtensionTypePerMessageDeflate: {
+
+				RTTIAnnotatedValue arg_value =
+				    TRTTI_ANNOTATED_VALUE_GET(WsDeflateOptions, &(extension->data.deflate));
+
 				process_fn = (WsProcessFn){ .receive_fn = permessage_deflate_process_receive_fn,
 					                        .send_fn = permessage_deflate_process_send_fn,
-					                        .arg = &(extension->data.deflate) };
+					                        .arg = arg_value };
 				extension_pipeline->extension_mask =
 				    extension_pipeline->extension_mask | WsExtensionMaskPerMessageDeflate;
 				break;
 			}
 			default: {
 				free(extension_pipeline);
-				TVEC_FREE(WsProcessFn, array_fns);
+				free_array_process_args(array_fns);
 				return NULL;
 				break;
 			}
@@ -573,9 +587,11 @@ NODISCARD ExtensionPipeline* get_extension_pipeline(WSExtensions extensions) {
 		UNUSED(_);
 	}
 
+	RTTIAnnotatedValue arg_value = TRTTI_ANNOTATED_VALUE_GET(ArrayProcessArg, array_fns);
+
 	extension_pipeline->process_fn.receive_fn = array_process_receive_fn;
 	extension_pipeline->process_fn.send_fn = array_process_send_fn;
-	extension_pipeline->process_fn.arg = array_fns;
+	extension_pipeline->process_fn.arg = arg_value;
 
 	return extension_pipeline;
 }
@@ -586,10 +602,9 @@ void free_extension_pipeline(ExtensionPipeline* extension_pipeline) {
 
 	} else {
 
-		ArrayProcessArg* array_fns = ((ArrayProcessArg*)(extension_pipeline->process_fn.arg));
+		ArrayProcessArg* array_fns = ((ArrayProcessArg*)(extension_pipeline->process_fn.arg.ptr));
 
-		TVEC_FREE(WsProcessFn, array_fns);
-		free(array_fns);
+		free_array_process_args(array_fns);
 	}
 
 	free(extension_pipeline);

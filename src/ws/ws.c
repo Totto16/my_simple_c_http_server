@@ -9,9 +9,9 @@
 #include "http/send.h"
 #include "utils/log.h"
 #include "utils/number_parsing.h"
-#include "utils/string_builder.h"
 
 #include <strings.h>
+#include <tstr_builder.h>
 
 NODISCARD static GenericResult
 send_failed_handshake_message_upgrade_required(const ConnectionDescriptor* const descriptor,
@@ -197,10 +197,11 @@ typedef struct {
 	const tstr_static field_name;
 	bool success;
 } WsHeaderProcessArg;
+TRTTI_DEFINE_TYPE_AS_SUPPORTED(WsHeaderProcessArg)
 
-static void process_ws_header(const tstr_view value, void* argument) {
+static void process_ws_header(const tstr_view value, RTTIAnnotatedValue argument) {
 
-	WsHeaderProcessArg* arg = (WsHeaderProcessArg*)argument;
+	WsHeaderProcessArg* arg = TRTTI_ANNOTATED_VALUE_CAST(WsHeaderProcessArg, argument);
 
 	if(tstr_view_eq_ignore_case(value, tstr_static_as_view(arg->field_name))) {
 		arg->success = true;
@@ -232,8 +233,11 @@ GenericResult handle_ws_handshake(const HttpRequest http_request,
 				.success = false,
 			};
 
+			RTTIAnnotatedValue process_value =
+			    TRTTI_ANNOTATED_VALUE_GET(WsHeaderProcessArg, &process_arg);
+
 			process_delimitered_header_value(tstr_as_view(&header.value), ",", process_ws_header,
-			                                 &process_arg);
+			                                 process_value);
 
 			if(!process_arg.success) {
 				return send_failed_handshake_message(descriptor, general_context,
@@ -248,8 +252,11 @@ GenericResult handle_ws_handshake(const HttpRequest http_request,
 				.success = false,
 			};
 
+			RTTIAnnotatedValue process_value =
+			    TRTTI_ANNOTATED_VALUE_GET(WsHeaderProcessArg, &process_arg);
+
 			process_delimitered_header_value(tstr_as_view(&header.value), ",", process_ws_header,
-			                                 &process_arg);
+			                                 process_value);
 
 			if(!process_arg.success) {
 				if(send_http_upgrade_required_status_code) {
@@ -343,14 +350,14 @@ GenericResult handle_ws_handshake(const HttpRequest http_request,
 	}
 
 	if(!TVEC_IS_EMPTY(WSExtension, *extensions)) {
-		char* accepted_extensions = get_accepted_ws_extensions_as_string(*extensions);
+		tstr accepted_extensions = get_accepted_ws_extensions_as_string(*extensions);
 
-		if(accepted_extensions != NULL) {
+		if(!tstr_is_null(&accepted_extensions)) {
 
 			add_http_header_field(
 			    &additional_headers,
 			    tstr_from_static_tstr(HTTP_HEADER_NAME(ws_sec_websocket_extensions)),
-			    tstr_own_cstr(accepted_extensions));
+			    accepted_extensions);
 		}
 	}
 

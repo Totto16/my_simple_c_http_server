@@ -85,8 +85,8 @@ typedef struct {
 	} data;
 } ReadResult;
 
-NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* descriptor, void* buffer,
-                                          size_t n_bytes);
+NODISCARD ReadResult read_from_descriptor(const ConnectionDescriptor* descriptor,
+                                          GenericData buffer, size_t n_bytes);
 
 NODISCARD char* get_read_error_meaning(const ConnectionDescriptor* descriptor,
                                        OpaqueError opaque_error);

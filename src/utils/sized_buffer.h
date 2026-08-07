@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 typedef struct {
-	void* data;
+	GenericData data;
 	size_t size;
 } SizedBuffer;
 
@@ -37,7 +37,7 @@ NODISCARD SizedBuffer sized_buffer_dup(SizedBuffer buffer);
 NODISCARD tstr_view tstr_view_from_buffer(SizedBuffer buffer);
 
 typedef struct {
-	const void* data;
+	GenericDataConst data;
 	size_t size;
 } ReadonlyBuffer;
 
@@ -46,6 +46,8 @@ NODISCARD tstr_view tstr_view_from_readonly_buffer(ReadonlyBuffer buffer);
 NODISCARD ReadonlyBuffer readonly_buffer_from_sized_buffer(SizedBuffer buffer);
 
 NODISCARD ReadonlyBuffer readonly_buffer_from_tstr(const tstr* str);
+
+NODISCARD SizedBuffer sized_buffer_from_tstr(tstr* str);
 
 NODISCARD SizedBuffer sized_buffer_allocate_from_readonly_buffer(ReadonlyBuffer buffer);
 

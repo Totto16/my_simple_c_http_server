@@ -6,7 +6,7 @@
 #include <errno.h>
 
 GenericResult send_data_to_connection(const ConnectionDescriptor* const descriptor,
-                                      const void* const to_send, size_t length) {
+                                      const GenericDataConst to_send, size_t length) {
 
 	size_t remaining_length = length;
 
@@ -17,7 +17,7 @@ GenericResult send_data_to_connection(const ConnectionDescriptor* const descript
 		    descriptor, (ReadonlyBuffer){ .data = ((const uint8_t*)to_send) + already_written,
 		                                  .size = remaining_length });
 
-		if(wrote_bytes == -1) {
+		if(wrote_bytes < 0) {
 			LOG_MESSAGE(LogLevelError, "Couldn't write to a connection: %s\n", strerror(errno));
 			// TODO(Totto): don't use strerror, as it uses an internal buffer, use better memory
 			// management and maybe don't use the current locale!
@@ -38,8 +38,8 @@ GenericResult send_data_to_connection(const ConnectionDescriptor* const descript
 		}
 
 		// otherwise repeat until that happened
-		remaining_length -= wrote_bytes;
-		already_written += wrote_bytes;
+		remaining_length -= (size_t)wrote_bytes;
+		already_written += (size_t)wrote_bytes;
 	}
 
 	return GENERIC_RES_OK();
@@ -54,9 +54,11 @@ NODISCARD GenericResult send_buffer_to_connection(const ConnectionDescriptor* co
 GenericResult send_string_builder_to_connection(const ConnectionDescriptor* const descriptor,
                                                 StringBuilder** const string_builder) {
 
-	const SizedBuffer string_buffer = string_builder_release_into_sized_buffer(string_builder);
+	tstr string_buffer = string_builder_release_into_tstr(string_builder);
 
-	const GenericResult result = send_buffer_to_connection(descriptor, string_buffer);
-	free_sized_buffer(string_buffer);
+	const SizedBuffer buf = sized_buffer_from_tstr(&string_buffer);
+
+	const GenericResult result = send_buffer_to_connection(descriptor, buf);
+	tstr_free(&string_buffer);
 	return result;
 }

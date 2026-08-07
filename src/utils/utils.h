@@ -8,8 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "all_variants.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,9 +47,27 @@ extern "C" {
 #if _SIMPLE_SERVER_COMPILE_WITH_NARROWED_ENUMS
 	#define C_23_NARROW_ENUM_TO(x) : x
 	#define C_23_ENUM_TYPE(x) x
+
+	#define VARIANT_IMPL_ALL_USE_NARROWED_ENUMS 1
 #else
 	#define C_23_NARROW_ENUM_TO(x)
 	#define C_23_ENUM_TYPE(x) int
+
+	#define VARIANT_IMPL_ALL_USE_NARROWED_ENUMS 0
+#endif
+
+#define VARIANT_IMPL_ALL_VARIANTS_COMPILED_WITH_NARROWED_ENUMS VARIANT_IMPL_ALL_USE_NARROWED_ENUMS
+#define VARIANT_IMPL_GENERATED_VARIANTS_COMPILED_WITH_NARROWED_ENUMS \
+	VARIANT_IMPL_ALL_USE_NARROWED_ENUMS
+
+#ifdef __cplusplus
+}
+#endif
+
+#include "all_variants.h"
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 #if defined(__clang__)
@@ -83,10 +99,12 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 // cool trick from here:
 // https://stackoverflow.com/questions/777261/avoiding-unused-variables-warnings-when-using-assert-in-a-release-build
 #ifdef NDEBUG
-	#define assert(x) /* NOLINT(readability-identifier-naming) */ \
+	#define ASSERT(x) /* NOLINT(readability-identifier-naming) */ \
 		do { \
 			UNUSED((x)); \
 		} while(false)
+
+	#undef assert
 
 	#define UNREACHABLE() \
 		do { \
@@ -105,14 +123,16 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 #else
 	#include <assert.h>
 
+	#define ASSERT(x) assert(x)
+
 	#define UNREACHABLE() \
 		do { \
-			assert(false && "UNREACHABLE"); /* NOLINT(cert-dcl03-c,misc-static-assert) */ \
+			ASSERT(false && "UNREACHABLE"); /* NOLINT(cert-dcl03-c,misc-static-assert) */ \
 		} while(false)
 
 	#define OOM_ASSERT(value, message) \
 		do { \
-			assert((value) && (message)); /* NOLINT(cert-dcl03-c,misc-static-assert) */ \
+			ASSERT((value) && (message)); /* NOLINT(cert-dcl03-c,misc-static-assert) */ \
 		} while(false)
 
 #endif
@@ -148,6 +168,11 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 // Type helper for readability
 #define ANY_TYPE(type) ANY
 
+#define TRTTI_PTR(Type) RTTIAnnotatedPtr
+
+typedef void* GenericData;
+typedef const void* GenericDataConst;
+
 // uses snprintf feature with passing NULL,0 as first two arguments to automatically determine the
 // required buffer size, for more read man page
 // for variadic functions its easier to use macro
@@ -161,12 +186,16 @@ typedef enum C_23_NARROW_ENUM_TO(uint8_t) {
 			free(internalBuffer); \
 		} \
 		const LibCInt toWrite = snprintf(NULL, 0, format, __VA_ARGS__) + 1; \
-		internalBuffer = (char*)malloc(toWrite * sizeof(char)); \
+		if(toWrite < 0) { \
+			logger_fn("snprintf Internal error: negative value returned: %d\n", toWrite); \
+			statement \
+		} \
+		internalBuffer = (char*)malloc((size_t)toWrite * sizeof(char)); \
 		if(!internalBuffer) { \
 			logger_fn("Couldn't allocate memory for %d bytes!\n", toWrite); \
 			statement \
 		} \
-		const LibCInt written = snprintf(internalBuffer, toWrite, format, __VA_ARGS__); \
+		const LibCInt written = snprintf(internalBuffer, (size_t)toWrite, format, __VA_ARGS__); \
 		if(written >= toWrite) { \
 			logger_fn("snprintf did write more bytes then it had space in the buffer, available " \
 			          "space: '%d', actually written: '%d'!\n", \

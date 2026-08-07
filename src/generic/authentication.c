@@ -7,6 +7,7 @@
 #include "utils/log.h"
 
 #include <tmap.h>
+#include <trtti.h>
 #include <tvec.h>
 
 typedef struct {
@@ -308,13 +309,13 @@ NODISCARD MAYBE_UNUSED static LinuxUserResponse check_for_user_linux(const char*
 		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
 	}
 
-	buffer.data = malloc(initial_size);
+	buffer.data = malloc((size_t)initial_size);
 
 	if(!buffer.data) {
 		return LinuxUserResponseError;
 	}
 
-	buffer.size = initial_size;
+	buffer.size = (size_t)initial_size;
 
 	while(true) {
 
@@ -332,7 +333,7 @@ NODISCARD MAYBE_UNUSED static LinuxUserResponse check_for_user_linux(const char*
 
 		if(res == ERANGE) {
 			buffer.size = buffer.size * 2;
-			void* new_data = realloc(buffer.data, buffer.size);
+			GenericData new_data = realloc(buffer.data, buffer.size);
 			if(!new_data) {
 				free(buffer.data); // not calling free_sized_buffer, as the size is invalid, and if
 				                   // we in the future might use free_sized with own memory
@@ -365,13 +366,13 @@ NODISCARD static char* get_group_name(const gid_t group_id) {
 		initial_size = INITIAL_SIZE_FOR_LINUX_FUNCS;
 	}
 
-	buffer.data = malloc(initial_size);
+	buffer.data = malloc((size_t)initial_size);
 
 	if(!buffer.data) {
 		return NULL;
 	}
 
-	buffer.size = initial_size;
+	buffer.size = (size_t)initial_size;
 
 	while(true) {
 
@@ -390,7 +391,7 @@ NODISCARD static char* get_group_name(const gid_t group_id) {
 
 		if(res == ERANGE) {
 			buffer.size = buffer.size * 2;
-			void* new_data = realloc(buffer.data, buffer.size);
+			GenericData new_data = realloc(buffer.data, buffer.size);
 			if(!new_data) {
 				free(buffer.data); // not calling free_sized_buffer, as the size is invalid, and if
 				                   // we in the future might use free_sized with own memory
@@ -414,13 +415,13 @@ NODISCARD MAYBE_UNUSED static UserRole get_role_for_linux_user(const char* const
 
 	LibCInt res = getgrouplist(username, group_id, NULL, &ngroups);
 
-	if(res != -1) {
+	if(res != -1 || ngroups < 0) {
 		return UserRoleNone;
 	}
 
-	gid_t* group_ids = malloc(sizeof(gid_t) * ngroups);
+	gid_t* group_ids = malloc(sizeof(gid_t) * (size_t)ngroups);
 
-	res = getgrouplist(username, ngroups, group_ids, &ngroups);
+	res = getgrouplist(username, (gid_t)ngroups, group_ids, &ngroups);
 
 	if(res < 0 || ngroups < 0) {
 		free(group_ids);
@@ -490,7 +491,8 @@ NODISCARD static LibCInt pam_conversation_for_password(
 		return PAM_CONV_ERR;
 	}
 
-	struct pam_response* reply = (struct pam_response*)calloc(num_msg, sizeof(struct pam_response));
+	struct pam_response* reply =
+	    (struct pam_response*)calloc((size_t)num_msg, sizeof(struct pam_response));
 	if(!reply) {
 		return PAM_CONV_ERR;
 	}

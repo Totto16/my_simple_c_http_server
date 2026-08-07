@@ -11,7 +11,7 @@
 #include "helpers/tests.hpp"
 
 TEST_SUITE_BEGIN("hpack/manual" * doctest::description("manual hpack tests") *
-                 doctest::timeout(2.0 * g_doctest_timeout_multiplier));
+                 doctest::timeout(2.0 * (double)g_doctest_timeout_multiplier));
 
 struct IntegerTest {
 	std::vector<std::uint8_t> values;

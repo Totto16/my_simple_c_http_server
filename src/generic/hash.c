@@ -188,7 +188,7 @@ SizedBuffer get_sha1_from_string(const char* const string) {
 		return get_empty_sized_buffer();
 	}
 
-	const LibCInt result2 = EVP_DigestUpdate(evp_context, (const void*)string, strlen(string));
+	const LibCInt result2 = EVP_DigestUpdate(evp_context, (GenericDataConst)string, strlen(string));
 
 	if(result2 != 1) {
 		EVP_MD_CTX_free(evp_context);
@@ -321,7 +321,7 @@ NODISCARD SizedBuffer base64_decode_buffer(const ReadonlyBuffer input_buffer) {
 
 		// we need to perform more reads
 		if(read_size == B64_CHUNK_SIZE) {
-			void* const new_chunk =
+			const GenericData new_chunk =
 			    realloc(output_buffer.data, output_buffer.size + B64_CHUNK_SIZE);
 			output_buffer.data = new_chunk;
 			output_buffer_current = (uint8_t*)output_buffer.data + output_buffer.size;

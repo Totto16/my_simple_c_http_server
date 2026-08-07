@@ -65,6 +65,10 @@ jobs:
 
           meson compile -C build generated_sources
 
+      - name: Verify clang-tidy
+        run: |
+          clang-tidy-22 --experimental-custom-checks --verify-config
+
       - uses: cpp-linter/cpp-linter-action@v2
         id: linter
         continue-on-error: true

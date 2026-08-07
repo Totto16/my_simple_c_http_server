@@ -29,7 +29,7 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
                                                                    uint8_t prefix_bits) {
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1
 
-	const uint8_t mask = (1 << prefix_bits) - 1;
+	const uint8_t mask = (uint8_t)((((uint8_t)1U) << prefix_bits) - (uint8_t)1U);
 	const uint8_t first_byte = (data[*pos]) & mask;
 
 	if(first_byte < mask) {
@@ -58,9 +58,8 @@ NODISCARD HpackVariableIntegerResult decode_hpack_variable_integer(size_t* pos, 
 			    TSTR_STATIC_LIT("final integer would be too big"));
 		}
 
-		result += (byte & 0x7F) // NOLINT(readability-magic-numbers)
-		          << amount;
-		if((byte & 0x80) == // NOLINT(readability-magic-numbers)
+		result += (byte & 0x7FU) << amount; // NOLINT(readability-magic-numbers)
+		if((byte & 0x80) ==                 // NOLINT(readability-magic-numbers)
 		   0) {
 			// this was the last byte
 			break;
@@ -79,7 +78,7 @@ NODISCARD static int8_t encode_hpack_variable_integer(
 
 	// see: https://datatracker.ietf.org/doc/html/rfc7541#section-5.1
 
-	const uint8_t mask = (1 << prefix_bits) - 1;
+	const uint8_t mask = (uint8_t)((((uint8_t)1U) << prefix_bits) - (uint8_t)1U);
 
 	if(input < mask) {
 		// it can be done in one value
@@ -112,7 +111,7 @@ NODISCARD static int8_t encode_hpack_variable_integer(
 			                   to_encode;
 			value /= 0x80; // NOLINT(readability-magic-numbers)
 		} else {
-			out_bytes[idx++] = value;
+			out_bytes[idx++] = (uint8_t)value;
 			break;
 		}
 	}
@@ -144,7 +143,7 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 	}
 
 	if(value <= HPACK_STATIC_HEADER_TABLE_SIZE) {
-		assert(g_hpack_static_data.static_header_table != NULL);
+		ASSERT(g_hpack_static_data.static_header_table != NULL);
 
 		HpackHeaderStaticEntry static_entry = g_hpack_static_data.static_header_table[value - 1];
 
@@ -168,7 +167,7 @@ hpack_get_table_entry_at(const HpackDynamicTableState* const state, size_t value
 	}
 
 	// asserts errors in the underlying dynamic table
-	assert(!tstr_is_null(&(dynamic_entry_res.entry.key)));
+	ASSERT(!tstr_is_null(&(dynamic_entry_res.entry.key)));
 
 	return new_hpack_header_entry_result_value(
 	    (HpackHeaderDynamicEntry){ .key = tstr_dup(&dynamic_entry_res.entry.key),
@@ -245,7 +244,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 	#define TEST_ENV_PREFIX "TOTTO_SIMPLE_HTTP_SERVER___ENV___HACK_IMPL"
 	#define UNION_CAST_TRICK(Name, val) \
 		((union { \
-			void* v; \
+			GenericData v; \
 			Name fn; \
 		}){ .v = (val) }) \
 		    .fn
@@ -262,22 +261,25 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 				        "STRICT VIOLATION: used value of entry with a null value, key: " TSTR_FMT
 				        "\n",
 				        TSTR_FMT_ARGS(entry.key));
-			} else if(err_cb_size == (sizeof(void*) + sizeof(uint8_t))) {
+			} else if(err_cb_size == (sizeof(GenericData) + sizeof(uint8_t))) {
+
+				static_assert(sizeof(GenericData) == sizeof(uint8_t*));
 
 				typedef void (*CbFn)(const tstr* const str);
 
-				const void* const err_callback_bytes = (const void* const)err_callback;
+				const GenericDataConst err_callback_bytes = (const GenericDataConst)err_callback;
 
-				const uint8_t mask_byte = *(((const uint8_t*)err_callback_bytes) + sizeof(void*));
+				const uint8_t mask_byte =
+				    *(((const uint8_t*)err_callback_bytes) + sizeof(GenericData));
 
-				void* cb_fn_raw = NULL;
-				memcpy((void*)&cb_fn_raw, err_callback_bytes, sizeof(void*));
+				GenericData cb_fn_raw = NULL;
+				memcpy((GenericData)&cb_fn_raw, err_callback_bytes, sizeof(GenericData));
 
 				{ // patch fn ptr
 
 					uint8_t* const raw_fb_ptr = (uint8_t*)(&cb_fn_raw);
 
-					for(size_t i = 0; i < sizeof(void*); ++i) {
+					for(size_t i = 0; i < sizeof(GenericData); ++i) {
 						if((mask_byte & (1 << i)) == 0) {
 							raw_fb_ptr[i] = 0x00;
 						}
@@ -291,7 +293,7 @@ parse_hpack_indexed_header_field(size_t* pos, const size_t size, const uint8_t* 
 				fprintf(stderr,
 				        "ERROR: cb is wrongly formatted, it has size %zu (not equal to 0 or %zu), "
 				        "which means we have encoded it incorrectly, the text was: %s\n",
-				        err_cb_size, (sizeof(void*) + sizeof(uint8_t)), err_callback);
+				        err_cb_size, (sizeof(GenericData) + sizeof(uint8_t)), err_callback);
 				abort();
 			}
 		}
@@ -369,7 +371,7 @@ NODISCARD static LiteralStringResult parse_literal_string_value(size_t* pos, con
 		const SizedBuffer result_buf = huffman_decode_result_get_as_ok(huffman_res).result;
 
 #ifndef NDEBUG
-		assert(strlen(result_buf.data) == result_buf.size);
+		ASSERT(strlen(result_buf.data) == result_buf.size);
 #endif
 
 		const tstr result = tstr_own(result_buf.data, result_buf.size, result_buf.size);
@@ -854,7 +856,7 @@ http2_hpack_decompress_data_impl(HpackDecompressState* const decompress_state,
 				goto return_error;
 			}
 		} else {
-			assert(
+			ASSERT(
 			    (byte & 0xF0) == 0 &&
 			    "this should always be true logically, this is an implementation error otherwise");
 
@@ -1044,7 +1046,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 	}
 
 	{ // encode value
@@ -1060,7 +1062,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(field_value), value_size);
 
@@ -1072,7 +1074,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	void* new_data = realloc(buffer.data, i);
+	GenericData new_data = realloc(buffer.data, i);
 
 	if(new_data == NULL) {
 		free_sized_buffer(buffer);
@@ -1126,7 +1128,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 	}
 
 	{ // encode value
@@ -1142,7 +1144,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, field_value);
@@ -1170,7 +1172,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	void* new_data = realloc(buffer.data, i);
+	GenericData new_data = realloc(buffer.data, i);
 
 	if(new_data == NULL) {
 		free_sized_buffer(buffer);
@@ -1266,7 +1268,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->key)), key_size);
 
@@ -1286,7 +1288,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->value)), value_size);
 
@@ -1298,7 +1300,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	void* new_data = realloc(buffer.data, i);
+	GenericData new_data = realloc(buffer.data, i);
 
 	if(new_data == NULL) {
 		free_sized_buffer(buffer);
@@ -1360,7 +1362,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &(field->key));
@@ -1396,7 +1398,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
@@ -1424,7 +1426,7 @@ NODISCARD static SizedBuffer encode_single_header_field_literal_never_indexed_va
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	void* new_data = realloc(buffer.data, i);
+	GenericData new_data = realloc(buffer.data, i);
 
 	if(new_data == NULL) {
 		free_sized_buffer(buffer);
@@ -1513,7 +1515,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_no_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 	}
 
 	{ // encode value
@@ -1529,7 +1531,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_no_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->value)), value_size);
 
@@ -1541,7 +1543,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_no_huffman(
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	void* new_data = realloc(buffer.data, i);
+	GenericData new_data = realloc(buffer.data, i);
 
 	if(new_data == NULL) {
 		free_sized_buffer(buffer);
@@ -1605,7 +1607,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 	}
 
 	{ // encode value
@@ -1621,7 +1623,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
@@ -1649,7 +1651,7 @@ encode_single_header_field_literal_incremental_indexing_variant1_huffman(
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	void* new_data = realloc(buffer.data, i);
+	GenericData new_data = realloc(buffer.data, i);
 
 	if(new_data == NULL) {
 		free_sized_buffer(buffer);
@@ -1753,7 +1755,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_no_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->key)), key_size);
 
@@ -1773,7 +1775,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_no_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		memcpy(data + i, tstr_cstr(&(field->value)), value_size);
 
@@ -1785,7 +1787,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_no_huffman(
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	void* new_data = realloc(buffer.data, i);
+	GenericData new_data = realloc(buffer.data, i);
 
 	if(new_data == NULL) {
 		free_sized_buffer(buffer);
@@ -1856,7 +1858,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_key, &(field->key));
@@ -1892,7 +1894,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 			return (SizedBuffer){ .data = NULL, .size = 0 };
 		}
 
-		i += result;
+		i += (uint8_t)result;
 
 		const HuffmanEncodeFixedResult enc_result =
 		    hpack_huffman_encode_value_fixed_size(data + i, size_value, &(field->value));
@@ -1920,7 +1922,7 @@ encode_single_header_field_literal_incremental_indexing_variant2_huffman(
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	void* new_data = realloc(buffer.data, i);
+	GenericData new_data = realloc(buffer.data, i);
 
 	if(new_data == NULL) {
 		free_sized_buffer(buffer);
@@ -1993,7 +1995,7 @@ http2_hpack_compress_data_simple(const HttpHeaderFields header_fields,
 		}
 
 		const size_t old_size = result.size;
-		void* new_data = realloc(result.data, old_size + single_header_result.size);
+		GenericData new_data = realloc(result.data, old_size + single_header_result.size);
 
 		if(new_data == NULL) {
 			free_sized_buffer(single_header_result);
@@ -2099,7 +2101,7 @@ NODISCARD static TableFindResult find_in_tables(const HttpHeaderField* const fie
 		const HpackHeaderDynamicEntryResult dynamic_entry_res =
 		    hpack_dynamic_table_at(&(compress_state->dynamic_table_state.dynamic_table), i);
 
-		assert(dynamic_entry_res.ok);
+		ASSERT(dynamic_entry_res.ok);
 
 		const TableFindResultType matches_entry =
 		    table_entry_matches_dynamic(field, &dynamic_entry_res.entry);
@@ -2215,7 +2217,7 @@ encode_single_header_field_indexed_header_field(const size_t entry_table_idx) {
 	// set the first bit
 	data[i] = 0x80; // NOLINT(readability-magic-numbers)
 
-	assert(entry_table_idx != 0);
+	ASSERT(entry_table_idx != 0);
 	int8_t result = encode_hpack_variable_integer(data + i, entry_table_idx,
 	                                              7); // NOLINT(readability-magic-numbers)
 
@@ -2224,14 +2226,14 @@ encode_single_header_field_indexed_header_field(const size_t entry_table_idx) {
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	i += result;
+	i += (uint8_t)result;
 
 	if(i > buffer.size) {
 		// NOTE: too much data used
 		return (SizedBuffer){ .data = NULL, .size = 0 };
 	}
 
-	void* new_data = realloc(buffer.data, i);
+	GenericData new_data = realloc(buffer.data, i);
 
 	if(new_data == NULL) {
 		free_sized_buffer(buffer);
@@ -2297,7 +2299,7 @@ NODISCARD static SizedBuffer http2_hpack_compress_data_extended(
 		}
 
 		const size_t old_size = result.size;
-		void* new_data = realloc(result.data, old_size + single_header_result.size);
+		GenericData new_data = realloc(result.data, old_size + single_header_result.size);
 
 		if(new_data == NULL) {
 			free_sized_buffer(single_header_result);

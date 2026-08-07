@@ -35,6 +35,11 @@ NODISCARD size_t get_active_cpu_cores(void) {
 	// see https://www.unix.com/man_page/osx/3/sysconf
 	return sysconf(_SC_NPROCESSORS_ONLN);
 #else
-	return get_nprocs();
+	const LibCInt nprocs = get_nprocs();
+
+	if(nprocs <= 0) {
+		return 1;
+	}
+	return (size_t)nprocs;
 #endif
 }
